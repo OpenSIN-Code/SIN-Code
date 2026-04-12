@@ -2,6 +2,12 @@
 
 Simone MCP is a production-grade code worker for the OpenSIN ecosystem. It combines a real Python implementation, dual MCP transports, A2A discovery, symbol-level code operations, OAuth 2.1 readiness, and hybrid memory integration points.
 
+## Fleet policy
+
+- Every OpenCode agent in this ecosystem must use Simone MCP when it is available.
+- PCPM is the required planning/memory layer before a repo task begins.
+- Local development uses stdio; remote use uses the HF Space / streamable HTTP shape.
+
 ## What is implemented now
 
 - Python source of truth under `src/`
