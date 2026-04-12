@@ -1,7 +1,6 @@
-import { execFileAsync } from 'child-process-promise';
-import { exec, execFile } from 'node:child_process';
+import { exec, execFile as nodeExecFile } from 'node:child_process';
 import { promisify } from 'node:util';
-
+const execFileAsync = promisify(nodeExecFile);
 const execAsync = promisify(exec);
 
 export type SimoneMcpAgentAction =
