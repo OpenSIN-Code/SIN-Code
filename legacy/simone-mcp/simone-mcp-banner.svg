@@ -1,0 +1,74 @@
+<svg width="1600" height="480" viewBox="0 0 1600 480" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Simone MCP banner</title>
+  <desc id="desc">Dark gradient hero banner for the Simone MCP repository.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#06111f"/>
+      <stop offset="0.55" stop-color="#0b1d33"/>
+      <stop offset="1" stop-color="#08101b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="220" y1="110" x2="1360" y2="370" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#68f0c7"/>
+      <stop offset="0.5" stop-color="#4ea1ff"/>
+      <stop offset="1" stop-color="#9b7cff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(260 140) rotate(28) scale(340 250)">
+      <stop stop-color="#63f2c6" stop-opacity="0.38"/>
+      <stop offset="0.6" stop-color="#63f2c6" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#63f2c6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1250 320) rotate(-18) scale(420 260)">
+      <stop stop-color="#7b7cff" stop-opacity="0.28"/>
+      <stop offset="0.6" stop-color="#7b7cff" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#7b7cff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="blur" x="-80" y="-80" width="1760" height="640" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="28"/>
+    </filter>
+    <filter id="softShadow" x="0" y="0" width="1600" height="480" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="22" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="480" rx="40" fill="url(#bg)"/>
+  <rect width="1600" height="480" rx="40" fill="url(#glow)" filter="url(#blur)"/>
+  <rect width="1600" height="480" rx="40" fill="url(#glow2)" filter="url(#blur)"/>
+
+  <g opacity="0.28">
+    <circle cx="210" cy="122" r="74" fill="none" stroke="url(#accent)" stroke-width="2"/>
+    <circle cx="210" cy="122" r="110" fill="none" stroke="#68f0c7" stroke-opacity="0.18" stroke-width="1.5" stroke-dasharray="6 14"/>
+    <path d="M140 180C180 150 240 150 280 180" stroke="url(#accent)" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M1240 110C1290 82 1358 78 1418 104" stroke="url(#accent)" stroke-width="2.2" stroke-linecap="round" opacity="0.5"/>
+    <path d="M1220 380C1308 344 1414 346 1502 380" stroke="#68f0c7" stroke-width="2.2" stroke-linecap="round" opacity="0.25"/>
+  </g>
+
+  <g filter="url(#softShadow)">
+    <rect x="92" y="84" width="134" height="134" rx="38" fill="#0a1726" stroke="url(#accent)" stroke-width="2"/>
+    <path d="M126 118H192C214 118 232 136 232 158C232 180 214 198 192 198H126V118Z" fill="none" stroke="url(#accent)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M126 118V198" stroke="#68f0c7" stroke-width="10" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(310 110)">
+    <text x="0" y="0" fill="#dff6ff" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="76" font-weight="800" letter-spacing="-1.5">Simone MCP</text>
+    <text x="2" y="56" fill="#9fb5ce" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="28" font-weight="500">Semantic code intelligence for the OpenSIN ecosystem</text>
+
+    <g transform="translate(0 98)">
+      <rect x="0" y="0" width="128" height="42" rx="21" fill="#0d1d31" stroke="#68f0c7" stroke-opacity="0.45"/>
+      <text x="64" y="27" fill="#dff6ff" text-anchor="middle" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="18" font-weight="700">stdio</text>
+
+      <rect x="144" y="0" width="196" height="42" rx="21" fill="#0d1d31" stroke="#4ea1ff" stroke-opacity="0.45"/>
+      <text x="242" y="27" fill="#dff6ff" text-anchor="middle" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="18" font-weight="700">streamable HTTP</text>
+
+      <rect x="356" y="0" width="92" height="42" rx="21" fill="#0d1d31" stroke="#9b7cff" stroke-opacity="0.45"/>
+      <text x="402" y="27" fill="#dff6ff" text-anchor="middle" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="18" font-weight="700">A2A</text>
+
+      <rect x="464" y="0" width="104" height="42" rx="21" fill="#0d1d31" stroke="#68f0c7" stroke-opacity="0.45"/>
+      <text x="516" y="27" fill="#dff6ff" text-anchor="middle" font-family="Inter, Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="18" font-weight="700">PCPM</text>
+    </g>
+  </g>
+
+  <g opacity="0.45">
+    <rect x="1030" y="76" width="420" height="2" fill="url(#accent)"/>
+    <rect x="1120" y="402" width="300" height="2" fill="url(#accent)"/>
+  </g>
+</svg>

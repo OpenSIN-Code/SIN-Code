@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./simone-mcp-banner.svg" alt="Simone MCP banner" />
+</p>
+
 # Simone MCP
 
 Simone MCP is a production-grade code worker for the OpenSIN ecosystem. It combines a real Python implementation, dual MCP transports, A2A discovery, symbol-level code operations, OAuth 2.1 readiness, and hybrid memory integration points.
