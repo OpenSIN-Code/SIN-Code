@@ -1,105 +1,36 @@
 {
-  "primaryModel": "opencode/qwen3.6-plus-free",
   "name": "simone-mcp",
   "displayName": "Simone MCP",
-  "description": "Ultra-Duo Team Coder Agent with LSP-powered semantic code analysis.",
-  "version": "2026.03.24",
+  "description": "Production-grade MCP 2.0 code worker with streamable HTTP, stdio transport, symbol operations, OAuth 2.1 readiness, and hybrid memory.",
+  "version": "2026.04.12",
   "url": "http://localhost:8234",
-  "capabilities": {
-    "streaming": true,
-    "pushNotifications": false
-  },
+  "capabilities": [
+    "code.find_symbol",
+    "code.find_references",
+    "code.replace_symbol_body",
+    "code.insert_after_symbol",
+    "code.project_overview",
+    "memory.hybrid",
+    "transport.streamable_http",
+    "auth.oauth2.1"
+  ],
   "endpoints": {
     "health": "/health",
+    "dashboard": "/dashboard",
     "a2a": "/a2a/v1",
-    "dashboard": "/dashboard"
+    "mcp": "/mcp"
   },
-  "team": "team-coding",
-  "runtime": "FastAPI + Supabase Realtime + PostgreSQL/pgvector",
+  "auth": {
+    "type": "oauth2.1",
+    "audience": "simone-mcp"
+  },
   "skills": [
-    {
-      "id": "agent.help",
-      "name": "Get Help",
-      "description": "Get help information about this agent's capabilities",
-      "inputModes": [
-        "application/json"
-      ],
-      "outputModes": [
-        "application/json",
-        "text/plain"
-      ]
-    },
-    {
-      "id": "code.generate",
-      "name": "Code Generation",
-      "description": "Generate production-ready code based on specifications",
-      "inputModes": [
-        "application/json",
-        "text/plain"
-      ],
-      "outputModes": [
-        "application/json",
-        "text/plain"
-      ]
-    },
-    {
-      "id": "code.review",
-      "name": "Code Review",
-      "description": "Review code for quality, security, and best practices",
-      "inputModes": [
-        "application/json",
-        "text/plain"
-      ],
-      "outputModes": [
-        "application/json",
-        "text/plain"
-      ]
-    },
-    {
-      "id": "code.debug",
-      "name": "Code Debugging",
-      "description": "Identify and fix bugs in existing code",
-      "inputModes": [
-        "application/json",
-        "text/plain"
-      ],
-      "outputModes": [
-        "application/json",
-        "text/plain"
-      ]
-    },
-    {
-      "id": "code.refactor",
-      "name": "Code Refactoring",
-      "description": "Restructure code for improved readability and maintainability",
-      "inputModes": [
-        "application/json",
-        "text/plain"
-      ],
-      "outputModes": [
-        "application/json",
-        "text/plain"
-      ]
-    }
-  ],
-  "securitySchemes": {
-    "apiKey": {
-      "type": "apiKey",
-      "in": "header",
-      "name": "X-API-Key"
-    }
-  },
-  "security": [
-    {
-      "apiKey": []
-    }
-  ],
-  "defaultInputModes": [
-    "application/json",
-    "text/plain"
-  ],
-  "defaultOutputModes": [
-    "application/json",
-    "text/plain"
+    {"id": "agent.help", "name": "Help"},
+    {"id": "simone.mcp.health", "name": "Health"},
+    {"id": "code.find_symbol", "name": "Find Symbol"},
+    {"id": "code.find_references", "name": "Find References"},
+    {"id": "code.replace_symbol_body", "name": "Replace Symbol Body"},
+    {"id": "code.insert_after_symbol", "name": "Insert After Symbol"},
+    {"id": "code.project_overview", "name": "Project Overview"}
   ]
 }

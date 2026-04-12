@@ -1,6 +1,8 @@
 {
   "client_name": "simone-mcp",
-  "grant_types": ["client_credentials"],
-  "response_types": ["token"],
-  "token_endpoint_auth_method": "client_secret_basic"
+  "application_type": "native",
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "redirect_uris": ["http://127.0.0.1/callback"],
+  "token_endpoint_auth_method": "none"
 }

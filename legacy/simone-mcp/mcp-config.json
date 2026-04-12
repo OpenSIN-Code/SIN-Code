@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "sin-simone-mcp": {
-      "command": "node",
-      "args": ["dist/src/cli.js", "serve-mcp"]
+      "command": "python3",
+      "args": ["src/cli.py", "serve-mcp"]
     }
   }
 }

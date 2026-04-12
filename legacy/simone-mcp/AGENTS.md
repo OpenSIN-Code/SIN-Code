@@ -14,6 +14,6 @@
 
 ## Runtime
 
-- FastAPI server with `/health`, `/dashboard`, `/.well-known/agent-card.json`, `/a2a/v1`
-- Supabase Realtime listener for `INSERT` events on `public.a2a_tasks`
-- Cloud semantic memory via PostgreSQL/pgvector
+- FastAPI server with `/health`, `/dashboard`, `/.well-known/agent-card.json`, `/a2a/v1`, `/mcp`
+- Streamable HTTP + stdio MCP support
+- Hybrid memory via Qdrant + Neo4j with optional Supabase event wiring

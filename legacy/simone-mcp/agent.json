@@ -2,13 +2,13 @@
   "id": "a2a-sin-simone-mcp",
   "displayName": "SIN-Simone-MCP",
   "team": "team-coding",
-  "description": "Ultra-Duo Team Coder Agent with LSP-powered semantic code analysis.",
-  "version": "2026.03.24",
+  "description": "Production-grade MCP 2.0 code worker with streamable HTTP, stdio transport, symbol operations, OAuth 2.1 readiness, and hybrid memory.",
+  "version": "2026.04.12",
   "deployment": {
     "workforceIndex": "https://a2a.delqhi.com",
     "landingPage": "https://a2a.delqhi.com/agents/simone-mcp",
-    "publicA2A": "https://a2a.delqhi.com/agents/simone-mcp",
-    "cimdAnchor": "https://a2a.delqhi.com/agents/simone-mcp",
+    "publicA2A": "http://localhost:8234/a2a/v1",
+    "cimdAnchor": "http://localhost:8234",
     "vmServer": "Target: Hugging Face Space free CPU VM"
   },
   "a2a": {
@@ -17,7 +17,7 @@
     "transport": "jsonrpc-over-http"
   },
   "mcp": {
-    "transport": "stdio",
+    "transport": "stdio+streamable-http",
     "configPath": "./mcp-config.json"
   },
   "marketplace": {
@@ -28,8 +28,8 @@
     ],
     "category": "Elite Coding"
   },
-  "primaryModel": "opencode/qwen3.6-plus-free",
-  "fallbackModel": "opencode/nemotron-3-super-free",
+  "primaryModel": "openai/gpt-5.4",
+  "fallbackModel": "opencode/minimax-m2.5-free",
   "skills": [
     {
       "id": "agent.help",
@@ -136,15 +136,25 @@
     }
   ],
   "securitySchemes": {
-    "apiKey": {
-      "type": "apiKey",
-      "in": "header",
-      "name": "X-API-Key"
+    "oauth2": {
+      "type": "oauth2",
+      "flows": {
+        "authorizationCode": {
+          "authorizationUrl": "https://a2a.delqhi.com/authorize",
+          "tokenUrl": "https://a2a.delqhi.com/token",
+          "scopes": {
+            "simone.read": "Read-only symbol and project queries",
+            "simone.write": "Structural code edits"
+          }
+        }
+      }
     }
   },
   "security": [
     {
-      "apiKey": []
+      "oauth2": [
+        "simone.read"
+      ]
     }
   ],
   "defaultInputModes": [

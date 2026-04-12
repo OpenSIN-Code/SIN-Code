@@ -1,4 +1,4 @@
-from simone_mcp.core import (
+from .core import (
     _build_realtime_url,
     build_agent_card,
     dashboard,

@@ -1,3 +1,3 @@
 [agent]
 name = "Simone MCP"
-endpoint = "https://a2a.delqhi.com/agents/simone-mcp/a2a/v1"
+endpoint = "http://localhost:8234/a2a/v1"
