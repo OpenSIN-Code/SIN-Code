@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "sin-simone-mcp": {
+      "command": "bin/sin-simone-mcp",
+      "args": ["serve-mcp"]
+    }
+  }
+}

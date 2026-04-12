@@ -1,0 +1,32 @@
+{
+  "$schema": "../../../../dashboard-enterprise/node_modules/wrangler/config-schema.json",
+  "name": "simone-mcp-landing",
+  "main": "src/index.js",
+  "compatibility_date": "2026-03-24",
+  "routes": [
+    {
+      "pattern": "a2a.delqhi.com/agents/simone-mcp",
+      "zone_name": "delqhi.com"
+    },
+    {
+      "pattern": "a2a.delqhi.com/agents/simone-mcp/*",
+      "zone_name": "delqhi.com"
+    },
+    {
+      "pattern": "a2a.delqhi.com/agents/simone-mcp/.well-known/agent-card.json",
+      "zone_name": "delqhi.com"
+    },
+    {
+      "pattern": "a2a.delqhi.com/agents/simone-mcp/.well-known/agent.json",
+      "zone_name": "delqhi.com"
+    },
+    {
+      "pattern": "a2a.delqhi.com/agents/simone-mcp/health",
+      "zone_name": "delqhi.com"
+    },
+    {
+      "pattern": "a2a.delqhi.com/agents/simone-mcp/a2a/v1",
+      "zone_name": "delqhi.com"
+    }
+  ]
+}

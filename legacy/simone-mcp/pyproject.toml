@@ -1,0 +1,16 @@
+[project]
+name = "simone-mcp"
+version = "0.1.0"
+description = "Simone MCP - Ultra-Duo Team Coder Agent integrating Serena LSP logic"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.23.2",
+    "supabase>=2.6.0",
+    "realtime>=1.0.4",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

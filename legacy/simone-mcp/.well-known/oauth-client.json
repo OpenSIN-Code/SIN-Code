@@ -1,0 +1,6 @@
+{
+  "client_name": "simone-mcp",
+  "grant_types": ["client_credentials"],
+  "response_types": ["token"],
+  "token_endpoint_auth_method": "client_secret_basic"
+}

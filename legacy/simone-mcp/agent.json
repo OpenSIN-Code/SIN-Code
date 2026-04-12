@@ -1,0 +1,162 @@
+{
+  "id": "a2a-sin-simone-mcp",
+  "displayName": "SIN-Simone-MCP",
+  "team": "team-coding",
+  "description": "Ultra-Duo Team Coder Agent with LSP-powered semantic code analysis.",
+  "version": "2026.03.24",
+  "deployment": {
+    "workforceIndex": "https://a2a.delqhi.com",
+    "landingPage": "https://a2a.delqhi.com/agents/simone-mcp",
+    "publicA2A": "https://a2a.delqhi.com/agents/simone-mcp",
+    "cimdAnchor": "https://a2a.delqhi.com/agents/simone-mcp",
+    "vmServer": "Target: Hugging Face Space free CPU VM"
+  },
+  "a2a": {
+    "wellKnownCard": "/.well-known/agent-card.json",
+    "rpcPath": "/a2a/v1",
+    "transport": "jsonrpc-over-http"
+  },
+  "mcp": {
+    "transport": "stdio",
+    "configPath": "./mcp-config.json"
+  },
+  "marketplace": {
+    "pricingModel": "enterprise_tier",
+    "monthlyPrice": 4999,
+    "purchaseModes": [
+      "subscription"
+    ],
+    "category": "Elite Coding"
+  },
+  "primaryModel": "opencode/qwen3.6-plus-free",
+  "fallbackModel": "opencode/nemotron-3-super-free",
+  "skills": [
+    {
+      "id": "agent.help",
+      "name": "Get Help",
+      "description": "Get help information about this agent's capabilities",
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    },
+    {
+      "id": "code.generate",
+      "name": "Code Generation",
+      "description": "Generate production-ready code based on specifications",
+      "inputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    },
+    {
+      "id": "code.review",
+      "name": "Code Review",
+      "description": "Review code for quality, security, and best practices",
+      "inputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    },
+    {
+      "id": "code.debug",
+      "name": "Code Debugging",
+      "description": "Identify and fix bugs in existing code",
+      "inputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    },
+    {
+      "id": "code.refactor",
+      "name": "Code Refactoring",
+      "description": "Restructure code for improved readability and maintainability",
+      "inputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    },
+    {
+      "id": "simone.code.search",
+      "name": "Code Search",
+      "description": "Search codebase semantically using LSP",
+      "inputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    },
+    {
+      "id": "simone.code.edit",
+      "name": "Code Edit",
+      "description": "Perform structural code edits",
+      "inputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    },
+    {
+      "id": "simone.code.symbol",
+      "name": "Symbol Operations",
+      "description": "Search and manipulate code symbols",
+      "inputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    }
+  ],
+  "securitySchemes": {
+    "apiKey": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "X-API-Key"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ],
+  "defaultInputModes": [
+    "application/json",
+    "text/plain"
+  ],
+  "defaultOutputModes": [
+    "application/json",
+    "text/plain"
+  ],
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false
+  }
+}

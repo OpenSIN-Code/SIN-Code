@@ -1,0 +1,105 @@
+{
+  "primaryModel": "opencode/qwen3.6-plus-free",
+  "name": "simone-mcp",
+  "displayName": "Simone MCP",
+  "description": "Ultra-Duo Team Coder Agent with LSP-powered semantic code analysis.",
+  "version": "2026.03.24",
+  "url": "http://localhost:8234",
+  "capabilities": {
+    "streaming": true,
+    "pushNotifications": false
+  },
+  "endpoints": {
+    "health": "/health",
+    "a2a": "/a2a/v1",
+    "dashboard": "/dashboard"
+  },
+  "team": "team-coding",
+  "runtime": "FastAPI + Supabase Realtime + PostgreSQL/pgvector",
+  "skills": [
+    {
+      "id": "agent.help",
+      "name": "Get Help",
+      "description": "Get help information about this agent's capabilities",
+      "inputModes": [
+        "application/json"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    },
+    {
+      "id": "code.generate",
+      "name": "Code Generation",
+      "description": "Generate production-ready code based on specifications",
+      "inputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    },
+    {
+      "id": "code.review",
+      "name": "Code Review",
+      "description": "Review code for quality, security, and best practices",
+      "inputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    },
+    {
+      "id": "code.debug",
+      "name": "Code Debugging",
+      "description": "Identify and fix bugs in existing code",
+      "inputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    },
+    {
+      "id": "code.refactor",
+      "name": "Code Refactoring",
+      "description": "Restructure code for improved readability and maintainability",
+      "inputModes": [
+        "application/json",
+        "text/plain"
+      ],
+      "outputModes": [
+        "application/json",
+        "text/plain"
+      ]
+    }
+  ],
+  "securitySchemes": {
+    "apiKey": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "X-API-Key"
+    }
+  },
+  "security": [
+    {
+      "apiKey": []
+    }
+  ],
+  "defaultInputModes": [
+    "application/json",
+    "text/plain"
+  ],
+  "defaultOutputModes": [
+    "application/json",
+    "text/plain"
+  ]
+}
