@@ -24,13 +24,13 @@
 </p>
 
 <p align="center">
-  <a href="#-quick-start">Quick Start</a> ·
-  <a href="#-features">Features</a> ·
-  <a href="#-architecture">Architecture</a> ·
-  <a href="#-use-cases">Use Cases</a> ·
-  <a href="#-commands">Commands</a> ·
-  <a href="#-deploy">Deploy</a> ·
-  <a href="#-contributing">Contributing</a>
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#use-cases">Use Cases</a> ·
+  <a href="#commands">Commands</a> ·
+  <a href="#deploy">Deploy</a> ·
+  <a href="#contributing">Contributing</a>
 </p>
 
 <p align="center">
