@@ -1,0 +1,106 @@
+# Simone MCP - Full Context
+
+## Overview
+Simone MCP is a production-grade MCP 2.0 code worker that transforms how AI agents navigate and manipulate code. Instead of regex-based searches and manual file edits, it provides AST-level symbol operations through the Model Context Protocol — giving OpenCode, Codex, and A2A agents surgical precision for code understanding and transformation.
+
+Production-grade Code-Worker with symbol operations, dual MCP transports, OAuth 2.1 readiness, and hybrid memory integrations.
+
+## What It Does
+- **Symbol Operations**: AST-level find, replace, and insert for Python functions and classes
+- **Dual Transport**: stdio for local clients + streamable HTTP for remote deployments
+- **A2A Integration**: JSON-RPC endpoint for agent-to-agent communication
+- **OAuth 2.1 Ready**: Bearer token validation with JWKS support
+- **Hybrid Memory**: Qdrant (vector) + Neo4j (graph) retrieval architecture
+- **Discovery**: .well-known metadata for agent cards and OAuth config
+- **Docker Ready**: Single-image deployment with docker-compose for full stack
+- **HF Spaces**: Stateless compute deployment pattern documented
+
+## Architecture
+- Transport: MCP stdio + Streamable HTTP (FastAPI on port 8234)
+- Core Engine: Python AST-based symbol operations with action executor
+- Memory: Hybrid retrieval via Qdrant (vector) + Neo4j (graph) facades
+- Auth: OAuth 2.1 with Bearer token + JWKS validation
+- Storage: Qdrant (semantic search), Neo4j (relationship awareness), Supabase (relational)
+- A2A: JSON-RPC endpoint at /a2a/v1 for agent-to-agent communication
+- Discovery: .well-known endpoints for agent-card.json, oauth-client.json, oauth-authorization-server
+
+## Tools
+- `code.find_symbol` - Locate symbol definitions across workspace (Read)
+- `code.find_references` - Find textual references to a symbol (Read)
+- `code.replace_symbol_body` - Replace the body of a Python function (Write)
+- `code.insert_after_symbol` - Insert text immediately after a symbol block (Write)
+- `code.project_overview` - Summarize workspace footprint and file types (Read)
+- `memory.query` - Hybrid memory search via Qdrant + Neo4j (Read)
+- `simone.mcp.health` - Server health check and status (Meta)
+- `agent.help` - List all available actions and capabilities (Meta)
+
+## Quick Start
+```bash
+git clone https://github.com/Delqhi/Simone-MCP.git
+cd Simone-MCP
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .[dev]
+python3 src/cli.py serve
+```
+
+Server runs at http://localhost:8234 with endpoints:
+- GET /health
+- GET /dashboard
+- GET /.well-known/agent-card.json
+- POST /a2a/v1
+- GET|POST|DELETE /mcp
+
+## Commands
+```bash
+python3 src/cli.py serve           # HTTP Server (default port 8234)
+python3 src/cli.py serve-mcp       # MCP stdio mode for OpenCode/Codex
+python3 src/cli.py print-card      # Print agent discovery card
+python3 src/cli.py run-action '{"action":"simone.mcp.health"}'  # Execute action
+```
+
+## Configuration
+See .env.example for all environment variables. Key variables:
+- `SIMONE_AUTH_REQUIRED` - Enable OAuth validation (default: false)
+- `SIMONE_OAUTH_AUDIENCE` - JWT audience claim (default: simone-mcp)
+- `SIMONE_OAUTH_ISSUER` - OAuth issuer URL
+- `SIMONE_OAUTH_JWKS_URL` - JWKS endpoint for token validation
+- `SIMONE_ALLOWED_ORIGINS` - CORS origin whitelist (default: http://localhost)
+- `QDRANT_URL` - Vector database endpoint
+- `NEO4J_URI` - Graph database endpoint
+- `SUPABASE_URL` - Supabase project URL
+
+## Models
+- Primary: openai/gpt-5.4
+- Fallback: opencode/minimax-m2.5-free
+
+## Deployment
+- **Local**: `pip install -e .[dev]` for development
+- **Docker**: `docker-compose up --build` for production (includes Qdrant + Neo4j)
+- **HF Spaces**: Stateless compute with external persistent storage
+
+## File Structure
+```
+simone-mcp/
+├── src/
+│   ├── simone_mcp/
+│   │   ├── core.py          # Action Engine
+│   │   ├── http_app.py      # FastAPI Server
+│   │   └── mcp_stdio.py     # stdio Server
+│   └── cli.py               # CLI Entry Point
+├── tests/
+│   └── test_simone_mcp.py
+├── docs/
+│   └── architecture.md
+├── .well-known/
+│   ├── agent-card.json
+│   └── agent.json
+├── Dockerfile
+└── docker-compose.yml
+```
+
+## Links
+- GitHub: https://github.com/Delqhi/Simone-MCP
+- Documentation: https://github.com/Delqhi/Simone-MCP/blob/main/docs/architecture.md
+- Issues: https://github.com/Delqhi/Simone-MCP/issues
+- License: https://github.com/Delqhi/Simone-MCP/blob/main/LICENSE
+- Agent Card: https://github.com/Delqhi/Simone-MCP/blob/main/.well-known/agent-card.json

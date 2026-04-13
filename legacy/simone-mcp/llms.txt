@@ -1,0 +1,27 @@
+# Simone MCP
+
+> Production-grade MCP 2.0 code worker with streamable HTTP, stdio transport, symbol operations, OAuth 2.1 readiness, and hybrid memory integration.
+
+## Documentation
+- [README](https://github.com/Delqhi/Simone-MCP/blob/main/README.md) - Quick start, features, architecture overview
+- [Architecture Docs](https://github.com/Delqhi/Simone-MCP/blob/main/docs/architecture.md) - Detailed system design with 12+ Mermaid diagrams
+- [ARCHITECTURE](https://github.com/Delqhi/Simone-MCP/blob/main/ARCHITECTURE.md) - Technical design decisions and April 2026 choices
+- [Contributing](https://github.com/Delqhi/Simone-MCP/blob/main/CONTRIBUTING.md) - How to contribute
+- [Security](https://github.com/Delqhi/Simone-MCP/blob/main/SECURITY.md) - Security policy and vulnerability reporting
+
+## Key Information
+- License: MIT
+- Language: Python 3.12+
+- Framework: FastAPI
+- Protocol: MCP 2.0 + A2A JSON-RPC
+- Transport: stdio + streamable HTTP
+- Auth: OAuth 2.1 with JWKS
+- Repo: https://github.com/Delqhi/Simone-MCP
+- Primary Model: openai/gpt-5.4
+- Fallback Model: opencode/minimax-m2.5-free
+
+## Quick Links
+- Issues: https://github.com/Delqhi/Simone-MCP/issues
+- Discussions: https://github.com/Delqhi/Simone-MCP/discussions
+- Agent Card: https://github.com/Delqhi/Simone-MCP/blob/main/.well-known/agent-card.json
+- MCP Config: https://github.com/Delqhi/Simone-MCP/blob/main/mcp-config.json
