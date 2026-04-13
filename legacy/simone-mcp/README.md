@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./simone-mcp-banner.svg" alt="Simone MCP banner" />
+  <img src="./assets/simone-mcp-banner.PNG" alt="Simone MCP banner" />
 </p>
 
 # Simone MCP
