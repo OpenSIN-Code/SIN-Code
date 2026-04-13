@@ -296,5 +296,12 @@ Distributed under the **MIT License**. See [LICENSE](LICENSE) for more informati
 ---
 
 <p align="center">
-  <sub>Built with Python, FastAPI, and the Model Context Protocol by the OpenSIN ecosystem.</sub>
+  <a href="https://opensin.ai">
+    <img src="https://img.shields.io/badge/🤖_Powered_by-OpenSIN--AI-7B3FE4?style=for-the-badge&logo=github&logoColor=white" alt="Powered by OpenSIN-AI" />
+  </a>
+</p>
+
+<p align="center">
+  <sub>Entwickelt vom <a href="https://opensin.ai"><strong>OpenSIN-AI</strong></a> Ökosystem – Enterprise AI Agents die autonom arbeiten.</sub><br/>
+  <sub>🌐 <a href="https://opensin.ai">opensin.ai</a> · 💬 <a href="https://opensin.ai/agents">Alle Agenten</a> · 🚀 <a href="https://opensin.ai/dashboard">Dashboard</a></sub>
 </p>
