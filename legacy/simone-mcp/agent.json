@@ -5,8 +5,8 @@
   "description": "Production-grade MCP 2.0 code worker with streamable HTTP, stdio transport, symbol operations, OAuth 2.1 readiness, and hybrid memory.",
   "version": "2026.04.12",
   "deployment": {
-    "workforceIndex": "https://a2a.delqhi.com",
-    "landingPage": "https://a2a.delqhi.com/agents/simone-mcp",
+    "workforceIndex": "https://opensin.ai",
+    "landingPage": "https://opensin.ai/agents/simone-mcp",
     "publicA2A": "http://localhost:8234/a2a/v1",
     "cimdAnchor": "http://localhost:8234",
     "vmServer": "Target: Hugging Face Space free CPU VM"
@@ -140,8 +140,8 @@
       "type": "oauth2",
       "flows": {
         "authorizationCode": {
-          "authorizationUrl": "https://a2a.delqhi.com/authorize",
-          "tokenUrl": "https://a2a.delqhi.com/token",
+          "authorizationUrl": "https://opensin.ai/authorize",
+          "tokenUrl": "https://opensin.ai/token",
           "scopes": {
             "simone.read": "Read-only symbol and project queries",
             "simone.write": "Structural code edits"

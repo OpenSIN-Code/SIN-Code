@@ -31,7 +31,7 @@ def _base_url(request: Request) -> str:
 def _allowed_origins() -> set[str]:
     configured = os.getenv(
         "SIMONE_ALLOWED_ORIGINS",
-        "http://localhost,http://127.0.0.1,https://a2a.delqhi.com",
+        "http://localhost,http://127.0.0.1,https://opensin.ai",
     )
     return {value.strip() for value in configured.split(",") if value.strip()}
 
