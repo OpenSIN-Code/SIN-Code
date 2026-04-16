@@ -23,8 +23,8 @@ Simone MCP closes the gap between lightweight symbol tools and a production-faci
 
 ## Intelligence Core
 
-| Model (Primary) | `nvidia/minimaxai/minimax-m2.7` |
-| Model (Fallback) | `nvidia/stepfun-ai/step-3.5-flash` |
+| Model (Primary) | `openai/gpt-5.4` |
+| Model (Fallback) | `nvidia/minimaxai/minimax-m2.7` |
 
 ## Capabilities
 

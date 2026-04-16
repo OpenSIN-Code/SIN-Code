@@ -41,7 +41,7 @@
 
 ## What is Simone MCP?
 
-> Simone MCP is a **production-grade code worker** that transforms how AI agents navigate and manipulate code. Powered by **NVIDIA NIM** (`minimax-m2.7`), it provides **AST-level symbol operations** through the Model Context Protocol — giving OpenCode, Codex, and A2A agents surgical precision for code understanding and transformation.
+> Simone MCP is a **production-grade code worker** that transforms how AI agents navigate and manipulate code. Powered by **OpenAI** (`gpt-5.4`) with **NVIDIA** fallback, it provides **AST-level symbol operations** through the Model Context Protocol — giving OpenCode, Codex, and A2A agents surgical precision for code understanding and transformation.
 
 **Think of it as a semantic search engine + code surgeon combined into one MCP server.**
 
