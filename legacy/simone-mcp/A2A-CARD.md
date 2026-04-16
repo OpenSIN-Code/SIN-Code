@@ -21,6 +21,11 @@ Simone MCP closes the gap between lightweight symbol tools and a production-faci
 | Memory | pgvector placeholder | Qdrant + Neo4j hybrid contract |
 | Deployment | unclear | Docker + compose + HF-ready shape |
 
+## Intelligence Core
+
+| Model (Primary) | `nvidia/minimaxai/minimax-m2.7` |
+| Model (Fallback) | `nvidia/stepfun-ai/step-3.5-flash` |
+
 ## Capabilities
 
 | Capability | Type | Status |

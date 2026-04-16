@@ -28,8 +28,8 @@
     ],
     "category": "Elite Coding"
   },
-  "primaryModel": "openai/gpt-5.4",
-  "fallbackModel": "opencode/minimax-m2.5-free",
+  "primaryModel": "nvidia/minimaxai/minimax-m2.7",
+  "fallbackModel": "nvidia/stepfun-ai/step-3.5-flash",
   "skills": [
     {
       "id": "agent.help",
