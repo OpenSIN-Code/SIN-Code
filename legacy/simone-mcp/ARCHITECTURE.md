@@ -7,7 +7,23 @@ Simone MCP uses a Python-first architecture with two transport modes:
 1. stdio for local MCP clients
 2. streamable HTTP for remote MCP and A2A-facing deployments
 
-The implementation is intentionally split so symbol logic stays importable without requiring the HTTP stack during local tests.
+Both transports delegate to a shared `protocol.py` handler that implements the full MCP 2026-06-30 specification including Tasks v2 (SEP-2663), HTTP header standardization (SEP-2243), list TTL (SEP-2549), structured output, and resource links.
+
+## Protocol Version
+
+**MCP 2026-06-30** — full compliance including:
+- Tasks v2 (SEP-2663): `tasks/get` (inline result), `tasks/update`, `tasks/cancel` + `notifications/tasks`; server decides task creation autonomously; `resultType: "task"` discriminator; `io.modelcontextprotocol/tasks` extension
+- HTTP Header Standardization (SEP-2243): `Mcp-Method`, `Mcp-Name`, `Mcp-Param-*` headers; `-32001` HeaderMismatch error
+- List TTL (SEP-2549): `ttlMs` + `cacheScope` on all list responses
+- Structured output (`structuredContent` + `outputSchema`)
+- Tool `title`, `execution.taskSupport` (forbidden/optional/required)
+- `resource_link` type in tool results
+- Input validation as `isError: true` (SEP-1303)
+- `_meta` propagation on all methods
+- ISO 8601 timestamps on tasks (`createdAt`, `lastUpdatedAt`)
+- SSE `retry:` field
+- `MCP-Protocol-Version` HTTP header
+- Session cleanup on `DELETE /mcp`
 
 ## Core Engines
 
@@ -72,12 +88,24 @@ The HTTP transport validates `Origin` and can require Bearer tokens backed by JW
 
 Supported methods:
 
-- `initialize`
+- `initialize` (version negotiation)
 - `ping`
-- `tools/list`
-- `tools/call`
-- `resources/list`
-- `prompts/list`
+- `tools/list` (paginated)
+- `tools/call` (with task support, structured output, resource links)
+- `tasks/get` (inline result — SEP-2663)
+- `tasks/update` (resume input_required tasks — SEP-2663)
+- `tasks/cancel` (rejects terminal tasks with -32602)
+- `resources/list` (paginated)
+- `resources/read` (path traversal protected)
+- `resources/subscribe`
+- `resources/unsubscribe`
+- `resources/templates/list` (paginated)
+- `prompts/list` (paginated)
+- `prompts/get`
+- `logging/setLevel` (emits notifications/message)
+- `completion/complete`
+- `sampling/createMessage` (returns error — use HTTP)
+- `elicitation/create` (returns error — rephrase as tool call)
 
 ### streamable HTTP
 
@@ -99,13 +127,14 @@ Implemented behavior:
 
 The current implementation provides:
 
-- symbol lookup (`code.find_symbol`)
-- cross-file reference search (`code.find_references`) — Jedi or regex
-- Python function body replacement (`code.replace_symbol_body`) — LibCST or ast
-- insertion after a Python symbol block (`code.insert_after_symbol`)
-- workspace overview (`code.project_overview`)
-- health and help actions
-- hybrid memory query with live Qdrant/Neo4j integration
+- symbol lookup (`sin_simone_mcp_symbol_search`)
+- cross-file reference search (`sin_simone_mcp_find_references`) — Jedi or regex
+- structural editing (`sin_simone_mcp_structural_edit`) — LibCST or ast
+- hybrid memory query (`sin_simone_mcp_memory_query`)
+- workspace overview (`sin_simone_mcp_project_overview`)
+- health check (`sin_simone_mcp_health`)
+- task-augmented execution for long-running operations
+- structured output with JSON Schema 2020-12 outputSchema on all tools
 
 ## Memory strategy
 

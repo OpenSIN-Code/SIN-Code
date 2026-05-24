@@ -485,9 +485,14 @@ flowchart TD
     SRC --> CLIMAIN["cli.py"]
     SRC --> MCPSRV["mcp_server.py"]
 
-    SIMONE_MCP --> COREFILE["core.py - Action Engine"]
+    SIMONE_MCP --> COREFILE["core.py - Action Engine + Tool Definitions"]
+    SIMONE_MCP --> PROTOFILE["protocol.py - MCP 2026-06-30 Handler"]
     SIMONE_MCP --> HTTPFILE["http_app.py - FastAPI Server"]
     SIMONE_MCP --> STDIOFILE["mcp_stdio.py - stdio Server"]
+    SIMONE_MCP --> SCHEMAFILE["schemas.py - Pydantic Models"]
+    SIMONE_MCP --> CORRFILE["correlation.py - Tool Call Correlation"]
+    SIMONE_MCP --> A2AFILE["a2a_handler.py - A2A JSON-RPC"]
+    SIMONE_MCP --> MEMORYFILE["hybrid_memory.py - Qdrant + Neo4j"]
     SIMONE_MCP --> CLIFILE["cli.py - CLI Handler"]
     SIMONE_MCP --> INITFILE["__init__.py"]
 
@@ -566,7 +571,7 @@ flowchart LR
     subgraph CardContent["Agent Card Content"]
         direction TB
         NAMEFIELD["name: simone-mcp"]
-        VERSIONFIELD["version: 2026.04.12"]
+        VERSIONFIELD["version: 2026.06.30"]
         CAPSFIELD["capabilities array"]
         ENDPOINTSFIELD["endpoints object"]
         SKILLSFIELD["skills array"]

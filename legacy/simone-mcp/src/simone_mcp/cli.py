@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -9,6 +10,13 @@ from typing import Any
 
 from .core import TOOL_DEFINITIONS, build_agent_card, execute_simone_action, get_project_overview
 from .mcp_stdio import serve_stdio
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    stream=sys.stderr,
+)
+logger = logging.getLogger(__name__)
 
 
 def _print(payload: Any) -> None:
@@ -22,7 +30,7 @@ def _read_action_argument() -> dict[str, Any]:
         raw = sys.stdin.read().strip()
     if not raw:
         raise SystemExit("missing_action_json")
-    return json.loads(raw)
+    return json.loads(raw)  # type: ignore[no-any-return]
 
 
 def main() -> None:
@@ -35,11 +43,11 @@ def main() -> None:
         port = int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else 8234
         host = os.getenv("SIMONE_HOST", "0.0.0.0")
         base_url = os.getenv("SIMONE_BASE_URL", f"http://localhost:{port}")
-        print(f"Simone-MCP HTTP/SSE server on {host}:{port}")
-        print(f"  MCP:    {base_url}/mcp")
-        print(f"  A2A:    {base_url}/a2a/v1")
-        print(f"  Health: {base_url}/health")
-        print(f"  Docs:   {base_url}/docs")
+        logger.info("Simone-MCP HTTP/SSE server on %s:%s", host, port)
+        logger.info("  MCP:    %s/mcp", base_url)
+        logger.info("  A2A:    %s/a2a/v1", base_url)
+        logger.info("  Health: %s/health", base_url)
+        logger.info("  Docs:   %s/docs", base_url)
         uvicorn.run(create_app(), host=host, port=port, log_level="info")
         return
     if command == "serve-mcp":

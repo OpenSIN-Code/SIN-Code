@@ -3,28 +3,45 @@ from __future__ import annotations
 import ast
 import asyncio
 import json
+import logging
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 try:
-    import libcst as cst
+    import libcst as cst  # type: ignore[import-not-found]
     HAS_LIBCST = True
 except ImportError:
     HAS_LIBCST = False
 
 try:
-    import jedi
+    import jedi  # type: ignore[import-not-found]
     HAS_JEDI = True
 except ImportError:
     HAS_JEDI = False
 
+try:
+    import tree_sitter_python  # type: ignore[import-not-found]  # noqa: F401
+    from tree_sitter import Language, Parser  # type: ignore[import-not-found]
+    HAS_TREE_SITTER = True
+except ImportError:
+    HAS_TREE_SITTER = False
+
+try:
+    import tree_sitter_typescript as tstypescript  # type: ignore[import-not-found]
+    HAS_TREE_SITTER_TS = True
+except ImportError:
+    HAS_TREE_SITTER_TS = False
+
+logger = logging.getLogger(__name__)
+
 
 AGENT_NAME = "simone-mcp"
 AGENT_DISPLAY_NAME = "Simone MCP"
-AGENT_VERSION = "2026.04.12"
+AGENT_VERSION = "2026.06.30"
 AGENT_DESCRIPTION = "Production-grade MCP 2.0 code worker with symbol operations, streamable HTTP transport, OAuth 2.1 readiness, and hybrid memory integrations."
 MCP_ENDPOINT = "/mcp"
 A2A_ENDPOINT = "/a2a/v1"
@@ -37,94 +54,238 @@ OPEN_PATHS = {
     "/.well-known/oauth-client.json",
     "/.well-known/oauth-authorization-server",
 }
+_JSON_SCHEMA_2020_12 = "https://json-schema.org/draft/2020-12/schema"
+
 TOOL_DEFINITIONS = [
     {
-        "name": "code.find_symbol",
-        "description": "Locate symbol definitions across a workspace.",
+        "name": "sin_simone_mcp_health",
+        "title": "Health Check",
+        "description": "Check Simone MCP readiness, model, and capabilities.",
         "inputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
             "type": "object",
             "properties": {
-                "symbol": {"type": "string"},
-                "root": {"type": "string"},
+                "ok": {"type": "boolean"},
+                "status": {"type": "string"},
+                "name": {"type": "string"},
+                "version": {"type": "string"},
+                "transport": {"type": "string"},
+                "memory": {"type": "string"},
             },
-            "required": ["symbol"],
         },
         "annotations": {
-            "title": "Find Symbol",
             "readOnlyHint": True,
+            "destructiveHint": False,
             "idempotentHint": True,
+            "openWorldHint": False,
         },
+        "execution": {"taskSupport": "forbidden"},
     },
     {
-        "name": "code.find_references",
+        "name": "sin_simone_mcp_symbol_search",
+        "title": "Symbol Search",
+        "description": "Search for symbols across the codebase using LSP-powered semantic analysis.",
+        "inputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Symbol search query"},
+                "root": {"type": "string", "description": "Workspace root path"},
+            },
+            "required": ["query"],
+        },
+        "outputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "symbol": {"type": "string"},
+                "count": {"type": "integer"},
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "symbol": {"type": "string"},
+                            "kind": {"type": "string"},
+                            "file": {"type": "string"},
+                            "line": {"type": "integer"},
+                            "column": {"type": "integer"},
+                            "endLine": {"type": "integer"},
+                            "endColumn": {"type": "integer"},
+                        },
+                    },
+                },
+            },
+        },
+        "annotations": {
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+        "execution": {"taskSupport": "optional"},
+    },
+    {
+        "name": "sin_simone_mcp_structural_edit",
+        "title": "Structural Edit",
+        "description": "Perform structural code edits using LSP-grade symbol resolution and refactoring.",
+        "inputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "editPayload": {"type": "string", "description": "Structural edit payload in JSON or natural language"},
+            },
+            "required": ["editPayload"],
+        },
+        "outputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "symbol": {"type": "string"},
+                "file": {"type": "string"},
+                "engine": {"type": "string"},
+                "error": {"type": "string"},
+            },
+        },
+        "annotations": {
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": False,
+            "openWorldHint": True,
+        },
+        "execution": {"taskSupport": "optional"},
+    },
+    {
+        "name": "sin_simone_mcp_memory_query",
+        "title": "Memory Query",
+        "description": "Query the cloud semantic memory for code context and prior analysis results.",
+        "inputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Semantic memory query"},
+            },
+            "required": ["query"],
+        },
+        "outputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "results": {"type": "array"},
+                "error": {"type": "string"},
+            },
+        },
+        "annotations": {
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": False,
+        },
+        "execution": {"taskSupport": "optional"},
+    },
+    {
+        "name": "sin_simone_mcp_find_references",
+        "title": "Find References",
         "description": "Find textual references to a symbol across a workspace.",
         "inputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
             "type": "object",
             "properties": {
-                "symbol": {"type": "string"},
-                "root": {"type": "string"},
+                "symbol": {"type": "string", "description": "Symbol name to search references for"},
+                "root": {"type": "string", "description": "Workspace root path"},
             },
             "required": ["symbol"],
         },
+        "outputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "symbol": {"type": "string"},
+                "count": {"type": "integer"},
+                "matches": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string"},
+                            "hits": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "line": {"type": "integer"},
+                                        "text": {"type": "string"},
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                "engine": {"type": "string"},
+            },
+        },
         "annotations": {
-            "title": "Find References",
             "readOnlyHint": True,
+            "destructiveHint": False,
             "idempotentHint": True,
+            "openWorldHint": True,
         },
+        "execution": {"taskSupport": "optional"},
     },
     {
-        "name": "code.replace_symbol_body",
-        "description": "Replace the body of a Python function or async function.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "symbol": {"type": "string"},
-                "file": {"type": "string"},
-                "body": {"type": "string"},
-            },
-            "required": ["symbol", "file", "body"],
-        },
-        "annotations": {
-            "title": "Replace Symbol Body",
-            "readOnlyHint": False,
-            "idempotentHint": False,
-        },
-    },
-    {
-        "name": "code.insert_after_symbol",
-        "description": "Insert text immediately after a Python symbol block.",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "symbol": {"type": "string"},
-                "file": {"type": "string"},
-                "text": {"type": "string"},
-            },
-            "required": ["symbol", "file", "text"],
-        },
-        "annotations": {
-            "title": "Insert After Symbol",
-            "readOnlyHint": False,
-            "idempotentHint": False,
-        },
-    },
-    {
-        "name": "code.project_overview",
+        "name": "sin_simone_mcp_project_overview",
+        "title": "Project Overview",
         "description": "Summarize the workspace footprint and primary file types.",
         "inputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
             "type": "object",
             "properties": {
+                "root": {"type": "string", "description": "Workspace root path"},
+            },
+        },
+        "outputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
                 "root": {"type": "string"},
+                "fileCount": {"type": "integer"},
+                "topExtensions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "extension": {"type": "string"},
+                            "count": {"type": "integer"},
+                        },
+                    },
+                },
             },
         },
         "annotations": {
-            "title": "Project Overview",
             "readOnlyHint": True,
+            "destructiveHint": False,
             "idempotentHint": True,
+            "openWorldHint": True,
         },
+        "execution": {"taskSupport": "forbidden"},
     },
 ]
 CAPABILITIES = [tool["name"] for tool in TOOL_DEFINITIONS] + [
+    "code.find_symbol",
+    "code.find_references",
+    "code.replace_symbol_body",
+    "code.insert_after_symbol",
+    "code.project_overview",
     "memory.hybrid",
     "transport.streamable_http",
     "auth.oauth2.1",
@@ -213,35 +374,142 @@ def _workspace_root(value: str | None) -> Path:
     return Path(value).expanduser().resolve() if value else Path.cwd()
 
 
+class PathTraversalError(ValueError):
+    pass
+
+
+def _validate_file_in_workspace(file_path: Path, root: Path | None = None) -> Path:
+    resolved = file_path.resolve()
+    if root is not None:
+        workspace = root.resolve()
+        try:
+            resolved.relative_to(workspace)
+        except ValueError:
+            raise PathTraversalError(f"Path {resolved} is outside workspace {workspace}")
+    return resolved
+
+
+_PY_BLOCKED = {
+    ".git", ".venv", "venv", "node_modules", "__pycache__",
+    ".serena", ".pcpm", "data", "profiles", "forensics",
+    "cache", ".pytest_cache", "site-packages",
+}
+_JS_TS_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts"}
+_TSX_QUERY_NAMES = frozenset({
+    "function_declaration", "method_definition", "class_declaration",
+    "arrow_function", "variable_declarator",
+})
+_TS_PARSER_LOCK = threading.Lock()
+_TS_PARSER_CACHE: tuple[Any, Any] | None = None
+
+
 def _candidate_files(root: Path) -> list[Path]:
-    blocked = {
-        ".git",
-        ".venv",
-        "venv",
-        "node_modules",
-        "__pycache__",
-        ".serena",
-        ".pcpm",
-        "data",
-        "profiles",
-        "forensics",
-        "cache",
-        ".pytest_cache",
-        "site-packages",
-    }
+    resolved_root = root.resolve()
     paths: list[Path] = []
-    for path in root.rglob("*.py"):
-        if any(part in blocked for part in path.parts):
+    for path in root.rglob("*"):
+        if not path.is_file():
             continue
-        if path.is_file():
+        if path.is_symlink() and not path.resolve().is_relative_to(resolved_root):
+            continue
+        if any(part in _PY_BLOCKED for part in path.parts):
+            continue
+        if path.suffix in {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts"}:
             paths.append(path)
     return sorted(paths)
+
+
+def _ts_parsers() -> tuple[Any, Any] | None:
+    global _TS_PARSER_CACHE
+    with _TS_PARSER_LOCK:
+        if _TS_PARSER_CACHE is not None:
+            return _TS_PARSER_CACHE
+        if not HAS_TREE_SITTER or not HAS_TREE_SITTER_TS:
+            _TS_PARSER_CACHE = None
+            return None
+        try:
+            ts_lang = Language(tstypescript.language_typescript())
+            tsx_lang = Language(tstypescript.language_tsx())
+            _TS_PARSER_CACHE = (Parser(ts_lang), Parser(tsx_lang))
+            return _TS_PARSER_CACHE
+        except Exception:
+            logger.debug("tree-sitter TS/TSX parser init failed", exc_info=True)
+            _TS_PARSER_CACHE = None
+            return None
+
+
+def _extract_symbols_treesitter(path: Path) -> list[dict[str, Any]]:
+    parsers = _ts_parsers()
+    if parsers is None:
+        return _extract_symbols_js_regex(path)
+    ts_parser, tsx_parser = parsers
+    parser = tsx_parser if path.suffix in {".tsx", ".jsx"} else ts_parser
+    try:
+        source = path.read_bytes()
+        tree = parser.parse(source)
+    except (OSError, UnicodeDecodeError):
+        logger.debug("Failed to read %s for tree-sitter", path, exc_info=True)
+        return []
+    matches: list[dict[str, Any]] = []
+    stack = [tree.root_node]
+    while stack:
+        node = stack.pop()
+        if node.type in _TSX_QUERY_NAMES:
+            name_node = node.child_by_field_name("name")
+            if name_node is not None:
+                symbol_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
+                kind = "class" if "class" in node.type else "function"
+                matches.append({
+                    "symbol": symbol_name,
+                    "kind": kind,
+                    "file": str(path),
+                    "line": node.start_point[0] + 1,
+                    "column": node.start_point[1],
+                    "endLine": node.end_point[0] + 1,
+                    "endColumn": node.end_point[1],
+                })
+        if hasattr(node, "children"):
+            stack.extend(node.children)
+    return matches
+
+
+_JS_SYMBOL_PATTERN = re.compile(
+    r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?"
+    r"(?:function\s+(?P<func>\w+)"
+    r"|class\s+(?P<class>\w+)"
+    r"|const\s+(?P<const>\w+)\s*=\s*(?:async\s+)?(?:\([^)]*\)|[\w]+)\s*=>)"
+)
+
+
+def _extract_symbols_js_regex(path: Path) -> list[dict[str, Any]]:
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    matches: list[dict[str, Any]] = []
+    for line_no, line in enumerate(content.splitlines(), start=1):
+        m = _JS_SYMBOL_PATTERN.match(line)
+        if not m:
+            continue
+        symbol_name = m.group("func") or m.group("class") or m.group("const")
+        if symbol_name:
+            kind = "class" if m.group("class") else "function"
+            matches.append({
+                "symbol": symbol_name,
+                "kind": kind,
+                "file": str(path),
+                "line": line_no,
+                "column": m.start(),
+                "endLine": line_no,
+                "endColumn": m.end(),
+            })
+    return matches
 
 
 def _parse_file(path: Path) -> ast.AST | None:
     try:
         return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     except (OSError, SyntaxError, UnicodeDecodeError):
+        logger.debug("Failed to parse %s", path, exc_info=True)
         return None
 
 
@@ -266,6 +534,11 @@ def find_symbol(payload: dict[str, Any]) -> dict[str, Any]:
     root = _workspace_root(payload.get("root"))
     matches: list[dict[str, Any]] = []
     for path in _candidate_files(root):
+        if path.suffix in _JS_TS_EXTENSIONS:
+            matches.extend(
+                [m for m in _extract_symbols_treesitter(path) if m["symbol"] == symbol]
+            )
+            continue
         tree = _parse_file(path)
         if tree is None:
             continue
@@ -302,6 +575,8 @@ def _find_references_jedi(symbol: str, root: Path) -> dict[str, Any]:
     total = 0
     seen: set[tuple[str, int]] = set()
     for path in _candidate_files(root):
+        if path.suffix in _JS_TS_EXTENSIONS:
+            continue
         try:
             content = path.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
@@ -377,7 +652,13 @@ def _preserve_trailing_newline(text: str, updated: str) -> str:
 def replace_symbol_body(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         symbol = str(payload.get("symbol") or "").strip()
+        explicit_root = payload.get("root")
+        if explicit_root:
+            root = _workspace_root(explicit_root)
+        else:
+            root = None
         file_path = Path(str(payload.get("file") or "")).expanduser().resolve()
+        _validate_file_in_workspace(file_path, root)
         body = str(payload.get("body") or "pass")
         if HAS_LIBCST:
             return _replace_symbol_body_libcst(symbol, file_path, body)
@@ -411,10 +692,10 @@ def _replace_symbol_body_libcst(symbol: str, file_path: Path, body: str) -> dict
                 line.lstrip() if line.strip() else "" for line in dedented_lines
             ]
         dedented = "\n".join(dedented_lines)
-        return cst.parse_module(dedented).body
+        return cst.parse_module(dedented).body  # type: ignore[no-any-return]
 
-    class BodyReplacer(cst.CSTTransformer):
-        def leave_FunctionDef(self, original_node: cst.FunctionDef, updated_node: cst.FunctionDef):
+    class BodyReplacer(cst.CSTTransformer):  # type: ignore[misc]
+        def leave_FunctionDef(self, original_node: cst.FunctionDef, updated_node: cst.FunctionDef) -> cst.FunctionDef:
             if original_node.name.value == symbol:
                 try:
                     new_stmts = _parse_body(body)
@@ -454,13 +735,19 @@ def _replace_symbol_body_ast(symbol: str, file_path: Path, body: str) -> dict[st
 def insert_after_symbol(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         symbol = str(payload.get("symbol") or "").strip()
+        explicit_root = payload.get("root")
+        if explicit_root:
+            root = _workspace_root(explicit_root)
+        else:
+            root = None
         file_path = Path(str(payload.get("file") or "")).expanduser().resolve()
+        _validate_file_in_workspace(file_path, root)
         text = str(payload.get("text") or "")
         original = file_path.read_text(encoding="utf-8")
         lines = original.splitlines()
         node = _find_named_node(file_path, symbol)
         insertion = text.splitlines() or [text]
-        lines[node.end_lineno : node.end_lineno] = insertion
+        lines[getattr(node, "end_lineno", 0) : getattr(node, "end_lineno", 0)] = insertion
         updated = _preserve_trailing_newline(original, "\n".join(lines))
         file_path.write_text(updated, encoding="utf-8")
         return {"ok": True, "symbol": symbol, "file": str(file_path), "engine": "libcst" if HAS_LIBCST else "ast"}
@@ -470,25 +757,10 @@ def insert_after_symbol(payload: dict[str, Any]) -> dict[str, Any]:
 
 def get_project_overview(payload: dict[str, Any]) -> dict[str, Any]:
     root = _workspace_root(payload.get("root"))
-    blocked = {
-        ".git",
-        ".venv",
-        "venv",
-        "node_modules",
-        "__pycache__",
-        ".serena",
-        ".pcpm",
-        "data",
-        "profiles",
-        "forensics",
-        "cache",
-        ".pytest_cache",
-        "site-packages",
-    }
     counts: dict[str, int] = {}
     file_count = 0
     for path in root.rglob("*"):
-        if any(part in blocked for part in path.parts):
+        if any(part in _PY_BLOCKED for part in path.parts):
             continue
         if not path.is_file():
             continue
@@ -507,11 +779,21 @@ def get_project_overview(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-from .hybrid_memory import query_hybrid_memory as _query_hybrid_memory_impl
+from .hybrid_memory import query_hybrid_memory as _query_hybrid_memory_impl  # noqa: E402
 
 
 def query_hybrid_memory(payload: dict[str, Any]) -> dict[str, Any]:
     return _query_hybrid_memory_impl(payload)
+
+
+_SYNC_ACTIONS = frozenset({
+    "code.find_symbol", "simone.mcp.symbol.search", "sin.simone.mcp.symbol.search", "sin_simone_mcp_symbol_search",
+    "code.find_references", "simone.mcp.references.search", "sin_simone_mcp_find_references",
+    "code.replace_symbol_body", "simone.mcp.structural.edit", "sin_simone_mcp_structural_edit",
+    "code.insert_after_symbol",
+    "code.project_overview", "sin_simone_mcp_project_overview",
+    "memory.query", "sin.simone.mcp.memory.query", "sin_simone_mcp_memory_query",
+})
 
 
 async def execute_simone_action(payload: dict[str, Any]) -> dict[str, Any]:
@@ -524,6 +806,12 @@ async def execute_simone_action(payload: dict[str, Any]) -> dict[str, Any]:
                 "actions": [
                     "agent.help",
                     "simone.mcp.health",
+                    "sin_simone_mcp_health",
+                    "sin_simone_mcp_symbol_search",
+                    "sin_simone_mcp_structural_edit",
+                    "sin_simone_mcp_memory_query",
+                    "sin_simone_mcp_find_references",
+                    "sin_simone_mcp_project_overview",
                     "code.find_symbol",
                     "code.find_references",
                     "code.replace_symbol_body",
@@ -532,7 +820,7 @@ async def execute_simone_action(payload: dict[str, Any]) -> dict[str, Any]:
                     "memory.query",
                 ],
             }
-        if action in {"simone.mcp.health", "sin.simone.mcp.health"}:
+        if action in {"simone.mcp.health", "sin.simone.mcp.health", "sin_simone_mcp_health"}:
             return {
                 "ok": True,
                 "status": "ok",
@@ -541,25 +829,32 @@ async def execute_simone_action(payload: dict[str, Any]) -> dict[str, Any]:
                 "transport": "streamable-http+stdio",
                 "memory": "hybrid",
             }
-        if action in {
-            "code.find_symbol",
-            "simone.mcp.symbol.search",
-            "sin.simone.mcp.symbol.search",
-        }:
-            return find_symbol(payload)
-        if action in {"code.find_references", "simone.mcp.references.search"}:
-            return find_references(payload)
-        if action in {"code.replace_symbol_body", "simone.mcp.structural.edit"}:
-            return replace_symbol_body(payload)
-        if action in {"code.insert_after_symbol"}:
-            return insert_after_symbol(payload)
-        if action in {"code.project_overview"}:
-            return get_project_overview(payload)
-        if action in {"memory.query", "sin.simone.mcp.memory.query"}:
-            return query_hybrid_memory(payload)
+        if action in _SYNC_ACTIONS:
+            return await asyncio.to_thread(_execute_sync_action, action, payload)
         return {"ok": False, "error": "unknown_action", "action": action}
     except Exception as error:
         return {"ok": False, "error": str(error), "action": payload.get("action")}
+
+
+def _execute_sync_action(action: str, payload: dict[str, Any]) -> dict[str, Any]:
+    if action in {
+        "code.find_symbol",
+        "simone.mcp.symbol.search",
+        "sin.simone.mcp.symbol.search",
+        "sin_simone_mcp_symbol_search",
+    }:
+        return find_symbol(payload)
+    if action in {"code.find_references", "simone.mcp.references.search", "sin_simone_mcp_find_references"}:
+        return find_references(payload)
+    if action in {"code.replace_symbol_body", "simone.mcp.structural.edit", "sin_simone_mcp_structural_edit"}:
+        return replace_symbol_body(payload)
+    if action in {"code.insert_after_symbol"}:
+        return insert_after_symbol(payload)
+    if action in {"code.project_overview", "sin_simone_mcp_project_overview"}:
+        return get_project_overview(payload)
+    if action in {"memory.query", "sin.simone.mcp.memory.query", "sin_simone_mcp_memory_query"}:
+        return query_hybrid_memory(payload)
+    return {"ok": False, "error": "unknown_action", "action": action}
 
 
 async def process_lsp_task(payload: dict[str, Any]) -> dict[str, Any]:

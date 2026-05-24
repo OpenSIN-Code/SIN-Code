@@ -1,20 +1,31 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import datetime
 from typing import Any
 
 from .core import TOOL_DEFINITIONS, build_agent_card, execute_simone_action
 from .correlation import correlation_manager
+from .schemas import JsonRpcRequest, MessageSendParams, ToolCallParams
+
+logger = logging.getLogger(__name__)
 
 
 async def handle_a2a_request(
     payload: dict[str, Any], base_url: str
 ) -> dict[str, Any]:
-    request_id = payload.get("id")
-    method = payload.get("method")
-    params = payload.get("params") or {}
+    try:
+        rpc = JsonRpcRequest(**payload)
+    except Exception as e:
+        return _error_response(
+            payload.get("id"), -32600, f"Invalid request: {e}"
+        )
+
+    request_id = rpc.id
+    method = rpc.method
+    params = rpc.params if isinstance(rpc.params, dict) else {}
 
     try:
         if method == "agent.discover":
@@ -50,14 +61,17 @@ async def handle_a2a_request(
         return _error_response(request_id, -32601, f"Method not found: {method}")
 
     except Exception as e:
+        logger.exception("A2A handler error for method=%s", method)
         return _error_response(request_id, -32603, str(e))
 
 
 async def _handle_tool_call(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
-    tool_name = params.get("tool_name") or params.get("name")
-    arguments = params.get("arguments") or params.get("params") or {}
-    if not tool_name:
-        return _error_response(request_id, -32602, "Missing tool_name in params")
+    try:
+        validated = ToolCallParams(**params)
+        tool_name = validated.tool_name
+        arguments = validated.arguments
+    except Exception as e:
+        return _error_response(request_id, -32602, f"Invalid tool call params: {e}")
     action = dict(arguments)
     action["action"] = tool_name
     correlation_id = correlation_manager.generate_correlation_id(
@@ -75,8 +89,12 @@ async def _handle_tool_call(request_id: Any, params: dict[str, Any]) -> dict[str
 
 
 async def _handle_message_send(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
-    parts = params.get("message", {}).get("parts", [])
-    text = " ".join(str(part.get("text", "")) for part in parts).strip()
+    try:
+        validated = MessageSendParams(**params)
+        parts = validated.message.parts
+    except Exception as e:
+        return _error_response(request_id, -32602, f"Invalid message/send params: {e}")
+    text = " ".join(str(part.text) for part in parts).strip()
     action = {"action": text or "agent.help"}
     try:
         parsed = json.loads(text) if text else None

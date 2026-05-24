@@ -1,13 +1,53 @@
 from __future__ import annotations
 
+import logging
 import os
 import threading
 from typing import Any
 
 from .core import _workspace_root
 
+logger = logging.getLogger(__name__)
+
 _neo4j_driver_lock = threading.Lock()
 _neo4j_driver_cache: dict[str, Any] = {}
+_qdrant_client_lock = threading.Lock()
+_qdrant_client_cache: dict[str, Any] = {}
+
+
+def shutdown_stores() -> None:
+    with _neo4j_driver_lock:
+        for cache_key, driver in list(_neo4j_driver_cache.items()):
+            try:
+                driver.close()
+                logger.info("Closed Neo4j driver for %s", cache_key)
+            except Exception:
+                logger.debug("Error closing Neo4j driver for %s", cache_key, exc_info=True)
+        _neo4j_driver_cache.clear()
+    with _qdrant_client_lock:
+        for url, client in list(_qdrant_client_cache.items()):
+            try:
+                client.close()
+                logger.info("Closed Qdrant client for %s", url)
+            except Exception:
+                logger.debug("Error closing Qdrant client for %s", url, exc_info=True)
+        _qdrant_client_cache.clear()
+    with _embedding_model_lock:
+        _embedding_model_cache.clear()
+
+
+_embedding_model_lock = threading.Lock()
+_embedding_model_cache: dict[str, Any] = {}
+
+
+def _get_embedding_model(model_name: str) -> Any:
+    with _embedding_model_lock:
+        if model_name in _embedding_model_cache:
+            return _embedding_model_cache[model_name]
+        from sentence_transformers import SentenceTransformer  # type: ignore[import-not-found]
+        model = SentenceTransformer(model_name)
+        _embedding_model_cache[model_name] = model
+        return model
 
 
 def query_hybrid_memory(payload: dict[str, Any]) -> dict[str, Any]:
@@ -43,11 +83,19 @@ def query_hybrid_memory(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _get_qdrant_client(qdrant_url: str) -> Any:
+    with _qdrant_client_lock:
+        if qdrant_url in _qdrant_client_cache:
+            return _qdrant_client_cache[qdrant_url]
+        from qdrant_client import QdrantClient  # type: ignore[import-not-found]
+        client = QdrantClient(url=qdrant_url, timeout=5)
+        _qdrant_client_cache[qdrant_url] = client
+        return client
+
+
 def _query_qdrant(query: str, qdrant_url: str) -> list[dict[str, Any]]:
     try:
-        from qdrant_client import QdrantClient
-
-        client = QdrantClient(url=qdrant_url, timeout=5)
+        client = _get_qdrant_client(qdrant_url)
         collections = client.get_collections().collections
         if not collections:
             return []
@@ -84,6 +132,7 @@ def _query_qdrant(query: str, qdrant_url: str) -> list[dict[str, Any]]:
                 )
         return results
     except Exception:
+        logger.debug("Qdrant query failed for url=%s", qdrant_url, exc_info=True)
         return []
 
 
@@ -97,28 +146,25 @@ def _get_embedding(query: str, qdrant_url: str, client: Any) -> list[float] | No
         if not embedding_model:
             return None
         try:
-            from sentence_transformers import SentenceTransformer
-
-            model = SentenceTransformer(embedding_model)
+            model = _get_embedding_model(embedding_model)
             vec = model.encode(query)
-            return vec.tolist()
+            return vec.tolist()  # type: ignore[no-any-return]
         except ImportError:
             return None
     except Exception:
+        logger.debug("Embedding generation failed", exc_info=True)
         return None
 
 
 def _get_neo4j_driver(uri: str, user: str, password: str) -> Any:
     cache_key = f"{uri}:{user}"
-    if cache_key in _neo4j_driver_cache:
-        return _neo4j_driver_cache[cache_key]
-    from neo4j import GraphDatabase
-
-    driver = GraphDatabase.driver(uri, auth=(user, password), max_connection_lifetime=3600)
     with _neo4j_driver_lock:
-        if cache_key not in _neo4j_driver_cache:
-            _neo4j_driver_cache[cache_key] = driver
-        return _neo4j_driver_cache[cache_key]
+        if cache_key in _neo4j_driver_cache:
+            return _neo4j_driver_cache[cache_key]
+        from neo4j import GraphDatabase  # type: ignore[import-not-found]
+        driver = GraphDatabase.driver(uri, auth=(user, password), max_connection_lifetime=3600)
+        _neo4j_driver_cache[cache_key] = driver
+        return driver
 
 
 def _query_neo4j(
@@ -138,4 +184,5 @@ def _query_neo4j(
                 results.append({"name": record["name"], "file": record["file"]})
         return results
     except Exception:
+        logger.debug("Neo4j query failed for symbol=%s", symbol, exc_info=True)
         return []

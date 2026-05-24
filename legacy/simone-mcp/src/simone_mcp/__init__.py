@@ -23,3 +23,7 @@ __all__ = [
     "process_lsp_task",
     "replace_symbol_body",
 ]
+
+import logging
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())

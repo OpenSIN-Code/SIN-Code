@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from collections import OrderedDict
 from datetime import datetime
 from typing import Any
@@ -13,6 +14,7 @@ CLEANUP_EVERY_N = 64
 class ToolCallCorrelation:
     def __init__(self, max_age_seconds: int = 3600, max_calls: int = MAX_ACTIVE_CALLS):
         self._calls: OrderedDict[str, dict[str, Any]] = OrderedDict()
+        self._lock = threading.Lock()
         self.max_age_seconds = max_age_seconds
         self.max_calls = max_calls
         self._op_count = 0
@@ -29,43 +31,47 @@ class ToolCallCorrelation:
             digest = hashlib.sha256(canonical.encode()).hexdigest()
             correlation_id = f"auto_{digest[:8]}_{int(datetime.now().timestamp())}"
 
-        self._calls[correlation_id] = {
-            "tool_name": tool_name,
-            "arguments": arguments,
-            "started_at": datetime.now().isoformat(),
-            "status": "in_progress",
-        }
-        self._calls.move_to_end(correlation_id)
-        self._maybe_evict()
+        with self._lock:
+            self._calls[correlation_id] = {
+                "tool_name": tool_name,
+                "arguments": arguments,
+                "started_at": datetime.now().isoformat(),
+                "status": "in_progress",
+            }
+            self._calls.move_to_end(correlation_id)
+            self._maybe_evict_unlocked()
         return correlation_id
 
     def complete_call(self, correlation_id: str, result: Any, error: str | None = None) -> None:
-        if correlation_id not in self._calls:
-            return
-        self._calls[correlation_id].update(
-            {
-                "status": "completed" if not error else "failed",
-                "completed_at": datetime.now().isoformat(),
-                "result": result,
-                "error": error,
-            }
-        )
-        self._calls.move_to_end(correlation_id)
-        self._op_count += 1
-        if self._op_count % CLEANUP_EVERY_N == 0:
-            self._cleanup_stale()
+        with self._lock:
+            if correlation_id not in self._calls:
+                return
+            self._calls[correlation_id].update(
+                {
+                    "status": "completed" if not error else "failed",
+                    "completed_at": datetime.now().isoformat(),
+                    "result": result,
+                    "error": error,
+                }
+            )
+            self._calls.move_to_end(correlation_id)
+            self._op_count += 1
+            if self._op_count % CLEANUP_EVERY_N == 0:
+                self._cleanup_stale_unlocked()
 
     def get_call_status(self, correlation_id: str) -> dict[str, Any] | None:
-        return self._calls.get(correlation_id)
+        with self._lock:
+            return self._calls.get(correlation_id)
 
     def cleanup_old_calls(self) -> int:
-        return self._cleanup_stale()
+        with self._lock:
+            return self._cleanup_stale_unlocked()
 
-    def _maybe_evict(self) -> None:
+    def _maybe_evict_unlocked(self) -> None:
         while len(self._calls) > self.max_calls:
             self._calls.popitem(last=False)
 
-    def _cleanup_stale(self) -> int:
+    def _cleanup_stale_unlocked(self) -> int:
         now = datetime.now()
         to_remove = [
             cid

@@ -2,7 +2,8 @@
 
 **Agent Type:** Code Worker  
 **Team:** `team-coding`  
-**Maturity:** 🟡 Beta baseline
+**Maturity:** 🟢 Production  
+**MCP Protocol:** 2026-06-30
 
 ## Purpose
 
@@ -28,15 +29,25 @@ Simone MCP closes the gap between lightweight symbol tools and a production-faci
 
 ## Capabilities
 
-| Capability | Type | Status |
-|------------|------|--------|
-| `code.find_symbol` | Tool | ✅ implemented |
-| `code.find_references` | Tool | ✅ implemented |
-| `code.replace_symbol_body` | Tool | ✅ implemented |
-| `code.insert_after_symbol` | Tool | ✅ implemented |
-| `code.project_overview` | Tool | ✅ implemented |
-| `memory.query` | Tool | ✅ facade implemented |
-| `simone.mcp.health` | Tool | ✅ implemented |
+| Capability | Type | Task Support | Status |
+|------------|------|-------------|--------|
+| `sin_simone_mcp_health` | Tool | forbidden | ✅ implemented |
+| `sin_simone_mcp_symbol_search` | Tool | optional | ✅ implemented |
+| `sin_simone_mcp_find_references` | Tool | optional | ✅ implemented |
+| `sin_simone_mcp_structural_edit` | Tool | optional | ✅ implemented |
+| `sin_simone_mcp_memory_query` | Tool | optional | ✅ implemented |
+| `sin_simone_mcp_project_overview` | Tool | forbidden | ✅ implemented |
+
+### MCP 2026-06-30 Features
+
+- Tasks v2 (SEP-2663): `tasks/get` (inline result), `tasks/update`, `tasks/cancel` + `notifications/tasks`; server decides task creation; `resultType: "task"`; `io.modelcontextprotocol/tasks` extension
+- HTTP Headers (SEP-2243): `Mcp-Method`, `Mcp-Name`, `Mcp-Param-*` validation
+- List TTL (SEP-2549): `ttlMs` + `cacheScope` on all list responses
+- Structured output: `structuredContent` + `outputSchema` (JSON Schema 2020-12)
+- Tool `title` and `execution.taskSupport` on all tools
+- `resource_link` type in tool results
+- Input validation as `isError: true` (SEP-1303)
+- `_meta` propagation, version negotiation, SSE retry
 
 ## Endpoints
 

@@ -12,8 +12,8 @@
   <a href="https://fastapi.tiangolo.com/">
     <img src="https://img.shields.io/badge/FastAPI-005571?logo=fastapi" alt="FastAPI" />
   </a>
-  <a href="https://github.com/modelcontextprotocol">
-    <img src="https://img.shields.io/badge/MCP-2.0-068A0A?logo=mcp" alt="MCP Protocol" />
+   <a href="https://github.com/modelcontextprotocol">
+    <img src="https://img.shields.io/badge/MCP-2026--06--30-068A0A?logo=mcp" alt="MCP Protocol" />
   </a>
   <a href="https://github.com/Delqhi/Simone-MCP/stargazers">
     <img src="https://img.shields.io/badge/A2A-Ready-7B3FE4" alt="A2A Ready" />
@@ -34,7 +34,7 @@
 </p>
 
 <p align="center">
-  <em>Production-grade Code-Worker with symbol operations, dual MCP transports, OAuth 2.1 readiness, and hybrid memory integrations.</em>
+  <em>Production-grade Code-Worker with MCP 2026-06-30 compliance, symbol operations, dual transports, Tasks v2 (SEP-2663), structured output, HTTP header standardization (SEP-2243), list TTL (SEP-2549), OAuth 2.1 readiness, and hybrid memory integrations.</em>
 </p>
 
 ---
@@ -81,6 +81,7 @@
 | Capability | Description | Status |
 |:---|:---|:---:|
 | **Symbol Operations** | AST-level find, replace, and insert for Python functions and classes | ✅ |
+| **MCP 2026-06-30** | Tasks v2 (SEP-2663), HTTP headers (SEP-2243), list TTL (SEP-2549), structured output, outputSchema, resource_link, _meta propagation | ✅ |
 | **Dual Transport** | stdio for local clients + streamable HTTP for remote deployments | ✅ |
 | **A2A Integration** | JSON-RPC endpoint for agent-to-agent communication | ✅ |
 | **OAuth 2.1 Ready** | Bearer token validation with JWKS support | ✅ |
@@ -92,16 +93,38 @@
 <details>
 <summary>📦 Full tool surface</summary>
 
-| Tool | Type | Description |
-|:---|:---|:---|
-| `code.find_symbol` | Read | Locate symbol definitions across workspace |
-| `code.find_references` | Read | Find textual references to a symbol |
-| `code.replace_symbol_body` | Write | Replace the body of a Python function |
-| `code.insert_after_symbol` | Write | Insert text immediately after a symbol block |
-| `code.project_overview` | Read | Summarize workspace footprint and file types |
-| `memory.query` | Read | Hybrid memory search via Qdrant + Neo4j |
-| `simone.mcp.health` | Meta | Server health check and status |
-| `agent.help` | Meta | List all available actions and capabilities |
+| Tool | Title | Type | Task Support | Description |
+|:---|:---|:---|:---|:---|
+| `sin_simone_mcp_health` | Health Check | Meta | forbidden | Server health check and status |
+| `sin_simone_mcp_symbol_search` | Symbol Search | Read | optional | Locate symbol definitions across workspace |
+| `sin_simone_mcp_find_references` | Find References | Read | optional | Find textual references to a symbol |
+| `sin_simone_mcp_structural_edit` | Structural Edit | Write | optional | Replace/insert code via structural payload |
+| `sin_simone_mcp_memory_query` | Memory Query | Read | optional | Hybrid memory search via Qdrant + Neo4j |
+| `sin_simone_mcp_project_overview` | Project Overview | Read | forbidden | Summarize workspace footprint and file types |
+
+All tools provide `outputSchema` (JSON Schema 2020-12) and `structuredContent` alongside text.
+
+</details>
+
+<details>
+<summary>🧩 MCP 2026-06-30 Features</summary>
+
+| Feature | Description |
+|:---|:---|
+| **Tasks v2 (SEP-2663)** | `tasks/get` (inline result), `tasks/update`, `tasks/cancel` + `notifications/tasks` — server decides task creation autonomously |
+| **HTTP Headers (SEP-2243)** | `Mcp-Method`, `Mcp-Name`, `Mcp-Param-*` header validation with `-32001` HeaderMismatch error |
+| **List TTL (SEP-2549)** | `ttlMs` + `cacheScope` on all list responses (tools, resources, prompts, templates) |
+| **Structured Output** | `structuredContent` + `outputSchema` on all tool results |
+| **Tool Title & Icons** | `title` field on all tools, `execution.taskSupport` (forbidden/optional/required) |
+| **Resource Links** | `resource_link` type in tool results for file references |
+| **Input Validation (SEP-1303)** | Validation errors return `isError: true`, not JSON-RPC protocol errors |
+| **_meta Propagation** | Request `_meta` echoed in all response results |
+| **Logging Notifications** | `notifications/message` emitted on `logging/setLevel` |
+| **Version Negotiation** | Highest `<=` client version selected during initialize |
+| **SSE Retry** | `retry:` field in SSE streams |
+| **MCP-Protocol-Version Header** | HTTP request/response header support |
+| **Session Cleanup** | `DELETE /mcp` cleans up session + task store |
+| **Extensions** | `io.modelcontextprotocol/tasks` extension declaration |
 
 </details>
 

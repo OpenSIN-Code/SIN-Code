@@ -2,7 +2,7 @@
   "name": "simone-mcp",
   "displayName": "Simone MCP",
   "description": "Production-grade MCP 2.0 code worker with streamable HTTP, stdio transport, symbol operations, OAuth 2.1 readiness, and hybrid memory.",
-  "version": "2026.04.12",
+  "version": "2026.06.30",
   "url": "http://localhost:8234",
   "capabilities": [
     "code.find_symbol",

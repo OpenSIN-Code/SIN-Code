@@ -218,19 +218,19 @@ def test_correlation_auto_cleanup():
 
 
 def test_a2a_agent_discover():
-    result = asyncio.run(handle_a2a_request({"id": "1", "method": "agent.discover"}, "http://localhost:8234"))
+    result = asyncio.run(handle_a2a_request({"id": "1", "jsonrpc": "2.0", "method": "agent.discover"}, "http://localhost:8234"))
     assert result["id"] == "1"
     assert result["result"]["name"] == "simone-mcp"
 
 
 def test_a2a_agent_ping():
-    result = asyncio.run(handle_a2a_request({"id": "2", "method": "agent.ping"}, "http://localhost:8234"))
+    result = asyncio.run(handle_a2a_request({"id": "2", "jsonrpc": "2.0", "method": "agent.ping"}, "http://localhost:8234"))
     assert result["result"]["status"] == "alive"
     assert "timestamp" in result["result"]
 
 
 def test_a2a_tool_list():
-    result = asyncio.run(handle_a2a_request({"id": "3", "method": "tool.list"}, "http://localhost:8234"))
+    result = asyncio.run(handle_a2a_request({"id": "3", "jsonrpc": "2.0", "method": "tool.list"}, "http://localhost:8234"))
     assert "tools" in result["result"]
     assert len(result["result"]["tools"]) >= 5
 
@@ -238,7 +238,7 @@ def test_a2a_tool_list():
 def test_a2a_tool_call():
     result = asyncio.run(
         handle_a2a_request(
-            {"id": "4", "method": "tool.call", "params": {"tool_name": "simone.mcp.health"}},
+            {"id": "4", "jsonrpc": "2.0", "method": "tool.call", "params": {"name": "simone.mcp.health"}},
             "http://localhost:8234",
         )
     )
@@ -247,7 +247,7 @@ def test_a2a_tool_call():
 
 
 def test_a2a_unknown_method():
-    result = asyncio.run(handle_a2a_request({"id": "5", "method": "nonexistent"}, "http://localhost:8234"))
+    result = asyncio.run(handle_a2a_request({"id": "5", "jsonrpc": "2.0", "method": "nonexistent"}, "http://localhost:8234"))
     assert "error" in result
     assert result["error"]["code"] == -32601
 
@@ -257,6 +257,7 @@ def test_a2a_message_send():
         handle_a2a_request(
             {
                 "id": "6",
+                "jsonrpc": "2.0",
                 "method": "message/send",
                 "params": {
                     "message": {
@@ -279,6 +280,7 @@ def test_a2a_message_send_plain_text():
         handle_a2a_request(
             {
                 "id": "7",
+                "jsonrpc": "2.0",
                 "method": "message/send",
                 "params": {
                     "message": {
@@ -295,9 +297,494 @@ def test_a2a_message_send_plain_text():
 def test_a2a_tasks_get():
     result = asyncio.run(
         handle_a2a_request(
-            {"id": "8", "method": "tasks/get", "params": {"id": "task-123"}},
+            {"id": "8", "jsonrpc": "2.0", "method": "tasks/get", "params": {"id": "task-123"}},
             "http://localhost:8234",
         )
     )
     assert result["result"]["id"] == "task-123"
     assert result["result"]["status"]["state"] == "completed"
+
+
+def test_a2a_invalid_jsonrpc_version():
+    result = asyncio.run(
+        handle_a2a_request(
+            {"id": "9", "jsonrpc": "1.0", "method": "agent.ping"},
+            "http://localhost:8234",
+        )
+    )
+    assert "error" in result
+    assert result["error"]["code"] == -32600
+
+
+def test_a2a_missing_method():
+    result = asyncio.run(
+        handle_a2a_request(
+            {"id": "10", "jsonrpc": "2.0"},
+            "http://localhost:8234",
+        )
+    )
+    assert "error" in result
+    assert result["error"]["code"] == -32600
+
+
+def test_pydantic_schemas_jsonrpc_validation():
+    from simone_mcp.schemas import JsonRpcRequest
+    valid = JsonRpcRequest(jsonrpc="2.0", id="1", method="test")
+    assert valid.jsonrpc == "2.0"
+    try:
+        JsonRpcRequest(jsonrpc="1.0", id="1", method="test")
+        assert False, "Should have raised validation error"
+    except Exception:
+        pass
+
+
+def test_pydantic_schemas_tool_call_params():
+    from simone_mcp.schemas import ToolCallParams
+    valid = ToolCallParams(name="code.find_symbol", arguments={"symbol": "foo"})
+    assert valid.tool_name == "code.find_symbol"
+    try:
+        ToolCallParams(name="", arguments={})
+        assert False, "Should have raised validation error"
+    except Exception:
+        pass
+
+
+def test_pydantic_schemas_find_symbol_args():
+    from simone_mcp.schemas import FindSymbolArgs
+    valid = FindSymbolArgs(symbol="my_func")
+    assert valid.symbol == "my_func"
+    try:
+        FindSymbolArgs(symbol="")
+        assert False, "Should have raised validation error"
+    except Exception:
+        pass
+
+
+def test_treesitter_candidate_files_includes_js_ts(tmp_path: Path):
+    (tmp_path / "app.py").write_text("def foo(): pass\n", encoding="utf-8")
+    (tmp_path / "app.js").write_text("function bar() {}\n", encoding="utf-8")
+    (tmp_path / "app.ts").write_text("function baz() {}\n", encoding="utf-8")
+    (tmp_path / "app.mjs").write_text("export const qux = () => {};\n", encoding="utf-8")
+    from simone_mcp.core import _candidate_files
+    paths = _candidate_files(tmp_path)
+    suffixes = {p.suffix for p in paths}
+    assert ".py" in suffixes
+    assert ".js" in suffixes
+    assert ".ts" in suffixes
+    assert ".mjs" in suffixes
+
+
+def test_hybrid_memory_shutdown():
+    from simone_mcp.hybrid_memory import shutdown_stores
+    shutdown_stores()
+
+
+def test_correlation_thread_safety():
+    import threading
+    corr = ToolCallCorrelation(max_calls=100)
+    errors: list[str] = []
+
+    def worker(start: int):
+        try:
+            for i in range(50):
+                cid = corr.generate_correlation_id(f"tool_{start+i}", {"idx": i})
+                corr.complete_call(cid, {"ok": True})
+        except Exception as e:
+            errors.append(str(e))
+
+    threads = [threading.Thread(target=worker, args=(s,)) for s in range(0, 200, 50)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert not errors
+
+
+def test_js_regex_fallback(tmp_path: Path):
+    js_file = tmp_path / "app.js"
+    js_file.write_text(
+        "function myFunc() { return 1; }\n"
+        "class MyClass {}\n"
+        "const myArrow = () => {};\n",
+        encoding="utf-8",
+    )
+    from simone_mcp.core import _extract_symbols_js_regex
+    symbols = _extract_symbols_js_regex(js_file)
+    names = {s["symbol"] for s in symbols}
+    assert "myFunc" in names
+    assert "MyClass" in names
+    assert "myArrow" in names
+
+
+def test_a2a_message_send_invalid_params():
+    result = asyncio.run(
+        handle_a2a_request(
+            {
+                "id": "20",
+                "jsonrpc": "2.0",
+                "method": "message/send",
+                "params": {"garbage": True},
+            },
+            "http://localhost:8234",
+        )
+    )
+    assert "error" in result
+    assert result["error"]["code"] == -32602
+
+
+def test_pydantic_replace_symbol_body_requires_body():
+    from simone_mcp.schemas import ReplaceSymbolBodyArgs
+    try:
+        ReplaceSymbolBodyArgs(symbol="foo", file="bar.py", body="")
+        assert False, "Should require non-empty body"
+    except Exception:
+        pass
+
+
+def test_pydantic_insert_after_requires_text():
+    from simone_mcp.schemas import InsertAfterSymbolArgs
+    try:
+        InsertAfterSymbolArgs(symbol="foo", file="bar.py", text="")
+        assert False, "Should require non-empty text"
+    except Exception:
+        pass
+
+
+def test_path_traversal_blocked(tmp_path: Path):
+    from simone_mcp.core import replace_symbol_body, insert_after_symbol
+    source = tmp_path / "safe.py"
+    source.write_text("def foo():\n    pass\n", encoding="utf-8")
+    result = replace_symbol_body(
+        {"symbol": "foo", "file": str(source), "body": "return 1", "root": str(tmp_path)}
+    )
+    assert result["ok"] is True
+    result = replace_symbol_body(
+        {"symbol": "foo", "file": "/etc/passwd", "body": "hacked", "root": str(tmp_path)}
+    )
+    assert result["ok"] is False
+    result = insert_after_symbol(
+        {"symbol": "foo", "file": "/etc/passwd", "text": "evil", "root": str(tmp_path)}
+    )
+    assert result["ok"] is False
+
+
+# ─── SEP-2663: Tasks Extension v2 ──────────────────────────────────────────────
+
+def test_sep2663_protocol_version():
+    from simone_mcp.protocol import PROTOCOL_VERSION, SUPPORTED_VERSIONS
+    assert PROTOCOL_VERSION == "2026-06-30"
+    assert "2026-06-30" in SUPPORTED_VERSIONS
+    assert "2025-11-25" in SUPPORTED_VERSIONS
+
+
+def test_sep2663_initialize_declares_tasks_extension():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, session_id, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "initialize", "params": {"protocolVersion": "2026-06-30"}},
+        session_id=None,
+    ))
+    caps = resp["result"]["capabilities"]
+    assert "tasks" in caps
+    assert "update" in caps["tasks"]
+    assert "cancel" in caps["tasks"]
+    assert "list" not in caps["tasks"]
+    assert "extensions" in caps
+    ext_uris = [e["uri"] for e in caps["extensions"]]
+    assert "io.modelcontextprotocol/tasks" in ext_uris
+
+
+def test_sep2663_server_creates_task_autonomously():
+    from simone_mcp.protocol import handle_mcp_request, _task_store, _task_store_lock
+    resp, sid, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "2", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "foo"}}},
+        session_id="test-session",
+    ))
+    result = resp["result"]
+    assert result.get("resultType") == "task"
+    assert "task" in result
+    assert result["task"]["status"] == "working"
+    assert "io.modelcontextprotocol/tasks" in result.get("_meta", {})
+
+
+def test_sep2663_tasks_get_returns_inline_result():
+    from simone_mcp.protocol import handle_mcp_request, _task_store, _task_store_lock, _update_task
+    resp, sid, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "3", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "bar"}}},
+        session_id="test-session-inline",
+    ))
+    task_id = resp["result"]["task"]["taskId"]
+    _update_task(task_id, "completed", result={"ok": True, "count": 0, "matches": []})
+    resp2, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "4", "method": "tasks/get", "params": {"taskId": task_id}},
+        session_id="test-session-inline",
+    ))
+    task_obj = resp2["result"]
+    assert task_obj["status"] == "completed"
+    assert task_obj["result"] == {"ok": True, "count": 0, "matches": []}
+
+
+def test_sep2663_tasks_get_failed_task_has_error():
+    from simone_mcp.protocol import handle_mcp_request, _task_store, _task_store_lock, _update_task
+    resp, sid, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "5", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "baz"}}},
+        session_id="test-session-fail",
+    ))
+    task_id = resp["result"]["task"]["taskId"]
+    _update_task(task_id, "failed", error="something broke")
+    resp2, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "6", "method": "tasks/get", "params": {"taskId": task_id}},
+        session_id="test-session-fail",
+    ))
+    task_obj = resp2["result"]
+    assert task_obj["status"] == "failed"
+    assert task_obj["error"] == "something broke"
+
+
+def test_sep2663_tasks_update_resumes_input_required():
+    from simone_mcp.protocol import handle_mcp_request, _update_task
+    resp, sid, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "7", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "qux"}}},
+        session_id="test-session-update",
+    ))
+    task_id = resp["result"]["task"]["taskId"]
+    _update_task(task_id, "input_required", statusMessage="Need more input")
+    resp2, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "8", "method": "tasks/update", "params": {"taskId": task_id, "input": {"extra": "data"}}},
+        session_id="test-session-update",
+    ))
+    assert resp2["result"]["status"] == "working"
+
+
+def test_sep2663_tasks_update_rejects_non_input_required():
+    from simone_mcp.protocol import handle_mcp_request, _update_task
+    resp, sid, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "9", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "quux"}}},
+        session_id="test-session-update-reject",
+    ))
+    task_id = resp["result"]["task"]["taskId"]
+    resp2, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "10", "method": "tasks/update", "params": {"taskId": task_id, "input": {}}},
+        session_id="test-session-update-reject",
+    ))
+    assert "error" in resp2
+    assert resp2["error"]["code"] == -32602
+    assert "not awaiting input" in resp2["error"]["message"]
+
+
+def test_sep2663_removed_tasks_result_returns_method_not_found():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "11", "method": "tasks/result", "params": {"taskId": "nonexistent"}},
+        session_id="test-removed",
+    ))
+    assert "error" in resp
+    assert resp["error"]["code"] == -32601
+
+
+def test_sep2663_removed_tasks_list_returns_method_not_found():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "12", "method": "tasks/list", "params": {}},
+        session_id="test-removed2",
+    ))
+    assert "error" in resp
+    assert resp["error"]["code"] == -32601
+
+
+def test_sep2663_notifications_tasks_not_status():
+    from simone_mcp.protocol import _run_task, _create_task, _get_task, _update_task
+    notifications_sent = []
+
+    async def capture_notification(n):
+        notifications_sent.append(n)
+
+    task = _create_task("sin_simone_mcp_symbol_search", {"query": "test"}, "test-notif-session")
+    _update_task(task["id"], "completed", result={"ok": True, "count": 0, "matches": []})
+    asyncio.run(_run_task(task["id"], {"action": "sin_simone_mcp_symbol_search", "query": "test"}, capture_notification))
+    for n in notifications_sent:
+        assert n["method"] == "notifications/tasks"
+        assert n["method"] != "notifications/tasks/status"
+
+
+def test_sep2663_tasks_cancel_still_works():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, sid, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "13", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "cancel-test"}}},
+        session_id="test-cancel-session",
+    ))
+    task_id = resp["result"]["task"]["taskId"]
+    resp2, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "14", "method": "tasks/cancel", "params": {"taskId": task_id}},
+        session_id="test-cancel-session",
+    ))
+    assert resp2["result"]["status"] == "cancelled"
+
+
+# ─── SEP-2243: HTTP Header Standardization ─────────────────────────────────────
+
+def test_sep2243_mcp_method_header_mismatch():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+
+    async def _test():
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            init_resp = await client.post("/mcp", json={"jsonrpc": "2.0", "id": "1", "method": "initialize", "params": {"protocolVersion": "2026-06-30"}})
+            session_id = init_resp.headers.get("mcp-session-id")
+            headers = {"Mcp-Session-Id": session_id, "Mcp-Method": "tools/list"}
+            resp = await client.post("/mcp", json={"jsonrpc": "2.0", "id": "2", "method": "tools/call", "params": {"name": "sin_simone_mcp_health"}}, headers=headers)
+            body = resp.json()
+            assert "error" in body
+            assert body["error"]["code"] == -32001
+            assert "HeaderMismatch" in body["error"]["message"]
+
+    asyncio.run(_test())
+
+
+def test_sep2243_mcp_method_header_matches():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+
+    async def _test():
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            init_resp = await client.post("/mcp", json={"jsonrpc": "2.0", "id": "1", "method": "initialize", "params": {"protocolVersion": "2026-06-30"}})
+            session_id = init_resp.headers.get("mcp-session-id")
+            headers = {"Mcp-Session-Id": session_id, "Mcp-Method": "ping"}
+            resp = await client.post("/mcp", json={"jsonrpc": "2.0", "id": "2", "method": "ping"}, headers=headers)
+            body = resp.json()
+            assert "result" in body
+            assert "error" not in body
+
+    asyncio.run(_test())
+
+
+def test_sep2243_mcp_name_header_mismatch():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+
+    async def _test():
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            init_resp = await client.post("/mcp", json={"jsonrpc": "2.0", "id": "1", "method": "initialize", "params": {"protocolVersion": "2026-06-30"}})
+            session_id = init_resp.headers.get("mcp-session-id")
+            headers = {"Mcp-Session-Id": session_id, "Mcp-Method": "tools/call", "Mcp-Name": "wrong_tool"}
+            resp = await client.post("/mcp", json={"jsonrpc": "2.0", "id": "2", "method": "tools/call", "params": {"name": "sin_simone_mcp_health"}}, headers=headers)
+            body = resp.json()
+            assert "error" in body
+            assert body["error"]["code"] == -32001
+            assert "Mcp-Name" in body["error"]["message"]
+
+    asyncio.run(_test())
+
+
+def test_sep2243_mcp_param_header_mismatch():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+
+    async def _test():
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            init_resp = await client.post("/mcp", json={"jsonrpc": "2.0", "id": "1", "method": "initialize", "params": {"protocolVersion": "2026-06-30"}})
+            session_id = init_resp.headers.get("mcp-session-id")
+            headers = {"Mcp-Session-Id": session_id, "Mcp-Method": "tools/call", "Mcp-Name": "sin_simone_mcp_symbol_search", "Mcp-Param-Query": "wrong_value"}
+            resp = await client.post("/mcp", json={"jsonrpc": "2.0", "id": "2", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "actual_query"}}}, headers=headers)
+            body = resp.json()
+            assert "error" in body
+            assert body["error"]["code"] == -32001
+            assert "Mcp-Param-" in body["error"]["message"]
+
+    asyncio.run(_test())
+
+
+def test_sep2243_mcp_name_header_matches():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+
+    async def _test():
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            init_resp = await client.post("/mcp", json={"jsonrpc": "2.0", "id": "1", "method": "initialize", "params": {"protocolVersion": "2026-06-30"}})
+            session_id = init_resp.headers.get("mcp-session-id")
+            headers = {"Mcp-Session-Id": session_id, "Mcp-Method": "tools/call", "Mcp-Name": "sin_simone_mcp_health"}
+            resp = await client.post("/mcp", json={"jsonrpc": "2.0", "id": "2", "method": "tools/call", "params": {"name": "sin_simone_mcp_health"}}, headers=headers)
+            body = resp.json()
+            assert "result" in body
+
+    asyncio.run(_test())
+
+
+# ─── SEP-2549: TTL for List Results ────────────────────────────────────────────
+
+def test_sep2549_tools_list_has_ttl():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "20", "method": "tools/list", "params": {}},
+        session_id="test-ttl",
+    ))
+    result = resp["result"]
+    assert "ttlMs" in result
+    assert "cacheScope" in result
+    assert isinstance(result["ttlMs"], int)
+    assert result["cacheScope"] == "session"
+
+
+def test_sep2549_resources_list_has_ttl():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "21", "method": "resources/list", "params": {}},
+        session_id="test-ttl2",
+    ))
+    result = resp["result"]
+    assert "ttlMs" in result
+    assert result["cacheScope"] == "session"
+
+
+def test_sep2549_resource_templates_list_has_ttl():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "22", "method": "resources/templates/list", "params": {}},
+        session_id="test-ttl3",
+    ))
+    result = resp["result"]
+    assert "ttlMs" in result
+    assert result["cacheScope"] == "session"
+
+
+def test_sep2549_prompts_list_has_ttl():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "23", "method": "prompts/list", "params": {}},
+        session_id="test-ttl4",
+    ))
+    result = resp["result"]
+    assert "ttlMs" in result
+    assert result["cacheScope"] == "session"
+
+
+# ─── Schema updates for SEP-2663 ──────────────────────────────────────────────
+
+def test_sep2663_task_update_args_schema():
+    from simone_mcp.schemas import TaskUpdateArgs
+    valid = TaskUpdateArgs(taskId="abc123", input={"extra": "data"})
+    assert valid.taskId == "abc123"
+    assert valid.input == {"extra": "data"}
+
+
+def test_sep2663_task_list_args_removed():
+    from simone_mcp.schemas import TOOL_ARG_MODELS
+    assert "tasks/list" not in TOOL_ARG_MODELS
+    assert "tasks/update" in TOOL_ARG_MODELS
+
+
+def test_sep2663_task_get_args_schema():
+    from simone_mcp.schemas import TaskGetArgs
+    valid = TaskGetArgs(taskId="abc")
+    assert valid.taskId == "abc"
+    alias_valid = TaskGetArgs(id="xyz")
+    assert alias_valid.taskId == "xyz"
