@@ -485,19 +485,11 @@ def get_project_overview(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+from .hybrid_memory import query_hybrid_memory as _query_hybrid_memory_impl
+
+
 def query_hybrid_memory(payload: dict[str, Any]) -> dict[str, Any]:
-    query = str(payload.get("query") or "").strip()
-    qdrant_url = os.getenv("QDRANT_URL", "")
-    neo4j_uri = os.getenv("NEO4J_URI", "")
-    enabled = bool(qdrant_url and neo4j_uri)
-    return {
-        "ok": True,
-        "enabled": enabled,
-        "query": query,
-        "vectorStore": qdrant_url or None,
-        "graphStore": neo4j_uri or None,
-        "matches": [],
-    }
+    return _query_hybrid_memory_impl(payload)
 
 
 async def execute_simone_action(payload: dict[str, Any]) -> dict[str, Any]:

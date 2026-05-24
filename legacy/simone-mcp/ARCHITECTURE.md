@@ -9,22 +9,45 @@ Simone MCP uses a Python-first architecture with two transport modes:
 
 The implementation is intentionally split so symbol logic stays importable without requiring the HTTP stack during local tests.
 
+## Core Engines
+
+### LibCST Engine (lossless AST manipulation)
+
+When `libcst` is installed, `replace_symbol_body` uses LibCST's Concrete Syntax Tree instead of Python's native `ast`. LibCST preserves **100% of comments, docstrings, and whitespace formatting** — unlike `ast` which discards them on round-trip. Falls back to `ast` when LibCST is not available.
+
+### Jedi Engine (cross-file symbol resolution)
+
+When `jedi` is installed, `find_references` uses Jedi's AST/goto-based resolution instead of regex. Jedi resolves symbols across files with IDE-level precision (equivalent to JetBrains PSI). Falls back to regex when Jedi is not available.
+
+Both engines report which backend was used via the `engine` field in responses.
+
+## Tool Call Correlation
+
+Every `tools/call` request gets a correlation ID:
+- If the client provides `_meta.tool_call_id`, that ID is used
+- Otherwise a SHA-256 hash of tool name + arguments is generated
+- Correlation state is tracked (in_progress → completed/failed)
+- Stale entries are cleaned up automatically
+
 ## Current runtime layout
 
 ```mermaid
 graph TD
     Client[OpenCode or Codex] -->|stdio| Stdio[MCP stdio loop]
     Client -->|HTTP| Http[FastAPI app]
-    Http --> A2A[A2A JSON-RPC]
+    Http --> A2A[A2A JSON-RPC handler]
     Http --> MCP[MCP streamable HTTP]
     Http --> Meta[Well-known metadata]
     Stdio --> Core[Symbol and action core]
     A2A --> Core
-    MCP --> Core
+    MCP --> Correlation[Tool Call Correlation]
+    Correlation --> Core
+    Core --> LibCST[LibCST engine]
+    Core --> Jedi[Jedi engine]
     Core --> Files[Python AST file operations]
-    Core --> Memory[Hybrid memory facade]
-    Memory --> Qdrant[Qdrant]
-    Memory --> Neo4j[Neo4j]
+    Core --> Memory[Hybrid memory]
+    Memory --> Qdrant[Qdrant vector search]
+    Memory --> Neo4j[Neo4j graph traversal]
 ```
 
 ## Why this shape
@@ -68,7 +91,7 @@ Implemented behavior:
 
 - `initialize` returns protocol/version metadata and a session id
 - `tools/list` returns the tool registry
-- `tools/call` executes the action surface
+- `tools/call` executes the action surface with correlation tracking
 - `GET /mcp` opens an SSE-compatible event stream response
 - `DELETE /mcp` accepts explicit session shutdown
 
@@ -76,22 +99,22 @@ Implemented behavior:
 
 The current implementation provides:
 
-- symbol lookup
-- textual reference search
-- Python function body replacement
-- insertion after a Python symbol block
-- workspace overview
+- symbol lookup (`code.find_symbol`)
+- cross-file reference search (`code.find_references`) — Jedi or regex
+- Python function body replacement (`code.replace_symbol_body`) — LibCST or ast
+- insertion after a Python symbol block (`code.insert_after_symbol`)
+- workspace overview (`code.project_overview`)
 - health and help actions
-- hybrid memory query facade
+- hybrid memory query with live Qdrant/Neo4j integration
 
 ## Memory strategy
 
 Simone uses a hybrid memory contract:
 
-- Qdrant for vector recall
-- Neo4j for relationship-aware expansion
+- **Qdrant** for vector recall — queries collection metadata and point counts
+- **Neo4j** for relationship-aware expansion — traces CALLS/IMPORTS edges from target symbols
 
-The current repo implements the integration surface and configuration contract first, while keeping the query path safe when those backends are not configured.
+When both backends are configured, queries execute against both and merge results. When neither is configured, the facade returns an empty result set with `enabled: false`.
 
 ## A2A surface
 
@@ -99,8 +122,10 @@ The current repo implements the integration surface and configuration contract f
 
 Implemented methods:
 
-- `agent/getCard`
-- `message/send`
+- `agent.discover` — returns the agent card
+- `agent.ping` — health check with timestamp
+- `tool.list` — lists available MCP tools
+- `tool.call` — executes a tool with correlation tracking
 
 The A2A layer translates incoming actions into the same core execution surface used by MCP.
 
@@ -113,6 +138,18 @@ Simone publishes:
 - `/.well-known/oauth-client.json`
 - `/.well-known/oauth-authorization-server`
 
+## CLI commands
+
+| Command | Description |
+|---------|-------------|
+| `serve` | Start HTTP/A2A server (port 8234) |
+| `serve-mcp` | Start MCP stdio server |
+| `print-card` | Print agent discovery card |
+| `run-action JSON` | Execute a tool action |
+| `index [PATH]` | Show project overview |
+| `validate` | Validate server configuration |
+| `tool-list` | List available MCP tools |
+
 ## Deployment model
 
 ### Local
@@ -123,8 +160,10 @@ Simone publishes:
 
 ### Container
 
-- single Docker image
-- uv-based install path
+- multi-stage Docker build (builder + production)
+- uv-based install for fast dependency resolution
+- non-root user (`simone`)
+- health check endpoint
 - docker-compose stack with Qdrant and Neo4j
 
 ### Hugging Face Spaces
@@ -135,6 +174,7 @@ Use Spaces as compute and UI. Keep durable state in external systems or mounted 
 
 - `pytest tests/ -v`
 - `python3 src/cli.py print-card`
+- `python3 src/cli.py validate`
 - `python3 src/cli.py run-action '{"action":"simone.mcp.health"}'`
 - stdio initialize/tools flow
 - HTTP health and metadata endpoints

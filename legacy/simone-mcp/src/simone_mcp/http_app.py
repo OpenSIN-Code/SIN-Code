@@ -10,6 +10,8 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 import jwt
 
+from .a2a_handler import handle_a2a_request
+from .correlation import correlation_manager
 from .core import (
     A2A_ENDPOINT,
     MCP_ENDPOINT,
@@ -119,7 +121,23 @@ async def _mcp_post(request: Request) -> JSONResponse | StreamingResponse:
         arguments = params.get("arguments", {})
         action = dict(arguments)
         action["action"] = name
-        result = await execute_simone_action(action)
+        tool_call_id = params.get("_meta", {}).get("tool_call_id") if isinstance(params.get("_meta"), dict) else None
+        correlation_id = correlation_manager.generate_correlation_id(
+            name, arguments, tool_call_id
+        )
+        try:
+            result = await execute_simone_action(action)
+            correlation_manager.complete_call(correlation_id, result)
+        except Exception as e:
+            correlation_manager.complete_call(correlation_id, None, str(e))
+            return JSONResponse(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {"code": -32603, "message": str(e)},
+                },
+                headers=headers,
+            )
         return JSONResponse(
             {
                 "jsonrpc": "2.0",
@@ -127,6 +145,7 @@ async def _mcp_post(request: Request) -> JSONResponse | StreamingResponse:
                 "result": {
                     "content": [{"type": "text", "text": json_dumps(result)}],
                     "isError": not result.get("ok", False),
+                    "_meta": {"correlation_id": correlation_id},
                 },
             },
             headers=headers,
@@ -200,59 +219,9 @@ def create_app() -> FastAPI:
     @app.post(A2A_ENDPOINT)
     async def a2a_rpc(request: Request) -> JSONResponse:
         payload = await request.json()
-        method = payload.get("method")
-        request_id = payload.get("id")
-        if method == "agent/getCard":
-            return JSONResponse(
-                {
-                    "jsonrpc": "2.0",
-                    "id": request_id,
-                    "result": build_agent_card(_base_url(request)),
-                }
-            )
-        if method == "message/send":
-            params = payload.get("params", {})
-            parts = params.get("message", {}).get("parts", [])
-            text = " ".join(str(part.get("text", "")) for part in parts).strip()
-            action = {"action": text or "agent.help"}
-            try:
-                parsed = json.loads(text) if text else None
-                if isinstance(parsed, dict) and isinstance(parsed.get("action"), str):
-                    action = parsed
-            except json.JSONDecodeError:
-                pass
-            result = await execute_simone_action(action)
-            body = {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "result": {
-                    "id": str(uuid.uuid4()),
-                    "kind": "task",
-                    "status": {
-                        "state": "completed",
-                        "message": {
-                            "role": "agent",
-                            "parts": [{"type": "text", "text": "completed"}],
-                        },
-                    },
-                    "artifacts": [
-                        {
-                            "id": str(uuid.uuid4()),
-                            "name": action.get("action", "agent.help"),
-                            "parts": [{"type": "data", "data": result}],
-                        }
-                    ],
-                },
-            }
-            return JSONResponse(body)
-        return JSONResponse(
-            {
-                "jsonrpc": "2.0",
-                "id": request_id,
-                "error": {"code": -32601, "message": "Method not found"},
-            },
-            status_code=404,
-        )
+        base_url = _base_url(request)
+        result = await handle_a2a_request(payload, base_url)
+        return JSONResponse(result)
 
     @app.api_route(MCP_ENDPOINT, methods=["GET", "POST", "DELETE"])
     async def mcp_endpoint(request: Request):

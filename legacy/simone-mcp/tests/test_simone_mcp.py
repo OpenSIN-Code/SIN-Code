@@ -4,7 +4,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 sys.path.insert(0, str(SRC))
@@ -21,6 +20,8 @@ from mcp_server import (  # noqa: E402
     process_lsp_task,
     replace_symbol_body,
 )
+from simone_mcp.correlation import ToolCallCorrelation  # noqa: E402
+from simone_mcp.a2a_handler import handle_a2a_request  # noqa: E402
 
 
 def test_cli_print_card():
@@ -154,3 +155,77 @@ def test_insert_after_preserves_rest(tmp_path: Path):
     content = source.read_text(encoding="utf-8")
     assert "def second" in content
     assert "# after first" in content
+
+
+def test_correlation_generate_and_complete():
+    corr = ToolCallCorrelation()
+    cid = corr.generate_correlation_id("test_tool", {"arg": "value"})
+    status = corr.get_call_status(cid)
+    assert status is not None
+    assert status["status"] == "in_progress"
+    assert status["tool_name"] == "test_tool"
+
+    corr.complete_call(cid, {"ok": True})
+    status = corr.get_call_status(cid)
+    assert status["status"] == "completed"
+    assert status["result"] == {"ok": True}
+
+
+def test_correlation_with_provided_id():
+    corr = ToolCallCorrelation()
+    cid = corr.generate_correlation_id("test_tool", {}, provided_id="custom-123")
+    assert cid == "custom-123"
+    status = corr.get_call_status(cid)
+    assert status is not None
+
+
+def test_correlation_failure_tracking():
+    corr = ToolCallCorrelation()
+    cid = corr.generate_correlation_id("failing_tool", {})
+    corr.complete_call(cid, None, error="something broke")
+    status = corr.get_call_status(cid)
+    assert status["status"] == "failed"
+    assert status["error"] == "something broke"
+
+
+def test_correlation_cleanup():
+    corr = ToolCallCorrelation(max_age_seconds=0)
+    cid = corr.generate_correlation_id("old_tool", {})
+    removed = corr.cleanup_old_calls()
+    assert removed >= 1
+    assert corr.get_call_status(cid) is None
+
+
+def test_a2a_agent_discover():
+    result = asyncio.run(handle_a2a_request({"id": "1", "method": "agent.discover"}, "http://localhost:8234"))
+    assert result["id"] == "1"
+    assert result["result"]["name"] == "simone-mcp"
+
+
+def test_a2a_agent_ping():
+    result = asyncio.run(handle_a2a_request({"id": "2", "method": "agent.ping"}, "http://localhost:8234"))
+    assert result["result"]["status"] == "alive"
+    assert "timestamp" in result["result"]
+
+
+def test_a2a_tool_list():
+    result = asyncio.run(handle_a2a_request({"id": "3", "method": "tool.list"}, "http://localhost:8234"))
+    assert "tools" in result["result"]
+    assert len(result["result"]["tools"]) >= 5
+
+
+def test_a2a_tool_call():
+    result = asyncio.run(
+        handle_a2a_request(
+            {"id": "4", "method": "tool.call", "params": {"tool_name": "simone.mcp.health"}},
+            "http://localhost:8234",
+        )
+    )
+    assert result["result"]["data"]["status"] == "ok"
+    assert "correlation_id" in result["result"]
+
+
+def test_a2a_unknown_method():
+    result = asyncio.run(handle_a2a_request({"id": "5", "method": "nonexistent"}, "http://localhost:8234"))
+    assert "error" in result
+    assert result["error"]["code"] == -32601

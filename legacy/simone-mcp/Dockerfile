@@ -1,19 +1,31 @@
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ && rm -rf /var/lib/apt/lists/*
-RUN groupadd -r simone && useradd -r -g simone simone
+FROM python:3.12-slim AS builder
 
 WORKDIR /app
 
-COPY pyproject.toml README.md ./
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml .
+RUN uv venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN uv pip install --no-cache .
+
+FROM python:3.12-slim AS production
+
+WORKDIR /app
+
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
 COPY src/ ./src/
 COPY .well-known/ ./.well-known/
-COPY mcp-config.json ./
+COPY README.md .
 
-RUN uv pip install --system . && chown -R simone:simone /app
-
+RUN groupadd -r simone && useradd -r -g simone simone && chown -R simone:simone /app
 USER simone
 
 EXPOSE 8234
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8234/health')" || exit 1
 
 CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8234"]
