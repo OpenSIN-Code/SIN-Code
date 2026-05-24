@@ -210,6 +210,12 @@ def _candidate_files(root: Path) -> list[Path]:
         "__pycache__",
         ".serena",
         ".pcpm",
+        "data",
+        "profiles",
+        "forensics",
+        "cache",
+        ".pytest_cache",
+        "site-packages",
     }
     paths: list[Path] = []
     for path in root.rglob("*.py"):
@@ -326,8 +332,16 @@ def replace_symbol_body(payload: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("replace_symbol_body_requires_function")
         first_statement = node.body[0]
         last_statement = node.body[-1]
-        indent = " " * (node.col_offset + 4)
-        replacement = [f"{indent}{line}" if line else "" for line in body.splitlines()]
+        target_indent = node.col_offset + 4
+        replacement = []
+        for line in body.splitlines():
+            if not line.strip():
+                replacement.append("")
+                continue
+            stripped = line.lstrip()
+            current_indent = len(line) - len(stripped)
+            new_indent = current_indent + target_indent
+            replacement.append(" " * new_indent + stripped)
         lines[first_statement.lineno - 1 : last_statement.end_lineno] = replacement
         updated = _preserve_trailing_newline(original, "\n".join(lines))
         file_path.write_text(updated, encoding="utf-8")
@@ -363,6 +377,12 @@ def get_project_overview(payload: dict[str, Any]) -> dict[str, Any]:
         "__pycache__",
         ".serena",
         ".pcpm",
+        "data",
+        "profiles",
+        "forensics",
+        "cache",
+        ".pytest_cache",
+        "site-packages",
     }
     counts: dict[str, int] = {}
     file_count = 0
