@@ -94,3 +94,63 @@ def test_realtime_url_builder():
         _build_realtime_url("https://example.supabase.co")
         == "wss://example.supabase.co/realtime/v1"
     )
+
+
+def test_replace_symbol_body_preserves_comments(tmp_path: Path):
+    source = tmp_path / "commented.py"
+    source.write_text(
+        '# header comment\n\ndef calculate_sum(a: int, b: int) -> int:\n    """Calculate sum."""\n    return a + b\n\n\ndef calculate_product(a: int, b: int) -> int:\n    """Calculate product."""\n    return a * b\n',
+        encoding="utf-8",
+    )
+    replaced = replace_symbol_body(
+        {"symbol": "calculate_sum", "file": str(source), "body": '    """Calculate sum with logging."""\n    print(f"Calculating {a} + {b}")\n    return a + b'}
+    )
+    assert replaced["ok"] is True
+    content = source.read_text(encoding="utf-8")
+    assert "# header comment" in content
+    assert "def calculate_product" in content
+    assert "Calculate sum with logging" in content
+
+
+def test_replace_symbol_body_reports_engine(tmp_path: Path):
+    source = tmp_path / "engine_check.py"
+    source.write_text("def foo():\n    pass\n", encoding="utf-8")
+    replaced = replace_symbol_body(
+        {"symbol": "foo", "file": str(source), "body": "return 42"}
+    )
+    assert replaced["ok"] is True
+    assert "engine" in replaced
+    assert replaced["engine"] in ("libcst", "ast")
+
+
+def test_find_references_reports_engine(tmp_path: Path):
+    source = tmp_path / "refs_check.py"
+    source.write_text("def bar():\n    pass\n\nx = bar()\n", encoding="utf-8")
+    refs = find_references({"symbol": "bar", "root": str(tmp_path)})
+    assert refs["ok"] is True
+    assert "engine" in refs
+    assert refs["engine"] in ("jedi", "regex")
+
+
+def test_replace_nonexistent_function(tmp_path: Path):
+    source = tmp_path / "nope.py"
+    source.write_text("def exists():\n    pass\n", encoding="utf-8")
+    replaced = replace_symbol_body(
+        {"symbol": "does_not_exist", "file": str(source), "body": "pass"}
+    )
+    assert replaced["ok"] is False
+
+
+def test_insert_after_preserves_rest(tmp_path: Path):
+    source = tmp_path / "multi.py"
+    source.write_text(
+        "def first():\n    pass\n\n\ndef second():\n    pass\n",
+        encoding="utf-8",
+    )
+    inserted = insert_after_symbol(
+        {"symbol": "first", "file": str(source), "text": "# after first"}
+    )
+    assert inserted["ok"] is True
+    content = source.read_text(encoding="utf-8")
+    assert "def second" in content
+    assert "# after first" in content

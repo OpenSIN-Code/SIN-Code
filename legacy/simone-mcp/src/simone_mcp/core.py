@@ -9,6 +9,18 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
+try:
+    import libcst as cst
+    HAS_LIBCST = True
+except ImportError:
+    HAS_LIBCST = False
+
+try:
+    import jedi
+    HAS_JEDI = True
+except ImportError:
+    HAS_JEDI = False
+
 
 AGENT_NAME = "simone-mcp"
 AGENT_DISPLAY_NAME = "Simone MCP"
@@ -279,6 +291,51 @@ def find_symbol(payload: dict[str, Any]) -> dict[str, Any]:
 def find_references(payload: dict[str, Any]) -> dict[str, Any]:
     symbol = str(payload.get("symbol") or "").strip()
     root = _workspace_root(payload.get("root"))
+    if HAS_JEDI:
+        return _find_references_jedi(symbol, root)
+    return _find_references_regex(symbol, root)
+
+
+def _find_references_jedi(symbol: str, root: Path) -> dict[str, Any]:
+    project = jedi.Project(path=root)
+    matches: list[dict[str, Any]] = []
+    total = 0
+    seen: set[tuple[str, int]] = set()
+    for path in _candidate_files(root):
+        try:
+            content = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        file_hits: list[dict[str, Any]] = []
+        try:
+            script = jedi.Script(code=content, path=str(path), project=project)
+        except (ValueError, OSError):
+            continue
+        for number, line in enumerate(content.splitlines(), start=1):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            col = line.find(symbol)
+            if col < 0:
+                continue
+            try:
+                defs = script.goto(number, col, follow_imports=True)
+            except (jedi.utils.UncaughtAttributeError, ValueError, TypeError):
+                continue
+            for d in defs:
+                if d.name == symbol:
+                    key = (str(path), number)
+                    if key not in seen:
+                        seen.add(key)
+                        total += 1
+                        file_hits.append({"line": number, "text": stripped})
+                    break
+        if file_hits:
+            matches.append({"file": str(path), "hits": file_hits})
+    return {"ok": True, "symbol": symbol, "count": total, "matches": matches, "engine": "jedi"}
+
+
+def _find_references_regex(symbol: str, root: Path) -> dict[str, Any]:
     pattern = re.compile(rf"\b{re.escape(symbol)}\b")
     matches: list[dict[str, Any]] = []
     total = 0
@@ -296,7 +353,7 @@ def find_references(payload: dict[str, Any]) -> dict[str, Any]:
             file_hits.append({"line": number, "text": line.strip(), "count": hit_count})
         if file_hits:
             matches.append({"file": str(path), "hits": file_hits})
-    return {"ok": True, "symbol": symbol, "count": total, "matches": matches}
+    return {"ok": True, "symbol": symbol, "count": total, "matches": matches, "engine": "regex"}
 
 
 def _find_named_node(path: Path, symbol: str) -> ast.AST:
@@ -322,32 +379,54 @@ def replace_symbol_body(payload: dict[str, Any]) -> dict[str, Any]:
         symbol = str(payload.get("symbol") or "").strip()
         file_path = Path(str(payload.get("file") or "")).expanduser().resolve()
         body = str(payload.get("body") or "pass")
-        original = file_path.read_text(encoding="utf-8")
-        lines = original.splitlines()
-        node = _find_named_node(file_path, symbol)
-        if (
-            not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-            or not node.body
-        ):
-            raise ValueError("replace_symbol_body_requires_function")
-        first_statement = node.body[0]
-        last_statement = node.body[-1]
-        target_indent = node.col_offset + 4
-        replacement = []
-        for line in body.splitlines():
-            if not line.strip():
-                replacement.append("")
-                continue
-            stripped = line.lstrip()
-            current_indent = len(line) - len(stripped)
-            new_indent = current_indent + target_indent
-            replacement.append(" " * new_indent + stripped)
-        lines[first_statement.lineno - 1 : last_statement.end_lineno] = replacement
-        updated = _preserve_trailing_newline(original, "\n".join(lines))
-        file_path.write_text(updated, encoding="utf-8")
-        return {"ok": True, "symbol": symbol, "file": str(file_path)}
+        if HAS_LIBCST:
+            return _replace_symbol_body_libcst(symbol, file_path, body)
+        return _replace_symbol_body_ast(symbol, file_path, body)
     except Exception as error:
         return {"ok": False, "error": str(error), "symbol": payload.get("symbol")}
+
+
+def _replace_symbol_body_libcst(symbol: str, file_path: Path, body: str) -> dict[str, Any]:
+    import textwrap
+    source = file_path.read_text(encoding="utf-8")
+
+    class BodyReplacer(cst.CSTTransformer):
+        def leave_FunctionDef(self, original_node: cst.FunctionDef, updated_node: cst.FunctionDef):
+            if original_node.name.value == symbol:
+                try:
+                    dedented = textwrap.dedent(body)
+                    new_stmts = cst.parse_module(dedented).body
+                except Exception as e:
+                    raise ValueError(f"Invalid Python code in new body: {e}")
+                return updated_node.with_changes(body=cst.IndentedBlock(body=new_stmts))
+            return updated_node
+
+    tree = cst.parse_module(source)
+    new_tree = tree.visit(BodyReplacer())
+    if new_tree.code != source:
+        updated = _preserve_trailing_newline(source, new_tree.code)
+        file_path.write_text(updated, encoding="utf-8")
+        return {"ok": True, "symbol": symbol, "file": str(file_path), "engine": "libcst"}
+    raise ValueError("symbol_not_found_or_unchanged")
+
+
+def _replace_symbol_body_ast(symbol: str, file_path: Path, body: str) -> dict[str, Any]:
+    original = file_path.read_text(encoding="utf-8")
+    lines = original.splitlines()
+    node = _find_named_node(file_path, symbol)
+    if (
+        not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        or not node.body
+    ):
+        raise ValueError("replace_symbol_body_requires_function")
+    first_statement = node.body[0]
+    last_statement = node.body[-1]
+    indent = " " * (node.col_offset + 4)
+    replacement = [f"{indent}{line}" if line else "" for line in body.splitlines()]
+    lines[first_statement.lineno - 1 : last_statement.end_lineno] = replacement
+    updated = _preserve_trailing_newline(original, "\n".join(lines))
+    file_path.write_text(updated, encoding="utf-8")
+    return {"ok": True, "symbol": symbol, "file": str(file_path), "engine": "ast"}
 
 
 def insert_after_symbol(payload: dict[str, Any]) -> dict[str, Any]:
@@ -362,7 +441,7 @@ def insert_after_symbol(payload: dict[str, Any]) -> dict[str, Any]:
         lines[node.end_lineno : node.end_lineno] = insertion
         updated = _preserve_trailing_newline(original, "\n".join(lines))
         file_path.write_text(updated, encoding="utf-8")
-        return {"ok": True, "symbol": symbol, "file": str(file_path)}
+        return {"ok": True, "symbol": symbol, "file": str(file_path), "engine": "libcst" if HAS_LIBCST else "ast"}
     except Exception as error:
         return {"ok": False, "error": str(error), "symbol": payload.get("symbol")}
 
