@@ -387,15 +387,37 @@ def replace_symbol_body(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _replace_symbol_body_libcst(symbol: str, file_path: Path, body: str) -> dict[str, Any]:
-    import textwrap
     source = file_path.read_text(encoding="utf-8")
+
+    def _parse_body(code: str) -> list[cst.BaseStatement]:
+        lines = code.splitlines()
+        dedented_lines: list[str] = []
+        min_indent: int | None = None
+        for line in lines:
+            if not line.strip():
+                dedented_lines.append("")
+                continue
+            stripped = line.lstrip()
+            indent = len(line) - len(stripped)
+            if min_indent is None or indent < min_indent:
+                min_indent = indent
+            dedented_lines.append(stripped)
+        if min_indent and min_indent > 0:
+            dedented_lines = [
+                line[min_indent:] if len(line) >= min_indent and line.strip() else line
+                for line in lines
+            ]
+            dedented_lines = [
+                line.lstrip() if line.strip() else "" for line in dedented_lines
+            ]
+        dedented = "\n".join(dedented_lines)
+        return cst.parse_module(dedented).body
 
     class BodyReplacer(cst.CSTTransformer):
         def leave_FunctionDef(self, original_node: cst.FunctionDef, updated_node: cst.FunctionDef):
             if original_node.name.value == symbol:
                 try:
-                    dedented = textwrap.dedent(body)
-                    new_stmts = cst.parse_module(dedented).body
+                    new_stmts = _parse_body(body)
                 except Exception as e:
                     raise ValueError(f"Invalid Python code in new body: {e}")
                 return updated_node.with_changes(body=cst.IndentedBlock(body=new_stmts))

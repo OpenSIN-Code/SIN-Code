@@ -196,6 +196,27 @@ def test_correlation_cleanup():
     assert corr.get_call_status(cid) is None
 
 
+def test_correlation_bounded_eviction():
+    corr = ToolCallCorrelation(max_calls=5)
+    ids = []
+    for i in range(10):
+        ids.append(corr.generate_correlation_id(f"tool_{i}", {}))
+    assert corr.get_call_status(ids[0]) is None
+    assert corr.get_call_status(ids[9]) is not None
+
+
+def test_correlation_auto_cleanup():
+    corr = ToolCallCorrelation(max_age_seconds=0, max_calls=1024)
+    cid = corr.generate_correlation_id("auto_tool", {})
+    corr.complete_call(cid, {"ok": True})
+    cid2 = corr.generate_correlation_id("trigger_cleanup", {})
+    corr.complete_call(cid2, {"ok": True})
+    for _ in range(64):
+        cid_n = corr.generate_correlation_id("filler", {})
+        corr.complete_call(cid_n, {"ok": True})
+    assert corr.get_call_status(cid) is None
+
+
 def test_a2a_agent_discover():
     result = asyncio.run(handle_a2a_request({"id": "1", "method": "agent.discover"}, "http://localhost:8234"))
     assert result["id"] == "1"
@@ -229,3 +250,54 @@ def test_a2a_unknown_method():
     result = asyncio.run(handle_a2a_request({"id": "5", "method": "nonexistent"}, "http://localhost:8234"))
     assert "error" in result
     assert result["error"]["code"] == -32601
+
+
+def test_a2a_message_send():
+    result = asyncio.run(
+        handle_a2a_request(
+            {
+                "id": "6",
+                "method": "message/send",
+                "params": {
+                    "message": {
+                        "parts": [{"type": "text", "text": '{"action": "simone.mcp.health"}'}]
+                    }
+                },
+            },
+            "http://localhost:8234",
+        )
+    )
+    assert result["id"] == "6"
+    assert "result" in result
+    assert result["result"]["kind"] == "task"
+    assert result["result"]["status"]["state"] == "completed"
+    assert len(result["result"]["artifacts"]) >= 1
+
+
+def test_a2a_message_send_plain_text():
+    result = asyncio.run(
+        handle_a2a_request(
+            {
+                "id": "7",
+                "method": "message/send",
+                "params": {
+                    "message": {
+                        "parts": [{"type": "text", "text": "show me the project"}]
+                    }
+                },
+            },
+            "http://localhost:8234",
+        )
+    )
+    assert result["result"]["kind"] == "task"
+
+
+def test_a2a_tasks_get():
+    result = asyncio.run(
+        handle_a2a_request(
+            {"id": "8", "method": "tasks/get", "params": {"id": "task-123"}},
+            "http://localhost:8234",
+        )
+    )
+    assert result["result"]["id"] == "task-123"
+    assert result["result"]["status"]["state"] == "completed"
