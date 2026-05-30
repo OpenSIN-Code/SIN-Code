@@ -1,0 +1,33 @@
+name: sin-verify
+
+on:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install SIN-Code Bundle
+        run: pip install "sin-code-bundle[dev]"
+
+      - name: Run test suite
+        run: pytest -q
+
+      - name: Audit chain integrity
+        run: |
+          # Passes if no audit log exists yet (clean repo).
+          python -c "
+          from pathlib import Path
+          from sin_code_bundle.policy import AuditLog
+          ok = AuditLog(Path('.')).verify_chain()
+          print('Audit chain:', 'intact' if ok else 'TAMPERED')
+          raise SystemExit(0 if ok else 1)
+          "

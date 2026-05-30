@@ -686,3 +686,186 @@ def serve():
 
 if __name__ == "__main__":
     app()
+
+# --------------------------------------------------------------------------- #
+# sin bench  — SWE-bench A/B harness
+# --------------------------------------------------------------------------- #
+@app.command()
+def bench(
+    tasks: str | None = typer.Option(
+        None, "--tasks", help="Path to a JSONL task file. Omit to use SWE-bench Lite."
+    ),
+    limit: int = typer.Option(20, help="Max number of tasks to run per arm."),
+    runner: str = typer.Option(
+        "dry", help="Agent runner: 'dry' | 'opencode' | 'codex' | 'hermes'."
+    ),
+    arms: str = typer.Option(
+        "control,sin", help="Comma-separated arms to run."
+    ),
+    out: str | None = typer.Option(
+        None, "--out", help="Write the full JSON report to this path."
+    ),
+):
+    """Run the SIN-Code A/B benchmark and report the resolved-rate delta."""
+    from sin_code_bundle.bench import (
+        DryRunRunner,
+        format_report,
+        load_swebench_lite,
+        load_tasks_jsonl,
+        run_benchmark,
+    )
+
+    if tasks:
+        task_list = load_tasks_jsonl(Path(tasks), limit=limit)
+    else:
+        try:
+            task_list = load_swebench_lite(limit=limit)
+        except RuntimeError as exc:
+            typer.echo(f"[SIN-BUNDLE] {exc}", err=True)
+            raise typer.Exit(code=2)
+
+    if not task_list:
+        typer.echo("[SIN-BUNDLE] No tasks loaded.", err=True)
+        raise typer.Exit(code=2)
+
+    if runner == "dry":
+        agent_runner = DryRunRunner()
+    elif runner in ("opencode", "codex", "hermes"):
+        agent_runner = _build_cli_runner(runner)
+    else:
+        typer.echo(f"[SIN-BUNDLE] Unknown runner '{runner}'.", err=True)
+        raise typer.Exit(code=2)
+
+    arm_tuple = tuple(a.strip() for a in arms.split(",") if a.strip())
+
+    typer.echo(
+        f"[SIN-BUNDLE] Running {len(task_list)} task(s) x {len(arm_tuple)} arm(s) "
+        f"with '{runner}' runner..."
+    )
+    report = run_benchmark(task_list, agent_runner, arms=arm_tuple)  # type: ignore[arg-type]
+    typer.echo(format_report(report))
+
+    if out:
+        Path(out).write_text(report.to_json(), encoding="utf-8")
+        typer.echo(f"[SIN-BUNDLE] Wrote full report -> {out}")
+
+
+def _build_cli_runner(agent: str):
+    from sin_code_bundle.bench import CommandRunner
+
+    def build_cmd(task, sin_enabled: bool) -> list[str]:
+        prompt = task.problem_statement
+        if agent == "opencode":
+            return ["opencode", "run", "-m", prompt]
+        if agent == "codex":
+            return ["codex", "exec", "--skip-git-repo-check", prompt]
+        if agent == "hermes":
+            return ["hermes", "run", "--prompt", prompt]
+        raise ValueError(agent)
+
+    return CommandRunner(build_cmd=build_cmd, timeout_s=1800)
+
+
+# --------------------------------------------------------------------------- #
+# sin skills  — compile portable skills into an agent's native format
+# --------------------------------------------------------------------------- #
+@app.command()
+def skills(
+    target: str = typer.Argument(..., help="opencode | codex | claude | all"),
+    source: str = typer.Option("skills", help="Source skills directory."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Preview only."),
+):
+    """Compile portable SIN skills into an agent's native command/skill format."""
+    from sin_code_bundle.skills import SUPPORTED_TARGETS, compile_skills
+
+    valid = SUPPORTED_TARGETS
+    targets = list(valid) if target == "all" else [target]  # type: ignore[list-item]
+    for t in targets:
+        if t not in valid:
+            typer.echo(f"[SIN-BUNDLE] Unknown target '{t}'.", err=True)
+            raise typer.Exit(code=2)
+        paths = compile_skills(t, Path(source), dry_run=dry_run)  # type: ignore[arg-type]
+        verb = "Would write" if dry_run else "Wrote"
+        for p in paths:
+            typer.echo(f"[SIN-BUNDLE] {verb} {t} skill -> {p}")
+        if not paths:
+            typer.echo(f"[SIN-BUNDLE] No skills found in '{source}'.")
+
+
+# --------------------------------------------------------------------------- #
+# sin policy  — inspect / initialize the policy and audit log
+# --------------------------------------------------------------------------- #
+@app.command()
+def policy(
+    action: str = typer.Argument("show", help="show | init | verify"),
+    root: str = typer.Option(".", help="Project root."),
+):
+    """Inspect or initialize the SIN policy and audit log."""
+    from sin_code_bundle.policy import DEFAULT_POLICY, AuditLog, Policy
+
+    root_path = Path(root)
+    if action == "init":
+        path = root_path / ".sin" / "policy.yaml"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            typer.echo(f"[SIN-BUNDLE] {path} already exists.")
+            return
+        try:
+            import yaml as _yaml
+
+            path.write_text(
+                _yaml.safe_dump(
+                    {"auto_approve": False, "rules": dict(DEFAULT_POLICY)},
+                    sort_keys=False,
+                ),
+                encoding="utf-8",
+            )
+        except ImportError:
+            # Manual fallback if pyyaml missing
+            path.write_text(
+                "auto_approve: false\nrules:\n"
+                + "".join(f"  {k}: {v}\n" for k, v in DEFAULT_POLICY.items()),
+                encoding="utf-8",
+            )
+        typer.echo(f"[SIN-BUNDLE] Wrote default policy -> {path}")
+        return
+
+    if action == "verify":
+        ok = AuditLog(root_path).verify_chain()
+        typer.echo(f"[SIN-BUNDLE] Audit chain {'intact' if ok else 'TAMPERED'}.")
+        raise typer.Exit(code=0 if ok else 1)
+
+    p = Policy.load(root_path)
+    typer.echo("[SIN-BUNDLE] Effective policy:")
+    for risk, decision in p.rules.items():
+        typer.echo(f"  {risk:<8} -> {decision}")
+    typer.echo(f"  auto_approve = {p.auto_approve}")
+
+
+# --------------------------------------------------------------------------- #
+# sin doctor  — environment diagnostics
+# --------------------------------------------------------------------------- #
+@app.command()
+def doctor(root: str = typer.Option(".", help="Project root.")):
+    """Diagnose the environment: detected languages, LSP servers, audit chain."""
+    from sin_code_bundle.lsp_bootstrap import server_status
+    from sin_code_bundle.policy import AuditLog
+
+    rows = server_status(Path(root))
+    typer.echo("[SIN-BUNDLE] Language servers (for accurate impact analysis):")
+    if not rows:
+        typer.echo("  (no supported source files detected)")
+    for r in rows:
+        mark = "OK " if r["installed"] else "-- "
+        typer.echo(
+            f"  {mark}{r['language']:<11} {r['files']:>5} files  server={r['server']}"
+        )
+        if not r["installed"]:
+            typer.echo(f"       install: {r['install_hint']}")
+
+    ok = AuditLog(Path(root)).verify_chain()
+    typer.echo(f"[SIN-BUNDLE] Audit chain: {'intact' if ok else 'TAMPERED'}")
+
+
+if __name__ == "__main__":
+    app()
