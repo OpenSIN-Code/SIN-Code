@@ -9,6 +9,9 @@
   <a href="https://www.python.org/downloads/">
     <img src="https://img.shields.io/badge/python-3.12+-3776AB.svg?logo=python&logoColor=white" alt="Python" />
   </a>
+  <a href="graphify-out/graph.json">
+    <img src="https://img.shields.io/badge/graphify-knowledge%20graph-8A2BE2" alt="Graphify" />
+  </a>
   <a href="https://fastapi.tiangolo.com/">
     <img src="https://img.shields.io/badge/FastAPI-005571?logo=fastapi" alt="FastAPI" />
   </a>
