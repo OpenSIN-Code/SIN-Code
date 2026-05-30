@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sin-code-bundle"
+version = "0.1.0"
+description = "Unified SOTA Agent-Engineering Stack"
+requires-python = ">=3.11"
+dependencies = [
+    "sin-code-sckg",
+    "sin-code-ibd",
+    "sin-code-poc",
+    "sin-code-efsm",
+    "sin-code-adw",
+    "typer>=0.9.0",
+    "pyyaml>=6.0",
+    "mcp>=1.0.0",
+]
+
+[project.scripts]
+sin = "sin_code_bundle.cli:app"
