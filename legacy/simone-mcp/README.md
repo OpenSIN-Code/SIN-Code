@@ -26,6 +26,8 @@
   </a>
 </p>
 
+> **⚠️ GitNexus-Pflicht:** Bevor du Code in diesem Repo änderst, MUSST du `gitnexus_impact()` (Blast Radius) und `gitnexus_detect_changes()` (vor Commit) ausführen. Siehe [GitNexus Guide](.gitnexus/).
+
 <p align="center">
   <a href="#quick-start">Quick Start</a> ·
   <a href="#features">Features</a> ·
