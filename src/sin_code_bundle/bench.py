@@ -18,6 +18,7 @@ The harness is intentionally runner-agnostic: you wire in opencode / codex /
 hermes via a small AgentRunner. A DryRunRunner is included so `sin bench`
 works end-to-end without any LLM credits.
 """
+
 from __future__ import annotations
 
 import json
@@ -282,9 +283,7 @@ def run_benchmark(
     summaries = {arm: _summarize(arm, results) for arm in arms}
     delta = 0.0
     if "sin" in summaries and "control" in summaries:
-        delta = round(
-            summaries["sin"].resolved_rate - summaries["control"].resolved_rate, 4
-        )
+        delta = round(summaries["sin"].resolved_rate - summaries["control"].resolved_rate, 4)
     return BenchReport(
         arms=summaries,
         delta_resolved_rate=delta,
@@ -368,8 +367,7 @@ def format_report(report: BenchReport) -> str:
     sign = "+" if report.delta_resolved_rate >= 0 else ""
     lines.append("-" * 40)
     lines.append(
-        f"  SIN delta: {sign}{report.delta_resolved_rate * 100:.1f} pp "
-        "(percentage points)"
+        f"  SIN delta: {sign}{report.delta_resolved_rate * 100:.1f} pp (percentage points)"
     )
     lines.append("=" * 40)
     return "\n".join(lines)

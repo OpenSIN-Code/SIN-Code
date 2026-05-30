@@ -5,6 +5,7 @@ Generator schreibt einen SIN-Code-Block, der dem Agenten erklaert, *wann*
 welches SIN-Tool aufzurufen ist. Der Block ist zwischen Markern eingefasst und
 wird idempotent ersetzt -- der restliche Inhalt der Datei bleibt unangetastet.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,18 +15,36 @@ END_MARKER = "<!-- sin:end -->"
 
 # Mapping: wann welches Tool. Bewusst knapp und handlungsorientiert.
 _PLAYBOOK = [
-    ("Before refactoring or deleting a symbol", "impact",
-     "Get the blast radius (downstream dependents) before you change a shared symbol."),
-    ("After producing a diff / before committing", "semantic_review",
-     "Summarize the intent and risk of the change instead of eyeballing line diffs."),
-    ("Before merging or marking a task done", "verify_tests",
-     "Run independent, execution-based verification. Never trust a self-reported 'done'."),
-    ("When you need correctness guarantees", "prove",
-     "Generate and check properties/proofs for pure functions."),
-    ("When code needs external services in tests", "mock_env",
-     "Spin up an ephemeral full-stack mock environment, then tear it down."),
-    ("To understand overall code health", "architectural_debt",
-     "Check the current architectural debt score before large changes."),
+    (
+        "Before refactoring or deleting a symbol",
+        "impact",
+        "Get the blast radius (downstream dependents) before you change a shared symbol.",
+    ),
+    (
+        "After producing a diff / before committing",
+        "semantic_review",
+        "Summarize the intent and risk of the change instead of eyeballing line diffs.",
+    ),
+    (
+        "Before merging or marking a task done",
+        "verify_tests",
+        "Run independent, execution-based verification. Never trust a self-reported 'done'.",
+    ),
+    (
+        "When you need correctness guarantees",
+        "prove",
+        "Generate and check properties/proofs for pure functions.",
+    ),
+    (
+        "When code needs external services in tests",
+        "mock_env",
+        "Spin up an ephemeral full-stack mock environment, then tear it down.",
+    ),
+    (
+        "To understand overall code health",
+        "architectural_debt",
+        "Check the current architectural debt score before large changes.",
+    ),
 ]
 
 

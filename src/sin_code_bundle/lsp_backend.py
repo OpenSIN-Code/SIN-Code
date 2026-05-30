@@ -13,6 +13,7 @@ The module degrades gracefully: if no LSP is available it returns tree-sitter
 results and flags `source="treesitter"`, so the agent still gets a useful signal
 and the bundle keeps working (consistent with `sin status`).
 """
+
 from __future__ import annotations
 
 import asyncio

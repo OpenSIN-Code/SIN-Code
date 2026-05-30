@@ -3,6 +3,7 @@
 Subsysteme werden lazy und defensiv importiert: fehlt eines, bleibt der Rest
 nutzbar und es wird eine klare Meldung statt eines Importfehlers ausgegeben.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,9 +13,7 @@ import typer
 
 app = typer.Typer(help="SIN-Code Bundle - Unified SOTA Agent-Engineering Stack")
 
-gitnexus_app = typer.Typer(
-    help="GitNexus bridge - mandatory graph context for coder agents."
-)
+gitnexus_app = typer.Typer(help="GitNexus bridge - mandatory graph context for coder agents.")
 app.add_typer(gitnexus_app, name="gitnexus")
 
 markitdown_app = typer.Typer(
@@ -22,9 +21,7 @@ markitdown_app = typer.Typer(
 )
 app.add_typer(markitdown_app, name="markitdown")
 
-rtk_app = typer.Typer(
-    help="RTK bridge - token-saving command proxy for coder agents."
-)
+rtk_app = typer.Typer(help="RTK bridge - token-saving command proxy for coder agents.")
 app.add_typer(rtk_app, name="rtk")
 codocs_app = typer.Typer(help="CoDocs - co-located docs standard (.doc.md companions).")
 app.add_typer(codocs_app, name="codocs")
@@ -39,10 +36,7 @@ def _require(module: str, hint: str):
     try:
         return importlib.import_module(module)
     except ImportError:
-        typer.echo(
-            f"[SIN-BUNDLE] Subsystem '{module}' not installed. "
-            f"Install with: {hint}"
-        )
+        typer.echo(f"[SIN-BUNDLE] Subsystem '{module}' not installed. Install with: {hint}")
         raise typer.Exit(code=1)
 
 
@@ -70,9 +64,7 @@ def status():
     from sin_code_bundle import gitnexus, markitdown, rtk
 
     report["GitNexus (graph context, external)"] = gitnexus.detect_env().available
-    report["MarkItDown (doc->markdown, external)"] = (
-        markitdown.detect_env().mcp_available
-    )
+    report["MarkItDown (doc->markdown, external)"] = markitdown.detect_env().mcp_available
     report["RTK (token-saving proxy, external)"] = rtk.detect_env().available
     # CoDocs ships inside the bundle itself, so it is always available.
     report["CoDocs (co-located docs)"] = True
@@ -122,11 +114,7 @@ def review(file_a: Path, file_b: Path):
     changes = ASTDiff().diff_files(str(file_a), str(file_b))
     intents = IntentSummarizer().summarize(changes)
     risk = RiskScorer().score(changes)
-    typer.echo(
-        json.dumps(
-            {"intents": [i.__dict__ for i in intents], "risk": risk}, indent=2
-        )
-    )
+    typer.echo(json.dumps({"intents": [i.__dict__ for i in intents], "risk": risk}, indent=2))
 
 
 @app.command()
@@ -349,9 +337,7 @@ def rtk_gain():
 @app.command()
 def preflight(
     root: str = typer.Argument(".", help="Repository root"),
-    no_auto: bool = typer.Option(
-        False, "--no-auto", help="Do not auto-index; only report."
-    ),
+    no_auto: bool = typer.Option(False, "--no-auto", help="Do not auto-index; only report."),
 ):
     """Ensure agents are not coding blind: guarantee a fresh GitNexus index.
 
@@ -380,6 +366,8 @@ def preflight(
         )
     typer.echo("[PREFLIGHT] OK - GitNexus graph context is ready.")
     typer.echo(json.dumps(state.to_dict(), indent=2))
+
+
 @codocs_app.command("check")
 def codocs_check(
     root: str = typer.Argument(".", help="Repository root to scan"),
@@ -428,9 +416,7 @@ def codocs_install_skill(
     skill_src = Path(__file__).parent / "data" / "codocs" / "SKILL.md"
     if not skill_src.is_file():
         # Fallback to the repo-level skills/ dir (editable installs).
-        skill_src = (
-            Path(__file__).resolve().parents[2] / "skills" / "sin-codocs" / "SKILL.md"
-        )
+        skill_src = Path(__file__).resolve().parents[2] / "skills" / "sin-codocs" / "SKILL.md"
     if not skill_src.is_file():
         typer.echo("[CODOCS] Skill file not found in package.", err=True)
         raise typer.Exit(code=1)
@@ -448,6 +434,8 @@ def codocs_install_skill(
         dest_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(skill_src, dest_dir / "SKILL.md")
         typer.echo(f"[CODOCS] Installed skill -> {dest_dir / 'SKILL.md'}")
+
+
 @app.command(name="mcp-config")
 def mcp_config(
     client: str = typer.Argument(..., help="Target CLI: opencode | codex | hermes"),
@@ -484,9 +472,7 @@ def mcp_config(
 
 @app.command(name="agents-md")
 def agents_md(
-    path: Path = typer.Option(
-        Path("AGENTS.md"), "--path", help="Target AGENTS.md path."
-    ),
+    path: Path = typer.Option(Path("AGENTS.md"), "--path", help="Target AGENTS.md path."),
 ):
     """Create or idempotently update an AGENTS.md describing SIN tool usage."""
     from . import agents_md as gen
@@ -501,7 +487,9 @@ def serve():
     try:
         from mcp.server.fastmcp import FastMCP
     except ImportError:
-        typer.echo("[SIN-BUNDLE] mcp package required: pip install 'sin-code-bundle[mcp]'", err=True)
+        typer.echo(
+            "[SIN-BUNDLE] mcp package required: pip install 'sin-code-bundle[mcp]'", err=True
+        )
         raise typer.Exit(code=1)
 
     mcp = FastMCP("sin-code-bundle")
@@ -526,9 +514,7 @@ def serve():
             changes = ASTDiff().diff_files(file_a, file_b)
             intents = IntentSummarizer().summarize(changes)
             risk = RiskScorer().score(changes)
-            return json.dumps(
-                {"intents": [i.__dict__ for i in intents], "risk": risk}
-            )
+            return json.dumps({"intents": [i.__dict__ for i in intents], "risk": risk})
     except ImportError:
         pass
 
@@ -543,7 +529,6 @@ def serve():
             return json.dumps(analyzer.debt_score(reports))
     except ImportError:
         pass
-
 
     try:
         from sin_code_oracle import VerificationOracle
@@ -588,7 +573,7 @@ def serve():
         pass
 
     try:
-        from sin_code_orchestration import Orchestrator, TaskSpec, Role
+        from sin_code_orchestration import Orchestrator, Role, TaskSpec
 
         @mcp.tool()
         def orchestrate(task_id: str, role: str, input_data: str) -> str:
@@ -621,11 +606,13 @@ def serve():
             changes = ASTDiff().diff_files(file_a, file_b)
             intents = IntentSummarizer().summarize(changes)
             risk = RiskScorer().score(changes)
-            return json.dumps({
-                "intents": [i.__dict__ for i in intents],
-                "risk": risk,
-                "recommendation": "Approve" if risk["risk"] == "low" else "Review Manually"
-            })
+            return json.dumps(
+                {
+                    "intents": [i.__dict__ for i in intents],
+                    "risk": risk,
+                    "recommendation": "Approve" if risk["risk"] == "low" else "Review Manually",
+                }
+            )
     except ImportError:
         pass
 
@@ -687,6 +674,7 @@ def serve():
 if __name__ == "__main__":
     app()
 
+
 # --------------------------------------------------------------------------- #
 # sin bench  — SWE-bench A/B harness
 # --------------------------------------------------------------------------- #
@@ -699,12 +687,8 @@ def bench(
     runner: str = typer.Option(
         "dry", help="Agent runner: 'dry' | 'opencode' | 'codex' | 'hermes'."
     ),
-    arms: str = typer.Option(
-        "control,sin", help="Comma-separated arms to run."
-    ),
-    out: str | None = typer.Option(
-        None, "--out", help="Write the full JSON report to this path."
-    ),
+    arms: str = typer.Option("control,sin", help="Comma-separated arms to run."),
+    out: str | None = typer.Option(None, "--out", help="Write the full JSON report to this path."),
 ):
     """Run the SIN-Code A/B benchmark and report the resolved-rate delta."""
     from sin_code_bundle.bench import (
@@ -857,9 +841,7 @@ def doctor(root: str = typer.Option(".", help="Project root.")):
         typer.echo("  (no supported source files detected)")
     for r in rows:
         mark = "OK " if r["installed"] else "-- "
-        typer.echo(
-            f"  {mark}{r['language']:<11} {r['files']:>5} files  server={r['server']}"
-        )
+        typer.echo(f"  {mark}{r['language']:<11} {r['files']:>5} files  server={r['server']}")
         if not r["installed"]:
             typer.echo(f"       install: {r['install_hint']}")
 

@@ -3,6 +3,7 @@
 No real RTK invocation: discovery (shutil.which) and subprocess are stubbed so
 the suite runs in CI without the rtk binary.
 """
+
 from __future__ import annotations
 
 import pytest

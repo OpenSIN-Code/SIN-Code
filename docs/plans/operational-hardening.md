@@ -1,6 +1,6 @@
 # Plan: Operational Hardening
 
-Status: proposed
+Status: implemented (Bundle)
 Owner: unassigned
 Scope: all 7 SIN-Code repositories (SCKG, IBD, POC, EFSM, ADW, Verification-Oracle, Bundle)
 

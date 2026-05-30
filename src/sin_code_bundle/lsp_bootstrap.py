@@ -4,6 +4,7 @@
 impact analysis. We never silently install global tooling; we report and offer
 the exact install command.
 """
+
 from __future__ import annotations
 
 import shutil

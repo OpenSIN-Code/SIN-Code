@@ -1,7 +1,7 @@
 """Tests for the SWE-bench harness — using DryRunRunner so no LLM or network needed."""
+
 import json
 from pathlib import Path
-
 
 from sin_code_bundle.bench import (
     ArmSummary,
@@ -13,7 +13,6 @@ from sin_code_bundle.bench import (
     format_report,
     load_tasks_jsonl,
 )
-
 
 SAMPLE_TASK = Task(
     instance_id="test/repo__001",

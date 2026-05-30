@@ -9,6 +9,7 @@ Erzeugt fertig einfuegbare Konfiguration fuer die drei Ziel-CLIs:
 Die Funktionen liefern reine Strings (fuer ``--stdout``) sowie Helfer zum
 idempotenten Mergen in eine bestehende Konfigurationsdatei (fuer ``--write``).
 """
+
 from __future__ import annotations
 
 import json
@@ -125,9 +126,7 @@ def generate(client: str, env: dict[str, str] | None = None) -> str:
         return generate_codex(env)
     if client == "hermes":
         return generate_hermes(env)
-    raise ValueError(
-        f"Unknown client '{client}'. Supported: {', '.join(SUPPORTED_CLIENTS)}"
-    )
+    raise ValueError(f"Unknown client '{client}'. Supported: {', '.join(SUPPORTED_CLIENTS)}")
 
 
 # --------------------------------------------------------------------------- #
@@ -216,7 +215,11 @@ def _merge_codex_toml(path: Path, env: dict[str, str] | None) -> str:
         existing = path.read_text()
     cleaned = _strip_toml_table(existing, f"mcp_servers.{SERVER_NAME}")
     block = generate_codex(env)
-    sep = "" if cleaned == "" or cleaned.endswith("\n\n") else ("\n" if cleaned.endswith("\n") else "\n\n")
+    sep = (
+        ""
+        if cleaned == "" or cleaned.endswith("\n\n")
+        else ("\n" if cleaned.endswith("\n") else "\n\n")
+    )
     new_content = cleaned + sep + block
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(new_content)

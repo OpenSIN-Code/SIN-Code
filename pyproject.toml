@@ -81,3 +81,9 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# CoDocs example fixtures demonstrate doc co-location, not runnable code.
+extend-exclude = ["examples", "build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]

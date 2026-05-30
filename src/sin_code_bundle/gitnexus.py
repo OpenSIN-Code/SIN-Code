@@ -15,6 +15,7 @@ The bridge provides:
     (``ai-context``, ``query``, ``context``, ``impact``),
   * MCP wiring so OpenCode / Codex / Hermes each get the GitNexus MCP server.
 """
+
 from __future__ import annotations
 
 import json
@@ -234,6 +235,7 @@ def doctor(root: str = ".", env: GitNexusEnv | None = None) -> dict[str, Any]:
 # MCP wiring for coder agents
 # --------------------------------------------------------------------------- #
 
+
 # The single MCP server entry every agent should run. GitNexus exposes its graph
 # tools over stdio via `gitnexus mcp`.
 def mcp_server_command(package: str = GITNEXUS_PACKAGE) -> dict[str, Any]:
@@ -277,11 +279,7 @@ def _wire_opencode(package: str) -> str:
 def _wire_codex(package: str) -> str:
     path = _codex_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    block = (
-        "\n[mcp_servers.gitnexus]\n"
-        'command = "npx"\n'
-        f'args = ["-y", "{package}", "mcp"]\n'
-    )
+    block = f'\n[mcp_servers.gitnexus]\ncommand = "npx"\nargs = ["-y", "{package}", "mcp"]\n'
     existing = path.read_text() if path.is_file() else ""
     if "[mcp_servers.gitnexus]" in existing:
         return str(path)  # already wired; leave user edits intact

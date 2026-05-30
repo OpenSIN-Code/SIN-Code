@@ -10,6 +10,7 @@ arguments) + a prompt body. `compile_skills()` renders them into:
 This mirrors how cross-agent tools (Ulis/Nexel) keep a single prompt library in
 sync across CLIs.
 """
+
 from __future__ import annotations
 
 import re

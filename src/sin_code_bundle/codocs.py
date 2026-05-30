@@ -15,6 +15,7 @@ non-shebang lines of each file.
 It is intentionally dependency-free (stdlib only) so it works even when the
 optional SIN-Code subsystems are not installed.
 """
+
 from __future__ import annotations
 
 import re
@@ -40,12 +41,35 @@ DEFAULT_EXCLUDE = {
 # File extensions we consider "code" and therefore eligible for a Docs: ref.
 # Makefile and Dockerfile are matched by name in ``_is_code_file``.
 CODE_SUFFIXES = {
-    ".py", ".pyi",
-    ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
-    ".rs", ".go", ".java", ".kt", ".kts", ".scala",
-    ".c", ".h", ".cc", ".cpp", ".hpp", ".cs",
-    ".rb", ".php", ".swift", ".sh", ".bash", ".zsh",
-    ".yaml", ".yml", ".toml",
+    ".py",
+    ".pyi",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".rs",
+    ".go",
+    ".java",
+    ".kt",
+    ".kts",
+    ".scala",
+    ".c",
+    ".h",
+    ".cc",
+    ".cpp",
+    ".hpp",
+    ".cs",
+    ".rb",
+    ".php",
+    ".swift",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".yaml",
+    ".yml",
+    ".toml",
 }
 
 CODE_FILENAMES = {"Makefile", "Dockerfile", "Justfile"}
@@ -72,8 +96,8 @@ class DocReference:
     """A ``Docs:`` reference discovered in a source file."""
 
     source: Path
-    doc: str          # raw referenced path, as written
-    resolved: Path    # absolute path the reference resolves to
+    doc: str  # raw referenced path, as written
+    resolved: Path  # absolute path the reference resolves to
     exists: bool
 
     def to_dict(self) -> dict:

@@ -4,6 +4,7 @@ Every tool result is passed through `trim()` before returning. Lists are capped,
 long strings truncated, and an explicit `_truncated` flag is added so the agent
 knows more data exists.
 """
+
 from __future__ import annotations
 
 from typing import Any

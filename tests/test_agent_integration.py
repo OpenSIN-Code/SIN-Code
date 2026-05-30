@@ -1,10 +1,11 @@
 """Tests fuer WS2 (mcp-config) und WS4 (agents-md)."""
+
 import json
 
 from typer.testing import CliRunner
 
+from sin_code_bundle import agents_md, mcp_config
 from sin_code_bundle.cli import app
-from sin_code_bundle import mcp_config, agents_md
 
 runner = CliRunner()
 

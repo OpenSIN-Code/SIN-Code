@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Operational hardening** (closes #8): production-readiness CI/release tooling.
+  - `.github/workflows/ci.yml`: `ruff check` + `ruff format --check` lint gate
+    and a `pytest` matrix across Python 3.11/3.12/3.13, plus a non-blocking
+    cross-repo consistency job.
+  - `.github/workflows/release.yml`: builds sdist+wheel on `v*` tags, verifies a
+    clean-env install, attaches artifacts to a GitHub Release, and publishes to
+    PyPI via Trusted Publishing.
+  - `scripts/check_consistency.py` (WS4): asserts version alignment, subsystem
+    import health, and that every `sin mcp-config` client points at the real
+    `sin serve` entry point. `--strict` mode for full multi-repo CI.
+  - `scripts/dev_install.sh` + `scripts/run_all_tests.sh` (WS5): two-command
+    editable bootstrap and aggregated test runner across all 8 sibling repos.
+  - Adopted a shared `ruff` config (E/F/I/W) and applied a one-shot mechanical
+    format; aligned `__version__` with the packaged `0.2.0`.
 - **GitNexus bridge** (`sin_code_bundle.gitnexus`): integrates the upstream
   [GitNexus](https://github.com/abhigyanpatwari/GitNexus) code knowledge graph
   as a mandatory, always-on context source for coder agents. GitNexus is
