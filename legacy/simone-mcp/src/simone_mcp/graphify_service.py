@@ -124,23 +124,28 @@ def graphify_summary(root: str) -> dict[str, Any]:
         with open(gp) as f:
             graph = json.load(f)
         nodes = graph.get("nodes", [])
-        edges = graph.get("edges", [])
-        communities = graph.get("communities", [])
-        god_nodes = sorted(
-            nodes,
-            key=lambda n: len(n.get("neighbors", [])),
-            reverse=True,
+        links = graph.get("links", [])
+        hyperedges = graph.get("hyperedges", graph.get("communities", []))
+        node_degree: dict[str, int] = {}
+        for link in links:
+            src = str(link.get("source", ""))
+            tgt = str(link.get("target", ""))
+            node_degree[src] = node_degree.get(src, 0) + 1
+            node_degree[tgt] = node_degree.get(tgt, 0) + 1
+        top_nodes = sorted(
+            [
+                {"name": n.get("label", n.get("id", str(n.get("name", "?")))), "edges": node_degree.get(str(n.get("id", "")), 0)}
+                for n in nodes if isinstance(n, dict)
+            ],
+            key=lambda x: -x["edges"],
         )[:10]
         return {
             "ok": True,
             "has_graph": True,
             "node_count": len(nodes),
-            "edge_count": len(edges),
-            "community_count": len(communities),
-            "top_nodes": [
-                {"name": n.get("label", n.get("id", "?")), "edges": len(n.get("neighbors", []))}
-                for n in god_nodes
-            ],
+            "edge_count": len(links),
+            "community_count": len(hyperedges),
+            "top_nodes": top_nodes,
         }
     except Exception as e:
         return {"ok": False, "error": str(e), "has_graph": False}

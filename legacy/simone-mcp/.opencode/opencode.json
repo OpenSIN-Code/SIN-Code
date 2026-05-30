@@ -1,0 +1,25 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "simone-mcp": {
+      "type": "local",
+      "command": [
+        "node",
+        "/Users/jeremy/dev/Simone-MCP/dist/src/cli.js",
+        "serve-mcp"
+      ],
+      "enabled": true
+    }
+  },
+  "plugin": [
+    "opencode-antigravity-auth@1.6.5-beta.0",
+    "opencode-antigravity-image@latest",
+    "opencode-openrouter-auth",
+    "opencode-qwen-auth",
+    "/Users/jeremy/.config/opencode/local-plugins/oh-my-opencode-sin",
+    "/Users/jeremy/.config/opencode/plugins/omoc-swarm.ts"
+  ],
+  "provider": {
+    "openai": {}
+  }
+}

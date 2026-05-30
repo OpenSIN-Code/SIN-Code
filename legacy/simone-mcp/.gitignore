@@ -1,64 +1,64 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.venv/
-.conda/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Project-specific
-scratch/
-tmp/
-temp/
-.serena/
-.opencode/
-node_modules/
-npm-debug.log
-yarn-error.log
-
-#uv
-.uv/
-
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Logs
-*.log
-
-# Env files
-.env
-.env.local
-.secrets/
-
-# graphify knowledge graph (auto-generated)
-graphify-out/
+1:1:# Python
+2:2:__pycache__/
+3:3:*.py[cod]
+4:4:*$py.class
+5:5:*.so
+6:6:.Python
+7:7:env/
+8:8:venv/
+9:9:.venv/
+10:10:.conda/
+11:11:build/
+12:12:develop-eggs/
+13:13:dist/
+14:14:downloads/
+15:15:eggs/
+16:16:.eggs/
+17:17:lib/
+18:18:lib64/
+19:19:parts/
+20:20:sdist/
+21:21:var/
+22:22:wheels/
+23:23:*.egg-info/
+24:24:.installed.cfg
+25:25:*.egg
+26:26:
+27:27:# IDE
+28:28:.vscode/
+29:29:.idea/
+30:30:*.swp
+31:31:*.swo
+32:32:
+33:33:# OS
+34:34:.DS_Store
+35:35:Thumbs.db
+36:36:
+37:37:# Project-specific
+38:38:scratch/
+39:39:tmp/
+40:40:temp/
+41:41:.serena/
+42:42:.opencode/
+43:43:node_modules/
+44:44:npm-debug.log
+45:45:yarn-error.log
+46:46:
+47:47:#uv
+48:48:.uv/
+49:49:
+50:50:# Testing
+51:51:.pytest_cache/
+52:52:.coverage
+53:53:htmlcov/
+54:54:
+55:55:# Logs
+56:56:*.log
+57:57:
+58:58:# Env files
+59:59:.env
+60:60:.env.local
+61:61:.secrets/
+62:62:
+63:63:# graphify knowledge graph (auto-generated)
+64:65:.gitnexus
