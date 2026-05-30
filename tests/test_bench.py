@@ -2,7 +2,6 @@
 import json
 from pathlib import Path
 
-import pytest
 
 from sin_code_bundle.bench import (
     ArmSummary,
@@ -13,7 +12,6 @@ from sin_code_bundle.bench import (
     _summarize,
     format_report,
     load_tasks_jsonl,
-    run_benchmark,
 )
 
 

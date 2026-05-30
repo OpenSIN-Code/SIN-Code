@@ -3,7 +3,6 @@ since LSP servers won't be available in CI.
 """
 from pathlib import Path
 
-import pytest
 
 from sin_code_bundle.lsp_backend import (
     ImpactResult,

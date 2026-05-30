@@ -1,6 +1,6 @@
 [build-system]
-requires = ["hatchling>=1.21"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "sin-code-bundle"
@@ -33,7 +33,6 @@ classifiers = [
 #   pip install -e .
 dependencies = [
   "typer>=0.12",
-  "mcp>=1.2",
   "pyyaml>=6.0",
 ]
 
@@ -69,11 +68,11 @@ Issues = "https://github.com/OpenSIN-Code/SIN-Code-Bundle/issues"
 [project.scripts]
 sin = "sin_code_bundle.cli:app"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/sin_code_bundle"]
+[tool.setuptools.packages.find]
+where = ["src"]
 
-[tool.hatch.build.targets.sdist]
-include = ["src/sin_code_bundle", "skills", "README.md", "LICENSE"]
+[tool.setuptools.package-data]
+sin_code_bundle = ["data/codocs/*.md"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

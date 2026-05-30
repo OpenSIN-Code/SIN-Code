@@ -12,6 +12,23 @@ import typer
 
 app = typer.Typer(help="SIN-Code Bundle - Unified SOTA Agent-Engineering Stack")
 
+gitnexus_app = typer.Typer(
+    help="GitNexus bridge - mandatory graph context for coder agents."
+)
+app.add_typer(gitnexus_app, name="gitnexus")
+
+markitdown_app = typer.Typer(
+    help="MarkItDown bridge - document->Markdown context for coder agents."
+)
+app.add_typer(markitdown_app, name="markitdown")
+
+rtk_app = typer.Typer(
+    help="RTK bridge - token-saving command proxy for coder agents."
+)
+app.add_typer(rtk_app, name="rtk")
+codocs_app = typer.Typer(help="CoDocs - co-located docs standard (.doc.md companions).")
+app.add_typer(codocs_app, name="codocs")
+
 _EXCLUDE = ["venv", ".venv", "node_modules", ".git", "__pycache__"]
 
 
@@ -47,6 +64,18 @@ def status():
     report = {}
     for mod, desc in subsystems.items():
         report[desc] = importlib.util.find_spec(mod) is not None
+
+    # External upstream tools (not Python subsystems): report their runtime
+    # availability so it is obvious when an agent would be missing context.
+    from sin_code_bundle import gitnexus, markitdown, rtk
+
+    report["GitNexus (graph context, external)"] = gitnexus.detect_env().available
+    report["MarkItDown (doc->markdown, external)"] = (
+        markitdown.detect_env().mcp_available
+    )
+    report["RTK (token-saving proxy, external)"] = rtk.detect_env().available
+    # CoDocs ships inside the bundle itself, so it is always available.
+    report["CoDocs (co-located docs)"] = True
     typer.echo(json.dumps(report, indent=2))
 
 
@@ -122,93 +151,348 @@ def verify(test_command: str, root: str = "."):
     typer.echo(json.dumps(verdict.to_dict(), indent=2))
 
 
-# --------------------------------------------------------------------------- #
-# sin init  — one-command onboarding for any coder agent
-# --------------------------------------------------------------------------- #
-@app.command()
-def init(
-    agent: str = typer.Argument(
-        ..., help="Target agent CLI: opencode | codex | hermes | all"
-    ),
-    scope: str = typer.Option(
-        "local", help="'local' (this repo) or 'global' (user home)."
-    ),
-    with_agents_md: bool = typer.Option(
-        True,
-        "--agents-md/--no-agents-md",
-        help="Also write AGENTS.md workflow doctrine.",
-    ),
-    force: bool = typer.Option(
-        False, "--force", help="Overwrite an existing AGENTS.md."
-    ),
-    dry_run: bool = typer.Option(
-        False, "--dry-run", help="Print what would be written, change nothing."
+@gitnexus_app.command("doctor")
+def gitnexus_doctor(root: str = typer.Argument(".", help="Repository root")):
+    """Check Node/npx + GitNexus index health."""
+    from sin_code_bundle import gitnexus
+
+    typer.echo(json.dumps(gitnexus.doctor(root), indent=2))
+
+
+@gitnexus_app.command("setup")
+def gitnexus_setup(
+    agents: str = typer.Option(
+        "opencode,codex,hermes",
+        help="Comma-separated agents to wire (opencode,codex,hermes).",
     ),
 ):
-    """Wire the SIN-Code MCP server into a coding agent's config.
+    """Wire the GitNexus MCP server into each coder agent's config."""
+    from sin_code_bundle import gitnexus
 
-    Generates the agent-specific MCP config (idempotent merge) and, by default,
-    an AGENTS.md workflow doctrine so the agent uses the tools best-practice.
+    chosen = [a.strip() for a in agents.split(",") if a.strip()]
+    try:
+        written = gitnexus.setup_agents(chosen)
+    except gitnexus.GitNexusError as exc:
+        typer.echo(f"[GITNEXUS] {exc}", err=True)
+        raise typer.Exit(code=1)
+    for agent, path in written.items():
+        typer.echo(f"[GITNEXUS] wired {agent} -> {path}")
+    typer.echo("[GITNEXUS] Agents now have mandatory graph context via MCP.")
+
+
+@gitnexus_app.command("index")
+def gitnexus_index(
+    root: str = typer.Argument(".", help="Repository root"),
+    force: bool = typer.Option(False, "--force", help="Rebuild even if fresh."),
+):
+    """Build or refresh the GitNexus index for a repository."""
+    from sin_code_bundle import gitnexus
+
+    try:
+        if force:
+            gitnexus.analyze(root)
+            state = gitnexus.index_state(root)
+        else:
+            state = gitnexus.ensure_index(root, auto=True)
+    except gitnexus.GitNexusError as exc:
+        typer.echo(f"[GITNEXUS] {exc}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(json.dumps(state.to_dict(), indent=2))
+
+
+@gitnexus_app.command("status")
+def gitnexus_status(root: str = typer.Argument(".", help="Repository root")):
+    """Show the on-disk index state without invoking GitNexus."""
+    from sin_code_bundle import gitnexus
+
+    typer.echo(json.dumps(gitnexus.index_state(root).to_dict(), indent=2))
+
+
+@gitnexus_app.command("context")
+def gitnexus_context(
+    symbol: str = typer.Argument(..., help="Symbol / FQID to inspect"),
+    root: str = typer.Option(".", help="Repository root"),
+):
+    """Structural context for a symbol from the graph."""
+    from sin_code_bundle import gitnexus
+
+    try:
+        gitnexus.ensure_index(root, auto=True)
+        typer.echo(gitnexus.context(symbol, root=root))
+    except gitnexus.GitNexusError as exc:
+        typer.echo(f"[GITNEXUS] {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@gitnexus_app.command("impact")
+def gitnexus_impact(
+    symbol: str = typer.Argument(..., help="Symbol / FQID to analyze"),
+    root: str = typer.Option(".", help="Repository root"),
+):
+    """Blast-radius impact analysis for a symbol."""
+    from sin_code_bundle import gitnexus
+
+    try:
+        gitnexus.ensure_index(root, auto=True)
+        typer.echo(gitnexus.impact(symbol, root=root))
+    except gitnexus.GitNexusError as exc:
+        typer.echo(f"[GITNEXUS] {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@gitnexus_app.command("ai-context")
+def gitnexus_ai_context(
+    task: str = typer.Argument(..., help="Task description to scope context to"),
+    root: str = typer.Option(".", help="Repository root"),
+):
+    """Task-scoped, graph-aware context bundle for an agent."""
+    from sin_code_bundle import gitnexus
+
+    try:
+        gitnexus.ensure_index(root, auto=True)
+        typer.echo(gitnexus.ai_context(task, root=root))
+    except gitnexus.GitNexusError as exc:
+        typer.echo(f"[GITNEXUS] {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+# --------------------------------------------------------------------------- #
+# MarkItDown (document -> Markdown) bridge commands
+# --------------------------------------------------------------------------- #
+@markitdown_app.command("doctor")
+def markitdown_doctor():
+    """Check MarkItDown MCP/CLI availability."""
+    from sin_code_bundle import markitdown
+
+    typer.echo(json.dumps(markitdown.doctor(), indent=2))
+
+
+@markitdown_app.command("setup")
+def markitdown_setup(
+    agents: str = typer.Option(
+        "opencode,codex,hermes",
+        help="Comma-separated agents to wire (opencode,codex,hermes).",
+    ),
+):
+    """Wire the MarkItDown MCP server into each coder agent's config."""
+    from sin_code_bundle import markitdown
+
+    chosen = [a.strip() for a in agents.split(",") if a.strip()]
+    try:
+        written = markitdown.setup_agents(chosen)
+    except markitdown.MarkItDownError as exc:
+        typer.echo(f"[MARKITDOWN] {exc}", err=True)
+        raise typer.Exit(code=1)
+    for agent, path in written.items():
+        typer.echo(f"[MARKITDOWN] wired {agent} -> {path}")
+    typer.echo("[MARKITDOWN] Agents can now convert documents to Markdown via MCP.")
+
+
+@markitdown_app.command("convert")
+def markitdown_convert(
+    path: Path = typer.Argument(..., help="Document to convert to Markdown"),
+):
+    """Convert a document (PDF/Office/image/...) to Markdown via the CLI."""
+    from sin_code_bundle import markitdown
+
+    try:
+        typer.echo(markitdown.convert(str(path)))
+    except markitdown.MarkItDownError as exc:
+        typer.echo(f"[MARKITDOWN] {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+# --------------------------------------------------------------------------- #
+# RTK (token-saving command proxy) bridge commands
+# --------------------------------------------------------------------------- #
+@rtk_app.command("doctor")
+def rtk_doctor():
+    """Check whether the RTK binary is installed."""
+    from sin_code_bundle import rtk
+
+    typer.echo(json.dumps(rtk.doctor(), indent=2))
+
+
+@rtk_app.command("setup")
+def rtk_setup(
+    agents: str = typer.Option(
+        "opencode,codex,hermes",
+        help="Comma-separated agents to wire (opencode,codex,hermes).",
+    ),
+):
+    """Run `rtk init` for each coder agent (token-saving command interception)."""
+    from sin_code_bundle import rtk
+
+    chosen = [a.strip() for a in agents.split(",") if a.strip()]
+    try:
+        done = rtk.setup_agents(chosen)
+    except rtk.RtkError as exc:
+        typer.echo(f"[RTK] {exc}", err=True)
+        raise typer.Exit(code=1)
+    for agent, cmd in done.items():
+        typer.echo(f"[RTK] wired {agent} via `{cmd}`")
+    typer.echo("[RTK] Agents now route shell commands through RTK (60-90% fewer tokens).")
+
+
+@rtk_app.command("gain")
+def rtk_gain():
+    """Show RTK token-savings statistics (JSON)."""
+    from sin_code_bundle import rtk
+
+    try:
+        typer.echo(json.dumps(rtk.gain(), indent=2))
+    except rtk.RtkError as exc:
+        typer.echo(f"[RTK] {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def preflight(
+    root: str = typer.Argument(".", help="Repository root"),
+    no_auto: bool = typer.Option(
+        False, "--no-auto", help="Do not auto-index; only report."
+    ),
+):
+    """Ensure agents are not coding blind: guarantee a fresh GitNexus index.
+
+    Run this before any agent task. By default a missing or stale index is
+    rebuilt automatically; with --no-auto it only reports state.
     """
-    from sin_code_bundle.generators import (
-        SUPPORTED_AGENTS,
-        write_agent_config,
-        write_agents_md,
-    )
+    from sin_code_bundle import gitnexus
 
-    if scope not in ("local", "global"):
-        typer.echo("[SIN-BUNDLE] --scope must be 'local' or 'global'.", err=True)
-        raise typer.Exit(code=2)
+    try:
+        state = gitnexus.ensure_index(root, auto=not no_auto)
+    except gitnexus.GitNexusError as exc:
+        typer.echo(f"[PREFLIGHT] BLOCKED: {exc}", err=True)
+        raise typer.Exit(code=1)
 
-    agents_to_init = list(SUPPORTED_AGENTS) if agent == "all" else [agent]
-    for ag in agents_to_init:
+    if not state.exists:
+        typer.echo(
+            "[PREFLIGHT] No GitNexus index and auto-index disabled. "
+            "Run `sin gitnexus index` before coding.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    if state.stale:
+        typer.echo(
+            f"[PREFLIGHT] WARNING: index is stale (age {state.age_seconds:.0f}s).",
+            err=True,
+        )
+    typer.echo("[PREFLIGHT] OK - GitNexus graph context is ready.")
+    typer.echo(json.dumps(state.to_dict(), indent=2))
+@codocs_app.command("check")
+def codocs_check(
+    root: str = typer.Argument(".", help="Repository root to scan"),
+    json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
+):
+    """Verify every `# Docs: x.doc.md` reference points to an existing file."""
+    from sin_code_bundle import codocs
+
+    broken = codocs.find_broken(root, exclude=set(_EXCLUDE))
+    if json_out:
+        typer.echo(json.dumps([ref.to_dict() for ref in broken], indent=2))
+    else:
+        if not broken:
+            typer.echo("[CODOCS] OK - no broken .doc.md references.")
+        else:
+            for ref in broken:
+                typer.echo(f"[CODOCS] MISSING: {ref.source} -> {ref.doc}")
+            typer.echo(f"[CODOCS] {len(broken)} broken reference(s).")
+    if broken:
+        raise typer.Exit(code=1)
+
+
+@codocs_app.command("list")
+def codocs_list(root: str = typer.Argument(".", help="Repository root to scan")):
+    """List all discovered CoDocs references and whether they resolve."""
+    from sin_code_bundle import codocs
+
+    refs = codocs.scan(root, exclude=set(_EXCLUDE))
+    if not refs:
+        typer.echo("[CODOCS] No `Docs:` references found.")
+        return
+    for ref in refs:
+        mark = "ok" if ref.exists else "MISSING"
+        typer.echo(f"[{mark}] {ref.source} -> {ref.doc}")
+
+
+@codocs_app.command("install-skill")
+def codocs_install_skill(
+    agent: str = typer.Option(
+        "all", help="Which agent skill dir to install into: hermes | opencode | all"
+    ),
+):
+    """Install the CoDocs skill into the local agent skill directory."""
+    import shutil
+
+    skill_src = Path(__file__).parent / "data" / "codocs" / "SKILL.md"
+    if not skill_src.is_file():
+        # Fallback to the repo-level skills/ dir (editable installs).
+        skill_src = (
+            Path(__file__).resolve().parents[2] / "skills" / "sin-codocs" / "SKILL.md"
+        )
+    if not skill_src.is_file():
+        typer.echo("[CODOCS] Skill file not found in package.", err=True)
+        raise typer.Exit(code=1)
+
+    targets = {
+        "hermes": Path.home() / ".hermes" / "skills" / "sin-codocs",
+        "opencode": Path.home() / ".config" / "opencode" / "skills" / "sin-codocs",
+    }
+    chosen = targets.keys() if agent == "all" else [agent]
+    for name in chosen:
+        if name not in targets:
+            typer.echo(f"[CODOCS] Unknown agent: {name}", err=True)
+            raise typer.Exit(code=1)
+        dest_dir = targets[name]
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(skill_src, dest_dir / "SKILL.md")
+        typer.echo(f"[CODOCS] Installed skill -> {dest_dir / 'SKILL.md'}")
+@app.command(name="mcp-config")
+def mcp_config(
+    client: str = typer.Argument(..., help="Target CLI: opencode | codex | hermes"),
+    write: bool = typer.Option(
+        False, "--write", help="Merge into the client's config file instead of stdout."
+    ),
+    path: Path = typer.Option(
+        None, "--path", help="Override the config file path used with --write."
+    ),
+):
+    """Generate a ready-to-use MCP client configuration for the sin server."""
+    from . import mcp_config as gen
+
+    client_norm = client.lower()
+    if client_norm not in gen.SUPPORTED_CLIENTS:
+        typer.echo(
+            f"[SIN-BUNDLE] Unknown client '{client}'. "
+            f"Supported: {', '.join(gen.SUPPORTED_CLIENTS)}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if write:
+        target = path or gen.default_path(client_norm)
         try:
-            path, content = write_agent_config(ag, scope, dry_run=dry_run)  # type: ignore[arg-type]
+            msg = gen.merge_into_file(client_norm, Path(target))
         except ValueError as exc:
             typer.echo(f"[SIN-BUNDLE] {exc}", err=True)
-            raise typer.Exit(code=2)
-        verb = "Would write" if dry_run else "Wrote"
-        typer.echo(f"[SIN-BUNDLE] {verb} {ag} config -> {path}")
-        if dry_run:
-            typer.echo(content)
-
-    if with_agents_md:
-        md_path, written = write_agents_md(dry_run=dry_run, force=force)
-        if dry_run:
-            typer.echo(f"[SIN-BUNDLE] Would write AGENTS.md -> {md_path}")
-        elif written:
-            typer.echo(f"[SIN-BUNDLE] Wrote AGENTS.md -> {md_path}")
-        else:
-            typer.echo(
-                f"[SIN-BUNDLE] AGENTS.md already exists at {md_path} "
-                "(use --force to overwrite)."
-            )
-
-    typer.echo("[SIN-BUNDLE] init complete. Restart your agent to load the MCP server.")
-
-
-# --------------------------------------------------------------------------- #
-# sin agents-md  — write the workflow doctrine standalone
-# --------------------------------------------------------------------------- #
-@app.command(name="agents-md")
-def agents_md_cmd(
-    root: str = typer.Argument(".", help="Repository root."),
-    force: bool = typer.Option(False, "--force", help="Overwrite if it exists."),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Preview only."),
-):
-    """Generate the AGENTS.md engineering doctrine for this repository."""
-    from sin_code_bundle.generators import render_agents_md, write_agents_md
-
-    if dry_run:
-        typer.echo(render_agents_md())
-        return
-    path, written = write_agents_md(Path(root), force=force)
-    if written:
-        typer.echo(f"[SIN-BUNDLE] Wrote {path}")
+            raise typer.Exit(code=1)
+        typer.echo(f"[SIN-BUNDLE] {msg}")
     else:
-        typer.echo(
-            f"[SIN-BUNDLE] {path} already exists (use --force to overwrite)."
-        )
+        typer.echo(gen.generate(client_norm))
+
+
+@app.command(name="agents-md")
+def agents_md(
+    path: Path = typer.Option(
+        Path("AGENTS.md"), "--path", help="Target AGENTS.md path."
+    ),
+):
+    """Create or idempotently update an AGENTS.md describing SIN tool usage."""
+    from . import agents_md as gen
+
+    msg = gen.upsert(Path(path))
+    typer.echo(f"[SIN-BUNDLE] {msg}")
 
 
 @app.command()
@@ -345,9 +629,63 @@ def serve():
     except ImportError:
         pass
 
+    # GitNexus graph context (external npm tool). Always exposed so agents can
+    # pull structural context / impact through the same MCP endpoint.
+    try:
+        from sin_code_bundle import gitnexus
+
+        @mcp.tool()
+        def gitnexus_context(symbol: str, root: str = ".") -> str:
+            """Structural graph context for a symbol (auto-indexes if needed)."""
+            gitnexus.ensure_index(root, auto=True)
+            return gitnexus.context(symbol, root=root)
+
+        @mcp.tool()
+        def gitnexus_impact(symbol: str, root: str = ".") -> str:
+            """Blast-radius impact analysis for a symbol (auto-indexes if needed)."""
+            gitnexus.ensure_index(root, auto=True)
+            return gitnexus.impact(symbol, root=root)
+
+        @mcp.tool()
+        def gitnexus_ai_context(task: str, root: str = ".") -> str:
+            """Task-scoped, graph-aware context bundle (auto-indexes if needed)."""
+            gitnexus.ensure_index(root, auto=True)
+            return gitnexus.ai_context(task, root=root)
+    except ImportError:
+        pass
+
+    # MarkItDown document conversion (external pip tool). Lets agents turn
+    # PDFs / office docs / images into Markdown through the same MCP endpoint.
+    try:
+        from sin_code_bundle import markitdown
+
+        @mcp.tool()
+        def markitdown_convert(path: str) -> str:
+            """Convert a document (PDF/DOCX/PPTX/XLSX/image/...) to Markdown."""
+            return markitdown.convert(path)
+    except ImportError:
+        pass
+    # CoDocs is built into the bundle, so it is always exposed.
+    from sin_code_bundle import codocs
+
+    @mcp.tool()
+    def codocs_check(root: str = ".") -> str:
+        """Find broken co-located `.doc.md` references in a repository."""
+        broken = codocs.find_broken(root, exclude=set(_EXCLUDE))
+        return json.dumps(
+            {
+                "broken": [ref.to_dict() for ref in broken],
+                "count": len(broken),
+                "ok": not broken,
+            }
+        )
+
     typer.echo("[SIN-BUNDLE] MCP server starting (stdio).", err=True)
     mcp.run()
 
+
+if __name__ == "__main__":
+    app()
 
 # --------------------------------------------------------------------------- #
 # sin bench  — SWE-bench A/B harness
@@ -370,7 +708,6 @@ def bench(
 ):
     """Run the SIN-Code A/B benchmark and report the resolved-rate delta."""
     from sin_code_bundle.bench import (
-        CommandRunner,
         DryRunRunner,
         format_report,
         load_swebench_lite,
