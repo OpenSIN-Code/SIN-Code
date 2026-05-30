@@ -1,0 +1,9 @@
+{
+  "name": "sin-opencode-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@opencode-ai/plugin": "^0.4.0"
+  }
+}

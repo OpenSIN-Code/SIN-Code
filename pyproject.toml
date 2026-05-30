@@ -1,19 +1,27 @@
 [build-system]
-requires = ["setuptools>=68.0"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
 
 [project]
 name = "sin-code-bundle"
-version = "0.1.0"
-description = "Unified SOTA Agent-Engineering Stack"
+version = "0.2.0"
+description = "Structural intelligence for AI coding agents: impact analysis, semantic diff, architectural-debt breaker, and an independent verification Oracle — over MCP."
+readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
-    "typer>=0.9.0",
-    "pyyaml>=6.0",
+license = { text = "Apache-2.0" }
+authors = [{ name = "OpenSIN-Code" }]
+keywords = ["mcp", "ai-agents", "coding-agent", "opencode", "codex", "lsp", "swe-bench"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Quality Assurance",
 ]
 
-# Die Subsysteme werden lokal per editable install verdrahtet, nicht von PyPI.
-# Installation (Reihenfolge wichtig):
+# Core runtime dependencies only — subsystems installed separately (editable).
+# Full install order:
 #   pip install -e ../SIN-Code-Semantic-Codebase-Knowledge-Graphs
 #   pip install -e ../SIN-Code-Intent-Based-Diffing
 #   pip install -e ../SIN-Code-Proof-of-Correctness
@@ -23,12 +31,54 @@ dependencies = [
 #   pip install -e ../SIN-Code-Orchestration
 #   pip install -e ../SIN-Code-Review-Interface
 #   pip install -e .
+dependencies = [
+  "typer>=0.12",
+  "mcp>=1.2",
+  "pyyaml>=6.0",
+]
+
 [project.optional-dependencies]
-mcp = ["mcp>=1.0.0"]
-test = ["pytest>=8.0"]
+lsp = [
+  "multilspy>=0.0.10",
+  "tree-sitter>=0.21",
+  "tree-sitter-languages>=1.10",
+]
+bench = [
+  "datasets>=2.19",
+]
+mcp = [
+  "mcp[cli]>=1.2",
+]
+otel = [
+  "opentelemetry-sdk>=1.25",
+  "opentelemetry-exporter-otlp>=1.25",
+]
+dev = [
+  "pytest>=8.0",
+  "pytest-asyncio>=0.23",
+  "ruff>=0.5",
+]
+all = [
+  "sin-code-bundle[lsp,bench,mcp,otel]",
+]
+
+[project.urls]
+Homepage = "https://github.com/OpenSIN-Code/SIN-Code-Bundle"
+Issues = "https://github.com/OpenSIN-Code/SIN-Code-Bundle/issues"
 
 [project.scripts]
 sin = "sin_code_bundle.cli:app"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.hatch.build.targets.wheel]
+packages = ["src/sin_code_bundle"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/sin_code_bundle", "skills", "README.md", "LICENSE"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
