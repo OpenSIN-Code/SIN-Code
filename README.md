@@ -24,6 +24,8 @@ verification oracle.
 | [ADW](https://github.com/OpenSIN-Code/SIN-Code-Architectural-Debt-Watchdogs) | Architectural debt & cost watchdog |
 | [Oracle](https://github.com/OpenSIN-Code/SIN-Code-Verification-Oracle) | Independent verification oracle |
 | [GitNexus](https://github.com/abhigyanpatwari/GitNexus) | Upstream code knowledge graph — bridged, mandatory graph context for agents |
+| [MarkItDown](https://github.com/microsoft/markitdown) | Upstream doc→Markdown converter — bridged, document context for agents |
+| [RTK](https://github.com/rtk-ai/rtk) | Upstream token-saving command proxy — bridged, 60-90% fewer command tokens |
 
 ## What the Bundle does
 
@@ -57,6 +59,8 @@ sin serve             # unified MCP server
 | `sin preflight [root]` | Ensure GitNexus graph context is fresh before agents code. |
 | `sin gitnexus setup` | Wire GitNexus MCP into OpenCode / Codex / Hermes. |
 | `sin gitnexus index\|status\|doctor\|context\|impact\|ai-context` | GitNexus graph operations. |
+| `sin markitdown setup\|doctor\|convert` | Wire/convert via MarkItDown (doc→Markdown). |
+| `sin rtk setup\|doctor\|gain` | Wire RTK token-saving proxy into agents. |
 | `sin serve` | Unified MCP server across available subsystems. |
 
 ## GitNexus: mandatory graph context
@@ -73,12 +77,30 @@ sin preflight        # auto-build/refresh the graph before any agent task
 
 Requires Node.js >= 18 (`npx`). See [docs/GITNEXUS.md](./docs/GITNEXUS.md).
 
+## More external tools: MarkItDown & RTK
+
+Two more best-in-class upstream tools are bridged the same way (installed and
+updated independently, never vendored), so every coder agent gets them:
+
+```bash
+sin markitdown setup   # MarkItDown MCP: convert PDF/Office/images to Markdown
+sin rtk setup          # RTK: route agent shell commands through a token-saving proxy
+```
+
+- **[MarkItDown](https://github.com/microsoft/markitdown)** (MIT) — document
+  context. Install: `pip install markitdown-mcp "markitdown[all]"`.
+- **[RTK](https://github.com/rtk-ai/rtk)** (Apache-2.0) — 60-90% fewer tokens on
+  common commands. Install: `brew install rtk`.
+
+See [docs/EXTERNAL_TOOLS.md](./docs/EXTERNAL_TOOLS.md) for the full matrix.
+
 ## Documentation
 
 - [INSTALL.md](./INSTALL.md)
 - [docs/USAGE.md](./docs/USAGE.md)
 - [docs/CONFIGURATION.md](./docs/CONFIGURATION.md)
 - [docs/GITNEXUS.md](./docs/GITNEXUS.md)
+- [docs/EXTERNAL_TOOLS.md](./docs/EXTERNAL_TOOLS.md)
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [CHANGELOG.md](./CHANGELOG.md)
 

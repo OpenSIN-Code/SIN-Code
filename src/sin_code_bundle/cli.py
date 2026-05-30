@@ -17,6 +17,16 @@ gitnexus_app = typer.Typer(
 )
 app.add_typer(gitnexus_app, name="gitnexus")
 
+markitdown_app = typer.Typer(
+    help="MarkItDown bridge - document->Markdown context for coder agents."
+)
+app.add_typer(markitdown_app, name="markitdown")
+
+rtk_app = typer.Typer(
+    help="RTK bridge - token-saving command proxy for coder agents."
+)
+app.add_typer(rtk_app, name="rtk")
+
 _EXCLUDE = ["venv", ".venv", "node_modules", ".git", "__pycache__"]
 
 
@@ -53,10 +63,15 @@ def status():
     for mod, desc in subsystems.items():
         report[desc] = importlib.util.find_spec(mod) is not None
 
-    # GitNexus is an external (npm) dependency, not a Python module.
-    from sin_code_bundle import gitnexus
+    # External upstream tools (not Python subsystems): report their runtime
+    # availability so it is obvious when an agent would be missing context.
+    from sin_code_bundle import gitnexus, markitdown, rtk
 
     report["GitNexus (graph context, external)"] = gitnexus.detect_env().available
+    report["MarkItDown (doc->markdown, external)"] = (
+        markitdown.detect_env().mcp_available
+    )
+    report["RTK (token-saving proxy, external)"] = rtk.detect_env().available
     typer.echo(json.dumps(report, indent=2))
 
 
@@ -234,6 +249,96 @@ def gitnexus_ai_context(
         typer.echo(gitnexus.ai_context(task, root=root))
     except gitnexus.GitNexusError as exc:
         typer.echo(f"[GITNEXUS] {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+# --------------------------------------------------------------------------- #
+# MarkItDown (document -> Markdown) bridge commands
+# --------------------------------------------------------------------------- #
+@markitdown_app.command("doctor")
+def markitdown_doctor():
+    """Check MarkItDown MCP/CLI availability."""
+    from sin_code_bundle import markitdown
+
+    typer.echo(json.dumps(markitdown.doctor(), indent=2))
+
+
+@markitdown_app.command("setup")
+def markitdown_setup(
+    agents: str = typer.Option(
+        "opencode,codex,hermes",
+        help="Comma-separated agents to wire (opencode,codex,hermes).",
+    ),
+):
+    """Wire the MarkItDown MCP server into each coder agent's config."""
+    from sin_code_bundle import markitdown
+
+    chosen = [a.strip() for a in agents.split(",") if a.strip()]
+    try:
+        written = markitdown.setup_agents(chosen)
+    except markitdown.MarkItDownError as exc:
+        typer.echo(f"[MARKITDOWN] {exc}", err=True)
+        raise typer.Exit(code=1)
+    for agent, path in written.items():
+        typer.echo(f"[MARKITDOWN] wired {agent} -> {path}")
+    typer.echo("[MARKITDOWN] Agents can now convert documents to Markdown via MCP.")
+
+
+@markitdown_app.command("convert")
+def markitdown_convert(
+    path: Path = typer.Argument(..., help="Document to convert to Markdown"),
+):
+    """Convert a document (PDF/Office/image/...) to Markdown via the CLI."""
+    from sin_code_bundle import markitdown
+
+    try:
+        typer.echo(markitdown.convert(str(path)))
+    except markitdown.MarkItDownError as exc:
+        typer.echo(f"[MARKITDOWN] {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
+# --------------------------------------------------------------------------- #
+# RTK (token-saving command proxy) bridge commands
+# --------------------------------------------------------------------------- #
+@rtk_app.command("doctor")
+def rtk_doctor():
+    """Check whether the RTK binary is installed."""
+    from sin_code_bundle import rtk
+
+    typer.echo(json.dumps(rtk.doctor(), indent=2))
+
+
+@rtk_app.command("setup")
+def rtk_setup(
+    agents: str = typer.Option(
+        "opencode,codex,hermes",
+        help="Comma-separated agents to wire (opencode,codex,hermes).",
+    ),
+):
+    """Run `rtk init` for each coder agent (token-saving command interception)."""
+    from sin_code_bundle import rtk
+
+    chosen = [a.strip() for a in agents.split(",") if a.strip()]
+    try:
+        done = rtk.setup_agents(chosen)
+    except rtk.RtkError as exc:
+        typer.echo(f"[RTK] {exc}", err=True)
+        raise typer.Exit(code=1)
+    for agent, cmd in done.items():
+        typer.echo(f"[RTK] wired {agent} via `{cmd}`")
+    typer.echo("[RTK] Agents now route shell commands through RTK (60-90% fewer tokens).")
+
+
+@rtk_app.command("gain")
+def rtk_gain():
+    """Show RTK token-savings statistics (JSON)."""
+    from sin_code_bundle import rtk
+
+    try:
+        typer.echo(json.dumps(rtk.gain(), indent=2))
+    except rtk.RtkError as exc:
+        typer.echo(f"[RTK] {exc}", err=True)
         raise typer.Exit(code=1)
 
 
@@ -429,6 +534,18 @@ def serve():
             """Task-scoped, graph-aware context bundle (auto-indexes if needed)."""
             gitnexus.ensure_index(root, auto=True)
             return gitnexus.ai_context(task, root=root)
+    except ImportError:
+        pass
+
+    # MarkItDown document conversion (external pip tool). Lets agents turn
+    # PDFs / office docs / images into Markdown through the same MCP endpoint.
+    try:
+        from sin_code_bundle import markitdown
+
+        @mcp.tool()
+        def markitdown_convert(path: str) -> str:
+            """Convert a document (PDF/DOCX/PPTX/XLSX/image/...) to Markdown."""
+            return markitdown.convert(path)
     except ImportError:
         pass
 
