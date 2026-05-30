@@ -279,8 +279,130 @@ TOOL_DEFINITIONS = [
         },
         "execution": {"taskSupport": "forbidden"},
     },
+    {
+        "name": "sin_simone_mcp_graphify_query",
+        "title": "Graphify Query",
+        "description": "Ask a question about a codebase using its knowledge graph (graphify BFS traversal).",
+        "inputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Natural language question about the codebase"},
+                "root": {"type": "string", "description": "Workspace root path"},
+                "budget": {"type": "integer", "description": "Max output tokens (default 2000)"},
+            },
+            "required": ["query", "root"],
+        },
+        "outputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "output": {"type": "string"},
+                "error": {"type": "string"},
+            },
+        },
+        "annotations": {
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+        "execution": {"taskSupport": "forbidden"},
+    },
+    {
+        "name": "sin_simone_mcp_graphify_update",
+        "title": "Graphify Update",
+        "description": "Re-extract code files and update the knowledge graph for a workspace.",
+        "inputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "root": {"type": "string", "description": "Workspace root path"},
+            },
+            "required": ["root"],
+        },
+        "outputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "output": {"type": "string"},
+                "error": {"type": "string"},
+            },
+        },
+        "annotations": {
+            "readOnlyHint": False,
+            "destructiveHint": True,
+            "idempotentHint": False,
+            "openWorldHint": True,
+        },
+        "execution": {"taskSupport": "forbidden"},
+    },
+    {
+        "name": "sin_simone_mcp_graphify_explain",
+        "title": "Graphify Explain",
+        "description": "Plain-language explanation of a graph node and its neighbors in a codebase.",
+        "inputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "node": {"type": "string", "description": "Node name or label to explain"},
+                "root": {"type": "string", "description": "Workspace root path"},
+            },
+            "required": ["node", "root"],
+        },
+        "outputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "output": {"type": "string"},
+                "error": {"type": "string"},
+            },
+        },
+        "annotations": {
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+        "execution": {"taskSupport": "forbidden"},
+    },
+    {
+        "name": "sin_simone_mcp_graphify_path",
+        "title": "Graphify Path",
+        "description": "Find the shortest path between two nodes in the codebase knowledge graph.",
+        "inputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "source": {"type": "string", "description": "Source node name"},
+                "target": {"type": "string", "description": "Target node name"},
+                "root": {"type": "string", "description": "Workspace root path"},
+            },
+            "required": ["source", "target", "root"],
+        },
+        "outputSchema": {
+            "$schema": _JSON_SCHEMA_2020_12,
+            "type": "object",
+            "properties": {
+                "ok": {"type": "boolean"},
+                "output": {"type": "string"},
+                "error": {"type": "string"},
+            },
+        },
+        "annotations": {
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+        "execution": {"taskSupport": "forbidden"},
+    },
 ]
 CAPABILITIES = [tool["name"] for tool in TOOL_DEFINITIONS] + [
+    "graphify",
     "memory.hybrid",
     "transport.streamable_http",
     "auth.oauth2.1",
@@ -316,6 +438,10 @@ def build_agent_card(base_url: str) -> dict[str, Any]:
             {"id": "sin_simone_mcp_memory_query", "name": "Memory Query"},
             {"id": "sin_simone_mcp_find_references", "name": "Find References"},
             {"id": "sin_simone_mcp_project_overview", "name": "Project Overview"},
+            {"id": "sin_simone_mcp_graphify_query", "name": "Graphify Query"},
+            {"id": "sin_simone_mcp_graphify_update", "name": "Graphify Update"},
+            {"id": "sin_simone_mcp_graphify_explain", "name": "Graphify Explain"},
+            {"id": "sin_simone_mcp_graphify_path", "name": "Graphify Path"},
         ],
         "defaultInputModes": ["application/json", "text/plain"],
         "defaultOutputModes": ["application/json", "text/plain"],
@@ -765,7 +891,7 @@ def get_project_overview(payload: dict[str, Any]) -> dict[str, Any]:
         suffix = path.suffix or "[none]"
         counts[suffix] = counts.get(suffix, 0) + 1
     top_extensions = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:10]
-    return {
+    result: dict[str, Any] = {
         "ok": True,
         "root": str(root),
         "fileCount": file_count,
@@ -774,13 +900,50 @@ def get_project_overview(payload: dict[str, Any]) -> dict[str, Any]:
             for extension, count in top_extensions
         ],
     }
+    graph_summary = _graphify_summary_impl(str(root))
+    if graph_summary.get("has_graph"):
+        result["graphify"] = graph_summary
+    return result
 
 
 from .hybrid_memory import query_hybrid_memory as _query_hybrid_memory_impl  # noqa: E402
+from .graphify_service import (  # noqa: E402
+    graphify_query as _graphify_query_impl,
+    graphify_update as _graphify_update_impl,
+    graphify_explain as _graphify_explain_impl,
+    graphify_path as _graphify_path_impl,
+    graphify_summary as _graphify_summary_impl,
+    graphify_available as _graphify_available_impl,
+)
 
 
 def query_hybrid_memory(payload: dict[str, Any]) -> dict[str, Any]:
     return _query_hybrid_memory_impl(payload)
+
+
+def _graphify_query(payload: dict[str, Any]) -> dict[str, Any]:
+    question = str(payload.get("query") or "").strip()
+    root = str(payload.get("root") or _workspace_root(None))
+    budget = int(payload.get("budget", 2000))
+    return _graphify_query_impl(question, root, budget=budget)
+
+
+def _graphify_update(payload: dict[str, Any]) -> dict[str, Any]:
+    root = str(payload.get("root") or _workspace_root(None))
+    return _graphify_update_impl(root)
+
+
+def _graphify_explain(payload: dict[str, Any]) -> dict[str, Any]:
+    node = str(payload.get("node") or "").strip()
+    root = str(payload.get("root") or _workspace_root(None))
+    return _graphify_explain_impl(node, root)
+
+
+def _graphify_path(payload: dict[str, Any]) -> dict[str, Any]:
+    source = str(payload.get("source") or "").strip()
+    target = str(payload.get("target") or "").strip()
+    root = str(payload.get("root") or _workspace_root(None))
+    return _graphify_path_impl(source, target, root)
 
 
 _SYNC_ACTIONS = frozenset({
@@ -791,6 +954,10 @@ _SYNC_ACTIONS = frozenset({
     "sin_simone_mcp_project_overview",
     "sin_simone_mcp_health",
     "sin_simone_mcp_insert_after",
+    "sin_simone_mcp_graphify_query",
+    "sin_simone_mcp_graphify_update",
+    "sin_simone_mcp_graphify_explain",
+    "sin_simone_mcp_graphify_path",
 })
 
 
@@ -809,6 +976,10 @@ async def execute_simone_action(payload: dict[str, Any]) -> dict[str, Any]:
                     "sin_simone_mcp_memory_query",
                     "sin_simone_mcp_find_references",
                     "sin_simone_mcp_project_overview",
+                    "sin_simone_mcp_graphify_query",
+                    "sin_simone_mcp_graphify_update",
+                    "sin_simone_mcp_graphify_explain",
+                    "sin_simone_mcp_graphify_path",
                 ],
             }
         if action in {"simone.mcp.health", "sin.simone.mcp.health", "sin_simone_mcp_health"}:
@@ -840,6 +1011,14 @@ def _execute_sync_action(action: str, payload: dict[str, Any]) -> dict[str, Any]
         return query_hybrid_memory(payload)
     if action == "sin_simone_mcp_insert_after":
         return insert_after_symbol(payload)
+    if action == "sin_simone_mcp_graphify_query":
+        return _graphify_query(payload)
+    if action == "sin_simone_mcp_graphify_update":
+        return _graphify_update(payload)
+    if action == "sin_simone_mcp_graphify_explain":
+        return _graphify_explain(payload)
+    if action == "sin_simone_mcp_graphify_path":
+        return _graphify_path(payload)
     return {"ok": False, "error": "unknown_action", "action": action}
 
 

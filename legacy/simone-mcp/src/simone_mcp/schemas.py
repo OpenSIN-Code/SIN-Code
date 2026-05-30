@@ -89,6 +89,27 @@ class MemoryQueryArgs(BaseModel):
     target_symbol: str | None = None
 
 
+class GraphifyQueryArgs(BaseModel):
+    query: str = Field(min_length=1)
+    root: str | None = None
+    budget: int = 2000
+
+
+class GraphifyUpdateArgs(BaseModel):
+    root: str | None = None
+
+
+class GraphifyExplainArgs(BaseModel):
+    node: str = Field(min_length=1)
+    root: str | None = None
+
+
+class GraphifyPathArgs(BaseModel):
+    source: str = Field(min_length=1)
+    target: str = Field(min_length=1)
+    root: str | None = None
+
+
 class TaskGetArgs(BaseModel):
     taskId: str = Field(min_length=1, alias="id")
     model_config = {"populate_by_name": True}
@@ -112,6 +133,10 @@ TOOL_ARG_MODELS: dict[str, type[BaseModel]] = {
     "sin_simone_mcp_find_references": FindReferencesArgs,
     "sin_simone_mcp_project_overview": ProjectOverviewArgs,
     "sin_simone_mcp_health": ProjectOverviewArgs,
+    "sin_simone_mcp_graphify_query": GraphifyQueryArgs,
+    "sin_simone_mcp_graphify_update": GraphifyUpdateArgs,
+    "sin_simone_mcp_graphify_explain": GraphifyExplainArgs,
+    "sin_simone_mcp_graphify_path": GraphifyPathArgs,
     "tasks/get": TaskGetArgs,
     "tasks/update": TaskUpdateArgs,
     "tasks/cancel": TaskCancelArgs,

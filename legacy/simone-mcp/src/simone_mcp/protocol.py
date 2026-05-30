@@ -32,12 +32,19 @@ _TOOL_ARG_ALIASES: dict[str, dict[str, str]] = {
     "sin_simone_mcp_memory_query": {"query": "query"},
     "sin_simone_mcp_project_overview": {},
     "sin_simone_mcp_health": {},
+    "sin_simone_mcp_graphify_query": {},
+    "sin_simone_mcp_graphify_update": {},
+    "sin_simone_mcp_graphify_explain": {},
+    "sin_simone_mcp_graphify_path": {},
 }
 
 SIMONE_INSTRUCTIONS = (
     "Simone MCP provides LSP-grade code intelligence. "
     "Use symbol_search to find definitions, find_references for usage sites, "
     "structural_edit for safe refactoring, and memory_query for semantic recall. "
+    "graphify_query answers questions about a codebase using its knowledge graph — "
+    "run graphify_update first to build the graph, then query it. "
+    "graphify_explain explains a node's neighbors; graphify_path finds shortest path. "
     "Resources expose project files; prompts offer guided workflows. "
     "Tasks enable long-running operations — poll tasks/get for inline results. "
     "Always specify a 'root' path when targeting a specific project."
