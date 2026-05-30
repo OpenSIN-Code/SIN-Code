@@ -6,6 +6,11 @@
 > passiven, dateibasierten Memory-Quellen (Serena-Memories, lose `MEMORY.md`).
 > Scope-Regel: ausschließlich (a) automatische Tool-Calls, (b) Memory-System,
 > (c) Coding-Quality-Best-Practices. Nichts darüber hinaus.
+>
+> **Abgrenzung:** Ersetzt wird nur **Serena** (Memory → SIN-Brain, Symbol-Tools
+> → Simone). **Simone-MCP bleibt** der kanonische WRITE-/Edit-Layer (AST-Symbol-
+> Edits) — siehe `simone-edit-layer.md` / Issue BR-6. Rollen: READ=SCKG,
+> WRITE=Simone, REMEMBER=SIN-Brain, VERIFY=Oracle/POC, Tür=`sin serve`.
 
 ## Statusanalyse (Ist)
 

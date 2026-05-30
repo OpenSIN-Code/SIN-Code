@@ -13,12 +13,32 @@ Tool-Definition kostet 500–1000 Tokens pro Turn und verschlechtert das Reasoni
 
 ## Änderungen
 
-### 1. Einheitlicher Server pro CLI
-- OpenCode: `opencode.json` → genau **ein** Eintrag `sin`
-  (`type: "local"`, `command: ["sin","serve"]`), erzeugt via
-  `sin mcp-config opencode --write`. Schwache/redundante MCP-Einträge entfernen.
-- Codex: `[mcp_servers.sin]` via `sin mcp-config codex --write`.
-- Hermes: `mcp_servers.sin` via `sin mcp-config hermes --write`.
+### 1. Server pro CLI (Whitelist statt „nur einer")
+Erlaubt sind **zwei** kanonische Server; alles andere wird entfernt:
+- **`sin`** — einheitliche Tür (READ/SCKG, VERIFY/Oracle+POC, REMEMBER/SIN-Brain,
+  Orchestration, Review). Erzeugt via `sin mcp-config <cli> --write`.
+- **`simone`** — kanonischer **WRITE/Edit-Layer** (chirurgische AST-Symbol-Edits:
+  `find_symbol`, `replace_symbol_body`, `insert_before/after_symbol`,
+  `delete_symbol`, `rename_symbol`, `search_for_pattern`). **Bleibt erhalten —
+  das ist der Moat, kein schwaches Tool.**
+
+Pro CLI:
+- OpenCode: `opencode.json` → genau die Einträge `sin` + `simone`
+  (`type: "local"`). Schwache/redundante MCP-Einträge entfernen.
+- Codex: `[mcp_servers.sin]` + `[mcp_servers.simone]`.
+- Hermes: `mcp_servers.sin` + `mcp_servers.simone`.
+
+> **Whitelist (nicht ersetzen):** `sin`, `simone`.
+> **Zu ersetzen/entfernen:** Serena (Memory → SIN-Brain, Symbol-Tools → Simone)
+> und alle schwachen Ad-hoc-MCPs.
+
+### Rollentrennung (verbindlich)
+| Schicht | Owner | Hinweis |
+|---------|-------|---------|
+| READ / Verstehen | SCKG (`sin`) | Knowledge-Graph |
+| WRITE / Editieren | **Simone-MCP** | AST-Symbol-Edits — Moat |
+| REMEMBER | SIN-Brain (`sin`) | Memory-Cortex |
+| VERIFY | Oracle/POC (`sin`) | Quality-Gates |
 
 ### 2. Eine `AGENTS.md` als Steuerkanal
 `sin agents-md` erzeugt den idempotenten SIN-Block inkl. „wann welches Tool"
@@ -31,11 +51,12 @@ WS3 (#3) muss greifen: stdout nur JSON-RPC, Banner auf stderr. Sonst verbinden
 die drei CLIs nicht sauber.
 
 ## Akzeptanz
-- Jede der drei CLIs verbindet sich mit nur dem `sin`-Server und sieht 3–7
-  fokussierte Tools (inkl. Memory-Tools).
+- Jede der drei CLIs verbindet sich mit genau den Servern `sin` + `simone`.
+- `sin` zeigt 3–7 fokussierte Tools (inkl. Memory-Tools); `simone` die AST-Edit-Tools.
 - Keine alten/schwachen MCP-Einträge mehr in den Configs.
 - Eine gemeinsame `AGENTS.md` steuert alle drei CLIs.
 
 ## Nicht-Ziele
+- **Simone-MCP wird NICHT ersetzt** — es ist der kanonische WRITE-Layer (siehe BR-6).
 - Keine Entfernung legitimer, vom Nutzer bewusst gewünschter externer MCPs.
 - Keine Format-Erfindungen — nur offiziell dokumentierte Config-Formate.
