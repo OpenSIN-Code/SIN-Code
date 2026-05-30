@@ -23,6 +23,7 @@ verification oracle.
 | [EFSM](https://github.com/OpenSIN-Code/SIN-Code-Ephemeral-Full-Stack-Mocking-Orchestration) | Ephemeral full-stack mocking |
 | [ADW](https://github.com/OpenSIN-Code/SIN-Code-Architectural-Debt-Watchdogs) | Architectural debt & cost watchdog |
 | [Oracle](https://github.com/OpenSIN-Code/SIN-Code-Verification-Oracle) | Independent verification oracle |
+| [GitNexus](https://github.com/abhigyanpatwari/GitNexus) | Upstream code knowledge graph — bridged, mandatory graph context for agents |
 | CoDocs | Co-located docs standard (`.doc.md` companions) — built into the bundle |
 
 ## What the Bundle does
@@ -54,16 +55,34 @@ sin serve             # unified MCP server
 | `sin review <a> <b>` | Semantic review of a change (IBD). |
 | `sin verify <module> <fn>` | Proof-of-correctness for a function (POC). |
 | `sin debt [root]` | Architectural debt overview (ADW). |
+| `sin preflight [root]` | Ensure GitNexus graph context is fresh before agents code. |
+| `sin gitnexus setup` | Wire GitNexus MCP into OpenCode / Codex / Hermes. |
+| `sin gitnexus index\|status\|doctor\|context\|impact\|ai-context` | GitNexus graph operations. |
 | `sin codocs check [root]` | Validate co-located `.doc.md` references (built-in). |
 | `sin codocs list [root]` | List all CoDocs references and whether they resolve. |
 | `sin codocs install-skill` | Install the CoDocs agent skill (Hermes / OpenCode). |
 | `sin serve` | Unified MCP server across available subsystems. |
+
+## GitNexus: mandatory graph context
+
+Coder agents should never edit a repo "blind". The bundle bridges
+[GitNexus](https://github.com/abhigyanpatwari/GitNexus) (kept as the upstream
+original, **not** vendored — it is PolyForm-Noncommercial while the bundle is
+MIT) and makes its code knowledge graph available to every agent:
+
+```bash
+sin gitnexus setup   # wire OpenCode + Codex + Hermes to the GitNexus MCP server
+sin preflight        # auto-build/refresh the graph before any agent task
+```
+
+Requires Node.js >= 18 (`npx`). See [docs/GITNEXUS.md](./docs/GITNEXUS.md).
 
 ## Documentation
 
 - [INSTALL.md](./INSTALL.md)
 - [docs/USAGE.md](./docs/USAGE.md)
 - [docs/CONFIGURATION.md](./docs/CONFIGURATION.md)
+- [docs/GITNEXUS.md](./docs/GITNEXUS.md)
 - [docs/CODOCS.md](./docs/CODOCS.md)
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [CHANGELOG.md](./CHANGELOG.md)
