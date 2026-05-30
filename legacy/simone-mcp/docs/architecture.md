@@ -415,16 +415,14 @@ flowchart TB
 mindmap
   root((Simone MCP Tools))
     Read-Only Tools
-      code.find_symbol
-      code.find_references
-      code.project_overview
-      memory.query
+      sin_simone_mcp_symbol_search
+      sin_simone_mcp_find_references
+      sin_simone_mcp_project_overview
+      sin_simone_mcp_memory_query
     Write Tools
-      code.replace_symbol_body
-      code.insert_after_symbol
+      sin_simone_mcp_structural_edit
     Meta Tools
-      agent.help
-      simone.mcp.health
+      sin_simone_mcp_health
     Capabilities
       memory.hybrid
       transport.streamable_http

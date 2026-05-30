@@ -5,11 +5,12 @@
   "version": "2026.06.30",
   "url": "http://localhost:8234",
   "capabilities": [
-    "code.find_symbol",
-    "code.find_references",
-    "code.replace_symbol_body",
-    "code.insert_after_symbol",
-    "code.project_overview",
+    "sin_simone_mcp_health",
+    "sin_simone_mcp_symbol_search",
+    "sin_simone_mcp_structural_edit",
+    "sin_simone_mcp_memory_query",
+    "sin_simone_mcp_find_references",
+    "sin_simone_mcp_project_overview",
     "memory.hybrid",
     "transport.streamable_http",
     "auth.oauth2.1"
@@ -26,11 +27,11 @@
   },
   "skills": [
     {"id": "agent.help", "name": "Help"},
-    {"id": "simone.mcp.health", "name": "Health"},
-    {"id": "code.find_symbol", "name": "Find Symbol"},
-    {"id": "code.find_references", "name": "Find References"},
-    {"id": "code.replace_symbol_body", "name": "Replace Symbol Body"},
-    {"id": "code.insert_after_symbol", "name": "Insert After Symbol"},
-    {"id": "code.project_overview", "name": "Project Overview"}
+    {"id": "sin_simone_mcp_health", "name": "Health Check"},
+    {"id": "sin_simone_mcp_symbol_search", "name": "Symbol Search"},
+    {"id": "sin_simone_mcp_structural_edit", "name": "Structural Edit"},
+    {"id": "sin_simone_mcp_memory_query", "name": "Memory Query"},
+    {"id": "sin_simone_mcp_find_references", "name": "Find References"},
+    {"id": "sin_simone_mcp_project_overview", "name": "Project Overview"}
   ]
 }

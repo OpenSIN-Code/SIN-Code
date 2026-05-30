@@ -44,12 +44,11 @@
       ]
     },
     {
-      "id": "code.generate",
-      "name": "Code Generation",
-      "description": "Generate production-ready code based on specifications",
+      "id": "sin_simone_mcp_health",
+      "name": "Health Check",
+      "description": "Check Simone MCP readiness, model, and capabilities",
       "inputModes": [
-        "application/json",
-        "text/plain"
+        "application/json"
       ],
       "outputModes": [
         "application/json",
@@ -57,12 +56,11 @@
       ]
     },
     {
-      "id": "code.review",
-      "name": "Code Review",
-      "description": "Review code for quality, security, and best practices",
+      "id": "sin_simone_mcp_symbol_search",
+      "name": "Symbol Search",
+      "description": "Search for symbols across the codebase using LSP-powered semantic analysis",
       "inputModes": [
-        "application/json",
-        "text/plain"
+        "application/json"
       ],
       "outputModes": [
         "application/json",
@@ -70,12 +68,11 @@
       ]
     },
     {
-      "id": "code.debug",
-      "name": "Code Debugging",
-      "description": "Identify and fix bugs in existing code",
+      "id": "sin_simone_mcp_structural_edit",
+      "name": "Structural Edit",
+      "description": "Perform structural code edits using LSP-grade symbol resolution and refactoring",
       "inputModes": [
-        "application/json",
-        "text/plain"
+        "application/json"
       ],
       "outputModes": [
         "application/json",
@@ -83,12 +80,11 @@
       ]
     },
     {
-      "id": "code.refactor",
-      "name": "Code Refactoring",
-      "description": "Restructure code for improved readability and maintainability",
+      "id": "sin_simone_mcp_memory_query",
+      "name": "Memory Query",
+      "description": "Query the cloud semantic memory for code context and prior analysis results",
       "inputModes": [
-        "application/json",
-        "text/plain"
+        "application/json"
       ],
       "outputModes": [
         "application/json",
@@ -96,12 +92,11 @@
       ]
     },
     {
-      "id": "simone.code.search",
-      "name": "Code Search",
-      "description": "Search codebase semantically using LSP",
+      "id": "sin_simone_mcp_find_references",
+      "name": "Find References",
+      "description": "Find textual references to a symbol across a workspace",
       "inputModes": [
-        "application/json",
-        "text/plain"
+        "application/json"
       ],
       "outputModes": [
         "application/json",
@@ -109,25 +104,11 @@
       ]
     },
     {
-      "id": "simone.code.edit",
-      "name": "Code Edit",
-      "description": "Perform structural code edits",
+      "id": "sin_simone_mcp_project_overview",
+      "name": "Project Overview",
+      "description": "Summarize the workspace footprint and primary file types",
       "inputModes": [
-        "application/json",
-        "text/plain"
-      ],
-      "outputModes": [
-        "application/json",
-        "text/plain"
-      ]
-    },
-    {
-      "id": "simone.code.symbol",
-      "name": "Symbol Operations",
-      "description": "Search and manipulate code symbols",
-      "inputModes": [
-        "application/json",
-        "text/plain"
+        "application/json"
       ],
       "outputModes": [
         "application/json",

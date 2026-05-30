@@ -2,7 +2,7 @@ const AGENT = {
   name: 'simone-mcp',
   displayName: 'Simone MCP',
   description: 'Ultra-Duo Team Coder Agent with LSP-powered semantic code analysis.',
-  version: '2026.03.24',
+  version: '2026.06.30',
   team: 'team-coding',
   runtime: 'FastAPI + Supabase Realtime + PostgreSQL/pgvector',
   endpoints: {

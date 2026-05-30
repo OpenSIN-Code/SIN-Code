@@ -25,14 +25,13 @@ Production-grade Code-Worker with symbol operations, dual MCP transports, OAuth 
 - Discovery: .well-known endpoints for agent-card.json, oauth-client.json, oauth-authorization-server
 
 ## Tools
-- `code.find_symbol` - Locate symbol definitions across workspace (Read)
-- `code.find_references` - Find textual references to a symbol (Read)
-- `code.replace_symbol_body` - Replace the body of a Python function (Write)
-- `code.insert_after_symbol` - Insert text immediately after a symbol block (Write)
-- `code.project_overview` - Summarize workspace footprint and file types (Read)
-- `memory.query` - Hybrid memory search via Qdrant + Neo4j (Read)
-- `simone.mcp.health` - Server health check and status (Meta)
-- `agent.help` - List all available actions and capabilities (Meta)
+- `sin_simone_mcp_health` - Check Simone MCP readiness, model, and capabilities (Read)
+- `sin_simone_mcp_symbol_search` - Search for symbols across the codebase using LSP-powered semantic analysis (Read)
+- `sin_simone_mcp_find_references` - Find textual references to a symbol across a workspace (Read)
+- `sin_simone_mcp_structural_edit` - Perform structural code edits using LSP-grade symbol resolution and refactoring (Write)
+- `sin_simone_mcp_memory_query` - Query the cloud semantic memory for code context and prior analysis results (Read)
+- `sin_simone_mcp_project_overview` - Summarize the workspace footprint and primary file types (Read)
+- `memory.hybrid` - Hybrid memory retrieval via Qdrant + Neo4j (Read)
 
 ## Quick Start
 ```bash

@@ -1,8 +1,11 @@
 import asyncio
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
@@ -40,7 +43,13 @@ def test_cli_print_card():
 def test_agent_card_shape():
     card = build_agent_card("http://localhost:8234")
     assert card["name"] == "simone-mcp"
-    assert "code.find_symbol" in card["capabilities"]
+    assert "sin_simone_mcp_health" in card["capabilities"]
+    assert "code.find_symbol" not in card["capabilities"]
+    assert "defaultInputModes" in card
+    assert "defaultOutputModes" in card
+    skill_ids = {s["id"] for s in card["skills"]}
+    assert "sin_simone_mcp_symbol_search" in skill_ids
+    assert "code.find_symbol" not in skill_ids
 
 
 def test_health_action_and_async_task():
@@ -494,81 +503,64 @@ def test_sep2663_initialize_declares_tasks_extension():
 
 
 def test_sep2663_server_creates_task_autonomously():
-    from simone_mcp.protocol import handle_mcp_request, _task_store, _task_store_lock
-    resp, sid, _ = asyncio.run(handle_mcp_request(
-        {"jsonrpc": "2.0", "id": "2", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "foo"}}},
-        session_id="test-session",
-    ))
-    result = resp["result"]
-    assert result.get("resultType") == "task"
-    assert "task" in result
-    assert result["task"]["status"] == "working"
-    assert "io.modelcontextprotocol/tasks" in result.get("_meta", {})
+    from simone_mcp.protocol import _create_task, _build_task_obj
+    task = _create_task("sin_simone_mcp_symbol_search", {"query": "foo"}, "test-session")
+    task_obj = _build_task_obj(task)
+    assert task_obj["status"] == "working"
+    assert "io.modelcontextprotocol/tasks" not in task_obj  # _meta only in tools/call response
 
 
 def test_sep2663_tasks_get_returns_inline_result():
-    from simone_mcp.protocol import handle_mcp_request, _task_store, _task_store_lock, _update_task
-    resp, sid, _ = asyncio.run(handle_mcp_request(
-        {"jsonrpc": "2.0", "id": "3", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "bar"}}},
-        session_id="test-session-inline",
-    ))
-    task_id = resp["result"]["task"]["taskId"]
+    from simone_mcp.protocol import _create_task, _update_task, handle_mcp_request
+    task = _create_task("sin_simone_mcp_symbol_search", {"query": "bar"}, "test-session-inline")
+    task_id = task["id"]
     _update_task(task_id, "completed", result={"ok": True, "count": 0, "matches": []})
-    resp2, _, _ = asyncio.run(handle_mcp_request(
+    resp, _, _ = asyncio.run(handle_mcp_request(
         {"jsonrpc": "2.0", "id": "4", "method": "tasks/get", "params": {"taskId": task_id}},
         session_id="test-session-inline",
     ))
-    task_obj = resp2["result"]
+    task_obj = resp["result"]
     assert task_obj["status"] == "completed"
     assert task_obj["result"] == {"ok": True, "count": 0, "matches": []}
 
 
 def test_sep2663_tasks_get_failed_task_has_error():
-    from simone_mcp.protocol import handle_mcp_request, _task_store, _task_store_lock, _update_task
-    resp, sid, _ = asyncio.run(handle_mcp_request(
-        {"jsonrpc": "2.0", "id": "5", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "baz"}}},
-        session_id="test-session-fail",
-    ))
-    task_id = resp["result"]["task"]["taskId"]
+    from simone_mcp.protocol import _create_task, _update_task, handle_mcp_request
+    task = _create_task("sin_simone_mcp_symbol_search", {"query": "baz"}, "test-session-fail")
+    task_id = task["id"]
     _update_task(task_id, "failed", error="something broke")
-    resp2, _, _ = asyncio.run(handle_mcp_request(
+    resp, _, _ = asyncio.run(handle_mcp_request(
         {"jsonrpc": "2.0", "id": "6", "method": "tasks/get", "params": {"taskId": task_id}},
         session_id="test-session-fail",
     ))
-    task_obj = resp2["result"]
+    task_obj = resp["result"]
     assert task_obj["status"] == "failed"
     assert task_obj["error"] == "something broke"
 
 
 def test_sep2663_tasks_update_resumes_input_required():
-    from simone_mcp.protocol import handle_mcp_request, _update_task
-    resp, sid, _ = asyncio.run(handle_mcp_request(
-        {"jsonrpc": "2.0", "id": "7", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "qux"}}},
-        session_id="test-session-update",
-    ))
-    task_id = resp["result"]["task"]["taskId"]
+    from simone_mcp.protocol import _create_task, _update_task, handle_mcp_request
+    task = _create_task("sin_simone_mcp_symbol_search", {"query": "qux"}, "test-session-update")
+    task_id = task["id"]
     _update_task(task_id, "input_required", statusMessage="Need more input")
-    resp2, _, _ = asyncio.run(handle_mcp_request(
+    resp, _, _ = asyncio.run(handle_mcp_request(
         {"jsonrpc": "2.0", "id": "8", "method": "tasks/update", "params": {"taskId": task_id, "input": {"extra": "data"}}},
         session_id="test-session-update",
     ))
-    assert resp2["result"]["status"] == "working"
+    assert resp["result"]["status"] == "working"
 
 
 def test_sep2663_tasks_update_rejects_non_input_required():
-    from simone_mcp.protocol import handle_mcp_request, _update_task
-    resp, sid, _ = asyncio.run(handle_mcp_request(
-        {"jsonrpc": "2.0", "id": "9", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "quux"}}},
-        session_id="test-session-update-reject",
-    ))
-    task_id = resp["result"]["task"]["taskId"]
-    resp2, _, _ = asyncio.run(handle_mcp_request(
+    from simone_mcp.protocol import _create_task, handle_mcp_request
+    task = _create_task("sin_simone_mcp_symbol_search", {"query": "quux"}, "test-session-update-reject")
+    task_id = task["id"]
+    resp, _, _ = asyncio.run(handle_mcp_request(
         {"jsonrpc": "2.0", "id": "10", "method": "tasks/update", "params": {"taskId": task_id, "input": {}}},
         session_id="test-session-update-reject",
     ))
-    assert "error" in resp2
-    assert resp2["error"]["code"] == -32602
-    assert "not awaiting input" in resp2["error"]["message"]
+    assert "error" in resp
+    assert resp["error"]["code"] == -32602
+    assert "not awaiting input" in resp["error"]["message"]
 
 
 def test_sep2663_removed_tasks_result_returns_method_not_found():
@@ -592,7 +584,7 @@ def test_sep2663_removed_tasks_list_returns_method_not_found():
 
 
 def test_sep2663_notifications_tasks_not_status():
-    from simone_mcp.protocol import _run_task, _create_task, _get_task, _update_task
+    from simone_mcp.protocol import _run_task, _create_task, _update_task
     notifications_sent = []
 
     async def capture_notification(n):
@@ -606,18 +598,20 @@ def test_sep2663_notifications_tasks_not_status():
         assert n["method"] != "notifications/tasks/status"
 
 
-def test_sep2663_tasks_cancel_still_works():
-    from simone_mcp.protocol import handle_mcp_request
-    resp, sid, _ = asyncio.run(handle_mcp_request(
-        {"jsonrpc": "2.0", "id": "13", "method": "tools/call", "params": {"name": "sin_simone_mcp_symbol_search", "arguments": {"query": "cancel-test"}}},
-        session_id="test-cancel-session",
-    ))
-    task_id = resp["result"]["task"]["taskId"]
-    resp2, _, _ = asyncio.run(handle_mcp_request(
+async def _test_sep2663_tasks_cancel_still_works_async():
+    from simone_mcp.protocol import _create_task, _update_task, handle_mcp_request
+    task = _create_task("sin_simone_mcp_symbol_search", {"query": "cancel-test"}, "test-cancel-session")
+    task_id = task["id"]
+    _update_task(task_id, "working")
+    resp, _, _ = await handle_mcp_request(
         {"jsonrpc": "2.0", "id": "14", "method": "tasks/cancel", "params": {"taskId": task_id}},
         session_id="test-cancel-session",
-    ))
-    assert resp2["result"]["status"] == "cancelled"
+    )
+    assert resp["result"]["status"] == "cancelled"
+
+
+def test_sep2663_tasks_cancel_still_works():
+    asyncio.run(_test_sep2663_tasks_cancel_still_works_async())
 
 
 # ─── SEP-2243: HTTP Header Standardization ─────────────────────────────────────
@@ -788,3 +782,445 @@ def test_sep2663_task_get_args_schema():
     assert valid.taskId == "abc"
     alias_valid = TaskGetArgs(id="xyz")
     assert alias_valid.taskId == "xyz"
+
+
+# ─── Protocol: Resources Subscribe/Unsubscribe ────────────────────────────────
+
+def test_protocol_resources_subscribe():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, session_id, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "resources/subscribe", "params": {"uri": "file:///test.py"}},
+        session_id="test-subscribe",
+    ))
+    assert resp is not None
+    assert "result" in resp
+    assert resp["result"] == {}
+
+
+def test_protocol_resources_unsubscribe():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, session_id, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "resources/unsubscribe", "params": {"uri": "file:///test.py"}},
+        session_id="test-unsubscribe",
+    ))
+    assert resp is not None
+    assert "result" in resp
+    assert resp["result"] == {}
+
+
+# ─── Protocol: Prompts Get with Missing Args ──────────────────────────────────
+
+def test_protocol_prompts_get_missing_required_arg():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "prompts/get", "params": {"name": "code_review"}},
+        session_id="test-prompts",
+    ))
+    assert "error" in resp
+    assert resp["error"]["code"] == -32602
+    assert "Missing required argument" in resp["error"]["message"]
+
+
+def test_protocol_prompts_get_unknown():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "prompts/get", "params": {"name": "nonexistent_prompt"}},
+        session_id="test-prompts",
+    ))
+    assert "error" in resp
+    assert resp["error"]["code"] == -32602
+    assert "Unknown prompt" in resp["error"]["message"]
+
+
+# ─── Protocol: Logging SetLevel ───────────────────────────────────────────────
+
+def test_protocol_logging_set_level():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "logging/setLevel", "params": {"level": "debug"}},
+        session_id="test-logging",
+    ))
+    assert resp is not None
+    assert "result" in resp
+
+
+def test_protocol_logging_invalid_level():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "logging/setLevel", "params": {"level": "INVALID"}},
+        session_id="test-logging",
+    ))
+    assert "error" in resp
+    assert resp["error"]["code"] == -32602
+    assert "Invalid log level" in resp["error"]["message"]
+
+
+# ─── Protocol: Completion ─────────────────────────────────────────────────────
+
+def test_protocol_completion():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "completion/complete", "params": {"ref": {"type": "ref/prompt"}, "argument": {"name": "language", "value": "py"}}},
+        session_id="test-completion",
+    ))
+    assert resp is not None
+    assert "result" in resp
+    assert "completion" in resp["result"]
+
+
+# ─── Protocol: Sampling/Elicitation Not Supported ─────────────────────────────
+
+def test_protocol_sampling_not_supported():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "sampling/createMessage", "params": {}},
+        session_id="test-sampling",
+    ))
+    assert "error" in resp
+    assert resp["error"]["code"] == -1
+    assert "Sampling not supported" in resp["error"]["message"]
+
+
+def test_protocol_elicitation_not_supported():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "elicitation/create", "params": {"message": "test", "schema": {"enum": ["a", "b"]}}},
+        session_id="test-elicitation",
+    ))
+    assert "error" in resp
+    assert resp["error"]["code"] == -1
+    assert "Elicitation not supported" in resp["error"]["message"]
+
+
+# ─── Protocol: Resources Read ─────────────────────────────────────────────────
+
+def test_protocol_resources_read_not_found():
+    from simone_mcp.protocol import handle_mcp_request
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "resources/read", "params": {"uri": "file:///nonexistent.py"}},
+        session_id="test-resources",
+    ))
+    assert "error" in resp
+    assert resp["error"]["code"] == -32002
+
+
+# ─── A2A: Tool Call with Invalid Tool ─────────────────────────────────────────
+
+def test_a2a_tool_call_invalid_tool():
+    result = asyncio.run(
+        handle_a2a_request(
+            {"id": "99", "jsonrpc": "2.0", "method": "tool.call", "params": {"name": "nonexistent_tool"}},
+            "http://localhost:8234",
+        )
+    )
+    assert "result" in result
+    assert result["result"]["data"]["ok"] is False
+    assert result["result"]["data"]["error"] == "unknown_action"
+
+
+# ─── MCP Stdio: serve_stdio basic flow ────────────────────────────────────────
+
+def test_mcp_stdio_initialization():
+    from simone_mcp.mcp_stdio import serve_stdio
+    import io
+    import sys
+
+    stdin_data = json.dumps({"jsonrpc": "2.0", "id": "1", "method": "initialize", "params": {"protocolVersion": "2026-06-30"}}) + "\n"
+    old_stdin = sys.stdin
+    old_stdout = sys.stdout
+    sys.stdin = io.StringIO(stdin_data)
+    sys.stdout = io.StringIO()
+
+    try:
+        asyncio.run(serve_stdio())
+        output = sys.stdout.getvalue()
+        assert "initialize" in output.lower() or "result" in output
+    finally:
+        sys.stdin = old_stdin
+        sys.stdout = old_stdout
+
+
+# ─── CLI: validate command ────────────────────────────────────────────────────
+
+def test_cli_validate_basic():
+    from simone_mcp.cli import _validate_config
+    import os
+    os.environ.pop("SIMONE_AUTH_REQUIRED", None)
+    os.environ.pop("SIMONE_OAUTH_JWKS_URL", None)
+    os.environ.pop("QDRANT_URL", None)
+    os.environ.pop("NEO4J_URI", None)
+    _validate_config()
+
+
+# ─── Security: Rate Limiting ──────────────────────────────────────────────────
+
+def test_rate_limit_triggers_when_bucket_full():
+    import time
+    from simone_mcp.http_app import _check_rate_limit, _rate_limit_store, _RATE_LIMIT_WINDOW, _RATE_LIMIT_MAX
+    _rate_limit_store.clear()
+    client_id = "test-client"
+    now = time.monotonic()
+    _rate_limit_store[client_id] = [now - 1] * _RATE_LIMIT_MAX
+    from fastapi import HTTPException
+    try:
+        _check_rate_limit(client_id)
+        assert False, "Expected HTTPException"
+    except HTTPException as e:
+        assert e.status_code == 429
+        assert "Retry-After" in e.headers
+    _rate_limit_store.clear()
+
+
+def test_rate_limit_allows_under_max():
+    import time
+    from simone_mcp.http_app import _check_rate_limit, _rate_limit_store
+    _rate_limit_store.clear()
+    client_id = "test-client"
+    _check_rate_limit(client_id)
+    assert len(_rate_limit_store[client_id]) == 1
+    _rate_limit_store.clear()
+
+
+def test_rate_limit_window_expires_old_entries():
+    import time
+    from simone_mcp.http_app import _check_rate_limit, _rate_limit_store, _RATE_LIMIT_WINDOW
+    _rate_limit_store.clear()
+    client_id = "test-client"
+    now = time.monotonic()
+    _rate_limit_store[client_id] = [now - _RATE_LIMIT_WINDOW - 1]
+    _check_rate_limit(client_id)
+    assert len(_rate_limit_store[client_id]) == 1
+    _rate_limit_store.clear()
+
+
+# ─── Security: CORS / Origin Validation ─────────────────────────────────────
+
+def test_cors_blocks_disallowed_origin():
+    from fastapi import HTTPException
+    from simone_mcp.http_app import _validate_origin
+    class FakeRequest:
+        def __init__(self, origin):
+            self.headers = {"origin": origin}
+    try:
+        _validate_origin(FakeRequest("https://evil.com"))
+        assert False, "Expected HTTPException"
+    except HTTPException as e:
+        assert e.status_code == 403
+        assert "origin_not_allowed" in e.detail
+
+
+def test_cors_allows_whitelisted_origin():
+    from simone_mcp.http_app import _validate_origin
+    class FakeRequest:
+        def __init__(self, origin):
+            self.headers = {"origin": origin}
+    _validate_origin(FakeRequest("http://localhost"))
+
+
+def test_cors_allows_no_origin_header():
+    from simone_mcp.http_app import _validate_origin
+    class FakeRequest:
+        def __init__(self):
+            self.headers = {}
+    _validate_origin(FakeRequest())
+
+
+# ─── Security: Auth / Bearer Token ────────────────────────────────────────────
+
+def _reset_auth_cache():
+    import os
+    os.environ.pop("SIMONE_AUTH_REQUIRED", None)
+    os.environ.pop("SIMONE_OAUTH_JWKS_URL", None)
+    # Reset the module-level cache
+    import simone_mcp.http_app as http_app
+    http_app._auth_required_cache = None
+
+
+def test_auth_bypasses_open_paths():
+    from simone_mcp.http_app import _authorize_request, OPEN_PATHS
+    _reset_auth_cache()
+    os.environ["SIMONE_AUTH_REQUIRED"] = "true"
+    os.environ["SIMONE_OAUTH_JWKS_URL"] = "http://localhost:9999/.well-known/jwks.json"
+    class FakeRequest:
+        def __init__(self, path, headers=None):
+            self.url = type("URL", (), {"path": path})
+            self.headers = headers or {}
+    for path in OPEN_PATHS:
+        result = _authorize_request(FakeRequest(path))
+        assert result is None, f"Open path {path} should bypass auth"
+    _reset_auth_cache()
+
+
+def test_auth_rejects_missing_bearer():
+    from fastapi import HTTPException
+    from simone_mcp.http_app import _authorize_request
+    _reset_auth_cache()
+    os.environ["SIMONE_AUTH_REQUIRED"] = "true"
+    os.environ["SIMONE_OAUTH_JWKS_URL"] = "http://localhost:9999/.well-known/jwks.json"
+    class FakeRequest:
+        def __init__(self, headers=None):
+            self.url = type("URL", (), {"path": "/mcp"})
+            self.headers = headers or {}
+    try:
+        _authorize_request(FakeRequest())
+        assert False, "Expected HTTPException"
+    except HTTPException as e:
+        assert e.status_code == 401
+        assert "missing_bearer_token" in e.detail
+    _reset_auth_cache()
+
+
+def test_auth_rejects_invalid_scheme():
+    from fastapi import HTTPException
+    from simone_mcp.http_app import _authorize_request
+    _reset_auth_cache()
+    os.environ["SIMONE_AUTH_REQUIRED"] = "true"
+    os.environ["SIMONE_OAUTH_JWKS_URL"] = "http://localhost:9999/.well-known/jwks.json"
+    class FakeRequest:
+        def __init__(self, headers=None):
+            self.url = type("URL", (), {"path": "/mcp"})
+            self.headers = headers or {}
+    try:
+        _authorize_request(FakeRequest({"authorization": "Basic abc123"}))
+        assert False, "Expected HTTPException"
+    except HTTPException as e:
+        assert e.status_code == 401
+    _reset_auth_cache()
+
+
+# ─── Security: Request Body Size ─────────────────────────────────────────────
+
+def test_body_size_limit():
+    from fastapi import HTTPException
+    from simone_mcp.http_app import _MAX_REQUEST_BODY
+    assert _MAX_REQUEST_BODY == 1048576
+
+
+# ─── Security: Client IP Extraction ───────────────────────────────────────────
+
+def test_extract_client_ip_from_x_forwarded_for():
+    from simone_mcp.http_app import _extract_client_ip
+    class FakeRequest:
+        def __init__(self, headers, client=None):
+            self.headers = headers
+            self.client = client
+    req = FakeRequest({"x-forwarded-for": "1.2.3.4, 5.6.7.8"})
+    assert _extract_client_ip(req) == "5.6.7.8"
+
+
+def test_extract_client_ip_fallback():
+    from simone_mcp.http_app import _extract_client_ip
+    class FakeRequest:
+        def __init__(self, headers, client=None):
+            self.headers = headers
+            self.client = client
+    req = FakeRequest({}, type("Client", (), {"host": "192.168.1.1"}))
+    assert _extract_client_ip(req) == "192.168.1.1"
+
+
+# ─── HTTP: DELETE Session ───────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_http_delete_session():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.request("DELETE", "/mcp", headers={"Mcp-Session-Id": "test-session-123"})
+        assert resp.status_code == 202
+
+
+@pytest.mark.asyncio
+async def test_http_delete_session_missing_id():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.request("DELETE", "/mcp")
+        assert resp.status_code == 400
+        assert "missing_session_id" in resp.json()["detail"]
+
+
+# ─── HTTP: Basic Endpoint Smoke Tests ────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_http_health_endpoint():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/health")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ok"] is True
+        assert data["name"] == "simone-mcp"
+
+
+@pytest.mark.asyncio
+async def test_http_root_endpoint():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/")
+        assert resp.status_code == 200
+        assert resp.json()["name"] == "simone-mcp"
+
+
+@pytest.mark.asyncio
+async def test_http_well_known_agent_card():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/.well-known/agent-card.json")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["name"] == "simone-mcp"
+        assert "sin_simone_mcp_health" in data["capabilities"]
+
+
+@pytest.mark.asyncio
+async def test_http_a2a_endpoint():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post("/a2a/v1", json={"jsonrpc": "2.0", "id": "1", "method": "agent.discover"})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["result"]["name"] == "simone-mcp"
+
+
+# ─── HTTP: Invalid JSON Body ─────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_http_invalid_json_body():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post("/mcp", content=b"not json{{{", headers={"Content-Type": "application/json"})
+        assert resp.status_code == 400
+        assert "invalid_json" in resp.json()["detail"]
+
+
+# ─── HTTP: Dashboard ────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_http_dashboard():
+    from simone_mcp.http_app import create_app
+    from httpx import AsyncClient, ASGITransport
+    app = create_app()
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/dashboard")
+        assert resp.status_code == 200
+        assert "Simone MCP" in resp.text

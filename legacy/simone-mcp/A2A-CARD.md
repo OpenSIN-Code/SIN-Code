@@ -32,10 +32,10 @@ Simone MCP closes the gap between lightweight symbol tools and a production-faci
 | Capability | Type | Task Support | Status |
 |------------|------|-------------|--------|
 | `sin_simone_mcp_health` | Tool | forbidden | ✅ implemented |
-| `sin_simone_mcp_symbol_search` | Tool | optional | ✅ implemented |
-| `sin_simone_mcp_find_references` | Tool | optional | ✅ implemented |
-| `sin_simone_mcp_structural_edit` | Tool | optional | ✅ implemented |
-| `sin_simone_mcp_memory_query` | Tool | optional | ✅ implemented |
+| `sin_simone_mcp_symbol_search` | Tool | forbidden | ✅ implemented |
+| `sin_simone_mcp_find_references` | Tool | forbidden | ✅ implemented |
+| `sin_simone_mcp_structural_edit` | Tool | forbidden | ✅ implemented |
+| `sin_simone_mcp_memory_query` | Tool | forbidden | ✅ implemented |
 | `sin_simone_mcp_project_overview` | Tool | forbidden | ✅ implemented |
 
 ### MCP 2026-06-30 Features

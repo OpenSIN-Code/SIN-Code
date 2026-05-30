@@ -164,10 +164,6 @@ async def _read_json_body(request: Request) -> dict[str, Any] | list[Any]:
         raise HTTPException(status_code=400, detail=f"invalid_json: {e}") from e
 
 
-async def _send_sse_notification(response: StreamingResponse | None, notification: dict[str, Any]) -> None:
-    pass
-
-
 async def _mcp_post(request: Request) -> JSONResponse | StreamingResponse:
     raw_payload = await _read_json_body(request)
     session_id = request.headers.get("Mcp-Session-Id") or None
@@ -265,6 +261,9 @@ async def _mcp_post(request: Request) -> JSONResponse | StreamingResponse:
         headers["Mcp-Session-Id"] = session_id
     headers["MCP-Protocol-Version"] = PROTOCOL_VERSION
 
+    # NOTE: Notifications are logged to the SSE event store for replay via GET /mcp
+    # streamable HTTP does not push notifications inline; clients must use SSE
+    # or poll tasks/get for async updates (SEP-2663).
     if all_notifications:
         for n in all_notifications:
             if session_id:

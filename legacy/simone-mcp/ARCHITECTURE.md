@@ -16,7 +16,7 @@ Both transports delegate to a shared `protocol.py` handler that implements the f
 - HTTP Header Standardization (SEP-2243): `Mcp-Method`, `Mcp-Name`, `Mcp-Param-*` headers; `-32001` HeaderMismatch error
 - List TTL (SEP-2549): `ttlMs` + `cacheScope` on all list responses
 - Structured output (`structuredContent` + `outputSchema`)
-- Tool `title`, `execution.taskSupport` (forbidden/optional/required)
+- Tool `title`, `execution.taskSupport` (all tools: forbidden — inline structuredContent)
 - `resource_link` type in tool results
 - Input validation as `isError: true` (SEP-1303)
 - `_meta` propagation on all methods
@@ -91,7 +91,7 @@ Supported methods:
 - `initialize` (version negotiation)
 - `ping`
 - `tools/list` (paginated)
-- `tools/call` (with task support, structured output, resource links)
+- `tools/call` (with structured output, resource links, inline results)
 - `tasks/get` (inline result — SEP-2663)
 - `tasks/update` (resume input_required tasks — SEP-2663)
 - `tasks/cancel` (rejects terminal tasks with -32602)
@@ -133,8 +133,8 @@ The current implementation provides:
 - hybrid memory query (`sin_simone_mcp_memory_query`)
 - workspace overview (`sin_simone_mcp_project_overview`)
 - health check (`sin_simone_mcp_health`)
-- task-augmented execution for long-running operations
 - structured output with JSON Schema 2020-12 outputSchema on all tools
+- inline results (taskSupport: forbidden — no task deferral)
 
 ## Memory strategy
 

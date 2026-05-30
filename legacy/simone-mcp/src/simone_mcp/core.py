@@ -129,7 +129,7 @@ TOOL_DEFINITIONS = [
             "idempotentHint": True,
             "openWorldHint": True,
         },
-        "execution": {"taskSupport": "optional"},
+        "execution": {"taskSupport": "forbidden"},
     },
     {
         "name": "sin_simone_mcp_structural_edit",
@@ -160,7 +160,7 @@ TOOL_DEFINITIONS = [
             "idempotentHint": False,
             "openWorldHint": True,
         },
-        "execution": {"taskSupport": "optional"},
+        "execution": {"taskSupport": "forbidden"},
     },
     {
         "name": "sin_simone_mcp_memory_query",
@@ -189,7 +189,7 @@ TOOL_DEFINITIONS = [
             "idempotentHint": True,
             "openWorldHint": False,
         },
-        "execution": {"taskSupport": "optional"},
+        "execution": {"taskSupport": "forbidden"},
     },
     {
         "name": "sin_simone_mcp_find_references",
@@ -239,7 +239,7 @@ TOOL_DEFINITIONS = [
             "idempotentHint": True,
             "openWorldHint": True,
         },
-        "execution": {"taskSupport": "optional"},
+        "execution": {"taskSupport": "forbidden"},
     },
     {
         "name": "sin_simone_mcp_project_overview",
@@ -281,11 +281,6 @@ TOOL_DEFINITIONS = [
     },
 ]
 CAPABILITIES = [tool["name"] for tool in TOOL_DEFINITIONS] + [
-    "code.find_symbol",
-    "code.find_references",
-    "code.replace_symbol_body",
-    "code.insert_after_symbol",
-    "code.project_overview",
     "memory.hybrid",
     "transport.streamable_http",
     "auth.oauth2.1",
@@ -315,13 +310,15 @@ def build_agent_card(base_url: str) -> dict[str, Any]:
         },
         "skills": [
             {"id": "agent.help", "name": "Help"},
-            {"id": "simone.mcp.health", "name": "Health"},
-            {"id": "code.find_symbol", "name": "Find Symbol"},
-            {"id": "code.find_references", "name": "Find References"},
-            {"id": "code.replace_symbol_body", "name": "Replace Symbol Body"},
-            {"id": "code.insert_after_symbol", "name": "Insert After Symbol"},
-            {"id": "code.project_overview", "name": "Project Overview"},
+            {"id": "sin_simone_mcp_health", "name": "Health Check"},
+            {"id": "sin_simone_mcp_symbol_search", "name": "Symbol Search"},
+            {"id": "sin_simone_mcp_structural_edit", "name": "Structural Edit"},
+            {"id": "sin_simone_mcp_memory_query", "name": "Memory Query"},
+            {"id": "sin_simone_mcp_find_references", "name": "Find References"},
+            {"id": "sin_simone_mcp_project_overview", "name": "Project Overview"},
         ],
+        "defaultInputModes": ["application/json", "text/plain"],
+        "defaultOutputModes": ["application/json", "text/plain"],
     }
 
 
@@ -787,12 +784,13 @@ def query_hybrid_memory(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 _SYNC_ACTIONS = frozenset({
-    "code.find_symbol", "simone.mcp.symbol.search", "sin.simone.mcp.symbol.search", "sin_simone_mcp_symbol_search",
-    "code.find_references", "simone.mcp.references.search", "sin_simone_mcp_find_references",
-    "code.replace_symbol_body", "simone.mcp.structural.edit", "sin_simone_mcp_structural_edit",
-    "code.insert_after_symbol",
-    "code.project_overview", "sin_simone_mcp_project_overview",
-    "memory.query", "sin.simone.mcp.memory.query", "sin_simone_mcp_memory_query",
+    "sin_simone_mcp_symbol_search",
+    "sin_simone_mcp_find_references",
+    "sin_simone_mcp_structural_edit",
+    "sin_simone_mcp_memory_query",
+    "sin_simone_mcp_project_overview",
+    "sin_simone_mcp_health",
+    "sin_simone_mcp_insert_after",
 })
 
 
@@ -805,19 +803,12 @@ async def execute_simone_action(payload: dict[str, Any]) -> dict[str, Any]:
                 "name": AGENT_NAME,
                 "actions": [
                     "agent.help",
-                    "simone.mcp.health",
                     "sin_simone_mcp_health",
                     "sin_simone_mcp_symbol_search",
                     "sin_simone_mcp_structural_edit",
                     "sin_simone_mcp_memory_query",
                     "sin_simone_mcp_find_references",
                     "sin_simone_mcp_project_overview",
-                    "code.find_symbol",
-                    "code.find_references",
-                    "code.replace_symbol_body",
-                    "code.insert_after_symbol",
-                    "code.project_overview",
-                    "memory.query",
                 ],
             }
         if action in {"simone.mcp.health", "sin.simone.mcp.health", "sin_simone_mcp_health"}:
@@ -837,23 +828,18 @@ async def execute_simone_action(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _execute_sync_action(action: str, payload: dict[str, Any]) -> dict[str, Any]:
-    if action in {
-        "code.find_symbol",
-        "simone.mcp.symbol.search",
-        "sin.simone.mcp.symbol.search",
-        "sin_simone_mcp_symbol_search",
-    }:
+    if action == "sin_simone_mcp_symbol_search":
         return find_symbol(payload)
-    if action in {"code.find_references", "simone.mcp.references.search", "sin_simone_mcp_find_references"}:
+    if action == "sin_simone_mcp_find_references":
         return find_references(payload)
-    if action in {"code.replace_symbol_body", "simone.mcp.structural.edit", "sin_simone_mcp_structural_edit"}:
+    if action == "sin_simone_mcp_structural_edit":
         return replace_symbol_body(payload)
-    if action in {"code.insert_after_symbol"}:
-        return insert_after_symbol(payload)
-    if action in {"code.project_overview", "sin_simone_mcp_project_overview"}:
+    if action == "sin_simone_mcp_project_overview":
         return get_project_overview(payload)
-    if action in {"memory.query", "sin.simone.mcp.memory.query", "sin_simone_mcp_memory_query"}:
+    if action == "sin_simone_mcp_memory_query":
         return query_hybrid_memory(payload)
+    if action == "sin_simone_mcp_insert_after":
+        return insert_after_symbol(payload)
     return {"ok": False, "error": "unknown_action", "action": action}
 
 

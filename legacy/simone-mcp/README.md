@@ -96,13 +96,13 @@
 | Tool | Title | Type | Task Support | Description |
 |:---|:---|:---|:---|:---|
 | `sin_simone_mcp_health` | Health Check | Meta | forbidden | Server health check and status |
-| `sin_simone_mcp_symbol_search` | Symbol Search | Read | optional | Locate symbol definitions across workspace |
-| `sin_simone_mcp_find_references` | Find References | Read | optional | Find textual references to a symbol |
-| `sin_simone_mcp_structural_edit` | Structural Edit | Write | optional | Replace/insert code via structural payload |
-| `sin_simone_mcp_memory_query` | Memory Query | Read | optional | Hybrid memory search via Qdrant + Neo4j |
+| `sin_simone_mcp_symbol_search` | Symbol Search | Read | forbidden | Locate symbol definitions across workspace |
+| `sin_simone_mcp_find_references` | Find References | Read | forbidden | Find textual references to a symbol |
+| `sin_simone_mcp_structural_edit` | Structural Edit | Write | forbidden | Replace/insert code via structural payload |
+| `sin_simone_mcp_memory_query` | Memory Query | Read | forbidden | Hybrid memory search via Qdrant + Neo4j |
 | `sin_simone_mcp_project_overview` | Project Overview | Read | forbidden | Summarize workspace footprint and file types |
 
-All tools provide `outputSchema` (JSON Schema 2020-12) and `structuredContent` alongside text.
+All tools provide `outputSchema` (JSON Schema 2020-12) and return `structuredContent` inline (no task deferral).
 
 </details>
 
@@ -115,7 +115,7 @@ All tools provide `outputSchema` (JSON Schema 2020-12) and `structuredContent` a
 | **HTTP Headers (SEP-2243)** | `Mcp-Method`, `Mcp-Name`, `Mcp-Param-*` header validation with `-32001` HeaderMismatch error |
 | **List TTL (SEP-2549)** | `ttlMs` + `cacheScope` on all list responses (tools, resources, prompts, templates) |
 | **Structured Output** | `structuredContent` + `outputSchema` on all tool results |
-| **Tool Title & Icons** | `title` field on all tools, `execution.taskSupport` (forbidden/optional/required) |
+| **Tool Title & Icons** | `title` field on all tools, `execution.taskSupport` (forbidden) |
 | **Resource Links** | `resource_link` type in tool results for file references |
 | **Input Validation (SEP-1303)** | Validation errors return `isError: true`, not JSON-RPC protocol errors |
 | **_meta Propagation** | Request `_meta` echoed in all response results |

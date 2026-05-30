@@ -85,6 +85,8 @@ class StructuralEditArgs(BaseModel):
 
 class MemoryQueryArgs(BaseModel):
     query: str = Field(min_length=1)
+    root: str | None = None
+    target_symbol: str | None = None
 
 
 class TaskGetArgs(BaseModel):
@@ -104,16 +106,12 @@ class TaskCancelArgs(BaseModel):
 
 
 TOOL_ARG_MODELS: dict[str, type[BaseModel]] = {
-    "code.find_symbol": FindSymbolArgs,
-    "code.find_references": FindReferencesArgs,
-    "code.replace_symbol_body": ReplaceSymbolBodyArgs,
-    "code.insert_after_symbol": InsertAfterSymbolArgs,
-    "code.project_overview": ProjectOverviewArgs,
     "sin_simone_mcp_symbol_search": SymbolSearchArgs,
     "sin_simone_mcp_structural_edit": StructuralEditArgs,
     "sin_simone_mcp_memory_query": MemoryQueryArgs,
     "sin_simone_mcp_find_references": FindReferencesArgs,
     "sin_simone_mcp_project_overview": ProjectOverviewArgs,
+    "sin_simone_mcp_health": ProjectOverviewArgs,
     "tasks/get": TaskGetArgs,
     "tasks/update": TaskUpdateArgs,
     "tasks/cancel": TaskCancelArgs,
