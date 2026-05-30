@@ -16,6 +16,8 @@ gitnexus_app = typer.Typer(
     help="GitNexus bridge - mandatory graph context for coder agents."
 )
 app.add_typer(gitnexus_app, name="gitnexus")
+codocs_app = typer.Typer(help="CoDocs - co-located docs standard (.doc.md companions).")
+app.add_typer(codocs_app, name="codocs")
 
 _EXCLUDE = ["venv", ".venv", "node_modules", ".git", "__pycache__"]
 
@@ -57,6 +59,8 @@ def status():
     from sin_code_bundle import gitnexus
 
     report["GitNexus (graph context, external)"] = gitnexus.detect_env().available
+    # CoDocs ships inside the bundle itself, so it is always available.
+    report["CoDocs (co-located docs)"] = True
     typer.echo(json.dumps(report, indent=2))
 
 
@@ -271,6 +275,119 @@ def preflight(
         )
     typer.echo("[PREFLIGHT] OK - GitNexus graph context is ready.")
     typer.echo(json.dumps(state.to_dict(), indent=2))
+@codocs_app.command("check")
+def codocs_check(
+    root: str = typer.Argument(".", help="Repository root to scan"),
+    json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
+):
+    """Verify every `# Docs: x.doc.md` reference points to an existing file."""
+    from sin_code_bundle import codocs
+
+    broken = codocs.find_broken(root, exclude=set(_EXCLUDE))
+    if json_out:
+        typer.echo(json.dumps([ref.to_dict() for ref in broken], indent=2))
+    else:
+        if not broken:
+            typer.echo("[CODOCS] OK - no broken .doc.md references.")
+        else:
+            for ref in broken:
+                typer.echo(f"[CODOCS] MISSING: {ref.source} -> {ref.doc}")
+            typer.echo(f"[CODOCS] {len(broken)} broken reference(s).")
+    if broken:
+        raise typer.Exit(code=1)
+
+
+@codocs_app.command("list")
+def codocs_list(root: str = typer.Argument(".", help="Repository root to scan")):
+    """List all discovered CoDocs references and whether they resolve."""
+    from sin_code_bundle import codocs
+
+    refs = codocs.scan(root, exclude=set(_EXCLUDE))
+    if not refs:
+        typer.echo("[CODOCS] No `Docs:` references found.")
+        return
+    for ref in refs:
+        mark = "ok" if ref.exists else "MISSING"
+        typer.echo(f"[{mark}] {ref.source} -> {ref.doc}")
+
+
+@codocs_app.command("install-skill")
+def codocs_install_skill(
+    agent: str = typer.Option(
+        "all", help="Which agent skill dir to install into: hermes | opencode | all"
+    ),
+):
+    """Install the CoDocs skill into the local agent skill directory."""
+    import shutil
+
+    skill_src = Path(__file__).parent / "data" / "codocs" / "SKILL.md"
+    if not skill_src.is_file():
+        # Fallback to the repo-level skills/ dir (editable installs).
+        skill_src = (
+            Path(__file__).resolve().parents[2] / "skills" / "sin-codocs" / "SKILL.md"
+        )
+    if not skill_src.is_file():
+        typer.echo("[CODOCS] Skill file not found in package.", err=True)
+        raise typer.Exit(code=1)
+
+    targets = {
+        "hermes": Path.home() / ".hermes" / "skills" / "sin-codocs",
+        "opencode": Path.home() / ".config" / "opencode" / "skills" / "sin-codocs",
+    }
+    chosen = targets.keys() if agent == "all" else [agent]
+    for name in chosen:
+        if name not in targets:
+            typer.echo(f"[CODOCS] Unknown agent: {name}", err=True)
+            raise typer.Exit(code=1)
+        dest_dir = targets[name]
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(skill_src, dest_dir / "SKILL.md")
+        typer.echo(f"[CODOCS] Installed skill -> {dest_dir / 'SKILL.md'}")
+@app.command(name="mcp-config")
+def mcp_config(
+    client: str = typer.Argument(..., help="Target CLI: opencode | codex | hermes"),
+    write: bool = typer.Option(
+        False, "--write", help="Merge into the client's config file instead of stdout."
+    ),
+    path: Path = typer.Option(
+        None, "--path", help="Override the config file path used with --write."
+    ),
+):
+    """Generate a ready-to-use MCP client configuration for the sin server."""
+    from . import mcp_config as gen
+
+    client_norm = client.lower()
+    if client_norm not in gen.SUPPORTED_CLIENTS:
+        typer.echo(
+            f"[SIN-BUNDLE] Unknown client '{client}'. "
+            f"Supported: {', '.join(gen.SUPPORTED_CLIENTS)}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if write:
+        target = path or gen.default_path(client_norm)
+        try:
+            msg = gen.merge_into_file(client_norm, Path(target))
+        except ValueError as exc:
+            typer.echo(f"[SIN-BUNDLE] {exc}", err=True)
+            raise typer.Exit(code=1)
+        typer.echo(f"[SIN-BUNDLE] {msg}")
+    else:
+        typer.echo(gen.generate(client_norm))
+
+
+@app.command(name="agents-md")
+def agents_md(
+    path: Path = typer.Option(
+        Path("AGENTS.md"), "--path", help="Target AGENTS.md path."
+    ),
+):
+    """Create or idempotently update an AGENTS.md describing SIN tool usage."""
+    from . import agents_md as gen
+
+    msg = gen.upsert(Path(path))
+    typer.echo(f"[SIN-BUNDLE] {msg}")
 
 
 @app.command()
@@ -431,6 +548,20 @@ def serve():
             return gitnexus.ai_context(task, root=root)
     except ImportError:
         pass
+    # CoDocs is built into the bundle, so it is always exposed.
+    from sin_code_bundle import codocs
+
+    @mcp.tool()
+    def codocs_check(root: str = ".") -> str:
+        """Find broken co-located `.doc.md` references in a repository."""
+        broken = codocs.find_broken(root, exclude=set(_EXCLUDE))
+        return json.dumps(
+            {
+                "broken": [ref.to_dict() for ref in broken],
+                "count": len(broken),
+                "ok": not broken,
+            }
+        )
 
     typer.echo("[SIN-BUNDLE] MCP server starting (stdio).", err=True)
     mcp.run()
