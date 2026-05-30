@@ -41,6 +41,8 @@ def status():
         "sin_code_efsm": "EFSM (mock orchestration)",
         "sin_code_adw": "ADW (debt watchdog)",
         "sin_code_oracle": "Oracle (verification)",
+        "sin_code_orchestration": "Orchestration (multi-agent workflow)",
+        "sin_code_review_interface": "Review-Interface (semantic review UI)",
     }
     report = {}
     for mod, desc in subsystems.items():
@@ -168,6 +170,15 @@ def serve(port: int = 9000):
             return json.dumps(analyzer.debt_score(reports))
     except ImportError:
         pass
+
+
+    # TODO (WS1): Register additional tools:
+    # - verify_tests (Oracle)
+    # - prove (POC)
+    # - mock_env (EFSM)
+    # - orchestrate / task_status (Orchestration)
+    # - semantic_review (Review-Interface)
+    # See docs/plans/agent-cli-integration.md (WS1)
 
     typer.echo(f"[SIN-BUNDLE] MCP server starting (stdio); logical port {port}")
     mcp.run()

@@ -20,6 +20,8 @@ dependencies = [
 #   pip install -e ../SIN-Code-Ephemeral-Full-Stack-Mocking-Orchestration
 #   pip install -e ../SIN-Code-Architectural-Debt-Watchdogs
 #   pip install -e ../SIN-Code-Verification-Oracle
+#   pip install -e ../SIN-Code-Orchestration
+#   pip install -e ../SIN-Code-Review-Interface
 #   pip install -e .
 [project.optional-dependencies]
 mcp = ["mcp>=1.0.0"]
