@@ -26,6 +26,7 @@ verification oracle.
 | [GitNexus](https://github.com/abhigyanpatwari/GitNexus) | Upstream code knowledge graph — bridged, mandatory graph context for agents |
 | [MarkItDown](https://github.com/microsoft/markitdown) | Upstream doc→Markdown converter — bridged, document context for agents |
 | [RTK](https://github.com/rtk-ai/rtk) | Upstream token-saving command proxy — bridged, 60-90% fewer command tokens |
+| CoDocs | Co-located docs standard (`.doc.md` companions) — built into the bundle |
 
 ## What the Bundle does
 
@@ -61,6 +62,9 @@ sin serve             # unified MCP server
 | `sin gitnexus index\|status\|doctor\|context\|impact\|ai-context` | GitNexus graph operations. |
 | `sin markitdown setup\|doctor\|convert` | Wire/convert via MarkItDown (doc→Markdown). |
 | `sin rtk setup\|doctor\|gain` | Wire RTK token-saving proxy into agents. |
+| `sin codocs check [root]` | Validate co-located `.doc.md` references (built-in). |
+| `sin codocs list [root]` | List all CoDocs references and whether they resolve. |
+| `sin codocs install-skill` | Install the CoDocs agent skill (Hermes / OpenCode). |
 | `sin serve` | Unified MCP server across available subsystems. |
 
 ## GitNexus: mandatory graph context
@@ -101,6 +105,7 @@ See [docs/EXTERNAL_TOOLS.md](./docs/EXTERNAL_TOOLS.md) for the full matrix.
 - [docs/CONFIGURATION.md](./docs/CONFIGURATION.md)
 - [docs/GITNEXUS.md](./docs/GITNEXUS.md)
 - [docs/EXTERNAL_TOOLS.md](./docs/EXTERNAL_TOOLS.md)
+- [docs/CODOCS.md](./docs/CODOCS.md)
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [CHANGELOG.md](./CHANGELOG.md)
 

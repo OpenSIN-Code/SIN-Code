@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `gitnexus_context`, `gitnexus_impact`, `gitnexus_ai_context` exposed via
     `sin serve`; GitNexus availability shown in `sin status`.
   - Docs at `docs/GITNEXUS.md`; requires Node.js >= 18.
+- **CoDocs** integration, merged from the former
+  `SIN-Hermes-Bundles/SIN-Code-CoDocs-Bundle` repo:
+  - `sin_code_bundle.codocs` — a robust, stdlib-only validator that replaces the
+    original fragile `grep | sed` one-liner.
+  - `sin codocs check`, `sin codocs list`, and `sin codocs install-skill` CLI
+    commands, plus a `codocs_check` MCP tool exposed via `sin serve`.
+  - Packaged agent skill (`data/codocs/SKILL.md`), `docs/CODOCS.md`, and a
+    worked example under `examples/codocs/`.
 
 ## [0.1.0] - 2026-05-30
 
