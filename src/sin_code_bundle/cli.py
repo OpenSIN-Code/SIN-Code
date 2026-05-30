@@ -68,6 +68,16 @@ def status():
     report["RTK (token-saving proxy, external)"] = rtk.detect_env().available
     # CoDocs ships inside the bundle itself, so it is always available.
     report["CoDocs (co-located docs)"] = True
+
+    # SIN-Brain memory cortex (external package). Report presence plus tier
+    # sizes so it is obvious whether agents have a working memory.
+    from sin_code_bundle import memory
+
+    mem_env = memory.detect_env()
+    report["SIN-Brain (memory cortex, external)"] = mem_env.available
+    if mem_env.available:
+        report["sin-brain:db"] = mem_env.db_path or "(default)"
+        report["sin-brain:tiers"] = mem_env.tiers
     typer.echo(json.dumps(report, indent=2))
 
 
@@ -666,6 +676,13 @@ def serve():
                 "ok": not broken,
             }
         )
+
+    # SIN-Brain memory cortex (external package, BR-1 / Issue #14). Registers
+    # recall/remember/forget/pin/link_evidence only when sin-brain is importable;
+    # a missing package leaves the server fully functional (graceful degradation).
+    from sin_code_bundle import memory
+
+    memory.register_tools(mcp)
 
     typer.echo("[SIN-BUNDLE] MCP server starting (stdio).", err=True)
     mcp.run()
