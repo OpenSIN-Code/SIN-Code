@@ -123,12 +123,12 @@ def verify(test_command: str, root: str = "."):
 
 
 @app.command()
-def serve(port: int = 9000):
-    """Expose available tools as a unified MCP server."""
+def serve():
+    """Expose available tools as a unified MCP server (stdio)."""
     try:
         from mcp.server.fastmcp import FastMCP
     except ImportError:
-        typer.echo("[SIN-BUNDLE] mcp package required: pip install 'sin-code-bundle[mcp]'")
+        typer.echo("[SIN-BUNDLE] mcp package required: pip install 'sin-code-bundle[mcp]'", err=True)
         raise typer.Exit(code=1)
 
     mcp = FastMCP("sin-code-bundle")
@@ -180,7 +180,7 @@ def serve(port: int = 9000):
     # - semantic_review (Review-Interface)
     # See docs/plans/agent-cli-integration.md (WS1)
 
-    typer.echo(f"[SIN-BUNDLE] MCP server starting (stdio); logical port {port}")
+    typer.echo("[SIN-BUNDLE] MCP server starting (stdio).", err=True)
     mcp.run()
 
 
