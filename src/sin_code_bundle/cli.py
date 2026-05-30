@@ -172,13 +172,89 @@ def serve():
         pass
 
 
-    # TODO (WS1): Register additional tools:
-    # - verify_tests (Oracle)
-    # - prove (POC)
-    # - mock_env (EFSM)
-    # - orchestrate / task_status (Orchestration)
-    # - semantic_review (Review-Interface)
-    # See docs/plans/agent-cli-integration.md (WS1)
+    try:
+        from sin_code_oracle import VerificationOracle
+
+        @mcp.tool()
+        def verify_tests(code: str, language: str = "python") -> str:
+            """Verify agent-generated code (security/performance/correctness)."""
+            oracle = VerificationOracle()
+            report = oracle.verify(code, language=language)
+            return report.to_json()
+    except ImportError:
+        pass
+
+    try:
+        from sin_code_poc import ProofGenerator
+
+        @mcp.tool()
+        def prove(function_code: str, properties: str = "") -> str:
+            """Generate and verify proofs of correctness."""
+            gen = ProofGenerator()
+            proof = gen.generate(function_code, properties=properties)
+            return json.dumps({"proof": proof})
+    except ImportError:
+        pass
+
+    try:
+        from sin_code_efsm import EphemeralMockServer
+
+        @mcp.tool()
+        def mock_env(action: str = "up", port: int = 8888) -> str:
+            """Manage ephemeral full-stack mock environment."""
+            server = EphemeralMockServer(port=port)
+            if action == "up":
+                server.start()
+                return json.dumps({"status": "up", "port": port})
+            elif action == "down":
+                server.stop()
+                return json.dumps({"status": "down"})
+            else:
+                return json.dumps({"error": f"unknown action: {action}"})
+    except ImportError:
+        pass
+
+    try:
+        from sin_code_orchestration import Orchestrator, TaskSpec, Role
+
+        @mcp.tool()
+        def orchestrate(task_id: str, role: str, input_data: str) -> str:
+            """Submit a task to the multi-agent orchestrator."""
+            orch = Orchestrator()
+            spec = TaskSpec(
+                task_id=task_id,
+                description=f"Task via MCP: {task_id}",
+                role=Role(role),
+                input_data=json.loads(input_data),
+            )
+            entry = orch.submit_task(spec)
+            return json.dumps({"entry_id": entry.id, "status": entry.status.value})
+
+        @mcp.tool()
+        def task_status(entry_id: str) -> str:
+            """Get status of an orchestrated task."""
+            orch = Orchestrator()
+            status = orch.status()
+            return json.dumps(status)
+    except ImportError:
+        pass
+
+    try:
+        from sin_code_ibd import ASTDiff, IntentSummarizer, RiskScorer
+
+        @mcp.tool()
+        def semantic_review(file_a: str, file_b: str) -> str:
+            """Comprehensive semantic review: intent + risk in one call."""
+            changes = ASTDiff().diff_files(file_a, file_b)
+            intents = IntentSummarizer().summarize(changes)
+            risk = RiskScorer().score(changes)
+            return json.dumps({
+                "intents": [i.__dict__ for i in intents],
+                "risk": risk,
+                "recommendation": "Approve" if risk["risk"] == "low" else "Review Manually"
+            })
+    except ImportError:
+        pass
 
     typer.echo("[SIN-BUNDLE] MCP server starting (stdio).", err=True)
     mcp.run()
