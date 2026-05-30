@@ -195,6 +195,51 @@ def codocs_install_skill(
         dest_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(skill_src, dest_dir / "SKILL.md")
         typer.echo(f"[CODOCS] Installed skill -> {dest_dir / 'SKILL.md'}")
+@app.command(name="mcp-config")
+def mcp_config(
+    client: str = typer.Argument(..., help="Target CLI: opencode | codex | hermes"),
+    write: bool = typer.Option(
+        False, "--write", help="Merge into the client's config file instead of stdout."
+    ),
+    path: Path = typer.Option(
+        None, "--path", help="Override the config file path used with --write."
+    ),
+):
+    """Generate a ready-to-use MCP client configuration for the sin server."""
+    from . import mcp_config as gen
+
+    client_norm = client.lower()
+    if client_norm not in gen.SUPPORTED_CLIENTS:
+        typer.echo(
+            f"[SIN-BUNDLE] Unknown client '{client}'. "
+            f"Supported: {', '.join(gen.SUPPORTED_CLIENTS)}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    if write:
+        target = path or gen.default_path(client_norm)
+        try:
+            msg = gen.merge_into_file(client_norm, Path(target))
+        except ValueError as exc:
+            typer.echo(f"[SIN-BUNDLE] {exc}", err=True)
+            raise typer.Exit(code=1)
+        typer.echo(f"[SIN-BUNDLE] {msg}")
+    else:
+        typer.echo(gen.generate(client_norm))
+
+
+@app.command(name="agents-md")
+def agents_md(
+    path: Path = typer.Option(
+        Path("AGENTS.md"), "--path", help="Target AGENTS.md path."
+    ),
+):
+    """Create or idempotently update an AGENTS.md describing SIN tool usage."""
+    from . import agents_md as gen
+
+    msg = gen.upsert(Path(path))
+    typer.echo(f"[SIN-BUNDLE] {msg}")
 
 
 @app.command()
