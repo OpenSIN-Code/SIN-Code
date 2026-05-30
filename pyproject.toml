@@ -32,3 +32,6 @@ sin = "sin_code_bundle.cli:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+sin_code_bundle = ["data/codocs/*.md"]
