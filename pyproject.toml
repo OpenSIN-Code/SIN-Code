@@ -8,15 +8,25 @@ version = "0.1.0"
 description = "Unified SOTA Agent-Engineering Stack"
 requires-python = ">=3.11"
 dependencies = [
-    "sin-code-sckg",
-    "sin-code-ibd",
-    "sin-code-poc",
-    "sin-code-efsm",
-    "sin-code-adw",
     "typer>=0.9.0",
     "pyyaml>=6.0",
-    "mcp>=1.0.0",
 ]
+
+# Die Subsysteme werden lokal per editable install verdrahtet, nicht von PyPI.
+# Installation (Reihenfolge wichtig):
+#   pip install -e ../SIN-Code-Semantic-Codebase-Knowledge-Graphs
+#   pip install -e ../SIN-Code-Intent-Based-Diffing
+#   pip install -e ../SIN-Code-Proof-of-Correctness
+#   pip install -e ../SIN-Code-Ephemeral-Full-Stack-Mocking-Orchestration
+#   pip install -e ../SIN-Code-Architectural-Debt-Watchdogs
+#   pip install -e ../SIN-Code-Verification-Oracle
+#   pip install -e .
+[project.optional-dependencies]
+mcp = ["mcp>=1.0.0"]
+test = ["pytest>=8.0"]
 
 [project.scripts]
 sin = "sin_code_bundle.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]

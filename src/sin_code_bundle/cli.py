@@ -1,107 +1,175 @@
-"""Unified CLI für den gesamten SIN-Code Stack."""
+"""Unified CLI fuer den gesamten SIN-Code Stack.
+
+Subsysteme werden lazy und defensiv importiert: fehlt eines, bleibt der Rest
+nutzbar und es wird eine klare Meldung statt eines Importfehlers ausgegeben.
+"""
+from __future__ import annotations
+
 import json
-import typer
 from pathlib import Path
+
+import typer
 
 app = typer.Typer(help="SIN-Code Bundle - Unified SOTA Agent-Engineering Stack")
 
+_EXCLUDE = ["venv", ".venv", "node_modules", ".git", "__pycache__"]
+
+
+def _require(module: str, hint: str):
+    """Importiert ein Subsystem oder bricht mit klarer Meldung ab."""
+    import importlib
+
+    try:
+        return importlib.import_module(module)
+    except ImportError:
+        typer.echo(
+            f"[SIN-BUNDLE] Subsystem '{module}' not installed. "
+            f"Install with: {hint}"
+        )
+        raise typer.Exit(code=1)
+
 
 @app.command()
-def bootstrap(repo: str = "."):
-    """Initialize all 5 subsystems for a repository."""
+def status():
+    """Zeigt, welche Subsysteme installiert sind."""
+    import importlib.util
+
+    subsystems = {
+        "sin_code_sckg": "SCKG (knowledge graph)",
+        "sin_code_ibd": "IBD (intent diff)",
+        "sin_code_poc": "POC (proof of correctness)",
+        "sin_code_efsm": "EFSM (mock orchestration)",
+        "sin_code_adw": "ADW (debt watchdog)",
+        "sin_code_oracle": "Oracle (verification)",
+    }
+    report = {}
+    for mod, desc in subsystems.items():
+        report[desc] = importlib.util.find_spec(mod) is not None
+    typer.echo(json.dumps(report, indent=2))
+
+
+@app.command()
+def bootstrap(repo: str = typer.Argument(".", help="Repository root")):
+    """Initialize available subsystems for a repository."""
     typer.echo(f"[SIN-BUNDLE] Bootstrapping {repo}...")
-    # 1. Build knowledge graph
-    from sin_code_sckg.graph import KnowledgeGraph
-    kg = KnowledgeGraph(storage_path=f"{repo}/.sin/knowledge.graph")
-    stats = kg.build_from_repo(repo, exclude=["venv", "node_modules", ".git"])
-    typer.echo(f"[SIN-BUNDLE] SCKG built: {json.dumps(stats)}")
+    sin_dir = Path(repo) / ".sin"
+    sin_dir.mkdir(parents=True, exist_ok=True)
 
-    # 2. Baseline complexity
-    from sin_code_adw.complexity import ComplexityAnalyzer
-    analyzer = ComplexityAnalyzer()
-    reports = analyzer.analyze(repo, exclude={"venv", "node_modules", ".git"})
-    baseline = analyzer.debt_score(reports)
-    Path(f"{repo}/.sin/baseline.json").write_text(json.dumps(baseline, indent=2))
-    typer.echo(f"[SIN-BUNDLE] ADW baseline: {json.dumps(baseline)}")
+    # 1. Knowledge graph (optional)
+    try:
+        from sin_code_sckg.graph import KnowledgeGraph
 
-    # 3. Init cost tracker
-    from sin_code_adw.cost_tracker import CostTracker
-    CostTracker(log_path=f"{repo}/.sin/costs.jsonl")
-    typer.echo("[SIN-BUNDLE] Cost tracker initialized")
+        kg = KnowledgeGraph(storage_path=str(sin_dir / "knowledge.graph"))
+        stats = kg.build_from_repo(repo, exclude=_EXCLUDE)
+        typer.echo(f"[SIN-BUNDLE] SCKG built: {json.dumps(stats)}")
+    except ImportError:
+        typer.echo("[SIN-BUNDLE] SCKG not installed, skipping graph.")
 
-    typer.echo(f"[SIN-BUNDLE] ✓ Bootstrap complete. Run `sin serve` to expose via MCP.")
+    # 2. Baseline complexity (optional)
+    try:
+        from sin_code_adw.complexity import ComplexityAnalyzer
+        from sin_code_adw.cost_tracker import CostTracker
+
+        analyzer = ComplexityAnalyzer()
+        reports = analyzer.analyze(repo, exclude=set(_EXCLUDE))
+        baseline = analyzer.debt_score(reports)
+        (sin_dir / "baseline.json").write_text(json.dumps(baseline, indent=2))
+        CostTracker(log_path=str(sin_dir / "costs.jsonl"))
+        typer.echo(f"[SIN-BUNDLE] ADW baseline: {json.dumps(baseline)}")
+    except ImportError:
+        typer.echo("[SIN-BUNDLE] ADW not installed, skipping baseline.")
+
+    typer.echo("[SIN-BUNDLE] Bootstrap complete.")
 
 
 @app.command()
 def review(file_a: Path, file_b: Path):
-    """Semantic review of a change (IBD + SCKG impact)."""
+    """Semantic review of a change (IBD)."""
+    _require("sin_code_ibd", "pip install -e ../SIN-Code-Intent-Based-Diffing")
     from sin_code_ibd import ASTDiff, IntentSummarizer, RiskScorer
-    ad = ASTDiff()
-    changes = ad.diff_files(str(file_a), str(file_b))
+
+    changes = ASTDiff().diff_files(str(file_a), str(file_b))
     intents = IntentSummarizer().summarize(changes)
     risk = RiskScorer().score(changes)
-    typer.echo(json.dumps({
-        "intents": [i.__dict__ for i in intents],
-        "risk": risk,
-    }, indent=2))
-
-
-@app.command()
-def verify(module: Path, function: str):
-    """Proof-of-correctness for a function."""
-    from sin_code_poc.cli import verify as poc_verify
-    poc_verify(module, function)
-
-
-@app.command()
-def mock(name: str, apis: list[str] = typer.Option([], "--api"), test_cmd: str = "pytest"):
-    """Spin up ephemeral mocks and run tests."""
-    from sin_code_efsm.cli import setup
-    setup(name, apis, False, test_cmd)
+    typer.echo(
+        json.dumps(
+            {"intents": [i.__dict__ for i in intents], "risk": risk}, indent=2
+        )
+    )
 
 
 @app.command()
 def debt(root: str = "."):
     """Show current architectural debt."""
-    from sin_code_adw.cli import scan
-    scan(root)
+    _require("sin_code_adw", "pip install -e ../SIN-Code-Architectural-Debt-Watchdogs")
+    from sin_code_adw.complexity import ComplexityAnalyzer
+
+    analyzer = ComplexityAnalyzer()
+    reports = analyzer.analyze(root, exclude=set(_EXCLUDE))
+    typer.echo(json.dumps(analyzer.debt_score(reports), indent=2))
+
+
+@app.command()
+def verify(test_command: str, root: str = "."):
+    """Independent execution-based verification (Oracle)."""
+    _require("sin_code_oracle", "pip install -e ../SIN-Code-Verification-Oracle")
+    from sin_code_oracle.oracle import VerificationOracle
+
+    oracle = VerificationOracle(workspace=root)
+    verdict = oracle.verify(test_command=test_command, run_diagnostics=False)
+    typer.echo(json.dumps(verdict.to_dict(), indent=2))
 
 
 @app.command()
 def serve(port: int = 9000):
-    """Expose all tools as a unified MCP server."""
+    """Expose available tools as a unified MCP server."""
     try:
         from mcp.server.fastmcp import FastMCP
     except ImportError:
-        typer.echo("[SIN-BUNDLE] mcp package required")
-        return
+        typer.echo("[SIN-BUNDLE] mcp package required: pip install 'sin-code-bundle[mcp]'")
+        raise typer.Exit(code=1)
+
     mcp = FastMCP("sin-code-bundle")
 
-    # Register tools from all subsystems
-    from sin_code_sckg.graph import KnowledgeGraph
-    from sin_code_ibd import ASTDiff, IntentSummarizer, RiskScorer
-    from sin_code_adw.complexity import ComplexityAnalyzer
+    try:
+        from sin_code_sckg.graph import KnowledgeGraph
 
-    @mcp.tool()
-    def impact(symbol_fqid: str) -> str:
-        kg = KnowledgeGraph(storage_path="./.sin/knowledge.graph")
-        return json.dumps(kg.impact_analysis(symbol_fqid))
+        @mcp.tool()
+        def impact(symbol_fqid: str) -> str:
+            """Blast-radius impact analysis for a symbol."""
+            kg = KnowledgeGraph(storage_path="./.sin/knowledge.graph")
+            return json.dumps(kg.impact_analysis(symbol_fqid))
+    except ImportError:
+        pass
 
-    @mcp.tool()
-    def semantic_diff(file_a: str, file_b: str) -> str:
-        ad = ASTDiff()
-        changes = ad.diff_files(file_a, file_b)
-        intents = IntentSummarizer().summarize(changes)
-        risk = RiskScorer().score(changes)
-        return json.dumps({"intents": [i.__dict__ for i in intents], "risk": risk})
+    try:
+        from sin_code_ibd import ASTDiff, IntentSummarizer, RiskScorer
 
-    @mcp.tool()
-    def architectural_debt() -> str:
-        a = ComplexityAnalyzer()
-        r = a.analyze(".", exclude={"venv", "node_modules", ".git"})
-        return json.dumps(a.debt_score(r))
+        @mcp.tool()
+        def semantic_diff(file_a: str, file_b: str) -> str:
+            """Semantic intent diff between two files."""
+            changes = ASTDiff().diff_files(file_a, file_b)
+            intents = IntentSummarizer().summarize(changes)
+            risk = RiskScorer().score(changes)
+            return json.dumps(
+                {"intents": [i.__dict__ for i in intents], "risk": risk}
+            )
+    except ImportError:
+        pass
 
-    typer.echo(f"[SIN-BUNDLE] MCP server on port {port}")
+    try:
+        from sin_code_adw.complexity import ComplexityAnalyzer
+
+        @mcp.tool()
+        def architectural_debt() -> str:
+            """Current architectural debt score."""
+            analyzer = ComplexityAnalyzer()
+            reports = analyzer.analyze(".", exclude=set(_EXCLUDE))
+            return json.dumps(analyzer.debt_score(reports))
+    except ImportError:
+        pass
+
+    typer.echo(f"[SIN-BUNDLE] MCP server starting (stdio); logical port {port}")
     mcp.run()
 
 
