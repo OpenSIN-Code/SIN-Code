@@ -4,12 +4,90 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
 
 from .core import TOOL_DEFINITIONS, build_agent_card, execute_simone_action, get_project_overview
 from .mcp_stdio import serve_stdio
+
+AGENTS_RULES = """
+
+## Simone MCP — Tool Replacements
+
+Use Simone MCP tools INSTEAD of OpenCode built-ins:
+
+| Instead of | Use |
+|------------|-----|
+| `grep` / `Grep` for symbol search | `sin_simone_mcp_symbol_search` |
+| `edit` / `Edit` for code changes | `sin_simone_mcp_structural_edit` |
+| manual grep for references | `sin_simone_mcp_find_references` |
+| project exploration | `sin_simone_mcp_project_overview` |
+
+"""
+
+
+def _integrate_opencode() -> dict[str, str | int]:
+    OPCODE_CONFIG = Path.home() / ".config" / "opencode" / "opencode.json"
+    OPCODE_AGENTS = Path.home() / ".config" / "opencode" / "AGENTS.md"
+    results: list[str] = []
+
+    if not OPCODE_CONFIG.exists():
+        results.append(f"SKIP: {OPCODE_CONFIG} not found")
+        return {"status": "skipped", "messages": results}
+
+    with open(OPCODE_CONFIG) as f:
+        config = json.load(f)
+
+    backup = OPCODE_CONFIG.with_suffix(".json.bak")
+    if not backup.exists():
+        shutil.copy2(OPCODE_CONFIG, backup)
+        results.append(f"BACKUP: {backup}")
+
+    changed = False
+
+    mcp = config.setdefault("mcp", {})
+    if "sin-simone-mcp" not in mcp:
+        repo_root = Path(__file__).resolve().parent.parent.parent
+        mcp["sin-simone-mcp"] = {
+            "type": "local",
+            "command": [sys.executable or "python3", str(repo_root / "src" / "cli.py"), "serve-mcp"],
+            "enabled": True,
+        }
+        changed = True
+        results.append("ADD: sin-simone-mcp MCP server")
+    else:
+        results.append("OK: sin-simone-mcp already configured")
+
+    perm = config.setdefault("permission", {})
+    for tool in ("grep", "glob"):
+        if perm.get(tool) != "deny":
+            perm[tool] = "deny"
+            changed = True
+            results.append(f"DENY: built-in {tool}")
+
+    if perm.get("sin_simone_mcp_*") != "allow":
+        perm["sin_simone_mcp_*"] = "allow"
+        changed = True
+        results.append("ALLOW: sin_simone_mcp_*")
+
+    if changed:
+        with open(OPCODE_CONFIG, "w") as f:
+            json.dump(config, f, indent=2)
+        results.append(f"SAVED: {OPCODE_CONFIG}")
+
+    if OPCODE_AGENTS.exists():
+        with open(OPCODE_AGENTS) as f:
+            content = f.read()
+        if "## Simone MCP — Tool Replacements" not in content:
+            with open(OPCODE_AGENTS, "a") as f:
+                f.write(AGENTS_RULES)
+            results.append(f"PATCHED: {OPCODE_AGENTS}")
+
+    messages = "\n".join(results)
+    print(messages)
+    return {"status": "ok", "changed": changed, "messages": results}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -71,6 +149,9 @@ def main() -> None:
     if command == "tool-list":
         _print({"tools": TOOL_DEFINITIONS})
         return
+    if command == "integrate":
+        _print(_integrate_opencode())
+        return
     sys.stderr.write(
         "Usage:\n"
         "  simone serve              Start HTTP/A2A server (port 8234)\n"
@@ -79,6 +160,7 @@ def main() -> None:
         "  simone run-action JSON    Execute a tool action\n"
         "  simone index [PATH]       Show project overview\n"
         "  simone validate           Validate server configuration\n"
+        "  simone integrate          Integrate with OpenCode (disable grep, add MCP)\n"
         "  simone tool-list          List available MCP tools\n"
     )
 
