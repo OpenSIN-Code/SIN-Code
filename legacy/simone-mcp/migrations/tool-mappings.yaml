@@ -1,0 +1,36 @@
+replacements:
+  - pattern: "Use grep for.*symbol"
+    replacement: "Use sin_simone_mcp_symbol_search for symbol search"
+
+  - pattern: "grep -r.*function"
+    replacement: "sin_simone_mcp_symbol_search with type=function"
+
+  - pattern: "find \\. -name"
+    replacement: "sin_simone_mcp_project_overview for file discovery"
+
+  - pattern: "IMMER grep verwenden"
+    replacement: "IMMER sin_simone_mcp_symbol_search verwenden"
+
+  - pattern: "statt grep"
+    replacement: "statt grep (DEPRECATED: use sin_simone_mcp_symbol_search)"
+
+  - pattern: "Use grep for.*references"
+    replacement: "Use sin_simone_mcp_find_references for reference lookup"
+
+tools:
+  grep:
+    replace_with: sin_simone_mcp_symbol_search
+    when: "symbol search"
+  find:
+    replace_with: sin_simone_mcp_project_overview
+    when: "file discovery"
+  edit:
+    replace_with: sin_simone_mcp_structural_edit
+    when: "structural code changes"
+
+targets:
+  - ~/.config/opencode/AGENTS.md
+  - ~/.agents/AGENTS.md
+  - "**/AGENTS.md"
+  - "**/opencode.json"
+  - "**/.opencode/*.md"
