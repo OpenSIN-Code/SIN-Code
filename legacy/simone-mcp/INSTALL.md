@@ -26,25 +26,23 @@ docker --version
 ## 2. Repository klonen
 
 ```bash
-git clone git@github.com:Delqhi/Simone-MCP.git
+git clone git@github.com:OpenSIN-Code/Simone-MCP.git
 cd Simone-MCP
-```
-
-**Oder von Hugging Face:**
-
-```bash
-git clone https://huggingface.co/spaces/delqhi/simone-mcp.git
-cd simone-mcp
 ```
 
 ---
 
-## 3. Installation
+## 3. Installation + Auto-Migration (Einzeiler)
 
-### 3.1 Python-Pakete (optional, für erweiterte Features)
+```bash
+./install.sh
+```
 
-Die meisten Features laufen out-of-the-box ohne pip install.
-Für semantische Embeddings und Docker-Betrieb:
+Das installiert alle Abhängigkeiten und führt `scripts/migrate-opencode.py` aus.
+Der Migrator scannt `~/.config/opencode/AGENTS.md`, `**/AGENTS.md` und `**/opencode.json`
+und ersetzt automatisch alle grep/find/edit Referenzen durch Simone MCP Tools.
+
+### 3.1 Manuelle Installation
 
 ```bash
 python3 -m venv .venv
@@ -52,38 +50,17 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-**Optionale Pakete für Embedding-Qualität:**
+### 3.2 OpenCode Integration (manuell)
 
 ```bash
-pip install sentence-transformers
+# AGENTS.md + opencode.json patchen (grep → sin_simone_mcp_symbol_search etc.)
+python3 scripts/migrate-opencode.py
+
+# MCP Server in opencode.json eintragen + grep/glob disablen
+python3 src/cli.py integrate
 ```
 
-> **Hinweis:** Ohne `sentence-transformers` werden Embeddings auf SHA-256-Basis
-> erzeugt — funktional, aber mit geringerer semantischer Qualität.
-
-### 3.2 MCP in OpenCode/Terminal aktivieren
-
-Simone MCP läuft als stdio MCP Server. Konfiguration in `opencode.json`:
-
-```json
-{
-  "mcp": {
-    "simone-mcp": {
-      "type": "local",
-      "command": [
-        "python3",
-        "-c",
-        "import sys;sys.path.insert(0,'/Users/jeremy/dev/Simone-MCP/src');from simone_mcp.mcp_stdio import serve_stdio;import asyncio;asyncio.run(serve_stdio())"
-      ],
-      "environment": {
-        "PYTHONPATH": "/Users/jeremy/dev/Simone-MCP/src",
-        "SIMONE_MEMORY_DIR": "/Users/jeremy/.simone"
-      },
-      "enabled": true
-    }
-  }
-}
-```
+Danach OpenCode neustarten — Simone MCP Tools sind automatisch verfügbar.
 
 ---
 
