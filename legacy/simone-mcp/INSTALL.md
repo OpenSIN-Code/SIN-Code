@@ -53,11 +53,8 @@ pip install -e .
 ### 3.2 OpenCode Integration (manuell)
 
 ```bash
-# AGENTS.md + opencode.json patchen (grep → sin_simone_mcp_symbol_search etc.)
+# AGENTS.md patchen + opencode.json MCP Server + Permissions
 python3 scripts/migrate-opencode.py
-
-# MCP Server in opencode.json eintragen + grep/glob disablen
-python3 src/cli.py integrate
 ```
 
 Danach OpenCode neustarten — Simone MCP Tools sind automatisch verfügbar.

@@ -59,23 +59,18 @@
 
 <table>
 <tr>
-<td width="25%" align="center">
+<td width="33%" align="center">
 <strong>1. Clone</strong><br/><br/>
-<code>git clone</code><br/><code>Delqhi/Simone-MCP</code><br/><br/>
+<code>git clone</code><br/><code>OpenSIN-Code/Simone-MCP</code><br/><br/>
 <img src="https://img.shields.io/badge/⏱️_30s-Blue?style=flat" />
 </td>
-<td width="25%" align="center">
-<strong>2. Install</strong><br/><br/>
+<td width="33%" align="center">
+<strong>2. Install + Auto-Migrate</strong><br/><br/>
 <code>./install.sh</code><br/><br/>
 <img src="https://img.shields.io/badge/⏱️_30s-Blue?style=flat" />
 </td>
-<td width="25%" align="center">
-<strong>3. Migrate</strong><br/><br/>
-<code>python3 scripts/migrate-opencode.py</code><br/><br/>
-<img src="https://img.shields.io/badge/⏱️_10s-Orange?style=flat" />
-</td>
-<td width="25%" align="center">
-<strong>4. Run</strong><br/><br/>
+<td width="33%" align="center">
+<strong>3. Run</strong><br/><br/>
 <code>python src/cli.py serve</code><br/><br/>
 <img src="https://img.shields.io/badge/⏱️_Go!-Green?style=flat" />
 </td>
@@ -84,7 +79,7 @@
 
 **That's it.** Server is now running at `http://localhost:8234` with full MCP, A2A, and `.well-known` endpoints.
 
-> `./install.sh` führt `scripts/migrate-opencode.py` automatisch aus — findet alle AGENTS.md + opencode.json und ersetzt grep/find/edit durch Simone MCP Tools.
+> `./install.sh` führt `scripts/migrate-opencode.py` automatisch aus — findet alle AGENTS.md + opencode.json, ersetzt grep/find/edit durch Simone MCP Tools, trägt MCP Server ein und disabled built-in grep/glob.
 
 ---
 
@@ -252,14 +247,27 @@ python3 src/cli.py run-action '{"action":"code.find_symbol","symbol":"my_functio
 <summary>🔄 OpenCode Integration (Auto-Migration)</summary>
 
 ```bash
-# Standalone migration — scannt AGENTS.md + opencode.json
+# Vollständige Integration: AGENTS.md patchen + opencode.json MCP Server + Permissions
 python3 scripts/migrate-opencode.py
+```
 
-# CLI integrate — fuegt MCP Server ein + disabled grep/glob
+Was passiert:
+- AGENTS.md: grep/find/edit Referenzen → `sin_simone_mcp_symbol_search` etc.
+- `opencode.json`: sin-simone-mcp MCP Server eingetragen
+- `opencode.json`: built-in grep/glob → `deny`, sin_simone_mcp_* → `allow`
+- `.bak` Dateien werden automatisch angelegt
+
+</details>
+
+<details>
+<summary>🔄 CLI Integrate (Legacy)</summary>
+
+```bash
 python3 src/cli.py integrate
 ```
 
-Nach der Migration: grep/find/edit in AGENTS.md werden durch `sin_simone_mcp_symbol_search`, `sin_simone_mcp_structural_edit` etc. ersetzt.
+Ältere Variante — wird von `migrate-opencode.py` nicht mehr benötigt,
+bleibt für manuelle Nachbesserungen erhalten.
 
 </details>
 
