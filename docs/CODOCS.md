@@ -1,13 +1,13 @@
-# CoDocs — Co-located Docs Standard
+# CoDocs — SOTA Code Documentation Standard
 
-CoDocs keeps documentation next to the code it describes. Every meaningful code
-file gets a `.doc.md` companion in the same directory, referenced from the first
-line of the source file.
+CoDocs is a **two-layer** documentation standard: every meaningful code file
+gets both a `.doc.md` companion (overview) AND SOTA inline `#` comments
+(detail) so agents never misunderstand what they're looking at.
 
 > Merged into the bundle from the former
 > `SIN-Hermes-Bundles/SIN-Code-CoDocs-Bundle` repository.
 
-## The standard
+## The standard (Layer 1: .doc.md)
 
 | Code file        | Companion          | Reference (first line)   |
 |------------------|--------------------|--------------------------|
@@ -20,35 +20,53 @@ sentence, which files touch it, important config values/limits, and the
 rationale behind non-obvious decisions. It should **not** restate
 implementation details or git history.
 
-### Exceptions (no `.doc.md` needed)
+## The standard (Layer 2: SOTA inline docs)
+
+Every code file must also have professional inline `#`/`//` comments. This
+is **not** "comment every line" — it is semantic context agents can't infer:
+
+| Element | Rule |
+|---------|------|
+| **File header** | `# Purpose: <what this does in 1 line>` |
+| **Public API** | Docstrings on every public function/class/method |
+| **Non-obvious logic** | Why NOT the obvious approach |
+| **Magic values** | Explain `MAX_RETRIES = 3  # upstream SLA` |
+| **Section separators** | `# ── Auth ──────────────────────` for files > 100 lines |
+| **Deprecation markers** | `# DEPRECATED(v2): use X instead` |
+
+Full reference: see the packaged skill at `src/sin_code_bundle/data/codocs/SKILL.md`.
+
+### Exceptions (no docs needed)
 
 - `docs/` for architecture docs, ADRs, setup guides
-- `README.md` for the project overview
+- `README.md` for project overview
 - Pure config files without logic (`.gitignore`, `.prettierrc`, ...)
 
 ## CLI
 
-The bundle ships a robust validator that replaces the original fragile
-`grep | sed` shell snippet:
-
 ```bash
-sin codocs check [ROOT]        # exit code 1 if any reference is broken
-sin codocs check --json        # machine-readable output
-sin codocs list [ROOT]         # list every reference + whether it resolves
-sin codocs install-skill       # install the agent skill (Hermes / OpenCode)
+sin codocs check [ROOT]            # exit 1 if any .doc.md reference broken
+sin codocs check --json            # machine-readable output
+sin codocs check-inline [ROOT]     # check files for Purpose header
+sin codocs check-inline --json     # machine-readable output
+sin codocs list [ROOT]             # list every reference + resolve status
+sin codocs install-skill           # install agent skill (Hermes / OpenCode)
 ```
 
 ### CI usage
 
 ```yaml
-- name: Validate CoDocs references
-  run: sin codocs check .
+- name: Validate CoDocs + inline docs
+  run: |
+    sin codocs check .
+    sin codocs check-inline .
 ```
 
 ## MCP
 
-When running `sin serve`, CoDocs is exposed as the `codocs_check` MCP tool,
-returning the list of broken references as JSON.
+When running `sin serve`, CoDocs is exposed as MCP tools:
+- `codocs_check` — broken .doc.md references
+- `codocs_check_inline` — missing Purpose headers
 
 ## MarkItDown pipeline
 

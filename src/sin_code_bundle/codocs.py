@@ -141,3 +141,72 @@ def scan(root: str | Path = ".", exclude: set[str] | None = None) -> list[DocRef
 def find_broken(root: str | Path = ".", exclude: set[str] | None = None) -> list[DocReference]:
     """Return only the references whose target doc file is missing."""
     return [ref for ref in scan(root, exclude) if not ref.exists]
+
+
+# ── SOTA Inline Doc checks ─────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class InlineDocIssue:
+    """A missing or deficient inline doc element."""
+
+    path: Path
+    kind: str  # "missing_purpose", "missing_docstring", "missing_section"
+    detail: str
+
+    def to_dict(self) -> dict:
+        return {"path": str(self.path), "kind": self.kind, "detail": self.detail}
+
+
+_INLINE_HEAD_RE = re.compile(r"^\s*(?:#\s*Purpose\s*:|'''|\"\"\")")
+
+
+def check_inline_docs(
+    root: str | Path = ".",
+    exclude: set[str] | None = None,
+) -> list[InlineDocIssue]:
+    """Check files for SOTA inline doc compliance.
+
+    Currently checks:
+    - File header with ``Purpose`` line or module docstring.
+    """
+    root_path = Path(root).resolve()
+    excl = DEFAULT_EXCLUDE | {"debug", "tmp"} | (exclude or set())
+    issues: list[InlineDocIssue] = []
+
+    for path in sorted(root_path.rglob("*")):
+        if not path.is_file():
+            continue
+        if any(part in excl for part in path.parts):
+            continue
+        if not _is_code_file(path):
+            continue
+        if path.suffix not in (".py", ".pyi", ".ts", ".tsx", ".js", ".jsx", ".rs", ".go"):
+            continue
+
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+
+        head = "\n".join(text.splitlines()[:_HEAD_LINES])
+        rel = path.relative_to(root_path)
+        if not _INLINE_HEAD_RE.search(head):
+            issues.append(
+                InlineDocIssue(
+                    path=rel,
+                    kind="missing_purpose",
+                    detail="Missing Purpose/header comment in first lines",
+                )
+            )
+
+    return issues
+
+
+def _check_inline_docs_json(root: str = ".", exclude: set[str] | None = None) -> str:
+    """Inline doc check as JSON string, for CLI use."""
+    import json
+    return json.dumps(
+        [issue.to_dict() for issue in check_inline_docs(root, exclude)],
+        indent=2,
+    )

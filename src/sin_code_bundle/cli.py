@@ -402,6 +402,28 @@ def codocs_check(
         raise typer.Exit(code=1)
 
 
+@codocs_app.command("check-inline")
+def codocs_check_inline(
+    root: str = typer.Argument(".", help="Repository root to scan"),
+    json_out: bool = typer.Option(False, "--json", help="Emit machine-readable JSON"),
+):
+    """Check that code files have proper inline docs (Purpose header, etc.)."""
+    from sin_code_bundle import codocs
+
+    issues = codocs.check_inline_docs(root, exclude=set(_EXCLUDE))
+    if json_out:
+        typer.echo(codocs._check_inline_docs_json(root, exclude=set(_EXCLUDE)))
+    else:
+        if not issues:
+            typer.echo("[CODOCS] OK - all files have Purpose header.")
+        else:
+            for issue in issues:
+                typer.echo(f"[CODOCS] {issue.kind}: {issue.path} - {issue.detail}")
+            typer.echo(f"[CODOCS] {len(issues)} inline doc issue(s).")
+    if issues:
+        raise typer.Exit(code=1)
+
+
 @codocs_app.command("list")
 def codocs_list(root: str = typer.Argument(".", help="Repository root to scan")):
     """List all discovered CoDocs references and whether they resolve."""
