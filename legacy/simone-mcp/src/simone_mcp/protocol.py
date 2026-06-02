@@ -36,6 +36,10 @@ _TOOL_ARG_ALIASES: dict[str, dict[str, str]] = {
     "sin_simone_mcp_graphify_update": {},
     "sin_simone_mcp_graphify_explain": {},
     "sin_simone_mcp_graphify_path": {},
+    "sin_simone_mcp_write_file": {},
+    "sin_simone_mcp_edit_file": {},
+    "sin_simone_mcp_patch_file": {},
+    "sin_simone_mcp_read_file": {},
 }
 
 SIMONE_INSTRUCTIONS = (

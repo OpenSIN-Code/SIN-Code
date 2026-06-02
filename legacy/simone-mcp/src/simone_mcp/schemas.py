@@ -110,6 +110,29 @@ class GraphifyPathArgs(BaseModel):
     root: str | None = None
 
 
+class WriteFileArgs(BaseModel):
+    path: str = Field(min_length=1)
+    content: str = ""
+    overwrite: bool = False
+
+
+class EditFileArgs(BaseModel):
+    path: str = Field(min_length=1)
+    old_string: str = ""
+    new_string: str = ""
+
+
+class PatchFileArgs(BaseModel):
+    path: str = Field(min_length=1)
+    diff: str = ""
+
+
+class ReadFileArgs(BaseModel):
+    path: str = Field(min_length=1)
+    offset: int = 0
+    limit: int = 100
+
+
 class TaskGetArgs(BaseModel):
     taskId: str = Field(min_length=1, alias="id")
     model_config = {"populate_by_name": True}
@@ -137,6 +160,10 @@ TOOL_ARG_MODELS: dict[str, type[BaseModel]] = {
     "sin_simone_mcp_graphify_update": GraphifyUpdateArgs,
     "sin_simone_mcp_graphify_explain": GraphifyExplainArgs,
     "sin_simone_mcp_graphify_path": GraphifyPathArgs,
+    "sin_simone_mcp_write_file": WriteFileArgs,
+    "sin_simone_mcp_edit_file": EditFileArgs,
+    "sin_simone_mcp_patch_file": PatchFileArgs,
+    "sin_simone_mcp_read_file": ReadFileArgs,
     "tasks/get": TaskGetArgs,
     "tasks/update": TaskUpdateArgs,
     "tasks/cancel": TaskCancelArgs,

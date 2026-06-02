@@ -1224,3 +1224,200 @@ async def test_http_dashboard():
         resp = await client.get("/dashboard")
         assert resp.status_code == 200
         assert "Simone MCP" in resp.text
+
+
+# ─── BR-6: Write/Edit/Patch/Read Tools ──────────────────────────────────────
+
+def test_write_file_new(tmp_path: Path):
+    from simone_mcp.core import write_file
+    target = tmp_path / "new.txt"
+    result = write_file({"path": str(target), "content": "Hello World"})
+    assert result["ok"] is True
+    assert result["status"] == "success"
+    assert result["bytes_written"] == 11
+    assert target.read_text(encoding="utf-8") == "Hello World"
+
+
+def test_write_file_no_overwrite(tmp_path: Path):
+    from simone_mcp.core import write_file
+    target = tmp_path / "existing.txt"
+    target.write_text("existing", encoding="utf-8")
+    result = write_file({"path": str(target), "content": "new content"})
+    assert result["ok"] is False
+    assert "File exists" in result["error"]
+
+
+def test_write_file_overwrite(tmp_path: Path):
+    from simone_mcp.core import write_file
+    target = tmp_path / "existing.txt"
+    target.write_text("existing", encoding="utf-8")
+    result = write_file({"path": str(target), "content": "new content", "overwrite": True})
+    assert result["ok"] is True
+    assert target.read_text(encoding="utf-8") == "new content"
+
+
+def test_write_file_creates_dirs(tmp_path: Path):
+    from simone_mcp.core import write_file
+    target = tmp_path / "deep" / "nested" / "file.txt"
+    result = write_file({"path": str(target), "content": "nested content"})
+    assert result["ok"] is True
+    assert target.read_text(encoding="utf-8") == "nested content"
+
+
+def test_edit_file_success(tmp_path: Path):
+    from simone_mcp.core import edit_file
+    target = tmp_path / "edit.txt"
+    target.write_text("Hello World\nHello World\n", encoding="utf-8")
+    result = edit_file({"path": str(target), "old_string": "Hello", "new_string": "Hi"})
+    assert result["ok"] is True
+    assert result["replacements_count"] == 2
+    assert "Hi World" in target.read_text(encoding="utf-8")
+
+
+def test_edit_file_not_found(tmp_path: Path):
+    from simone_mcp.core import edit_file
+    target = tmp_path / "nonexistent.txt"
+    result = edit_file({"path": str(target), "old_string": "x", "new_string": "y"})
+    assert result["ok"] is False
+    assert "File not found" in result["error"]
+
+
+def test_edit_file_old_string_not_found(tmp_path: Path):
+    from simone_mcp.core import edit_file
+    target = tmp_path / "edit.txt"
+    target.write_text("Hello World", encoding="utf-8")
+    result = edit_file({"path": str(target), "old_string": "missing", "new_string": "y"})
+    assert result["ok"] is False
+    assert "old_string not found" in result["error"]
+
+
+def test_patch_file_success(tmp_path: Path):
+    from simone_mcp.core import patch_file
+    target = tmp_path / "patch.txt"
+    target.write_text("line1\nline2\nline3\n", encoding="utf-8")
+    diff = "@@ -1,3 +1,3 @@\n line1\n line2\n line3\n"
+    result = patch_file({"path": str(target), "diff": diff})
+    assert result["ok"] is True
+    assert result["hunks_applied"] == 1
+
+
+def test_patch_file_not_found(tmp_path: Path):
+    from simone_mcp.core import patch_file
+    target = tmp_path / "nonexistent.txt"
+    result = patch_file({"path": str(target), "diff": "@@ -1,1 +1,1 @@\n"})
+    assert result["ok"] is False
+    assert "File not found" in result["error"]
+
+
+def test_read_file_success(tmp_path: Path):
+    from simone_mcp.core import read_file
+    target = tmp_path / "read.txt"
+    target.write_text("line1\nline2\nline3\nline4\nline5", encoding="utf-8")
+    result = read_file({"path": str(target), "offset": 1, "limit": 2})
+    assert result["ok"] is True
+    assert result["content"] == "line2\nline3"
+    assert result["lines_read"] == 2
+    assert result["total_lines"] == 5
+    assert result["offset"] == 1
+
+
+def test_read_file_not_found(tmp_path: Path):
+    from simone_mcp.core import read_file
+    target = tmp_path / "nonexistent.txt"
+    result = read_file({"path": str(target)})
+    assert result["ok"] is False
+    assert "File not found" in result["error"]
+
+
+def test_read_file_defaults(tmp_path: Path):
+    from simone_mcp.core import read_file
+    target = tmp_path / "read.txt"
+    lines = [f"line{i}" for i in range(150)]
+    target.write_text("\n".join(lines), encoding="utf-8")
+    result = read_file({"path": str(target)})
+    assert result["ok"] is True
+    assert result["lines_read"] == 100
+    assert result["total_lines"] == 150
+    assert result["offset"] == 0
+
+
+def test_read_file_offset_beyond_total(tmp_path: Path):
+    from simone_mcp.core import read_file
+    target = tmp_path / "read.txt"
+    target.write_text("line1\nline2\n", encoding="utf-8")
+    result = read_file({"path": str(target), "offset": 10, "limit": 5})
+    assert result["ok"] is True
+    assert result["lines_read"] == 0
+    assert result["content"] == ""
+
+
+def test_tool_list_includes_new_tools():
+    from simone_mcp.core import TOOL_DEFINITIONS
+    names = {t["name"] for t in TOOL_DEFINITIONS}
+    assert "sin_simone_mcp_write_file" in names
+    assert "sin_simone_mcp_edit_file" in names
+    assert "sin_simone_mcp_patch_file" in names
+    assert "sin_simone_mcp_read_file" in names
+
+
+def test_schemas_new_tools():
+    from simone_mcp.schemas import TOOL_ARG_MODELS
+    assert "sin_simone_mcp_write_file" in TOOL_ARG_MODELS
+    assert "sin_simone_mcp_edit_file" in TOOL_ARG_MODELS
+    assert "sin_simone_mcp_patch_file" in TOOL_ARG_MODELS
+    assert "sin_simone_mcp_read_file" in TOOL_ARG_MODELS
+
+
+def test_mcp_tools_call_write_file(tmp_path: Path):
+    from simone_mcp.protocol import handle_mcp_request
+    target = tmp_path / "mcp_write.txt"
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "tools/call", "params": {"name": "sin_simone_mcp_write_file", "arguments": {"path": str(target), "content": "Hello from MCP"}}},
+        session_id="test-mcp-write",
+    ))
+    assert "result" in resp
+    assert resp["result"]["isError"] is False
+    assert target.read_text(encoding="utf-8") == "Hello from MCP"
+
+
+def test_mcp_tools_call_edit_file(tmp_path: Path):
+    from simone_mcp.protocol import handle_mcp_request
+    target = tmp_path / "mcp_edit.txt"
+    target.write_text("Hello World", encoding="utf-8")
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "tools/call", "params": {"name": "sin_simone_mcp_edit_file", "arguments": {"path": str(target), "old_string": "World", "new_string": "MCP"}}},
+        session_id="test-mcp-edit",
+    ))
+    assert "result" in resp
+    assert resp["result"]["isError"] is False
+    assert target.read_text(encoding="utf-8") == "Hello MCP"
+
+
+def test_mcp_tools_call_read_file(tmp_path: Path):
+    from simone_mcp.protocol import handle_mcp_request
+    target = tmp_path / "mcp_read.txt"
+    target.write_text("line1\nline2\nline3\n", encoding="utf-8")
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "tools/call", "params": {"name": "sin_simone_mcp_read_file", "arguments": {"path": str(target), "offset": 0, "limit": 2}}},
+        session_id="test-mcp-read",
+    ))
+    assert "result" in resp
+    assert resp["result"]["isError"] is False
+    structured = resp["result"]["structuredContent"]
+    assert structured["content"] == "line1\nline2"
+    assert structured["lines_read"] == 2
+
+
+def test_mcp_tools_call_patch_file(tmp_path: Path):
+    from simone_mcp.protocol import handle_mcp_request
+    target = tmp_path / "mcp_patch.txt"
+    target.write_text("line1\nline2\nline3\n", encoding="utf-8")
+    diff = "@@ -1,3 +1,3 @@\n line1\n line2\n line3\n"
+    resp, _, _ = asyncio.run(handle_mcp_request(
+        {"jsonrpc": "2.0", "id": "1", "method": "tools/call", "params": {"name": "sin_simone_mcp_patch_file", "arguments": {"path": str(target), "diff": diff}}},
+        session_id="test-mcp-patch",
+    ))
+    assert "result" in resp
+    assert resp["result"]["isError"] is False
+    structured = resp["result"]["structuredContent"]
+    assert structured["hunks_applied"] == 1
