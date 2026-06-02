@@ -806,9 +806,6 @@ def serve():
     mcp.run()
 
 
-if __name__ == "__main__":
-    app()
-
 # --------------------------------------------------------------------------- #
 # sin bench  — SWE-bench A/B harness
 # --------------------------------------------------------------------------- #
@@ -886,6 +883,73 @@ def _build_cli_runner(agent: str):
         raise ValueError(agent)
 
     return CommandRunner(build_cmd=build_cmd, timeout_s=1800)
+
+
+# --------------------------------------------------------------------------- #
+# sin hooks  — automatic SIN-Brain calls via .opencode hooks
+# --------------------------------------------------------------------------- #
+@app.command(name="hooks-install")
+def hooks_install(
+    target: str = typer.Argument("opencode", help="Target CLI: opencode"),
+    pre_command: bool = typer.Option(True, "--pre-command", help="Install pre-command hook."),
+    post_command: bool = typer.Option(True, "--post-command", help="Install post-command hook."),
+    brain_path: str = typer.Option(".sin/brain.db", "--brain-path", help="SIN-Brain database path."),
+):
+    """Install automatic hooks for SIN-Brain calls before/after every command."""
+    from sin_code_bundle import hooks
+
+    if target != "opencode":
+        typer.echo(f"[SIN-BUNDLE] Only 'opencode' hooks are supported.", err=True)
+        raise typer.Exit(code=2)
+
+    installed = hooks.install_opencode_hooks(
+        pre_command=pre_command,
+        post_command=post_command,
+        brain_path=brain_path,
+    )
+    for path in installed:
+        typer.echo(f"[SIN-BUNDLE] Installed hook -> {path}")
+    if not installed:
+        typer.echo("[SIN-BUNDLE] No hooks installed (both --pre-command and --post-command disabled).")
+    else:
+        typer.echo("[SIN-BUNDLE] Hooks active. Run `sin hooks-uninstall` to remove them.")
+
+
+@app.command(name="hooks-uninstall")
+def hooks_uninstall(
+    target: str = typer.Argument("opencode", help="Target CLI: opencode"),
+):
+    """Remove automatic SIN-Brain hooks from ~/.opencode/hooks/."""
+    from sin_code_bundle import hooks
+
+    if target != "opencode":
+        typer.echo(f"[SIN-BUNDLE] Only 'opencode' hooks are supported.", err=True)
+        raise typer.Exit(code=2)
+
+    removed = hooks.uninstall_opencode_hooks()
+    for path in removed:
+        typer.echo(f"[SIN-BUNDLE] Removed hook -> {path}")
+    if not removed:
+        typer.echo("[SIN-BUNDLE] No hooks found to uninstall.")
+
+
+@app.command(name="hooks-list")
+def hooks_list(
+    target: str = typer.Argument("opencode", help="Target CLI: opencode"),
+):
+    """List installed SIN-Brain hooks in ~/.opencode/hooks/."""
+    from sin_code_bundle import hooks
+
+    if target != "opencode":
+        typer.echo(f"[SIN-BUNDLE] Only 'opencode' hooks are supported.", err=True)
+        raise typer.Exit(code=2)
+
+    found = hooks.list_opencode_hooks()
+    if not found:
+        typer.echo("[SIN-BUNDLE] No hooks installed. Run `sin hooks-install` to set them up.")
+    else:
+        for path in found:
+            typer.echo(f"[SIN-BUNDLE] Hook -> {path}")
 
 
 # --------------------------------------------------------------------------- #
