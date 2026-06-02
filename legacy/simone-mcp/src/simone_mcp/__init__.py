@@ -1,3 +1,4 @@
+from .cli import main
 from .core import (
     _build_realtime_url,
     build_agent_card,
@@ -20,6 +21,7 @@ __all__ = [
     "find_symbol",
     "get_project_overview",
     "insert_after_symbol",
+    "main",
     "process_lsp_task",
     "replace_symbol_body",
 ]
