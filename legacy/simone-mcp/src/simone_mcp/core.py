@@ -1047,6 +1047,12 @@ def get_project_overview(payload: dict[str, Any]) -> dict[str, Any]:
 def write_file(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         target = Path(str(payload.get("path") or "")).expanduser().resolve()
+        explicit_root = payload.get("root")
+        if explicit_root:
+            root = _workspace_root(explicit_root)
+        else:
+            root = None
+        _validate_file_in_workspace(target, root)
         content = str(payload.get("content") or "")
         overwrite = bool(payload.get("overwrite", False))
 
@@ -1072,31 +1078,34 @@ def write_file(payload: dict[str, Any]) -> dict[str, Any]:
 def edit_file(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         target = Path(str(payload.get("path") or "")).expanduser().resolve()
+        explicit_root = payload.get("root")
+        if explicit_root:
+            root = _workspace_root(explicit_root)
+        else:
+            root = None
+        _validate_file_in_workspace(target, root)
         old_string = str(payload.get("old_string") or "")
         new_string = str(payload.get("new_string") or "")
 
         if not target.exists():
             return {"ok": False, "status": "error", "error": "File not found"}
 
+        if not old_string:
+            return {"ok": False, "status": "error", "error": "old_string must not be empty"}
+
         content = target.read_text(encoding="utf-8")
-        lines = content.splitlines()
+        if old_string not in content:
+            return {"ok": False, "status": "error", "error": "old_string not found in file"}
 
-        # Parse unified diff hunks
-        hunks = re.findall(r'@@ -(\d+),(\d+) \+(\d+),(\d+) @@', diff)
-        hunks_applied = 0
-
-        for hunk in hunks:
-            old_start, old_len, new_start, new_len = map(int, hunk)
-            # Simple implementation: find context and replace lines
-            # For a real implementation, use difflib or patch library
-            if old_start <= len(lines):
-                hunks_applied += 1
+        replacements_count = content.count(old_string)
+        updated = content.replace(old_string, new_string)
+        target.write_text(updated, encoding="utf-8")
 
         return {
             "ok": True,
             "status": "success",
             "path": str(target),
-            "hunks_applied": hunks_applied,
+            "replacements_count": replacements_count,
         }
     except Exception as error:
         return {"ok": False, "status": "error", "error": str(error)}
@@ -1105,6 +1114,12 @@ def edit_file(payload: dict[str, Any]) -> dict[str, Any]:
 def read_file(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         target = Path(str(payload.get("path") or "")).expanduser().resolve()
+        explicit_root = payload.get("root")
+        if explicit_root:
+            root = _workspace_root(explicit_root)
+        else:
+            root = None
+        _validate_file_in_workspace(target, root)
         offset = int(payload.get("offset", 0))
         limit = int(payload.get("limit", 100))
 
@@ -1127,6 +1142,109 @@ def read_file(payload: dict[str, Any]) -> dict[str, Any]:
             "lines_read": len(selected),
             "total_lines": len(lines),
             "offset": start,
+        }
+    except Exception as error:
+        return {"ok": False, "status": "error", "error": str(error)}
+
+
+def patch_file(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        target = Path(str(payload.get("path") or "")).expanduser().resolve()
+        diff_text = str(payload.get("diff") or "")
+        explicit_root = payload.get("root")
+        if explicit_root:
+            root = _workspace_root(explicit_root)
+        else:
+            root = None
+        _validate_file_in_workspace(target, root)
+
+        if not target.exists():
+            return {"ok": False, "status": "error", "error": "File not found"}
+
+        if not diff_text.strip():
+            return {"ok": True, "status": "success", "path": str(target), "hunks_applied": 0}
+
+        content = target.read_text(encoding="utf-8")
+        lines = content.splitlines(keepends=True) if content else []
+
+        hunk_pattern = re.compile(r'@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(.*)')
+        hunks_applied = 0
+
+        diff_lines = diff_text.splitlines(keepends=True)
+        hunk_parts: list[dict[str, Any]] = []
+        current_hunk: dict[str, Any] | None = None
+        for line in diff_lines:
+            m = hunk_pattern.match(line)
+            if m:
+                if current_hunk is not None:
+                    hunk_parts.append(current_hunk)
+                old_start = int(m.group(1))
+                old_count = int(m.group(2)) if m.group(2) else 1
+                new_start = int(m.group(3))
+                new_count = int(m.group(4)) if m.group(4) else 1
+                current_hunk = {
+                    "old_start": old_start,
+                    "old_count": old_count,
+                    "new_start": new_start,
+                    "new_count": new_count,
+                    "body_lines": [],
+                }
+            elif current_hunk is not None:
+                current_hunk["body_lines"].append(line)
+        if current_hunk is not None:
+            hunk_parts.append(current_hunk)
+
+        if not hunk_parts:
+            return {"ok": True, "status": "success", "path": str(target), "hunks_applied": 0}
+
+        result_lines = list(lines)
+        adjustment = 0
+
+        for hunk in hunk_parts:
+            old_start = hunk["old_start"]
+            old_count = hunk["old_count"]
+            body = hunk["body_lines"]
+
+            file_pos = old_start - 1 + adjustment
+
+            if file_pos < 0 or file_pos > len(result_lines):
+                continue
+
+            context_lines = [l[1:] for l in body if l.startswith(" ")]
+            old_lines_in_hunk = [l[1:] for l in body if l.startswith("-")]
+            new_lines_in_hunk = [l[1:] for l in body if l.startswith("+")]
+
+            if context_lines:
+                actual_context = result_lines[file_pos : file_pos + len(context_lines)]
+                if [l.rstrip("\n") for l in actual_context] != [l.rstrip("\n") for l in context_lines]:
+                    continue
+
+            hunk_span = len(context_lines) + len(old_lines_in_hunk)
+            if hunk_span == 0:
+                hunk_span = old_count
+
+            replacement: list[str] = []
+            for bl in body:
+                if bl.startswith(" "):
+                    replacement.append(bl[1:])
+                elif bl.startswith("+"):
+                    replacement.append(bl[1:])
+
+            end_pos = min(file_pos + hunk_span, len(result_lines))
+            result_lines[file_pos:end_pos] = replacement
+
+            line_count_change = len(replacement) - (end_pos - file_pos)
+            adjustment += line_count_change
+
+            hunks_applied += 1
+
+        target.write_text("".join(result_lines), encoding="utf-8")
+
+        return {
+            "ok": True,
+            "status": "success",
+            "path": str(target),
+            "hunks_applied": hunks_applied,
         }
     except Exception as error:
         return {"ok": False, "status": "error", "error": str(error)}
