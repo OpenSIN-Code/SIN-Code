@@ -190,6 +190,7 @@ sin sin-code agents-md --output AGENTS.md
 - [docs/GITNEXUS.md](./docs/GITNEXUS.md)
 - [docs/EXTERNAL_TOOLS.md](./docs/EXTERNAL_TOOLS.md)
 - [docs/CODOCS.md](./docs/CODOCS.md)
+- [docs/adr](./docs/adr/) — Architecture Decision Records
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [CHANGELOG.md](./CHANGELOG.md)
 
