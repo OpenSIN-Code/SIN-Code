@@ -505,14 +505,20 @@ def codocs_install_skill(
 @app.command(name="mcp-config")
 def mcp_config(
     client: str = typer.Argument(..., help="Target CLI: opencode | codex | hermes"),
+    full: bool = typer.Option(
+        False, "--full", help="Generate config for all 15 individual tools"
+    ),
     write: bool = typer.Option(
         False, "--write", help="Merge into the client's config file instead of stdout."
     ),
     path: Path = typer.Option(
         None, "--path", help="Override the config file path used with --write."
     ),
+    stdout: bool = typer.Option(
+        False, "--stdout", help="Write to stdout (default)."
+    ),
 ):
-    """Generate a ready-to-use MCP client configuration for the sin server."""
+    """Generate a ready-to-use MCP client configuration."""
     from . import mcp_config as gen
 
     client_norm = client.lower()
@@ -527,13 +533,19 @@ def mcp_config(
     if write:
         target = path or gen.default_path(client_norm)
         try:
-            msg = gen.merge_into_file(client_norm, Path(target))
+            if full:
+                msg = gen.merge_full_into_file(client_norm, Path(target))
+            else:
+                msg = gen.merge_into_file(client_norm, Path(target))
         except ValueError as exc:
             typer.echo(f"[SIN-BUNDLE] {exc}", err=True)
             raise typer.Exit(code=1)
         typer.echo(f"[SIN-BUNDLE] {msg}")
     else:
-        typer.echo(gen.generate(client_norm))
+        if full:
+            typer.echo(gen.generate_full(client_norm))
+        else:
+            typer.echo(gen.generate(client_norm))
 
 
 @app.command(name="agents-md")
@@ -733,6 +745,62 @@ def serve():
                 "ok": not broken,
             }
         )
+
+    # SIN-Brain memory tools (BR-1)
+    try:
+        from sin_brain import BrainCortex
+
+        @mcp.tool()
+        def recall(query: str, scope: str = "all", limit: int = 5) -> str:
+            """Recall relevant memories from SIN-Brain."""
+            try:
+                cortex = BrainCortex(storage_path=".sin/brain.db")
+                memories = cortex.recall(query, scope=scope, limit=limit)
+                return json.dumps({"memories": [m.to_dict() for m in memories]})
+            except ImportError:
+                return json.dumps({"error": "SIN-Brain not installed"})
+
+        @mcp.tool()
+        def remember(content: str, kind: str = "observation", tier: str = "episodic", confidence: float = 1.0) -> str:
+            """Store a memory in SIN-Brain."""
+            try:
+                cortex = BrainCortex(storage_path=".sin/brain.db")
+                memory_id = cortex.remember(content, kind=kind, tier=tier, confidence=confidence)
+                return json.dumps({"memory_id": memory_id, "status": "stored"})
+            except ImportError:
+                return json.dumps({"error": "SIN-Brain not installed"})
+
+        @mcp.tool()
+        def forget(memory_id: str) -> str:
+            """Remove a memory from SIN-Brain."""
+            try:
+                cortex = BrainCortex(storage_path=".sin/brain.db")
+                cortex.forget(memory_id)
+                return json.dumps({"memory_id": memory_id, "status": "forgotten"})
+            except ImportError:
+                return json.dumps({"error": "SIN-Brain not installed"})
+
+        @mcp.tool()
+        def pin(memory_id: str) -> str:
+            """Pin a memory to core tier for quick recall."""
+            try:
+                cortex = BrainCortex(storage_path=".sin/brain.db")
+                cortex.pin(memory_id)
+                return json.dumps({"memory_id": memory_id, "status": "pinned"})
+            except ImportError:
+                return json.dumps({"error": "SIN-Brain not installed"})
+
+        @mcp.tool()
+        def link_evidence(source_id: str, target_id: str, relation: str = "related") -> str:
+            """Create evidence link between two memories."""
+            try:
+                cortex = BrainCortex(storage_path=".sin/brain.db")
+                cortex.link_evidence(source_id, target_id, relation=relation)
+                return json.dumps({"source_id": source_id, "target_id": target_id, "relation": relation, "status": "linked"})
+            except ImportError:
+                return json.dumps({"error": "SIN-Brain not installed"})
+    except ImportError:
+        pass
 
     typer.echo("[SIN-BUNDLE] MCP server starting (stdio).", err=True)
     mcp.run()
