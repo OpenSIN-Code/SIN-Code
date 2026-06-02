@@ -4,12 +4,16 @@
 #
 # Bootstraps the entire SIN-Code agent-engineering stack in a single command:
 #   1. Detect OS (macOS/Linux) + arch (amd64/arm64)
-#   2. Check prerequisites (python3 ≥3.11, go ≥1.21, git, curl)
+#   2. Check prerequisites (python3 ≥3.11, go ≥1.21, git, curl, node/npm)
 #   3. pip install -e . the SIN-Code-Bundle (uses `uv` if available, else pip)
 #   4. Build & install all 7 Go tools into ~/.local/bin (resume-aware)
-#   5. Smoke-test each binary in --mcp mode (JSON-RPC initialize)
-#   6. Idempotently register all 7 tools in ~/.config/opencode/opencode.json (mcp block)
-#   7. Run `sin status` and emit a final summary
+#   5. Install / verify gitnexus (npm MCP server for graph context)
+#   6. Install / verify simone-mcp (Python MCP server for code intelligence)
+#   7. Check SIN-Brain (docs-only repo, warns if missing)
+#   8. Check 8 Python subsystems (SCKG, IBD, POC, EFSM, ADW, Oracle, Orchestration, Review-Interface)
+#   9. Smoke-test each binary in --mcp mode (JSON-RPC initialize)
+#  10. Idempotently register all 7 Go tools + gitnexus + simone-mcp in ~/.config/opencode/opencode.json
+#  11. Run `sin status` and emit a final summary
 #
 # Flags:
 #   --help      Show this help text
@@ -18,6 +22,7 @@
 #   --force     Rebuild Go tools even if binary is already up to date
 #   --skip-go   Skip Go tool build (only install Python bundle + register MCP)
 #   --bundle-only  Alias for --skip-go
+#   --skip-external  Skip gitnexus, simone-mcp, and SIN-Brain checks
 #
 # Environment overrides (all optional):
 #   SIN_CODE_BIN_DIR     Install dir for Go binaries (default: $HOME/.local/bin)
@@ -40,6 +45,7 @@ DRY_RUN=0
 VERBOSE=0
 FORCE=0
 SKIP_GO=0
+SKIP_EXTERNAL=0
 
 # Tool registry: binary name ↔ module path ↔ repo dir name
 # Order is deliberate: discover first (most-used), orchestrate last.
@@ -100,6 +106,7 @@ Options:
   --force          Rebuild Go tools even if binary is already up to date
   --skip-go        Skip Go tool build (only install Python bundle + register MCP)
   --bundle-only    Alias for --skip-go
+  --skip-external  Skip gitnexus, simone-mcp, and SIN-Brain checks
 
 Environment overrides:
   SIN_CODE_BIN_DIR         Install dir for Go binaries (default: ~/.local/bin)
@@ -109,7 +116,11 @@ Environment overrides:
 What gets installed:
   • Python bundle: `sin` CLI (editable pip install into current interpreter or .venv)
   • 7 Go binaries: discover, execute, map, grasp, scout, harvest, orchestrate
-  • opencode.json mcp registrations for all 7 tools
+  • gitnexus (npm): graph context MCP server (auto-installed if missing)
+  • simone-mcp (Python): code intelligence MCP server (auto-installed if missing)
+  • SIN-Brain: docs-only repo (checked, warning if missing)
+  • 8 Python subsystems: checked and reported (SCKG, IBD, POC, EFSM, ADW, Oracle, Orchestration, Review-Interface)
+  • opencode.json mcp registrations for all 7 Go tools + gitnexus + simone-mcp
   • PATH hint if ~/.local/bin is not on PATH
 
 Idempotency:
@@ -127,13 +138,14 @@ while [[ $# -gt 0 ]]; do
     --verbose)  VERBOSE=1 ;;
     --force)    FORCE=1 ;;
     --skip-go|--bundle-only) SKIP_GO=1 ;;
+    --skip-external) SKIP_EXTERNAL=1 ;;
     -h)         usage; exit 2 ;;
     *)          err "Unknown flag: $1"; usage; exit 1 ;;
   esac
   shift
 done
 
-TOTAL_STEPS=7
+TOTAL_STEPS=11
 
 # ── Step 1: OS / arch detection ────────────────────────────────────────
 detect_platform() {
@@ -191,6 +203,15 @@ check_prereqs() {
     exit 1
   fi
 
+  # Node/npm is optional (needed for gitnexus)
+  if command -v node >/dev/null 2>&1; then
+    local nodever
+    nodever=$(node --version 2>/dev/null | sed 's/^v//')
+    ok "node $nodever (optional, for gitnexus)"
+  else
+    warn "node not found — gitnexus MCP server will not be available (install Node.js >= 18)"
+  fi
+
   local gover
   gover=$(go version | awk '{print $3}' | sed 's/^go//')
   if version_ge "$gover" "1.21"; then
@@ -203,7 +224,7 @@ check_prereqs() {
 
 # ── Step 3: pip install the bundle ────────────────────────────────────
 install_bundle() {
-  heading "Step 3/7: Install Python bundle (sin-code-bundle)"
+  heading "Step 3/11: Install Python bundle (sin-code-bundle)"
   step 3 "Installing sin-code-bundle in editable mode"
 
   if [[ ! -f "$BUNDLE_DIR/pyproject.toml" ]]; then
@@ -270,7 +291,7 @@ build_one_tool() {
 }
 
 build_go_tools() {
-  heading "Step 4/7: Build & install 7 Go tools → $BIN_DIR"
+  heading "Step 4/11: Build & install 7 Go tools → $BIN_DIR"
   if [[ "$SKIP_GO" -eq 1 ]]; then
     warn "Skipping Go tool build (--skip-go)"
     return 0
@@ -286,10 +307,172 @@ build_go_tools() {
   done
 }
 
-# ── Step 5: smoke-test each binary in --mcp mode ──────────────────────
+# ── Step 5: gitnexus check / install ───────────────────────────────────
+setup_gitnexus() {
+  heading "Step 5/11: gitnexus (graph context MCP server)"
+  if [[ "$SKIP_EXTERNAL" -eq 1 ]]; then
+    warn "Skipping external MCP checks (--skip-external)"
+    return 0
+  fi
+  step 5 "Checking gitnexus installation"
+
+  if npx gitnexus --version >/dev/null 2>&1; then
+    ok "gitnexus installed: $(npx gitnexus --version 2>/dev/null)"
+    return 0
+  fi
+
+  warn "gitnexus not found — installing via npm"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    dry "npm install -g gitnexus"
+    dry "npx gitnexus analyze --help  # verify"
+    return 0
+  fi
+
+  if command -v npm >/dev/null 2>&1; then
+    run npm install -g gitnexus || {
+      warn "Global install failed, trying npx fallback..."
+      run npx gitnexus --version || {
+        err "gitnexus installation failed. Install manually: npm install -g gitnexus"
+        return 1
+      }
+    }
+  else
+    err "npm not found. Install Node.js >= 18 and run again."
+    return 1
+  fi
+
+  if npx gitnexus --version >/dev/null 2>&1; then
+    ok "gitnexus installed successfully"
+  else
+    err "gitnexus verification failed"
+    return 1
+  fi
+}
+
+# ── Step 6: simone-mcp check / install ─────────────────────────────────
+setup_simone_mcp() {
+  heading "Step 6/11: simone-mcp (code intelligence MCP server)"
+  if [[ "$SKIP_EXTERNAL" -eq 1 ]]; then
+    warn "Skipping external MCP checks (--skip-external)"
+    return 0
+  fi
+  step 6 "Checking simone-mcp installation"
+
+  local simone_repo="$REPOS_DIR/Simone-MCP"
+  if [[ -d "$simone_repo" ]]; then
+    ok "simone-mcp repo found at $simone_repo"
+  else
+    warn "simone-mcp repo not found at $simone_repo"
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      dry "git clone https://github.com/OpenSIN-Code/Simone-MCP.git $simone_repo"
+      return 0
+    fi
+    if command -v git >/dev/null 2>&1; then
+      run git clone https://github.com/OpenSIN-Code/Simone-MCP.git "$simone_repo"
+    else
+      err "git not found — cannot clone simone-mcp"
+      return 1
+    fi
+  fi
+
+  # Check if already installed in current Python environment
+  if python3 -c "import simone_mcp" 2>/dev/null; then
+    ok "simone-mcp Python package already installed"
+    return 0
+  fi
+
+  if [[ ! -f "$simone_repo/pyproject.toml" ]]; then
+    err "pyproject.toml missing in $simone_repo — cannot install"
+    return 1
+  fi
+
+  warn "simone-mcp Python package not installed — installing"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    dry "pip install -e $simone_repo[dev]"
+    return 0
+  fi
+
+  if command -v uv >/dev/null 2>&1; then
+    run uv pip install -e "$simone_repo[dev]"
+  else
+    run python3 -m pip install -e "$simone_repo[dev]"
+  fi
+
+  if python3 -c "import simone_mcp" 2>/dev/null; then
+    ok "simone-mcp installed successfully"
+  else
+    err "simone-mcp installation failed"
+    return 1
+  fi
+}
+
+# ── Step 7: SIN-Brain check (docs-only) ────────────────────────────────
+check_sin_brain() {
+  heading "Step 7/11: SIN-Brain (docs-only repo)"
+  if [[ "$SKIP_EXTERNAL" -eq 1 ]]; then
+    warn "Skipping external MCP checks (--skip-external)"
+    return 0
+  fi
+  step 7 "Checking SIN-Brain repo"
+
+  local brain_repo="$REPOS_DIR/SIN-Brain"
+  if [[ -d "$brain_repo" ]]; then
+    ok "SIN-Brain repo found at $brain_repo"
+    info "Note: SIN-Brain is currently docs-only (no code/binary)."
+  else
+    warn "SIN-Brain repo not found at $brain_repo"
+    info "SIN-Brain is private and currently docs-only."
+    info "If you have access, clone it: git clone https://github.com/OpenSIN-Code/SIN-Brain.git $brain_repo"
+  fi
+}
+
+# ── Step 8: Python subsystem health check ────────────────────────────────
+check_python_subsystems() {
+  heading "Step 8/11: Python subsystems (8 packages)"
+  step 8 "Checking subsystem availability"
+
+  local subsystems=(
+    "sin_code_sckg|SCKG (knowledge graph)"
+    "sin_code_ibd|IBD (intent diff)"
+    "sin_code_poc|POC (proof of correctness)"
+    "sin_code_efsm|EFSM (mock orchestration)"
+    "sin_code_adw|ADW (debt watchdog)"
+    "sin_code_oracle|Oracle (verification)"
+    "sin_code_orchestration|Orchestration (multi-agent workflow)"
+    "sin_code_review_interface|Review-Interface (semantic review UI)"
+  )
+
+  local found=0 missing=0
+  for entry in "${subsystems[@]}"; do
+    local mod="${entry%%|*}" desc="${entry##*|}"
+    if python3 -c "import importlib.util; exit(0 if importlib.util.find_spec('$mod') else 1)" 2>/dev/null; then
+      ok "$desc — installed"
+      found=$((found+1))
+    else
+      warn "$desc — NOT installed"
+      missing=$((missing+1))
+    fi
+  done
+
+  if [[ "$missing" -gt 0 ]]; then
+    info "Install missing subsystems with:"
+    info "  pip install -e ../SIN-Code-Semantic-Codebase-Knowledge-Graphs"
+    info "  pip install -e ../SIN-Code-Intent-Based-Diffing"
+    info "  pip install -e ../SIN-Code-Proof-of-Correctness"
+    info "  pip install -e ../SIN-Code-Ephemeral-Full-Stack-Mocking-Orchestration"
+    info "  pip install -e ../SIN-Code-Architectural-Debt-Watchdogs"
+    info "  pip install -e ../SIN-Code-Verification-Oracle"
+    info "  pip install -e ../SIN-Code-Orchestration"
+    info "  pip install -e ../SIN-Code-Review-Interface"
+  fi
+
+  ok "Python subsystems: $found/8 installed, $missing/8 missing"
+}
+
+# ── Step 9: smoke-test each binary in --mcp mode ──────────────────────
 smoke_test() {
-  heading "Step 5/7: Smoke-test binaries (JSON-RPC initialize)"
-  step 5 "Piping initialize request to each --mcp server"
+  heading "Step 9/11: Smoke-test binaries (JSON-RPC initialize)"
+  step 9 "Piping initialize request to each --mcp server"
   local pass=0 fail=0
   local init_req='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
   for entry in "${TOOLS[@]}"; do
@@ -315,6 +498,43 @@ smoke_test() {
       fail=$((fail+1))
     fi
   done
+
+  # Soft-check external MCP servers (warnings only, not hard failures)
+  if [[ "$SKIP_EXTERNAL" -eq 0 ]]; then
+    if npx gitnexus --version >/dev/null 2>&1; then
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        dry "npx gitnexus mcp --smoke-test"
+      else
+        if npx gitnexus mcp --smoke-test 2>/dev/null || true; then
+          ok "gitnexus MCP OK"
+        else
+          warn "gitnexus MCP smoke test inconclusive (may need index first)"
+        fi
+      fi
+    fi
+
+    local simone_cmd=""
+    if python3 -c "import simone_mcp" 2>/dev/null; then
+      simone_cmd="$(python3 -c "import simone_mcp, sys, os; repo=os.path.dirname(os.path.dirname(simone_mcp.__file__)); print(os.path.join(repo, 'src', 'cli.py'))" 2>/dev/null)"
+    fi
+    if [[ -z "$simone_cmd" ]] && [[ -f "$REPOS_DIR/Simone-MCP/src/cli.py" ]]; then
+      simone_cmd="$REPOS_DIR/Simone-MCP/src/cli.py"
+    fi
+    if [[ -n "$simone_cmd" ]]; then
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        dry "echo '$init_req' | python3 $simone_cmd serve-mcp"
+      else
+        local simone_resp
+        simone_resp=$(echo "$init_req" | python3 "$simone_cmd" serve-mcp 2>/dev/null || true)
+        if printf '%s' "$simone_resp" | grep -q '"serverInfo"'; then
+          ok "simone-mcp serve-mcp OK"
+        else
+          warn "simone-mcp serve-mcp smoke test inconclusive"
+        fi
+      fi
+    fi
+  fi
+
   echo
   if [[ "$fail" -eq 0 ]]; then
     ok "All $pass binaries passed smoke test"
@@ -324,11 +544,11 @@ smoke_test() {
   fi
 }
 
-# ── Step 6: patch opencode.json (idempotent) ─────────────────────────
+# ── Step 10: patch opencode.json (idempotent) ─────────────────────────
 # Uses python3 for safe JSON manipulation; falls back to skipping if python missing.
 patch_opencode_config() {
-  heading "Step 6/7: Register tools in opencode.json (mcp block)"
-  step 6 "Patching $OPENCODE_CONFIG"
+  heading "Step 10/11: Register tools in opencode.json (mcp block)"
+  step 10 "Patching $OPENCODE_CONFIG"
 
   if [[ ! -f "$OPENCODE_CONFIG" ]]; then
     if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -350,6 +570,10 @@ patch_opencode_config() {
       local binary="${entry%%|*}"
       dry "  sin-${binary} → $BIN_DIR/${binary} --mcp"
     done
+    if [[ "$SKIP_EXTERNAL" -eq 0 ]]; then
+      dry "  gitnexus → npx gitnexus mcp"
+      dry "  simone-mcp → python3 $REPOS_DIR/Simone-MCP/src/cli.py serve-mcp"
+    fi
     return 0
   fi
 
@@ -396,13 +620,94 @@ PY
     fi
   done
 
+  # Register gitnexus MCP server
+  if [[ "$SKIP_EXTERNAL" -eq 0 ]]; then
+    if python3 - "$OPENCODE_CONFIG" <<'PY' 2>/dev/null
+import json, sys
+path = sys.argv[1]
+try:
+    with open(path) as f:
+        data = json.load(f)
+except Exception:
+    sys.exit(2)
+sys.exit(0 if "gitnexus" in data.get("mcp", {}) else 1)
+PY
+    then
+      skipped=$((skipped+1))
+    else
+      python3 - "$OPENCODE_CONFIG" <<'PY'
+import json, sys
+path = sys.argv[1]
+with open(path) as f:
+    data = json.load(f)
+mcp = data.setdefault("mcp", {})
+mcp["gitnexus"] = {
+    "type": "local",
+    "command": ["npx", "gitnexus", "mcp"],
+    "enabled": True,
+    "description": "GitNexus code knowledge graph MCP server",
+}
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+      added=$((added+1))
+      ok "Added mcp.gitnexus → npx gitnexus mcp"
+    fi
+
+    # Register simone-mcp MCP server
+    local simone_cmd=""
+    if python3 -c "import simone_mcp" 2>/dev/null; then
+      simone_cmd="$(python3 -c "import simone_mcp, sys, os; repo=os.path.dirname(os.path.dirname(simone_mcp.__file__)); print(os.path.join(repo, 'src', 'cli.py'))" 2>/dev/null)"
+    fi
+    if [[ -z "$simone_cmd" ]] && [[ -f "$REPOS_DIR/Simone-MCP/src/cli.py" ]]; then
+      simone_cmd="$REPOS_DIR/Simone-MCP/src/cli.py"
+    fi
+    if [[ -n "$simone_cmd" ]]; then
+      if python3 - "$OPENCODE_CONFIG" <<'PY' 2>/dev/null
+import json, sys
+path = sys.argv[1]
+try:
+    with open(path) as f:
+        data = json.load(f)
+except Exception:
+    sys.exit(2)
+sys.exit(0 if "sin-simone-mcp" in data.get("mcp", {}) else 1)
+PY
+      then
+        skipped=$((skipped+1))
+      else
+        python3 - "$OPENCODE_CONFIG" "$simone_cmd" <<'PY'
+import json, sys
+path, cmd = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    data = json.load(f)
+mcp = data.setdefault("mcp", {})
+mcp["sin-simone-mcp"] = {
+    "type": "local",
+    "command": ["python3", cmd, "serve-mcp"],
+    "enabled": True,
+    "description": "Simone MCP code intelligence server",
+}
+with open(path, "w") as f:
+    json.dump(data, f, indent=2)
+    f.write("\n")
+PY
+        added=$((added+1))
+        ok "Added mcp.sin-simone-mcp → python3 $simone_cmd serve-mcp"
+      fi
+    else
+      warn "simone-mcp not found, skipping MCP registration"
+    fi
+  fi
+
   ok "opencode.json: $added added, $skipped already present"
 }
 
-# ── Step 7: final status ─────────────────────────────────────────────
+# ── Step 11: final status ─────────────────────────────────────────────
 final_status() {
-  heading "Step 7/7: Final status"
-  step 7 "Running \`sin status\` to verify"
+  heading "Step 11/11: Final status"
+  step 11 "Running \`sin status\` to verify"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     dry "sin status"
   else
@@ -438,11 +743,28 @@ print_summary() {
     fi
   done
   heading "Summary"
+  local gitnexus_status="skipped"
+  local simone_status="skipped"
+  if [[ "$SKIP_EXTERNAL" -eq 0 ]]; then
+    gitnexus_status="$(npx gitnexus --version 2>/dev/null || echo "not installed")"
+    if python3 -c "import simone_mcp" 2>/dev/null; then
+      simone_status="installed"
+    else
+      simone_status="not installed"
+    fi
+  fi
+  local brain_status="not found (docs-only)"
+  if [[ -d "$REPOS_DIR/SIN-Brain" ]]; then
+    brain_status="repo found"
+  fi
   printf "  Bundle dir:        %s\n" "$BUNDLE_DIR"
   printf "  Bin dir:           %s\n" "$BIN_DIR"
   printf "  Repos dir:         %s\n" "$REPOS_DIR"
   printf "  opencode.json:     %s\n" "$OPENCODE_CONFIG"
   printf "  Go tools:          %s/%s installed\n" "$built" "${#TOOLS[@]}"
+  printf "  gitnexus:          %s\n" "$gitnexus_status"
+  printf "  simone-mcp:        %s\n" "$simone_status"
+  printf "  SIN-Brain:         %s\n" "$brain_status"
   printf "  opencode.json:     patched (idempotent)\n"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf "  Mode:              %sDRY RUN%s (no changes made)\n" "$C_YELLOW" "$C_RESET"
@@ -475,6 +797,10 @@ main() {
 
   install_bundle
   build_go_tools
+  setup_gitnexus
+  setup_simone_mcp
+  check_sin_brain
+  check_python_subsystems
   smoke_test
   patch_opencode_config
   final_status

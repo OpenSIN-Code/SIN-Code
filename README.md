@@ -39,6 +39,11 @@ verification oracle.
 
 - Provides a single `sin` CLI over all subsystems.
 - Exposes a unified MCP server so one entry serves agents all tools.
+- **Auto-detects and installs external MCP servers**: `gitnexus` (graph context)
+  and `simone-mcp` (code intelligence) are checked and installed if missing.
+- **Checks 8 Python subsystems**: SCKG, IBD, POC, EFSM, ADW, Oracle,
+  Orchestration, Review-Interface — reports what's installed and suggests
+  `pip install -e` commands for missing ones.
 - **Degrades gracefully**: each subsystem is an optional dependency. The bundle
   detects which are installed (`sin status`) and only wires up what's available.
 
@@ -47,19 +52,24 @@ verification oracle.
 ### One-command full install
 
 ```bash
-# Bootstraps the entire SIN-Code stack (7 Go tools + Python bundle + MCP config)
+# Bootstraps the entire SIN-Code stack (7 Go tools + Python bundle + MCP config + externals)
 bash install.sh
 ```
 
-This installs all 7 Go tools, the Python bundle in editable mode, and registers
-the tools in `~/.config/opencode/opencode.json`.
+This installs all 7 Go tools, the Python bundle in editable mode, auto-detects
+and installs **gitnexus** (graph context) and **simone-mcp** (code intelligence),
+checks for **SIN-Brain** (docs-only), verifies all 8 Python subsystems, and
+registers everything in `~/.config/opencode/opencode.json`.
 
-**Flags:** `--help` `--dry-run` `--verbose` `--force` `--skip-go`
+**Flags:** `--help` `--dry-run` `--verbose` `--force` `--skip-go` `--skip-external`
 
 **Environment overrides:**
 ```bash
 SIN_CODE_BIN_DIR=~/custom-bin SIN_CODE_REPOS_DIR=~/my-repos bash install.sh
 ```
+
+**Full installation takes ~2–5 minutes** (depending on Go build cache and
+whether npm packages need downloading). Re-runs are safe and idempotent.
 
 See `install.sh --help` for full details. The companion docs are at
 [`install.sh.doc.md`](./install.sh.doc.md).
@@ -69,7 +79,13 @@ See `install.sh --help` for full details. The companion docs are at
 ```bash
 # Install the subsystems you want, then the bundle:
 pip install -e ../SIN-Code-Semantic-Codebase-Knowledge-Graphs
+pip install -e ../SIN-Code-Intent-Based-Diffing
+pip install -e ../SIN-Code-Proof-of-Correctness
+pip install -e ../SIN-Code-Ephemeral-Full-Stack-Mocking-Orchestration
+pip install -e ../SIN-Code-Architectural-Debt-Watchdogs
 pip install -e ../SIN-Code-Verification-Oracle
+pip install -e ../SIN-Code-Orchestration
+pip install -e ../SIN-Code-Review-Interface
 pip install -e .
 
 sin status # show which subsystems are available
