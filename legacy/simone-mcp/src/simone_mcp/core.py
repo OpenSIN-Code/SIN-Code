@@ -1050,6 +1050,9 @@ def write_file(payload: dict[str, Any]) -> dict[str, Any]:
         content = str(payload.get("content") or "")
         overwrite = bool(payload.get("overwrite", False))
 
+        if not str(payload.get("path", "")).strip():
+            return {"ok": False, "status": "error", "error": "Path is empty or whitespace-only"}
+
         if target.exists() and not overwrite:
             return {"ok": False, "status": "error", "error": "File exists. Use overwrite=True."}
 
@@ -1076,35 +1079,7 @@ def edit_file(payload: dict[str, Any]) -> dict[str, Any]:
             return {"ok": False, "status": "error", "error": "File not found"}
 
         content = target.read_text(encoding="utf-8")
-
-        if old_string not in content:
-            return {"ok": False, "status": "error", "error": "old_string not found in file"}
-
-        new_content = content.replace(old_string, new_string)
-        count = content.count(old_string)
-
-        target.write_text(new_content, encoding="utf-8")
-
-        return {
-            "ok": True,
-            "status": "success",
-            "path": str(target),
-            "replacements_count": count,
-        }
-    except Exception as error:
-        return {"ok": False, "status": "error", "error": str(error)}
-
-
-def patch_file(payload: dict[str, Any]) -> dict[str, Any]:
-    try:
-        target = Path(str(payload.get("path") or "")).expanduser().resolve()
-        diff = str(payload.get("diff") or "")
-
-        if not target.exists():
-            return {"ok": False, "status": "error", "error": "File not found"}
-
-        content = target.read_text(encoding="utf-8")
-        lines = content.split("\n")
+        lines = content.splitlines()
 
         # Parse unified diff hunks
         hunks = re.findall(r'@@ -(\d+),(\d+) \+(\d+),(\d+) @@', diff)
@@ -1137,7 +1112,7 @@ def read_file(payload: dict[str, Any]) -> dict[str, Any]:
             return {"ok": False, "status": "error", "error": "File not found"}
 
         content = target.read_text(encoding="utf-8")
-        lines = content.split("\n")
+        lines = content.splitlines()
 
         start = max(0, offset)
         end = min(len(lines), start + limit)
