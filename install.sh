@@ -6,14 +6,15 @@
 #   1. Detect OS (macOS/Linux) + arch (amd64/arm64)
 #   2. Check prerequisites (python3 ≥3.11, go ≥1.21, git, curl, node/npm)
 #   3. pip install -e . the SIN-Code-Bundle (uses `uv` if available, else pip)
-#   4. Build & install all 7 Go tools into ~/.local/bin (resume-aware)
-#   5. Install / verify gitnexus (npm MCP server for graph context)
-#   6. Install / verify simone-mcp (Python MCP server for code intelligence)
-#   7. Check SIN-Brain (docs-only repo, warns if missing)
-#   8. Check 8 Python subsystems (SCKG, IBD, POC, EFSM, ADW, Oracle, Orchestration, Review-Interface)
-#   9. Smoke-test each binary in --mcp mode (JSON-RPC initialize)
-#  10. Idempotently register all 7 Go tools + gitnexus + simone-mcp in ~/.config/opencode/opencode.json
-#  11. Run `sin status` and emit a final summary
+#   4. Install 8 Python subsystems from local repos into bundle environment
+#   5. Build & install all 7 Go tools into ~/.local/bin (resume-aware)
+#   6. Install / verify gitnexus (npm MCP server for graph context)
+#   7. Install / verify simone-mcp (Python MCP server for code intelligence)
+#   8. Check SIN-Brain (docs-only repo, warns if missing)
+#   9. Verify 8 Python subsystems are importable
+#  10. Smoke-test each binary in --mcp mode (JSON-RPC initialize)
+#  11. Idempotently register all 7 Go tools + gitnexus + simone-mcp in ~/.config/opencode/opencode.json
+#  12. Run `sin status` and emit a final summary
 #
 # Flags:
 #   --help      Show this help text
@@ -119,12 +120,13 @@ What gets installed:
   • gitnexus (npm): graph context MCP server (auto-installed if missing)
   • simone-mcp (Python): code intelligence MCP server (auto-installed if missing)
   • SIN-Brain: docs-only repo (checked, warning if missing)
-  • 8 Python subsystems: checked and reported (SCKG, IBD, POC, EFSM, ADW, Oracle, Orchestration, Review-Interface)
+  • 8 Python subsystems: auto-installed from local repos and verified
   • opencode.json mcp registrations for all 7 Go tools + gitnexus + simone-mcp
   • PATH hint if ~/.local/bin is not on PATH
 
 Idempotency:
   • Re-runs are safe: existing binaries are kept if newer than their source
+  • Python subsystems are re-installed idempotently (pip install -e)
   • opencode.json is only patched for missing sin-* entries
   • Use --force to force a rebuild from source
 EOF
@@ -145,7 +147,7 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-TOTAL_STEPS=11
+TOTAL_STEPS=12
 
 # ── Step 1: OS / arch detection ────────────────────────────────────────
 detect_platform() {
@@ -224,7 +226,7 @@ check_prereqs() {
 
 # ── Step 3: pip install the bundle ────────────────────────────────────
 install_bundle() {
-  heading "Step 3/11: Install Python bundle (sin-code-bundle)"
+  heading "Step 3/12: Install Python bundle (sin-code-bundle)"
   step 3 "Installing sin-code-bundle in editable mode"
 
   if [[ ! -f "$BUNDLE_DIR/pyproject.toml" ]]; then
@@ -252,7 +254,77 @@ install_bundle() {
   fi
 }
 
-# ── Step 4: build & install the 7 Go tools ───────────────────────────
+# ── Step 4: install 8 Python subsystems from local repos ───────────────
+install_python_subsystems() {
+  heading "Step 4/12: Install 8 Python subsystems from local repos"
+  step 4 "Installing Python subsystems into the bundle environment"
+
+  local repos_dir="${REPOS_DIR:-$HOME/dev}"
+  local subsystems=(
+    "SIN-Code-Semantic-Codebase-Knowledge-Graphs"
+    "SIN-Code-Intent-Based-Diffing"
+    "SIN-Code-Proof-of-Correctness"
+    "SIN-Code-Ephemeral-Full-Stack-Mocking-Orchestration"
+    "SIN-Code-Architectural-Debt-Watchdogs"
+    "SIN-Code-Verification-Oracle"
+    "SIN-Code-Orchestration"
+    "SIN-Code-Review-Interface"
+  )
+
+  local total=${#subsystems[@]}
+  local current=0
+  local installed=0
+  local failed=0
+  local skipped=0
+
+  for repo in "${subsystems[@]}"; do
+    current=$((current+1))
+    local repo_path="$repos_dir/$repo"
+    if [ ! -d "$repo_path" ]; then
+      warn "Subsystem $current/$total: $repo not found at $repo_path, skipping"
+      skipped=$((skipped+1))
+      continue
+    fi
+
+    info "Installing subsystem $current/$total: $repo..."
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      dry "pip install -e $repo_path"
+      installed=$((installed+1))
+      continue
+    fi
+
+    # Use the same Python environment as the bundle
+    local pip_cmd=()
+    if command -v uv >/dev/null 2>&1; then
+      pip_cmd=(uv pip install)
+      if [[ -d "$BUNDLE_DIR/.venv" ]]; then
+        pip_cmd+=(--python "$BUNDLE_DIR/.venv/bin/python")
+      else
+        pip_cmd+=(--system)
+      fi
+    elif [[ -d "$BUNDLE_DIR/.venv" ]]; then
+      pip_cmd=("$BUNDLE_DIR/.venv/bin/pip" install)
+    else
+      pip_cmd=(python3 -m pip install)
+    fi
+
+    if "${pip_cmd[@]}" -e "$repo_path" 2>/dev/null; then
+      ok "Subsystem $current/$total: $repo installed"
+      installed=$((installed+1))
+    else
+      warn "Subsystem $current/$total: $repo failed to install"
+      failed=$((failed+1))
+    fi
+  done
+
+  ok "Python subsystems: $installed installed, $failed failed, $skipped skipped"
+
+  if [[ "$failed" -gt 0 ]]; then
+    warn "Some subsystems failed to install. Check logs above."
+  fi
+}
+
+# ── Step 5: build & install the 7 Go tools ───────────────────────────
 build_one_tool() {
   local binary="$1" repo_dir_name="$2"
   local repo="$REPOS_DIR/$repo_dir_name"
@@ -291,12 +363,12 @@ build_one_tool() {
 }
 
 build_go_tools() {
-  heading "Step 4/11: Build & install 7 Go tools → $BIN_DIR"
+  heading "Step 5/12: Build & install 7 Go tools → $BIN_DIR"
   if [[ "$SKIP_GO" -eq 1 ]]; then
     warn "Skipping Go tool build (--skip-go)"
     return 0
   fi
-  step 4 "Building 7 Go tools from $REPOS_DIR"
+  step 5 "Building 7 Go tools from $REPOS_DIR"
   for entry in "${TOOLS[@]}"; do
     local binary="${entry%%|*}"
     local repo="${entry##*|}"
@@ -307,14 +379,14 @@ build_go_tools() {
   done
 }
 
-# ── Step 5: gitnexus check / install ───────────────────────────────────
+# ── Step 6: gitnexus check / install ───────────────────────────────────
 setup_gitnexus() {
-  heading "Step 5/11: gitnexus (graph context MCP server)"
+  heading "Step 6/12: gitnexus (graph context MCP server)"
   if [[ "$SKIP_EXTERNAL" -eq 1 ]]; then
     warn "Skipping external MCP checks (--skip-external)"
     return 0
   fi
-  step 5 "Checking gitnexus installation"
+  step 6 "Checking gitnexus installation"
 
   if npx gitnexus --version >/dev/null 2>&1; then
     ok "gitnexus installed: $(npx gitnexus --version 2>/dev/null)"
@@ -349,14 +421,14 @@ setup_gitnexus() {
   fi
 }
 
-# ── Step 6: simone-mcp check / install ─────────────────────────────────
+# ── Step 7: simone-mcp check / install ─────────────────────────────────
 setup_simone_mcp() {
-  heading "Step 6/11: simone-mcp (code intelligence MCP server)"
+  heading "Step 7/12: simone-mcp (code intelligence MCP server)"
   if [[ "$SKIP_EXTERNAL" -eq 1 ]]; then
     warn "Skipping external MCP checks (--skip-external)"
     return 0
   fi
-  step 6 "Checking simone-mcp installation"
+  step 7 "Checking simone-mcp installation"
 
   local simone_repo="$REPOS_DIR/Simone-MCP"
   if [[ -d "$simone_repo" ]]; then
@@ -406,14 +478,14 @@ setup_simone_mcp() {
   fi
 }
 
-# ── Step 7: SIN-Brain check (docs-only) ────────────────────────────────
+# ── Step 8: SIN-Brain check (docs-only) ────────────────────────────────
 check_sin_brain() {
-  heading "Step 7/11: SIN-Brain (docs-only repo)"
+  heading "Step 8/12: SIN-Brain (docs-only repo)"
   if [[ "$SKIP_EXTERNAL" -eq 1 ]]; then
     warn "Skipping external MCP checks (--skip-external)"
     return 0
   fi
-  step 7 "Checking SIN-Brain repo"
+  step 8 "Checking SIN-Brain repo"
 
   local brain_repo="$REPOS_DIR/SIN-Brain"
   if [[ -d "$brain_repo" ]]; then
@@ -426,10 +498,10 @@ check_sin_brain() {
   fi
 }
 
-# ── Step 8: Python subsystem health check ────────────────────────────────
+# ── Step 9: Python subsystem health check ────────────────────────────────
 check_python_subsystems() {
-  heading "Step 8/11: Python subsystems (8 packages)"
-  step 8 "Checking subsystem availability"
+  heading "Step 9/12: Python subsystems (8 packages)"
+  step 9 "Checking subsystem availability"
 
   local subsystems=(
     "sin_code_sckg|SCKG (knowledge graph)"
@@ -469,10 +541,10 @@ check_python_subsystems() {
   ok "Python subsystems: $found/8 installed, $missing/8 missing"
 }
 
-# ── Step 9: smoke-test each binary in --mcp mode ──────────────────────
+# ── Step 10: smoke-test each binary in --mcp mode ──────────────────────
 smoke_test() {
-  heading "Step 9/11: Smoke-test binaries (JSON-RPC initialize)"
-  step 9 "Piping initialize request to each --mcp server"
+  heading "Step 10/12: Smoke-test binaries (JSON-RPC initialize)"
+  step 10 "Piping initialize request to each --mcp server"
   local pass=0 fail=0
   local init_req='{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'
   for entry in "${TOOLS[@]}"; do
@@ -544,11 +616,11 @@ smoke_test() {
   fi
 }
 
-# ── Step 10: patch opencode.json (idempotent) ─────────────────────────
+# ── Step 11: patch opencode.json (idempotent) ─────────────────────────
 # Uses python3 for safe JSON manipulation; falls back to skipping if python missing.
 patch_opencode_config() {
-  heading "Step 10/11: Register tools in opencode.json (mcp block)"
-  step 10 "Patching $OPENCODE_CONFIG"
+  heading "Step 11/12: Register tools in opencode.json (mcp block)"
+  step 11 "Patching $OPENCODE_CONFIG"
 
   if [[ ! -f "$OPENCODE_CONFIG" ]]; then
     if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -704,10 +776,10 @@ PY
   ok "opencode.json: $added added, $skipped already present"
 }
 
-# ── Step 11: final status ─────────────────────────────────────────────
+# ── Step 12: final status ─────────────────────────────────────────────
 final_status() {
-  heading "Step 11/11: Final status"
-  step 11 "Running \`sin status\` to verify"
+  heading "Step 12/12: Final status"
+  step 12 "Running \`sin status\` to verify"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     dry "sin status"
   else
@@ -757,11 +829,18 @@ print_summary() {
   if [[ -d "$REPOS_DIR/SIN-Brain" ]]; then
     brain_status="repo found"
   fi
+  local subsystems_installed=0
+  for mod in sin_code_sckg sin_code_ibd sin_code_poc sin_code_efsm sin_code_adw sin_code_oracle sin_code_orchestration sin_code_review_interface; do
+    if python3 -c "import importlib.util; exit(0 if importlib.util.find_spec('$mod') else 1)" 2>/dev/null; then
+      subsystems_installed=$((subsystems_installed+1))
+    fi
+  done
   printf "  Bundle dir:        %s\n" "$BUNDLE_DIR"
   printf "  Bin dir:           %s\n" "$BIN_DIR"
   printf "  Repos dir:         %s\n" "$REPOS_DIR"
   printf "  opencode.json:     %s\n" "$OPENCODE_CONFIG"
   printf "  Go tools:          %s/%s installed\n" "$built" "${#TOOLS[@]}"
+  printf "  Python subsystems: %s/8 installed\n" "$subsystems_installed"
   printf "  gitnexus:          %s\n" "$gitnexus_status"
   printf "  simone-mcp:        %s\n" "$simone_status"
   printf "  SIN-Brain:         %s\n" "$brain_status"
@@ -796,6 +875,7 @@ main() {
   check_prereqs
 
   install_bundle
+  install_python_subsystems
   build_go_tools
   setup_gitnexus
   setup_simone_mcp
