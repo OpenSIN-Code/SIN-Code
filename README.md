@@ -44,15 +44,37 @@ verification oracle.
 
 ## Quickstart
 
+### One-command full install
+
+```bash
+# Bootstraps the entire SIN-Code stack (7 Go tools + Python bundle + MCP config)
+bash install.sh
+```
+
+This installs all 7 Go tools, the Python bundle in editable mode, and registers
+the tools in `~/.config/opencode/opencode.json`.
+
+**Flags:** `--help` `--dry-run` `--verbose` `--force` `--skip-go`
+
+**Environment overrides:**
+```bash
+SIN_CODE_BIN_DIR=~/custom-bin SIN_CODE_REPOS_DIR=~/my-repos bash install.sh
+```
+
+See `install.sh --help` for full details. The companion docs are at
+[`install.sh.doc.md`](./install.sh.doc.md).
+
+### Manual install (step by step)
+
 ```bash
 # Install the subsystems you want, then the bundle:
 pip install -e ../SIN-Code-Semantic-Codebase-Knowledge-Graphs
 pip install -e ../SIN-Code-Verification-Oracle
 pip install -e .
 
-sin status            # show which subsystems are available
-sin bootstrap .       # initialize available subsystems for a repo
-sin serve             # unified MCP server
+sin status # show which subsystems are available
+sin bootstrap . # initialize available subsystems for a repo
+sin serve # unified MCP server
 ```
 
 ## Commands
