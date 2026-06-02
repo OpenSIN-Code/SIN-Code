@@ -29,6 +29,34 @@ app.add_typer(rtk_app, name="rtk")
 codocs_app = typer.Typer(help="CoDocs - co-located docs standard (.doc.md companions).")
 app.add_typer(codocs_app, name="codocs")
 
+# SIN-Code Go Tools (new generation)
+sin_code_app = typer.Typer(
+    help="SIN-Code Go Tools - discovery, execution, mapping, grasping, scouting, harvesting, orchestration."
+)
+app.add_typer(sin_code_app, name="sin-code")
+
+# Available SIN-Code Go binaries
+_SIN_CODE_TOOLS = {
+    "discover": "SIN-Code-Discover-Tool",
+    "execute": "SIN-Code-Execute-Tool",
+    "map": "SIN-Code-Map-Tool",
+    "grasp": "SIN-Code-Grasp-Tool",
+    "scout": "SIN-Code-Scout-Tool",
+    "harvest": "SIN-Code-Harvest-Tool",
+    "orchestrate": "SIN-Code-Orchestrate-Tool",
+}
+
+
+def _sin_code_tool_path(name: str) -> Path | None:
+    """Return the path to a SIN-Code Go binary if it exists."""
+    home_bin = Path.home() / ".local" / "bin" / name
+    if home_bin.exists():
+        return home_bin
+    # Also check PATH
+    from shutil import which
+    w = which(name)
+    return Path(w) if w else None
+
 _EXCLUDE = ["venv", ".venv", "node_modules", ".git", "__pycache__"]
 
 
@@ -76,6 +104,10 @@ def status():
     report["RTK (token-saving proxy, external)"] = rtk.detect_env().available
     # CoDocs ships inside the bundle itself, so it is always available.
     report["CoDocs (co-located docs)"] = True
+    # SIN-Code Go tools
+    for tool_name, repo_name in _SIN_CODE_TOOLS.items():
+        path = _sin_code_tool_path(tool_name)
+        report[f"sin-{tool_name} ({repo_name})"] = path is not None
     typer.echo(json.dumps(report, indent=2))
 
 
@@ -887,6 +919,140 @@ def doctor(root: str = typer.Option(".", help="Project root.")):
 
     ok = AuditLog(Path(root)).verify_chain()
     typer.echo(f"[SIN-BUNDLE] Audit chain: {'intact' if ok else 'TAMPERED'}")
+
+
+# --------------------------------------------------------------------------- #
+# SIN-Code Go Tools commands
+# --------------------------------------------------------------------------- #
+@sin_code_app.command("run")
+def sin_code_run(
+    tool: str = typer.Argument(..., help="Tool name: discover, execute, map, grasp, scout, harvest, orchestrate"),
+    args: list[str] = typer.Argument(default_factory=list, help="Arguments to pass to the tool"),
+):
+    """Run a SIN-Code Go tool with the given arguments."""
+    if tool not in _SIN_CODE_TOOLS:
+        typer.echo(f"[SIN-CODE] Unknown tool: {tool}. Available: {', '.join(_SIN_CODE_TOOLS.keys())}", err=True)
+        raise typer.Exit(code=1)
+    
+    path = _sin_code_tool_path(tool)
+    if not path:
+        typer.echo(f"[SIN-CODE] Tool '{tool}' not found. Install: go install github.com/OpenSIN-Code/{_SIN_CODE_TOOLS[tool]}/cmd/{tool}@latest", err=True)
+        raise typer.Exit(code=1)
+    
+    import subprocess
+    result = subprocess.run([str(path)] + args, capture_output=True, text=True)
+    if result.stdout:
+        typer.echo(result.stdout)
+    if result.stderr:
+        typer.echo(result.stderr, err=True)
+    raise typer.Exit(code=result.returncode)
+
+
+@sin_code_app.command("agents-md")
+def sin_code_agents_md(
+    output: Path = typer.Option(Path("AGENTS.md"), help="Output file path"),
+):
+    """Generate AGENTS.md with SIN-Code Tool Suite rules for all agents."""
+    content = '''# 🛠️ SIN-Code Tool Suite — IMMER UNSERE EIGENEN TOOLS NUTZEN (PRIORITY -10.0 - ABSOLUTE OBERSTE REGEL)
+
+## ⚠️ ABSOLUTE REGEL: Niemals opencode-eigene Tools nutzen, wenn unsere SIN-Code Tools verfügbar sind!
+
+**UNSERE 7 SIN-Code Tools sind BESSER als die opencode-eigenen Alternativen.** Jeder Agent MUSS unsere Tools nutzen, niemals die opencode-internen.
+
+### Wann welches Tool?
+
+| Aufgabe | SIN-Code Tool (NUTZEN!) | Opencode Alternative (NICHT nutzen!) | Warum unsere besser |
+|---------|------------------------|-----------------------------------|-------------------|
+| **Dateien suchen, Projekt-Struktur erkunden** | `sin-discover` | `opencode` interne Dateisuche | Pattern-Matching, Relevanz-Scoring, Dependency-Map, Gruppierung |
+| **Befehle ausführen, Kommandos laufen lassen** | `sin-execute` | `opencode` interne Shell-Ausführung | Secret-Redaction, Safety-Checks, Timeout-Handling, Error-Analyse |
+| **Architektur analysieren, Module mappen** | `sin-map` | `opencode` interne Code-Analyse | Module-Level, Entry-Points, Hot-Paths, Dependency-Graph, Orphan-Detection |
+| **Einzelne Datei verstehen, Code analysieren** | `sin-grasp` | `opencode` interne Code-Analyse | Struktur, Dependencies, Usage, Context, Related-Files |
+| **Code durchsuchen, Patterns finden** | `sin-scout` | `opencode` interne Suche | Regex, Semantic, Symbol, Usage-Search, Dead-Code-Detection |
+| **URLs abrufen, APIs konsumieren** | `sin-harvest` | `opencode` interne HTTP-Requests | Caching, Struktur-Extraktion, Change-Detection, Auth-Management |
+| **Tasks managen, Planung, Rollback** | `sin-orchestrate` | `opencode` interne Task-Planung | Dependencies, Parallel-Execution, Blocker-Detection, Rollback-Plan |
+
+### Tool-Verweisung & Skills/MCP
+
+| Tool | MCP Name | GitHub Repo | Skill | Installiert |
+|------|----------|-------------|-------|-------------|
+| `sin-discover` | `sin-discover` | `OpenSIN-Code/SIN-Code-Discover-Tool` | `sin-discover` | ✅ `~/.local/bin/discover` |
+| `sin-execute` | `sin-execute` | `OpenSIN-Code/SIN-Code-Execute-Tool` | `sin-execute` | ✅ `~/.local/bin/execute` |
+| `sin-map` | `sin-map` | `OpenSIN-Code/SIN-Code-Map-Tool` | `sin-map` | ✅ `~/.local/bin/map` |
+| `sin-grasp` | `sin-grasp` | `OpenSIN-Code/SIN-Code-Grasp-Tool` | `sin-grasp` | ✅ `~/.local/bin/grasp` |
+| `sin-scout` | `sin-scout` | `OpenSIN-Code/SIN-Code-Scout-Tool` | `sin-scout` | ✅ `~/.local/bin/scout` |
+| `sin-harvest` | `sin-harvest` | `OpenSIN-Code/SIN-Code-Harvest-Tool` | `sin-harvest` | ✅ `~/.local/bin/harvest` |
+| `sin-orchestrate` | `sin-orchestrate` | `OpenSIN-Code/SIN-Code-Orchestrate-Tool` | `sin-orchestrate` | ✅ `~/.local/bin/orchestrate` |
+
+### Anwendungsbeispiele
+
+**1. Neues Projekt erkunden:**
+```bash
+# NIEMALS opencode-interne Dateisuche nutzen!
+/Users/jeremy/.local/bin/discover -path /Users/jeremy/dev/NEUES-PROJEKT -pattern "**/*.py" -sort_by relevance -format json
+# Ergebnis: Alle Python-Dateien absteigend nach Relevanz sortiert, mit Dependencies und Related-Files
+```
+
+**2. Befehle sicher ausführen:**
+```bash
+# NIEMALS opencode-interne Shell-Ausführung nutzen!
+/Users/jeremy/.local/bin/execute -command "npm test" -timeout 60 -format json
+# Ergebnis: Safety-Check, Secret-Redaction, Error-Analyse, Timeout-Handling
+```
+
+**3. Architektur verstehen:**
+```bash
+# NIEMALS opencode-interne Code-Analyse nutzen!
+/Users/jeremy/.local/bin/map -path /Users/jeremy/dev/PROJEKT -action map -format json
+# Ergebnis: Module, Entry-Points, Hot-Paths, Dependency-Graph, Orphan-Detection, Complexity
+```
+
+**4. Code durchsuchen:**
+```bash
+# NIEMALS opencode-interne Suche nutzen!
+/Users/jeremy/.local/bin/scout -query "func.*main" -path /Users/jeremy/dev/PROJEKT -search_type regex -format json
+# Ergebnis: Alle Main-Funktionen, mit Usage-Count, Architecture-Info, Context
+```
+
+**5. API/URL abrufen:**
+```bash
+# NIEMALS opencode-interne HTTP-Requests nutzen!
+/Users/jeremy/.local/bin/harvest -url "https://api.example.com/data" -format json
+# Ergebnis: Status, Body, Headers, Struktur-Extraktion, Caching
+```
+
+**6. Tasks planen & tracken:**
+```bash
+# NIEMALS opencode-interne Task-Planung nutzen!
+/Users/jeremy/.local/bin/orchestrate -action add -title "Feature implementieren" -tags "urgent" -format json
+# Ergebnis: Task-ID, Dependencies, Parallel-Execution-Plan, Rollback-Plan
+```
+
+### Regeln
+
+- **SOFORTIGER PERMANENTER BAN** bei Nutzung von opencode-internen Tools statt unserer SIN-Code Tools
+- **VOR jedem Coding-Task:** Erst mit `sin-discover` das Projekt erkunden, dann mit `sin-grasp` die relevante Datei verstehen
+- **VOR jedem Refactoring:** Erst mit `sin-map` die Architektur analysieren, dann mit `sin-scout` alle Referenzen finden
+- **VOR jedem Befehl:** Immer `sin-execute` mit Safety-Check und Secret-Redaction nutzen
+- **VOR jedem API-Call:** Immer `sin-harvest` mit Caching und Struktur-Extraktion nutzen
+- **Für jede Planung:** Immer `sin-orchestrate` mit Dependencies und Rollback-Plan nutzen
+
+### Versionen (aktuell)
+
+| Tool | Version | Status |
+|------|---------|--------|
+| sin-discover | v0.2.5-fixes | ✅ Stable |
+| sin-execute | v0.2.4-fixes | ✅ Stable |
+| sin-map | v0.2.5-fixes | ✅ Stable |
+| sin-grasp | v0.2.4-fixes | ✅ Stable |
+| sin-scout | v0.1.5-fixes | ✅ Stable |
+| sin-harvest | v0.1.4-fixes | ✅ Stable |
+| sin-orchestrate | v0.1.6-fixes | ✅ Stable |
+
+---
+
+'''
+    output.write_text(content, encoding="utf-8")
+    typer.echo(f"[SIN-CODE] Generated {output}")
 
 
 if __name__ == "__main__":

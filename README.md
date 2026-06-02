@@ -23,6 +23,13 @@ verification oracle.
 | [EFSM](https://github.com/OpenSIN-Code/SIN-Code-Ephemeral-Full-Stack-Mocking-Orchestration) | Ephemeral full-stack mocking |
 | [ADW](https://github.com/OpenSIN-Code/SIN-Code-Architectural-Debt-Watchdogs) | Architectural debt & cost watchdog |
 | [Oracle](https://github.com/OpenSIN-Code/SIN-Code-Verification-Oracle) | Independent verification oracle |
+| [Discover](https://github.com/OpenSIN-Code/SIN-Code-Discover-Tool) | File discovery with pattern matching, relevance scoring, dependency mapping |
+| [Execute](https://github.com/OpenSIN-Code/SIN-Code-Execute-Tool) | Safe command execution with secret redaction, timeout, error analysis |
+| [Map](https://github.com/OpenSIN-Code/SIN-Code-Map-Tool) | Architecture analysis with module mapping, entry points, hot paths |
+| [Grasp](https://github.com/OpenSIN-Code/SIN-Code-Grasp-Tool) | Single-file deep analysis with structure, dependencies, context |
+| [Scout](https://github.com/OpenSIN-Code/SIN-Code-Scout-Tool) | Code search with regex, semantic, symbol, usage modes |
+| [Harvest](https://github.com/OpenSIN-Code/SIN-Code-Harvest-Tool) | URL/API fetching with caching, structure extraction, auth management |
+| [Orchestrate](https://github.com/OpenSIN-Code/SIN-Code-Orchestrate-Tool) | Task management with dependencies, parallel execution, rollback |
 | [GitNexus](https://github.com/abhigyanpatwari/GitNexus) | Upstream code knowledge graph — bridged, mandatory graph context for agents |
 | [MarkItDown](https://github.com/microsoft/markitdown) | Upstream doc→Markdown converter — bridged, document context for agents |
 | [RTK](https://github.com/rtk-ai/rtk) | Upstream token-saving command proxy — bridged, 60-90% fewer command tokens |
@@ -65,6 +72,8 @@ sin serve             # unified MCP server
 | `sin codocs check [root]` | Validate co-located `.doc.md` references (built-in). |
 | `sin codocs list [root]` | List all CoDocs references and whether they resolve. |
 | `sin codocs install-skill` | Install the CoDocs agent skill (Hermes / OpenCode). |
+| `sin sin-code run <tool> [args]` | Run a SIN-Code Go tool (discover, execute, map, grasp, scout, harvest, orchestrate). |
+| `sin sin-code agents-md` | Generate AGENTS.md with SIN-Code Tool Suite rules. |
 | `sin serve` | Unified MCP server across available subsystems. |
 
 ## GitNexus: mandatory graph context
@@ -97,6 +106,43 @@ sin rtk setup          # RTK: route agent shell commands through a token-saving 
   common commands. Install: `brew install rtk`.
 
 See [docs/EXTERNAL_TOOLS.md](./docs/EXTERNAL_TOOLS.md) for the full matrix.
+
+## SIN-Code Go Tools (v2)
+
+The next-generation SIN-Code tools are Go binaries that replace OpenCode's built-in tools:
+
+```bash
+# Install all 7 tools
+go install github.com/OpenSIN-Code/SIN-Code-Discover-Tool/cmd/discover@latest
+go install github.com/OpenSIN-Code/SIN-Code-Execute-Tool/cmd/execute@latest
+go install github.com/OpenSIN-Code/SIN-Code-Map-Tool/cmd/map@latest
+go install github.com/OpenSIN-Code/SIN-Code-Grasp-Tool/cmd/grasp@latest
+go install github.com/OpenSIN-Code/SIN-Code-Scout-Tool/cmd/scout@latest
+go install github.com/OpenSIN-Code/SIN-Code-Harvest-Tool/cmd/harvest@latest
+go install github.com/OpenSIN-Code/SIN-Code-Orchestrate-Tool/cmd/orchestrate@latest
+
+# Or via the bundle
+sin sin-code run discover --help
+sin sin-code run execute --help
+sin sin-code run map --help
+sin sin-code run grasp --help
+sin sin-code run scout --help
+sin sin-code run harvest --help
+sin sin-code run orchestrate --help
+
+# Generate AGENTS.md for any repo
+sin sin-code agents-md --output AGENTS.md
+```
+
+| Tool | Purpose | Status |
+|------|---------|--------|
+| discover | File discovery with pattern matching, relevance scoring, dependency mapping | v0.2.5 ✅ |
+| execute | Safe command execution with secret redaction, timeout, error analysis | v0.2.4 ✅ |
+| map | Architecture analysis with module mapping, entry points, hot paths | v0.2.5 ✅ |
+| grasp | Single-file deep analysis with structure, dependencies, context | v0.2.4 ✅ |
+| scout | Code search with regex, semantic, symbol, usage modes | v0.1.5 ✅ |
+| harvest | URL/API fetching with caching, structure extraction, auth management | v0.1.4 ✅ |
+| orchestrate | Task management with dependencies, parallel execution, rollback | v0.1.6 ✅ |
 
 ## Documentation
 
