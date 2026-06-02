@@ -1,0 +1,82 @@
+[
+  {
+    "tool": "Discover",
+    "benchmark": "discovery_100_py_files",
+    "result": "0.208s",
+    "target": "1.000s",
+    "status": "PASS",
+    "raw_seconds": 0.20830658299382776
+  },
+  {
+    "tool": "Discover",
+    "benchmark": "discovery_500_py_files",
+    "result": "5.888s",
+    "target": "3.000s",
+    "status": "FAIL",
+    "raw_seconds": 5.888024457992287
+  },
+  {
+    "tool": "Discover",
+    "benchmark": "discovery_1000_py_files",
+    "result": "25.318s",
+    "target": "5.000s",
+    "status": "FAIL",
+    "raw_seconds": 25.317684624984395
+  },
+  {
+    "tool": "Discover",
+    "benchmark": "max_results_early_stop_10",
+    "result": "26.405s",
+    "target": "0.500s",
+    "status": "FAIL",
+    "raw_seconds": 26.405394834000617
+  },
+  {
+    "tool": "Discover",
+    "benchmark": "max_results_early_stop_100",
+    "result": "24.303s",
+    "target": "1.000s",
+    "status": "FAIL",
+    "raw_seconds": 24.302767375018448
+  },
+  {
+    "tool": "Discover",
+    "benchmark": "max_results_early_stop_1000",
+    "result": "23.270s",
+    "target": "3.000s",
+    "status": "FAIL",
+    "raw_seconds": 23.26963125000475
+  },
+  {
+    "tool": "Discover",
+    "benchmark": "relevance_scoring_500",
+    "result": "6.307s",
+    "target": "5.000s",
+    "status": "FAIL",
+    "raw_seconds": 6.30687804199988
+  },
+  {
+    "tool": "Discover",
+    "benchmark": "extension_filter_py",
+    "result": "6.654s",
+    "target": "2.000s",
+    "status": "FAIL",
+    "raw_seconds": 6.653794625017326
+  },
+  {
+    "tool": "Discover",
+    "benchmark": "extension_filter_go",
+    "result": "0.649s",
+    "target": "2.000s",
+    "status": "PASS",
+    "raw_seconds": 0.649422999995295
+  },
+  {
+    "tool": "Discover",
+    "benchmark": "extension_filter_js",
+    "result": "0.709s",
+    "target": "2.000s",
+    "status": "PASS",
+    "raw_seconds": 0.7089486249897163
+  }
+]

@@ -380,3 +380,135 @@ Same structure as Issue 24.
 4. Forge (1 issue)
 5. READMEs (7 issues, parallel)
 6. CI/CD (7 issues, parallel)
+
+## Performance Issues — 2026-06-02
+
+### Discover — discovery_500_py_files
+- **Result**: 5.222s
+- **Target**: 3.000s
+- **Gap**: 2.22s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### Discover — discovery_1000_py_files
+- **Result**: 17.801s
+- **Target**: 5.000s
+- **Gap**: 12.80s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### Discover — max_results_early_stop_10
+- **Result**: 18.685s
+- **Target**: 0.500s
+- **Gap**: 18.19s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### Discover — max_results_early_stop_100
+- **Result**: 18.863s
+- **Target**: 1.000s
+- **Gap**: 17.86s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### Discover — max_results_early_stop_1000
+- **Result**: 18.708s
+- **Target**: 3.000s
+- **Gap**: 15.71s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### Discover — extension_filter_py
+- **Result**: 5.523s
+- **Target**: 2.000s
+- **Gap**: 3.52s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### SCKG — simple_query_100_files
+- **Result**: 0.070s
+- **Target**: 0.050s
+- **Gap**: 0.02s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### SCKG — complex_query_100_files
+- **Result**: 0.076s
+- **Target**: 0.050s
+- **Gap**: 0.03s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### SCKG — simple_query_10000_files
+- **Result**: 1.218s
+- **Target**: 1.000s
+- **Gap**: 0.22s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### SCKG — complex_query_10000_files
+- **Result**: 1.174s
+- **Target**: 1.000s
+- **Gap**: 0.17s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+
+## Performance Issues — 2026-06-02
+
+### Discover — discovery_500_py_files
+- **Result**: 5.888s
+- **Target**: 3.000s
+- **Gap**: 2.89s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### Discover — discovery_1000_py_files
+- **Result**: 25.318s
+- **Target**: 5.000s
+- **Gap**: 20.32s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### Discover — max_results_early_stop_10
+- **Result**: 26.405s
+- **Target**: 0.500s
+- **Gap**: 25.91s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### Discover — max_results_early_stop_100
+- **Result**: 24.303s
+- **Target**: 1.000s
+- **Gap**: 23.30s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### Discover — max_results_early_stop_1000
+- **Result**: 23.270s
+- **Target**: 3.000s
+- **Gap**: 20.27s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### Discover — relevance_scoring_500
+- **Result**: 6.307s
+- **Target**: 5.000s
+- **Gap**: 1.31s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### Discover — extension_filter_py
+- **Result**: 6.654s
+- **Target**: 2.000s
+- **Gap**: 4.65s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### SCKG — simple_query_100_files
+- **Result**: 0.089s
+- **Target**: 0.050s
+- **Gap**: 0.04s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### SCKG — complex_query_100_files
+- **Result**: 0.080s
+- **Target**: 0.050s
+- **Gap**: 0.03s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### SCKG — simple_query_1000_files
+- **Result**: 0.249s
+- **Target**: 0.200s
+- **Gap**: 0.05s over target
+- **Recommendation**: Optimize critical path or adjust target.
+
+### SCKG — complex_query_1000_files
+- **Result**: 0.217s
+- **Target**: 0.200s
+- **Gap**: 0.02s over target
+- **Recommendation**: Optimize critical path or adjust target.
+

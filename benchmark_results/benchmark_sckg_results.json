@@ -1,0 +1,98 @@
+[
+  {
+    "tool": "SCKG",
+    "benchmark": "build_100_files",
+    "result": "0.465s",
+    "target": "2.000s",
+    "status": "PASS",
+    "raw_seconds": 0.464867000002414
+  },
+  {
+    "tool": "SCKG",
+    "benchmark": "simple_query_100_files",
+    "result": "0.195s",
+    "target": "0.050s",
+    "status": "FAIL",
+    "raw_seconds": 0.19511045899707824
+  },
+  {
+    "tool": "SCKG",
+    "benchmark": "complex_query_100_files",
+    "result": "0.133s",
+    "target": "0.050s",
+    "status": "FAIL",
+    "raw_seconds": 0.13270704200840555
+  },
+  {
+    "tool": "SCKG",
+    "benchmark": "memory_100_files",
+    "result": "0.316s",
+    "target": "50.000s",
+    "status": "PASS",
+    "raw_seconds": 0.3158784999977797
+  },
+  {
+    "tool": "SCKG",
+    "benchmark": "build_1000_files",
+    "result": "1.528s",
+    "target": "15.000s",
+    "status": "PASS",
+    "raw_seconds": 1.5282685840211343
+  },
+  {
+    "tool": "SCKG",
+    "benchmark": "simple_query_1000_files",
+    "result": "0.452s",
+    "target": "0.200s",
+    "status": "FAIL",
+    "raw_seconds": 0.4519251249730587
+  },
+  {
+    "tool": "SCKG",
+    "benchmark": "complex_query_1000_files",
+    "result": "0.428s",
+    "target": "0.200s",
+    "status": "FAIL",
+    "raw_seconds": 0.42809391699847765
+  },
+  {
+    "tool": "SCKG",
+    "benchmark": "memory_1000_files",
+    "result": "2.431s",
+    "target": "150.000s",
+    "status": "PASS",
+    "raw_seconds": 2.4309414160088636
+  },
+  {
+    "tool": "SCKG",
+    "benchmark": "build_10000_files",
+    "result": "20.133s",
+    "target": "120.000s",
+    "status": "PASS",
+    "raw_seconds": 20.132634165987838
+  },
+  {
+    "tool": "SCKG",
+    "benchmark": "simple_query_10000_files",
+    "result": "5.526s",
+    "target": "1.000s",
+    "status": "FAIL",
+    "raw_seconds": 5.525875833001919
+  },
+  {
+    "tool": "SCKG",
+    "benchmark": "complex_query_10000_files",
+    "result": "4.273s",
+    "target": "1.000s",
+    "status": "FAIL",
+    "raw_seconds": 4.2730279590177815
+  },
+  {
+    "tool": "SCKG",
+    "benchmark": "memory_10000_files",
+    "result": "25.127s",
+    "target": "500.000s",
+    "status": "PASS",
+    "raw_seconds": 25.127228958997875
+  }
+]

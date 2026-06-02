@@ -1,0 +1,58 @@
+[
+  {
+    "tool": "Execute",
+    "benchmark": "overhead_empty_command",
+    "result": "0.016s",
+    "target": "0.500s",
+    "status": "PASS",
+    "raw_seconds": 0.01571954201790504
+  },
+  {
+    "tool": "Execute",
+    "benchmark": "overhead_empty_command",
+    "result": "0.015s",
+    "target": "0.500s",
+    "status": "PASS",
+    "raw_seconds": 0.015378041978692636
+  },
+  {
+    "tool": "Execute",
+    "benchmark": "overhead_empty_command",
+    "result": "0.017s",
+    "target": "0.500s",
+    "status": "PASS",
+    "raw_seconds": 0.017414583009667695
+  },
+  {
+    "tool": "Execute",
+    "benchmark": "overhead_real_command",
+    "result": "0.130s",
+    "target": "1.000s",
+    "status": "PASS",
+    "raw_seconds": 0.13007654098328203
+  },
+  {
+    "tool": "Execute",
+    "benchmark": "secret_redaction_1mb_100_secrets",
+    "result": "0.067s",
+    "target": "3.000s",
+    "status": "PASS",
+    "raw_seconds": 0.0671584170195274
+  },
+  {
+    "tool": "Execute",
+    "benchmark": "timeout_kill_latency",
+    "result": "1.009s",
+    "target": "1.500s",
+    "status": "PASS",
+    "raw_seconds": 1.0086822499870323
+  },
+  {
+    "tool": "Execute",
+    "benchmark": "timeout_overhead",
+    "result": "0.009s",
+    "target": "0.100s",
+    "status": "PASS",
+    "raw_seconds": 0.008582415990531445
+  }
+]

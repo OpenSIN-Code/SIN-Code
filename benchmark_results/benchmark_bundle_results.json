@@ -1,0 +1,42 @@
+[
+  {
+    "tool": "Bundle",
+    "benchmark": "mcp_startup",
+    "result": "0.911s",
+    "target": "5.000s",
+    "status": "PASS",
+    "raw_seconds": 0.9109460419858806
+  },
+  {
+    "tool": "Bundle",
+    "benchmark": "tool_dispatch",
+    "result": "0.667s",
+    "target": "2.000s",
+    "status": "PASS",
+    "raw_seconds": 0.6669095830002334
+  },
+  {
+    "tool": "Bundle",
+    "benchmark": "concurrent_10_requests",
+    "result": "0.666s",
+    "target": "2.000s",
+    "status": "PASS",
+    "raw_seconds": 0.6657411670021247
+  },
+  {
+    "tool": "Bundle",
+    "benchmark": "concurrent_50_requests",
+    "result": "0.644s",
+    "target": "3.000s",
+    "status": "PASS",
+    "raw_seconds": 0.6443705840210896
+  },
+  {
+    "tool": "Bundle",
+    "benchmark": "concurrent_100_requests",
+    "result": "0.641s",
+    "target": "5.000s",
+    "status": "PASS",
+    "raw_seconds": 0.6406776249932591
+  }
+]
