@@ -14,6 +14,12 @@ END_MARKER = "<!-- sin:end -->"
 
 # Mapping: wann welches Tool. Bewusst knapp und handlungsorientiert.
 _PLAYBOOK = [
+    ("Before starting ANY task", "recall",
+     "Load relevant context from SIN-Brain memory. Check if similar tasks were done before."),
+    ("After completing a task or finding a convention", "remember",
+     "Store findings, conventions, and gotchas in SIN-Brain for future recall."),
+    ("When you see a pattern that should be enforced", "pin",
+     "Pin critical conventions to core tier so they are always recalled."),
     ("Before refactoring or deleting a symbol", "impact",
      "Get the blast radius (downstream dependents) before you change a shared symbol."),
     ("After producing a diff / before committing", "semantic_review",
@@ -38,6 +44,23 @@ def _build_block() -> str:
         "(`sin serve`). Use these tools proactively -- they are cheap signals that",
         "prevent shipping broken code.",
         "",
+        "### SIN-Brain Memory Protocol",
+        "",
+        "The project uses a 4-tier memory system:",
+        "- **Core**: Critical conventions (always recalled)",
+        "- **Recall**: Recent context (last 7 days)",
+        "- **Episodic**: Task history (last 30 days)",
+        "- **Consolidated**: Long-term knowledge (summaries)",
+        "",
+        "Call `recall` before starting work. Call `remember` after completing.",
+        "",
+        "### Memory Rules",
+        "",
+        "1. **Always recall first.** Check for existing context.",
+        "2. **Remember conventions.** Store patterns that caused bugs.",
+        "3. **Pin critical rules.** Use `pin` for must-remember items.",
+        "4. **Link evidence.** Connect related memories with `link_evidence`.",
+        "",
         "### When to call which tool",
         "",
         "| Situation | Tool | Why |",
@@ -53,6 +76,8 @@ def _build_block() -> str:
         "2. **Run `impact` before touching shared code** to avoid silent breakage.",
         "3. **Prefer `semantic_review` over raw diffs** when assessing your own changes.",
         "4. If a tool is unavailable, continue gracefully and say so explicitly.",
+        "5. **Recall before you code.** Always check SIN-Brain for relevant context.",
+        "6. **Remember after you learn.** Store conventions and pitfalls in memory.",
     ]
     return "\n".join(lines)
 
