@@ -1,68 +1,61 @@
-# `src/simone_mcp/core.py` — Core Code Intelligence Engine
+# `core.py` — Core Simone MCP Logic
 
-Partner file: `src/simone_mcp/core.py`
+What this file does: the heart of the agent. Defines the MCP tool surface (`TOOL_DEFINITIONS`, 14 tools), the A2A agent card, the `execute_simone_action` dispatcher, and the per-tool handlers (find symbol, find references, structural edit, file I/O, etc.).
 
-## Purpose
-The heart of Simone MCP. Provides LSP-grade code analysis tools: symbol search, reference finding, structural editing, project overview, and action execution. Supports Python, JavaScript, and TypeScript via AST parsing and tree-sitter.
+## Dependency map
 
-## Key Symbols
-| Symbol | Kind | Purpose |
-|--------|------|---------|
-| `TOOL_DEFINITIONS` | list | JSON Schema 2020-12 tool definitions for MCP registration |
-| `CAPABILITIES` | list | Server capability strings |
-| `build_agent_card()` | function | Build A2A agent discovery card |
-| `build_oauth_client_metadata()` | function | OAuth 2.1 client metadata |
-| `build_authorization_server_metadata()` | function | OAuth 2.1 authorization server metadata |
-| `find_symbol()` | function | Search symbol definitions across workspace |
-| `find_references()` | function | Find references with jedi (LSP) or regex fallback |
-| `replace_symbol_body()` | function | Safe structural edit via libcst or AST |
-| `insert_after_symbol()` | function | Insert text after a symbol |
-| `get_project_overview()` | function | Summarize workspace file types and counts |
-| `execute_simone_action()` | function | Main action dispatcher |
-| `process_lsp_task()` | function | Async LSP task wrapper |
-| `dashboard()` | function | Generate HTML dashboard |
-| `_build_realtime_url()` | function | Supabase realtime WebSocket URL |
+- Imports: stdlib (`ast`, `asyncio`, `json`, `logging`, `os`, `re`, `threading`, `pathlib`, `urllib.parse`).
+- Optional deps (with `HAS_*` flags): `libcst`, `jedi`, `tree-sitter`, `tree-sitter-typescript`.
+- Imports from same package: `hybrid_memory.query_hybrid_memory`, `graphify_service` (graphify_query/update/explain/path/summary/available).
+- Imported by: `__init__.py` (re-exports), `a2a_handler.py`, `http_app.py`, `mcp_stdio.py`, `protocol.py`.
 
-## Internal Helpers
-| Symbol | Purpose |
-|--------|---------|
-| `_candidate_files()` | Collect .py/.js/.ts files excluding blocked dirs |
-| `_parse_file()` | Parse Python file to AST |
-| `_extract_symbols_treesitter()` | Extract JS/TS symbols via tree-sitter |
-| `_extract_symbols_js_regex()` | Fallback regex-based JS symbol extraction |
-| `_find_references_jedi()` | Jedi-based reference finding |
-| `_find_references_regex()` | Regex-based reference fallback |
-| `_replace_symbol_body_libcst()` | libcst-based structural edit |
-| `_replace_symbol_body_ast()` | AST-based structural edit fallback |
-| `_validate_file_in_workspace()` | Path traversal prevention |
-| `_workspace_root()` | Resolve workspace root path |
+## Public API (selected)
 
-## Relationship
-- `src/simone_mcp/__init__.py` — re-exports 10 public symbols from here
-- `src/simone_mcp/mcp_server.py` — re-exports 10 public symbols from here
-- `src/simone_mcp/cli.py` — uses `execute_simone_action()`, `get_project_overview()`, `build_agent_card()`
-- `src/simone_mcp/a2a_handler.py` — uses `execute_simone_action()`, `build_agent_card()`, `TOOL_DEFINITIONS`
-- `src/simone_mcp/protocol.py` — uses `execute_simone_action()`, `TOOL_DEFINITIONS`, `json_dumps()`
-- `src/simone_mcp/hybrid_memory.py` — uses `_workspace_root()`
-- `src/simone_mcp/graphify_service.py` — called via `execute_simone_action()` for graphify actions
-- `tests/test_simone_mcp.py` — extensive tests for all core functions
+| Symbol                              | Purpose                                                          |
+|-------------------------------------|------------------------------------------------------------------|
+| `AGENT_NAME` / `AGENT_VERSION` etc. | Agent identity (re-exported by A2A discovery)                    |
+| `TOOL_DEFINITIONS`                  | 14-entry list of MCP tool schemas                                |
+| `CAPABILITIES`                      | Tool names + extra capability tags                               |
+| `build_agent_card(base_url)`        | A2A agent card                                                  |
+| `build_oauth_client_metadata(...)`  | OAuth 2.1 client metadata                                        |
+| `build_authorization_server_metadata(...)` | OAuth 2.1 AS metadata                                    |
+| `find_symbol(payload)`              | Symbol definition search (Python AST / JS tree-sitter)          |
+| `find_references(payload)`          | Reference search (Jedi if available, else regex)                  |
+| `replace_symbol_body(payload)`      | Replace a function body (libcst if available, else AST)         |
+| `insert_after_symbol(payload)`      | Insert text after a symbol                                       |
+| `get_project_overview(payload)`      | Workspace footprint + graphify summary                          |
+| `write_file` / `read_file` / `edit_file` / `patch_file` | File I/O                                  |
+| `query_hybrid_memory(payload)`      | Vector + graph search                                           |
+| `execute_simone_action(payload)`    | Async dispatcher by action name                                 |
+| `dashboard()`                       | Render the HTML dashboard page                                  |
+| `json_dumps(payload)`               | Stable JSON serialization for tool results                      |
 
-## Dependencies
-| Optional | Purpose |
-|----------|---------|
-| `libcst` | Safe structural edits (CST preserving) |
-| `jedi` | LSP-grade reference finding |
-| `tree-sitter` + `tree-sitter-python` | Python AST parsing |
-| `tree-sitter-typescript` | JS/TS symbol extraction |
-| `qdrant_client` | Vector DB validation |
-| `neo4j` | Graph DB validation |
+## Important config / limits
 
-## Security
-- `PathTraversalError` — raised for paths outside workspace
-- `_PY_BLOCKED` — blocked directories (.git, venv, node_modules, etc.)
-- `_validate_file_in_workspace()` — checks `Path.resolve().relative_to()`
+- **Workspace boundary**: every file-mutating action calls `_validate_file_in_workspace()` which raises `PathTraversalError` if the path escapes `root`.
+- **Path safety**: `_PY_BLOCKED` directory parts (`.git`, `.venv`, `node_modules`, `__pycache__`, `site-packages`, …) are skipped during workspace scanning.
+- **LibCST preferred over AST** for body replacement (preserves comments + formatting). Falls back to AST line-range slicing.
+- **Jedi preferred over regex** for reference search. Falls back to a `\bNAME\b` regex.
+- **Default rate limits** (in `http_app.py`): 100 requests / 60s per IP. Default body cap: 1 MB.
 
-## Broken Links Check
-- References to `hybrid_memory.py` for `query_hybrid_memory` (import at bottom)
-- References to `graphify_service.py` for graphify functions (import at bottom)
-- These are late imports (line 909-917), not circular dependencies.
+## Design decisions
+
+- **Why four `HAS_*` flags?** Each optional dep degrades independently. A user with `libcst` but no `tree-sitter` gets better Python edits but still falls back to regex for JS/TS.
+- **Why is the tool list duplicated in `agent_card.skills` and `TOOL_DEFINITIONS`?** MCP tools need a JSON Schema; the A2A skill list is the same data in a different shape. The duplication is small (15 entries) and the schema is fixed.
+- **Why separate `_replace_symbol_body_libcst` and `_replace_symbol_body_ast`?** LibCST is much safer (formatting-preserving) but adds a dep. The split lets the fallback be tested independently.
+- **Why `PathTraversalError(ValueError)`?** `ValueError` is the conventional "bad input" error; subclassing it (rather than `PermissionError`) keeps the failure mode clear.
+
+## Usage example
+
+```python
+from simone_mcp.core import find_symbol
+
+result = find_symbol({"symbol": "my_function", "root": "/path/to/repo"})
+print(result["count"], result["matches"])
+```
+
+## Caveats / footguns
+
+- `process_lsp_task` exists for backward compat but is no longer in the public re-exports. Use `execute_simone_action` for new code.
+- File actions refuse to overwrite (`write_file` requires `overwrite=True`).
+- The `correlation_id` is generated by the calling layer (`a2a_handler`, `http_app`), not by core. Don't rely on `payload` to carry one.

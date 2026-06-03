@@ -1,3 +1,18 @@
+"""MCP protocol layer — JSON-RPC dispatcher for tools, resources, prompts, tasks.
+
+Implements the request → response lifecycle for the MCP server:
+  - `initialize` / `ping` / `tools/list` / `tools/call`
+  - `tasks/get` / `tasks/update` / `tasks/cancel` (long-running ops)
+  - `resources/list` / `resources/templates/list` / `resources/read` / `subscribe` / `unsubscribe`
+  - `prompts/list` / `prompts/get`
+  - `logging/setLevel`, `completion/complete`
+  - `sampling/createMessage` (unsupported in stdio), `elicitation/create` (unsupported)
+
+Also owns the in-memory task store, the SSE event log, and the
+per-session store.
+
+Docs: protocol.doc.md
+"""
 from __future__ import annotations
 
 import asyncio
@@ -15,12 +30,17 @@ from .schemas import TOOL_ARG_MODELS
 
 logger = logging.getLogger(__name__)
 
+# ── Protocol constants ─────────────────────────────────────────────────
 PROTOCOL_VERSION = "2026-06-30"
 SUPPORTED_VERSIONS = ["2026-06-30", "2025-11-25", "2025-03-26"]
+# SSE retry hint (ms) sent to clients on reconnect — 5s is conservative.
 SSE_RETRY_MS = 5000
+# Task retention: 1h. Cleanup is amortized (every 64 ops).
 _TASK_MAX_AGE_MS = 3600000
 _TASK_CLEANUP_EVERY = 64
+# 5s suggested poll interval for clients.
 _TASK_DEFAULT_POLL_MS = 5000
+# Max concurrent working tasks per session.
 _TASK_MAX_CONCURRENT = 100
 
 _JSON_SCHEMA_2020_12 = "https://json-schema.org/draft/2020-12/schema"
@@ -147,10 +167,17 @@ _completion_registry: dict[str, Callable[..., Awaitable[list[str]]]] = {}
 
 
 def _now_iso() -> str:
+    """Return the current UTC time as an ISO-8601 string."""
     return datetime.now(timezone.utc).isoformat()
 
 
 def _paginate(items: list[Any], cursor: str | None) -> tuple[list[Any], str | None]:
+    """Return one page of `items` plus the next cursor (or `None` if last).
+
+    Cursors are base64-encoded integer offsets — opaque to clients but
+    trivially debuggable.
+    """
+    start = 0
     start = 0
     if cursor:
         try:
@@ -177,6 +204,20 @@ def _set_log_level(level: str) -> None:
 
 
 def _register_session(session_id: str) -> None:
+    """Add a session id to the in-memory session store (idempotent)."""
+    with _session_store_lock:
+        if session_id not in _session_store:
+            _session_store[session_id] = {"id": session_id, "created": _now_iso()}
+
+
+def _remove_session(session_id: str) -> None:
+    """Remove a session and all its in-flight tasks."""
+    with _session_store_lock:
+        _session_store.pop(session_id, None)
+    with _task_store_lock:
+        stale = [tid for tid, t in _task_store.items() if t.get("sessionId") == session_id]
+        for tid in stale:
+            del _task_store[tid]
     with _session_store_lock:
         if session_id not in _session_store:
             _session_store[session_id] = {"id": session_id, "created": _now_iso()}
@@ -661,6 +702,22 @@ async def handle_mcp_request(
     send_notification: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
     client_protocol_version: str | None = None,
 ) -> tuple[dict[str, Any] | None, str | None, list[dict[str, Any]]]:
+    """Dispatch an MCP JSON-RPC request to the matching handler.
+
+    Args:
+        payload: JSON-RPC body (parsed).
+        session_id: Current session id (or `None` for first call).
+        send_notification: Async callback for out-of-band notifications.
+        client_protocol_version: Client's MCP version (for `initialize`).
+
+    Returns:
+        Tuple of `(response, new_session_id, notifications)`.
+        `response` is `None` for notifications. `new_session_id` may
+        be a freshly generated id if the request was `initialize`.
+        `notifications` are emitted before the response (for SSE consumers).
+
+    Never raises — all errors are returned as JSON-RPC error responses.
+    """
     notifications: list[dict[str, Any]] = []
     try:
         from .schemas import JsonRpcRequest

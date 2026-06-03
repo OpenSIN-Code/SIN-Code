@@ -1,49 +1,59 @@
-# `src/simone_mcp/schemas.py` — Pydantic Data Models
+# `schemas.py` — Pydantic Schemas for MCP Payloads
 
-Partner file: `src/simone_mcp/schemas.py`
+What this file does: Pydantic models for JSON-RPC payloads and per-tool arguments. The `TOOL_ARG_MODELS` dict maps tool names to their argument models, which `protocol.py` uses to validate `tools/call` arguments before dispatch.
 
-## Purpose
-Pydantic v2 data models for JSON-RPC requests, tool call parameters, and all argument types. Validates MCP protocol payloads and tool arguments with strict type checking.
+## Dependency map
 
-## Key Symbols
-| Symbol | Kind | Purpose |
-|--------|------|---------|
-| `JsonRpcRequest` | Pydantic model | JSON-RPC 2.0 request validation |
-| `JsonRpcResponse` | Pydantic model | JSON-RPC 2.0 response structure |
-| `ToolCallParams` | Pydantic model | Tool call parameters (name + arguments) |
-| `MessagePart` | Pydantic model | A2A message part |
-| `A2AMessage` | Pydantic model | A2A message container |
-| `MessageSendParams` | Pydantic model | message/send parameters |
-| `FindSymbolArgs` | Pydantic model | find_symbol arguments |
-| `FindReferencesArgs` | Pydantic model | find_references arguments |
-| `ReplaceSymbolBodyArgs` | Pydantic model | replace_symbol_body arguments |
-| `InsertAfterSymbolArgs` | Pydantic model | insert_after_symbol arguments |
-| `ProjectOverviewArgs` | Pydantic model | project_overview arguments |
-| `SymbolSearchArgs` | Pydantic model | symbol_search arguments |
-| `StructuralEditArgs` | Pydantic model | structural_edit arguments |
-| `MemoryQueryArgs` | Pydantic model | memory_query arguments |
-| `GraphifyQueryArgs` | Pydantic model | graphify_query arguments |
-| `GraphifyUpdateArgs` | Pydantic model | graphify_update arguments |
-| `GraphifyExplainArgs` | Pydantic model | graphify_explain arguments |
-| `GraphifyPathArgs` | Pydantic model | graphify_path arguments |
-| `TaskGetArgs` | Pydantic model | tasks/get arguments |
-| `TaskUpdateArgs` | Pydantic model | tasks/update arguments |
-| `TaskCancelArgs` | Pydantic model | tasks/cancel arguments |
-| `TOOL_ARG_MODELS` | dict | Mapping of tool names to argument models |
+- Imports: `pydantic` (`BaseModel`, `Field`, `model_validator`).
+- Imported by: `protocol.py`.
 
-## Validation Rules
-- All string fields have `min_length=1` (non-empty)
-- `jsonrpc` field must be exactly `"2.0"`
-- `taskId` accepts `id` alias via `populate_by_name`
+## Public API
 
-## Relationship
-- `src/simone_mcp/protocol.py` — `TOOL_ARG_MODELS` used for argument validation in `tools/call`
-- `src/simone_mcp/a2a_handler.py` — `JsonRpcRequest`, `ToolCallParams`, `MessageSendParams`
-- `tests/test_simone_mcp.py` — tests schema validation
+| Symbol                            | Purpose                                                          |
+|-----------------------------------|------------------------------------------------------------------|
+| `JsonRpcRequest`                  | Validates a JSON-RPC 2.0 request (method, params, id)            |
+| `JsonRpcResponse`                 | Mirrors the request shape with `result` / `error`                 |
+| `ToolCallParams`                  | A2A-shaped tool call (`name`, `arguments`, `correlation_id`)     |
+| `MessagePart` / `A2AMessage` / `MessageSendParams` | A2A message shape                          |
+| `FindSymbolArgs` / `FindReferencesArgs` / ... | One per tool                          |
+| `TOOL_ARG_MODELS`                 | Dict mapping tool name → arg model class                         |
 
-## Dependencies
-- `pydantic`: BaseModel, Field, model_validator
-- Standard lib: `typing.Literal`
+## Per-tool argument models
 
-## Broken Links Check
-- No internal links to other `.doc.md` files in this module.
+Each MCP tool has a dedicated `*Args` Pydantic model:
+
+- `FindSymbolArgs`, `FindReferencesArgs` — symbol search
+- `ReplaceSymbolBodyArgs`, `InsertAfterSymbolArgs` — structural edit
+- `ProjectOverviewArgs` — workspace summary (also used for `health`)
+- `SymbolSearchArgs`, `StructuralEditArgs`, `MemoryQueryArgs` — by-name aliases
+- `GraphifyQueryArgs`, `GraphifyUpdateArgs`, `GraphifyExplainArgs`, `GraphifyPathArgs`
+- `WriteFileArgs`, `EditFileArgs`, `PatchFileArgs`, `ReadFileArgs`
+- `TaskGetArgs`, `TaskUpdateArgs`, `TaskCancelArgs`
+
+## Important config / limits
+
+- **All `*Args` models use `Field(min_length=1)` for required string fields** — empty strings are rejected.
+- **`ToolCallParams` uses `Field(alias="name")`** to accept the MCP `name` field; `populate_by_name` allows both `name` and `tool_name`.
+- **Field names are case-sensitive** — `editPayload` is NOT the same as `editpayload`.
+
+## Design decisions
+
+- **Why Pydantic and not dataclasses?** Pydantic gives free JSON validation, alias support, and clear error messages. The cost is a dep, which we already have.
+- **Why a model per tool?** Strict validation per tool surface catches typos in the JSON-RPC body before they hit the dispatcher.
+- **Why use `model_config = {"populate_by_name": True}`?** Lets the same model accept both `name` and `tool_name`, useful for clients that send either form.
+
+## Usage
+
+Models are used internally by `protocol.py`. For tests:
+
+```python
+from simone_mcp.schemas import FindSymbolArgs
+
+args = FindSymbolArgs(symbol="my_func", root="/tmp/proj")
+print(args.symbol, args.root)
+```
+
+## Caveats / footguns
+
+- **Adding a new tool?** Add both the `*Args` class AND the entry in `TOOL_ARG_MODELS`. Without the entry, the protocol layer skips validation.
+- **`min_length=1` rejects empty strings** — if you want a default for a field, use `Field(default=...)` and explicitly allow empty in the validator.

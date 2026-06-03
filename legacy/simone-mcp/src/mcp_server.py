@@ -1,3 +1,10 @@
+"""MCP server re-exports — the public tool surface for MCP clients.
+
+Re-exports the core functions from `simone_mcp.core` so external
+clients (OpenCode, Claude, etc.) can import them as a flat module.
+
+Docs: mcp_server.doc.md
+"""
 from simone_mcp.core import (
     _build_realtime_url,
     build_agent_card,

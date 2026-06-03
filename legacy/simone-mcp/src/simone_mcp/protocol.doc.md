@@ -1,81 +1,80 @@
-# `src/simone_mcp/protocol.py` — MCP Protocol Implementation
+# `protocol.py` — MCP Protocol Layer
 
-Partner file: `src/simone_mcp/protocol.py`
+What this file does: the JSON-RPC dispatcher for tools, resources, prompts, and tasks. The `handle_mcp_request` function is the single entry point used by both transports (`mcp_stdio` and `http_app`).
 
-## Purpose
-Full MCP 2.0 protocol implementation with SEP-2663 Tasks Extension v2. Handles initialize, tools, resources, prompts, tasks, logging, completions, and SSE event streaming. Supports task deferral, progress notifications, and protocol version negotiation.
+## Dependency map
 
-## Key Symbols
-| Symbol | Kind | Purpose |
-|--------|------|---------|
-| `handle_mcp_request()` | async function | Main MCP request dispatcher |
-| `_build_initialize_result()` | function | Build initialize response with capabilities |
-| `_create_task()` | function | Create async task for deferred execution |
-| `_run_task()` | async function | Execute task with notification callbacks |
-| `_update_task()` | function | Update task status/result/error |
-| `_get_task()` | function | Get task by ID |
-| `_cancel_task()` | function | Cancel a running task |
-| `_build_task_obj()` | function | Build task object for MCP responses |
-| `_negotiate_version()` | function | Protocol version negotiation |
-| `_list_resources()` | function | List workspace files as resources |
-| `_read_resource()` | function | Read file content by URI |
-| `_generate_prompt()` | function | Generate prompt messages |
-| `_complete_arguments()` | async function | Argument completion for prompts/resources |
-| `_paginate()` | function | Base64 cursor pagination |
-| `_log_event()` | function | SSE event logging |
-| `_get_events_after()` | function | Replay SSE events after last ID |
-| `_remove_session()` | function | Clean up session and associated tasks |
+- Imports: stdlib (`asyncio`, `base64`, `logging`, `threading`, `time`, `uuid`, `datetime`, `pathlib`, `typing`).
+- Internal: `core.TOOL_DEFINITIONS`, `core.execute_simone_action`, `core.json_dumps`, `schemas.TOOL_ARG_MODELS`.
+- Imported by: `http_app.py`, `mcp_stdio.py`.
 
-## Supported Methods
-| Method | Description |
-|--------|-------------|
-| `initialize` | Protocol handshake, session creation |
-| `ping` | Health check |
-| `tools/list` | Paginated tool listing |
-| `tools/call` | Tool execution (sync or deferred) |
-| `tasks/get` | Get task status with inline result |
-| `tasks/update` | Resume task with input |
-| `tasks/cancel` | Cancel running task |
-| `resources/list` | List workspace resources |
-| `resources/templates/list` | List resource templates |
-| `resources/read` | Read file content |
-| `resources/subscribe` | Subscribe to resource |
-| `resources/unsubscribe` | Unsubscribe from resource |
-| `prompts/list` | List prompts |
-| `prompts/get` | Get prompt with args |
-| `logging/setLevel` | Set log level |
-| `completion/complete` | Argument completion |
-| `sampling/createMessage` | Not supported (returns error) |
-| `elicitation/create` | Not supported (returns error) |
+## Public API
 
-## Task System (SEP-2663)
-- Tasks are created for tools with `taskSupport != "forbidden"`
-- Tasks store inline results (no separate `tasks/result` method)
-- Tasks can be updated with input when `status == "input_required"`
-- Notifications sent via `notifications/tasks` (not `notifications/tasks/status`)
+| Symbol                            | Purpose                                                          |
+|-----------------------------------|------------------------------------------------------------------|
+| `PROTOCOL_VERSION`                | Current MCP version (`"2026-06-30"`)                            |
+| `SUPPORTED_VERSIONS`              | List of accepted client versions for negotiation                 |
+| `SSE_RETRY_MS`                    | 5s — sent in SSE `retry:` fields                                 |
+| `PROMPT_DEFINITIONS`              | 4 prompts: code_review, debug_assistant, refactor_plan, test_generator |
+| `RESOURCE_TEMPLATES`              | `file:///{path}` and `source://{root}/{relpath}`                  |
+| `handle_mcp_request(payload, session_id, send_notification?, client_protocol_version?)` | Single MCP request handler |
+| `_log_event(session_id, event_id, data)` | Add to SSE event log (for replay)                         |
+| `_get_events_after(session_id, last_event_id)` | Replay events after a cursor                       |
 
-## Constants
-| Constant | Value | Purpose |
-|----------|-------|---------|
-| `PROTOCOL_VERSION` | "2026-06-30" | Current MCP version |
-| `SUPPORTED_VERSIONS` | 3 versions | Backward compatibility |
-| `SSE_RETRY_MS` | 5000 | SSE retry interval |
-| `_TASK_MAX_AGE_MS` | 3600000 | Task TTL (1 hour) |
-| `_TASK_MAX_CONCURRENT` | 100 | Max concurrent tasks per session |
-| `PAGE_SIZE` | 50 | Pagination page size |
+## MCP methods handled
 
-## Relationship
-- `src/simone_mcp/core.py` — `execute_simone_action()`, `TOOL_DEFINITIONS`, `json_dumps()`
-- `src/simone_mcp/schemas.py` — `JsonRpcRequest`, `TOOL_ARG_MODELS`
-- `src/simone_mcp/http_app.py` — calls `handle_mcp_request()` for POST /mcp
-- `src/simone_mcp/mcp_stdio.py` — calls `handle_mcp_request()` for stdio
-- `src/simone_mcp/correlation.py` — `correlation_manager` for tool tracking
-- `tests/test_simone_mcp.py` — tests SEP-2663, SEP-2243, SEP-2549, protocol methods
+| Method                       | Behavior                                                  |
+|------------------------------|-----------------------------------------------------------|
+| `initialize`                 | Negotiate version, register session, return capabilities  |
+| `initialized` / `notifications/initialized` | No-op                                     |
+| `ping`                       | Empty result                                              |
+| `tools/list`                 | Paginated tool definitions                                |
+| `tools/call`                 | Validate args, dispatch (sync or async via tasks)         |
+| `tasks/get`                  | Return task object (status, result, error)                 |
+| `tasks/update`               | Resume a task awaiting input                              |
+| `tasks/cancel`               | Cancel a working task                                     |
+| `resources/list`             | Paginated file list                                       |
+| `resources/templates/list`   | Paginated URI templates                                   |
+| `resources/read`             | Read a file by URI                                        |
+| `resources/subscribe` / `unsubscribe` | Add/remove URI from the subscription set       |
+| `prompts/list`               | Paginated prompt definitions                              |
+| `prompts/get`                | Render a prompt with arguments                            |
+| `logging/setLevel`           | Set the Python logger level                               |
+| `completion/complete`        | Argument-value completions                                |
+| `sampling/createMessage`     | **Unsupported in stdio**                                  |
+| `elicitation/create`         | **Unsupported** — error with hint to rephrase             |
 
-## Dependencies
-- `core`: `TOOL_DEFINITIONS`, `execute_simone_action`, `json_dumps`
-- `schemas`: `JsonRpcRequest`, `TOOL_ARG_MODELS`
-- Standard lib: `asyncio`, `base64`, `threading`, `time`, `uuid`, `datetime`
+## Important config / limits
 
-## Broken Links Check
-- No internal links to other `.doc.md` files in this module.
+- **Default page size: 50** (`PAGE_SIZE`).
+- **List result TTL: 5 min** (`_LIST_TTL_MS`); cache scope: `session`.
+- **Task retention: 1 hour** (`_TASK_MAX_AGE_MS`), cleanup every 64 ops.
+- **Max concurrent tasks per session: 100.**
+- **Task poll interval (suggested to clients): 5s.**
+
+## Design decisions
+
+- **Why a `tasks/` namespace?** MCP 2.0 added long-running operations as first-class entities. Tools that opt in (via `execution.taskSupport != "forbidden"` in their tool definition) get queued and tracked.
+- **Why version negotiation on `initialize`?** Clients from different MCP versions can connect. We pick the highest version both sides support.
+- **Why tool arg aliases?** The tool surface evolved; the alias map lets old clients send `edit_payload` while new ones send `editPayload` (or vice versa).
+
+## Usage
+
+`handle_mcp_request` is called by the transports, not directly. For tests:
+
+```python
+import asyncio
+from simone_mcp.protocol import handle_mcp_request
+
+response, sid, notifs = asyncio.run(handle_mcp_request(
+    {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
+    session_id=None,
+))
+```
+
+## Caveats / footguns
+
+- **`handle_mcp_request` never raises** — all errors are returned as JSON-RPC error responses. Catch in tests only to assert the "never raises" contract.
+- **The task store is in-process** — restart = lost tasks.
+- **`sampling/createMessage` returns a custom error** in stdio. Use HTTP transport with client-side sampling if you need it.
+- **The `_meta` field is round-tripped** for tool calls but ignored for most other methods.

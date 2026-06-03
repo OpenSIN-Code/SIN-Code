@@ -1,22 +1,30 @@
-# `src/main.py` — FastAPI Application Factory
+# `src/main.py` — ASGI Application Factory
 
-Partner file: `src/main.py`
+What this file does: builds the FastAPI `app` for ASGI servers (uvicorn, gunicorn). The `app` instance is what `uvicorn src.main:app` exposes.
 
-## Purpose
-FastAPI ASGI application entry point. Creates the `app` instance via `http_app.create_app()` for use with ASGI servers (uvicorn, gunicorn, etc.).
+## Dependency map
 
-## Key Symbols
-- `app` — FastAPI instance exposed to ASGI servers
+- Imports: `simone_mcp.http_app.create_app`.
+- Imported by: ASGI runners.
 
-## Relationship
-- `src/simone_mcp/http_app.py` — `create_app()` function
-- `src/simone_mcp/core.py` — underlying tool implementations
-- `src/simone_mcp/protocol.py` — MCP protocol handlers
+## Endpoints exposed by `app`
 
-## Dependencies
-- `simone_mcp.http_app.create_app`
+| Path                                | Purpose                                   |
+|-------------------------------------|-------------------------------------------|
+| `/mcp`                              | MCP streamable HTTP transport              |
+| `/a2a/v1`                           | A2A JSON-RPC                               |
+| `/health`                           | Readiness probe                            |
+| `/dashboard`                        | HTML status page                           |
+| `/.well-known/agent.json`           | A2A agent card                             |
+| `/.well-known/oauth-client.json`    | OAuth 2.1 client metadata                  |
+| `/.well-known/oauth-authorization-server` | OAuth 2.1 AS metadata                |
 
 ## Usage
+
 ```bash
 uvicorn src.main:app --host 0.0.0.0 --port 8234
 ```
+
+## Caveats / footguns
+
+- `app` is built at import time. Tests should use `create_app()` directly for isolation.

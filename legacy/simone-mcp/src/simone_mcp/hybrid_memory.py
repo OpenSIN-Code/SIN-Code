@@ -1,3 +1,11 @@
+"""Hybrid memory backend — vectors (Qdrant or local) + graph (Neo4j or local).
+
+The "hybrid" in the name means: try the production backends first
+(Qdrant for vector search, Neo4j for graph relations); if either is
+unconfigured, fall back to a local SQLite store with the same shape.
+
+Docs: hybrid_memory.doc.md
+"""
 from __future__ import annotations
 
 import json
@@ -14,6 +22,10 @@ from .core import _workspace_root
 
 logger = logging.getLogger(__name__)
 
+# ── Lazy-loaded connection caches ─────────────────────────────────────
+# Each backend (Neo4j driver, Qdrant client, embedding model) is loaded
+# once and shared across threads. The lock is held only during the
+# first-load check, not during use.
 _neo4j_driver_lock = threading.Lock()
 _neo4j_driver_cache: dict[str, Any] = {}
 _qdrant_client_lock = threading.Lock()
@@ -21,12 +33,19 @@ _qdrant_client_cache: dict[str, Any] = {}
 _embedding_model_lock = threading.Lock()
 _embedding_model_cache: dict[str, Any] = {}
 
+# Local SQLite store — used when no remote backends are configured.
 _LOCAL_DB_DIR: str | None = None
 _LOCAL_DB_LOCK = threading.Lock()
 _LOCAL_DB_CACHE: dict[str, Any] = {}
 
 
+# ── Local store helpers ───────────────────────────────────────────────
 def _get_local_db_dir() -> str:
+    """Resolve the local-memory directory.
+
+    Uses `SIMONE_MEMORY_DIR` if set, else `~/.simone/`. The directory
+    is created on first call (lazy).
+    """
     global _LOCAL_DB_DIR
     if _LOCAL_DB_DIR is not None:
         return _LOCAL_DB_DIR
@@ -34,17 +53,24 @@ def _get_local_db_dir() -> str:
     if base:
         _LOCAL_DB_DIR = base
     else:
+        # `Path.home()` resolves `~` portably; no shell needed.
         _LOCAL_DB_DIR = str(Path.home() / ".simone")
     return _LOCAL_DB_DIR
 
 
 def _get_db_path(subdir: str) -> str:
+    """Return the SQLite file path for a named subdir, creating the dir if needed."""
     db_dir = os.path.join(_get_local_db_dir(), subdir)
     os.makedirs(db_dir, exist_ok=True)
     return os.path.join(db_dir, "memory.db")
 
 
 def _get_connection(db_name: str = "default") -> sqlite3.Connection:
+    """Get a thread-safe, WAL-mode SQLite connection to the local store.
+
+    Cached per `db_name`; liveness is checked with `SELECT 1` on every
+    call so a closed connection gets reopened transparently.
+    """
     with _LOCAL_DB_LOCK:
         cache_key = db_name
         if cache_key in _LOCAL_DB_CACHE:
@@ -53,10 +79,16 @@ def _get_connection(db_name: str = "default") -> sqlite3.Connection:
                 conn.execute("SELECT 1")
                 return conn
             except sqlite3.ProgrammingError:
+                # Connection is dead (e.g. after a DB file was deleted
+                # out from under us). Drop it and reopen.
                 pass
         path = _get_db_path(db_name)
+        # `check_same_thread=False` because FastAPI handlers run on
+        # multiple threads; SQLite is in WAL mode so this is safe.
         conn = sqlite3.connect(path, check_same_thread=False)
         conn.row_factory = sqlite3.Row
+        # WAL mode = concurrent readers + one writer; `synchronous=OFF`
+        # trades durability for speed (acceptable for a memory cache).
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA synchronous=OFF")
         _LOCAL_DB_CACHE[cache_key] = conn
@@ -112,6 +144,11 @@ def _lazy_init(db_name: str = "default") -> sqlite3.Connection:
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
+    """Cosine similarity between two equal-length vectors.
+
+    Returns 0.0 if either vector has zero magnitude (avoids div-by-zero).
+    """
+    dot = sum(av * bv for av, bv in zip(a, b, strict=False))
     dot = sum(av * bv for av, bv in zip(a, b, strict=False))
     na = math.sqrt(sum(av * av for av in a))
     nb = math.sqrt(sum(bv * bv for bv in b))
@@ -121,6 +158,13 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
 
 
 def _compute_embedding(text: str) -> list[float] | None:
+    """Compute a 384-dim embedding for `text`.
+
+    Uses `sentence-transformers/all-MiniLM-L6-v2` if available;
+    falls back to a SHA-256-derived pseudo-vector (rank 64) so the
+    pipeline still works without the dep. The fallback is NOT
+    semantically meaningful — the warning is loud.
+    """
     try:
         model_name = os.getenv("LOCAL_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
         with _embedding_model_lock:
@@ -142,6 +186,7 @@ def _compute_embedding(text: str) -> list[float] | None:
 
 
 def shutdown_stores() -> None:
+    """Close all backend connections (called from FastAPI `lifespan`)."""
     with _neo4j_driver_lock:
         for cache_key, driver in list(_neo4j_driver_cache.items()):
             try:
@@ -171,6 +216,13 @@ def shutdown_stores() -> None:
 
 
 def query_hybrid_memory(payload: dict[str, Any]) -> dict[str, Any]:
+    """Query the hybrid memory (vector + graph) for a single search.
+
+    Tries Qdrant + Neo4j first if env-configured; falls back to the
+    local SQLite store. Returns both `semantic` (vector) and
+    `structural` (graph) results, plus the source each came from.
+    """
+    query = str(payload.get("query") or "").strip()
     query = str(payload.get("query") or "").strip()
     root = _workspace_root(payload.get("root"))
     target_symbol = payload.get("target_symbol")
@@ -215,6 +267,12 @@ def query_hybrid_memory(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _query_local_semantic(query: str) -> list[dict[str, Any]]:
+    """Local vector search against the SQLite store.
+
+    Returns either scored matches (when `query` is non-empty) or a
+    list of collections with their counts (when `query` is empty —
+    useful for an "inventory" UI).
+    """
     if not query:
         return _list_local_collections()
     try:
@@ -254,6 +312,7 @@ def _query_local_semantic(query: str) -> list[dict[str, Any]]:
 
 
 def _list_local_collections() -> list[dict[str, Any]]:
+    """Return a per-collection count list for the local vector store."""
     try:
         conn = _lazy_init()
         counts = conn.execute(
@@ -272,6 +331,7 @@ def _list_local_collections() -> list[dict[str, Any]]:
 
 
 def _query_local_graph(symbol: str) -> list[dict[str, Any]]:
+    """Find relations to `symbol` in the local SQLite graph store."""
     try:
         conn = _lazy_init()
         rows = conn.execute(
@@ -298,8 +358,13 @@ def _query_local_graph(symbol: str) -> list[dict[str, Any]]:
 
 
 def store_symbol(name: str, kind: str, file_path: str, line: int = 0, db_name: str = "default") -> dict[str, Any]:
+    """Insert a symbol row; no-op if `(name, file)` already exists."""
     try:
         conn = _lazy_init(db_name)
+        existing = conn.execute(
+            "SELECT id FROM symbols WHERE name = ? AND file = ?", (name, file_path)
+        ).fetchone()
+    
         existing = conn.execute(
             "SELECT id FROM symbols WHERE name = ? AND file = ?", (name, file_path)
         ).fetchone()
@@ -316,6 +381,7 @@ def store_symbol(name: str, kind: str, file_path: str, line: int = 0, db_name: s
 
 
 def store_relation(source_id: int, target_id: int, rel_type: str = "references", db_name: str = "default") -> dict[str, Any]:
+    """Insert an edge `source_id -[rel_type]-> target_id` into the graph."""
     try:
         conn = _lazy_init(db_name)
         conn.execute(
@@ -335,6 +401,7 @@ def store_vector(
     symbol: str = "",
     db_name: str = "default",
 ) -> dict[str, Any]:
+    """Compute an embedding for `text` and store it in the local vector table."""
     try:
         emb = _compute_embedding(text)
         if emb is None:
@@ -351,6 +418,7 @@ def store_vector(
 
 
 def get_local_stats(db_name: str = "default") -> dict[str, Any]:
+    """Return counts of vectors, symbols, and relations in the local store."""
     try:
         conn = _lazy_init(db_name)
         vec_count = conn.execute("SELECT COUNT(*) as cnt FROM vectors").fetchone()["cnt"]
@@ -368,6 +436,7 @@ def get_local_stats(db_name: str = "default") -> dict[str, Any]:
 
 
 def _get_qdrant_client(qdrant_url: str) -> Any:
+    """Lazy-load and cache a Qdrant client for `qdrant_url`."""
     with _qdrant_client_lock:
         if qdrant_url in _qdrant_client_cache:
             return _qdrant_client_cache[qdrant_url]
@@ -378,6 +447,8 @@ def _get_qdrant_client(qdrant_url: str) -> Any:
 
 
 def _query_qdrant(query: str, qdrant_url: str) -> list[dict[str, Any]]:
+    """Search the first 5 Qdrant collections for vectors matching `query`."""
+    client = _get_qdrant_client(qdrant_url)
     client = _get_qdrant_client(qdrant_url)
     collections = client.get_collections().collections
     if not collections:
@@ -416,6 +487,7 @@ def _query_qdrant(query: str, qdrant_url: str) -> list[dict[str, Any]]:
 
 
 def _get_embedding(query: str, qdrant_url: str, client: Any) -> list[float] | None:
+    """Return an embedding for `query`, or `None` if Qdrant can't help."""
     try:
         if hasattr(client, "query"):
             dense = client.query(collection_name="_default", query_text=query)
@@ -431,6 +503,7 @@ def _get_embedding(query: str, qdrant_url: str, client: Any) -> list[float] | No
 
 
 def _get_neo4j_driver(uri: str, user: str, password: str) -> Any:
+    """Lazy-load and cache a Neo4j driver (key = `uri:user`)."""
     cache_key = f"{uri}:{user}"
     with _neo4j_driver_lock:
         if cache_key in _neo4j_driver_cache:
@@ -444,6 +517,8 @@ def _get_neo4j_driver(uri: str, user: str, password: str) -> Any:
 def _query_neo4j(
     symbol: str, uri: str, user: str, password: str
 ) -> list[dict[str, Any]]:
+    """Find up to 10 callers (CALLS or IMPORTS) of `symbol` in Neo4j."""
+    driver = _get_neo4j_driver(uri, user, password)
     driver = _get_neo4j_driver(uri, user, password)
     results: list[dict[str, Any]] = []
     with driver.session() as session:

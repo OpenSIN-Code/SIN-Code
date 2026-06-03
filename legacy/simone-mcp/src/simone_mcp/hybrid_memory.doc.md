@@ -1,64 +1,53 @@
-# `src/simone_mcp/hybrid_memory.py` — Hybrid Memory Layer
+# `hybrid_memory.py` — Hybrid Memory Backend
 
-Partner file: `src/simone_mcp/hybrid_memory.py`
+What this file does: the "hybrid" memory layer — vector (Qdrant) + graph (Neo4j) when configured, falling back to a local SQLite store with the same shape. Powers the `sin_simone_mcp_memory_query` tool and the local knowledge graph.
 
-## Purpose
-Provides multi-tier memory storage: local SQLite (vectors + graph), Qdrant (vector DB), and Neo4j (graph DB). Supports semantic search via cosine similarity and structural search via graph relations.
+## Dependency map
 
-## Key Symbols
-| Symbol | Kind | Purpose |
-|--------|------|---------|
-| `query_hybrid_memory()` | function | Query all memory tiers with fallback chain |
-| `_query_local_semantic()` | function | SQLite vector similarity search |
-| `_query_local_graph()` | function | SQLite graph relation lookup |
-| `_query_qdrant()` | function | Qdrant vector search |
-| `_query_neo4j()` | function | Neo4j CALLS/IMPORTS relation query |
-| `store_symbol()` | function | Store symbol in local graph DB |
-| `store_relation()` | function | Store relation in local graph DB |
-| `store_vector()` | function | Store vector embedding in local DB |
-| `get_local_stats()` | function | Return local DB stats |
-| `shutdown_stores()` | function | Close all connections (lifespan cleanup) |
-| `_compute_embedding()` | function | Generate embeddings via sentence-transformers or hash fallback |
-| `_cosine_similarity()` | function | Cosine similarity between two vectors |
+- Imports: stdlib (`json`, `logging`, `math`, `os`, `sqlite3`, `threading`, `time`, `pathlib`).
+- Optional deps (lazy): `qdrant_client`, `neo4j`, `sentence_transformers`.
+- Imported by: `core.py` (`query_hybrid_memory`), `http_app.py` (`shutdown_stores`).
 
-## Database Schema (SQLite)
-**vectors** table: id, collection, file, symbol, text, embedding, created_at
-**symbols** table: id, name, kind, file, line, created_at
-**symbol_relations** table: id, source_id, target_id, rel_type, created_at
+## Public API
 
-## Fallback Chain
-1. Try Qdrant for semantic search
-2. Fallback to local SQLite semantic search
-3. Try Neo4j for structural search (if target_symbol provided)
-4. Fallback to local SQLite graph search
+| Function                            | Purpose                                                          |
+|-------------------------------------|------------------------------------------------------------------|
+| `query_hybrid_memory(payload)`      | Single semantic + structural query; returns both result lists    |
+| `store_symbol(name, kind, file, line, db_name?)` | Insert a symbol; no-op if `(name, file)` exists  |
+| `store_relation(source_id, target_id, rel_type, db_name?)` | Insert an edge                              |
+| `store_vector(text, collection, file, symbol, db_name?)` | Embed + insert a vector                 |
+| `get_local_stats(db_name?)`         | Counts of vectors / symbols / relations in the local store        |
+| `shutdown_stores()`                  | Close all backend connections                                    |
 
-## Relationship
-- `src/simone_mcp/core.py` — calls `query_hybrid_memory()` via `execute_simone_action()`
-- `src/simone_mcp/http_app.py` — calls `shutdown_stores()` on app shutdown
-- `src/simone_mcp/cli.py` — validates Qdrant/Neo4j in `_validate_config()`
+## Important config / limits
 
-## Dependencies
-| Optional | Purpose |
-|----------|---------|
-| `sentence-transformers` | Embedding generation (all-MiniLM-L6-v2) |
-| `qdrant_client` | Qdrant vector DB |
-| `neo4j` | Neo4j graph DB |
+- **Local store path**: `$SIMONE_MEMORY_DIR` or `~/.simone/<subdir>/memory.db` by default.
+- **SQLite in WAL mode** with `synchronous=OFF` — fast, but a hard crash can lose the last few transactions.
+- **Embedding model**: `LOCAL_EMBEDDING_MODEL` (default `all-MiniLM-L6-v2`, 384 dims). Falls back to a SHA-256 pseudo-vector (rank 64) if `sentence-transformers` is missing.
+- **Neo4j driver TTL: 1 hour** (env: not configurable; hardcoded in `_get_neo4j_driver`).
+- **Qdrant client timeout: 5s** (env: not configurable; hardcoded).
 
-## Environment Variables
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `QDRANT_URL` | — | Qdrant server URL |
-| `NEO4J_URI` | — | Neo4j Bolt URI |
-| `NEO4J_USER` | neo4j | Neo4j username |
-| `NEO4J_PASSWORD` | — | Neo4j password |
-| `SIMONE_MEMORY_DIR` | ~/.simone | Local SQLite directory |
-| `LOCAL_EMBEDDING_MODEL` | all-MiniLM-L6-v2 | Embedding model name |
-| `QDRANT_EMBEDDING_MODEL` | — | Qdrant model override |
+## Design decisions
 
-## Thread Safety
-- SQLite connections are cached per db_name with `check_same_thread=False`
-- Neo4j drivers and Qdrant clients are cached with locks
-- All cache operations are protected by threading.Lock
+- **Why hybrid in the same module?** Both backends have the same shape (semantic + structural), so a single entry point can dispatch to either. Callers don't need to know which backend served their query.
+- **Why SHA-256 fallback for embeddings?** A meaningful 64-dim vector is still better than no vector at all. The warning is loud so users notice.
+- **Why lazy-load Neo4j / Qdrant / sentence-transformers?** They're heavy imports. Caches under locks ensure one-load-per-process.
+- **Why WAL mode for SQLite?** Multiple FastAPI worker threads can read concurrently without blocking on a write. Tradeoff: a small window of uncommitted data on hard crash.
 
-## Broken Links Check
-- No internal links to other `.doc.md` files in this module.
+## Usage example
+
+```python
+from simone_mcp.hybrid_memory import query_hybrid_memory
+
+result = query_hybrid_memory({
+    "query": "where is auth handled?",
+    "target_symbol": "authenticate",
+})
+print(result["semantic"], result["structural"])
+```
+
+## Caveats / footguns
+
+- **The local store is NOT a database** — it's a cache. Production should use Qdrant + Neo4j for durability.
+- **The SHA-256 fallback is NOT semantically meaningful.** Similarity scores are noise. Use real embeddings.
+- **`query_hybrid_memory` swallows backend errors and falls back to local** — failures are logged but not surfaced to the caller.

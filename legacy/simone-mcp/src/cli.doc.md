@@ -1,22 +1,23 @@
-# `src/cli.py` — CLI Entry Point
+# `src/cli.py` — Top-level CLI Entry Point
 
-Partner file: `src/cli.py`
+What this file does: thin wrapper that delegates to `simone_mcp.cli.main()`. This is the script target for `python -m src.cli` and the installed `simone` console script (declared in `pyproject.toml`).
 
-## Purpose
-Thin entry-point script that delegates to `simone_mcp.cli.main()`. This is the script executed when running `python -m src.cli` or calling the `simone` CLI command.
+## Dependency map
 
-## Key Symbols
-- `main()` — imported from `simone_mcp.cli`
-
-## Relationship
-- `src/simone_mcp/cli.py` — contains the actual CLI implementation
-
-## Dependencies
-- `simone_mcp.cli.main`
+- Imports: `simone_mcp.cli.main`.
+- Imported by: nothing in this repo. Entry point only.
 
 ## Usage
+
 ```bash
-python src/cli.py serve
-# or via installed entry point:
+python src/cli.py serve           # HTTP/A2A server
+python src/cli.py serve-mcp       # stdio MCP server
+python src/cli.py print-card      # print the agent card
+
+# Or via the installed entry point:
 simone serve
 ```
+
+## Caveats / footguns
+
+- Don't add logic here. Anything substantive belongs in `simone_mcp/cli.py`.

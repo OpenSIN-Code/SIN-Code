@@ -1,17 +1,12 @@
-# `src/__init__.py` — Simone MCP Package Entry
+# `__init__.py` (src/) — Simone MCP Top-level Package
 
-Partner file: `src/__init__.py`
+What this file does: empty package marker for the `src/` namespace. The actual package lives at `src/simone_mcp/`. This file is intentionally empty so both `import src` and `import simone_mcp` work.
 
-## Purpose
-Empty package-level `__init__.py` for the `src/` namespace. This module is the root package entry point for the Simone MCP project. It intentionally contains no exports to keep the namespace clean.
+## Dependency map
 
-## Relationship
-- `src/cli.py` — imports from `simone_mcp.cli` directly, not through this file
-- `src/main.py` — creates the FastAPI app via `simone_mcp.http_app`
-- `src/mcp_server.py` — re-exports core functions from `simone_mcp.core`
+- Imports: nothing.
+- Imported by: `setuptools` (build system), `simone_mcp` (nested package).
 
-## Dependencies
-None.
+## Caveats / footguns
 
-## Notes
-This file is empty by design. All meaningful exports are handled by `src/simone_mcp/__init__.py`.
+- Adding code here is almost always a mistake — the real exports live in `src/simone_mcp/__init__.py`.

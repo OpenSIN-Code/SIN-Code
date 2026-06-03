@@ -1,39 +1,53 @@
-# `src/simone_mcp/graphify_service.py` — Graphify CLI Integration
+# `graphify_service.py` — External `graphify` CLI Wrapper
 
-Partner file: `src/simone_mcp/graphify_service.py`
+What this file does: thin wrapper around the external `graphify` binary. Locates it, shells out for `update` / `query` / `explain` / `path` / `install`, and reads `graph.json` directly for the dashboard summary.
 
-## Purpose
-Wraps the external `graphify` CLI tool for knowledge graph operations. Discovers `graphify` binary via `which` or known paths. Provides update, query, explain, path, and summary operations.
+## Dependency map
 
-## Key Symbols
-| Symbol | Kind | Purpose |
-|--------|------|---------|
-| `_find_graphify()` | function | Locate graphify binary (cached) |
-| `_run_graphify()` | function | Execute graphify subprocess with timeout |
-| `graphify_update()` | function | Run `graphify update <root>` |
-| `graphify_query()` | function | Run `graphify query <question>` |
-| `graphify_explain()` | function | Run `graphify explain <node>` |
-| `graphify_path()` | function | Run `graphify path <source> <target>` |
-| `graphify_install()` | function | Run `graphify install --platform <platform>` |
-| `graphify_summary()` | function | Read graph.json and return stats (no CLI call) |
-| `graphify_available()` | function | Check if graphify is installed |
+- Imports: stdlib (`json`, `logging`, `os`, `subprocess`, `tempfile`, `pathlib`).
+- External dep: the `graphify` binary (auto-located; not a Python import).
+- Imported by: `core.py` (via `_graphify_*_impl` aliases).
 
-## Graphify Binary Discovery
-1. `/opt/homebrew/bin/graphify`
-2. `/usr/local/bin/graphify`
-3. `~/.local/bin/graphify`
-4. `which graphify` fallback
+## Public API
 
-## Relationship
-- `src/simone_mcp/core.py` — calls graphify functions via `execute_simone_action()` for graphify actions
-- `src/simone_mcp/protocol.py` — tasks may trigger graphify operations
+| Function                            | Purpose                                                          |
+|-------------------------------------|------------------------------------------------------------------|
+| `graphify_update(root)`             | Regenerate the knowledge graph                                   |
+| `graphify_query(question, root, budget=2000, dfs=False)` | Ask a question about the graph              |
+| `graphify_explain(node, root)`      | Plain-language explanation of a graph node                      |
+| `graphify_path(source, target, root)` | Shortest path between two graph nodes                          |
+| `graphify_install(platform="opencode")` | One-time install of the platform integration                |
+| `graphify_summary(root)`            | Read `graph.json` directly (no CLI call) for the dashboard       |
+| `graphify_available()`              | True iff the binary is on the system                             |
 
-## Dependencies
-- Standard lib: `subprocess`, `os`, `json`, `tempfile`, `pathlib`
-- External: `graphify` CLI (must be installed separately)
+## Important config / limits
 
-## Graph Path Convention
-Knowledge graphs are stored at `<root>/graphify-out/graph.json`.
+- **Binary lookup order**: `/opt/homebrew/bin/graphify` (Apple Silicon), `/usr/local/bin/graphify`, `~/.local/bin/graphify`, then `which graphify`.
+- **Subprocess timeout: 120s.** Longer graphify runs (huge repos) may need a higher timeout.
+- **`graphify-out/graph.json` is the canonical output path.** Every function in this module assumes that layout.
+- **`graphify_summary` returns `has_graph: False`** if `graph.json` doesn't exist (a soft-fail, not a crash).
 
-## Broken Links Check
-- No internal links to other `.doc.md` files in this module.
+## Design decisions
+
+- **Why shell out instead of importing?** `graphify` is a separate Go binary, not a Python library. Wrapping the CLI is the only way to integrate.
+- **Why cache the binary path?** `which graphify` shells out to `/bin/sh`; doing it on every call would dominate latency. The cache is per-process.
+- **Why read `graph.json` directly for the summary?** The CLI is slower and produces a different shape. The summary function only needs node/edge counts and a top-10 list, which the JSON has in O(1).
+
+## Usage example
+
+```python
+from simone_mcp.graphify_service import graphify_update, graphify_query
+
+# Build the graph (long-running; maybe once per workspace)
+graphify_update("/path/to/repo")
+
+# Ask questions
+result = graphify_query("Where is auth handled?", "/path/to/repo", budget=2000)
+print(result["output"])
+```
+
+## Caveats / footguns
+
+- **`graphify_update` writes to `<root>/graphify-out/graph.json`.** Don't run it in read-only filesystems.
+- **No lock around `graphify_update`** — two concurrent calls produce a corrupt graph.json. The orchestrator should serialize updates.
+- **`graphify_query` returns `error: "No graph found"`** if the graph doesn't exist. Run `graphify_update` first.

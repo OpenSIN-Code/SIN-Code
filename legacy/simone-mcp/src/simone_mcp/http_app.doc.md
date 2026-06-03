@@ -1,74 +1,47 @@
-# `src/simone_mcp/http_app.py` — FastAPI HTTP Application
+# `http_app.py` — FastAPI Application (HTTP / SSE / A2A)
 
-Partner file: `src/simone_mcp/http_app.py`
+What this file does: the HTTP front door. Wires CORS, origin validation, OAuth 2.1 bearer auth, per-IP rate limiting, body size cap, the `/mcp` (POST/GET/DELETE) endpoint, `/a2a/v1`, and the `/.well-known/` discovery endpoints.
 
-## Purpose
-Production-grade FastAPI application with MCP 2.0 streamable HTTP + A2A + SSE support. Includes rate limiting, OAuth 2.1 JWT verification, CORS, origin validation, request body limits, and session management.
+## Dependency map
 
-## Key Symbols
-| Symbol | Kind | Purpose |
-|--------|------|---------|
-| `create_app()` | function | FastAPI factory with lifespan, middleware, and routes |
-| `_mcp_post()` | async function | Handle POST /mcp (tools, resources, tasks, prompts) |
-| `_mcp_get()` | async function | Handle GET /mcp (SSE event stream) |
-| `_authorize_request()` | function | JWT Bearer token validation via JWKS |
-| `_validate_origin()` | function | CORS origin whitelist check |
-| `_check_rate_limit()` | function | Per-IP rate limiting (100 req/60s) |
-| `_extract_client_ip()` | function | X-Forwarded-For aware IP extraction |
-| `_verify_token()` | function | PyJWKClient JWT verification |
-| `_read_json_body()` | async function | JSON body parsing with size limit (1MB) |
+- Imports: `fastapi`, `jwt` (PyJWT), `starlette.middleware.cors`, internal: `a2a_handler`, `correlation`, `core` (agent card, dashboard, MCP endpoint constants), `hybrid_memory.shutdown_stores`, `protocol` (handle_mcp_request, SSE constants).
+- Imported by: `src/main.py` (builds `app` from `create_app()`).
 
-## Routes
-| Path | Methods | Description |
-|------|---------|-------------|
-| `/` | GET | Server info |
-| `/health` | GET | Health check |
-| `/dashboard` | GET | HTML dashboard |
-| `/.well-known/agent-card.json` | GET | A2A agent card |
-| `/.well-known/agent.json` | GET | A2A agent card |
-| `/.well-known/oauth-client.json` | GET | OAuth 2.1 client metadata |
-| `/.well-known/oauth-authorization-server` | GET | OAuth 2.1 AS metadata |
-| `/a2a/v1` | POST | A2A JSON-RPC endpoint |
-| `/mcp` | GET, POST, DELETE | MCP streamable HTTP endpoint |
+## Public API
 
-## Security Middleware
-1. **CORS** — Origin whitelist via `SIMONE_ALLOWED_ORIGINS`
-2. **Auth** — Bearer JWT validation for non-open paths
-3. **Rate Limit** — Per-IP sliding window (100 req/60s, configurable)
-4. **Body Limit** — 1MB max request body
-5. **Path Validation** — Open paths bypass auth (/, /health, /dashboard, .well-known)
+| Function                  | Purpose                                                          |
+|---------------------------|------------------------------------------------------------------|
+| `create_app()`            | Build and configure the FastAPI app                              |
+| `shutdown_stores`         | Close backend connections (called from FastAPI `lifespan`)        |
 
-## Relationship
-- `src/simone_mcp/core.py` — `build_agent_card()`, `dashboard()`, `OPEN_PATHS`
-- `src/simone_mcp/a2a_handler.py` — `handle_a2a_request()` for POST /a2a/v1
-- `src/simone_mcp/protocol.py` — `handle_mcp_request()` for POST /mcp
-- `src/simone_mcp/hybrid_memory.py` — `shutdown_stores()` for lifespan cleanup
-- `src/simone_mcp/correlation.py` — `correlation_manager` for tool call tracking
-- `src/main.py` — imports `create_app()`
-- `tests/test_simone_mcp.py` — tests all security middleware and routes
+`create_app()` is the standard entry point; `src/main.py` uses it to expose `app`.
 
-## Dependencies
-- `fastapi` — Web framework
-- `starlette` — CORS middleware
-- `pyjwt` — JWT verification
-- `a2a_handler`: `handle_a2a_request`
-- `protocol`: `handle_mcp_request`, `_log_event`, `_get_events_after`, `_remove_session`
-- `core`: `build_agent_card`, `build_oauth_client_metadata`, `build_authorization_server_metadata`, `dashboard`, `OPEN_PATHS`, `MCP_ENDPOINT`, `A2A_ENDPOINT`
-- `hybrid_memory`: `shutdown_stores`
-- `correlation`: `correlation_manager`
+## Important config / limits
 
-## Environment Variables
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `SIMONE_RATE_LIMIT_WINDOW` | 60 | Rate limit window in seconds |
-| `SIMONE_RATE_LIMIT_MAX` | 100 | Max requests per window |
-| `SIMONE_MAX_REQUEST_BODY` | 1048576 | Max request body bytes |
-| `SIMONE_ALLOWED_ORIGINS` | localhost, 127.0.0.1, opensin.ai | CORS whitelist |
-| `SIMONE_AUTH_REQUIRED` | false | Enable OAuth 2.1 |
-| `SIMONE_OAUTH_JWKS_URL` | — | JWKS endpoint |
-| `SIMONE_OAUTH_ISSUER` | — | Token issuer |
-| `SIMONE_OAUTH_AUDIENCE` | simone-mcp | Token audience |
-| `SIMONE_OAUTH_ALGORITHMS` | RS256,ES256 | Accepted algorithms |
+- **Rate limit: 100 req / 60s per IP** (env: `SIMONE_RATE_LIMIT_WINDOW`, `SIMONE_RATE_LIMIT_MAX`).
+- **Body cap: 1 MiB** (env: `SIMONE_MAX_REQUEST_BODY`).
+- **CORS allow-list** (env: `SIMONE_ALLOWED_ORIGINS`, comma-separated; default `localhost`, `127.0.0.1`, `opensin.ai`).
+- **Auth: optional** (env: `SIMONE_AUTH_REQUIRED` = `true` / `1` enables). When enabled, requires a bearer token validated against `SIMONE_OAUTH_JWKS_URL`.
+- **`Mcp-Session-Id` / `Mcp-Method` / `Mcp-Name` / `Mcp-Param-*` headers** are validated against the JSON-RPC body in MCP POSTs (HeaderMismatch → error code -32001).
 
-## Broken Links Check
-- No internal links to other `.doc.md` files in this module.
+## Design decisions
+
+- **Why per-IP rate limiting, not per-token?** Per-token is correct but needs a token store; per-IP is good enough for typical deployments and trivially DoS-resistant.
+- **Why fetch JWKS on every request?** Correctness over performance — a key rotation would otherwise require a restart. The HTTPS round-trip is the price.
+- **Why `lifespan` instead of `@app.on_event("startup")`?** The latter is deprecated in modern FastAPI. `lifespan` is the recommended pattern.
+
+## Usage example
+
+```python
+from simone_mcp.http_app import create_app
+
+app = create_app()
+# uvicorn my_module:app
+```
+
+## Caveats / footguns
+
+- **CORS is enforced by origin string match** (not pattern). Wildcards are not supported.
+- **The OAuth 2.1 verifier requires `pyjwt[crypto]`** for RS256/ES256. ES-only installations need `SIMONE_OAUTH_ALGORITHMS=ES256`.
+- **Notifications are NOT pushed inline.** Streamable HTTP clients must use SSE or poll `tasks/get` to see async progress (SEP-2663).
+- **Origin validation is bypassed** when no `Origin` header is set (server-to-server callers). Add a reverse proxy with auth if you need stronger guarantees.

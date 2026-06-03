@@ -1,53 +1,59 @@
-# `src/simone_mcp/cli.py` — CLI Implementation
+# `cli.py` (simone_mcp) — CLI Implementation
 
-Partner file: `src/simone_mcp/cli.py`
+What this file does: the real `simone` CLI implementation. The `src/cli.py` shim is a 1-line delegate to `main()` here. Supports `serve`, `serve-mcp`, `print-card`, `run-action`, `index`, `validate`, `integrate`, `tool-list`.
 
-## Purpose
-Provides the `simone` command-line interface with subcommands for server startup, tool execution, project indexing, and configuration validation.
+## Dependency map
 
-## Key Symbols
-| Symbol | Kind | Purpose |
-|--------|------|---------|
-| `main()` | function | CLI entry point and command dispatcher |
-| `_print()` | function | JSON output to stdout |
-| `_read_action_argument()` | function | Read action JSON from argv or stdin |
-| `_validate_config()` | function | Validate external service connectivity (Qdrant, Neo4j, OAuth) |
+- Imports: `core.TOOL_DEFINITIONS`, `core.build_agent_card`, `core.execute_simone_action`, `core.get_project_overview`, `mcp_stdio.serve_stdio`, plus stdlib.
+- Imported by: `src/cli.py` (entry point), `simone_mcp/__init__.py` (re-exports `main`).
 
-## Supported Commands
-| Command | Description |
-|---------|-------------|
-| `serve` | Start HTTP/A2A server (port 8234) |
-| `serve-a2a` | Alias for `serve` |
-| `serve-mcp` | Start MCP stdio server |
-| `print-card` | Print agent discovery card as JSON |
-| `run-action JSON` | Execute a single tool action |
-| `index [PATH]` | Show project overview |
-| `validate` | Validate configuration |
-| `tool-list` | List available MCP tools |
+## Subcommands
 
-## Relationship
-- `src/simone_mcp/core.py` — `TOOL_DEFINITIONS`, `execute_simone_action`, `get_project_overview`, `build_agent_card`
-- `src/simone_mcp/mcp_stdio.py` — `serve_stdio()` for `serve-mcp`
-- `src/simone_mcp/http_app.py` — `create_app()` for `serve`
-- `src/cli.py` — thin wrapper that calls this module
+| Subcommand    | Purpose                                                                                | Default port / path       |
+|---------------|----------------------------------------------------------------------------------------|---------------------------|
+| `serve`       | Start HTTP + A2A + MCP server (uvicorn)                                                | `127.0.0.1:8234`           |
+| `serve-mcp`   | Start stdio MCP server (for OpenCode / Claude Desktop)                                | stdin/stdout               |
+| `print-card`  | Print the A2A agent card as JSON                                                      | —                         |
+| `run-action`  | Execute a single action from a JSON payload on stdin / argv                           | —                         |
+| `index`       | Print `get_project_overview` for `PATH` (default cwd)                                  | `cwd`                      |
+| `validate`    | Validate server config (QDRANT_URL, NEO4J_URI, etc.) and exit non-zero on issues         | —                         |
+| `integrate`   | Patch `~/.config/opencode/opencode.json` to add the Simone MCP server + disable grep    | —                         |
+| `tool-list`   | Print the MCP tool definitions as JSON                                                 | —                         |
 
-## Dependencies
-- `core`: `TOOL_DEFINITIONS`, `build_agent_card`, `execute_simone_action`, `get_project_overview`
-- `mcp_stdio`: `serve_stdio`
-- `http_app`: `create_app` (lazy import)
-- Standard lib: `asyncio`, `json`, `os`, `sys`
-- External: `uvicorn` (lazy import)
+## Important config / limits
 
-## Environment Variables
-| Variable | Purpose |
-|----------|---------|
-| `SIMONE_HOST` | Server bind host (default: 0.0.0.0) |
-| `SIMONE_BASE_URL` | Base URL for agent card (default: http://localhost:{port}) |
-| `QDRANT_URL` | Qdrant vector DB URL |
-| `NEO4J_URI` | Neo4j graph DB URI |
-| `NEO4J_PASSWORD` | Neo4j password |
-| `SIMONE_AUTH_REQUIRED` | Enable OAuth 2.1 (true/false) |
-| `SIMONE_OAUTH_JWKS_URL` | JWKS endpoint for token validation |
+- **`SIMONE_HOST`** env var: defaults to `0.0.0.0` for `serve` (exposes to network). Set to `127.0.0.1` for loopback only.
+- **`SIMONE_BASE_URL`** env var: used to build the `url` field in the agent card. Defaults to `http://localhost:{port}`.
+- **Default port: 8234** (configurable via `serve <port>`).
+- **`integrate` patches OpenCode config**: it backs up `opencode.json` to `opencode.json.bak` once, then sets `mcp.sin-simone-mcp` and `permission.grep/glob` to `deny`. Idempotent.
 
-## Broken Links Check
-- No internal links to other `.doc.md` files in this module.
+## Design decisions
+
+- **Why an `integrate` subcommand?** A discoverable one-liner for the most common setup task. Without it, users would have to hand-edit `opencode.json`.
+- **Why `validate` exits non-zero on issues?** Lets CI catch misconfigured servers before they hit production.
+- **Why lazy-import `uvicorn`?** Keeps `simone tool-list` and `simone validate` fast (no uvicorn import cost).
+
+## Usage examples
+
+```bash
+# Start the server on the default port
+simone serve
+
+# Start on a custom port
+simone serve 9000
+
+# Run a single action from a JSON payload
+simone run-action '{"action": "simone.mcp.health"}'
+
+# Validate the server config
+simone validate
+
+# Wire into OpenCode (one-time)
+simone integrate
+```
+
+## Caveats / footguns
+
+- `integrate` modifies the user's `~/.config/opencode/opencode.json` in place (with backup). Inspect the diff before re-running.
+- The `print-card` URL uses `SIMONE_BASE_URL` (or `localhost:8234`). If you're behind a reverse proxy, set this to the public URL.
+- `validate` checks QDRANT/Neo4j connectivity by actually connecting. Don't run it in environments where outbound connections are blocked.

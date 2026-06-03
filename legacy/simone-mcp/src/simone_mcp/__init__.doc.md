@@ -1,31 +1,30 @@
-# `src/simone_mcp/__init__.py` — Package Public API
+# `simone_mcp/__init__.py` — Simone MCP Package API
 
-Partner file: `src/simone_mcp/__init__.py`
+What this file does: re-exports the public API (`main`, the tool functions) and silences the "no handlers" warning.
 
-## Purpose
-Defines the public API surface of the `simone_mcp` package. All external consumers import from this module. Attaches a `NullHandler` to suppress log spam when the package is imported without logging configuration.
+## Dependency map
 
-## Key Symbols
-| Symbol | Source | Purpose |
-|--------|--------|---------|
-| `_build_realtime_url` | `core.py` | Supabase realtime URL builder |
-| `build_agent_card` | `core.py` | A2A agent discovery card |
-| `dashboard` | `core.py` | HTML dashboard generator |
-| `execute_simone_action` | `core.py` | Main action dispatcher |
-| `find_references` | `core.py` | Symbol reference search |
-| `find_symbol` | `core.py` | Symbol definition search |
-| `get_project_overview` | `core.py` | Workspace footprint summary |
-| `insert_after_symbol` | `core.py` | Insert code after symbol |
-| `process_lsp_task` | `core.py` | LSP task processor |
-| `replace_symbol_body` | `core.py` | Replace symbol body safely |
+- Imports: `.cli` (main), `.core` (10 functions).
+- Imported by: external user code, the `src/cli.py` and `src/mcp_server.py` shims.
 
-## Relationship
-- `src/simone_mcp/core.py` — all functions re-exported from here
-- `src/cli.py` — uses these symbols via direct imports
+## Public API
 
-## Dependencies
-- `simone_mcp.core`
-- `logging.NullHandler`
+```python
+from simone_mcp import (
+    main,                      # CLI entry point
+    _build_realtime_url,       # utility
+    build_agent_card,          # A2A discovery
+    dashboard,                 # HTML dashboard
+    execute_simone_action,     # main dispatcher
+    find_references,
+    find_symbol,
+    get_project_overview,
+    insert_after_symbol,
+    replace_symbol_body,
+)
+```
 
-## Notes
-`__all__` is explicitly defined to control the public API. Do not add symbols here without updating the `__all__` list.
+## Caveats / footguns
+
+- `logging.getLogger(__name__).addHandler(NullHandler())` keeps imports quiet for consumers that haven't configured logging. Don't remove it without coordinating with downstream packages.
+- `process_lsp_task` was removed from the public re-exports (the underlying function still exists in `core.py` for backward compat). New code should use `execute_simone_action`.

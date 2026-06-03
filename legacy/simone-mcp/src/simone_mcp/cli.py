@@ -1,3 +1,11 @@
+"""Command-line interface for the `simone` command.
+
+Supports: `serve`, `serve-mcp`, `print-card`, `run-action`, `index`,
+`validate`, `integrate`, `tool-list`. The `src/cli.py` shim is a
+1-line delegate to `main()`.
+
+Docs: cli.doc.md
+"""
 from __future__ import annotations
 
 import asyncio

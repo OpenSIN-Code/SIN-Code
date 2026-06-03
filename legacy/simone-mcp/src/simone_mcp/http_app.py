@@ -1,3 +1,17 @@
+"""FastAPI application — streamable HTTP / SSE / A2A transport.
+
+The HTTP front door. Wires:
+  - CORS (default-allow: localhost, 127.0.0.1, opensin.ai)
+  - Origin validation
+  - OAuth 2.1 bearer-token auth (when `SIMONE_AUTH_REQUIRED=true`)
+  - Per-IP rate limiting (default 100 req / 60s)
+  - Body size cap (default 1 MB)
+  - MCP `/mcp` (POST/GET/DELETE)
+  - A2A `/a2a/v1`
+  - Discovery `/health`, `/dashboard`, `/.well-known/agent.json`, etc.
+
+Docs: http_app.doc.md
+"""
 from __future__ import annotations
 
 import asyncio
@@ -30,19 +44,27 @@ from .protocol import handle_mcp_request, _log_event, _get_events_after, PROTOCO
 
 logger = logging.getLogger(__name__)
 
+# ── Configurable defaults (env-overridable) ────────────────────────────
+# 60s window, 100 req/window = a generous but bounded budget per IP.
 _RATE_LIMIT_WINDOW = int(os.getenv("SIMONE_RATE_LIMIT_WINDOW", "60"))
 _RATE_LIMIT_MAX = int(os.getenv("SIMONE_RATE_LIMIT_MAX", "100"))
 _RATE_LIMIT_CLEANUP_EVERY = 128
+# 1 MiB request body cap — large enough for any reasonable MCP payload,
+# small enough to bound DoS exposure.
 _MAX_REQUEST_BODY = int(os.getenv("SIMONE_MAX_REQUEST_BODY", "1048576"))
 _rate_limit_store: dict[str, list[float]] = defaultdict(list)
 _rate_limit_op_count = 0
 _rate_limit_lock = threading.Lock()
 
+# Cached environment lookups. FastAPI startup parses these once; subsequent
+# requests hit the cache. Invalidation is currently a process restart —
+# a future change can add a `SIGHUP` handler to refresh.
 _allowed_origins_cache: set[str] | None = None
 _allowed_origins_lock = threading.Lock()
 _auth_required_cache: bool | None = None
 
 
+# ── Config helpers ─────────────────────────────────────────────────────
 def _get_allowed_origins() -> set[str]:
     global _allowed_origins_cache
     if _allowed_origins_cache is not None:
@@ -69,6 +91,12 @@ def _should_require_auth() -> bool:
 
 
 def _check_rate_limit(client_id: str) -> None:
+    """Sliding-window rate limit: 100 req / 60s per client_id (IP).
+
+    Raises:
+        HTTPException: 429 with `Retry-After` header when over budget.
+    """
+    global _rate_limit_op_count
     global _rate_limit_op_count
     with _rate_limit_lock:
         now = time.monotonic()
@@ -94,6 +122,12 @@ def _check_rate_limit(client_id: str) -> None:
 
 
 def _extract_client_ip(request: Request) -> str:
+    """Return the rightmost IP from `X-Forwarded-For`, or `request.client.host`.
+
+    The rightmost is the originating client (the proxy chain is
+    left-to-right; we trust the LAST one). Falls back to "unknown".
+    """
+    forwarded = request.headers.get("x-forwarded-for", "")
     forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded:
         rightmost = forwarded.rsplit(",", 1)[-1].strip()
@@ -103,6 +137,23 @@ def _extract_client_ip(request: Request) -> str:
 
 
 def _base_url(request: Request) -> str:
+    """Return the request's base URL (no trailing slash)."""
+    return str(request.base_url).rstrip("/")
+
+
+def _verify_token(token: str) -> dict[str, Any]:
+    """Verify an OAuth 2.1 JWT against the configured JWKS URL.
+
+    Reads `SIMONE_OAUTH_AUDIENCE`, `SIMONE_OAUTH_ISSUER`, and
+    `SIMONE_OAUTH_ALGORITHMS` (comma-separated). The signature key is
+    fetched from the JWKS endpoint on each call — this is a deliberate
+    correctness trade-off (no stale-key risk) at the cost of one
+    HTTPS round-trip per request.
+
+    Raises:
+        HTTPException: 401 on any verification failure.
+    """
+    audience = os.getenv("SIMONE_OAUTH_AUDIENCE", "simone-mcp")
     return str(request.base_url).rstrip("/")
 
 
@@ -130,6 +181,17 @@ def _verify_token(token: str) -> dict[str, Any]:
 
 
 def _authorize_request(request: Request) -> dict[str, Any] | None:
+    """Run origin + auth checks for a request.
+
+    Returns:
+        The decoded JWT claims if the request is authorized, `None` for
+        unauthenticated open paths, or raises `HTTPException` for bad tokens.
+
+    Raises:
+        HTTPException: 401 if auth is required and the token is missing/invalid.
+    """
+    if request.url.path in OPEN_PATHS:
+        return None
     if request.url.path in OPEN_PATHS:
         return None
     if not _should_require_auth():
@@ -147,6 +209,15 @@ def _authorize_request(request: Request) -> dict[str, Any] | None:
 
 
 def _validate_origin(request: Request) -> None:
+    """Reject requests whose `Origin` header isn't in the allow-list.
+
+    Only enforced when an Origin header is present (browser requests);
+    server-to-server callers don't set Origin and are unaffected.
+
+    Raises:
+        HTTPException: 403 with `origin_not_allowed` detail.
+    """
+    origin = request.headers.get("origin")
     origin = request.headers.get("origin")
     if not origin:
         return
@@ -155,6 +226,12 @@ def _validate_origin(request: Request) -> None:
 
 
 async def _read_json_body(request: Request) -> dict[str, Any] | list[Any]:
+    """Read and JSON-parse the request body, enforcing the size cap.
+
+    Raises:
+        HTTPException: 413 if body too large, 400 on invalid JSON.
+    """
+    body = await request.body()
     body = await request.body()
     if len(body) > _MAX_REQUEST_BODY:
         raise HTTPException(status_code=413, detail="request_body_too_large")
@@ -165,6 +242,13 @@ async def _read_json_body(request: Request) -> dict[str, Any] | list[Any]:
 
 
 async def _mcp_post(request: Request) -> JSONResponse | StreamingResponse:
+    """MCP POST: handle JSON-RPC request(s), validate Mcp-* headers, return responses.
+
+    Supports batch (array) payloads, enforces header/body agreement for
+    `Mcp-Method`, `Mcp-Name`, and `Mcp-Param-*`, and attaches correlation
+    IDs to successful results.
+    """
+    raw_payload = await _read_json_body(request)
     raw_payload = await _read_json_body(request)
     session_id = request.headers.get("Mcp-Session-Id") or None
     client_protocol_version = request.headers.get("MCP-Protocol-Version")
@@ -290,6 +374,12 @@ async def _mcp_post(request: Request) -> JSONResponse | StreamingResponse:
 
 
 async def _mcp_get(request: Request) -> StreamingResponse:
+    """MCP GET: open an SSE stream. Replays missed events then sends heartbeats.
+
+    Clients reconnect with `Last-Event-ID` to resume. The stream is
+    long-lived; a 30s ping keeps proxies from idling it out.
+    """
+    session_id = request.headers.get("Mcp-Session-Id") or str(uuid.uuid4())
     session_id = request.headers.get("Mcp-Session-Id") or str(uuid.uuid4())
     last_event_id = request.headers.get("Last-Event-ID")
     event_counter = 0
@@ -329,6 +419,13 @@ async def _mcp_get(request: Request) -> StreamingResponse:
 
 
 def create_app() -> FastAPI:
+    """Build the FastAPI app with all middleware and routes wired up.
+
+    Wires CORS, security middleware (origin + auth + rate limit), the
+    `/.well-known/` discovery endpoints, `/mcp` (POST/GET/DELETE),
+    `/a2a/v1` (POST), `/health`, `/dashboard`, and `/` (root).
+    """
+    from contextlib import asynccontextmanager
     from contextlib import asynccontextmanager
 
     @asynccontextmanager

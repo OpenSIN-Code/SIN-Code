@@ -1,3 +1,11 @@
+"""Pydantic schemas for JSON-RPC payloads and per-tool arguments.
+
+The `TOOL_ARG_MODELS` dict is the single source of truth for which
+arguments a tool accepts. `protocol.py` looks up the model by tool
+name and validates the `tools/call` arguments before dispatch.
+
+Docs: schemas.doc.md
+"""
 from __future__ import annotations
 
 from typing import Any, Literal

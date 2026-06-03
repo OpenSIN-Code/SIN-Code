@@ -1,25 +1,662 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    "simone-mcp": {
+    "opencode-bypass-v2": {
       "type": "local",
       "command": [
         "node",
-        "/Users/jeremy/dev/Simone-MCP/dist/src/cli.js",
+        "/Users/jeremy/.config/opencode/local-plugins/opencode-bypass-v2/index.js"
+      ],
+      "enabled": true
+    },
+    "sin-document-forge": {
+      "type": "local",
+      "command": [
+        "python3",
+        "/Users/jeremy/dev/sin-telegrambot-cli/mcp/mcp_sin_document_forge.py"
+      ],
+      "enabled": true
+    },
+    "sin-telegrambot": {
+      "type": "local",
+      "command": [
+        "python3",
+        "/Users/jeremy/dev/sin-telegrambot-cli/mcp/mcp_sin_telegrambot.py"
+      ],
+      "enabled": true
+    },
+    "tavily": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@tavily/claude-mcp"
+      ],
+      "environment": {
+        "TAVILY_API_KEY": "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"
+      },
+      "enabled": false
+    },
+    "canva": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@canva/claude-mcp"
+      ],
+      "enabled": false
+    },
+    "context7": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@anthropics/context7-mcp"
+      ],
+      "enabled": false
+    },
+    "chrome-devtools": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@anthropics/chrome-devtools-mcp"
+      ],
+      "enabled": false
+    },
+    "linear": {
+      "type": "remote",
+      "url": "https://mcp.linear.app/sse",
+      "enabled": false
+    },
+    "singularity": {
+      "type": "local",
+      "command": [
+        "node",
+        "/Users/jeremy/.singularity/CLI/bin/singularity.js",
+        "mcp"
+      ],
+      "enabled": false
+    },
+    "sin-google-apps": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-google-apps-mcp"
+      ],
+      "environment": {
+        "SIN_GOOGLE_APPS_HOST": "127.0.0.1",
+        "SIN_GOOGLE_APPS_PORT": "45872",
+        "SIN_GOOGLE_APPS_PUBLIC_BASE_URL": "https://a2a-sin-google-apps.delqhi.com"
+      },
+      "enabled": true
+    },
+    "sin-server": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-server",
         "serve-mcp"
       ],
       "enabled": true
+    },
+    "sin-cloudflare": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-cloudflare",
+        "serve-mcp"
+      ],
+      "enabled": true
+    },
+    "sin-passwordmanager": {
+      "type": "local",
+      "command": [
+        "node",
+        "/Users/jeremy/dev/OpenSIN-backend/a2a/team-infratructur/A2A-SIN-Passwordmanager/dist/src/cli.js",
+        "serve-mcp"
+      ],
+      "environment": {
+        "SIN_PASSWORDMANAGER_HOST": "127.0.0.1",
+        "SIN_PASSWORDMANAGER_PORT": "4646"
+      },
+      "enabled": true
+    },
+    "sin-research": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-research",
+        "serve-mcp"
+      ],
+      "enabled": true
+    },
+    "sin-team-worker": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-team-worker",
+        "serve-mcp"
+      ],
+      "enabled": true
+    },
+    "sin-tiktok": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-tiktok",
+        "serve-mcp"
+      ],
+      "enabled": true
+    },
+    "sin-tiktok-shop": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-tiktok-shop",
+        "serve-mcp"
+      ],
+      "enabled": true
+    },
+    "sin-terminal": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-terminal",
+        "serve-mcp"
+      ],
+      "enabled": true
+    },
+    "sin-authenticator": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-authenticator",
+        "serve-mcp"
+      ],
+      "environment": {
+        "AUTHD_HOST": "127.0.0.1",
+        "AUTHD_PORT": "44711",
+        "SIN_AUTH_HOST": "127.0.0.1",
+        "SIN_AUTH_PORT": "45871",
+        "SIN_AUTH_PUBLIC_BASE_URL": "https://delqhi-sin-authenticator.hf.space"
+      },
+      "enabled": true
+    },
+    "sin-github-issues": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-github-issues",
+        "serve-mcp"
+      ],
+      "enabled": true
+    },
+    "sin-oraclecloud-mcp": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-oraclecloud-mcp",
+        "serve-mcp"
+      ],
+      "enabled": true
+    },
+    "n8n-workflow-builder": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "mcp-n8n-builder"
+      ],
+      "environment": {
+        "N8N_HOST": "http://92.5.60.87:5678/api/v1",
+        "N8N_API_KEY": "n8n_api_69175bcabef4b10d619b43598cd557a92ee38aac5ae4b1ca",
+        "OUTPUT_VERBOSITY": "concise"
+      },
+      "enabled": true
+    },
+    "sin-google-docs": {
+      "type": "local",
+      "command": [
+        "python3",
+        "/Users/jeremy/dev/sin-telegrambot-cli/mcp/mcp_sin_google_docs.py"
+      ],
+      "enabled": true
+    },
+    "sin-summary": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-summary",
+        "serve-mcp"
+      ],
+      "enabled": true
+    },
+    "sin-paragraph": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/dev/OpenSIN-backend/bin/sin-paragraph",
+        "serve-mcp"
+      ],
+      "enabled": true
+    },
+    "simone-mcp": {
+      "type": "local",
+      "command": [
+        "python3",
+        "-c",
+        "import sys;sys.path.insert(0,'/Users/jeremy/dev/Simone-MCP/src');from simone_mcp.mcp_stdio import serve_stdio;import asyncio;asyncio.run(serve_stdio())"
+      ],
+      "environment": {
+        "PYTHONPATH": "/Users/jeremy/dev/Simone-MCP/src"
+      },
+      "enabled": true
+    },
+    "firecrawl": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@mendable/firecrawl-mcp"
+      ],
+      "environment": {
+        "FIRECRAWL_API_URL": ""
+      },
+      "enabled": false
+    },
+    "sin-brain": {
+      "type": "local",
+      "command": [
+        "node",
+        "/Users/jeremy/dev/global-brain/src/mcp/sin-brain-server.mjs"
+      ],
+      "enabled": true
+    },
+    "sin-preview": {
+      "type": "local",
+      "command": [
+        "node",
+        "/Users/jeremy/dev/global-brain/src/mcp/preview-server.mjs"
+      ],
+      "enabled": true
+    },
+    "sin-neural-bus": {
+      "type": "local",
+      "command": [
+        "node",
+        "/Users/jeremy/.local/bin/opensin-neural-bus-mcp"
+      ],
+      "enabled": false
+    },
+    "gitnexus": {
+      "type": "local",
+      "command": [
+        "/Users/jeremy/Library/pnpm/nodejs/22.14.0/bin/gitnexus",
+        "mcp"
+      ]
     }
   },
   "plugin": [
-    "opencode-antigravity-auth@1.6.5-beta.0",
-    "opencode-antigravity-image@latest",
-    "opencode-openrouter-auth",
-    "opencode-qwen-auth",
-    "/Users/jeremy/.config/opencode/local-plugins/oh-my-opencode-sin",
-    "/Users/jeremy/.config/opencode/plugins/omoc-swarm.ts"
+    "file:///Users/jeremy/.config/opencode/plugins/rtk.ts"
   ],
   "provider": {
-    "openai": {}
+    "vercel-pool": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Vercel Pool (SIN)",
+      "options": {
+        "baseURL": "http://localhost:8001/v1",
+        "apiKey": "dummy"
+      },
+      "models": {
+        "minimax-m3": {
+          "id": "minimax/minimax-m3",
+          "name": "MiniMax M3 (Pool)",
+          "options": {
+            "temperature": 0
+          },
+          "variants": {
+            "off": {
+              "reasoning": {
+                "type": "disabled"
+              },
+              "temperature": 0
+            },
+            "low": {
+              "reasoning": {
+                "type": "enabled",
+                "effort": "low"
+              },
+              "temperature": 0
+            },
+            "medium": {
+              "reasoning": {
+                "type": "enabled",
+                "effort": "medium"
+              },
+              "temperature": 0
+            },
+            "high": {
+              "reasoning": {
+                "type": "enabled",
+                "effort": "high"
+              },
+              "temperature": 0
+            }
+          },
+          "limit": {
+            "context": 1048576,
+            "output": 65536
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        }
+      }
+    },
+    "fireworks-ai": {
+      "npm": "@ai-sdk/fireworks",
+      "name": "Fireworks AI",
+      "models": {
+        "deepseek-v4-pro": {
+          "id": "fireworks/deepseek-v4-pro",
+          "name": "DeepSeek V4 Pro (SIN)",
+          "options": {
+            "thinking": {
+              "type": "enabled",
+              "budgetTokens": 64000
+            }
+          },
+          "variants": {
+            "off": {
+              "thinking": {
+                "type": "disabled"
+              }
+            },
+            "low": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 4000
+              }
+            },
+            "medium": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 16000
+              }
+            },
+            "high": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 64000
+              }
+            },
+            "max": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 128000
+              }
+            }
+          },
+          "limit": {
+            "context": 1048576,
+            "output": 65536
+          }
+        },
+        "glm-5p1": {
+          "id": "fireworks/glm-5p1",
+          "name": "GLM 5.1 (SIN)",
+          "options": {
+            "thinking": {
+              "type": "enabled",
+              "budgetTokens": 32000
+            }
+          },
+          "variants": {
+            "off": {
+              "thinking": {
+                "type": "disabled"
+              }
+            },
+            "low": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 4000
+              }
+            },
+            "medium": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 16000
+              }
+            },
+            "high": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 32000
+              }
+            },
+            "max": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 64000
+              }
+            }
+          },
+          "limit": {
+            "context": 202752,
+            "output": 32768
+          }
+        },
+        "kimi-k2p6": {
+          "id": "fireworks/kimi-k2p6",
+          "name": "Kimi K2.6 (SIN)",
+          "options": {
+            "thinking": {
+              "type": "enabled",
+              "budgetTokens": 32000
+            }
+          },
+          "variants": {
+            "off": {
+              "thinking": {
+                "type": "disabled"
+              }
+            },
+            "low": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 4000
+              }
+            },
+            "medium": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 16000
+              }
+            },
+            "high": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 32000
+              }
+            },
+            "max": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 64000
+              }
+            }
+          },
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "qwen3p6-plus": {
+          "id": "accounts/fireworks/models/qwen3p6-plus",
+          "name": "Qwen3.6 Plus (SIN)",
+          "options": {
+            "thinking": {
+              "type": "enabled",
+              "budgetTokens": 32000
+            }
+          },
+          "variants": {
+            "off": {
+              "thinking": {
+                "type": "disabled"
+              }
+            },
+            "low": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 4000
+              }
+            },
+            "medium": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 16000
+              }
+            },
+            "high": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 32000
+              }
+            },
+            "max": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 64000
+              }
+            }
+          },
+          "limit": {
+            "context": 131072,
+            "output": 32768
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "minimax-m2p7": {
+          "id": "fireworks/minimax-m2p7",
+          "name": "MiniMax M2.7 (SIN)",
+          "options": {
+            "thinking": {
+              "type": "enabled",
+              "budgetTokens": 32000
+            }
+          },
+          "variants": {
+            "off": {
+              "thinking": {
+                "type": "disabled"
+              }
+            },
+            "low": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 4000
+              }
+            },
+            "medium": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 16000
+              }
+            },
+            "high": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 32000
+              }
+            },
+            "max": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 64000
+              }
+            }
+          },
+          "limit": {
+            "context": 196608,
+            "output": 32768
+          }
+        }
+      },
+      "options": {
+        "baseURL": "http://localhost:8888/inference/v1"
+      }
+    }
+  },
+  "mcpServers": {
+    "sin-discover": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/discover",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Discover files with relevance scoring and dependency analysis"
+    },
+    "sin-execute": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/execute",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Execute shell commands safely with secret redaction"
+    },
+    "sin-map": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/map",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Map code architecture with dependency graphs"
+    },
+    "sin-grasp": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/grasp",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Deep code understanding for individual files"
+    },
+    "sin-scout": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/scout",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Search code with regex, semantic, and symbol search"
+    },
+    "sin-harvest": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/harvest",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Fetch URLs with caching and structure extraction"
+    },
+    "sin-orchestrate": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/orchestrate",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Manage tasks with dependencies and rollback plans"
+    }
   }
 }

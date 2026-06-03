@@ -1,3 +1,16 @@
+"""Core Simone MCP logic — tool definitions, agent card, file/code actions.
+
+This module is the heart of the agent: it defines the MCP tool surface
+(`TOOL_DEFINITIONS`), the A2A agent card, the `execute_simone_action`
+dispatcher, and the individual file/code actions (find symbol, find
+references, structural edit, etc.).
+
+Most actions are language-aware: Python uses the stdlib `ast` (or
+`libcst` if available, for safe source-preserving edits); JS/TS use
+`tree-sitter` if available, else a regex fallback.
+
+Docs: core.doc.md
+"""
 from __future__ import annotations
 
 import ast
@@ -11,6 +24,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
+# ── Optional dependency detection ─────────────────────────────────────
+# Each try/except sets a `HAS_*` flag; the corresponding code path
+# degrades gracefully when the dep is missing.
 try:
     import libcst as cst  # type: ignore[import-not-found]
     HAS_LIBCST = True
@@ -39,12 +55,15 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
+# ── Agent identity (re-exported by the A2A / .well-known endpoints) ───
 AGENT_NAME = "simone-mcp"
 AGENT_DISPLAY_NAME = "Simone MCP"
 AGENT_VERSION = "2026.06.30"
 AGENT_DESCRIPTION = "Production-grade MCP 2.0 code worker with symbol operations, streamable HTTP transport, OAuth 2.1 readiness, and hybrid memory integrations."
 MCP_ENDPOINT = "/mcp"
 A2A_ENDPOINT = "/a2a/v1"
+# Paths that bypass auth + rate limiting. Anything not in this set
+# requires a valid OAuth 2.1 bearer token.
 OPEN_PATHS = {
     "/",
     "/health",
@@ -544,6 +563,17 @@ CAPABILITIES = [tool["name"] for tool in TOOL_DEFINITIONS] + [
 
 
 def build_agent_card(base_url: str) -> dict[str, Any]:
+    """Build the A2A agent discovery card served at `/.well-known/agent.json`.
+
+    Args:
+        base_url: The server's public base URL (e.g. `https://simone.example.com`).
+                  The card embeds this in `url` and constructs endpoint paths from it.
+
+    Returns:
+        A dict matching the A2A agent-card schema: name, version, capabilities,
+        endpoints, auth config, and the list of `skills` (one per tool).
+    """
+    normalized_base_url = base_url.rstrip("/")
     normalized_base_url = base_url.rstrip("/")
     return {
         "name": AGENT_NAME,
@@ -587,6 +617,13 @@ def build_agent_card(base_url: str) -> dict[str, Any]:
 
 
 def build_oauth_client_metadata(base_url: str) -> dict[str, Any]:
+    """Build the OAuth 2.1 client metadata document.
+
+    Returned at `/.well-known/oauth-client.json`. The `redirect_uris` list
+    includes the loopback `127.0.0.1/callback` as a fallback for desktop
+    clients that can't open a public URL.
+    """
+    callback = f"{base_url.rstrip('/')}/oauth/callback"
     callback = f"{base_url.rstrip('/')}/oauth/callback"
     return {
         "client_name": AGENT_NAME,
@@ -599,6 +636,13 @@ def build_oauth_client_metadata(base_url: str) -> dict[str, Any]:
 
 
 def build_authorization_server_metadata(base_url: str) -> dict[str, Any]:
+    """Build the OAuth 2.1 authorization server metadata.
+
+    Returned at `/.well-known/oauth-authorization-server`. Endpoints default
+    to `<issuer>/authorize`, `<issuer>/token`, etc., but each can be
+    overridden via the matching `SIMONE_OAUTH_*` env var.
+    """
+    normalized_base_url = base_url.rstrip("/")
     normalized_base_url = base_url.rstrip("/")
     issuer = os.getenv("SIMONE_OAUTH_ISSUER") or normalized_base_url
     authorization_endpoint = (
@@ -623,6 +667,13 @@ def build_authorization_server_metadata(base_url: str) -> dict[str, Any]:
 
 
 def _build_realtime_url(supabase_url: str) -> str:
+    """Convert a Supabase HTTPS URL to its WebSocket realtime URL.
+
+    Maps `https://x.supabase.co` → `wss://x.supabase.co/realtime/v1`,
+    preserving any non-default base path. The Supabase Realtime channel
+    always lives at `/realtime/v1` regardless of project layout.
+    """
+    parsed = urlparse(supabase_url.rstrip("/"))
     parsed = urlparse(supabase_url.rstrip("/"))
     scheme = "wss" if parsed.scheme == "https" else "ws"
     path = parsed.path.rstrip("/")
@@ -632,39 +683,94 @@ def _build_realtime_url(supabase_url: str) -> str:
 
 
 def _workspace_root(value: str | None) -> Path:
+    """Resolve a workspace root path or fall back to the current directory.
+
+    Args:
+        value: A path string (may be `None`). Expanded with `~` and made absolute.
+
+    Returns:
+        The resolved `Path`. When `value` is falsy, returns `Path.cwd()`.
+    """
     return Path(value).expanduser().resolve() if value else Path.cwd()
 
 
 class PathTraversalError(ValueError):
+    """Raised when a path operation would escape the workspace root.
+
+    Subclass of `ValueError` so callers can catch either; subclasses
+    `ValueError` rather than `PermissionError` to keep the failure mode
+    "bad input" rather than "denied access".
+    """
     pass
 
 
 def _validate_file_in_workspace(file_path: Path, root: Path | None = None) -> Path:
+    """Resolve `file_path` and ensure it stays inside `root` (if given).
+
+    Args:
+        file_path: The candidate path. Resolved with symlinks.
+        root: Optional workspace root. If `None`, no traversal check is done.
+
+    Returns:
+        The resolved path.
+
+    Raises:
+        PathTraversalError: if the resolved path is outside `root`.
+    """
     resolved = file_path.resolve()
     if root is not None:
         workspace = root.resolve()
         try:
             resolved.relative_to(workspace)
         except ValueError:
+            # `relative_to` raises ValueError on a path that isn't a
+            # descendant — which is exactly the "escape" case.
             raise PathTraversalError(f"Path {resolved} is outside workspace {workspace}")
     return resolved
 
 
+# ── Path / extension constants ────────────────────────────────────────
+# Directory parts that we never descend into when scanning. Adding to
+# this set is a security/performance choice: avoid `node_modules`,
+# venvs, and tool-specific caches.
 _PY_BLOCKED = {
     ".git", ".venv", "venv", "node_modules", "__pycache__",
     ".serena", ".pcpm", "data", "profiles", "forensics",
     "cache", ".pytest_cache", "site-packages",
 }
 _JS_TS_EXTENSIONS = {".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts"}
+# Tree-sitter node types that introduce a named JS/TS symbol.
 _TSX_QUERY_NAMES = frozenset({
     "function_declaration", "method_definition", "class_declaration",
     "arrow_function", "variable_declarator",
 })
+# Tree-sitter parsers are not thread-safe; share one instance under a lock.
 _TS_PARSER_LOCK = threading.Lock()
 _TS_PARSER_CACHE: tuple[Any, Any] | None = None
 
 
 def _candidate_files(root: Path) -> list[Path]:
+    """Return the source files under `root` that the symbol scanners care about.
+
+    Filters:
+      - Skip symlinks that escape the resolved root (security).
+      - Skip any path containing a `_PY_BLOCKED` directory.
+      - Keep only `.py`, `.js`, `.jsx`, `.ts`, `.tsx`, `.mjs`, `.cjs`, `.mts`, `.cts`.
+      - Returned sorted (stable iteration order for tests).
+    """
+    resolved_root = root.resolve()
+    paths: list[Path] = []
+    for path in root.rglob("*"):
+        if not path.is_file():
+            continue
+        # Reject symlinks that point outside the workspace.
+        if path.is_symlink() and not path.resolve().is_relative_to(resolved_root):
+            continue
+        if any(part in _PY_BLOCKED for part in path.parts):
+            continue
+        if path.suffix in {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts"}:
+            paths.append(path)
+    return sorted(paths)
     resolved_root = root.resolve()
     paths: list[Path] = []
     for path in root.rglob("*"):
@@ -680,6 +786,13 @@ def _candidate_files(root: Path) -> list[Path]:
 
 
 def _ts_parsers() -> tuple[Any, Any] | None:
+    """Lazily build and cache a `(ts_parser, tsx_parser)` pair.
+
+    Returns `None` if `tree-sitter` or `tree-sitter-typescript` aren't
+    installed (the caller falls back to regex). The parsers are cached
+    module-globally under a lock because tree-sitter parsers are
+    expensive to construct and not thread-safe.
+    """
     global _TS_PARSER_CACHE
     with _TS_PARSER_LOCK:
         if _TS_PARSER_CACHE is not None:
@@ -699,6 +812,47 @@ def _ts_parsers() -> tuple[Any, Any] | None:
 
 
 def _extract_symbols_treesitter(path: Path) -> list[dict[str, Any]]:
+    """Use tree-sitter to find named symbols in a JS/TS file.
+
+    Iterative DFS (stack-based, not `tree.walk()`) to keep memory low on
+    huge files. Returns one dict per named symbol with file/line/column.
+    Falls back to `_extract_symbols_js_regex` if tree-sitter isn't available.
+    """
+    parsers = _ts_parsers()
+    if parsers is None:
+        return _extract_symbols_js_regex(path)
+    ts_parser, tsx_parser = parsers
+    # Use the TSX parser for `.tsx`/`.jsx` so it can parse JSX correctly.
+    parser = tsx_parser if path.suffix in {".tsx", ".jsx"} else ts_parser
+    try:
+        source = path.read_bytes()
+        tree = parser.parse(source)
+    except (OSError, UnicodeDecodeError):
+        logger.debug("Failed to read %s for tree-sitter", path, exc_info=True)
+        return []
+    matches: list[dict[str, Any]] = []
+    stack = [tree.root_node]
+    while stack:
+        node = stack.pop()
+        if node.type in _TSX_QUERY_NAMES:
+            name_node = node.child_by_field_name("name")
+            if name_node is not None:
+                symbol_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
+                # Tree-sitter's type string is e.g. "function_declaration" or
+                # "arrow_function"; we coerce to a small set of `kind` values.
+                kind = "class" if "class" in node.type else "function"
+                matches.append({
+                    "symbol": symbol_name,
+                    "kind": kind,
+                    "file": str(path),
+                    "line": node.start_point[0] + 1,
+                    "column": node.start_point[1],
+                    "endLine": node.end_point[0] + 1,
+                    "endColumn": node.end_point[1],
+                })
+        if hasattr(node, "children"):
+            stack.extend(node.children)
+    return matches
     parsers = _ts_parsers()
     if parsers is None:
         return _extract_symbols_js_regex(path)
@@ -742,6 +896,35 @@ _JS_SYMBOL_PATTERN = re.compile(
 
 
 def _extract_symbols_js_regex(path: Path) -> list[dict[str, Any]]:
+    """Regex-based JS/TS symbol extractor. Used when tree-sitter is unavailable.
+
+    Matches a single line at a time. Captures:
+      - `function NAME(...)`              → `kind: "function"`
+      - `class NAME ...`                  → `kind: "class"`
+      - `const NAME = (...) => ...`       → `kind: "function"`
+    """
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    matches: list[dict[str, Any]] = []
+    for line_no, line in enumerate(content.splitlines(), start=1):
+        m = _JS_SYMBOL_PATTERN.match(line)
+        if not m:
+            continue
+        symbol_name = m.group("func") or m.group("class") or m.group("const")
+        if symbol_name:
+            kind = "class" if m.group("class") else "function"
+            matches.append({
+                "symbol": symbol_name,
+                "kind": kind,
+                "file": str(path),
+                "line": line_no,
+                "column": m.start(),
+                "endLine": line_no,
+                "endColumn": m.end(),
+            })
+    return matches
     try:
         content = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
@@ -767,6 +950,48 @@ def _extract_symbols_js_regex(path: Path) -> list[dict[str, Any]]:
 
 
 def _parse_file(path: Path) -> ast.AST | None:
+    """Parse a Python file into an AST, returning `None` on any failure.
+
+    Catches OSError (missing file), SyntaxError (broken source), and
+    UnicodeDecodeError (binary file mislabeled). The caller treats
+    `None` as "skip this file".
+    """
+    try:
+        return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    except (OSError, SyntaxError, UnicodeDecodeError):
+        logger.debug("Failed to parse %s", path, exc_info=True)
+        return None
+
+
+def _iter_symbol_nodes(tree: ast.AST) -> list[ast.AST]:
+    """All function and class definitions anywhere in `tree`."""
+    return [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    ]
+
+
+def _symbol_kind(node: ast.AST) -> str:
+    """Map an AST symbol node to our `kind` string vocabulary (`function` / `async_function` / `class`)."""
+    if isinstance(node, ast.ClassDef):
+        return "class"
+    if isinstance(node, ast.AsyncFunctionDef):
+        return "async_function"
+    return "function"
+
+
+def find_symbol(payload: dict[str, Any]) -> dict[str, Any]:
+    """Find definitions of a symbol across the workspace.
+
+    Args:
+        payload: `{"symbol": str, "root": str?}`.
+
+    Returns:
+        `{"ok": True, "symbol": str, "count": N, "matches": [{symbol, kind, file, line, column, endLine, endColumn}, ...]}`.
+    """
+    symbol = str(payload.get("symbol") or "").strip()
+    root = _workspace_root(payload.get("root"))
     try:
         return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     except (OSError, SyntaxError, UnicodeDecodeError):
@@ -823,6 +1048,43 @@ def find_symbol(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def find_references(payload: dict[str, Any]) -> dict[str, Any]:
+    """Find textual references to a symbol across the workspace.
+
+    Uses `jedi` if installed (semantic), else a `\bNAME\b` regex.
+    """
+    symbol = str(payload.get("symbol") or "").strip()
+    root = _workspace_root(payload.get("root"))
+    if HAS_JEDI:
+        return _find_references_jedi(symbol, root)
+    return _find_references_regex(symbol, root)
+
+
+def _find_named_node(path: Path, symbol: str) -> ast.AST:
+    """Find the AST node for a top-level symbol in a Python file.
+
+    Raises:
+        ValueError: `unparseable_python_file` or `symbol_not_found`.
+    """
+    tree = _parse_file(path)
+    if tree is None:
+        raise ValueError("unparseable_python_file")
+    for node in _iter_symbol_nodes(tree):
+        if getattr(node, "name", None) == symbol:
+            return node
+    raise ValueError("symbol_not_found")
+
+
+def _preserve_trailing_newline(text: str, updated: str) -> str:
+    """Ensure `updated` ends with a newline iff `text` did.
+
+    Tools that edit text often drop the trailing newline; this helper
+    restores it so the file's on-disk shape matches the source.
+    """
+    return (
+        f"{updated}\n"
+        if text.endswith("\n") and not updated.endswith("\n")
+        else updated
+    )
     symbol = str(payload.get("symbol") or "").strip()
     root = _workspace_root(payload.get("root"))
     if HAS_JEDI:
@@ -831,6 +1093,12 @@ def find_references(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _find_references_jedi(symbol: str, root: Path) -> dict[str, Any]:
+    """Use Jedi to find references with semantic awareness.
+
+    For each candidate line, ask Jedi `goto` where the symbol resolves;
+    only report the line if one of the definitions matches the target.
+    """
+    project = jedi.Project(path=root)
     project = jedi.Project(path=root)
     matches: list[dict[str, Any]] = []
     total = 0
@@ -872,6 +1140,12 @@ def _find_references_jedi(symbol: str, root: Path) -> dict[str, Any]:
 
 
 def _find_references_regex(symbol: str, root: Path) -> dict[str, Any]:
+    """Regex-based reference search; the fallback when Jedi isn't available.
+
+    Counts every `\bNAME\b` match per line (so `count` can be > 1 for
+    repeated names on the same line).
+    """
+    pattern = re.compile(rf"\b{re.escape(symbol)}\b")
     pattern = re.compile(rf"\b{re.escape(symbol)}\b")
     matches: list[dict[str, Any]] = []
     total = 0
@@ -911,6 +1185,19 @@ def _preserve_trailing_newline(text: str, updated: str) -> str:
 
 
 def replace_symbol_body(payload: dict[str, Any]) -> dict[str, Any]:
+    """Replace a function/method's body with `body` text.
+
+    Uses `libcst` if available (preserves formatting); otherwise falls
+    back to a line-level AST splice. Both paths validate the workspace
+    boundary before writing.
+
+    Args:
+        payload: `{"symbol": str, "file": str, "body": str, "root"?: str}`.
+
+    Returns:
+        `{"ok": True, "symbol", "file", "engine": "libcst"|"ast"}` on success,
+        or `{"ok": False, "error", "symbol"}` on failure.
+    """
     try:
         symbol = str(payload.get("symbol") or "").strip()
         explicit_root = payload.get("root")
@@ -929,6 +1216,13 @@ def replace_symbol_body(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _replace_symbol_body_libcst(symbol: str, file_path: Path, body: str) -> dict[str, Any]:
+    """Use LibCST to replace a symbol's body, preserving all formatting.
+
+    Dedents the body to column 0 (LibCST parses at top level), then lets
+    the visitor indent back inside the function body. Refuses to write
+    if the source is unchanged (`symbol_not_found_or_unchanged`).
+    """
+    source = file_path.read_text(encoding="utf-8")
     source = file_path.read_text(encoding="utf-8")
 
     def _parse_body(code: str) -> list[cst.BaseStatement]:
@@ -975,6 +1269,13 @@ def _replace_symbol_body_libcst(symbol: str, file_path: Path, body: str) -> dict
 
 
 def _replace_symbol_body_ast(symbol: str, file_path: Path, body: str) -> dict[str, Any]:
+    """Fallback body-replacement using AST line ranges.
+
+    Re-indents `body` to `col_offset + 4` (the function's body indent).
+    Less safe than the LibCST path (loses comments, formatting) but
+    works without the optional dep.
+    """
+    original = file_path.read_text(encoding="utf-8")
     original = file_path.read_text(encoding="utf-8")
     lines = original.splitlines()
     node = _find_named_node(file_path, symbol)
@@ -994,6 +1295,14 @@ def _replace_symbol_body_ast(symbol: str, file_path: Path, body: str) -> dict[st
 
 
 def insert_after_symbol(payload: dict[str, Any]) -> dict[str, Any]:
+    """Insert `text` immediately after a symbol's last line.
+
+    Args:
+        payload: `{"symbol", "file", "text", "root"?}`.
+
+    Returns:
+        `{"ok": True, "symbol", "file", "engine": "libcst"|"ast"}` on success.
+    """
     try:
         symbol = str(payload.get("symbol") or "").strip()
         explicit_root = payload.get("root")
@@ -1017,6 +1326,16 @@ def insert_after_symbol(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_project_overview(payload: dict[str, Any]) -> dict[str, Any]:
+    """Summarize the workspace: file count + top-10 extensions + graphify summary.
+
+    Args:
+        payload: `{"root": str?}`.
+
+    Returns:
+        `{"ok", "root", "fileCount", "topExtensions": [{extension, count}, ...], "graphify"?: {...}}`.
+        The `graphify` key is present only when a graph.json exists.
+    """
+    root = _workspace_root(payload.get("root"))
     root = _workspace_root(payload.get("root"))
     counts: dict[str, int] = {}
     file_count = 0
@@ -1045,6 +1364,17 @@ def get_project_overview(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def write_file(payload: dict[str, Any]) -> dict[str, Any]:
+    """Write `content` to `path`, optionally creating parent directories.
+
+    Refuses to overwrite unless `overwrite=True`. Validates workspace
+    boundary before writing.
+
+    Args:
+        payload: `{"path", "content", "overwrite"?: bool, "root"?}`.
+
+    Returns:
+        `{"ok", "status", "path", "bytes_written"}` on success.
+    """
     try:
         target = Path(str(payload.get("path") or "")).expanduser().resolve()
         explicit_root = payload.get("root")
@@ -1076,6 +1406,14 @@ def write_file(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def edit_file(payload: dict[str, Any]) -> dict[str, Any]:
+    """Replace all occurrences of `old_string` with `new_string` in a file.
+
+    Args:
+        payload: `{"path", "old_string", "new_string", "root"?}`.
+
+    Returns:
+        `{"ok", "status", "path", "replacements_count"}` on success.
+    """
     try:
         target = Path(str(payload.get("path") or "")).expanduser().resolve()
         explicit_root = payload.get("root")
@@ -1112,6 +1450,15 @@ def edit_file(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def read_file(payload: dict[str, Any]) -> dict[str, Any]:
+    """Read a file with optional line offset and limit.
+
+    Args:
+        payload: `{"path", "offset"?: int, "limit"?: int, "root"?}`.
+                 `offset` is 0-based; `limit` defaults to 100 lines.
+
+    Returns:
+        `{"ok", "status", "path", "content", "lines_read", "total_lines", "offset"}` on success.
+    """
     try:
         target = Path(str(payload.get("path") or "")).expanduser().resolve()
         explicit_root = payload.get("root")
@@ -1148,6 +1495,17 @@ def read_file(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def patch_file(payload: dict[str, Any]) -> dict[str, Any]:
+    """Apply a unified diff patch to a file.
+
+    Hunk-by-hunk with context-line verification; silently skips hunks
+    whose context doesn't match (better to no-op than corrupt the file).
+
+    Args:
+        payload: `{"path", "diff": str, "root"?}`.
+
+    Returns:
+        `{"ok", "status", "path", "hunks_applied"}` on success.
+    """
     try:
         target = Path(str(payload.get("path") or "")).expanduser().resolve()
         diff_text = str(payload.get("diff") or "")
@@ -1262,6 +1620,17 @@ from .graphify_service import (  # noqa: E402
 
 
 def query_hybrid_memory(payload: dict[str, Any]) -> dict[str, Any]:
+    """Query the hybrid memory (vector + graph) for code context.
+
+    Thin wrapper around the implementation in `hybrid_memory.py`.
+
+    Args:
+        payload: `{"query": str, "root"?: str, "target_symbol"?: str}`.
+
+    Returns:
+        Dict with `semantic` and `structural` result lists; the exact
+        shape comes from `hybrid_memory.query_hybrid_memory`.
+    """
     return _query_hybrid_memory_impl(payload)
 
 
@@ -1310,6 +1679,18 @@ _SYNC_ACTIONS = frozenset({
 
 
 async def execute_simone_action(payload: dict[str, Any]) -> dict[str, Any]:
+    """Dispatch an action by name to the right handler.
+
+    Args:
+        payload: Must contain an `"action"` key. The action name is one of:
+                  - `agent.help` / `simone.mcp.help` — list available actions
+                  - `simone.mcp.health` / `sin_simone_mcp_health` — liveness
+                  - any name in `_SYNC_ACTIONS` — the per-tool handlers
+                  Anything else returns `{"ok": False, "error": "unknown_action"}`.
+
+    Returns:
+        A result dict. Always includes an `ok` boolean; never raises.
+    """
     try:
         action = str(payload.get("action") or "agent.help")
         if action in {"agent.help", "simone.mcp.help"}:
@@ -1351,6 +1732,7 @@ async def execute_simone_action(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _execute_sync_action(action: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """Run a sync action by name. Always returns a dict; never raises."""
     if action == "sin_simone_mcp_symbol_search":
         return find_symbol(payload)
     if action == "sin_simone_mcp_find_references":
@@ -1383,6 +1765,10 @@ def _execute_sync_action(action: str, payload: dict[str, Any]) -> dict[str, Any]
 
 
 async def process_lsp_task(payload: dict[str, Any]) -> dict[str, Any]:
+    """Backward-compat shim: dispatch to `execute_simone_action` if `action` is set.
+
+    Kept for callers that still use the older "LSP task" framing.
+    """
     await asyncio.sleep(0)
     if payload.get("action"):
         return await execute_simone_action(payload)
@@ -1390,6 +1776,7 @@ async def process_lsp_task(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 async def dashboard() -> str:
+    """Render the HTML dashboard page served at `/dashboard`."""
     return """
 <html>
   <head>
@@ -1415,4 +1802,8 @@ async def dashboard() -> str:
 
 
 def json_dumps(payload: Any) -> str:
+    """JSON-serialize `payload` with `indent=2` and stable key order.
+
+    Used by the protocol layer to render tool results for MCP clients.
+    """
     return json.dumps(payload, indent=2, sort_keys=False)

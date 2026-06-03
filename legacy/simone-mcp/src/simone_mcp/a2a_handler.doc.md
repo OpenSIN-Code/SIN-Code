@@ -1,43 +1,51 @@
-# `src/simone_mcp/a2a_handler.py` — A2A Protocol Handler
+# `a2a_handler.py` — A2A JSON-RPC Request Handler
 
-Partner file: `src/simone_mcp/a2a_handler.py`
+What this file does: implements the A2A v1 method surface for the `/a2a/v1` endpoint. The agent-to-agent protocol uses JSON-RPC; this module dispatches incoming requests to the right handler and builds the response.
 
-## Purpose
-Implements the Agent-to-Agent (A2A) JSON-RPC protocol handler. Supports agent discovery, tool listing, tool calling, message sending, and task retrieval. All responses are JSON-RPC 2.0 compliant.
+## Dependency map
 
-## Key Symbols
-| Symbol | Kind | Purpose |
-|--------|------|---------|
-| `handle_a2a_request()` | async function | Main entry point for A2A requests |
-| `_handle_tool_call()` | async function | Execute a tool via `execute_simone_action()` |
-| `_handle_message_send()` | async function | Parse natural language or JSON actions from messages |
-| `_ok_response()` | function | Build JSON-RPC success response |
-| `_error_response()` | function | Build JSON-RPC error response |
+- Imports: `core.TOOL_DEFINITIONS`, `core.build_agent_card`, `core.execute_simone_action`, `correlation.correlation_manager`, `schemas.JsonRpcRequest`, `schemas.MessageSendParams`, `schemas.ToolCallParams`.
+- Imported by: `http_app.py` (the `/a2a/v1` route).
 
-## Supported Methods
-- `agent.discover` — Return agent card
-- `agent.ping` — Health check
-- `tool.list` — List all tools
-- `tool.call` — Execute a tool with correlation tracking
-- `message/send` — Send natural language or JSON actions
-- `tasks/get` — Get task status (always returns completed)
+## A2A methods implemented
 
-## Relationship
-- `src/simone_mcp/core.py` — `execute_simone_action()`, `TOOL_DEFINITIONS`, `build_agent_card()`
-- `src/simone_mcp/correlation.py` — `correlation_manager` for tracking calls
-- `src/simone_mcp/schemas.py` — `JsonRpcRequest`, `ToolCallParams`, `MessageSendParams`
-- `src/simone_mcp/http_app.py` — mounts this at `POST /a2a/v1`
+| Method            | Purpose                                              |
+|-------------------|------------------------------------------------------|
+| `agent.discover`  | Return the agent card (name, version, endpoints, auth) |
+| `agent.ping`      | Liveness probe with timestamp                        |
+| `tool.list`       | Return the MCP tool definitions                      |
+| `tool.call`       | Dispatch a tool call and return the result + correlation id |
+| `message/send`    | Accept a text message, treat as JSON action or action name |
+| `tasks/get`       | Return a stub completed task record                  |
 
-## Dependencies
-- `core`: `TOOL_DEFINITIONS`, `build_agent_card`, `execute_simone_action`
-- `correlation`: `correlation_manager`
-- `schemas`: `JsonRpcRequest`, `ToolCallParams`, `MessageSendParams`
-- Standard lib: `json`, `uuid`, `datetime`
+## Important config / limits
 
-## Security Notes
-- Correlation IDs are generated from SHA-256 hash of tool name + arguments + timestamp
-- Tool calls are validated via Pydantic schemas before execution
-- Path traversal is checked in core functions, not here
+- **Always returns JSON-RPC 2.0** (never raises). Errors use standard codes: -32600 (invalid request), -32601 (method not found), -32602 (invalid params), -32603 (internal error).
+- **Correlation IDs** are auto-generated for `tool.call` from `(tool, args, timestamp)` — 8 hex chars of SHA-256 + unix timestamp.
+- **`message/send` interprets the text** as either a JSON action dict or a bare action name (e.g. `"agent.help"`).
 
-## Broken Links Check
-- No internal links to other `.doc.md` files in this module.
+## Design decisions
+
+- **Why a stub `tasks/get`?** The heavy lifting is in the MCP transport. For the A2A view, "completed" is enough; A2A clients who want real task state should use the MCP `tasks/get` directly.
+- **Why include `correlation_id` in the response?** Lets clients match a tool call to its result across async boundaries (e.g. when the call is queued and the response comes back via SSE).
+- **Why text-as-action in `message/send`?** A2A's canonical payload is a `Message` with `parts`. Some clients send raw text. Falling back to "treat text as action name" is the most forgiving interpretation.
+
+## Usage
+
+This module is wired automatically by `http_app.create_app()`. To call directly:
+
+```python
+import asyncio
+from simone_mcp.a2a_handler import handle_a2a_request
+
+result = asyncio.run(handle_a2a_request(
+    {"jsonrpc": "2.0", "id": 1, "method": "agent.ping", "params": {}},
+    base_url="http://localhost:8234",
+))
+print(result)
+```
+
+## Caveats / footguns
+
+- The module never raises — all exceptions are caught and returned as JSON-RPC errors. Wrap a test in `try/except` only if you want to verify the "never raises" contract.
+- `correlation_id` is shared across A2A and MCP transports; cross-check it in dashboards, not in tool logic.
