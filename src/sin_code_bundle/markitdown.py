@@ -26,6 +26,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+# ── MarkItDown Bridge: Document → Markdown ────────────────────────────
+# Microsoft MarkItDown is the upstream package. We never vendor it; the
+# bridge only discovers the published `markitdown-mcp` server and the
+# `markitdown` CLI and shells out to them. This keeps the bundle MIT and
+# lets us pick up upstream format support (PDF, DOCX, PPTX, XLSX, images
+# with OCR, audio transcription, HTML, CSV/JSON/XML, ZIP, EPUB, etc.)
+# without re-implementing any of it.
+
 # MarkItDown exposes its MCP server through the ``markitdown-mcp`` package.
 # Upstream recommends running it via ``uvx`` so it is fetched/cached on demand;
 # we fall back to a directly-installed ``markitdown-mcp`` executable.
@@ -47,10 +55,12 @@ class MarkItDownEnv:
 
     @property
     def mcp_available(self) -> bool:
+        """True iff either ``uvx`` or a directly-installed ``markitdown-mcp`` binary is on PATH."""
         return bool(self.uvx or self.mcp_exe)
 
     @property
     def cli_available(self) -> bool:
+        """True iff the ``markitdown`` CLI (the converter) is on PATH."""
         return bool(self.cli)
 
     def mcp_command(self) -> dict[str, Any]:
@@ -66,6 +76,11 @@ class MarkItDownEnv:
         )
 
     def cli_cmd(self) -> str:
+        """Return the absolute path of the ``markitdown`` CLI, or raise.
+
+        Used by ``convert()`` to shell out for one-shot document→markdown
+        conversion without spinning up the long-lived MCP server.
+        """
         if not self.cli:
             raise MarkItDownError(
                 "`markitdown` CLI not found. Install with "
@@ -75,6 +90,7 @@ class MarkItDownEnv:
 
 
 def detect_env() -> MarkItDownEnv:
+    """Probe PATH for ``uvx``, ``markitdown-mcp``, and ``markitdown`` (no I/O beyond that)."""
     return MarkItDownEnv(
         uvx=shutil.which("uvx"),
         mcp_exe=shutil.which(MARKITDOWN_MCP_PACKAGE),
@@ -88,11 +104,20 @@ def mcp_server_command(env: MarkItDownEnv | None = None) -> dict[str, Any]:
     return env.mcp_command()
 
 
+# ── Local-Only Safety: File Access Guard ─────────────────────────────
+# `convert()` is the only public surface that touches a file path. It
+# deliberately refuses anything that is not a regular file on the local
+# filesystem — we never want an MCP client (potentially remote / hostile)
+# to coerce us into passing an http:// or pipe:// URL into MarkItDown's
+# CLI, which would expand the attack surface considerably.
+
 def convert(path: str, env: MarkItDownEnv | None = None, timeout: int = 300) -> str:
     """Convert a document to Markdown using the upstream ``markitdown`` CLI."""
     env = env or detect_env()
     cli = env.cli_cmd()
     src = Path(path)
+    # `is_file()` (not `exists()`) — guards against directories and broken
+    # symlinks, both of which the CLI would otherwise try to read as content.
     if not src.is_file():
         raise MarkItDownError(f"File not found: {path}")
     try:
@@ -121,6 +146,15 @@ def doctor() -> dict[str, Any]:
         "mcp_package": MARKITDOWN_MCP_PACKAGE,
     }
 
+
+# ── OpenCode Integration: File Watcher Hooks ──────────────────────────
+# Below: per-agent MCP config writers. These mutate well-known files
+# under the user's home directory:
+#   * OpenCode: ~/.config/opencode/opencode.json  (JSON, mcp.<name>)
+#   * Codex:    ~/.codex/config.toml              (TOML, [mcp_servers.<name>])
+#   * Hermes:   ~/.hermes/mcp.json                (JSON, mcpServers.<name>)
+# We DO NOT touch plugin/hook files for the agents — MarkItDown integrates
+# through MCP, the same surface as GitNexus, so behaviour is uniform.
 
 # --------------------------------------------------------------------------- #
 # MCP wiring into coder-agent configs (mirrors the GitNexus bridge).

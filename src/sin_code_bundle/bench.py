@@ -35,7 +35,7 @@ Arm = Literal["control", "sin"]
 
 
 # --------------------------------------------------------------------------- #
-# Task + result models
+# ── Task + Result Models: SWE-bench compatible dataclasses ────────────────── #
 # --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
 class Task:
@@ -53,6 +53,22 @@ class Task:
 
 @dataclass
 class TaskResult:
+    """Per-task, per-arm outcome record produced by :func:`_eval_one`.
+
+    Attributes:
+        instance_id: Originating :class:`Task` id.
+        arm: Which arm ("control" = SIN tools off, "sin" = SIN tools on).
+        resolved: ``True`` iff the patch applied AND every FAIL_TO_PASS test
+            now passes. This is the headline "did the agent solve it?" bit.
+        duration_s: Wall-clock seconds for clone + agent + apply + test.
+        patch_applied: Whether ``git apply`` accepted the agent's diff.
+        fail_to_pass_passed: Count of FAIL_TO_PASS tests that now pass.
+        fail_to_pass_total: Size of the FAIL_TO_PASS set (or 1 if the task
+            has no named tests and we fell back to a single ``test_cmd`` run).
+        error: Stringified exception if the harness itself blew up (clone
+            failure, timeout, etc.) — separate from "agent produced bad patch".
+    """
+
     instance_id: str
     arm: Arm
     resolved: bool
@@ -65,6 +81,16 @@ class TaskResult:
 
 @dataclass
 class ArmSummary:
+    """Aggregated stats for one arm across all tasks in a benchmark run.
+
+    Attributes:
+        arm: "control" or "sin".
+        total: Number of tasks attempted in this arm.
+        resolved: Number of tasks whose :class:`TaskResult` had ``resolved=True``.
+        resolved_rate: ``resolved / total`` (0.0 if ``total == 0``).
+        mean_duration_s: Arithmetic mean of per-task durations.
+    """
+
     arm: Arm
     total: int
     resolved: int
@@ -74,6 +100,19 @@ class ArmSummary:
 
 @dataclass
 class BenchReport:
+    """Top-level benchmark output — per-arm summaries plus raw per-task results.
+
+    Attributes:
+        arms: Map ``arm_name -> ArmSummary``.
+        delta_resolved_rate: ``sin.resolved_rate - control.resolved_rate``
+            (i.e. the headline lift in percentage points / 100). Positive
+            means SIN tools helped.
+        per_task: Full list of :class:`TaskResult` records for both arms,
+            preserving execution order, for drill-down analysis.
+        started_at: ISO-8601 timestamp of harness start (local time, no TZ).
+        finished_at: ISO-8601 timestamp of harness completion.
+    """
+
     arms: dict[str, ArmSummary]
     delta_resolved_rate: float
     per_task: list[TaskResult]
@@ -81,6 +120,12 @@ class BenchReport:
     finished_at: str
 
     def to_json(self) -> str:
+        """Serialise the full report to a pretty-printed JSON string.
+
+        Nested dataclasses (:class:`ArmSummary`, :class:`TaskResult`) are
+        converted with :func:`dataclasses.asdict` so the output is plain
+        JSON — safe to write to disk, post over HTTP, or diff between runs.
+        """
         return json.dumps(
             {
                 "arms": {k: asdict(v) for k, v in self.arms.items()},
@@ -94,7 +139,7 @@ class BenchReport:
 
 
 # --------------------------------------------------------------------------- #
-# Agent runner protocol
+# ── Agent Runner Protocol: pluggable backends (opencode / codex / dry-run) ── #
 # --------------------------------------------------------------------------- #
 class AgentRunner(Protocol):
     """Produces a unified diff that attempts to solve `task` inside `workdir`.
@@ -104,7 +149,14 @@ class AgentRunner(Protocol):
     be empty if the agent produced no change).
     """
 
-    def run(self, task: Task, workdir: Path, sin_enabled: bool) -> str: ...
+    def run(self, task: Task, workdir: Path, sin_enabled: bool) -> str:
+        """Solve ``task`` inside ``workdir`` and return the resulting unified diff.
+
+        Protocol method — see the class docstring for the contract. Concrete
+        implementations should leave their edits in ``workdir`` (typically as
+        uncommitted changes) and return them as a diff string.
+        """
+        ...
 
 
 class DryRunRunner:
@@ -115,6 +167,12 @@ class DryRunRunner:
     """
 
     def run(self, task: Task, workdir: Path, sin_enabled: bool) -> str:  # noqa: ARG002
+        """Return an empty diff regardless of inputs.
+
+        Intentionally ignores ``task`` / ``workdir`` / ``sin_enabled`` — the
+        purpose is to keep the harness wired up end-to-end without making any
+        LLM calls. Every task will report ``resolved=False`` in both arms.
+        """
         return ""
 
 
@@ -137,10 +195,25 @@ class CommandRunner:
         env_for: Optional[Callable[[Task, bool], dict[str, str]]] = None,
     ) -> None:
         self._build_cmd = build_cmd
+        # 1800s = 30 min — generous enough for slow LLM rollouts but caps
+        # runaway agents so a single bad task can't stall the whole sweep.
         self._timeout_s = timeout_s
         self._env_for = env_for
 
     def run(self, task: Task, workdir: Path, sin_enabled: bool) -> str:
+        """Invoke the external agent, then return whatever ``git diff`` shows.
+
+        The agent is expected to mutate files inside ``workdir`` directly;
+        we don't parse its stdout. ``SIN_ENFORCE`` is exported into the
+        agent's env so MCP servers can gate themselves on it (1 = SIN tools
+        available, 0 = control arm, must not be used).
+
+        Returns:
+            Unified-diff text of every uncommitted change the agent made.
+            Empty string if the agent produced no edits, crashed, or hit
+            the timeout (we deliberately swallow non-zero exit codes here
+            — a broken agent is a "failed task", not a harness error).
+        """
         import os
 
         cmd = self._build_cmd(task, sin_enabled)
@@ -169,9 +242,11 @@ class CommandRunner:
 
 
 # --------------------------------------------------------------------------- #
-# Git / test plumbing
+# ── Git / Test Plumbing: worktree prep, patch apply, test execution ──────── #
 # --------------------------------------------------------------------------- #
 def _sh(cmd: list[str], cwd: Path, timeout: int = 600) -> subprocess.CompletedProcess:
+    # 600s = 10 min default — fits clone/checkout/test-id runs; callers
+    # override (e.g. clone uses 900s, setup_cmds use 1800s).
     return subprocess.run(
         cmd, cwd=cwd, check=False, capture_output=True, text=True, timeout=timeout
     )
@@ -181,9 +256,13 @@ def _prepare_worktree(task: Task, root: Path) -> Path:
     work = root / task.instance_id.replace("/", "__")
     work.mkdir(parents=True, exist_ok=True)
     url = f"https://github.com/{task.repo}.git"
+    # 900s clone timeout — large monorepos (django, sympy) routinely
+    # need >5 min on a cold network; tighter would flake the harness.
     _sh(["git", "clone", "--quiet", url, "."], cwd=work, timeout=900)
     _sh(["git", "checkout", "--quiet", task.base_commit], cwd=work)
     for cmd in task.setup_cmds:
+        # 1800s per setup cmd — pip installs of scientific stacks (scipy,
+        # pandas) can be slow when wheels are missing for the platform.
         _sh(["bash", "-lc", cmd], cwd=work, timeout=1800)
     return work
 
@@ -199,11 +278,16 @@ def _apply_patch(diff: str, work: Path) -> bool:
 
 def _run_named_tests(work: Path, task: Task) -> tuple[int, int]:
     if not task.fail_to_pass:
+        # Fallback path: SWE-bench tasks usually name specific tests, but some
+        # in-house tasks just ship a `test_cmd` and rely on its overall exit
+        # code (0 = solved, non-zero = not solved).
         res = _sh(["bash", "-lc", task.test_cmd], cwd=work, timeout=1800)
         return (1, 1) if res.returncode == 0 else (0, 1)
 
     passed = 0
     for test_id in task.fail_to_pass:
+        # 900s per single test — pytest selectors on huge repos (django) need
+        # collection time even before the test itself runs.
         res = _sh(
             ["bash", "-lc", f"{task.test_cmd} {test_id}"],
             cwd=work,
@@ -215,7 +299,7 @@ def _run_named_tests(work: Path, task: Task) -> tuple[int, int]:
 
 
 # --------------------------------------------------------------------------- #
-# Core eval loop
+# ── Core Eval Loop: drive runner + scoring per task per arm ──────────────── #
 # --------------------------------------------------------------------------- #
 def _eval_one(task: Task, arm: Arm, runner: AgentRunner, root: Path) -> TaskResult:
     start = time.time()
@@ -270,6 +354,27 @@ def run_benchmark(
     arms: tuple[Arm, ...] = ("control", "sin"),
     workspace: Optional[Path] = None,
 ) -> BenchReport:
+    """Run every ``task`` through every ``arm`` and return an aggregated report.
+
+    Each (task, arm) pair gets its own clone under ``workspace / <arm> /
+    <task.instance_id>`` so arms can never poison each other's worktree.
+    The agent is invoked once per pair via ``runner``; its diff is applied
+    and the FAIL_TO_PASS tests are run to score the attempt.
+
+    Args:
+        tasks: Iterable of :class:`Task` (consumed once; materialised internally).
+        runner: Pluggable :class:`AgentRunner` (e.g. :class:`DryRunRunner`,
+            :class:`CommandRunner`).
+        arms: Which arms to run. Default ``("control", "sin")`` produces the
+            standard A/B delta; pass ``("sin",)`` for a single-arm run.
+        workspace: Persistent workspace dir. Pass a real path to keep clones
+            on disk for post-mortem inspection; default uses a tempdir
+            wiped on return.
+
+    Returns:
+        :class:`BenchReport` with per-arm summaries, headline delta, and
+        per-task detail.
+    """
     started = time.strftime("%Y-%m-%dT%H:%M:%S")
     tasks = list(tasks)
     results: list[TaskResult] = []
@@ -279,6 +384,9 @@ def run_benchmark(
         root.mkdir(parents=True, exist_ok=True)
         for arm in arms:
             for task in tasks:
+                # Per-arm subdir keeps the two clones strictly isolated —
+                # otherwise the second arm would inherit the first arm's
+                # leftover patch state.
                 results.append(_eval_one(task, arm, runner, root / arm))
 
     summaries = {arm: _summarize(arm, results) for arm in arms}
@@ -297,7 +405,7 @@ def run_benchmark(
 
 
 # --------------------------------------------------------------------------- #
-# Task loading
+# ── Task Loading: JSONL + SWE-bench Lite via datasets ────────────────────── #
 # --------------------------------------------------------------------------- #
 def load_tasks_jsonl(path: Path, limit: Optional[int] = None) -> list[Task]:
     """Load tasks from a JSONL file (SWE-bench compatible field names)."""
@@ -358,9 +466,25 @@ def load_swebench_lite(limit: Optional[int] = 20) -> list[Task]:
 
 
 # --------------------------------------------------------------------------- #
-# Pretty printing
+# ── Pretty Printing: human-readable terminal report ──────────────────────── #
 # --------------------------------------------------------------------------- #
 def format_report(report: BenchReport) -> str:
+    """Render a :class:`BenchReport` as a fixed-width terminal block.
+
+    Used by the ``sin bench`` CLI to print results at the end of a run.
+    Layout::
+
+        SIN-Code Bench — A/B resolved-rate
+        ========================================
+          control  3/20 resolved ( 15.0%)  mean 142.5s
+          sin      7/20 resolved ( 35.0%)  mean 187.2s
+        ----------------------------------------
+          SIN delta: +20.0 pp (percentage points)
+        ========================================
+
+    Returns:
+        Multi-line string with no trailing newline — caller decides spacing.
+    """
     lines = ["", "SIN-Code Bench — A/B resolved-rate", "=" * 40]
     for arm, s in report.arms.items():
         lines.append(

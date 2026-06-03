@@ -54,6 +54,7 @@ class PolicyError(RuntimeError):
     """Raised when a tool call is denied by policy."""
 
 
+# ── Policy: Rule Container ────────────────────────────────────────────
 @dataclass
 class Policy:
     """Loaded policy rules + auto-approval flag.
@@ -70,6 +71,12 @@ class Policy:
 
     @classmethod
     def load(cls, root: Path = Path(".")) -> "Policy":
+        """Load policy from `<root>/.sin/policy.yaml`, falling back to defaults.
+
+        Missing file or missing PyYAML → returns a `Policy` populated with
+        `DEFAULT_POLICY` and `auto_approve` derived from `SIN_AUTO_APPROVE`.
+        User-supplied `rules` are merged on top of defaults (per-key override).
+        """
         path = root / ".sin" / "policy.yaml"
         if path.exists() and yaml is not None:
             data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
@@ -78,16 +85,32 @@ class Policy:
         return cls()
 
     def decide(self, tool: str) -> Decision:
+        """Map a tool name to its policy decision.
+
+        Unknown tools default to risk class `"exec"` (fail-closed — the
+        default decision for `exec` is `"ask"`, so they prompt unless
+        `auto_approve` is on).
+        """
         risk = TOOL_RISK.get(tool, "exec")
         return self.rules.get(risk, "ask")
 
 
+# ── PolicyEngine: Evaluate & Enforce ──────────────────────────────────
 # --------------------------------------------------------------------------- #
 # Tamper-evident audit log (hash chain)
 # --------------------------------------------------------------------------- #
 class AuditLog:
+    """Append-only JSONL log under `<root>/.sin/audit/log.jsonl`.
+
+    Each entry's `hash` is `sha256(prev_hash || canonical_json(entry))`,
+    forming a hash chain. `verify_chain()` re-walks the file to confirm
+    no entry has been edited or removed. Argument *values* are never
+    logged — only the *keys* (to avoid leaking secrets via the audit log).
+    """
+
     def __init__(self, root: Path = Path(".")) -> None:
         self.path = root / ".sin" / "audit" / "log.jsonl"
+        # parents=True — creates .sin/ and .sin/audit/ in one shot
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def _last_hash(self) -> str:
@@ -102,6 +125,11 @@ class AuditLog:
         return json.loads(last).get("hash", "0" * 64)
 
     def record(self, tool: str, args: dict, decision: Decision, outcome: str) -> str:
+        """Append one entry to the log and return its hash.
+
+        `args` is inspected by *key* only (sorted) — values are not stored,
+        so secrets in tool args never reach disk.
+        """
         prev = self._last_hash()
         entry = {
             "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -112,6 +140,8 @@ class AuditLog:
             "args_keys": sorted(args.keys()),
             "prev": prev,
         }
+        # sort_keys=True — canonical form so verify_chain() can reproduce
+        # the exact same digest bit-for-bit regardless of dict insertion order
         digest = hashlib.sha256(
             (prev + json.dumps(entry, sort_keys=True)).encode("utf-8")
         ).hexdigest()
@@ -132,6 +162,9 @@ class AuditLog:
             stored = entry.pop("hash", "")
             if entry.get("prev") != prev:
                 return False
+            # MUST use sort_keys=True here to match the digest computed in
+            # record(); otherwise any field-order change in json.dumps would
+            # fail verification even on a benign log.
             recomputed = hashlib.sha256(
                 (prev + json.dumps(entry, sort_keys=True)).encode("utf-8")
             ).hexdigest()

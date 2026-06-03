@@ -20,6 +20,19 @@ import subprocess
 from dataclasses import dataclass
 from typing import Any
 
+# ── RTK Bridge: Token-Saving Proxy ────────────────────────────────────
+# RTK is a single Rust binary from https://github.com/rtk-ai/rtk. It is
+# a *proxy*: it sits in front of noisy shell commands (ls, grep, git,
+# cargo, pytest, etc.) and rewrites/compacts their output before an LLM
+# ever sees it, claiming 60-90% token reduction. Because each supported
+# agent (OpenCode, Codex, Hermes) installs RTK via its own hook/plugin
+# mechanism, our job is to:
+#   1. detect the `rtk` binary on PATH,
+#   2. invoke `rtk init` with the right flag for each agent,
+#   3. expose `gain()` for token-savings diagnostics.
+# We do NOT shell-wrap individual commands — that's RTK's job once it
+# has injected itself.
+
 RTK_BINARY = "rtk"
 
 # How RTK wires itself into each supported coder agent. Mirrors the upstream
@@ -45,9 +58,15 @@ class RtkEnv:
 
     @property
     def available(self) -> bool:
+        """True iff an ``rtk`` binary was found on PATH."""
         return bool(self.rtk)
 
     def base_cmd(self) -> str:
+        """Return the absolute path of the ``rtk`` binary, or raise RtkError.
+
+        This is the single gate every RTK invocation in the bundle flows
+        through, so the install hint is raised once and in one place.
+        """
         if not self.rtk:
             raise RtkError(
                 "`rtk` not found on PATH. Install it with `brew install rtk`, "
@@ -59,6 +78,7 @@ class RtkEnv:
 
 
 def detect_env() -> RtkEnv:
+    """Probe PATH for the ``rtk`` binary (no other I/O)."""
     return RtkEnv(rtk=shutil.which(RTK_BINARY))
 
 
@@ -86,6 +106,8 @@ def _run(cmd: list[str], timeout: int = 120) -> str:
     return proc.stdout.strip()
 
 
+# ── Setup & Diagnostics: install + measure token savings ──────────────
+
 def setup_agents(
     agents: list[str] | None = None,
     env: RtkEnv | None = None,
@@ -111,10 +133,12 @@ def gain(env: RtkEnv | None = None) -> dict[str, Any]:
     rtk = env.base_cmd()
     out = _run([rtk, "gain", "--all", "--format", "json"])
     try:
-        import json
-
+        import json  # local import keeps the top of the file dependency-free
         return json.loads(out or "{}")
     except (ValueError, TypeError):
+        # Fallback for older RTK builds that don't speak --format json yet.
+        # We still return *something* so callers can show the raw output
+        # instead of an opaque exception.
         return {"raw": out}
 
 

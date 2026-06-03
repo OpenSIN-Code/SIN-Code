@@ -52,6 +52,7 @@ class Location:
     snippet: str = ""
 
 
+# ── LSPBackend: Language Server Manager ────────────────────────────────
 @dataclass
 class ImpactResult:
     """Compact, deterministic blast-radius payload for the agent."""
@@ -67,6 +68,12 @@ class ImpactResult:
     notes: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """Serialize to a JSON-safe dict (caches the result under `cache.set`).
+
+        Returns a plain dict with `Location` fields flattened to `{file, line,
+        column, snippet}` so the GraphCache (JSONL-backed) can round-trip it
+        without a custom encoder.
+        """
         return {
             "symbol": self.symbol,
             "defined_at": _loc_to_dict(self.defined_at),
@@ -110,6 +117,7 @@ def _is_public_api_path(p: str) -> bool:
     return name in {"__init__.py", "api.py", "index.ts", "index.js", "mod.rs", "lib.rs"}
 
 
+# ── Language Detection: File → Server Mapping ──────────────────────────
 # --------------------------------------------------------------------------- #
 # LSP backend (multilspy)
 # --------------------------------------------------------------------------- #
@@ -224,6 +232,7 @@ def _treesitter_impact(root: Path, symbol: str) -> ImpactResult:
     )
 
 
+# ── Graceful Shutdown: Cleanup Lifecycle ──────────────────────────────
 # --------------------------------------------------------------------------- #
 # Public entry point
 # --------------------------------------------------------------------------- #

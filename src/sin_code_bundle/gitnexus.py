@@ -28,6 +28,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+# ── GitNexusBridge: Graph Context Provider ─────────────────────────────
+# This module turns GitNexus (the upstream npm package) into a hard,
+# always-on dependency for coder agents. We never vendor the package —
+# we only invoke it via npx, which fetches and caches the published
+# build on first use (mirroring GitNexus' own `.mcp.json` recommendation).
+
 # How GitNexus is provided. We always pin to the published package and let npx
 # fetch/cache it, mirroring GitNexus' own `.mcp.json` recommendation.
 GITNEXUS_PACKAGE = "gitnexus@latest"
@@ -53,9 +59,16 @@ class GitNexusEnv:
 
     @property
     def available(self) -> bool:
+        """True iff a usable ``npx`` was detected on PATH."""
         return bool(self.npx)
 
     def base_cmd(self) -> list[str]:
+        """Return the base command list to invoke the GitNexus package.
+
+        Raises GitNexusError if npx is missing — this is the gate every GitNexus
+        command in the bundle funnels through, so the error is raised once and
+        in one place.
+        """
         if not self.npx:
             raise GitNexusError(
                 "npx not found on PATH. GitNexus requires Node.js (>=18). "
@@ -108,6 +121,7 @@ class IndexState:
     details: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize index state for diagnostic JSON (e.g. ``doctor()``)."""
         return {
             "exists": self.exists,
             "path": str(self.path),
@@ -124,6 +138,8 @@ def index_state(root: str = ".", stale_seconds: int = DEFAULT_STALE_SECONDS) -> 
         return IndexState(exists=False, path=index_path)
 
     # Use the most recently modified file inside the index dir as the age basis.
+    # We deliberately do NOT use the directory's own mtime — editors and package
+    # managers often touch the dir without rewriting any real index file.
     newest = 0.0
     for p in index_path.rglob("*"):
         if p.is_file():
@@ -149,6 +165,11 @@ def analyze(
     return proc
 
 
+# ── Preflight: Validate Index Freshness ───────────────────────────────
+# `ensure_index` is the gate every query flows through: it inspects the
+# on-disk `.gitnexus/` directory, compares its age against the staleness
+# threshold, and (by default) auto-rebuilds so agents never run blind.
+
 def ensure_index(
     root: str = ".",
     *,
@@ -168,6 +189,9 @@ def ensure_index(
             "GitNexus is required but Node/npx is not available. "
             "Install Node.js (>=18) so coder agents are not flying blind."
         )
+    # Note: we only auto-rebuild on missing OR stale. A valid-but-old index
+    # within `stale_seconds` is trusted as-is to avoid a full re-analyze on
+    # every query, which on large repos can take minutes.
     state = index_state(root, stale_seconds=stale_seconds)
     if state.exists and not state.stale:
         return state
@@ -176,6 +200,12 @@ def ensure_index(
     analyze(root, env=env)
     return index_state(root, stale_seconds=stale_seconds)
 
+
+# ── Query: Cached Codebase Graph Access ───────────────────────────────
+# Thin wrappers over the GitNexus CLI query surface. Each is a one-line
+# passthrough to `_query` so the error-handling and timeout policy stay
+# in one place. The CLI's own caching layer is what makes these fast
+# for repeated calls within a session.
 
 def _query(
     subcommand: list[str],
@@ -232,13 +262,19 @@ def doctor(root: str = ".", env: GitNexusEnv | None = None) -> dict[str, Any]:
     return report
 
 
-# --------------------------------------------------------------------------- #
-# MCP wiring for coder agents
-# --------------------------------------------------------------------------- #
+# ── MCP wiring: GitNexus server for coder agents ──────────────────────
+# GitNexus exposes its graph tools over stdio via `gitnexus mcp`. We register
+# that same command with every supported agent so the agent's tools list
+# includes `gitnexus_query`, `gitnexus_context`, `gitnexus_impact`, etc.
 
 # The single MCP server entry every agent should run. GitNexus exposes its graph
 # tools over stdio via `gitnexus mcp`.
 def mcp_server_command(package: str = GITNEXUS_PACKAGE) -> dict[str, Any]:
+    """Return the MCP server launch spec as a ``{command, args}`` dict.
+
+    This is the canonical payload used by every ``_wire_*`` helper below, and
+    can also be passed to external MCP-aware clients directly.
+    """
     return {"command": "npx", "args": ["-y", package, "mcp"]}
 
 

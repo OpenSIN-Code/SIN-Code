@@ -12,7 +12,7 @@ DEFAULT_TIMEOUT = 600  # seconds — never run unbounded
 
 
 class SafetyError(RuntimeError):
-    pass
+    """Raised when a safety invariant is violated (timeout, unsafe cmd shape, …)."""
 
 
 def run_checked(
