@@ -1404,5 +1404,252 @@ def browser_status():
     typer.echo(f"  See: sin browser list")
 
 
+# ─────────────────────────────────────────────────────────────────────
+# v2 sub-commands — VFS, Hashline, Memory, AST
+# ─────────────────────────────────────────────────────────────────────
+
+vfs_app = typer.Typer(help="VFS — resolve SIN URI schemes (sckg://, poc://, ibd://, adw://, efsm://, oracle://, conflict://)")
+app.add_typer(vfs_app, name="vfs")
+
+
+@vfs_app.command("resolve")
+def vfs_resolve(
+    uri: str = typer.Argument(..., help="URI to resolve (e.g., sckg://module/auth/dependencies)"),
+    repo: str = typer.Option(".", "--repo", help="Repo root"),
+    json_out: bool = typer.Option(False, "--json", help="JSON output"),
+):
+    """Resolve a SIN URI scheme to structured content."""
+    from sin_code_bundle.vfs import SINVirtualFS
+    vfs = SINVirtualFS(Path(repo))
+    result = vfs.resolve(uri)
+    typer.echo(json.dumps(result, indent=2))
+
+
+@vfs_app.command("schemes")
+def vfs_schemes():
+    """List all available URI schemes."""
+    from sin_code_bundle.vfs import URI_SCHEMES
+    typer.echo("Available URI schemes:")
+    for scheme, desc in URI_SCHEMES.items():
+        typer.echo(f"  {scheme}://  {desc}")
+
+
+@vfs_app.command("status")
+def vfs_status():
+    """Check which SIN subsystems are available for VFS resolution."""
+    from sin_code_bundle.vfs import URI_SCHEMES
+    typer.echo("VFS backend status:")
+    module_map = {
+        "sckg": "sin_code_sckg",
+        "poc": "sin_code_poc",
+        "ibd": "sin_code_ibd",
+        "adw": "sin_code_adw",
+        "efsm": "sin_code_efsm",
+        "oracle": "sin_code_oracle",
+    }
+    for scheme in URI_SCHEMES:
+        if scheme == "conflict":
+            typer.echo(f"  {scheme:8s}  OK (git-based)")
+            continue
+        try:
+            __import__(module_map[scheme])
+            typer.echo(f"  {scheme:8s}  OK")
+        except ImportError:
+            typer.echo(f"  {scheme:8s}  NOT INSTALLED")
+
+
+hashline_app = typer.Typer(help="Hashline anchor patching — content-hash based, no string-not-found errors")
+app.add_typer(hashline_app, name="hashline")
+
+
+@hashline_app.command("patch")
+def hashline_patch(
+    file: Path = typer.Argument(..., help="File to patch"),
+    old: str = typer.Option(..., "--old", help="Old content to replace"),
+    new: str = typer.Option(..., "--new", help="New content"),
+    intent: str = typer.Option("", "--intent", help="Intent description"),
+    apply: bool = typer.Option(False, "--apply", help="Apply the patch immediately"),
+    json_out: bool = typer.Option(False, "--json", help="JSON output"),
+):
+    """Create a hashline-anchored patch (and optionally apply it)."""
+    from sin_code_bundle.hashline import SINHashlinePatch
+    patcher = SINHashlinePatch()
+    patch = patcher.create_semantic_patch(file, old, new, intent or None)
+    if patch is None:
+        typer.echo(f"ERROR: Could not find anchor for old content in {file}", err=True)
+        raise typer.Exit(code=1)
+    if apply:
+        success, msg = patcher.apply_semantic_patch(patch)
+        result = {"patch": patch, "applied": success, "message": msg}
+    else:
+        result = {"patch": patch, "applied": False, "message": "Use --apply to write"}
+    if json_out:
+        typer.echo(json.dumps(result, indent=2))
+    else:
+        typer.echo(f"Patch: anchor_line={patch['anchor_line']}, hash={patch['anchor_hash'][:8]}")
+        typer.echo(f"Status: {result['message']}")
+
+
+@hashline_app.command("validate")
+def hashline_validate(
+    file: Path = typer.Argument(..., help="File to validate against"),
+    patch_json: str = typer.Option(..., "--patch", help="Patch JSON (or @file)"),
+):
+    """Validate a patch can still be applied (anchor not stale)."""
+    from sin_code_bundle.hashline import HashlineAnchor
+    if patch_json.startswith("@"):
+        with open(patch_json[1:]) as f:
+            patch = json.load(f)
+    else:
+        patch = json.loads(patch_json)
+    content = file.read_text()
+    anchor = HashlineAnchor(content)
+    is_valid, msg = anchor.validate_patch(patch)
+    typer.echo(f"Valid: {is_valid} - {msg}")
+    raise typer.Exit(code=0 if is_valid else 1)
+
+
+memory_app = typer.Typer(help="Memory layer - retain/recall/reflect with SCKG backend")
+app.add_typer(memory_app, name="memory")
+
+
+@memory_app.command("retain")
+def memory_retain(
+    fact: str = typer.Argument(..., help="Fact to remember"),
+    tag: list[str] = typer.Option([], "--tag", help="Tags (repeatable)"),
+    context: str = typer.Option("", "--context", help="Context as JSON string"),
+    repo: str = typer.Option(".", "--repo", help="Repo root"),
+    json_out: bool = typer.Option(False, "--json", help="JSON output"),
+):
+    """Store a fact in memory."""
+    from sin_code_bundle.memory import SINMemory
+    ctx = json.loads(context) if context else None
+    mem = SINMemory(Path(repo))
+    result = mem.retain(fact, context=ctx, tags=tag or None)
+    if json_out:
+        typer.echo(json.dumps(result, indent=2))
+    else:
+        typer.echo(f"Stored: id={result.get('id')} in {result.get('stored_in')}")
+
+
+@memory_app.command("recall")
+def memory_recall(
+    query: str = typer.Argument(..., help="Search query"),
+    limit: int = typer.Option(10, "--limit", help="Max results"),
+    tag: list[str] = typer.Option([], "--tag", help="Filter by tag (repeatable)"),
+    repo: str = typer.Option(".", "--repo", help="Repo root"),
+    json_out: bool = typer.Option(False, "--json", help="JSON output"),
+):
+    """Search memory for facts."""
+    from sin_code_bundle.memory import SINMemory
+    mem = SINMemory(Path(repo))
+    results = mem.recall(query, limit=limit, tags=tag or None)
+    if json_out:
+        typer.echo(json.dumps(results, indent=2))
+    else:
+        if not results:
+            typer.echo("No matches.")
+        for r in results:
+            typer.echo(f"[{r['id']}] {r['fact'][:100]}  tags={','.join(r['tags'])}")
+
+
+@memory_app.command("reflect")
+def memory_reflect(
+    query: str = typer.Argument(..., help="Question to answer"),
+    repo: str = typer.Option(".", "--repo", help="Repo root"),
+    json_out: bool = typer.Option(False, "--json", help="JSON output"),
+):
+    """Synthesize an answer from memory."""
+    from sin_code_bundle.memory import SINMemory
+    mem = SINMemory(Path(repo))
+    result = mem.reflect(query)
+    if json_out:
+        typer.echo(json.dumps(result, indent=2))
+    else:
+        typer.echo(result["answer"])
+        typer.echo(f"\n(sources: {result['sources']}, confidence: {result['confidence']})")
+
+
+@memory_app.command("stats")
+def memory_stats(
+    repo: str = typer.Option(".", "--repo", help="Repo root"),
+):
+    """Get memory statistics."""
+    from sin_code_bundle.memory import SINMemory
+    mem = SINMemory(Path(repo))
+    stats = mem.get_stats()
+    typer.echo(f"Total facts: {stats['total_facts']}")
+    typer.echo(f"Backend:    {stats['backend']}")
+    if stats["tags"]:
+        typer.echo(f"Tags:       {', '.join(stats['tags'])}")
+    else:
+        typer.echo("Tags:       (none)")
+
+
+@memory_app.command("forget")
+def memory_forget(
+    memory_id: int = typer.Argument(..., help="ID of fact to forget"),
+    repo: str = typer.Option(".", "--repo", help="Repo root"),
+):
+    """Remove a fact from memory."""
+    from sin_code_bundle.memory import SINMemory
+    mem = SINMemory(Path(repo))
+    if mem.forget(memory_id):
+        typer.echo(f"Removed memory #{memory_id}")
+    else:
+        typer.echo(f"Memory #{memory_id} not found", err=True)
+        raise typer.Exit(code=1)
+
+
+ast_app = typer.Typer(help="AST-based code editing (requires tree-sitter)")
+app.add_typer(ast_app, name="ast")
+
+
+@ast_app.command("edit")
+def ast_edit(
+    file: Path = typer.Argument(..., help="File to edit"),
+    old: str = typer.Option(..., "--old", help="Old substring"),
+    new: str = typer.Option(..., "--new", help="Replacement"),
+    apply: bool = typer.Option(False, "--apply", help="Apply changes immediately"),
+    no_poc: bool = typer.Option(False, "--no-poc", help="Skip POC verification"),
+    json_out: bool = typer.Option(False, "--json", help="JSON output"),
+):
+    """Propose an AST-based edit."""
+    from sin_code_bundle.ast_edit import SINASTEdit
+    ast = SINASTEdit()
+    if not ast.is_available():
+        typer.echo(
+            "ERROR: tree-sitter not installed. Run: pip install tree-sitter tree-sitter-languages",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    result = ast.edit(file, old, new, verify_with_poc=not no_poc)
+    if apply and result.success:
+        ast.resolve(file, result.proposed_changes)
+    out = result.to_dict()
+    if json_out:
+        typer.echo(json.dumps(out, indent=2))
+    else:
+        if result.success:
+            typer.echo(f"Edit proposed: {len(result.proposed_changes)} changes, POC verified={result.poc_verified}")
+            if apply:
+                typer.echo("Applied.")
+        else:
+            typer.echo(f"ERROR: {result.error}", err=True)
+            raise typer.Exit(code=1)
+
+
+@ast_app.command("status")
+def ast_status():
+    """Check if AST edit is available."""
+    from sin_code_bundle.ast_edit import SINASTEdit
+    ast = SINASTEdit()
+    if ast.is_available():
+        typer.echo(f"AST edit available. Languages: {', '.join(ast.SUPPORTED_LANGS)}")
+    else:
+        typer.echo("AST edit NOT available. Run: pip install tree-sitter tree-sitter-languages")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()

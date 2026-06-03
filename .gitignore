@@ -29,3 +29,4 @@ htmlcov/
 .vscode/
 .DS_Store
 *.swp
+.sin_memory.db
