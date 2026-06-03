@@ -2,10 +2,11 @@
 
 Docs: memory.doc.md
 
-Persistent memory layer with a best-effort SCKG backend and an
-in-memory + SQLite fallback. Inspired by retain/recall/reflect
-patterns from Hindsight / Letta. Tree-sitter and SCKG are *optional*
-imports; SQLite is the durable source of truth.
+Persistent memory layer with a best-effort SCKG backend, an optional
+Honcho behavioral-memory backend, and a durable SQLite fallback.
+Inspired by retain/recall/reflect patterns from Hindsight / Letta.
+Tree-sitter, SCKG, and Honcho are *optional* imports; SQLite is the
+durable source of truth.
 """
 from __future__ import annotations
 
@@ -16,8 +17,204 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
+class HonchoBackend:
+    """Optional Honcho behavioral-memory backend.
+
+    Lazily initializes a Honcho client. If the package is not installed
+    or the server is unreachable, ``is_available()`` returns False and
+    all methods become safe no-ops (return ``None`` / empty list).
+
+    Usage:
+        backend = HonchoBackend(workspace_id="sin-bundle")
+        if backend.is_available():
+            backend.retain_message(
+                peer_name="coding-agent",
+                content="User prefers TypeScript",
+                role="user",
+            )
+            insights = backend.chat(
+                "coding-agent",
+                "What does the user prefer?",
+            )
+    """
+
+    def __init__(
+        self,
+        workspace_id: str = "sin-bundle",
+        base_url: str = "http://localhost:8000",
+        timeout: float = 2.0,
+    ) -> None:
+        # Short timeout: we never want a Honcho outage to block retain/recall.
+        self.workspace_id = workspace_id
+        self.base_url = base_url
+        self.timeout = timeout
+        self._honcho: Optional[Any] = None
+        self._available: bool = False
+        self._init_attempted: bool = False
+        self._init_error: Optional[str] = None
+
+    def _try_init(self) -> None:
+        """Lazily initialize Honcho. Caches the result of the attempt."""
+        if self._init_attempted:
+            return
+        self._init_attempted = True
+        try:
+            from honcho import Honcho  # type: ignore[import-not-found]
+
+            # Initialize with explicit short timeout + 0 retries to fail fast
+            self._honcho = Honcho(
+                workspace_id=self.workspace_id,
+                base_url=self.base_url,
+                timeout=self.timeout,
+                max_retries=0,
+            )
+            # Cheap connectivity check — fail fast if server is unreachable.
+            list(self._honcho.peers())
+            self._available = True
+        except Exception as e:  # broad: import error, network, API mismatch
+            self._init_error = str(e)
+            self._available = False
+            self._honcho = None
+
+    def is_available(self) -> bool:
+        """Check whether Honcho is reachable. Caches the result."""
+        if not self._init_attempted:
+            self._try_init()
+        return self._available
+
+    def get_status(self) -> Dict[str, Any]:
+        """Return a status dict for diagnostics / ``get_stats`` output."""
+        if not self._init_attempted:
+            self._try_init()
+        return {
+            "available": self._available,
+            "workspace_id": self.workspace_id,
+            "base_url": self.base_url,
+            "error": self._init_error,
+        }
+
+    def get_or_create_peer(self, name: str) -> Optional[Any]:
+        """Get or create a Honcho peer. Returns ``None`` if unavailable."""
+        if not self.is_available() or self._honcho is None:
+            return None
+        try:
+            return self._honcho.peer(name)
+        except Exception:
+            return None
+
+    def get_or_create_session(self, name: str) -> Optional[Any]:
+        """Get or create a Honcho session. Returns ``None`` if unavailable."""
+        if not self.is_available() or self._honcho is None:
+            return None
+        try:
+            return self._honcho.session(name)
+        except Exception:
+            return None
+
+    def retain_message(
+        self,
+        peer_name: str,
+        content: str,
+        role: str = "user",
+        session_name: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Store a message in Honcho. Returns a small result dict or ``None``.
+
+        ``session_name`` is optional; when provided, the message is also
+        added to that session (and the peer is added to it). Errors are
+        swallowed and surfaced in the returned dict.
+        """
+        if not self.is_available() or self._honcho is None:
+            return None
+        try:
+            peer = self.get_or_create_peer(peer_name)
+            if peer is None:
+                return None
+            message = peer.message(content, role=role, metadata=metadata or {})
+            if session_name:
+                session = self.get_or_create_session(session_name)
+                if session is not None:
+                    try:
+                        session.add_peers([peer_name])
+                    except Exception:
+                        # Peer may already be a member — non-fatal.
+                        pass
+                    try:
+                        session.add_messages([message])
+                    except Exception:
+                        # Session attach is best-effort.
+                        pass
+            return {
+                "success": True,
+                "peer": peer_name,
+                "session": session_name,
+                "stored_in": "Honcho",
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    def get_session_context(
+        self, session_name: str
+    ) -> Optional[Dict[str, Any]]:
+        """Return the behavioral context for a session, or ``None``."""
+        if not self.is_available() or self._honcho is None:
+            return None
+        try:
+            session = self.get_or_create_session(session_name)
+            if session is None:
+                return None
+            ctx = session.context()
+            if ctx is None:
+                return None
+            if hasattr(ctx, "model_dump"):
+                return ctx.model_dump()
+            return dict(ctx)
+        except Exception as e:
+            return {"error": str(e)}
+
+    def chat(
+        self,
+        peer_name: str,
+        query: str,
+        reasoning_level: str = "low",
+    ) -> Optional[str]:
+        """Ask a Honcho peer a question (dialectic). Returns ``str | None``."""
+        if not self.is_available() or self._honcho is None:
+            return None
+        try:
+            peer = self.get_or_create_peer(peer_name)
+            if peer is None:
+                return None
+            return peer.chat(query)
+        except Exception:
+            return None
+
+    def search(
+        self,
+        query: str,
+        peer_name: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Semantic search across Honcho memory. Empty list on failure."""
+        if not self.is_available() or self._honcho is None:
+            return []
+        try:
+            if peer_name:
+                peer = self.get_or_create_peer(peer_name)
+                if peer is None:
+                    return []
+                results = peer.search(query)
+            else:
+                results = self._honcho.search(query)
+            if hasattr(results, "__iter__"):
+                return [{"content": str(r)} for r in results]
+            return []
+        except Exception:
+            return []
+
+
 class SINMemory:
-    """Memory system with optional SCKG semantic backend.
+    """Memory system with optional SCKG + Honcho backends.
 
     Usage:
         mem = SINMemory(Path("/path/to/repo"))
@@ -29,6 +226,8 @@ class SINMemory:
         self,
         repo_root: Optional[Path] = None,
         db_path: Optional[Path] = None,
+        honcho_workspace: Optional[str] = None,
+        honcho_base_url: Optional[str] = None,
     ) -> None:
         self.repo_root = repo_root or Path.cwd()
         self.db_path = db_path or (self.repo_root / ".sin_memory.db")
@@ -37,6 +236,12 @@ class SINMemory:
         self._init_db()
         # SCKG is best-effort (semantic layer, optional dep)
         self._try_init_sckg()
+        # Honcho backend — graceful if unavailable (lazy import, lazy init)
+        self.honcho = HonchoBackend(
+            workspace_id=honcho_workspace
+            or f"sin-bundle-{self.repo_root.name}",
+            base_url=honcho_base_url or "http://localhost:8000",
+        )
 
     def _init_db(self) -> None:
         """Initialize SQLite store (always works, even if SCKG is missing)."""
@@ -190,8 +395,81 @@ class SINMemory:
             cur = conn.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
             return cur.rowcount > 0
 
+    def get_context_for_query(self, query: str) -> Dict[str, Any]:
+        """Unified context retrieval: SCKG code + Honcho behavioral.
+
+        Returns a dict with:
+
+        - ``query`` — the input echoed back
+        - ``code_knowledge`` — SCKG results (or ``None``)
+        - ``behavioral_insights`` — Honcho chat response (or ``None``)
+        - ``synthesis`` — combined string for LLM prompt injection
+        - ``backends`` — which backends are live in this instance
+
+        If neither optional backend is available, the method still
+        returns a well-formed dict (with ``synthesis`` empty) so
+        callers can rely on the shape.
+        """
+        result: Dict[str, Any] = {
+            "query": query,
+            "code_knowledge": None,
+            "behavioral_insights": None,
+            "synthesis": "",
+            "backends": {
+                "sqlite": True,
+                "sckg": self._sckg is not None,
+                "honcho": self.honcho.is_available(),
+            },
+        }
+
+        # Code knowledge (best-effort)
+        if self._sckg is not None:
+            try:
+                sckg_results = (
+                    self._sckg.query(query)
+                    if hasattr(self._sckg, "query")
+                    else None
+                )
+                result["code_knowledge"] = {
+                    "type": "sckg",
+                    "results": sckg_results,
+                }
+            except Exception:
+                # SCKG can be partial — never let it block context assembly.
+                pass
+
+        # Behavioral insights (best-effort)
+        if self.honcho.is_available():
+            try:
+                peer = self.honcho.get_or_create_peer("coding-agent")
+                if peer is not None:
+                    insight = peer.chat(
+                        f"Based on past interactions, what context is "
+                        f"relevant for: {query}"
+                    )
+                    result["behavioral_insights"] = {
+                        "type": "honcho",
+                        "insight": insight,
+                    }
+            except Exception:
+                # Honcho errors never fail the call.
+                pass
+
+        # Simple synthesis — concatenated hints for LLM prompt injection.
+        parts: List[str] = []
+        if result["code_knowledge"]:
+            parts.append(f"Code: {result['code_knowledge']}")
+        if result["behavioral_insights"]:
+            insight_text = result["behavioral_insights"].get("insight", "")
+            if insight_text:
+                parts.append(f"Behavior: {insight_text}")
+        result["synthesis"] = (
+            "\n".join(parts) if parts else "No context available."
+        )
+        return result
+
     def get_stats(self) -> Dict[str, Any]:
-        """Get memory statistics: total count, distinct tags, backend."""
+        """Get memory statistics: total count, distinct tags, backends."""
         with sqlite3.connect(str(self.db_path)) as conn:
             total = conn.execute("SELECT COUNT(*) FROM memories").fetchone()[0]
             tag_rows = conn.execute(
@@ -206,7 +484,12 @@ class SINMemory:
             "total_facts": total,
             "tags": sorted(all_tags),
             "backend": "SQLite + SCKG" if self._sckg else "SQLite only",
+            "honcho": (
+                self.honcho.get_status()
+                if self.honcho is not None
+                else {"available": False}
+            ),
         }
 
 
-__all__ = ["SINMemory"]
+__all__ = ["SINMemory", "HonchoBackend"]

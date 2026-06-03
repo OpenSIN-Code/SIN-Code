@@ -196,3 +196,109 @@ def test_ast_returns_error_when_unavailable():
     # Without tree-sitter, edit() should give install hint
     result = ast.edit(Path("nonexistent.py"), "x", "y")
     assert not result.success
+
+
+# ── Honcho backend integration ─────────────────────────────────
+
+
+def test_memory_with_honcho_unavailable(tmp_path):
+    """Memory with Honcho unavailable (no server) should still work via SQLite."""
+    from sin_code_bundle.memory import SINMemory, HonchoBackend
+    mem = SINMemory(
+        db_path=tmp_path / "mem.db",
+        honcho_workspace="test-ws",
+        honcho_base_url="http://localhost:1",  # unreachable
+    )
+    # Honcho backend is always attached — even when unavailable.
+    assert mem.honcho is not None
+    assert isinstance(mem.honcho, HonchoBackend)
+    # is_available() should be False (server unreachable on a closed port).
+    # Don't assert this strictly — depends on network — but in this
+    # env the port-1 connection must fail fast.
+    assert mem.honcho.is_available() is False
+    result = mem.retain("test fact")
+    assert result["success"]
+    # The retain went to SQLite (always works).
+    assert result["stored_in"] in ("SQLite", "SQLite + SCKG")
+
+
+def test_honcho_backend_init_lazy():
+    """HonchoBackend defers initialization until first call."""
+    from sin_code_bundle.memory import HonchoBackend
+    backend = HonchoBackend(workspace_id="test", base_url="http://localhost:1")
+    # _init_attempted should be False before any call.
+    assert backend._init_attempted is False
+    # is_available triggers init.
+    available = backend.is_available()
+    assert isinstance(available, bool)
+    # After is_available, _init_attempted is True.
+    assert backend._init_attempted is True
+    # Calling is_available again doesn't re-init.
+    again = backend.is_available()
+    assert again == available
+
+
+def test_honcho_backend_get_status():
+    """HonchoBackend.get_status returns diagnostic dict."""
+    from sin_code_bundle.memory import HonchoBackend
+    backend = HonchoBackend(workspace_id="test", base_url="http://localhost:1")
+    status = backend.get_status()
+    assert "available" in status
+    assert "workspace_id" in status
+    assert "base_url" in status
+    assert "error" in status
+    # Lazy init triggered by get_status().
+    assert backend._init_attempted is True
+    # Unreachable server → available False.
+    assert status["available"] is False
+    # workspace_id + base_url are echoed back.
+    assert status["workspace_id"] == "test"
+    assert status["base_url"] == "http://localhost:1"
+
+
+def test_honcho_retain_message_unavailable():
+    """HonchoBackend.retain_message returns None when unavailable."""
+    from sin_code_bundle.memory import HonchoBackend
+    backend = HonchoBackend(workspace_id="test", base_url="http://localhost:1")
+    # Force unavailable by short-circuiting init (no real network call).
+    backend._init_attempted = True
+    backend._available = False
+    backend._honcho = None
+    result = backend.retain_message(peer_name="x", content="y")
+    assert result is None
+
+
+def test_memory_get_context_for_query(tmp_path):
+    """get_context_for_query returns structured context."""
+    from sin_code_bundle.memory import SINMemory
+    mem = SINMemory(db_path=tmp_path / "mem.db")
+    mem.retain("User prefers TypeScript over JavaScript", tags=["preference"])
+    result = mem.get_context_for_query("What languages does the user like?")
+    # Required keys present.
+    assert "query" in result
+    assert "code_knowledge" in result
+    assert "behavioral_insights" in result
+    assert "synthesis" in result
+    assert "backends" in result
+    # SQLite backend is always live.
+    assert result["backends"]["sqlite"] is True
+    # Query is echoed back.
+    assert result["query"] == "What languages does the user like?"
+    # Synthesis is a string (possibly empty when neither optional
+    # backend is available — but at minimum the key exists and is a str).
+    assert isinstance(result["synthesis"], str)
+
+
+def test_memory_stats_includes_honcho(tmp_path):
+    """get_stats now includes honcho status."""
+    from sin_code_bundle.memory import SINMemory
+    mem = SINMemory(db_path=tmp_path / "mem.db")
+    stats = mem.get_stats()
+    assert "honcho" in stats
+    assert "available" in stats["honcho"]
+    # Honcho backend is attached; on a closed port it must be unavailable.
+    assert stats["honcho"]["available"] is False
+    # Pre-existing keys still present (regression guard).
+    assert "total_facts" in stats
+    assert "tags" in stats
+    assert "backend" in stats

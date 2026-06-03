@@ -1601,6 +1601,107 @@ def memory_forget(
         raise typer.Exit(code=1)
 
 
+@memory_app.command("honcho-status")
+def memory_honcho_status(
+    repo: str = typer.Option(".", "--repo", help="Repo root"),
+    base_url: str = typer.Option("http://localhost:8000", "--base-url", help="Honcho server URL"),
+    json_out: bool = typer.Option(False, "--json", help="JSON output"),
+):
+    """Check Honcho behavioral-memory backend status."""
+    from sin_code_bundle.memory import SINMemory
+    mem = SINMemory(Path(repo), honcho_base_url=base_url)
+    status = mem.honcho.get_status()
+    if json_out:
+        typer.echo(json.dumps(status, indent=2))
+    else:
+        typer.echo("Honcho backend status:")
+        typer.echo(f"  available:    {status['available']}")
+        typer.echo(f"  workspace_id: {status['workspace_id']}")
+        typer.echo(f"  base_url:     {status['base_url']}")
+        if status.get("error"):
+            typer.echo(f"  error:        {status['error']}")
+        if not status["available"]:
+            typer.echo("")
+            typer.echo("  Install:  pip install honcho-ai")
+            typer.echo("  Serve:    honcho serve  (or set HONCHO_BASE_URL)")
+
+
+@memory_app.command("honcho-retain")
+def memory_honcho_retain(
+    peer: str = typer.Option("coding-agent", "--peer", help="Peer name (e.g., 'user', 'coding-agent')"),
+    content: str = typer.Argument(..., help="Message content to store"),
+    role: str = typer.Option("user", "--role", help="Message role: 'user' or 'assistant'"),
+    session: str = typer.Option("", "--session", help="Session name (optional)"),
+    repo: str = typer.Option(".", "--repo", help="Repo root"),
+    base_url: str = typer.Option("http://localhost:8000", "--base-url", help="Honcho server URL"),
+    json_out: bool = typer.Option(False, "--json", help="JSON output"),
+):
+    """Store a message in Honcho (behavioral memory)."""
+    from sin_code_bundle.memory import SINMemory
+    mem = SINMemory(Path(repo), honcho_base_url=base_url)
+    if not mem.honcho.is_available():
+        typer.echo("ERROR: Honcho not available. Check 'sin memory honcho-status'", err=True)
+        raise typer.Exit(code=1)
+    result = mem.honcho.retain_message(
+        peer_name=peer,
+        content=content,
+        role=role,
+        session_name=session or None,
+    )
+    if json_out:
+        typer.echo(json.dumps(result, indent=2))
+    else:
+        if result and result.get("success"):
+            typer.echo(f"Stored: peer={result['peer']}, session={result.get('session', '-')}")
+        else:
+            typer.echo(f"ERROR: {result}", err=True)
+            raise typer.Exit(code=1)
+
+
+@memory_app.command("honcho-chat")
+def memory_honcho_chat(
+    query: str = typer.Argument(..., help="Question to ask Honcho peer"),
+    peer: str = typer.Option("coding-agent", "--peer", help="Peer name"),
+    repo: str = typer.Option(".", "--repo", help="Repo root"),
+    base_url: str = typer.Option("http://localhost:8000", "--base-url", help="Honcho server URL"),
+):
+    """Ask a Honcho peer a question (dialectic)."""
+    from sin_code_bundle.memory import SINMemory
+    mem = SINMemory(Path(repo), honcho_base_url=base_url)
+    if not mem.honcho.is_available():
+        typer.echo("ERROR: Honcho not available", err=True)
+        raise typer.Exit(code=1)
+    response = mem.honcho.chat(peer, query)
+    if response is None:
+        typer.echo("(no response from Honcho)", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(response)
+
+
+context_app = typer.Typer(help="Unified context: SCKG code + Honcho behavioral")
+app.add_typer(context_app, name="context")
+
+
+@context_app.command("query")
+def context_query(
+    query: str = typer.Argument(..., help="Natural-language query"),
+    repo: str = typer.Option(".", "--repo", help="Repo root"),
+    honcho_url: str = typer.Option("http://localhost:8000", "--honcho-url", help="Honcho server URL"),
+    json_out: bool = typer.Option(False, "--json", help="JSON output"),
+):
+    """Get unified context (code + behavioral) for a query."""
+    from sin_code_bundle.memory import SINMemory
+    mem = SINMemory(Path(repo), honcho_base_url=honcho_url)
+    result = mem.get_context_for_query(query)
+    if json_out:
+        typer.echo(json.dumps(result, indent=2))
+    else:
+        typer.echo(f"Query: {query}")
+        typer.echo(f"Backends: {result['backends']}")
+        typer.echo("")
+        typer.echo(result["synthesis"])
+
+
 ast_app = typer.Typer(help="AST-based code editing (requires tree-sitter)")
 app.add_typer(ast_app, name="ast")
 
