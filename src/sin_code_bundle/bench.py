@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """SWE-bench-style A/B evaluation harness for the SIN-Code Bundle.
 
 Goal: produce an objective, reproducible number that answers
@@ -20,6 +21,7 @@ works end-to-end without any LLM credits.
 
 Docs: bench.doc.md
 """
+
 from __future__ import annotations
 
 import json

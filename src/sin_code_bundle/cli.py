@@ -5,6 +5,8 @@ nutzbar und es wird eine klare Meldung statt eines Importfehlers ausgegeben.
 
 Docs: cli.doc.md
 """
+
+# SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 import json

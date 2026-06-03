@@ -4,6 +4,8 @@ Docs: hashline.doc.md
 
 Content-hash based patching to avoid string-not-found errors.
 """
+
+# SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 from typing import Optional, Dict, List, Tuple

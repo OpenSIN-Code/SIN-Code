@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """CoDocs — Co-located Docs Standard validator.
 
 Each code file may declare a companion ``.doc.md`` file via a first-line
@@ -17,6 +18,7 @@ optional SIN-Code subsystems are not installed.
 
 Docs: codocs.doc.md
 """
+
 from __future__ import annotations
 
 import re

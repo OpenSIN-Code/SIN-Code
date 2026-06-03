@@ -2,6 +2,8 @@
 
 Docs: safety.doc.md
 """
+
+# SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 import subprocess

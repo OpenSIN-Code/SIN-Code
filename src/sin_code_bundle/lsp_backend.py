@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """LSP-backed symbol resolution for the SCKG.
 
 This makes `impact()` structural and type-accurate instead of textual:
@@ -15,6 +16,7 @@ and the bundle keeps working (consistent with `sin status`).
 
 Docs: lsp_backend.doc.md
 """
+
 from __future__ import annotations
 
 import asyncio

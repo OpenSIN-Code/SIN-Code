@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """GitNexus bridge.
 
 GitNexus (https://github.com/abhigyanpatwari/GitNexus) is an *upstream* tool,
@@ -17,6 +18,7 @@ The bridge provides:
 
 Docs: gitnexus.doc.md
 """
+
 from __future__ import annotations
 
 import json

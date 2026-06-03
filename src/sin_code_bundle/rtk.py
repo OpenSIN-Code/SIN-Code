@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """RTK bridge.
 
 RTK (https://github.com/rtk-ai/rtk) is an *upstream* tool distributed as an
@@ -13,6 +14,7 @@ agent so the whole SIN-Code coder fleet benefits from the same token savings.
 
 Docs: rtk.doc.md
 """
+
 from __future__ import annotations
 
 import shutil

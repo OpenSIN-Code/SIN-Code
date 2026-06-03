@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Risk-gating, approval, and tamper-evident audit logging for SIN tools.
 
 MCP has no native access control. This module wraps every tool execution with:
@@ -10,6 +11,7 @@ Policy is loaded from .sin/policy.yaml (falls back to safe defaults).
 
 Docs: policy.doc.md
 """
+
 from __future__ import annotations
 
 import hashlib

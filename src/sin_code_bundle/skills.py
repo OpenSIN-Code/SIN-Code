@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Compile portable SIN skills into each agent's native command/skill format.
 
 One source of truth: `skills/*.md` with YAML frontmatter (name, description,
@@ -12,6 +13,7 @@ sync across CLIs.
 
 Docs: skills.doc.md
 """
+
 from __future__ import annotations
 
 import re

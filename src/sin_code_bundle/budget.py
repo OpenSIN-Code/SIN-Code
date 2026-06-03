@@ -6,6 +6,8 @@ knows more data exists.
 
 Docs: budget.doc.md
 """
+
+# SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 from typing import Any

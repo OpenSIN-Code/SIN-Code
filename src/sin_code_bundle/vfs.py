@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: Virtual Filesystem Layer (URI Schemes) for SIN-Code v2.
 
 Docs: vfs.doc.md
@@ -13,6 +14,7 @@ Exposes semantic tools as URI schemes for any MCP client:
     oracle://strategy/<name>           -> Oracle verifier
     conflict://<id>                    -> Git conflict interface
 """
+
 from __future__ import annotations
 
 from typing import Optional, Dict, Any

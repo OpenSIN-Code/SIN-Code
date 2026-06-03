@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Generator fuer eine AGENTS.md (WS4, Issue #4).
 
 OpenCode und Codex lesen automatisch eine ``AGENTS.md`` im Repo-Root. Dieser
@@ -7,6 +8,7 @@ wird idempotent ersetzt -- der restliche Inhalt der Datei bleibt unangetastet.
 
 Docs: agents_md.doc.md
 """
+
 from __future__ import annotations
 
 from pathlib import Path

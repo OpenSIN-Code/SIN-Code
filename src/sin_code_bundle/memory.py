@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Memory/Hindsight Integration for SIN-Code v2.
 
 Docs: memory.doc.md
@@ -8,6 +9,7 @@ Inspired by retain/recall/reflect patterns from Hindsight / Letta.
 Tree-sitter, SCKG, and Honcho are *optional* imports; SQLite is the
 durable source of truth.
 """
+
 from __future__ import annotations
 
 import json

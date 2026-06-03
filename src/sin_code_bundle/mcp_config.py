@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Generatoren fuer MCP-Client-Konfigurationen (WS2, Issue #2).
 
 Erzeugt fertig einfuegbare Konfiguration fuer die drei Ziel-CLIs:
@@ -11,6 +12,7 @@ idempotenten Mergen in eine bestehende Konfigurationsdatei (fuer ``--write``).
 
 Docs: mcp_config.doc.md
 """
+
 from __future__ import annotations
 
 import json

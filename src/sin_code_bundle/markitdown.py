@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """MarkItDown bridge.
 
 MarkItDown (https://github.com/microsoft/markitdown) is an *upstream* tool by
@@ -17,6 +18,7 @@ The bridge provides:
 
 Docs: markitdown.doc.md
 """
+
 from __future__ import annotations
 
 import json

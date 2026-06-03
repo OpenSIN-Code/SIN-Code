@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """AST-based code editing with lazy tree-sitter + POC verification.
 
 Docs: ast_edit.doc.md
@@ -7,6 +8,7 @@ falls back to a no-op state where :meth:`is_available` returns ``False``
 and :meth:`edit` returns a clear install-hint error. This keeps the
 bundle importable without tree-sitter as a hard dep.
 """
+
 from __future__ import annotations
 
 import tempfile
