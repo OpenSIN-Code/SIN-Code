@@ -7,8 +7,11 @@ import pytest
 from pathlib import Path
 
 
+# ── VFS: Virtual Filesystem ────────────────────────────────────
+
+
 def test_vfs_schemes():
-    """VFS lists all schemes."""
+    """VFS exposes 7 URI schemes (sckg, poc, ibd, adw, efsm, oracle, conflict)."""
     from sin_code_bundle.vfs import URI_SCHEMES, SINVirtualFS
     assert "sckg" in URI_SCHEMES
     assert "poc" in URI_SCHEMES
@@ -23,7 +26,7 @@ def test_vfs_schemes():
 
 
 def test_vfs_invalid_uri():
-    """Invalid URI returns error."""
+    """Returns an error dict for malformed URIs (no scheme prefix)."""
     from sin_code_bundle.vfs import SINVirtualFS
     vfs = SINVirtualFS()
     result = vfs.resolve("not a uri")
@@ -31,7 +34,7 @@ def test_vfs_invalid_uri():
 
 
 def test_vfs_unknown_scheme():
-    """Unknown scheme returns error."""
+    """Returns an error dict for unknown URI schemes."""
     from sin_code_bundle.vfs import SINVirtualFS
     vfs = SINVirtualFS()
     result = vfs.resolve("noscheme://foo")
@@ -39,7 +42,7 @@ def test_vfs_unknown_scheme():
 
 
 def test_vfs_caching():
-    """VFS caches results."""
+    """Repeated resolves of the same URI return the cached result."""
     from sin_code_bundle.vfs import SINVirtualFS
     vfs = SINVirtualFS()
     r1 = vfs.resolve("noscheme://foo")
@@ -48,8 +51,11 @@ def test_vfs_caching():
     assert r1 == r2
 
 
+# ── Hashline: Content-Hash Patching ────────────────────────────
+
+
 def test_hashline_basic():
-    """Hashline can find anchors in content."""
+    """Hashline can find anchors for known function declarations."""
     from sin_code_bundle.hashline import HashlineAnchor
     content = "def foo():\n    pass\n\ndef bar():\n    return 1\n"
     anchor = HashlineAnchor(content)
@@ -60,7 +66,7 @@ def test_hashline_basic():
 
 
 def test_hashline_patch_creation():
-    """Hashline creates valid patches."""
+    """create_patch returns a valid dict with anchor_hash + line."""
     from sin_code_bundle.hashline import HashlineAnchor
     content = "def old():\n    pass\n"
     anchor = HashlineAnchor(content)
@@ -72,7 +78,7 @@ def test_hashline_patch_creation():
 
 
 def test_hashline_patch_apply():
-    """Hashline applies patches atomically."""
+    """apply_patch replaces old content with new content."""
     from sin_code_bundle.hashline import HashlineAnchor
     content = "def old():\n    pass\n"
     anchor = HashlineAnchor(content)
@@ -84,7 +90,7 @@ def test_hashline_patch_apply():
 
 
 def test_hashline_stale_anchor():
-    """Stale anchors are rejected."""
+    """apply_patch returns None when anchor moved (safety guard)."""
     from sin_code_bundle.hashline import HashlineAnchor
     content = "def old():\n    pass\n"
     anchor = HashlineAnchor(content)
@@ -96,7 +102,7 @@ def test_hashline_stale_anchor():
 
 
 def test_hashline_semantic_patch(tmp_path):
-    """SINHashlinePatch creates + applies patches to files."""
+    """SINHashlinePatch writes modified content atomically to file."""
     from sin_code_bundle.hashline import SINHashlinePatch
     f = tmp_path / "code.py"
     f.write_text("def hello():\n    print('old')\n")
@@ -108,8 +114,11 @@ def test_hashline_semantic_patch(tmp_path):
     assert "def hello_world():" in f.read_text()
 
 
+# ── Memory: SQLite + Honcho Backend ────────────────────────────
+
+
 def test_memory_retain_recall(tmp_path):
-    """Memory can retain and recall facts."""
+    """retain stores facts; recall finds them via LIKE search."""
     from sin_code_bundle.memory import SINMemory
     mem = SINMemory(db_path=tmp_path / "mem.db")
     r1 = mem.retain("User prefers TypeScript", tags=["preference"])
@@ -122,7 +131,7 @@ def test_memory_retain_recall(tmp_path):
 
 
 def test_memory_tag_filter(tmp_path):
-    """Memory recall filters by tag."""
+    """Recall with --tag=X filters to only matching facts."""
     from sin_code_bundle.memory import SINMemory
     mem = SINMemory(db_path=tmp_path / "mem.db")
     mem.retain("alpha fact", tags=["a"])
@@ -133,7 +142,7 @@ def test_memory_tag_filter(tmp_path):
 
 
 def test_memory_forget(tmp_path):
-    """Memory forget removes facts."""
+    """forget removes a fact by ID; subsequent recall returns empty."""
     from sin_code_bundle.memory import SINMemory
     mem = SINMemory(db_path=tmp_path / "mem.db")
     r = mem.retain("to be forgotten", tags=["t"])
@@ -143,7 +152,7 @@ def test_memory_forget(tmp_path):
 
 
 def test_memory_stats(tmp_path):
-    """Memory stats are correct."""
+    """get_stats returns correct total_facts and aggregated tags."""
     from sin_code_bundle.memory import SINMemory
     mem = SINMemory(db_path=tmp_path / "mem.db")
     mem.retain("fact one", tags=["x"])
@@ -155,7 +164,7 @@ def test_memory_stats(tmp_path):
 
 
 def test_memory_reflect(tmp_path):
-    """Memory reflect returns answer + sources."""
+    """reflect synthesizes answer + sources from memory."""
     from sin_code_bundle.memory import SINMemory
     mem = SINMemory(db_path=tmp_path / "mem.db")
     mem.retain("Python is a dynamic language", tags=["lang"])
@@ -169,40 +178,15 @@ def test_memory_reflect(tmp_path):
 
 
 def test_memory_reflect_empty(tmp_path):
-    """Memory reflect on empty returns confidence 0."""
+    """reflect on empty memory returns confidence=0.0."""
     from sin_code_bundle.memory import SINMemory
     mem = SINMemory(db_path=tmp_path / "mem.db")
     result = mem.reflect("nothing about this")
     assert result["confidence"] == 0.0
 
 
-def test_ast_lazy_import():
-    """AST module is importable even without tree-sitter."""
-    from sin_code_bundle.ast_edit import SINASTEdit, ASTEditResult
-    ast = SINASTEdit()
-    # tree-sitter NOT installed in this env
-    assert ast.is_available() is False
-    # Edit on missing file returns proper error
-    result = ast.edit(Path("/nonexistent.py"), "old", "new")
-    assert not result.success
-    assert "File not found" in result.error or "tree-sitter" in result.error
-
-
-def test_ast_returns_error_when_unavailable():
-    """AST edit returns clear error when tree-sitter missing."""
-    from sin_code_bundle.ast_edit import SINASTEdit
-    ast = SINASTEdit()
-    assert not ast.is_available()
-    # Without tree-sitter, edit() should give install hint
-    result = ast.edit(Path("nonexistent.py"), "x", "y")
-    assert not result.success
-
-
-# ── Honcho backend integration ─────────────────────────────────
-
-
 def test_memory_with_honcho_unavailable(tmp_path):
-    """Memory with Honcho unavailable (no server) should still work via SQLite."""
+    """Memory works via SQLite even when Honcho server is unreachable."""
     from sin_code_bundle.memory import SINMemory, HonchoBackend
     mem = SINMemory(
         db_path=tmp_path / "mem.db",
@@ -223,7 +207,7 @@ def test_memory_with_honcho_unavailable(tmp_path):
 
 
 def test_honcho_backend_init_lazy():
-    """HonchoBackend defers initialization until first call."""
+    """HonchoBackend defers _try_init until is_available() is called."""
     from sin_code_bundle.memory import HonchoBackend
     backend = HonchoBackend(workspace_id="test", base_url="http://localhost:1")
     # _init_attempted should be False before any call.
@@ -239,7 +223,7 @@ def test_honcho_backend_init_lazy():
 
 
 def test_honcho_backend_get_status():
-    """HonchoBackend.get_status returns diagnostic dict."""
+    """get_status returns available/workspace_id/base_url/error dict."""
     from sin_code_bundle.memory import HonchoBackend
     backend = HonchoBackend(workspace_id="test", base_url="http://localhost:1")
     status = backend.get_status()
@@ -257,7 +241,7 @@ def test_honcho_backend_get_status():
 
 
 def test_honcho_retain_message_unavailable():
-    """HonchoBackend.retain_message returns None when unavailable."""
+    """retain_message returns None when Honcho is unavailable."""
     from sin_code_bundle.memory import HonchoBackend
     backend = HonchoBackend(workspace_id="test", base_url="http://localhost:1")
     # Force unavailable by short-circuiting init (no real network call).
@@ -269,7 +253,7 @@ def test_honcho_retain_message_unavailable():
 
 
 def test_memory_get_context_for_query(tmp_path):
-    """get_context_for_query returns structured context."""
+    """get_context_for_query returns structured dict for LLM injection."""
     from sin_code_bundle.memory import SINMemory
     mem = SINMemory(db_path=tmp_path / "mem.db")
     mem.retain("User prefers TypeScript over JavaScript", tags=["preference"])
@@ -290,7 +274,7 @@ def test_memory_get_context_for_query(tmp_path):
 
 
 def test_memory_stats_includes_honcho(tmp_path):
-    """get_stats now includes honcho status."""
+    """get_stats includes honcho sub-dict with availability."""
     from sin_code_bundle.memory import SINMemory
     mem = SINMemory(db_path=tmp_path / "mem.db")
     stats = mem.get_stats()
@@ -302,3 +286,28 @@ def test_memory_stats_includes_honcho(tmp_path):
     assert "total_facts" in stats
     assert "tags" in stats
     assert "backend" in stats
+
+
+# ── AST Edit: Tree-sitter Optional ─────────────────────────────
+
+
+def test_ast_lazy_import():
+    """ast_edit module imports without tree-sitter installed."""
+    from sin_code_bundle.ast_edit import SINASTEdit, ASTEditResult
+    ast = SINASTEdit()
+    # tree-sitter NOT installed in this env
+    assert ast.is_available() is False
+    # Edit on missing file returns proper error
+    result = ast.edit(Path("/nonexistent.py"), "old", "new")
+    assert not result.success
+    assert "File not found" in result.error or "tree-sitter" in result.error
+
+
+def test_ast_returns_error_when_unavailable():
+    """edit returns clear install hint when tree-sitter missing."""
+    from sin_code_bundle.ast_edit import SINASTEdit
+    ast = SINASTEdit()
+    assert not ast.is_available()
+    # Without tree-sitter, edit() should give install hint
+    result = ast.edit(Path("nonexistent.py"), "x", "y")
+    assert not result.success

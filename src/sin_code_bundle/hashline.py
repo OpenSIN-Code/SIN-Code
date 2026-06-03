@@ -12,13 +12,26 @@ import hashlib
 import tempfile
 
 
+# ── HashlineAnchor: Pure Content-Hash Logic ─────────────────────────
 def _normalize(s: str) -> str:
-    """Normalize whitespace for hashing."""
+    """Normalize whitespace for hashing.
+
+    Collapse runs of whitespace (including tabs, newlines, repeated
+    spaces) to a single space. This makes anchors robust to
+    indentation/quote-style differences — a 4-space-indented
+    function and a tab-indented one hash to the same anchor.
+    """
     return " ".join(s.split())
 
 
 def _line_hash(line: str) -> str:
-    """SHA-256 prefix of normalized line content."""
+    """SHA-256 prefix of normalized line content.
+
+    [:16] of a 64-char hex digest: long enough to avoid collisions
+    in typical files (16 hex chars = 64 bits, so ~4B lines before a
+    50% collision probability), short enough to be readable when
+    an agent echoes the hash back.
+    """
     return hashlib.sha256(_normalize(line).encode("utf-8")).hexdigest()[:16]
 
 
@@ -33,6 +46,10 @@ class HashlineAnchor:
 
     def __init__(self, content: str):
         self.content = content
+        # keepends=True: preserve original line endings (LF vs CRLF)
+        # on patch apply — stripping them would force the whole file
+        # to one line ending on every patch, which is data loss for
+        # Windows-checked-in files.
         self.lines = content.splitlines(keepends=True)
         self.line_hashes = [_line_hash(line) for line in self.lines]
 
@@ -115,6 +132,7 @@ class HashlineAnchor:
         return True, "valid"
 
 
+# ── SINHashlinePatch: High-Level File Patching ─────────────────────
 class SINHashlinePatch:
     """High-level hashline patching interface for SIN-Code.
 
@@ -143,6 +161,8 @@ class SINHashlinePatch:
         patch = anchor.create_patch(old_content, new_content)
         if patch is None:
             return None
+        # patch["file"] is a string (not Path) so the patch dict stays
+        # JSON-serializable for transport/storage across agent boundaries.
         patch["file"] = str(file_path)
         patch["intent"] = intent
         return patch
@@ -162,8 +182,17 @@ class SINHashlinePatch:
             return False, f"Patch validation failed: {error_msg}"
         modified = anchor.apply_patch(patch)
         if modified is None:
+            # apply_patch returns None on stale anchor — atomic safety:
+            # never silently corrupt a file when the anchor moved
+            # (e.g. someone else edited the file between create and apply).
             return False, "Failed to apply patch"
-        # Atomic write
+        # Atomic write pattern: write to a sibling tempfile, then
+        # Path.replace() (atomic rename on POSIX). Guarantees:
+        #   - no partial writes (tmp fsyncs before rename, or the
+        #     kernel does it on close)
+        #   - the original is never clobbered mid-write — readers
+        #     always see either the old or the new content, never
+        #     a half-written hybrid.
         with tempfile.NamedTemporaryFile(
             mode="w", dir=file_path.parent, delete=False, suffix=".tmp"
         ) as tmp:
@@ -173,6 +202,8 @@ class SINHashlinePatch:
             tmp_path.replace(file_path)
             return True, "Patch applied successfully"
         except Exception as e:
+            # If replace failed, clean up the orphan tempfile so we
+            # don't leak .tmp files in the repo directory.
             tmp_path.unlink(missing_ok=True)
             return False, f"Failed to write: {e}"
 

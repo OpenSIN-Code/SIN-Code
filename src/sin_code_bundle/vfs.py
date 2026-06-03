@@ -42,10 +42,18 @@ class SINVirtualFS:
 
     def __init__(self, repo_root: Optional[Path] = None):
         self.repo_root = repo_root or Path.cwd()
+        # _cache avoids recomputing expensive SCKG queries on repeated
+        # resolve() calls (e.g. when an agent re-reads the same module
+        # graph mid-session). Bounded only by session lifetime — fine
+        # for our short-lived agent processes.
         self._cache: Dict[str, Any] = {}
 
     def resolve(self, uri: str) -> Dict[str, Any]:
         """Resolve a SIN URI to structured content."""
+        # URI grammar per RFC 3986-ish: `scheme://path`. \w+ matches
+        # `[A-Za-z0-9_]+` which covers all our scheme names (sckg, poc,
+        # ibd, adw, efsm, oracle, conflict) and rejects whitespace,
+        # colons, and other URI-illegal chars early.
         match = re.match(r"^(\w+)://(.+)$", uri)
         if not match:
             return {"error": f"Invalid URI format: {uri}"}
@@ -73,6 +81,8 @@ class SINVirtualFS:
             return {"error": "Use sckg://module/<name>/<query_type>"}
         module_name = parts[1]
         query_type = parts[2] if len(parts) > 2 else "neighbors"
+        # try/except around every resolver = graceful degradation:
+        # if one subsystem breaks or is missing, the others still resolve.
         try:
             from sin_code_sckg import KnowledgeGraph
             kg = KnowledgeGraph(str(self.repo_root))
@@ -102,10 +112,15 @@ class SINVirtualFS:
         if len(parts) < 2:
             return {"error": "Use poc://strategy/<name>"}
         strategy_name = parts[1]
+        # try/except around every resolver = graceful degradation:
+        # if one subsystem breaks or is missing, the others still resolve.
         try:
             from sin_code_poc import list_properties, property_metadata
             # Use the property registry for strategy listing
             props = property_metadata() if callable(property_metadata) else {}
+            # [:50] limits blast radius — not the whole catalog — so the
+            # response stays LLM-prompt-friendly (POC has hundreds of
+            # properties, we only need a discoverable subset here).
             return {
                 "type": "poc_strategy",
                 "strategy": strategy_name,
@@ -140,9 +155,13 @@ class SINVirtualFS:
         if len(parts) < 2 or parts[0] != "smell":
             return {"error": "Use adw://smell/<name>"}
         smell_name = parts[1]
+        # try/except around every resolver = graceful degradation:
+        # if one subsystem breaks or is missing, the others still resolve.
         try:
             from sin_code_adw import smells
-            # List available smell analyzers
+            # ADW doesn't expose a unified query API, so we surface the
+            # available analyzers and tell the user to call them directly
+            # (same rationale as EFSM/Oracle/POC below).
             available = [m for m in dir(smells) if not m.startswith("_") and callable(getattr(smells, m))]
             return {
                 "type": "adw_smell",
@@ -158,8 +177,13 @@ class SINVirtualFS:
         if len(parts) < 2 or parts[0] != "service":
             return {"error": "Use efsm://service/<name>"}
         service_name = parts[1]
+        # try/except around every resolver = graceful degradation:
+        # if one subsystem breaks or is missing, the others still resolve.
         try:
             from sin_code_efsm import services
+            # EFSM doesn't expose a unified query API, so we surface the
+            # available services and tell the user to call them directly
+            # (same rationale as ADW/Oracle/POC above).
             available = [m for m in dir(services) if not m.startswith("_")]
             return {
                 "type": "efsm_service",
@@ -176,9 +200,16 @@ class SINVirtualFS:
         if len(parts) < 2 or parts[0] != "strategy":
             return {"error": "Use oracle://strategy/<name>"}
         strategy_name = parts[1]
+        # try/except around every resolver = graceful degradation:
+        # if one subsystem breaks or is missing, the others still resolve.
         try:
             from sin_code_oracle import verifier
             available = [m for m in dir(verifier) if not m.startswith("_") and callable(getattr(verifier, m))]
+            # [:20] limits blast radius — Oracle's verifier module can
+            # have many callables; we just need enough to be discoverable.
+            # Oracle doesn't expose a unified query API either, so we
+            # return the available verifiers and let the user call them
+            # directly (same rationale as ADW/EFSM/POC above).
             return {
                 "type": "oracle_strategy",
                 "strategy": strategy_name,
@@ -190,6 +221,9 @@ class SINVirtualFS:
     # ── Conflict resolver (git-based) ────────────────────────────────
     def _resolve_conflict(self, path: str) -> Dict[str, Any]:
         try:
+            # git-based and cheap: `git diff --name-only --diff-filter=U`
+            # lists unmerged (U-status) paths. We don't need to parse
+            # conflict markers ourselves — just surface the file list.
             result = subprocess.run(
                 ["git", "diff", "--name-only", "--diff-filter=U"],
                 capture_output=True, text=True, cwd=self.repo_root, timeout=10,
@@ -199,6 +233,8 @@ class SINVirtualFS:
             return {"error": f"git failed: {e}"}
 
         if path == "*" or path == "":
+            # conflict://* = bulk list (most common, agents usually want
+            # "what files are in conflict?" not a single one).
             return {"type": "conflict_bulk", "files": conflicted, "count": len(conflicted)}
         if path.isdigit():
             idx = int(path)

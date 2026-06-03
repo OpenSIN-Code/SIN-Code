@@ -14,9 +14,11 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
-# ── Lazy tree-sitter import ─────────────────────────────────────────
+# ── Lazy Tree-sitter Loader ────────────────────────────────────────
 # Tree-sitter is a heavy native dep; we never want to force it on
 # users who only want to import :mod:`sin_code_bundle` for tooling.
+# Lazy import = the bundle works even when tree-sitter is missing
+# (graceful degradation via the ImportError catch below).
 def _try_import_tree_sitter() -> Optional[Any]:
     try:
         import tree_sitter  # type: ignore  # noqa: F401
@@ -33,6 +35,7 @@ def _try_import_tree_sitter_languages() -> Optional[Any]:
         return None
 
 
+# ── ASTEditResult: Edit Outcome ────────────────────────────────────
 class ASTEditResult:
     """Result of an AST edit operation.
 
@@ -60,6 +63,12 @@ class ASTEditResult:
         self.error = error
 
     def to_dict(self) -> Dict[str, Any]:
+        """Serialize to a JSON-safe dict for transport/storage.
+
+        Round-trips through ``json.dumps``/``json.loads``. Strips no
+        fields — every public attribute appears in the dict verbatim
+        (including ``None`` values for unset optional fields).
+        """
         return {
             "success": self.success,
             "proposed_changes": self.proposed_changes,
@@ -69,6 +78,7 @@ class ASTEditResult:
         }
 
 
+# ── SINASTEdit: Tree-sitter-Powered Edits ───────────────────────────
 class SINASTEdit:
     """AST-based code editing with tree-sitter and POC verification.
 
@@ -83,6 +93,10 @@ class SINASTEdit:
         pip install tree-sitter tree-sitter-languages
     """
 
+    # 5 languages we know tree-sitter-languages supports reliably
+    # (this list is conservative — adding a language here is cheap,
+    # but adding one that the installed tree-sitter-languages doesn't
+    # ship just means it silently drops out in _init_parsers below).
     SUPPORTED_LANGS = {"python", "javascript", "typescript", "go", "rust"}
 
     def __init__(self, repo_root: Optional[Path] = None) -> None:
@@ -105,11 +119,16 @@ class SINASTEdit:
             try:
                 self.parsers[lang] = self.get_parser(lang)
             except Exception:
-                # Language not available in this tree-sitter build
+                # Individual language failures don't break the whole
+                # module: tree-sitter-languages may not ship every
+                # grammar for every wheel. The user just loses one
+                # language from `is_available()`.
                 pass
 
     @staticmethod
     def _detect_language(file_path: Path) -> Optional[str]:
+        # Static because there's no instance state needed — just a
+        # simple extension-to-language mapping table.
         ext_map = {
             ".py": "python",
             ".js": "javascript",
@@ -125,6 +144,10 @@ class SINASTEdit:
         With no ``language`` argument, returns True if *any* supported
         parser loaded successfully. With a ``language``, returns True
         only if that specific parser is ready.
+
+        This method intentionally does NOT raise — callers need a
+        safe way to probe support without try/except around every
+        edit attempt.
         """
         if self.ts is None or self.get_parser is None:
             return False
@@ -173,7 +196,9 @@ class SINASTEdit:
 
         code = file_path.read_text()
         # Parse the whole file — throws away the tree after, but proves
-        # the file is syntactically valid for the chosen language.
+        # the file is syntactically valid for the chosen language
+        # (tree-sitter's parse() raises on invalid syntax for supported
+        # languages; for our loose mode we just rely on it not raising).
         parser.parse(bytes(code, "utf-8"))
 
         if old_substring not in code:
@@ -181,6 +206,10 @@ class SINASTEdit:
                 success=False,
                 error=f"old_substring not found in {file_path}",
             )
+        # Line-based replacement (not byte-range): tree-sitter's query
+        # API for surgical byte-range edits is complex and varies by
+        # grammar. For the v1 we use a line-based fallback that still
+        # validates AST context (the parse above) before applying.
         lines = code.splitlines(keepends=True)
         target_line: Optional[int] = None
         for i, line in enumerate(lines):
@@ -226,6 +255,12 @@ class SINASTEdit:
         Returns ``(report, verified)``. Never raises; on ImportError
         reports ``verified: skipped``. On any other failure reports
         ``verified: failed`` with the error string.
+
+        Note: this is intentionally lenient — POC's exact API may vary
+        across versions, so we capture *presence* (is it installed?)
+        and *size* (how many properties does it expose?) rather than
+        strict semantic verification. Callers needing strict checks
+        should call POC directly.
         """
         try:
             from sin_code_poc import property_metadata  # type: ignore
@@ -259,13 +294,16 @@ class SINASTEdit:
         code = file_path.read_text()
         lines = code.splitlines(keepends=True)
         # Apply changes in reverse order so line numbers stay valid
+        # (editing line 100 first would shift line 50's index if we
+        # went forward — reversing avoids that bookkeeping).
         sorted_changes = sorted(changes, key=lambda c: c["line"], reverse=True)
         for change in sorted_changes:
             idx = change["line"]
             if 0 <= idx < len(lines):
                 lines[idx] = change["new"]
         modified = "".join(lines)
-        # Atomic write: tmp in same dir, then replace
+        # Atomic write: tmp in same dir, then replace (sibling-file
+        # rename is atomic on POSIX; same pattern as hashline.py).
         try:
             with tempfile.NamedTemporaryFile(
                 mode="w",

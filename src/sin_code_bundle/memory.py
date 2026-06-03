@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 
+# ── HonchoBackend: Behavioral Memory (Optional) ─────────────────────
 class HonchoBackend:
     """Optional Honcho behavioral-memory backend.
 
@@ -42,26 +43,35 @@ class HonchoBackend:
         self,
         workspace_id: str = "sin-bundle",
         base_url: str = "http://localhost:8000",
-        timeout: float = 2.0,
+        timeout: float = 1.0,
     ) -> None:
         # Short timeout: we never want a Honcho outage to block retain/recall.
+        # fast-fail: agents shouldn't wait 8s for an unreachable Honcho server.
         self.workspace_id = workspace_id
         self.base_url = base_url
         self.timeout = timeout
         self._honcho: Optional[Any] = None
         self._available: bool = False
+        # _init_attempted caches the import + connectivity probe so we don't
+        # retry on every method call (cheap operation, but still wasteful).
         self._init_attempted: bool = False
         self._init_error: Optional[str] = None
 
     def _try_init(self) -> None:
-        """Lazily initialize Honcho. Caches the result of the attempt."""
+        """Lazily initialize Honcho. Caches the result of the attempt.
+
+        Called once per backend lifetime; the result is memoized via
+        ``_init_attempted`` so subsequent ``is_available()`` / method
+        calls skip the import + connectivity probe entirely.
+        """
         if self._init_attempted:
             return
         self._init_attempted = True
         try:
             from honcho import Honcho  # type: ignore[import-not-found]
 
-            # Initialize with explicit short timeout + 0 retries to fail fast
+            # Initialize with explicit short timeout + 0 retries to fail fast.
+            # max_retries=0: first try only, no exponential backoff for status checks.
             self._honcho = Honcho(
                 workspace_id=self.workspace_id,
                 base_url=self.base_url,
@@ -69,6 +79,7 @@ class HonchoBackend:
                 max_retries=0,
             )
             # Cheap connectivity check — fail fast if server is unreachable.
+            # Listing peers is a no-arg call that exercises the full HTTP path.
             list(self._honcho.peers())
             self._available = True
         except Exception as e:  # broad: import error, network, API mismatch
@@ -83,7 +94,17 @@ class HonchoBackend:
         return self._available
 
     def get_status(self) -> Dict[str, Any]:
-        """Return a status dict for diagnostics / ``get_stats`` output."""
+        """Return a status dict for diagnostics / ``get_stats`` output.
+
+        Triggers lazy init if it hasn't run yet, so a single call to
+        ``get_status()`` is sufficient to surface connection errors
+        without separately calling ``is_available()`` first.
+
+        Returns:
+            Dict with keys: ``available`` (bool), ``workspace_id`` (str),
+            ``base_url`` (str), ``error`` (str | None — set when the
+            last init attempt failed).
+        """
         if not self._init_attempted:
             self._try_init()
         return {
@@ -213,6 +234,7 @@ class HonchoBackend:
             return []
 
 
+# ── SINMemory: SQLite-Backed Facts ─────────────────────────────────
 class SINMemory:
     """Memory system with optional SCKG + Honcho backends.
 
@@ -232,11 +254,14 @@ class SINMemory:
         self.repo_root = repo_root or Path.cwd()
         self.db_path = db_path or (self.repo_root / ".sin_memory.db")
         self._sckg: Optional[Any] = None
-        # SQLite is always-on (durable, no extra deps)
+        # SQLite is always-on (durable, no extra deps).
+        # We use connection-per-operation (no pooling) below — SQLite is
+        # fine with that for our access pattern, and it sidesteps any
+        # thread-safety concerns across agents.
         self._init_db()
-        # SCKG is best-effort (semantic layer, optional dep)
+        # SCKG is best-effort (semantic layer, optional dep).
         self._try_init_sckg()
-        # Honcho backend — graceful if unavailable (lazy import, lazy init)
+        # Honcho backend — graceful if unavailable (lazy import, lazy init).
         self.honcho = HonchoBackend(
             workspace_id=honcho_workspace
             or f"sin-bundle-{self.repo_root.name}",
@@ -246,6 +271,9 @@ class SINMemory:
     def _init_db(self) -> None:
         """Initialize SQLite store (always works, even if SCKG is missing)."""
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # Connection-per-operation: open a fresh connection, use it via
+        # `with`, let it close. No pooling needed at this scale and this
+        # avoids sharing connections across threads (SQLite default).
         with sqlite3.connect(str(self.db_path)) as conn:
             conn.execute(
                 """
@@ -278,6 +306,7 @@ class SINMemory:
             # model, etc.) — degrade gracefully to SQLite-only.
             self._sckg = None
 
+    # ── Public API: retain / recall / reflect / forget ───────────────
     def retain(
         self,
         fact: str,
@@ -291,8 +320,11 @@ class SINMemory:
         """
         context = context or {}
         tags = tags or []
+        # datetime.now(timezone.utc) instead of datetime.utcnow() — the
+        # latter is deprecated in Python 3.12+ and produces naive timestamps.
         created_at = datetime.now(timezone.utc).isoformat()
 
+        # Connection-per-operation (see _init_db for rationale).
         with sqlite3.connect(str(self.db_path)) as conn:
             cur = conn.execute(
                 "INSERT INTO memories (fact, context, tags, created_at) "
@@ -307,18 +339,20 @@ class SINMemory:
             mem_id = cur.lastrowid
 
         stored_in = "SQLite"
-        # Best-effort SCKG storage — SQLite is the source of truth
+        # Best-effort SCKG storage — SQLite is the source of truth.
         if self._sckg is not None:
             try:
                 self._sckg.add_node(
                     node_id=f"memory:{mem_id}",
                     node_type="memory",
+                    # fact[:100] keeps node names short in graph visualizations.
                     name=fact[:100],
                     properties={"context": context, "tags": tags},
                 )
                 stored_in = "SQLite + SCKG"
             except Exception:
-                # SCKG storage is best-effort; never fail a retain
+                # SCKG storage is best-effort; never fail a retain.
+                # add_node can raise on schema mismatch, duplicate ID, etc.
                 pass
 
         return {
@@ -339,6 +373,7 @@ class SINMemory:
         Uses LIKE-based search on SQLite. Tags are AND-combined.
         Results are ordered newest-first.
         """
+        # Connection-per-operation; see _init_db for rationale.
         with sqlite3.connect(str(self.db_path)) as conn:
             sql = (
                 "SELECT id, fact, context, tags, created_at "
@@ -353,6 +388,9 @@ class SINMemory:
             params.append(limit)
             rows = conn.execute(sql, params).fetchall()
 
+        # tags stored as comma-joined string for SQLite portability
+        # (SQLite has no native array type; JOIN-by-comma is the simplest
+        # portable encoding and supports LIKE-based filtering above).
         return [
             {
                 "id": row[0],
@@ -395,6 +433,7 @@ class SINMemory:
             cur = conn.execute("DELETE FROM memories WHERE id = ?", (memory_id,))
             return cur.rowcount > 0
 
+    # ── Public API: Unified Context (SCKG + Honcho + SQLite) ─────────
     def get_context_for_query(self, query: str) -> Dict[str, Any]:
         """Unified context retrieval: SCKG code + Honcho behavioral.
 
@@ -438,7 +477,9 @@ class SINMemory:
                 # SCKG can be partial — never let it block context assembly.
                 pass
 
-        # Behavioral insights (best-effort)
+        # Behavioral insights (best-effort) — peer.chat can be slow or
+        # raise on Honcho server hiccups; we never want it to fail
+        # context assembly, so we swallow everything.
         if self.honcho.is_available():
             try:
                 peer = self.honcho.get_or_create_peer("coding-agent")
@@ -475,6 +516,8 @@ class SINMemory:
             tag_rows = conn.execute(
                 "SELECT tags FROM memories WHERE tags != ''"
             ).fetchall()
+        # tags stored as comma-joined string for SQLite portability;
+        # split here to derive the distinct-tag set (see retain()).
         all_tags: set[str] = set()
         for row in tag_rows:
             for t in row[0].split(","):
