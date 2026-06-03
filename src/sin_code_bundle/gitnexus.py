@@ -14,6 +14,8 @@ The bridge provides:
   * thin wrappers over the GitNexus CLI query surface
     (``ai-context``, ``query``, ``context``, ``impact``),
   * MCP wiring so OpenCode / Codex / Hermes each get the GitNexus MCP server.
+
+Docs: gitnexus.doc.md
 """
 from __future__ import annotations
 

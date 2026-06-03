@@ -8,6 +8,8 @@ Erzeugt fertig einfuegbare Konfiguration fuer die drei Ziel-CLIs:
 
 Die Funktionen liefern reine Strings (fuer ``--stdout``) sowie Helfer zum
 idempotenten Mergen in eine bestehende Konfigurationsdatei (fuer ``--write``).
+
+Docs: mcp_config.doc.md
 """
 from __future__ import annotations
 

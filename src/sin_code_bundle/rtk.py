@@ -10,6 +10,8 @@ each coder agent through that agent's own hook / plugin mechanism, installed by
 RTK's native ``rtk init`` command. We therefore never vendor RTK; the bridge
 simply discovers the upstream ``rtk`` binary and drives ``rtk init`` for each
 agent so the whole SIN-Code coder fleet benefits from the same token savings.
+
+Docs: rtk.doc.md
 """
 from __future__ import annotations
 

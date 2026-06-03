@@ -17,6 +17,8 @@ Design
 The harness is intentionally runner-agnostic: you wire in opencode / codex /
 hermes via a small AgentRunner. A DryRunRunner is included so `sin bench`
 works end-to-end without any LLM credits.
+
+Docs: bench.doc.md
 """
 from __future__ import annotations
 

@@ -3,6 +3,8 @@
 Avoids rescanning the whole repo on every `impact()` call. Keyed by a hash of
 the file set + their mtimes/sizes; invalidated automatically when files change.
 Stored under .sin/cache/ as JSON.
+
+Docs: cache.doc.md
 """
 from __future__ import annotations
 

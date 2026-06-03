@@ -1,4 +1,7 @@
-"""Hardened subprocess + input-sanitization helpers shared by all subsystems."""
+"""Hardened subprocess + input-sanitization helpers shared by all subsystems.
+
+Docs: safety.doc.md
+"""
 from __future__ import annotations
 
 import subprocess

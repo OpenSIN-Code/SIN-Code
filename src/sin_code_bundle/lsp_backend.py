@@ -12,6 +12,8 @@ Fallback backend: tree-sitter symbol scan (cheap, language-agnostic, no server).
 The module degrades gracefully: if no LSP is available it returns tree-sitter
 results and flags `source="treesitter"`, so the agent still gets a useful signal
 and the bundle keeps working (consistent with `sin status`).
+
+Docs: lsp_backend.doc.md
 """
 from __future__ import annotations
 
@@ -42,6 +44,8 @@ _LANG_BY_EXT = {
 
 @dataclass(frozen=True)
 class Location:
+    """A single source-code position, optionally with a short snippet."""
+
     file: str
     line: int
     column: int

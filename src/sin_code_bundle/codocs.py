@@ -14,6 +14,8 @@ non-shebang lines of each file.
 
 It is intentionally dependency-free (stdlib only) so it works even when the
 optional SIN-Code subsystems are not installed.
+
+Docs: codocs.doc.md
 """
 from __future__ import annotations
 

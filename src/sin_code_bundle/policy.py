@@ -7,6 +7,8 @@ MCP has no native access control. This module wraps every tool execution with:
   - path sandboxing helpers so tools cannot read/write outside the project root
 
 Policy is loaded from .sin/policy.yaml (falls back to safe defaults).
+
+Docs: policy.doc.md
 """
 from __future__ import annotations
 
@@ -26,6 +28,8 @@ except ImportError:  # pragma: no cover
 RiskClass = Literal["read", "write", "exec", "network"]
 Decision = Literal["allow", "ask", "deny"]
 
+# ── Tool risk classification ─────────────────────────────────────────
+# New MCP tools must be added here so the policy engine can rate them.
 TOOL_RISK: dict[str, RiskClass] = {
     "impact": "read",
     "semantic_diff": "read",
@@ -36,6 +40,8 @@ TOOL_RISK: dict[str, RiskClass] = {
     "mock_env": "network",
 }
 
+# Safe defaults: reads are silent, everything else prompts.
+# Never set "exec" or "network" to "allow" without explicit user opt-in.
 DEFAULT_POLICY: dict[RiskClass, Decision] = {
     "read": "allow",
     "write": "ask",
@@ -50,6 +56,13 @@ class PolicyError(RuntimeError):
 
 @dataclass
 class Policy:
+    """Loaded policy rules + auto-approval flag.
+
+    `auto_approve` is a kill switch for the approval prompt: if True
+    (or `SIN_AUTO_APPROVE=1` in the env), all "ask" decisions pass
+    without user interaction. Use only in trusted CI.
+    """
+
     rules: dict[RiskClass, Decision] = field(default_factory=lambda: dict(DEFAULT_POLICY))
     auto_approve: bool = field(
         default_factory=lambda: os.environ.get("SIN_AUTO_APPROVE") == "1"

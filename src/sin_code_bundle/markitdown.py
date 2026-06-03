@@ -14,6 +14,8 @@ The bridge provides:
   * a thin ``convert`` wrapper over the ``markitdown`` CLI,
   * MCP wiring so OpenCode / Codex / Hermes each get the MarkItDown MCP server,
     mirroring upstream's recommended ``uvx markitdown-mcp`` invocation.
+
+Docs: markitdown.doc.md
 """
 from __future__ import annotations
 

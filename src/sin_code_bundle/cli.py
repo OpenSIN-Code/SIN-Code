@@ -2,6 +2,8 @@
 
 Subsysteme werden lazy und defensiv importiert: fehlt eines, bleibt der Rest
 nutzbar und es wird eine klare Meldung statt eines Importfehlers ausgegeben.
+
+Docs: cli.doc.md
 """
 from __future__ import annotations
 

@@ -3,6 +3,8 @@
 `sin doctor` uses this to tell users exactly what to install for accurate
 impact analysis. We never silently install global tooling; we report and offer
 the exact install command.
+
+Docs: lsp_bootstrap.doc.md
 """
 from __future__ import annotations
 

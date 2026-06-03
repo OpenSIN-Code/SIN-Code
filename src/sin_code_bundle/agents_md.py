@@ -4,6 +4,8 @@ OpenCode und Codex lesen automatisch eine ``AGENTS.md`` im Repo-Root. Dieser
 Generator schreibt einen SIN-Code-Block, der dem Agenten erklaert, *wann*
 welches SIN-Tool aufzurufen ist. Der Block ist zwischen Markern eingefasst und
 wird idempotent ersetzt -- der restliche Inhalt der Datei bleibt unangetastet.
+
+Docs: agents_md.doc.md
 """
 from __future__ import annotations
 
