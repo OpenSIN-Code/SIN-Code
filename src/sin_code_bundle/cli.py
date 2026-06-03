@@ -8,6 +8,8 @@ Docs: cli.doc.md
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 import typer
@@ -1296,6 +1298,110 @@ def ceo_audit_status():
             typer.echo(f"  All 7 SIN-Code tools available")
     else:
         typer.echo(f"  Install: sin ceo-audit install")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# sin-browser sub-commands — 106 browser-automation tools
+# ─────────────────────────────────────────────────────────────────────
+
+browser_app = typer.Typer(
+    help="sin-browser — 106 browser-automation tools (navigate, click, fill, screenshot, scrape, etc.)"
+)
+app.add_typer(browser_app, name="browser")
+
+
+@browser_app.command("list")
+def browser_list(
+    filter: str = typer.Option("", "--filter", help="Substring filter (e.g. 'click', 'screenshot')"),
+    json_out: bool = typer.Option(False, "--json", help="Output full JSON instead of summary"),
+):
+    """List all 106 sin-browser-tools. Always run this first to discover the surface."""
+    import subprocess
+    if not shutil.which("sin-browser"):
+        typer.echo(
+            "[BROWSER] sin-browser not installed. Install: https://github.com/OpenSIN-Code/SIN-Browser-Tools",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    result = subprocess.run(["sin-browser", "skills"], capture_output=True, text=True, timeout=30)
+    if result.returncode != 0:
+        typer.echo(f"[BROWSER] sin-browser failed: {result.stderr}", err=True)
+        raise typer.Exit(code=1)
+    import json as _json
+    data = _json.loads(result.stdout)
+    actions = data.get("actions", {})
+    if filter:
+        actions = {
+            k: v for k, v in actions.items()
+            if filter.lower() in k.lower() or filter.lower() in v.get("description", "").lower()
+        }
+    if json_out:
+        typer.echo(_json.dumps(actions, indent=2))
+    else:
+        from collections import defaultdict
+        by_cat: dict[str, list] = defaultdict(list)
+        for name, tool in actions.items():
+            by_cat[tool.get("category", "other")].append((name, tool.get("description", "")))
+        typer.echo(f"\n  sin-browser-tools -- {len(actions)} tools\n")
+        for cat in sorted(by_cat):
+            typer.echo(f"[{cat}] ({len(by_cat[cat])})")
+            for name, desc in sorted(by_cat[cat]):
+                desc_short = desc[:55] + "..." if len(desc) > 55 else desc
+                typer.echo(f"  - {name:35s} {desc_short}")
+            typer.echo("")
+
+
+@browser_app.command("help")
+def browser_help():
+    """Show sin-browser help."""
+    import subprocess
+    if not shutil.which("sin-browser"):
+        typer.echo("[BROWSER] sin-browser not installed", err=True)
+        raise typer.Exit(code=1)
+    subprocess.run(["sin-browser", "help"])
+
+
+@browser_app.command("install-skill")
+def browser_install_skill():
+    """Install the sin-browser-tools skill to ~/.config/opencode/skills/."""
+    import shutil
+    skill_source = Path(__file__).parent.parent.parent.parent / "skills" / "sin-browser-tools"
+    skill_target = Path.home() / ".config" / "opencode" / "skills" / "sin-browser-tools"
+    if not skill_source.exists():
+        skill_source = Path("/Users/jeremy/dev/Infra-SIN-OpenCode-Stack/skills/sin-browser-tools")
+    if not skill_source.exists():
+        typer.echo(f"[BROWSER] Cannot find skill source", err=True)
+        raise typer.Exit(code=1)
+    skill_target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(skill_source, skill_target, dirs_exist_ok=True)
+    for script in (skill_target / "scripts").glob("*.py"):
+        script.chmod(0o755)
+    typer.echo(f"[BROWSER] Installed skill to {skill_target}")
+
+
+@browser_app.command("status")
+def browser_status():
+    """Show sin-browser status."""
+    import subprocess
+    if not shutil.which("sin-browser"):
+        typer.echo("sin-browser installed: no")
+        typer.echo("  Install: https://github.com/OpenSIN-Code/SIN-Browser-Tools")
+        raise typer.Exit(code=1)
+    result = subprocess.run(["sin-browser", "skills"], capture_output=True, text=True, timeout=10)
+    if result.returncode != 0:
+        typer.echo(f"sin-browser installed: yes (but broken)")
+        typer.echo(f"  Error: {result.stderr[:200]}")
+        raise typer.Exit(code=1)
+    import json as _json
+    try:
+        data = _json.loads(result.stdout)
+        count = data.get("count", 0)
+    except Exception:
+        count = "?"
+    typer.echo(f"sin-browser installed: yes ({count} tools available)")
+    skill = Path.home() / ".config" / "opencode" / "skills" / "sin-browser-tools" / "SKILL.md"
+    typer.echo(f"  Skill installed: {'yes' if skill.exists() else 'no'}")
+    typer.echo(f"  See: sin browser list")
 
 
 if __name__ == "__main__":
