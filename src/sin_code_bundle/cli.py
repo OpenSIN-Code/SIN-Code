@@ -57,7 +57,7 @@ def _sin_code_tool_path(name: str) -> Path | None:
     w = which(name)
     return Path(w) if w else None
 
-_EXCLUDE = ["venv", ".venv", "node_modules", ".git", "__pycache__"]
+_EXCLUDE = {"venv", ".venv", "node_modules", ".git", "__pycache__"}
 
 
 def _require(module: str, hint: str):
@@ -134,10 +134,10 @@ def bootstrap(repo: str = typer.Argument(".", help="Repository root")):
         from sin_code_adw.cost_tracker import CostTracker
 
         analyzer = ComplexityAnalyzer()
-        reports = analyzer.analyze(repo, exclude=set(_EXCLUDE))
+        reports = analyzer.analyze(repo, exclude=_EXCLUDE)
         baseline = analyzer.debt_score(reports)
         (sin_dir / "baseline.json").write_text(json.dumps(baseline, indent=2))
-        CostTracker(log_path=str(sin_dir / "costs.jsonl"))
+        CostTracker()
         typer.echo(f"[SIN-BUNDLE] ADW baseline: {json.dumps(baseline)}")
     except ImportError:
         typer.echo("[SIN-BUNDLE] ADW not installed, skipping baseline.")

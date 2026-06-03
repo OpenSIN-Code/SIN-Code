@@ -141,6 +141,8 @@ def test_brain_tools_registered_when_sin_brain_available(serve_tools):
 
 def test_brain_tools_not_registered_when_sin_brain_missing():
     """Brain tools should NOT be registered when sin_brain is not installed."""
+    import sys
+    sys.modules.pop("sin_brain", None)
     tools = {}
 
     class CaptureFastMCP:
