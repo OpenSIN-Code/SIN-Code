@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from sin_code_bundle.generators import (
     SUPPORTED_AGENTS,
     render_agent_config,
