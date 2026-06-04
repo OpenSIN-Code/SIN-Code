@@ -2,12 +2,40 @@
 
 from __future__ import annotations
 
+import importlib.util
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "check_consistency.py"
+
+# Env-aware skip: the strict test below asserts that the script returns exit
+# code 1 because at least one sin-code-* subsystem is missing. In a full
+# [all]-extra install every subsystem is present and the script legitimately
+# returns 0, which would make the strict-fails assertion meaningless.
+_SUBSYSTEMS = (
+    "sckg",
+    "ibd",
+    "poc",
+    "efsm",
+    "adw",
+    "oracle",
+    "orchestration",
+    "review_interface",
+)
+
+
+def _all_subsystems_installed() -> bool:
+    return all(importlib.util.find_spec(f"sin_code_{m}") is not None for m in _SUBSYSTEMS)
+
+
+SKIP_IF_ALL_SUBSYSTEMS_PRESENT = pytest.mark.skipif(
+    _all_subsystems_installed(),
+    reason="all 8 sin-code-* subsystems installed in this env — strict-fails contract not exercisable",
+)
 
 
 def test_consistency_script_exists_and_is_executable():
@@ -25,6 +53,7 @@ def test_consistency_passes_on_bundle_only_checkout():
     assert "all consistency checks passed" in result.stdout
 
 
+@SKIP_IF_ALL_SUBSYSTEMS_PRESENT
 def test_consistency_strict_fails_without_subsystems():
     """--strict treats missing subsystems as failures (exit 1)."""
     result = subprocess.run(

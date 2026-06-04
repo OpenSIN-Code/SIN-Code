@@ -7,6 +7,7 @@ contract is verified in isolation.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import sys
 import types
@@ -14,6 +15,16 @@ import types
 import pytest
 
 from sin_code_bundle import memory
+
+# Env-aware skip: the "absent" tests below assume sin_brain is NOT installed in
+# the test environment. When sin_brain is actually present, those assertions no
+# longer describe reality and the tests are not meaningful. The fixture-based
+# "present" tests below cover the active behaviour on its own.
+BRAIN_PRESENT = importlib.util.find_spec("sin_brain") is not None
+SKIP_IF_BRAIN_PRESENT = pytest.mark.skipif(
+    BRAIN_PRESENT,
+    reason="sin-brain is installed in this env — 'absent' contract is not exercisable here",
+)
 
 
 @pytest.fixture
@@ -58,12 +69,14 @@ class FakeMCP:
 
 
 # --------------------------- graceful degradation --------------------------- #
+@SKIP_IF_BRAIN_PRESENT
 def test_detect_env_absent():
     env = memory.detect_env()
     assert env.available is False
     assert env.tiers == {}
 
 
+@SKIP_IF_BRAIN_PRESENT
 def test_operations_raise_when_absent():
     with pytest.raises(memory.MemoryUnavailable):
         memory.recall("anything")
@@ -71,6 +84,7 @@ def test_operations_raise_when_absent():
         memory.forget("x")
 
 
+@SKIP_IF_BRAIN_PRESENT
 def test_register_tools_noop_when_absent():
     mcp = FakeMCP()
     assert memory.register_tools(mcp) == []
