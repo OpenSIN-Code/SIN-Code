@@ -23,7 +23,7 @@ class DAPSession:
     def start(self) -> dict:
         try:
             if self.language == "python":
-                self.port = 5678
+                self.port = 5678  # debugpy default port (https://github.com/microsoft/debugpy)
                 self.process = subprocess.Popen(
                     [
                         "python",
@@ -39,7 +39,7 @@ class DAPSession:
                     stderr=subprocess.PIPE,
                 )
             elif self.language == "go":
-                self.port = 2345
+                self.port = 2345  # delve default headless port
                 self.process = subprocess.Popen(
                     [
                         "dlv",
@@ -55,7 +55,7 @@ class DAPSession:
                     stderr=subprocess.PIPE,
                 )
             elif self.language in ("node", "javascript", "typescript"):
-                self.port = 9229
+                self.port = 9229  # node --inspect default port
                 self.process = subprocess.Popen(
                     ["node", f"--inspect-brk={self.port}", self.target],
                     cwd=self.repo_root,
