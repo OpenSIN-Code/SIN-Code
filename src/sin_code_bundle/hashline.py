@@ -8,10 +8,10 @@ Content-hash based patching to avoid string-not-found errors.
 # SPDX-License-Identifier: MIT
 from __future__ import annotations
 
-from typing import Optional, Dict, List, Tuple
-from pathlib import Path
 import hashlib
 import tempfile
+from pathlib import Path
+from typing import Dict, Optional, Tuple
 
 
 # ── HashlineAnchor: Pure Content-Hash Logic ─────────────────────────
@@ -130,7 +130,10 @@ class HashlineAnchor:
         if anchor_line >= len(self.line_hashes):
             return False, f"Anchor line {anchor_line} out of range"
         if self.line_hashes[anchor_line] != patch["anchor_hash"]:
-            return False, f"Stale anchor: expected {patch['anchor_hash']}, got {self.line_hashes[anchor_line]}"
+            return (
+                False,
+                f"Stale anchor: expected {patch['anchor_hash']}, got {self.line_hashes[anchor_line]}",
+            )
         return True, "valid"
 
 

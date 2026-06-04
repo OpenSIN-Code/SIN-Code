@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Optional
 def _try_import_tree_sitter() -> Optional[Any]:
     try:
         import tree_sitter  # type: ignore  # noqa: F401
+
         return tree_sitter
     except ImportError:
         return None
@@ -32,6 +33,7 @@ def _try_import_tree_sitter() -> Optional[Any]:
 def _try_import_tree_sitter_languages() -> Optional[Any]:
     try:
         from tree_sitter_languages import get_parser  # type: ignore  # noqa: F401
+
         return get_parser
     except ImportError:
         return None
@@ -177,15 +179,12 @@ class SINASTEdit:
         """
         file_path = Path(file_path)
         if not file_path.exists():
-            return ASTEditResult(
-                success=False, error=f"File not found: {file_path}"
-            )
+            return ASTEditResult(success=False, error=f"File not found: {file_path}")
         if not self.is_available():
             return ASTEditResult(
                 success=False,
                 error=(
-                    "tree-sitter not installed. Run: "
-                    "pip install tree-sitter tree-sitter-languages"
+                    "tree-sitter not installed. Run: pip install tree-sitter tree-sitter-languages"
                 ),
             )
         language = self._detect_language(file_path)
@@ -219,14 +218,10 @@ class SINASTEdit:
                 target_line = i
                 break
         if target_line is None:
-            return ASTEditResult(
-                success=False, error="Could not locate line"
-            )
+            return ASTEditResult(success=False, error="Could not locate line")
 
         # Preserve line ending of the original line
-        new_line = replacement + (
-            "\n" if lines[target_line].endswith("\n") else ""
-        )
+        new_line = replacement + ("\n" if lines[target_line].endswith("\n") else "")
         proposed: List[Dict[str, Any]] = [
             {
                 "type": "ast_replacement",

@@ -172,6 +172,7 @@ def analyze(
 # on-disk `.gitnexus/` directory, compares its age against the staleness
 # threshold, and (by default) auto-rebuilds so agents never run blind.
 
+
 def ensure_index(
     root: str = ".",
     *,
@@ -208,6 +209,7 @@ def ensure_index(
 # passthrough to `_query` so the error-handling and timeout policy stay
 # in one place. The CLI's own caching layer is what makes these fast
 # for repeated calls within a session.
+
 
 def _query(
     subcommand: list[str],

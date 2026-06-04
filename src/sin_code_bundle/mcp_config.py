@@ -210,9 +210,7 @@ def generate_full(client: str, env: dict[str, str] | None = None) -> str:
         return generate_full_codex(env)
     if client == "hermes":
         return generate_full_hermes(env)
-    raise ValueError(
-        f"Unknown client '{client}'. Supported: {', '.join(SUPPORTED_CLIENTS)}"
-    )
+    raise ValueError(f"Unknown client '{client}'. Supported: {', '.join(SUPPORTED_CLIENTS)}")
 
 
 def generate(client: str, env: dict[str, str] | None = None) -> str:
@@ -412,7 +410,11 @@ def _merge_codex_toml_full(path: Path, env: dict[str, str] | None) -> str:
                 lines.append(f'{key} = "{value}"')
         blocks.append("\n".join(lines))
     block = "\n\n".join(blocks) + "\n"
-    sep = "" if existing == "" or existing.endswith("\n\n") else ("\n" if existing.endswith("\n") else "\n\n")
+    sep = (
+        ""
+        if existing == "" or existing.endswith("\n\n")
+        else ("\n" if existing.endswith("\n") else "\n\n")
+    )
     new_content = existing + sep + block
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(new_content)

@@ -321,6 +321,7 @@ def _check_inline_docs_json(root: str = ".", exclude: set[str] | None = None) ->
     pipe the result without each caller re-importing :mod:`json`.
     """
     import json
+
     return json.dumps(
         [issue.to_dict() for issue in check_inline_docs(root, exclude)],
         indent=2,

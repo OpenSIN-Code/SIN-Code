@@ -5,12 +5,11 @@ pre-command and post-command shell hooks into ~/.opencode/hooks/.
 
 Docs: tests/test_hooks.doc.md
 """
+
 from __future__ import annotations
 
 import os
 from pathlib import Path
-
-import pytest
 
 from sin_code_bundle.hooks import (
     _DEFAULT_BRAIN_PATH,

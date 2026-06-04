@@ -17,11 +17,10 @@ Exposes semantic tools as URI schemes for any MCP client:
 
 from __future__ import annotations
 
-from typing import Optional, Dict, Any
-from pathlib import Path
 import re
 import subprocess
-
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 URI_SCHEMES = {
     "sckg": "Semantic Codebase Knowledge Graph",
@@ -87,6 +86,7 @@ class SINVirtualFS:
         # if one subsystem breaks or is missing, the others still resolve.
         try:
             from sin_code_sckg import KnowledgeGraph
+
             kg = KnowledgeGraph(str(self.repo_root))
             kg.build_from_repo()
             node_id = "module:" + module_name
@@ -117,7 +117,8 @@ class SINVirtualFS:
         # try/except around every resolver = graceful degradation:
         # if one subsystem breaks or is missing, the others still resolve.
         try:
-            from sin_code_poc import list_properties, property_metadata
+            from sin_code_poc import list_properties, property_metadata  # noqa: F401
+
             # Use the property registry for strategy listing
             props = property_metadata() if callable(property_metadata) else {}
             # [:50] limits blast radius — not the whole catalog — so the
@@ -142,6 +143,7 @@ class SINVirtualFS:
             return {"error": f"File not found: {file_path}"}
         try:
             from sin_code_ibd import ASTDiff
+
             diff = ASTDiff(str(file_path))
             return {
                 "type": "ibd_diff",
@@ -161,10 +163,13 @@ class SINVirtualFS:
         # if one subsystem breaks or is missing, the others still resolve.
         try:
             from sin_code_adw import smells
+
             # ADW doesn't expose a unified query API, so we surface the
             # available analyzers and tell the user to call them directly
             # (same rationale as EFSM/Oracle/POC below).
-            available = [m for m in dir(smells) if not m.startswith("_") and callable(getattr(smells, m))]
+            available = [
+                m for m in dir(smells) if not m.startswith("_") and callable(getattr(smells, m))
+            ]
             return {
                 "type": "adw_smell",
                 "name": smell_name,
@@ -183,6 +188,7 @@ class SINVirtualFS:
         # if one subsystem breaks or is missing, the others still resolve.
         try:
             from sin_code_efsm import services
+
             # EFSM doesn't expose a unified query API, so we surface the
             # available services and tell the user to call them directly
             # (same rationale as ADW/Oracle/POC above).
@@ -206,7 +212,10 @@ class SINVirtualFS:
         # if one subsystem breaks or is missing, the others still resolve.
         try:
             from sin_code_oracle import verifier
-            available = [m for m in dir(verifier) if not m.startswith("_") and callable(getattr(verifier, m))]
+
+            available = [
+                m for m in dir(verifier) if not m.startswith("_") and callable(getattr(verifier, m))
+            ]
             # [:20] limits blast radius — Oracle's verifier module can
             # have many callables; we just need enough to be discoverable.
             # Oracle doesn't expose a unified query API either, so we
@@ -228,7 +237,10 @@ class SINVirtualFS:
             # conflict markers ourselves — just surface the file list.
             result = subprocess.run(
                 ["git", "diff", "--name-only", "--diff-filter=U"],
-                capture_output=True, text=True, cwd=self.repo_root, timeout=10,
+                capture_output=True,
+                text=True,
+                cwd=self.repo_root,
+                timeout=10,
             )
             conflicted = [f for f in result.stdout.splitlines() if f]
         except Exception as e:

@@ -112,6 +112,7 @@ def mcp_server_command(env: MarkItDownEnv | None = None) -> dict[str, Any]:
 # to coerce us into passing an http:// or pipe:// URL into MarkItDown's
 # CLI, which would expand the attack surface considerably.
 
+
 def convert(path: str, env: MarkItDownEnv | None = None, timeout: int = 300) -> str:
     """Convert a document to Markdown using the upstream ``markitdown`` CLI."""
     env = env or detect_env()
@@ -154,6 +155,7 @@ def doctor() -> dict[str, Any]:
 #   * Hermes:   ~/.hermes/mcp.json                (JSON, mcpServers.<name>)
 # We DO NOT touch plugin/hook files for the agents — MarkItDown integrates
 # through MCP, the same surface as GitNexus, so behaviour is uniform.
+
 
 # --------------------------------------------------------------------------- #
 # MCP wiring into coder-agent configs (mirrors the GitNexus bridge).

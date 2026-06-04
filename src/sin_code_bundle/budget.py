@@ -14,8 +14,8 @@ from typing import Any
 # Default ceilings sized to fit comfortably in a 200K-token agent context even
 # when many tools are called per turn — strings dominate token cost so we cap
 # them harder than list arity. Override per-call via `trim(value, max_list=…)`.
-MAX_LIST = 25       # max items kept per list; rest collapsed into _truncated sentinel
-MAX_STR = 2000      # max characters per string; rest replaced with " ...[truncated]"
+MAX_LIST = 25  # max items kept per list; rest collapsed into _truncated sentinel
+MAX_STR = 2000  # max characters per string; rest replaced with " ...[truncated]"
 
 
 def trim(value: Any, max_list: int = MAX_LIST, max_str: int = MAX_STR) -> Any:

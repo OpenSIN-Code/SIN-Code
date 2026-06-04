@@ -8,11 +8,7 @@ Concurrent request handling
 
 import gc
 import json
-import os
 import subprocess
-import sys
-import tempfile
-import threading
 import time
 from pathlib import Path
 
@@ -29,24 +25,28 @@ def run_benchmark(name: str, target: float, func, *args, **kwargs):
         result = func(*args, **kwargs)
         duration = time.perf_counter() - start
         status = "PASS" if duration <= target else "FAIL"
-        RESULTS.append({
-            "tool": "Bundle",
-            "benchmark": name,
-            "result": f"{duration:.3f}s",
-            "target": f"{target:.3f}s",
-            "status": status,
-            "raw_seconds": duration,
-        })
+        RESULTS.append(
+            {
+                "tool": "Bundle",
+                "benchmark": name,
+                "result": f"{duration:.3f}s",
+                "target": f"{target:.3f}s",
+                "status": status,
+                "raw_seconds": duration,
+            }
+        )
         return result
     except Exception as e:
-        RESULTS.append({
-            "tool": "Bundle",
-            "benchmark": name,
-            "result": f"ERROR: {e}",
-            "target": f"{target:.3f}s",
-            "status": "ERROR",
-            "raw_seconds": -1,
-        })
+        RESULTS.append(
+            {
+                "tool": "Bundle",
+                "benchmark": name,
+                "result": f"ERROR: {e}",
+                "target": f"{target:.3f}s",
+                "status": "ERROR",
+                "raw_seconds": -1,
+            }
+        )
         return None
 
 
@@ -58,8 +58,7 @@ sys.path.insert(0, "{BUNDLE_ROOT}/src")
 {script}
 """
     result = subprocess.run(
-        [BUNDLE_VENV, "-c", full_script],
-        capture_output=True, text=True, timeout=timeout
+        [BUNDLE_VENV, "-c", full_script], capture_output=True, text=True, timeout=timeout
     )
     if result.returncode != 0:
         raise RuntimeError(f"Bundle script failed: {result.stderr[:500]}")
@@ -142,39 +141,43 @@ def main():
     print("=" * 60)
     print("Bundle/MCP Benchmarks")
     print("=" * 60)
-    
+
     # 1. Startup time
     startup_time = run_benchmark("mcp_startup", 5.0, benchmark_startup)
     if startup_time:
         print(f"  MCP startup: {startup_time:.3f}s")
-    
+
     # 2. Tool dispatch
     dispatch_time = run_benchmark("tool_dispatch", 2.0, benchmark_tool_dispatch)
     if dispatch_time:
         print(f"  Tool dispatch: {dispatch_time:.4f}s")
-    
+
     # 3. Concurrent requests
     for num_requests in [10, 50, 100]:
         target = {10: 2.0, 50: 3.0, 100: 5.0}.get(num_requests, 5.0)
         dur = run_benchmark(
-            f"concurrent_{num_requests}_requests", target,
-            benchmark_concurrent_requests, num_requests
+            f"concurrent_{num_requests}_requests",
+            target,
+            benchmark_concurrent_requests,
+            num_requests,
         )
         if dur:
             print(f"  Concurrent {num_requests} requests: {dur:.3f}s")
-    
+
     # Save results
     out_path = Path("benchmark_bundle_results.json")
     out_path.write_text(json.dumps(RESULTS, indent=2), encoding="utf-8")
     print(f"\nResults saved to {out_path}")
-    
+
     print("\n" + "=" * 60)
     print("| Benchmark | Result | Target | Status |")
     print("=" * 60)
     for r in RESULTS:
-        print(f"| {r['benchmark']:<30} | {r['result']:<10} | {r['target']:<10} | {r['status']:<6} |")
+        print(
+            f"| {r['benchmark']:<30} | {r['result']:<10} | {r['target']:<10} | {r['status']:<6} |"
+        )
     print("=" * 60)
-    
+
     return RESULTS
 
 

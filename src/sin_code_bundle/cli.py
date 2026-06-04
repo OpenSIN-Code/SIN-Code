@@ -61,8 +61,10 @@ def _sin_code_tool_path(name: str) -> Path | None:
         return home_bin
     # Also check PATH
     from shutil import which
+
     w = which(name)
     return Path(w) if w else None
+
 
 _EXCLUDE = {"venv", ".venv", "node_modules", ".git", "__pycache__"}
 
@@ -509,18 +511,14 @@ def codocs_install_skill(
 @app.command(name="mcp-config")
 def mcp_config(
     client: str = typer.Argument(..., help="Target CLI: opencode | codex | hermes"),
-    full: bool = typer.Option(
-        False, "--full", help="Generate config for all 15 individual tools"
-    ),
+    full: bool = typer.Option(False, "--full", help="Generate config for all 15 individual tools"),
     write: bool = typer.Option(
         False, "--write", help="Merge into the client's config file instead of stdout."
     ),
     path: Path = typer.Option(
         None, "--path", help="Override the config file path used with --write."
     ),
-    stdout: bool = typer.Option(
-        False, "--stdout", help="Write to stdout (default)."
-    ),
+    stdout: bool = typer.Option(False, "--stdout", help="Write to stdout (default)."),
 ):
     """Generate a ready-to-use MCP client configuration."""
     from . import mcp_config as gen
@@ -763,8 +761,10 @@ def serve():
     #   - sin_write:       atomic write with backup
     #   - sin_edit:        hashline-anchored semantic patches (prevents stale edits)
     #   - sin_bash:        execute wrapper (secret redaction, timeouts, error analysis)
-    from sin_code_bundle import vfs, hashline as _hashline_mod, ast_edit as _ast_edit_mod
     from pathlib import Path as _Path
+
+    from sin_code_bundle import hashline as _hashline_mod
+    from sin_code_bundle import vfs
 
     @mcp.tool()
     def sin_read(path: str, summarize: bool = False, max_chars: int = 50000) -> str:
@@ -901,9 +901,7 @@ def serve():
                     }
                 )
             ok, msg = patcher.apply_semantic_patch(patch)
-            return json.dumps(
-                {"success": ok, "message": msg, "intent": intent, "patch": patch}
-            )
+            return json.dumps({"success": ok, "message": msg, "intent": intent, "patch": patch})
         except Exception as exc:
             return json.dumps({"error": str(exc), "file_path": file_path})
 
@@ -922,8 +920,9 @@ def serve():
 
         Better than native bash: secret-safety, timeout, structured result.
         """
-        import subprocess as _sp
         import shutil as _sh
+        import subprocess as _sp
+
         try:
             cmd_path = _sh.which("execute") or str(_Path.home() / ".local/bin/execute")
             if _Path(cmd_path).exists():
@@ -973,8 +972,9 @@ def serve():
 
         Accepts both directory paths (rglob) and single files (single file scan).
         """
-        import subprocess as _sp
         import shutil as _sh
+        import subprocess as _sp
+
         try:
             cmd_path = _sh.which("scout") or str(_Path.home() / ".local/bin/scout")
             if _Path(cmd_path).exists():
@@ -991,6 +991,7 @@ def serve():
                         pass
                 # fall through to python-regex fallback
             import re as _re
+
             results = []
             target = _Path(path).expanduser()
             # Determine which files to scan
@@ -1007,7 +1008,9 @@ def serve():
                     continue
                 for m in _re.finditer(query, text):
                     line_no = text[: m.start()].count("\n") + 1
-                    line_text = text.splitlines()[line_no - 1] if line_no <= len(text.splitlines()) else ""
+                    line_text = (
+                        text.splitlines()[line_no - 1] if line_no <= len(text.splitlines()) else ""
+                    )
                     results.append(
                         {
                             "file": str(p),
@@ -1117,13 +1120,15 @@ def hooks_install(
     target: str = typer.Argument("opencode", help="Target CLI: opencode"),
     pre_command: bool = typer.Option(True, "--pre-command", help="Install pre-command hook."),
     post_command: bool = typer.Option(True, "--post-command", help="Install post-command hook."),
-    brain_path: str = typer.Option(".sin/brain.db", "--brain-path", help="SIN-Brain database path."),
+    brain_path: str = typer.Option(
+        ".sin/brain.db", "--brain-path", help="SIN-Brain database path."
+    ),
 ):
     """Install automatic hooks for SIN-Brain calls before/after every command."""
     from sin_code_bundle import hooks
 
     if target != "opencode":
-        typer.echo(f"[SIN-BUNDLE] Only 'opencode' hooks are supported.", err=True)
+        typer.echo("[SIN-BUNDLE] Only 'opencode' hooks are supported.", err=True)
         raise typer.Exit(code=2)
 
     installed = hooks.install_opencode_hooks(
@@ -1134,7 +1139,9 @@ def hooks_install(
     for path in installed:
         typer.echo(f"[SIN-BUNDLE] Installed hook -> {path}")
     if not installed:
-        typer.echo("[SIN-BUNDLE] No hooks installed (both --pre-command and --post-command disabled).")
+        typer.echo(
+            "[SIN-BUNDLE] No hooks installed (both --pre-command and --post-command disabled)."
+        )
     else:
         typer.echo("[SIN-BUNDLE] Hooks active. Run `sin hooks-uninstall` to remove them.")
 
@@ -1147,7 +1154,7 @@ def hooks_uninstall(
     from sin_code_bundle import hooks
 
     if target != "opencode":
-        typer.echo(f"[SIN-BUNDLE] Only 'opencode' hooks are supported.", err=True)
+        typer.echo("[SIN-BUNDLE] Only 'opencode' hooks are supported.", err=True)
         raise typer.Exit(code=2)
 
     removed = hooks.uninstall_opencode_hooks()
@@ -1165,7 +1172,7 @@ def hooks_list(
     from sin_code_bundle import hooks
 
     if target != "opencode":
-        typer.echo(f"[SIN-BUNDLE] Only 'opencode' hooks are supported.", err=True)
+        typer.echo("[SIN-BUNDLE] Only 'opencode' hooks are supported.", err=True)
         raise typer.Exit(code=2)
 
     found = hooks.list_opencode_hooks()
@@ -1280,20 +1287,27 @@ def doctor(root: str = typer.Option(".", help="Project root.")):
 # --------------------------------------------------------------------------- #
 @sin_code_app.command("run")
 def sin_code_run(
-    tool: str = typer.Argument(..., help="Tool name: discover, execute, map, grasp, scout, harvest, orchestrate"),
+    tool: str = typer.Argument(
+        ..., help="Tool name: discover, execute, map, grasp, scout, harvest, orchestrate"
+    ),
     args: list[str] = typer.Argument(default_factory=list, help="Arguments to pass to the tool"),
 ):
     """Run a SIN-Code Go tool with the given arguments."""
     if tool not in _SIN_CODE_TOOLS:
-        typer.echo(f"[SIN-CODE] Unknown tool: {tool}. Available: {', '.join(_SIN_CODE_TOOLS.keys())}", err=True)
+        typer.echo(
+            f"[SIN-CODE] Unknown tool: {tool}. Available: {', '.join(_SIN_CODE_TOOLS.keys())}",
+            err=True,
+        )
         raise typer.Exit(code=1)
-    
+
     path = _sin_code_tool_path(tool)
     if not path:
-        typer.echo(f"[SIN-CODE] Tool '{tool}' not found. Install: go install github.com/OpenSIN-Code/{_SIN_CODE_TOOLS[tool]}/cmd/{tool}@latest", err=True)
+        typer.echo(
+            f"[SIN-CODE] Tool '{tool}' not found. Install: go install github.com/OpenSIN-Code/{_SIN_CODE_TOOLS[tool]}/cmd/{tool}@latest",
+            err=True,
+        )
         raise typer.Exit(code=1)
-    
-    import subprocess
+
     result = subprocess.run([str(path)] + args, capture_output=True, text=True)
     if result.stdout:
         typer.echo(result.stdout)
@@ -1307,7 +1321,7 @@ def sin_code_agents_md(
     output: Path = typer.Option(Path("AGENTS.md"), help="Output file path"),
 ):
     """Generate AGENTS.md with SIN-Code Tool Suite rules for all agents."""
-    content = '''# 🛠️ SIN-Code Tool Suite — IMMER UNSERE EIGENEN TOOLS NUTZEN (PRIORITY -10.0 - ABSOLUTE OBERSTE REGEL)
+    content = """# 🛠️ SIN-Code Tool Suite — IMMER UNSERE EIGENEN TOOLS NUTZEN (PRIORITY -10.0 - ABSOLUTE OBERSTE REGEL)
 
 ## ⚠️ ABSOLUTE REGEL: Niemals opencode-eigene Tools nutzen, wenn unsere SIN-Code Tools verfügbar sind!
 
@@ -1404,7 +1418,7 @@ def sin_code_agents_md(
 
 ---
 
-'''
+"""
     output.write_text(content, encoding="utf-8")
     typer.echo(f"[SIN-CODE] Generated {output}")
 
@@ -1438,7 +1452,6 @@ def ceo_audit_run(
         )
         raise typer.Exit(code=4)
 
-    import subprocess
     args = [str(_CEO_AUDIT_SCRIPT), f"--profile={profile}"]
     if grade:
         args.append(f"--grade={grade}")
@@ -1463,6 +1476,7 @@ def ceo_audit_install(
     Idempotent: safe to run multiple times. Use --force to overwrite.
     """
     import shutil
+
     skill_source = Path(__file__).parent.parent.parent.parent / "skills" / "ceo-audit"
     skill_target = _CEO_AUDIT_SKILL_PATH
 
@@ -1471,8 +1485,7 @@ def ceo_audit_install(
         skill_source = Path("/Users/jeremy/dev/SIN-Code-Bundle/skills/ceo-audit")
     if not skill_source.exists():
         typer.echo(
-            f"[CEO-AUDIT] Cannot find ceo-audit skill source. Looked in:\n"
-            f"  {skill_source}",
+            f"[CEO-AUDIT] Cannot find ceo-audit skill source. Looked in:\n  {skill_source}",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -1480,7 +1493,7 @@ def ceo_audit_install(
     skill_target.parent.mkdir(parents=True, exist_ok=True)
     if skill_target.exists() and not force:
         typer.echo(f"[CEO-AUDIT] Skill already installed at {skill_target}")
-        typer.echo(f"  Use --force to overwrite.")
+        typer.echo("  Use --force to overwrite.")
         raise typer.Exit(code=0)
 
     shutil.copytree(skill_source, skill_target, dirs_exist_ok=True)
@@ -1490,7 +1503,7 @@ def ceo_audit_install(
     if (skill_target / "hooks" / "post_audit.py").exists():
         (skill_target / "hooks" / "post_audit.py").chmod(0o755)
     typer.echo(f"[CEO-AUDIT] Installed to {skill_target}")
-    typer.echo(f"  Run: sin ceo-audit run /path/to/repo")
+    typer.echo("  Run: sin ceo-audit run /path/to/repo")
 
 
 @ceo_audit_app.command("status")
@@ -1502,14 +1515,15 @@ def ceo_audit_status():
         typer.echo(f"  Path: {_CEO_AUDIT_SKILL_PATH}")
         # Check if SIN-Code tools are available
         from shutil import which
+
         missing = [t for t in _SIN_CODE_TOOLS if not which(t)]
         if missing:
             typer.echo(f"  Missing SIN-Code tools: {', '.join(missing)}")
-            typer.echo(f"  Install: bash ~/.local/share/SIN-Code-Bundle/install.sh")
+            typer.echo("  Install: bash ~/.local/share/SIN-Code-Bundle/install.sh")
         else:
-            typer.echo(f"  All 7 SIN-Code tools available")
+            typer.echo("  All 7 SIN-Code tools available")
     else:
-        typer.echo(f"  Install: sin ceo-audit install")
+        typer.echo("  Install: sin ceo-audit install")
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -1524,11 +1538,12 @@ app.add_typer(browser_app, name="browser")
 
 @browser_app.command("list")
 def browser_list(
-    filter: str = typer.Option("", "--filter", help="Substring filter (e.g. 'click', 'screenshot')"),
+    filter: str = typer.Option(
+        "", "--filter", help="Substring filter (e.g. 'click', 'screenshot')"
+    ),
     json_out: bool = typer.Option(False, "--json", help="Output full JSON instead of summary"),
 ):
     """List all 106 sin-browser-tools. Always run this first to discover the surface."""
-    import subprocess
     if not shutil.which("sin-browser"):
         typer.echo(
             "[BROWSER] sin-browser not installed. Install: https://github.com/OpenSIN-Code/SIN-Browser-Tools",
@@ -1540,17 +1555,20 @@ def browser_list(
         typer.echo(f"[BROWSER] sin-browser failed: {result.stderr}", err=True)
         raise typer.Exit(code=1)
     import json as _json
+
     data = _json.loads(result.stdout)
     actions = data.get("actions", {})
     if filter:
         actions = {
-            k: v for k, v in actions.items()
+            k: v
+            for k, v in actions.items()
             if filter.lower() in k.lower() or filter.lower() in v.get("description", "").lower()
         }
     if json_out:
         typer.echo(_json.dumps(actions, indent=2))
     else:
         from collections import defaultdict
+
         by_cat: dict[str, list] = defaultdict(list)
         for name, tool in actions.items():
             by_cat[tool.get("category", "other")].append((name, tool.get("description", "")))
@@ -1566,7 +1584,6 @@ def browser_list(
 @browser_app.command("help")
 def browser_help():
     """Show sin-browser help."""
-    import subprocess
     if not shutil.which("sin-browser"):
         typer.echo("[BROWSER] sin-browser not installed", err=True)
         raise typer.Exit(code=1)
@@ -1577,12 +1594,13 @@ def browser_help():
 def browser_install_skill():
     """Install the sin-browser-tools skill to ~/.config/opencode/skills/."""
     import shutil
+
     skill_source = Path(__file__).parent.parent.parent.parent / "skills" / "sin-browser-tools"
     skill_target = Path.home() / ".config" / "opencode" / "skills" / "sin-browser-tools"
     if not skill_source.exists():
         skill_source = Path("/Users/jeremy/dev/Infra-SIN-OpenCode-Stack/skills/sin-browser-tools")
     if not skill_source.exists():
-        typer.echo(f"[BROWSER] Cannot find skill source", err=True)
+        typer.echo("[BROWSER] Cannot find skill source", err=True)
         raise typer.Exit(code=1)
     skill_target.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(skill_source, skill_target, dirs_exist_ok=True)
@@ -1594,17 +1612,17 @@ def browser_install_skill():
 @browser_app.command("status")
 def browser_status():
     """Show sin-browser status."""
-    import subprocess
     if not shutil.which("sin-browser"):
         typer.echo("sin-browser installed: no")
         typer.echo("  Install: https://github.com/OpenSIN-Code/SIN-Browser-Tools")
         raise typer.Exit(code=1)
     result = subprocess.run(["sin-browser", "skills"], capture_output=True, text=True, timeout=10)
     if result.returncode != 0:
-        typer.echo(f"sin-browser installed: yes (but broken)")
+        typer.echo("sin-browser installed: yes (but broken)")
         typer.echo(f"  Error: {result.stderr[:200]}")
         raise typer.Exit(code=1)
     import json as _json
+
     try:
         data = _json.loads(result.stdout)
         count = data.get("count", 0)
@@ -1613,14 +1631,16 @@ def browser_status():
     typer.echo(f"sin-browser installed: yes ({count} tools available)")
     skill = Path.home() / ".config" / "opencode" / "skills" / "sin-browser-tools" / "SKILL.md"
     typer.echo(f"  Skill installed: {'yes' if skill.exists() else 'no'}")
-    typer.echo(f"  See: sin browser list")
+    typer.echo("  See: sin browser list")
 
 
 # ─────────────────────────────────────────────────────────────────────
 # v2 sub-commands — VFS, Hashline, Memory, AST
 # ─────────────────────────────────────────────────────────────────────
 
-vfs_app = typer.Typer(help="VFS — resolve SIN URI schemes (sckg://, poc://, ibd://, adw://, efsm://, oracle://, conflict://)")
+vfs_app = typer.Typer(
+    help="VFS — resolve SIN URI schemes (sckg://, poc://, ibd://, adw://, efsm://, oracle://, conflict://)"
+)
 app.add_typer(vfs_app, name="vfs")
 
 
@@ -1632,6 +1652,7 @@ def vfs_resolve(
 ):
     """Resolve a SIN URI scheme to structured content."""
     from sin_code_bundle.vfs import SINVirtualFS
+
     vfs = SINVirtualFS(Path(repo))
     result = vfs.resolve(uri)
     typer.echo(json.dumps(result, indent=2))
@@ -1641,6 +1662,7 @@ def vfs_resolve(
 def vfs_schemes():
     """List all available URI schemes."""
     from sin_code_bundle.vfs import URI_SCHEMES
+
     typer.echo("Available URI schemes:")
     for scheme, desc in URI_SCHEMES.items():
         typer.echo(f"  {scheme}://  {desc}")
@@ -1650,6 +1672,7 @@ def vfs_schemes():
 def vfs_status():
     """Check which SIN subsystems are available for VFS resolution."""
     from sin_code_bundle.vfs import URI_SCHEMES
+
     typer.echo("VFS backend status:")
     module_map = {
         "sckg": "sin_code_sckg",
@@ -1670,7 +1693,9 @@ def vfs_status():
             typer.echo(f"  {scheme:8s}  NOT INSTALLED")
 
 
-hashline_app = typer.Typer(help="Hashline anchor patching — content-hash based, no string-not-found errors")
+hashline_app = typer.Typer(
+    help="Hashline anchor patching — content-hash based, no string-not-found errors"
+)
 app.add_typer(hashline_app, name="hashline")
 
 
@@ -1685,6 +1710,7 @@ def hashline_patch(
 ):
     """Create a hashline-anchored patch (and optionally apply it)."""
     from sin_code_bundle.hashline import SINHashlinePatch
+
     patcher = SINHashlinePatch()
     patch = patcher.create_semantic_patch(file, old, new, intent or None)
     if patch is None:
@@ -1709,6 +1735,7 @@ def hashline_validate(
 ):
     """Validate a patch can still be applied (anchor not stale)."""
     from sin_code_bundle.hashline import HashlineAnchor
+
     if patch_json.startswith("@"):
         with open(patch_json[1:]) as f:
             patch = json.load(f)
@@ -1735,6 +1762,7 @@ def memory_retain(
 ):
     """Store a fact in memory."""
     from sin_code_bundle.memory import SINMemory
+
     ctx = json.loads(context) if context else None
     mem = SINMemory(Path(repo))
     result = mem.retain(fact, context=ctx, tags=tag or None)
@@ -1754,6 +1782,7 @@ def memory_recall(
 ):
     """Search memory for facts."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(Path(repo))
     results = mem.recall(query, limit=limit, tags=tag or None)
     if json_out:
@@ -1773,6 +1802,7 @@ def memory_reflect(
 ):
     """Synthesize an answer from memory."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(Path(repo))
     result = mem.reflect(query)
     if json_out:
@@ -1788,6 +1818,7 @@ def memory_stats(
 ):
     """Get memory statistics."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(Path(repo))
     stats = mem.get_stats()
     typer.echo(f"Total facts: {stats['total_facts']}")
@@ -1805,6 +1836,7 @@ def memory_forget(
 ):
     """Remove a fact from memory."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(Path(repo))
     if mem.forget(memory_id):
         typer.echo(f"Removed memory #{memory_id}")
@@ -1821,6 +1853,7 @@ def memory_honcho_status(
 ):
     """Check Honcho behavioral-memory backend status."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(Path(repo), honcho_base_url=base_url)
     status = mem.honcho.get_status()
     if json_out:
@@ -1840,7 +1873,9 @@ def memory_honcho_status(
 
 @memory_app.command("honcho-retain")
 def memory_honcho_retain(
-    peer: str = typer.Option("coding-agent", "--peer", help="Peer name (e.g., 'user', 'coding-agent')"),
+    peer: str = typer.Option(
+        "coding-agent", "--peer", help="Peer name (e.g., 'user', 'coding-agent')"
+    ),
     content: str = typer.Argument(..., help="Message content to store"),
     role: str = typer.Option("user", "--role", help="Message role: 'user' or 'assistant'"),
     session: str = typer.Option("", "--session", help="Session name (optional)"),
@@ -1850,6 +1885,7 @@ def memory_honcho_retain(
 ):
     """Store a message in Honcho (behavioral memory)."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(Path(repo), honcho_base_url=base_url)
     if not mem.honcho.is_available():
         typer.echo("ERROR: Honcho not available. Check 'sin memory honcho-status'", err=True)
@@ -1879,6 +1915,7 @@ def memory_honcho_chat(
 ):
     """Ask a Honcho peer a question (dialectic)."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(Path(repo), honcho_base_url=base_url)
     if not mem.honcho.is_available():
         typer.echo("ERROR: Honcho not available", err=True)
@@ -1898,11 +1935,14 @@ app.add_typer(context_app, name="context")
 def context_query(
     query: str = typer.Argument(..., help="Natural-language query"),
     repo: str = typer.Option(".", "--repo", help="Repo root"),
-    honcho_url: str = typer.Option("http://localhost:8000", "--honcho-url", help="Honcho server URL"),
+    honcho_url: str = typer.Option(
+        "http://localhost:8000", "--honcho-url", help="Honcho server URL"
+    ),
     json_out: bool = typer.Option(False, "--json", help="JSON output"),
 ):
     """Get unified context (code + behavioral) for a query."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(Path(repo), honcho_base_url=honcho_url)
     result = mem.get_context_for_query(query)
     if json_out:
@@ -1929,6 +1969,7 @@ def ast_edit(
 ):
     """Propose an AST-based edit."""
     from sin_code_bundle.ast_edit import SINASTEdit
+
     ast = SINASTEdit()
     if not ast.is_available():
         typer.echo(
@@ -1944,7 +1985,9 @@ def ast_edit(
         typer.echo(json.dumps(out, indent=2))
     else:
         if result.success:
-            typer.echo(f"Edit proposed: {len(result.proposed_changes)} changes, POC verified={result.poc_verified}")
+            typer.echo(
+                f"Edit proposed: {len(result.proposed_changes)} changes, POC verified={result.poc_verified}"
+            )
             if apply:
                 typer.echo("Applied.")
         else:
@@ -1956,6 +1999,7 @@ def ast_edit(
 def ast_status():
     """Check if AST edit is available."""
     from sin_code_bundle.ast_edit import SINASTEdit
+
     ast = SINASTEdit()
     if ast.is_available():
         typer.echo(f"AST edit available. Languages: {', '.join(ast.SUPPORTED_LANGS)}")

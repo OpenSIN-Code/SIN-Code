@@ -106,6 +106,7 @@ def _run(cmd: list[str], timeout: int = 120) -> str:
 
 # ── Setup & Diagnostics: install + measure token savings ──────────────
 
+
 def setup_agents(
     agents: list[str] | None = None,
     env: RtkEnv | None = None,
@@ -132,6 +133,7 @@ def gain(env: RtkEnv | None = None) -> dict[str, Any]:
     out = _run([rtk, "gain", "--all", "--format", "json"])
     try:
         import json  # local import keeps the top of the file dependency-free
+
         return json.loads(out or "{}")
     except (ValueError, TypeError):
         # Fallback for older RTK builds that don't speak --format json yet.

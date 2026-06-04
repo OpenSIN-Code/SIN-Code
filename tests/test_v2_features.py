@@ -2,10 +2,10 @@
 
 Docs: test_v2_features.doc.md
 """
-import json
-import pytest
+
 from pathlib import Path
 
+import pytest
 
 # ── VFS: Virtual Filesystem ────────────────────────────────────
 
@@ -13,6 +13,7 @@ from pathlib import Path
 def test_vfs_schemes():
     """VFS exposes 7 URI schemes (sckg, poc, ibd, adw, efsm, oracle, conflict)."""
     from sin_code_bundle.vfs import URI_SCHEMES, SINVirtualFS
+
     assert "sckg" in URI_SCHEMES
     assert "poc" in URI_SCHEMES
     assert "ibd" in URI_SCHEMES
@@ -28,6 +29,7 @@ def test_vfs_schemes():
 def test_vfs_invalid_uri():
     """Returns an error dict for malformed URIs (no scheme prefix)."""
     from sin_code_bundle.vfs import SINVirtualFS
+
     vfs = SINVirtualFS()
     result = vfs.resolve("not a uri")
     assert "error" in result
@@ -36,6 +38,7 @@ def test_vfs_invalid_uri():
 def test_vfs_unknown_scheme():
     """Returns an error dict for unknown URI schemes."""
     from sin_code_bundle.vfs import SINVirtualFS
+
     vfs = SINVirtualFS()
     result = vfs.resolve("noscheme://foo")
     assert "error" in result
@@ -44,6 +47,7 @@ def test_vfs_unknown_scheme():
 def test_vfs_caching():
     """Repeated resolves of the same URI return the cached result."""
     from sin_code_bundle.vfs import SINVirtualFS
+
     vfs = SINVirtualFS()
     r1 = vfs.resolve("noscheme://foo")
     r2 = vfs.resolve("noscheme://foo")
@@ -57,6 +61,7 @@ def test_vfs_caching():
 def test_hashline_basic():
     """Hashline can find anchors for known function declarations."""
     from sin_code_bundle.hashline import HashlineAnchor
+
     content = "def foo():\n    pass\n\ndef bar():\n    return 1\n"
     anchor = HashlineAnchor(content)
     line = anchor.find_anchor("def foo():")
@@ -68,6 +73,7 @@ def test_hashline_basic():
 def test_hashline_patch_creation():
     """create_patch returns a valid dict with anchor_hash + line."""
     from sin_code_bundle.hashline import HashlineAnchor
+
     content = "def old():\n    pass\n"
     anchor = HashlineAnchor(content)
     patch = anchor.create_patch("def old():", "def new():")
@@ -80,6 +86,7 @@ def test_hashline_patch_creation():
 def test_hashline_patch_apply():
     """apply_patch replaces old content with new content."""
     from sin_code_bundle.hashline import HashlineAnchor
+
     content = "def old():\n    pass\n"
     anchor = HashlineAnchor(content)
     patch = anchor.create_patch("def old():", "def new():")
@@ -92,6 +99,7 @@ def test_hashline_patch_apply():
 def test_hashline_stale_anchor():
     """apply_patch returns None when anchor moved (safety guard)."""
     from sin_code_bundle.hashline import HashlineAnchor
+
     content = "def old():\n    pass\n"
     anchor = HashlineAnchor(content)
     patch = anchor.create_patch("def old():", "def new():")
@@ -104,6 +112,7 @@ def test_hashline_stale_anchor():
 def test_hashline_semantic_patch(tmp_path):
     """SINHashlinePatch writes modified content atomically to file."""
     from sin_code_bundle.hashline import SINHashlinePatch
+
     f = tmp_path / "code.py"
     f.write_text("def hello():\n    print('old')\n")
     patcher = SINHashlinePatch()
@@ -117,9 +126,30 @@ def test_hashline_semantic_patch(tmp_path):
 # ── Memory: SQLite + Honcho Backend ────────────────────────────
 
 
+# NOTE: SINMemory / HonchoBackend classes were moved to the sin-brain external
+# package during the operational-hardening merge (af69464). The bundle's
+# memory.py is now a thin adapter; these tests reference the removed in-bundle
+# classes and are skipped pending a rewrite against the sin-brain API.
+def _memory_v2_available() -> bool:
+    try:
+        from sin_code_bundle.memory import SINMemory  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
+_skip_memory_v2 = pytest.mark.skipif(
+    not _memory_v2_available(),
+    reason="SINMemory/HonchoBackend moved to sin-brain external package",
+)
+
+
+@_skip_memory_v2
 def test_memory_retain_recall(tmp_path):
     """retain stores facts; recall finds them via LIKE search."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(db_path=tmp_path / "mem.db")
     r1 = mem.retain("User prefers TypeScript", tags=["preference"])
     r2 = mem.retain("Project uses FastAPI", tags=["tech", "backend"])
@@ -130,9 +160,11 @@ def test_memory_retain_recall(tmp_path):
     assert any("TypeScript" in r["fact"] for r in results)
 
 
+@_skip_memory_v2
 def test_memory_tag_filter(tmp_path):
     """Recall with --tag=X filters to only matching facts."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(db_path=tmp_path / "mem.db")
     mem.retain("alpha fact", tags=["a"])
     mem.retain("beta fact", tags=["b"])
@@ -141,9 +173,11 @@ def test_memory_tag_filter(tmp_path):
     assert "alpha" in results[0]["fact"]
 
 
+@_skip_memory_v2
 def test_memory_forget(tmp_path):
     """forget removes a fact by ID; subsequent recall returns empty."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(db_path=tmp_path / "mem.db")
     r = mem.retain("to be forgotten", tags=["t"])
     mem.forget(r["id"])
@@ -151,9 +185,11 @@ def test_memory_forget(tmp_path):
     assert len(results) == 0
 
 
+@_skip_memory_v2
 def test_memory_stats(tmp_path):
     """get_stats returns correct total_facts and aggregated tags."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(db_path=tmp_path / "mem.db")
     mem.retain("fact one", tags=["x"])
     mem.retain("fact two", tags=["y", "z"])
@@ -163,9 +199,11 @@ def test_memory_stats(tmp_path):
     assert "y" in stats["tags"]
 
 
+@_skip_memory_v2
 def test_memory_reflect(tmp_path):
     """reflect synthesizes answer + sources from memory."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(db_path=tmp_path / "mem.db")
     mem.retain("Python is a dynamic language", tags=["lang"])
     mem.retain("TypeScript is a typed superset of JavaScript", tags=["lang"])
@@ -177,17 +215,21 @@ def test_memory_reflect(tmp_path):
     assert result["confidence"] > 0
 
 
+@_skip_memory_v2
 def test_memory_reflect_empty(tmp_path):
     """reflect on empty memory returns confidence=0.0."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(db_path=tmp_path / "mem.db")
     result = mem.reflect("nothing about this")
     assert result["confidence"] == 0.0
 
 
+@_skip_memory_v2
 def test_memory_with_honcho_unavailable(tmp_path):
     """Memory works via SQLite even when Honcho server is unreachable."""
-    from sin_code_bundle.memory import SINMemory, HonchoBackend
+    from sin_code_bundle.memory import HonchoBackend, SINMemory
+
     mem = SINMemory(
         db_path=tmp_path / "mem.db",
         honcho_workspace="test-ws",
@@ -206,9 +248,11 @@ def test_memory_with_honcho_unavailable(tmp_path):
     assert result["stored_in"] in ("SQLite", "SQLite + SCKG")
 
 
+@_skip_memory_v2
 def test_honcho_backend_init_lazy():
     """HonchoBackend defers _try_init until is_available() is called."""
     from sin_code_bundle.memory import HonchoBackend
+
     backend = HonchoBackend(workspace_id="test", base_url="http://localhost:1")
     # _init_attempted should be False before any call.
     assert backend._init_attempted is False
@@ -222,9 +266,11 @@ def test_honcho_backend_init_lazy():
     assert again == available
 
 
+@_skip_memory_v2
 def test_honcho_backend_get_status():
     """get_status returns available/workspace_id/base_url/error dict."""
     from sin_code_bundle.memory import HonchoBackend
+
     backend = HonchoBackend(workspace_id="test", base_url="http://localhost:1")
     status = backend.get_status()
     assert "available" in status
@@ -240,9 +286,11 @@ def test_honcho_backend_get_status():
     assert status["base_url"] == "http://localhost:1"
 
 
+@_skip_memory_v2
 def test_honcho_retain_message_unavailable():
     """retain_message returns None when Honcho is unavailable."""
     from sin_code_bundle.memory import HonchoBackend
+
     backend = HonchoBackend(workspace_id="test", base_url="http://localhost:1")
     # Force unavailable by short-circuiting init (no real network call).
     backend._init_attempted = True
@@ -252,9 +300,11 @@ def test_honcho_retain_message_unavailable():
     assert result is None
 
 
+@_skip_memory_v2
 def test_memory_get_context_for_query(tmp_path):
     """get_context_for_query returns structured dict for LLM injection."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(db_path=tmp_path / "mem.db")
     mem.retain("User prefers TypeScript over JavaScript", tags=["preference"])
     result = mem.get_context_for_query("What languages does the user like?")
@@ -273,9 +323,11 @@ def test_memory_get_context_for_query(tmp_path):
     assert isinstance(result["synthesis"], str)
 
 
+@_skip_memory_v2
 def test_memory_stats_includes_honcho(tmp_path):
     """get_stats includes honcho sub-dict with availability."""
     from sin_code_bundle.memory import SINMemory
+
     mem = SINMemory(db_path=tmp_path / "mem.db")
     stats = mem.get_stats()
     assert "honcho" in stats
@@ -293,7 +345,8 @@ def test_memory_stats_includes_honcho(tmp_path):
 
 def test_ast_lazy_import():
     """ast_edit module imports without tree-sitter installed."""
-    from sin_code_bundle.ast_edit import SINASTEdit, ASTEditResult
+    from sin_code_bundle.ast_edit import SINASTEdit
+
     ast = SINASTEdit()
     # tree-sitter NOT installed in this env
     assert ast.is_available() is False
@@ -306,6 +359,7 @@ def test_ast_lazy_import():
 def test_ast_returns_error_when_unavailable():
     """edit returns clear install hint when tree-sitter missing."""
     from sin_code_bundle.ast_edit import SINASTEdit
+
     ast = SINASTEdit()
     assert not ast.is_available()
     # Without tree-sitter, edit() should give install hint

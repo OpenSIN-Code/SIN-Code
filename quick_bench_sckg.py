@@ -3,8 +3,8 @@
 
 import gc
 import sys
-import time
 import tempfile
+import time
 from pathlib import Path
 
 sys.path.insert(0, "/Users/jeremy/dev/SIN-Code-Semantic-Codebase-Knowledge-Graphs/src")
@@ -20,7 +20,7 @@ def generate_synthetic_repo(num_files: int, root: str) -> str:
             f'"""Module {i} — auto-generated for benchmarking."""',
             "import os",
             "import sys",
-            f"from module_{(i+1) % num_files} import helper_{(i+1) % num_files}",
+            f"from module_{(i + 1) % num_files} import helper_{(i + 1) % num_files}",
             "",
             f"class ClassA_{i}:",
             '    """A sample class."""',
@@ -67,8 +67,10 @@ if __name__ == "__main__":
             repo = generate_synthetic_repo(num_files, tmpdir)
             kg = KnowledgeGraph(storage_path=f"{tmpdir}/sckg_bench_{num_files}.graph")
             stats = kg.build_from_repo(repo)
-            print(f"\nBuild {num_files}: {stats['files']} files, {stats['functions']} funcs, {stats['classes']} classes, {stats['edges']} edges")
-            
+            print(
+                f"\nBuild {num_files}: {stats['files']} files, {stats['functions']} funcs, {stats['classes']} classes, {stats['edges']} edges"
+            )
+
             for query in ["helper", "ClassA"]:
                 gc.collect()
                 # Warm-up
@@ -82,7 +84,9 @@ if __name__ == "__main__":
                     times.append(time.perf_counter() - start)
                 avg = sum(times) / len(times)
                 min_t = min(times)
-                print(f"  Query '{query}' on {num_files}: avg={avg:.4f}s min={min_t:.4f}s results={len(results)}")
+                print(
+                    f"  Query '{query}' on {num_files}: avg={avg:.4f}s min={min_t:.4f}s results={len(results)}"
+                )
 
             # Clear for next iteration
             del kg
