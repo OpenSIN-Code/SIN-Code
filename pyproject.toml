@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sin-code-bundle"
-version = "0.2.0"
+version = "0.3.0"
 description = "Structural intelligence for AI coding agents: impact analysis, semantic diff, architectural-debt breaker, and an independent verification Oracle — over MCP."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -80,7 +80,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "0.3.0"
 # CoDocs example fixtures demonstrate doc co-location, not runnable code.
 extend-exclude = ["examples", "build", "dist"]
 

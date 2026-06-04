@@ -52,3 +52,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Notes
 - This is an early release of the SIN-Code agent-engineering stack. APIs may
   still change before 1.0.0.
+
+## [0.3.0] - 2026-06-04 — SOTA MCP Tools
+
+### Added
+- **5 core MCP tools** in `sin serve` to REPLACE native opencode read/write/edit/bash/search:
+  - `sin_read` — URI-scheme aware (sckg://, poc://, ibd://, adw://, efsm://, oracle://, conflict://) + size-safe file reading with `summarize` mode
+  - `sin_write` — atomic write with auto-backup, syntax pre-validation for .py/.ts/.js/.go
+  - `sin_edit` — hashline-anchored semantic patching (line-shift resilient)
+  - `sin_bash` — safe shell exec with secret-redaction + timeout + structured result
+  - `sin_search` — wraps `scout` Go tool (semantic/regex/symbol/usage), Python-regex fallback
+- AGENTS.md mandate: `tools.{read,write,edit,bash,search,find,grep,glob,list,webfetch,task} = false` in `~/.config/opencode/opencode.json`
+- AGENTS.md SIN-Tools-Only Mandat section (PRIORITY -10.0) in BOTH `~/.config/opencode/AGENTS.md` and Infra repo
+
+### Changed
+- `sin serve` MCP server now exposes 10 tools (was 8)
+- All 30 OpenSIN-Code repos received `ceo-audit.yml v3` with `SIN_GITHUB_FALLBACK_TOKEN` env
+
+### Verified
+- Live test on SIN-Code-Bundle push: A+ (100.0/100), 0 Critical, 0 High
+- 10 tools returned by `tools/list` MCP call

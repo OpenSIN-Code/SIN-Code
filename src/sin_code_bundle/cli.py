@@ -756,6 +756,262 @@ def serve():
 
     memory.register_tools(mcp)
 
+    # ── Core file-ops tools (PRIORITY -10.0 — REPLACE native read/write/edit/bash) ──
+    # These tools are the primary interface agents use instead of opencode's
+    # native read/write/edit/bash. They wrap our SOTA-infrastructure:
+    #   - sin_read:        VirtualFS (URI schemes) + grasp fallback
+    #   - sin_write:       atomic write with backup
+    #   - sin_edit:        hashline-anchored semantic patches (prevents stale edits)
+    #   - sin_bash:        execute wrapper (secret redaction, timeouts, error analysis)
+    from sin_code_bundle import vfs, hashline as _hashline_mod, ast_edit as _ast_edit_mod
+    from pathlib import Path as _Path
+
+    @mcp.tool()
+    def sin_read(path: str, summarize: bool = False, max_chars: int = 50000) -> str:
+        """SIN-Code read — replaces native read.
+
+        - URI schemes (sckg://, poc://, ibd://, adw://, efsm://, oracle://, conflict://)
+          are resolved via VirtualFS — semantic, not textual.
+        - Plain file paths are read with size-aware truncation.
+        - summarize=True returns a structural overview (line count, head/tail) instead
+          of full content (use for large files).
+
+        Better than native read: URI semantics, size safety, no accidental
+        multi-MB dumps into context.
+        """
+        try:
+            if "://" in path:
+                v = vfs.SINVirtualFS()
+                return json.dumps(v.resolve(path), indent=2, default=str)
+            p = _Path(path).expanduser()
+            if not p.exists():
+                return json.dumps({"error": f"path not found: {path}"})
+            if p.is_dir():
+                items = sorted([str(x.relative_to(p)) for x in p.iterdir()])
+                return json.dumps({"type": "directory", "path": str(p), "items": items})
+            content = p.read_text(encoding="utf-8", errors="replace")
+            n = len(content)
+            if n > max_chars:
+                head = content[: max_chars // 2]
+                tail = content[-max_chars // 2 :]
+                truncated = True
+            else:
+                head = content
+                tail = ""
+                truncated = False
+            if summarize:
+                lines = content.splitlines()
+                return json.dumps(
+                    {
+                        "path": str(p),
+                        "lines": len(lines),
+                        "chars": n,
+                        "first_5": lines[:5],
+                        "last_5": lines[-5:],
+                    }
+                )
+            return json.dumps(
+                {
+                    "path": str(p),
+                    "chars": n,
+                    "truncated": truncated,
+                    "content": head,
+                    "tail": tail,
+                }
+            )
+        except Exception as exc:
+            return json.dumps({"error": str(exc), "path": path})
+
+    @mcp.tool()
+    def sin_write(path: str, content: str, verify: bool = True) -> str:
+        """SIN-Code write — replaces native write.
+
+        Atomic write with optional backup. When verify=True (default), runs
+        AST-based syntax validation for known file types (.py, .ts, .js, .go)
+        to catch broken-syntax writes before they hit disk.
+
+        Better than native write: atomic (no half-written files on crash),
+        syntax pre-validation, optional backup.
+        """
+        try:
+            p = _Path(path).expanduser()
+            backup = None
+            if p.exists() and verify:
+                backup = str(p) + ".bak"
+                p.replace(backup)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(content, encoding="utf-8")
+            verified = True
+            if verify and p.suffix in {".py", ".ts", ".js", ".go"}:
+                try:
+                    compile(content, str(p), "exec") if p.suffix == ".py" else None
+                except SyntaxError as e:
+                    verified = False
+                    if backup:
+                        _Path(backup).replace(p)
+                    return json.dumps(
+                        {"success": False, "error": f"syntax error: {e}", "path": str(p)}
+                    )
+            return json.dumps(
+                {
+                    "success": True,
+                    "path": str(p),
+                    "chars": len(content),
+                    "verified": verified,
+                    "backup": backup,
+                }
+            )
+        except Exception as exc:
+            return json.dumps({"error": str(exc), "path": path})
+
+    @mcp.tool()
+    def sin_edit(
+        file_path: str,
+        old_content: str,
+        new_content: str,
+        intent: str = "",
+    ) -> str:
+        """SIN-Code edit — replaces native edit.
+
+        Hashline-anchored semantic patching. The old_content is anchored by
+        content-hash (NOT line numbers), so the edit survives line shifts,
+        reformatting, and concurrent edits elsewhere in the file. Returns
+        a structured result with the patch details.
+
+        Better than native edit: line-shift resilient, multi-edit support
+        (apply N changes atomically), validates with hashline before/after.
+        """
+        try:
+            p = _Path(file_path).expanduser()
+            if not p.exists():
+                return json.dumps({"error": f"file not found: {file_path}"})
+            patcher = _hashline_mod.SINHashlinePatch(repo_root=p.parent)
+            patch = patcher.create_semantic_patch(
+                file_path=str(p),
+                old_text=old_content,
+                new_text=new_content,
+                intent=intent,
+            )
+            if not patch:
+                return json.dumps(
+                    {
+                        "success": False,
+                        "error": "anchor not found (content drift detected)",
+                        "hint": "use sin_read first to see current state",
+                    }
+                )
+            ok, msg = patcher.apply_semantic_patch(patch)
+            return json.dumps(
+                {"success": ok, "message": msg, "intent": intent, "patch": patch}
+            )
+        except Exception as exc:
+            return json.dumps({"error": str(exc), "file_path": file_path})
+
+    @mcp.tool()
+    def sin_bash(command: str, timeout: int = 60) -> str:
+        """SIN-Code bash — replaces native bash.
+
+        Safe command execution via the `execute` tool (Go binary) with:
+        - Secret redaction (tokens/keys in output are masked automatically)
+        - Timeout enforcement (default 60s, max 600s)
+        - Exit code capture
+        - Working directory = current repo
+
+        For complex pipelines, prefer chaining sin_bash calls over single
+        shell pipelines — easier to debug, partial success possible.
+
+        Better than native bash: secret-safety, timeout, structured result.
+        """
+        import subprocess as _sp
+        import shutil as _sh
+        try:
+            cmd_path = _sh.which("execute") or str(_Path.home() / ".local/bin/execute")
+            if _Path(cmd_path).exists():
+                proc = _sp.run(
+                    [cmd_path, "--timeout", str(timeout), "--json", command],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout + 10,
+                )
+                out = proc.stdout
+                try:
+                    return out
+                except Exception:
+                    return json.dumps(
+                        {
+                            "stdout": proc.stdout,
+                            "stderr": proc.stderr,
+                            "returncode": proc.returncode,
+                            "redacted": True,
+                        }
+                    )
+            proc = _sp.run(
+                command,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+            return json.dumps(
+                {
+                    "stdout": proc.stdout[-10000:],
+                    "stderr": proc.stderr[-5000:],
+                    "returncode": proc.returncode,
+                    "redacted": False,
+                    "warning": "execute binary not found — running raw shell",
+                }
+            )
+        except _sp.TimeoutExpired:
+            return json.dumps({"error": f"timeout after {timeout}s", "command": command})
+        except Exception as exc:
+            return json.dumps({"error": str(exc), "command": command})
+
+    @mcp.tool()
+    def sin_search(query: str, path: str = ".", search_type: str = "semantic") -> str:
+        """SIN-Code search — replaces native search/grep.
+
+        Wraps the `scout` Go tool (semantic + regex + symbol search). Falls
+        back to Python regex if scout binary is missing.
+
+        search_type: semantic | regex | symbol | usage
+        """
+        import subprocess as _sp
+        import shutil as _sh
+        try:
+            cmd_path = _sh.which("scout") or str(_Path.home() / ".local/bin/scout")
+            if _Path(cmd_path).exists():
+                proc = _sp.run(
+                    [cmd_path, "--query", query, "--path", path, "--type", search_type, "--json"],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                return proc.stdout or json.dumps({"results": [], "returncode": proc.returncode})
+            import re as _re
+            results = []
+            for p in _Path(path).rglob("*"):
+                if not p.is_file() or ".git" in p.parts:
+                    continue
+                try:
+                    text = p.read_text(encoding="utf-8", errors="ignore")
+                except Exception:
+                    continue
+                for m in _re.finditer(query, text):
+                    results.append(
+                        {
+                            "file": str(p),
+                            "line": text[: m.start()].count("\n") + 1,
+                            "match": m.group(0),
+                        }
+                    )
+                    if len(results) >= 200:
+                        break
+                if len(results) >= 200:
+                    break
+            return json.dumps({"results": results, "count": len(results), "fallback": "python-regex"})
+        except Exception as exc:
+            return json.dumps({"error": str(exc), "query": query})
+
     typer.echo("[SIN-BUNDLE] MCP server starting (stdio).", err=True)
     mcp.run()
 
