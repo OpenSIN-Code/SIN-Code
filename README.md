@@ -48,7 +48,7 @@ verification oracle.
 - **Degrades gracefully**: each subsystem is an optional dependency. The bundle
   detects which are installed (`sin status`) and only wires up what's available.
 
-## MCP tools exposed (28 total)
+## MCP tools exposed (34 total)
 
 The `sin-serve` MCP server (or equivalently `sin serve`) replaces opencode's
 native read/write/edit/bash/search with SIN-Code tools that add structural
@@ -85,6 +85,11 @@ URI resolution.
 | 26 | `gitnexus_impact` | (new) | gitnexus | Blast-radius impact via graph (auto-indexes) | Same as `impact` but uses gitnexus's pre-built graph (faster than SCKG re-index). |
 | 27 | `gitnexus_ai_context` | (new) | gitnexus | Task-scoped, graph-aware context bundle | **Context on-demand**: agent says "I'm about to refactor auth" → returns the 50 lines of context that matter, not 50,000. Massive token savings. |
 | 28 | `markitdown_convert` | (new) | markitdown | Convert PDF/DOCX/PPTX/XLSX/image → Markdown | **No native equivalent**. Agent can read PDFs, Word docs, Excel sheets, images. Useful for working with design docs, requirements, tickets. |
+| 26a | `sin_runtime_trace` | (new) | dap_bridge | Start DAP debug session for a function (debugpy/dlv/node) |
+| 26b | `sin_stop_trace` | (new) | dap_bridge | Stop an active DAP session |
+| 26c | `sin_check_architecture` | (new) | interceptor | Pre-flight: validate tool call against architectural rules |
+| 26d | `sin_create_worktree` | (new) | orchestration_worktrees | Create isolated git worktree for parallel agent tasks |
+| 26e | `sin_cleanup_worktree` | (new) | orchestration_worktrees | Clean up worktree (optionally merge back) |
 | 29 | `codocs_check` | (new) | codocs | Find broken co-located `.doc.md` references | **No native equivalent**. Enforces the CoDocs standard: every code file has a `.doc.md` companion. CI integration via ceo-audit. |
 
 ### Native → SIN tool coverage (mandatory in `~/.config/opencode/opencode.json`)

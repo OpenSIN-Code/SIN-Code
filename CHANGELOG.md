@@ -132,3 +132,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   column with concrete examples (e.g. why `sin_read` > native `read`,
   why `sin_edit` > native `edit` for line-shift resilience, etc.)
 - Bundle version bumped to 0.5.1
+
+## [0.6.0] - 2026-06-04 — DAP + Interceptors + Worktrees + Tests
+
+### Added
+- **DAP Runtime Bridge** (`dap_bridge.py`): Attach real debuggers (debugpy for Python,
+  dlv for Go, node --inspect for Node/JS/TS) to inspect runtime state. Stores trace
+  facts in sin-brain.
+- **Rule Interceptor** (`interceptor.py`): Pre-flight architectural rule
+  enforcement. Blocks hardcoded secrets, frontend-DB imports, eval/exec patterns.
+  Loads dynamic rules from sin-code-adw if installed.
+- **Isolated Worktrees** (`orchestration_worktrees.py`): Parallel agent task
+  execution via git worktrees. Optional merge-back to main.
+- **5 new MCP tools**: `sin_runtime_trace`, `sin_stop_trace`,
+  `sin_check_architecture`, `sin_create_worktree`, `sin_cleanup_worktree`.
+- **Integration tests** (`tests/test_mcp_integration.py`): 10+ tests covering
+  Interceptor, DAP Bridge, Worktree Orchestrator with graceful degradation.
+
+### Verified
+- `pytest tests/test_mcp_integration.py -v` — all tests pass
+- `sin-serve` MCP handshake returns **34 tools** (was 29)
+- Bundle version bumped to 0.6.0

@@ -532,13 +532,15 @@ def _try_subsystem_tools() -> None:
         pass
 
     try:
-        from sin_code_review_interface import ReviewInterface
+        from sin_code_review_interface import ReviewServer
 
         @mcp.tool()
         def review(file_path: str) -> str:
             """Run SOTA review on a single file."""
-            ri = ReviewInterface()
-            return json.dumps(ri.review_file(file_path))
+            ri = ReviewServer()
+            if hasattr(ri, "review_file"):
+                return json.dumps(ri.review_file(file_path))
+            return json.dumps({"file_path": file_path, "status": "ReviewServer available, no review_file method"})
     except ImportError:
         pass
 
@@ -607,6 +609,76 @@ def _try_external_tools() -> None:
 _try_subsystem_tools()
 _try_memory_tools()
 _try_external_tools()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DAP Runtime Tracing
+# ─────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def sin_runtime_trace(file_path: str, function_name: str, language: str = "python") -> str:
+    """Start a DAP debugging session for a specific function.
+
+    Replaces: Guessing from logs. Attaches real debugger (debugpy/dlv/node).
+    """
+    try:
+        from sin_code_bundle.dap_bridge import SINRuntimeTrace
+        tracer = SINRuntimeTrace()
+        return json.dumps(tracer.trace_function(file_path, function_name, language))
+    except Exception as exc:
+        return json.dumps({"error": str(exc)})
+
+
+@mcp.tool()
+def sin_stop_trace(session_id: str) -> str:
+    """Stop an active DAP debugging session."""
+    try:
+        from sin_code_bundle.dap_bridge import SINRuntimeTrace
+        tracer = SINRuntimeTrace()
+        return json.dumps(tracer.stop_trace(session_id))
+    except Exception as exc:
+        return json.dumps({"error": str(exc)})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Interceptor (Architectural Enforcement)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def sin_check_architecture(tool_name: str, tool_input: dict) -> str:
+    """Pre-flight: validate if a tool call violates architectural rules.
+
+    Use this BEFORE sin_write or sin_bash to prevent technical debt.
+    """
+    try:
+        from sin_code_bundle.interceptor import SINInterceptor
+        return json.dumps(SINInterceptor().preflight(tool_name, tool_input))
+    except Exception as exc:
+        return json.dumps({"error": str(exc)})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Worktree Orchestration
+# ─────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+def sin_create_worktree(branch_name: str = "") -> str:
+    """Create an isolated git worktree for parallel agent task execution."""
+    try:
+        from sin_code_bundle.orchestration_worktrees import SINWorktreeOrchestrator
+        return json.dumps(SINWorktreeOrchestrator().create_worktree(branch_name or None))
+    except Exception as exc:
+        return json.dumps({"error": str(exc)})
+
+
+@mcp.tool()
+def sin_cleanup_worktree(worktree_path: str, merge_back: bool = False) -> str:
+    """Clean up an isolated worktree. Optionally merge back to main."""
+    try:
+        from sin_code_bundle.orchestration_worktrees import SINWorktreeOrchestrator
+        return json.dumps(SINWorktreeOrchestrator().cleanup_worktree(worktree_path, merge_back))
+    except Exception as exc:
+        return json.dumps({"error": str(exc)})
 
 
 def main() -> None:
