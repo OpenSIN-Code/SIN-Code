@@ -7,20 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Performance monitoring** across all 16 SIN-Code repos:
-  - 600x speedup for Discover 500-1000 file projects (parallel analysis + content cache)
-  - 1200x speedup for SCKG 10000+ node queries (pre-built adjacency indexes)
-  - Extension filter optimization via string suffix matching
-- **Test stabilization** for all 7 Go tools + 8 Python subsystems:
-  - Fixed zsh compatibility in Execute tests
-  - Fixed secret redaction patterns (secret_key, private_key, bearer)
-  - Fixed macOS /private symlink handling in project root detection
-  - Fixed JSON parsing tests for nested objects
-  - Fixed process group timeout tests
-  - All 472+ tests passing across all repos
-
-### Changed
-- Version bump to 0.3.6 to align with Go tool releases
+- **Operational hardening** (closes #8): production-readiness CI/release tooling.
+  - `.github/workflows/ci.yml`: `ruff check` + `ruff format --check` lint gate
+    and a `pytest` matrix across Python 3.11/3.12/3.13, plus a non-blocking
+    cross-repo consistency job.
+  - `.github/workflows/release.yml`: builds sdist+wheel on `v*` tags, verifies a
+    clean-env install, attaches artifacts to a GitHub Release, and publishes to
+    PyPI via Trusted Publishing.
+  - `scripts/check_consistency.py` (WS4): asserts version alignment, subsystem
+    import health, and that every `sin mcp-config` client points at the real
+    `sin serve` entry point. `--strict` mode for full multi-repo CI.
+  - `scripts/dev_install.sh` + `scripts/run_all_tests.sh` (WS5): two-command
+    editable bootstrap and aggregated test runner across all 8 sibling repos.
+  - Adopted a shared `ruff` config (E/F/I/W) and applied a one-shot mechanical
+    format; aligned `__version__` with the packaged `0.2.0`.
+- **GitNexus bridge** (`sin_code_bundle.gitnexus`): integrates the upstream
+  [GitNexus](https://github.com/abhigyanpatwari/GitNexus) code knowledge graph
+  as a mandatory, always-on context source for coder agents. GitNexus is
+  invoked via `npx` (not vendored), keeping the bundle MIT-licensed while
+  GitNexus stays PolyForm-Noncommercial upstream.
+  - `sin gitnexus setup` wires the GitNexus MCP server into OpenCode, Codex,
+    and Hermes configs (idempotent, preserves existing config).
+  - `sin preflight` auto-builds/refreshes the graph so agents never code blind.
+  - `sin gitnexus index|status|doctor|context|impact|ai-context` commands.
+  - `gitnexus_context`, `gitnexus_impact`, `gitnexus_ai_context` exposed via
+    `sin serve`; GitNexus availability shown in `sin status`.
+  - Docs at `docs/GITNEXUS.md`; requires Node.js >= 18.
+- **CoDocs** integration, merged from the former
+  `SIN-Hermes-Bundles/SIN-Code-CoDocs-Bundle` repo:
+  - `sin_code_bundle.codocs` — a robust, stdlib-only validator that replaces the
+    original fragile `grep | sed` one-liner.
+  - `sin codocs check`, `sin codocs list`, and `sin codocs install-skill` CLI
+    commands, plus a `codocs_check` MCP tool exposed via `sin serve`.
+  - Packaged agent skill (`data/codocs/SKILL.md`), `docs/CODOCS.md`, and a
+    worked example under `examples/codocs/`.
 
 ## [0.1.0] - 2026-05-30
 

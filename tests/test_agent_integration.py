@@ -1,10 +1,11 @@
 """Tests fuer WS2 (mcp-config) und WS4 (agents-md)."""
+
 import json
 
 from typer.testing import CliRunner
 
+from sin_code_bundle import agents_md, mcp_config
 from sin_code_bundle.cli import app
-from sin_code_bundle import mcp_config, agents_md
 
 runner = CliRunner()
 
@@ -134,3 +135,51 @@ def test_cli_agents_md(tmp_path):
     result = runner.invoke(app, ["agents-md", "--path", str(target)])
     assert result.exit_code == 0
     assert target.exists()
+
+
+# ----------------- WS4/BR-2: sin-brain inject + red-zones ------------------ #
+def test_agents_md_has_negative_constraints(tmp_path):
+    """Red-zones section must always be present, even without sin-brain."""
+    path = tmp_path / "AGENTS.md"
+    agents_md.upsert(path)
+    content = path.read_text()
+    assert "Negative constraints (red-zones)" in content
+    assert "Do **not** mark a task done" in content
+
+
+def test_agents_md_block_omits_memory_when_absent():
+    """Without sin-brain, no memory playbook rows or inject section."""
+    block = agents_md.render_block(memory_available=False, inject_text="")
+    # No memory playbook rows (the row's "Why" text is unique to memory mode).
+    assert "project's memory compounds" not in block
+    assert "Pull prior decisions, conventions" not in block
+    assert "Project memory (SIN-Brain)" not in block
+    # but the tool guidance + red-zones are still there
+    assert "verify_tests" in block
+    assert "red-zones" in block
+
+
+def test_agents_md_block_includes_memory_when_present():
+    """With sin-brain, memory rows + injected context are embedded."""
+    block = agents_md.render_block(
+        memory_available=True,
+        inject_text="### Recent decisions\n- Use RS256 for JWT.",
+    )
+    assert "`recall`" in block
+    assert "`remember`" in block
+    assert "Project memory (SIN-Brain)" in block
+    assert "Use RS256 for JWT." in block
+
+
+def test_agents_md_idempotent_with_memory(tmp_path):
+    """Re-running with the same inject text keeps a single managed block."""
+    path = tmp_path / "AGENTS.md"
+    block = agents_md.render_block(memory_available=True, inject_text="X")
+    path.write_text(f"# AGENTS.md\n\n{block}\n")
+    first = path.read_text()
+    # Simulate a second generation with identical context by replacing in place.
+    start = first.index(agents_md.START_MARKER)
+    end = first.index(agents_md.END_MARKER) + len(agents_md.END_MARKER)
+    second = first[:start] + block + first[end:]
+    assert second == first
+    assert second.count(agents_md.START_MARKER) == 1

@@ -94,17 +94,13 @@ def init_args(agent: str) -> list[str]:
 
 def _run(cmd: list[str], timeout: int = 120) -> str:
     try:
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout
-        )
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except FileNotFoundError as exc:  # pragma: no cover - guarded by detect_env
         raise RtkError(f"Failed to execute {cmd[0]!r}: {exc}") from exc
     except subprocess.TimeoutExpired as exc:  # pragma: no cover - timing dependent
         raise RtkError(f"rtk timed out after {timeout}s") from exc
     if proc.returncode != 0:
-        raise RtkError(
-            f"`{' '.join(cmd)}` failed ({proc.returncode}): {proc.stderr.strip()}"
-        )
+        raise RtkError(f"`{' '.join(cmd)}` failed ({proc.returncode}): {proc.stderr.strip()}")
     return proc.stdout.strip()
 
 

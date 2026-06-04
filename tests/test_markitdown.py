@@ -3,6 +3,7 @@
 No real MarkItDown / uvx invocation: discovery (shutil.which) and config HOME
 are stubbed so the suite runs in CI without the tool installed.
 """
+
 from __future__ import annotations
 
 import json
@@ -27,9 +28,7 @@ def test_env_unavailable_without_runners(monkeypatch):
 
 
 def test_mcp_command_prefers_uvx(monkeypatch):
-    monkeypatch.setattr(
-        markitdown.shutil, "which", lambda name: f"/usr/bin/{name}"
-    )
+    monkeypatch.setattr(markitdown.shutil, "which", lambda name: f"/usr/bin/{name}")
     cmd = markitdown.mcp_server_command()
     assert cmd == {"command": "uvx", "args": [markitdown.MARKITDOWN_MCP_PACKAGE]}
 
@@ -50,9 +49,7 @@ def test_mcp_command_falls_back_to_direct_exe(monkeypatch):
 def fake_home(tmp_path, monkeypatch):
     monkeypatch.setattr(markitdown.Path, "home", classmethod(lambda cls: tmp_path))
     # Make the runner resolvable so wiring uses the uvx command.
-    monkeypatch.setattr(
-        markitdown.shutil, "which", lambda name: f"/usr/bin/{name}"
-    )
+    monkeypatch.setattr(markitdown.shutil, "which", lambda name: f"/usr/bin/{name}")
     return tmp_path
 
 
@@ -100,17 +97,13 @@ def test_unknown_agent_raises(fake_home):
 # CLI convert wrapper
 # --------------------------------------------------------------------------- #
 def test_convert_missing_file_raises(monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        markitdown.shutil, "which", lambda name: f"/usr/bin/{name}"
-    )
+    monkeypatch.setattr(markitdown.shutil, "which", lambda name: f"/usr/bin/{name}")
     with pytest.raises(markitdown.MarkItDownError):
         markitdown.convert(str(tmp_path / "nope.pdf"))
 
 
 def test_convert_runs_cli(monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        markitdown.shutil, "which", lambda name: f"/usr/bin/{name}"
-    )
+    monkeypatch.setattr(markitdown.shutil, "which", lambda name: f"/usr/bin/{name}")
     src = tmp_path / "doc.txt"
     src.write_text("hello")
 

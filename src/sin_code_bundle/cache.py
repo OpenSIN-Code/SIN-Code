@@ -7,7 +7,6 @@ Stored under .sin/cache/ as JSON.
 Docs: cache.doc.md
 """
 
-# SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 import hashlib

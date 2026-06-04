@@ -67,9 +67,7 @@ class Policy:
     """
 
     rules: dict[RiskClass, Decision] = field(default_factory=lambda: dict(DEFAULT_POLICY))
-    auto_approve: bool = field(
-        default_factory=lambda: os.environ.get("SIN_AUTO_APPROVE") == "1"
-    )
+    auto_approve: bool = field(default_factory=lambda: os.environ.get("SIN_AUTO_APPROVE") == "1")
 
     @classmethod
     def load(cls, root: Path = Path(".")) -> "Policy":
@@ -188,9 +186,7 @@ def ensure_within_root(target: str | Path, root: Optional[str | Path] = None) ->
         else Path(target).resolve()  # type: ignore[arg-type]
     )
     if root_path not in resolved.parents and resolved != root_path:
-        raise PolicyError(
-            f"path '{resolved}' is outside project root '{root_path}'"
-        )
+        raise PolicyError(f"path '{resolved}' is outside project root '{root_path}'")
     return resolved
 
 
@@ -215,9 +211,7 @@ def guarded(
 
     if decision == "deny":
         audit.record(tool, args, decision, "denied")
-        raise PolicyError(
-            f"tool '{tool}' denied by policy (risk={TOOL_RISK.get(tool)})"
-        )
+        raise PolicyError(f"tool '{tool}' denied by policy (risk={TOOL_RISK.get(tool)})")
 
     if decision == "ask":
         approved = policy.auto_approve or (approver(tool, args) if approver else False)

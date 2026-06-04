@@ -6,7 +6,6 @@ nutzbar und es wird eine klare Meldung statt eines Importfehlers ausgegeben.
 Docs: cli.doc.md
 """
 
-# SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 import json
@@ -18,9 +17,7 @@ import typer
 
 app = typer.Typer(help="SIN-Code Bundle - Unified SOTA Agent-Engineering Stack")
 
-gitnexus_app = typer.Typer(
-    help="GitNexus bridge - mandatory graph context for coder agents."
-)
+gitnexus_app = typer.Typer(help="GitNexus bridge - mandatory graph context for coder agents.")
 app.add_typer(gitnexus_app, name="gitnexus")
 
 markitdown_app = typer.Typer(
@@ -28,9 +25,7 @@ markitdown_app = typer.Typer(
 )
 app.add_typer(markitdown_app, name="markitdown")
 
-rtk_app = typer.Typer(
-    help="RTK bridge - token-saving command proxy for coder agents."
-)
+rtk_app = typer.Typer(help="RTK bridge - token-saving command proxy for coder agents.")
 app.add_typer(rtk_app, name="rtk")
 codocs_app = typer.Typer(help="CoDocs - co-located docs standard (.doc.md companions).")
 app.add_typer(codocs_app, name="codocs")
@@ -79,10 +74,7 @@ def _require(module: str, hint: str):
     try:
         return importlib.import_module(module)
     except ImportError:
-        typer.echo(
-            f"[SIN-BUNDLE] Subsystem '{module}' not installed. "
-            f"Install with: {hint}"
-        )
+        typer.echo(f"[SIN-BUNDLE] Subsystem '{module}' not installed. Install with: {hint}")
         raise typer.Exit(code=1)
 
 
@@ -110,16 +102,20 @@ def status():
     from sin_code_bundle import gitnexus, markitdown, rtk
 
     report["GitNexus (graph context, external)"] = gitnexus.detect_env().available
-    report["MarkItDown (doc->markdown, external)"] = (
-        markitdown.detect_env().mcp_available
-    )
+    report["MarkItDown (doc->markdown, external)"] = markitdown.detect_env().mcp_available
     report["RTK (token-saving proxy, external)"] = rtk.detect_env().available
     # CoDocs ships inside the bundle itself, so it is always available.
     report["CoDocs (co-located docs)"] = True
-    # SIN-Code Go tools
-    for tool_name, repo_name in _SIN_CODE_TOOLS.items():
-        path = _sin_code_tool_path(tool_name)
-        report[f"sin-{tool_name} ({repo_name})"] = path is not None
+
+    # SIN-Brain memory cortex (external package). Report presence plus tier
+    # sizes so it is obvious whether agents have a working memory.
+    from sin_code_bundle import memory
+
+    mem_env = memory.detect_env()
+    report["SIN-Brain (memory cortex, external)"] = mem_env.available
+    if mem_env.available:
+        report["sin-brain:db"] = mem_env.db_path or "(default)"
+        report["sin-brain:tiers"] = mem_env.tiers
     typer.echo(json.dumps(report, indent=2))
 
 
@@ -166,11 +162,7 @@ def review(file_a: Path, file_b: Path):
     changes = ASTDiff().diff_files(str(file_a), str(file_b))
     intents = IntentSummarizer().summarize(changes)
     risk = RiskScorer().score(changes)
-    typer.echo(
-        json.dumps(
-            {"intents": [i.__dict__ for i in intents], "risk": risk}, indent=2
-        )
-    )
+    typer.echo(json.dumps({"intents": [i.__dict__ for i in intents], "risk": risk}, indent=2))
 
 
 @app.command()
@@ -393,9 +385,7 @@ def rtk_gain():
 @app.command()
 def preflight(
     root: str = typer.Argument(".", help="Repository root"),
-    no_auto: bool = typer.Option(
-        False, "--no-auto", help="Do not auto-index; only report."
-    ),
+    no_auto: bool = typer.Option(False, "--no-auto", help="Do not auto-index; only report."),
 ):
     """Ensure agents are not coding blind: guarantee a fresh GitNexus index.
 
@@ -424,6 +414,8 @@ def preflight(
         )
     typer.echo("[PREFLIGHT] OK - GitNexus graph context is ready.")
     typer.echo(json.dumps(state.to_dict(), indent=2))
+
+
 @codocs_app.command("check")
 def codocs_check(
     root: str = typer.Argument(".", help="Repository root to scan"),
@@ -494,9 +486,7 @@ def codocs_install_skill(
     skill_src = Path(__file__).parent / "data" / "codocs" / "SKILL.md"
     if not skill_src.is_file():
         # Fallback to the repo-level skills/ dir (editable installs).
-        skill_src = (
-            Path(__file__).resolve().parents[2] / "skills" / "sin-codocs" / "SKILL.md"
-        )
+        skill_src = Path(__file__).resolve().parents[2] / "skills" / "sin-codocs" / "SKILL.md"
     if not skill_src.is_file():
         typer.echo("[CODOCS] Skill file not found in package.", err=True)
         raise typer.Exit(code=1)
@@ -514,6 +504,8 @@ def codocs_install_skill(
         dest_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy2(skill_src, dest_dir / "SKILL.md")
         typer.echo(f"[CODOCS] Installed skill -> {dest_dir / 'SKILL.md'}")
+
+
 @app.command(name="mcp-config")
 def mcp_config(
     client: str = typer.Argument(..., help="Target CLI: opencode | codex | hermes"),
@@ -562,9 +554,7 @@ def mcp_config(
 
 @app.command(name="agents-md")
 def agents_md(
-    path: Path = typer.Option(
-        Path("AGENTS.md"), "--path", help="Target AGENTS.md path."
-    ),
+    path: Path = typer.Option(Path("AGENTS.md"), "--path", help="Target AGENTS.md path."),
 ):
     """Create or idempotently update an AGENTS.md describing SIN tool usage."""
     from . import agents_md as gen
@@ -579,7 +569,9 @@ def serve():
     try:
         from mcp.server.fastmcp import FastMCP
     except ImportError:
-        typer.echo("[SIN-BUNDLE] mcp package required: pip install 'sin-code-bundle[mcp]'", err=True)
+        typer.echo(
+            "[SIN-BUNDLE] mcp package required: pip install 'sin-code-bundle[mcp]'", err=True
+        )
         raise typer.Exit(code=1)
 
     mcp = FastMCP("sin-code-bundle")
@@ -604,9 +596,7 @@ def serve():
             changes = ASTDiff().diff_files(file_a, file_b)
             intents = IntentSummarizer().summarize(changes)
             risk = RiskScorer().score(changes)
-            return json.dumps(
-                {"intents": [i.__dict__ for i in intents], "risk": risk}
-            )
+            return json.dumps({"intents": [i.__dict__ for i in intents], "risk": risk})
     except ImportError:
         pass
 
@@ -621,7 +611,6 @@ def serve():
             return json.dumps(analyzer.debt_score(reports))
     except ImportError:
         pass
-
 
     try:
         from sin_code_oracle import VerificationOracle
@@ -666,7 +655,7 @@ def serve():
         pass
 
     try:
-        from sin_code_orchestration import Orchestrator, TaskSpec, Role
+        from sin_code_orchestration import Orchestrator, Role, TaskSpec
 
         @mcp.tool()
         def orchestrate(task_id: str, role: str, input_data: str) -> str:
@@ -699,11 +688,13 @@ def serve():
             changes = ASTDiff().diff_files(file_a, file_b)
             intents = IntentSummarizer().summarize(changes)
             risk = RiskScorer().score(changes)
-            return json.dumps({
-                "intents": [i.__dict__ for i in intents],
-                "risk": risk,
-                "recommendation": "Approve" if risk["risk"] == "low" else "Review Manually"
-            })
+            return json.dumps(
+                {
+                    "intents": [i.__dict__ for i in intents],
+                    "risk": risk,
+                    "recommendation": "Approve" if risk["risk"] == "low" else "Review Manually",
+                }
+            )
     except ImportError:
         pass
 
@@ -758,64 +749,19 @@ def serve():
             }
         )
 
-    # SIN-Brain memory tools (BR-1)
-    try:
-        from sin_brain import BrainCortex
+    # SIN-Brain memory cortex (external package, BR-1 / Issue #14). Registers
+    # recall/remember/forget/pin/link_evidence only when sin-brain is importable;
+    # a missing package leaves the server fully functional (graceful degradation).
+    from sin_code_bundle import memory
 
-        @mcp.tool()
-        def recall(query: str, scope: str = "all", limit: int = 5) -> str:
-            """Recall relevant memories from SIN-Brain."""
-            try:
-                cortex = BrainCortex(storage_path=".sin/brain.db")
-                memories = cortex.recall(query, scope=scope, limit=limit)
-                return json.dumps({"memories": [m.to_dict() for m in memories]})
-            except ImportError:
-                return json.dumps({"error": "SIN-Brain not installed"})
-
-        @mcp.tool()
-        def remember(content: str, kind: str = "observation", tier: str = "episodic", confidence: float = 1.0) -> str:
-            """Store a memory in SIN-Brain."""
-            try:
-                cortex = BrainCortex(storage_path=".sin/brain.db")
-                memory_id = cortex.remember(content, kind=kind, tier=tier, confidence=confidence)
-                return json.dumps({"memory_id": memory_id, "status": "stored"})
-            except ImportError:
-                return json.dumps({"error": "SIN-Brain not installed"})
-
-        @mcp.tool()
-        def forget(memory_id: str) -> str:
-            """Remove a memory from SIN-Brain."""
-            try:
-                cortex = BrainCortex(storage_path=".sin/brain.db")
-                cortex.forget(memory_id)
-                return json.dumps({"memory_id": memory_id, "status": "forgotten"})
-            except ImportError:
-                return json.dumps({"error": "SIN-Brain not installed"})
-
-        @mcp.tool()
-        def pin(memory_id: str) -> str:
-            """Pin a memory to core tier for quick recall."""
-            try:
-                cortex = BrainCortex(storage_path=".sin/brain.db")
-                cortex.pin(memory_id)
-                return json.dumps({"memory_id": memory_id, "status": "pinned"})
-            except ImportError:
-                return json.dumps({"error": "SIN-Brain not installed"})
-
-        @mcp.tool()
-        def link_evidence(source_id: str, target_id: str, relation: str = "related") -> str:
-            """Create evidence link between two memories."""
-            try:
-                cortex = BrainCortex(storage_path=".sin/brain.db")
-                cortex.link_evidence(source_id, target_id, relation=relation)
-                return json.dumps({"source_id": source_id, "target_id": target_id, "relation": relation, "status": "linked"})
-            except ImportError:
-                return json.dumps({"error": "SIN-Brain not installed"})
-    except ImportError:
-        pass
+    memory.register_tools(mcp)
 
     typer.echo("[SIN-BUNDLE] MCP server starting (stdio).", err=True)
     mcp.run()
+
+
+if __name__ == "__main__":
+    app()
 
 
 # --------------------------------------------------------------------------- #
@@ -830,12 +776,8 @@ def bench(
     runner: str = typer.Option(
         "dry", help="Agent runner: 'dry' | 'opencode' | 'codex' | 'hermes'."
     ),
-    arms: str = typer.Option(
-        "control,sin", help="Comma-separated arms to run."
-    ),
-    out: str | None = typer.Option(
-        None, "--out", help="Write the full JSON report to this path."
-    ),
+    arms: str = typer.Option("control,sin", help="Comma-separated arms to run."),
+    out: str | None = typer.Option(None, "--out", help="Write the full JSON report to this path."),
 ):
     """Run the SIN-Code A/B benchmark and report the resolved-rate delta."""
     from sin_code_bundle.bench import (
@@ -1055,9 +997,7 @@ def doctor(root: str = typer.Option(".", help="Project root.")):
         typer.echo("  (no supported source files detected)")
     for r in rows:
         mark = "OK " if r["installed"] else "-- "
-        typer.echo(
-            f"  {mark}{r['language']:<11} {r['files']:>5} files  server={r['server']}"
-        )
+        typer.echo(f"  {mark}{r['language']:<11} {r['files']:>5} files  server={r['server']}")
         if not r["installed"]:
             typer.echo(f"       install: {r['install_hint']}")
 

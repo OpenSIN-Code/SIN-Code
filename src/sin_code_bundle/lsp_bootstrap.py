@@ -7,7 +7,6 @@ the exact install command.
 Docs: lsp_bootstrap.doc.md
 """
 
-# SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 import shutil

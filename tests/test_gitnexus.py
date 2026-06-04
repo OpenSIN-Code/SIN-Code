@@ -3,6 +3,7 @@
 These never invoke real GitNexus/Node: subprocess and discovery are stubbed so
 the suite runs in CI without a Node toolchain.
 """
+
 from __future__ import annotations
 
 import json
@@ -94,9 +95,7 @@ def test_ensure_index_auto_calls_analyze(tmp_path, monkeypatch):
 
 def test_ensure_index_no_auto_does_not_build(tmp_path, monkeypatch):
     monkeypatch.setattr(gitnexus.shutil, "which", lambda name: f"/usr/bin/{name}")
-    monkeypatch.setattr(
-        gitnexus, "analyze", lambda *a, **k: pytest.fail("should not analyze")
-    )
+    monkeypatch.setattr(gitnexus, "analyze", lambda *a, **k: pytest.fail("should not analyze"))
     state = gitnexus.ensure_index(str(tmp_path), auto=False)
     assert state.exists is False
 
@@ -106,9 +105,7 @@ def test_ensure_index_skips_when_fresh(tmp_path, monkeypatch):
     idx = tmp_path / gitnexus.INDEX_DIRNAME
     idx.mkdir()
     (idx / "graph.db").write_text("fresh")
-    monkeypatch.setattr(
-        gitnexus, "analyze", lambda *a, **k: pytest.fail("should not rebuild")
-    )
+    monkeypatch.setattr(gitnexus, "analyze", lambda *a, **k: pytest.fail("should not rebuild"))
     state = gitnexus.ensure_index(str(tmp_path), auto=True)
     assert state.exists is True
 
@@ -143,9 +140,7 @@ def test_query_wrappers_invoke_correct_subcommands(monkeypatch):
 
 def test_query_raises_on_failure(monkeypatch):
     monkeypatch.setattr(gitnexus.shutil, "which", lambda name: f"/usr/bin/{name}")
-    monkeypatch.setattr(
-        gitnexus, "_run", lambda *a, **k: _Proc(rc=2, out="", err="boom")
-    )
+    monkeypatch.setattr(gitnexus, "_run", lambda *a, **k: _Proc(rc=2, out="", err="boom"))
     with pytest.raises(gitnexus.GitNexusError):
         gitnexus.context("X")
 

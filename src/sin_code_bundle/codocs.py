@@ -49,12 +49,35 @@ DEFAULT_EXCLUDE = {
 # because the regex below is tuned to C-style/line/Python comment leaders.
 # Makefile and Dockerfile are matched by name in ``_is_code_file`` (no suffix).
 CODE_SUFFIXES = {
-    ".py", ".pyi",
-    ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
-    ".rs", ".go", ".java", ".kt", ".kts", ".scala",
-    ".c", ".h", ".cc", ".cpp", ".hpp", ".cs",
-    ".rb", ".php", ".swift", ".sh", ".bash", ".zsh",
-    ".yaml", ".yml", ".toml",
+    ".py",
+    ".pyi",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".rs",
+    ".go",
+    ".java",
+    ".kt",
+    ".kts",
+    ".scala",
+    ".c",
+    ".h",
+    ".cc",
+    ".cpp",
+    ".hpp",
+    ".cs",
+    ".rb",
+    ".php",
+    ".swift",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".yaml",
+    ".yml",
+    ".toml",
 }
 
 # Extensionless files that still count as code (matched by exact basename).
@@ -99,8 +122,8 @@ class DocReference:
     """
 
     source: Path
-    doc: str          # raw referenced path, as written
-    resolved: Path    # absolute path the reference resolves to
+    doc: str  # raw referenced path, as written
+    resolved: Path  # absolute path the reference resolves to
     exists: bool
 
     def to_dict(self) -> dict:

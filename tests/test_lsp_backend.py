@@ -1,8 +1,8 @@
 """Tests for lsp_backend — primarily the tree-sitter fallback path,
 since LSP servers won't be available in CI.
 """
-from pathlib import Path
 
+from pathlib import Path
 
 from sin_code_bundle.lsp_backend import (
     ImpactResult,

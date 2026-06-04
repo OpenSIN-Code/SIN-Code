@@ -1,9 +1,5 @@
-"""Hardened subprocess + input-sanitization helpers shared by all subsystems.
+"""Hardened subprocess + input-sanitization helpers shared by all subsystems."""
 
-Docs: safety.doc.md
-"""
-
-# SPDX-License-Identifier: MIT
 from __future__ import annotations
 
 import subprocess
@@ -47,9 +43,7 @@ def sanitize_prompt(text: str, max_len: int = 8000) -> str:
     safe_lines = []
     for line in text.splitlines():
         low = line.strip().lower()
-        if low.startswith(
-            ("system:", "developer:", "ignore previous", "you are now")
-        ):
+        if low.startswith(("system:", "developer:", "ignore previous", "you are now")):
             safe_lines.append("[redacted suspicious instruction]")
         else:
             safe_lines.append(line)
