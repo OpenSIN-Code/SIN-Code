@@ -69,10 +69,10 @@ jobs:
         run: |
           # sin-code-bundle does not yet ship the skill scripts.
           # Clone the SSOT (Infra-SIN-OpenCode-Stack) to get audit.sh + axis scripts.
-          git clone --depth 1 --branch main https://github.com/OpenSIN-Code/Infra-SIN-OpenCode-Stack.git /tmp/infra
+          git clone --depth 1 --branch main https://github.com/OpenSIN-Code/Infra-SIN-OpenCode-Stack.git ${{ github.workspace }}/infra
           mkdir -p ~/.config/opencode/skills/ceo-audit
-          cp -r /tmp/infra/skills/ceo-audit/scripts ~/.config/opencode/skills/ceo-audit/
-          cp -r /tmp/infra/skills/ceo-audit/lib ~/.config/opencode/skills/ceo-audit/
+          cp -r ${{ github.workspace }}/infra/skills/ceo-audit/scripts ~/.config/opencode/skills/ceo-audit/
+          cp -r ${{ github.workspace }}/infra/skills/ceo-audit/lib ~/.config/opencode/skills/ceo-audit/
           chmod +x ~/.config/opencode/skills/ceo-audit/scripts/audit.sh
           ls ~/.config/opencode/skills/ceo-audit/scripts/audit.sh
 
@@ -162,6 +162,24 @@ jobs:
             📊 [Download SARIF (for Code Scanning)](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)
 
             > Run `${{ env.AUDIT_PROFILE == 'FULL' && '~/.config/opencode/skills/ceo-audit/scripts/audit.sh . --profile=FULL' || '~/.config/opencode/skills/ceo-audit/scripts/audit.sh . --profile=QUICK' }}` locally to reproduce.
+
+      - name: Post official audit comment (SIN-GitHub-Issues App)
+        if: github.event_name == 'pull_request' && always()
+        # Tries SIN_GITHUB_INSTALLATION_TOKEN first, falls back to GITHUB_TOKEN.
+        # On public repos with org secret set, posts as the App (better UX).
+        # On private repos or when secret missing, falls back to GITHUB_TOKEN (Action identity).
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ github.workspace }}/infra/skills/ceo-audit/lib
+          SIN_GITHUB_APP_CLIENT_ID: Iv23livllaHIBTdQdyhY
+        run: |
+          # post_audit_pr.py lives in the cloned Infra repo (see 'Install ceo-audit skill' step)
+          python3 ${{ github.workspace }}/infra/skills/ceo-audit/scripts/post_audit_pr.py \
+            --repo ${{ github.repository }} \
+            --pr ${{ github.event.pull_request.number }} \
+            --score-json ceo-audit-output/score.json \
+            --artifact-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} \
+            --run-id ${{ github.run_id }}
 
       - name: Fail if grade below gate
         if: github.event_name == 'pull_request'
