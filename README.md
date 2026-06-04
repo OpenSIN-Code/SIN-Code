@@ -55,37 +55,37 @@ native read/write/edit/bash/search with SIN-Code tools that add structural
 understanding, secret-redaction, hashline-anchored edits, and semantic
 URI resolution.
 
-| # | Tool | Replaces | Subsystem | What it does |
-|---|------|----------|-----------|--------------|
-| 1 | **`sin_read`** | `read` | vfs + grasp | URI-scheme (`sckg://`, `poc://`, `ibd://`, etc.) aware, size-safe, summarize mode |
-| 2 | **`sin_write`** | `write` | atomic + AST | Atomic write with auto-backup + syntax pre-validation for .py/.ts/.js/.go |
-| 3 | **`sin_edit`** | `edit` | hashline | Hashline-anchored semantic patches (line-shift resilient, content-hash) |
-| 4 | **`sin_bash`** | `bash` | execute (Go) | Safe exec with secret-redaction + timeout + structured JSON (safety_check, retry_info, learned_patterns) |
-| 5 | **`sin_search`** | `search`/`find`/`grep`/`glob` | scout (Go) + Python | Semantic + regex + symbol + usage search, single-file + directory |
-| 6 | `sin_vfs_resolve` | (new) | vfs | Resolve URI scheme → structured content |
-| 7 | `sin_vfs_schemes` | (new) | vfs | List all available URI schemes |
-| 8 | `sin_ast_edit` | (new) | ast_edit | Tree-sitter AST-based edit with POC verification |
-| 9 | `sin_hashline_validate` | (new) | hashline | Validate a previously-created hashline patch |
-| 10 | `impact` | (new) | sin-code-sckg | Blast-radius impact analysis for a symbol |
-| 11 | `semantic_diff` | (new) | sin-code-ibd | Semantic intent diff between two files |
-| 12 | `semantic_review` | (new) | sin-code-ibd | Intent + risk in one call |
-| 13 | `architectural_debt` | (new) | sin-code-adw | Current architectural debt score |
-| 14 | `verify_tests` | (new) | sin-code-oracle | Verify agent-generated code (security/perf/correctness) |
-| 15 | `prove` | (new) | sin-code-poc | Generate and verify proofs of correctness |
-| 16 | `mock_env` | (new) | sin-code-efsm | Manage ephemeral full-stack mock environment |
-| 17 | `orchestrate` | (new) | sin-code-orchestration | Submit a task to the multi-agent orchestrator |
-| 18 | `task_status` | (new) | sin-code-orchestration | Get status of an orchestrated task |
-| 19 | `review` | (new) | sin-code-review-interface | SOTA review on a single file |
-| 20 | `recall_tool` | (new) | sin-brain | Search memory tiers (recall/archival/graph) |
-| 21 | `remember_tool` | (new) | sin-brain | Persist a memory entry (decision/convention/fix/pitfall/preference) |
-| 22 | `forget_tool` | (new) | sin-brain | Delete a memory entry by id |
-| 23 | `pin_tool` | (new) | sin-brain | Pin a memory entry (never evicted) |
-| 24 | `link_evidence_tool` | (new) | sin-brain | Attach a subsystem verdict to a memory |
-| 25 | `gitnexus_context` | (new) | gitnexus | Structural graph context for a symbol |
-| 26 | `gitnexus_impact` | (new) | gitnexus | Blast-radius impact via graph (auto-indexes) |
-| 27 | `gitnexus_ai_context` | (new) | gitnexus | Task-scoped, graph-aware context bundle |
-| 28 | `markitdown_convert` | (new) | markitdown | Convert PDF/DOCX/PPTX/XLSX/image → Markdown |
-| 29 | `codocs_check` | (new) | codocs | Find broken co-located `.doc.md` references |
+| # | Tool | Replaces | Subsystem | What it does | **Why better than native / other tools** |
+|---|------|----------|-----------|--------------|------------------------------------------|
+| 1 | **`sin_read`** | `read` | vfs + grasp | URI-scheme (`sckg://`, `poc://`, `ibd://`, etc.) aware, size-safe, summarize mode | **Native `read` dumps 10MB+ into context** → blows LLM budget. `sin_read` returns size-aware summary or truncates at `max_chars`. URI schemes give **semantic context** (e.g. `sckg://module/auth/dependencies` returns the dependency graph, not 2000 lines of unrelated code). |
+| 2 | **`sin_write`** | `write` | atomic + AST | Atomic write with auto-backup + syntax pre-validation for .py/.ts/.js/.go | **Native `write` creates half-written files on crash**. `sin_write` writes to a tempfile, then `replace()` — atomic on POSIX. **Compiles .py before writing** so a syntax error never reaches disk (auto-restores from backup). Prevents the classic "agent wrote broken Python and now nothing imports" loop. |
+| 3 | **`sin_edit`** | `edit` | hashline | Hashline-anchored semantic patches (line-shift resilient, content-hash) | **Native `edit` uses line numbers** → breaks when the file is reformatted, the user adds a line above, or two edits race. `sin_edit` anchors by **content-hash** of the surrounding context — survives reformat, line shifts, and concurrent edits. The agent's edits don't go stale silently. |
+| 4 | **`sin_bash`** | `bash` | execute (Go) | Safe exec with secret-redaction + timeout + structured JSON (safety_check, retry_info, learned_patterns) | **Native `bash` runs raw shell and leaks secrets in output** (PATs in env, tokens in error messages). `sin_bash` wraps `execute` (Go binary) which redacts tokens/keys automatically, enforces timeout, and returns structured JSON with `safety_check.is_safe` + `retry_info.attempt` + `learned_patterns` (so the agent learns which commands work). |
+| 5 | **`sin_search`** | `search`/`find`/`grep`/`glob` | scout (Go) + Python | Semantic + regex + symbol + usage search, single-file + directory | **Native `search`/`grep`/`find` are 4 separate tools** doing overlapping things. `sin_search` unifies all 4 with one tool: regex, semantic, symbol, usage. **Searches inside functions / class bodies** (semantic mode) — not just text matches. Falls back to Python-regex when scout binary is missing, so it always works. |
+| 6 | `sin_vfs_resolve` | (new) | vfs | Resolve URI scheme → structured content | **No native equivalent**. Lets the agent query **scoped semantic data**: `sckg://module/auth/dependencies` returns just the auth module's deps, not the whole repo. Massive context-window savings. |
+| 7 | `sin_vfs_schemes` | (new) | vfs | List all available URI schemes | **No native equivalent**. Agent can introspect what's queryable. Used as a discovery helper before calling `sin_vfs_resolve`. |
+| 8 | `sin_ast_edit` | (new) | ast_edit | Tree-sitter AST-based edit with POC verification | **Beyond `sin_edit`**: this understands **AST structure** (Python/JS/TS/Go), not just text. Refactors a function by name without touching its body, renames a class across the file, etc. POC verifies the result is still correct. Falls back to hashline if tree-sitter is missing. |
+| 9 | `sin_hashline_validate` | (new) | hashline | Validate a previously-created hashline patch can still be applied | **No native equivalent**. Before applying a stored patch, check if the file has drifted. Avoids the silent-failure mode where a patch is "applied" but does nothing because the content changed. |
+| 10 | `impact` | (new) | sin-code-sckg | Blast-radius impact analysis for a symbol | **No native equivalent**. Native tools can't answer "if I change `processPayment()`, what breaks?". `impact` returns the full downstream call graph — files, functions, tests. |
+| 11 | `semantic_diff` | (new) | sin-code-ibd | Semantic intent diff between two files | **Beyond `git diff`**: `git diff` shows line-level changes. `semantic_diff` shows **intent** ("auth flow was refactored", "caching was added") and **risk score**. Agent knows whether a 5-line change is cosmetic or a 2-week architectural shift. |
+| 12 | `semantic_review` | (new) | sin-code-ibd | Intent + risk in one call | Same as `semantic_diff` + verdict in one call. |
+| 13 | `architectural_debt` | (new) | sin-code-adw | Current architectural debt score | **No native equivalent**. Quantifies technical debt (god modules, circular imports, hot paths without tests) on a 0-100 scale. Agent can prioritize refactors by ROI. |
+| 14 | `verify_tests` | (new) | sin-code-oracle | Verify agent-generated code (security/perf/correctness) | **No native equivalent**. Independent verification — checks for OWASP Top 10, CWE Top 25, performance pitfalls. Agent gets a second opinion on its own code before the human reviewer sees it. |
+| 15 | `prove` | (new) | sin-code-poc | Generate and verify proofs of correctness | **No native equivalent**. Lightweight formal proofs (Hoare-style pre/post-conditions) on agent-generated functions. Catches off-by-one, wrong null-handling, edge cases the LLM missed. |
+| 16 | `mock_env` | (new) | sin-code-efsm | Manage ephemeral full-stack mock environment | **No native equivalent**. Spin up a full-stack mock (Postgres + Redis + API server) in 10s, run integration tests, tear it down. No docker-compose yak-shaving. |
+| 17 | `orchestrate` | (new) | sin-code-orchestration | Submit a task to the multi-agent orchestrator | **Beyond native `task`**: dependency-graph-aware multi-agent. Submit 10 tasks, orchestrator runs them in topological order with parallel execution where possible, rollback on failure. |
+| 18 | `task_status` | (new) | sin-code-orchestration | Get status of an orchestrated task | Polling endpoint for in-flight orchestrated tasks. |
+| 19 | `review` | (new) | sin-code-review-interface | SOTA review on a single file | **Beyond `git diff` + manual reading**: automated review combining diff + debt + tests + style in one structured output. Pre-PR quality gate. |
+| 20 | `recall_tool` | (new) | sin-brain | Search memory tiers (recall/archival/graph) | **No native equivalent**. Cross-session, cross-project memory. The agent remembers yesterday's decisions, last week's debugging, last sprint's conventions. Persistent context. |
+| 21 | `remember_tool` | (new) | sin-brain | Persist a memory entry (decision/convention/fix/pitfall/preference) | **No native equivalent**. Agent decides what's worth remembering and tags it (`decision` / `convention` / `fix` / `pitfall` / `preference`). |
+| 22 | `forget_tool` | (new) | sin-brain | Delete a memory entry by id | GDPR / cleanup. |
+| 23 | `pin_tool` | (new) | sin-brain | Pin a memory entry (never evicted) | High-importance facts (e.g. "this project uses Python 3.14") never get garbage-collected. |
+| 24 | `link_evidence_tool` | (new) | sin-brain | Attach a subsystem verdict to a memory | Memory entries can be **backed by proof** (oracle verified, POC proven, IBD-reviewed). Agent doesn't have to re-litigate past decisions. |
+| 25 | `gitnexus_context` | (new) | gitnexus | Structural graph context for a symbol | **Beyond `read` + manual analysis**: returns the full structural context — callers, callees, type info, tests. The agent understands the code, not just the bytes. |
+| 26 | `gitnexus_impact` | (new) | gitnexus | Blast-radius impact via graph (auto-indexes) | Same as `impact` but uses gitnexus's pre-built graph (faster than SCKG re-index). |
+| 27 | `gitnexus_ai_context` | (new) | gitnexus | Task-scoped, graph-aware context bundle | **Context on-demand**: agent says "I'm about to refactor auth" → returns the 50 lines of context that matter, not 50,000. Massive token savings. |
+| 28 | `markitdown_convert` | (new) | markitdown | Convert PDF/DOCX/PPTX/XLSX/image → Markdown | **No native equivalent**. Agent can read PDFs, Word docs, Excel sheets, images. Useful for working with design docs, requirements, tickets. |
+| 29 | `codocs_check` | (new) | codocs | Find broken co-located `.doc.md` references | **No native equivalent**. Enforces the CoDocs standard: every code file has a `.doc.md` companion. CI integration via ceo-audit. |
 
 ### Native → SIN tool coverage (mandatory in `~/.config/opencode/opencode.json`)
 

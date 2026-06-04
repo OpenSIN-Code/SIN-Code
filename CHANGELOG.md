@@ -124,3 +124,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `sin-serve` MCP handshake returns **28 tools**
 - All 4 new tools (sin_vfs_resolve, sin_vfs_schemes, sin_ast_edit, sin_hashline_validate) functional
 - `sin serve` (legacy) still works, returns same 28 tools
+
+## [0.5.1] - 2026-06-04 — README "Why better" column
+
+### Changed
+- **README.md** MCP tools table now has a **"Why better than native / other tools"**
+  column with concrete examples (e.g. why `sin_read` > native `read`,
+  why `sin_edit` > native `edit` for line-shift resilience, etc.)
+- Bundle version bumped to 0.5.1
