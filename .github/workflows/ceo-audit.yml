@@ -62,7 +62,8 @@ jobs:
         # Try PyPI first, fall back to GitHub (bundle is not yet on PyPI).
         # Once published: pip install "sin-code-bundle[ceo-audit,dev]"
         run: |
-          pip install "sin-code-bundle[ceo-audit,dev]" ||             pip install "git+https://github.com/OpenSIN-Code/SIN-Code-Bundle.git@v0.4.4#egg=sin-code-bundle[ceo-audit,dev]"
+          pip install "sin-code-bundle[ceo-audit,dev]" || \
+            pip install "sin-code-bundle[ceo-audit,dev] @ git+https://github.com/OpenSIN-Code/SIN-Code-Bundle.git@v0.4.4"
 
       - name: Run CEO Audit
         id: audit
