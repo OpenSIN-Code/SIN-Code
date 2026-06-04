@@ -179,3 +179,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `pytest tests/test_mcp_integration.py -v` — all tests pass
 - `sin-serve` MCP handshake returns **34 tools** (was 29)
 - Bundle version bumped to 0.6.0
+
+## [0.6.2] - 2026-06-04 — uninstall.sh + update.sh
+
+### Added
+- `uninstall.sh` — Symmetric counterpart to install.sh. Removes the 7 Go tools,
+  the 8 Python subsystem packages, sin-brain, the Python bundle, and
+  un-registers all MCP servers from `~/.config/opencode/opencode.json`.
+  Flags: `--dry-run`, `--verbose`, `--force`, `--keep-config`, `--keep-bundle`,
+  `--keep-go`, `--keep-subsystems`.
+- `update.sh` — In-place update. git pull, pip install --upgrade for bundle +
+  subsystems, force-rebuild Go tools, re-register MCP. Flags: `--force-rebuild`,
+  `--skip-go`, `--skip-external`, `--skip-pull`, `--subsystems-dir=PATH`.
+- CoDocs: `uninstall.sh.doc.md`, `update.sh.doc.md`
+- README "Quickstart" now documents the uninstall/update pair commands.
+
+### Verified
+- `bash uninstall.sh --dry-run` — previews all 4 stages (Go binaries, Python
+  bundle, 8 subsystems + sin-brain, opencode.json MCP block)
+- `bash update.sh --dry-run` — previews all 6 stages (pull, bundle upgrade,
+  8 subsystems, 7 Go builds, MCP re-registration, sin status)
+- Idempotency: both scripts re-runnable with no errors (missing items skipped)
+- `--help` exits with code 2 (matches install.sh convention)
+- Bundle version bumped to 0.6.2

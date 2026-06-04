@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sin-code-bundle"
-version = "0.6.0"
+version = "0.6.2"
 description = "Structural intelligence for AI coding agents: impact analysis, semantic diff, architectural-debt breaker, and an independent verification Oracle — over MCP."
 readme = "README.md"
 requires-python = ">=3.11"

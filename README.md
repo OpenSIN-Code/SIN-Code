@@ -44,6 +44,13 @@ sin bootstrap /path/to/your/repo   # Initialize graphs, baselines, ledgers
 sin-serve             # Start the unified MCP server (or: sin serve)
 ```
 
+Pair commands (symmetric to `install.sh`):
+
+```bash
+bash uninstall.sh     # Remove everything bash install.sh installed
+bash update.sh        # Update in-place without full reinstall
+```
+
 Flags: `--help`, `--dry-run`, `--verbose`, `--force`, `--skip-go`, `--skip-external`
 
 Environment overrides:
