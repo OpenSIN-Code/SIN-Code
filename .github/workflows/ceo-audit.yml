@@ -172,6 +172,9 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/infra/skills/ceo-audit/lib
           SIN_GITHUB_APP_CLIENT_ID: Iv23livllaHIBTdQdyhY
+          # Pass through the built-in GITHUB_TOKEN (always present in CI).
+          # Will be used as fallback if SIN_GITHUB_INSTALLATION_TOKEN is unset.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # post_audit_pr.py lives in the cloned Infra repo (see 'Install ceo-audit skill' step)
           # score.json is written by audit.sh to ~/ceo-audits/<repo>-ceo-audit-<runid>/score.json
