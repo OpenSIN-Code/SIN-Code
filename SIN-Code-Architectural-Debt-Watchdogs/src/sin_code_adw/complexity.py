@@ -1,4 +1,5 @@
 """Architektur- und Komplexitaets-Analyse via radon."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

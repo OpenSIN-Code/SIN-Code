@@ -34,9 +34,7 @@ def test_mock_server_scenario_override():
 
 def test_orchestrator_configures_env_vars():
     orch = EphemeralOrchestrator()
-    env = orch.configure_from_task(
-        {"name": "t", "external_apis": ["stripe"], "requires_db": True}
-    )
+    env = orch.configure_from_task({"name": "t", "external_apis": ["stripe"], "requires_db": True})
     assert "STRIPE_BASE_URL" in env.env_vars
     assert env.db_dsn == "sqlite:///:memory:"
     assert env.sandbox_backend in ("docker", "subprocess")

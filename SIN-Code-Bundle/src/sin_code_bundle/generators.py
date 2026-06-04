@@ -9,6 +9,7 @@ Supported agents:
 - codex     -> .codex/config.toml          ([mcp_servers.sin])
 - hermes    -> .hermes/config.yaml         (mcp_servers: {...})
 """
+
 from __future__ import annotations
 
 import json
@@ -175,6 +176,7 @@ def _load(path: Path, fmt: str) -> dict:
         return yaml.safe_load(text) or {}
     if fmt == "toml":
         import tomllib  # stdlib on Python 3.11+
+
         return tomllib.loads(text)
     raise ValueError(f"unknown format: {fmt}")
 
@@ -223,9 +225,7 @@ def render_agent_config(agent: Agent, scope: Scope = "local") -> tuple[Path, str
     """Return ``(target_path, rendered_content)`` for an agent, merging existing."""
     targets = _targets()
     if agent not in targets:
-        raise ValueError(
-            f"unknown agent '{agent}'. Supported: {', '.join(targets)}"
-        )
+        raise ValueError(f"unknown agent '{agent}'. Supported: {', '.join(targets)}")
     target = targets[agent]
     path = target.path(scope)
     existing = _load(path, target.fmt)

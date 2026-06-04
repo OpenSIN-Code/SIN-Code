@@ -15,6 +15,7 @@ Confidence reflects how much ground truth we actually had. If no tools were
 available and nothing ran, we return UNVERIFIED with low confidence rather
 than a false PASS — refusing to rubber-stamp is itself a feature.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -22,7 +23,7 @@ from enum import Enum
 
 from .diagnostics import DiagnosticsOracle, DiagnosticsReport
 from .execution import ExecutionOracle, ExecutionResult
-from .trace_diff import TraceDiffer, TraceDelta
+from .trace_diff import TraceDelta, TraceDiffer
 
 
 class Confidence(str, Enum):
@@ -89,41 +90,65 @@ class VerificationOracle:
             if report.available_tools:
                 had_ground_truth = True
                 passed = report.error_count == 0
-                signals.append(SignalResult(
-                    name="diagnostics", passed=passed, weight=3.0,
-                    detail={"errors": report.error_count, "warnings": report.warning_count,
-                            "tools": report.available_tools},
-                ))
+                signals.append(
+                    SignalResult(
+                        name="diagnostics",
+                        passed=passed,
+                        weight=3.0,
+                        detail={
+                            "errors": report.error_count,
+                            "warnings": report.warning_count,
+                            "tools": report.available_tools,
+                        },
+                    )
+                )
                 if not passed:
-                    reasons.append(f"{report.error_count} diagnostic error(s) from {report.available_tools}")
+                    reasons.append(
+                        f"{report.error_count} diagnostic error(s) from {report.available_tools}"
+                    )
                 elif report.warning_count:
                     reasons.append(f"{report.warning_count} warning(s) (non-blocking)")
             else:
-                signals.append(SignalResult(
-                    name="diagnostics", passed=None, weight=3.0,
-                    detail={"missing_tools": report.missing_tools},
-                ))
+                signals.append(
+                    SignalResult(
+                        name="diagnostics",
+                        passed=None,
+                        weight=3.0,
+                        detail={"missing_tools": report.missing_tools},
+                    )
+                )
 
         # --- 2. Build ---
         if build_command:
             res: ExecutionResult = self.execution.run_command(build_command)
             had_ground_truth = True
-            signals.append(SignalResult(
-                name="build", passed=res.success, weight=4.0,
-                detail={"exit_code": res.exit_code, "duration_s": res.duration_s},
-            ))
+            signals.append(
+                SignalResult(
+                    name="build",
+                    passed=res.success,
+                    weight=4.0,
+                    detail={"exit_code": res.exit_code, "duration_s": res.duration_s},
+                )
+            )
             if not res.success:
                 reasons.append(f"build failed (exit {res.exit_code})")
 
         # --- 3. Tests ---
         if test_command:
-            res = self.execution.run_pytest(test_command) if test_command == "pytest" \
+            res = (
+                self.execution.run_pytest(test_command)
+                if test_command == "pytest"
                 else self.execution.run_command(test_command)
+            )
             had_ground_truth = True
-            signals.append(SignalResult(
-                name="tests", passed=res.success, weight=5.0,
-                detail={"exit_code": res.exit_code, "metrics": res.metrics},
-            ))
+            signals.append(
+                SignalResult(
+                    name="tests",
+                    passed=res.success,
+                    weight=5.0,
+                    detail={"exit_code": res.exit_code, "metrics": res.metrics},
+                )
+            )
             if not res.success:
                 reasons.append(f"tests failed: {res.metrics or res.exit_code}")
 
@@ -136,26 +161,39 @@ class VerificationOracle:
                 stdout_changed=True,
                 artifact_changes={},
                 event_changes=[],
-                summary="fingerprint mismatch" if trace_before_ref.get("fingerprint") != after.fingerprint else "stable",
+                summary="fingerprint mismatch"
+                if trace_before_ref.get("fingerprint") != after.fingerprint
+                else "stable",
             )
             had_ground_truth = True
             # An unexpected behavioral change is a failure; an expected one is fine.
             behavior_ok = (not delta.changed) or expected_behavior_change
-            signals.append(SignalResult(
-                name="behavior", passed=behavior_ok, weight=2.0,
-                detail={"changed": delta.changed, "summary": delta.summary,
-                        "expected": expected_behavior_change},
-            ))
+            signals.append(
+                SignalResult(
+                    name="behavior",
+                    passed=behavior_ok,
+                    weight=2.0,
+                    detail={
+                        "changed": delta.changed,
+                        "summary": delta.summary,
+                        "expected": expected_behavior_change,
+                    },
+                )
+            )
             if delta.changed and not expected_behavior_change:
                 reasons.append(f"unexpected behavioral change: {delta.summary}")
 
         return self._aggregate(signals, reasons, had_ground_truth)
 
     @staticmethod
-    def _aggregate(signals: list[SignalResult], reasons: list[str], had_ground_truth: bool) -> Verdict:
+    def _aggregate(
+        signals: list[SignalResult], reasons: list[str], had_ground_truth: bool
+    ) -> Verdict:
         if not had_ground_truth:
             return Verdict(
-                passed=False, verified=False, confidence=Confidence.LOW,
+                passed=False,
+                verified=False,
+                confidence=Confidence.LOW,
                 reasons=["no ground-truth signal available — refusing to confirm success"],
                 signals=signals,
             )
@@ -176,4 +214,6 @@ class VerificationOracle:
         if passed and not reasons:
             reasons = ["all available ground-truth signals passed"]
 
-        return Verdict(passed=passed, verified=True, confidence=conf, reasons=reasons, signals=signals)
+        return Verdict(
+            passed=passed, verified=True, confidence=conf, reasons=reasons, signals=signals
+        )

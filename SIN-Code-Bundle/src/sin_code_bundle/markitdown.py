@@ -15,6 +15,7 @@ The bridge provides:
   * MCP wiring so OpenCode / Codex / Hermes each get the MarkItDown MCP server,
     mirroring upstream's recommended ``uvx markitdown-mcp`` invocation.
 """
+
 from __future__ import annotations
 
 import json
@@ -66,8 +67,7 @@ class MarkItDownEnv:
     def cli_cmd(self) -> str:
         if not self.cli:
             raise MarkItDownError(
-                "`markitdown` CLI not found. Install with "
-                "`pip install 'markitdown[all]'`."
+                "`markitdown` CLI not found. Install with `pip install 'markitdown[all]'`."
             )
         return self.cli
 
@@ -103,9 +103,7 @@ def convert(path: str, env: MarkItDownEnv | None = None, timeout: int = 300) -> 
     except subprocess.TimeoutExpired as exc:  # pragma: no cover - timing dependent
         raise MarkItDownError(f"markitdown timed out after {timeout}s") from exc
     if proc.returncode != 0:
-        raise MarkItDownError(
-            f"markitdown failed ({proc.returncode}): {proc.stderr.strip()}"
-        )
+        raise MarkItDownError(f"markitdown failed ({proc.returncode}): {proc.stderr.strip()}")
     return proc.stdout
 
 
@@ -168,11 +166,7 @@ def _wire_codex(env: MarkItDownEnv | None) -> str:
     path = _codex_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     args_repr = ", ".join(f'"{a}"' for a in args)
-    block = (
-        "\n[mcp_servers.markitdown]\n"
-        f'command = "{command}"\n'
-        f"args = [{args_repr}]\n"
-    )
+    block = f'\n[mcp_servers.markitdown]\ncommand = "{command}"\nargs = [{args_repr}]\n'
     existing = path.read_text() if path.is_file() else ""
     if "[mcp_servers.markitdown]" in existing:
         return str(path)  # already wired; leave user edits intact
@@ -216,8 +210,6 @@ def setup_agents(
     for agent in chosen:
         wirer = _WIRERS.get(agent)
         if not wirer:
-            raise MarkItDownError(
-                f"Unknown agent: {agent!r}. Known: {', '.join(AGENTS)}"
-            )
+            raise MarkItDownError(f"Unknown agent: {agent!r}. Known: {', '.join(AGENTS)}")
         written[agent] = wirer(env)
     return written

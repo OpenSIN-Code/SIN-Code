@@ -14,6 +14,7 @@ A task is:
 The agent NEVER sees the verification commands; resolution is judged purely by
 the Execution Oracle. This is the same trust model SWE-bench uses.
 """
+
 from __future__ import annotations
 
 import json
@@ -30,9 +31,9 @@ from .execution import ExecutionOracle
 @dataclass
 class EvalTask:
     id: str
-    workspace: str                      # path to seed directory (copied per run)
-    verify_commands: list[str]          # hidden oracle: all must exit 0 to "resolve"
-    setup_command: str | None = None    # e.g. "pip install -e ."
+    workspace: str  # path to seed directory (copied per run)
+    verify_commands: list[str]  # hidden oracle: all must exit 0 to "resolve"
+    setup_command: str | None = None  # e.g. "pip install -e ."
     description: str = ""
     timeout_s: int = 600
     metadata: dict = field(default_factory=dict)
@@ -121,7 +122,9 @@ class EvalHarness:
                 agent(tmp, task)
             except Exception as e:  # an agent crash is a non-resolution, not a harness crash
                 return TaskOutcome(
-                    task_id=task.id, resolved=False, setup_ok=setup_ok,
+                    task_id=task.id,
+                    resolved=False,
+                    setup_ok=setup_ok,
                     duration_s=round(time.monotonic() - start, 3),
                     error=f"agent raised {type(e).__name__}: {e}",
                 )
@@ -131,7 +134,9 @@ class EvalHarness:
             resolved = True
             for cmd in task.verify_commands:
                 res = oracle.run_command(cmd)
-                verify_results.append({"command": cmd, "success": res.success, "exit_code": res.exit_code})
+                verify_results.append(
+                    {"command": cmd, "success": res.success, "exit_code": res.exit_code}
+                )
                 resolved = resolved and res.success
 
             return TaskOutcome(

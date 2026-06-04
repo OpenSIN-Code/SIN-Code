@@ -1,4 +1,5 @@
 """CLI fuer den SCKG Daemon."""
+
 from __future__ import annotations
 
 import json
@@ -66,6 +67,7 @@ def arch():
 def serve():
     """Run as MCP server."""
     from .mcp_server import main
+
     main()
 
 

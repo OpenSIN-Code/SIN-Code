@@ -1,6 +1,6 @@
 from sin_code_poc.property_generator import PropertyGenerator
-from sin_code_poc.spec_compiler import SpecCompiler
 from sin_code_poc.runtime_verifier import RuntimeVerifier
+from sin_code_poc.spec_compiler import SpecCompiler
 
 
 def test_suggest_sort():

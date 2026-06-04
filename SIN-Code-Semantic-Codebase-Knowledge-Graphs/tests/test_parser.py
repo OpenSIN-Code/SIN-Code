@@ -2,28 +2,25 @@ import os
 import tempfile
 
 import pytest
-
-from sin_code_sckg.parser import SemanticParser
 from sin_code_sckg.graph import KnowledgeGraph
+from sin_code_sckg.parser import SemanticParser
 
 _parser = SemanticParser(["python"])
-_skip = pytest.mark.skipif(
-    not _parser.available, reason="tree-sitter python grammar not available"
-)
+_skip = pytest.mark.skipif(not _parser.available, reason="tree-sitter python grammar not available")
 
 
 @_skip
 def test_parse_python():
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(
-            'def hello():\n'
+            "def hello():\n"
             '    """Docstring"""\n'
             '    print("hi")\n\n'
-            'def user():\n'
-            '    hello()\n\n'
-            'class Service:\n'
-            '    def run(self):\n'
-            '        user()\n'
+            "def user():\n"
+            "    hello()\n\n"
+            "class Service:\n"
+            "    def run(self):\n"
+            "        user()\n"
         )
         f.flush()
         path = f.name

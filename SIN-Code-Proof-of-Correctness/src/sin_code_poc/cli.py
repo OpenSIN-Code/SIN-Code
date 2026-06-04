@@ -1,4 +1,5 @@
 """CLI for Proof of Correctness."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -8,8 +9,8 @@ from pathlib import Path
 import typer
 
 from .property_generator import PropertyGenerator
-from .spec_compiler import SpecCompiler
 from .runtime_verifier import RuntimeVerifier
+from .spec_compiler import SpecCompiler
 
 app = typer.Typer(help="SIN-Code Proof of Correctness CLI")
 

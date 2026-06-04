@@ -1,4 +1,5 @@
 """Tree-sitter basierter semantischer Parser fuer mehrere Sprachen."""
+
 from __future__ import annotations
 
 import os
@@ -39,6 +40,7 @@ class Intent:
 def _build_parser(language):
     """Robust gegen tree-sitter 0.22 und 0.23+ API-Unterschiede."""
     from tree_sitter import Parser
+
     try:
         # tree-sitter >= 0.22: Parser(language)
         return Parser(language)
@@ -60,6 +62,7 @@ class SemanticParser:
 
     def _init_languages(self) -> None:
         from tree_sitter import Language
+
         for lang in self.languages:
             try:
                 pkg = __import__(f"tree_sitter_{lang}", fromlist=["language"])
@@ -108,13 +111,9 @@ class SemanticParser:
         if lang_name == "python":
             if kind in ("function_definition", "class_definition"):
                 sym_kind = "function" if kind == "function_definition" else "class"
-                name_node = next(
-                    (c for c in node.children if c.type == "identifier"), None
-                )
+                name_node = next((c for c in node.children if c.type == "identifier"), None)
                 name = name_node.text.decode("utf-8") if name_node else "<anon>"
-                body_node = next(
-                    (c for c in node.children if c.type == "block"), None
-                )
+                body_node = next((c for c in node.children if c.type == "block"), None)
                 body = body_node.text.decode("utf-8") if body_node else ""
                 decorators = []
                 parent = node.parent
@@ -186,7 +185,11 @@ class SemanticParser:
             n = stack.pop()
             if n.type == "call" or n.type == "call_expression":
                 fn = next(
-                    (c for c in n.children if c.type in ("identifier", "attribute", "member_expression")),
+                    (
+                        c
+                        for c in n.children
+                        if c.type in ("identifier", "attribute", "member_expression")
+                    ),
                     None,
                 )
                 if fn:
@@ -197,10 +200,7 @@ class SemanticParser:
     def parse_directory(self, root: str, exclude: list[str]) -> Iterator[Symbol]:
         root_path = Path(root).resolve()
         for dirpath, dirnames, filenames in os.walk(root_path):
-            dirnames[:] = [
-                d for d in dirnames
-                if d not in exclude and not d.startswith(".")
-            ]
+            dirnames[:] = [d for d in dirnames if d not in exclude and not d.startswith(".")]
             for fname in filenames:
                 full = os.path.join(dirpath, fname)
                 rel = os.path.relpath(full, root_path)

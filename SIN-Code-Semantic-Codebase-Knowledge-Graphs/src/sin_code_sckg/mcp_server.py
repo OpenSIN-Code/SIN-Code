@@ -1,4 +1,5 @@
 """MCP-Server fuer Agent-Integration."""
+
 from __future__ import annotations
 
 import json

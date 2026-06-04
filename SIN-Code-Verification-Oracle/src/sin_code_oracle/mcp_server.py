@@ -5,6 +5,7 @@ declaring a task done, and gets back a Verdict grounded in reality rather than
 its own optimism. `confidence` and `verified` let the agent know how much to
 trust the answer.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,7 +21,9 @@ from .oracle import VerificationOracle
 
 def main():
     if FastMCP is None:
-        raise RuntimeError("mcp package not installed. Install with: pip install 'sin-code-oracle[mcp]'")
+        raise RuntimeError(
+            "mcp package not installed. Install with: pip install 'sin-code-oracle[mcp]'"
+        )
 
     mcp = FastMCP("sin-code-oracle")
 

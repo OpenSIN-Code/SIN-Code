@@ -3,9 +3,9 @@
 Bevorzugt Docker; faellt auf einen lokalen Subprozess zurueck, wenn Docker
 nicht verfuegbar ist (mit reduzierter Isolation, klar gekennzeichnet).
 """
+
 from __future__ import annotations
 
-import shlex
 import subprocess
 from dataclasses import dataclass
 

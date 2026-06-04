@@ -1,11 +1,11 @@
 """Trackt API-Kosten von Agent-Runs."""
+
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-
 
 # Grobe Pricing (USD pro 1K tokens) - Stand 2026
 PRICING = {
@@ -46,9 +46,7 @@ class CostTracker:
         task: str = "",
     ) -> CostEntry:
         price = PRICING.get(model, DEFAULT_PRICE)
-        cost = (prompt_tokens / 1000) * price["in"] + (
-            completion_tokens / 1000
-        ) * price["out"]
+        cost = (prompt_tokens / 1000) * price["in"] + (completion_tokens / 1000) * price["out"]
         entry = CostEntry(
             timestamp=datetime.now(timezone.utc).isoformat(),
             model=model,

@@ -2,23 +2,20 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
-from sin_code_adw.complexity import ComplexityAnalyzer
-from sin_code_adw.cost_tracker import CostTracker
 from sin_code_adw.circuit_breaker import (
     BreakerConfig,
     BreakerTripped,
     CircuitBreaker,
 )
+from sin_code_adw.complexity import ComplexityAnalyzer
+from sin_code_adw.cost_tracker import CostTracker
 from sin_code_adw.daemon import WatchdogDaemon
 
 
 def test_complexity_analyze_and_score():
     analyzer = ComplexityAnalyzer()
     with tempfile.TemporaryDirectory() as d:
-        Path(d, "m.py").write_text(
-            "def simple(x):\n    return x + 1\n"
-        )
+        Path(d, "m.py").write_text("def simple(x):\n    return x + 1\n")
         reports = analyzer.analyze(d)
         assert len(reports) == 1
         score = analyzer.debt_score(reports)

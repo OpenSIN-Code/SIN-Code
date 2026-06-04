@@ -1,4 +1,5 @@
 """CLI for Intent-Based Diffing."""
+
 from __future__ import annotations
 
 import json
@@ -25,14 +26,20 @@ def diff(file_a: Path, file_b: Path, json_output: bool = typer.Option(False, "--
     risk = RiskScorer().score(changes)
 
     if json_output:
-        console.print_json(json.dumps({
-            "changes": [c.__dict__ for c in changes],
-            "intents": [i.__dict__ for i in intents],
-            "risk": risk,
-        }))
+        console.print_json(
+            json.dumps(
+                {
+                    "changes": [c.__dict__ for c in changes],
+                    "intents": [i.__dict__ for i in intents],
+                    "risk": risk,
+                }
+            )
+        )
         return
 
-    console.print(Panel(f"[bold]Risk: {risk['risk']} ({risk['score']})[/bold]", title="SIN-Code IBD"))
+    console.print(
+        Panel(f"[bold]Risk: {risk['risk']} ({risk['score']})[/bold]", title="SIN-Code IBD")
+    )
     for intent in intents:
         color = {"high": "red", "medium": "yellow", "low": "green"}.get(intent.risk, "white")
         console.print(f"[{color}][{intent.risk.upper()}][/{color}] {intent.headline}")

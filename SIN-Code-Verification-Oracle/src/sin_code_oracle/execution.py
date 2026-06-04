@@ -12,9 +12,9 @@ Everything is parsed into a structured ExecutionResult so the core oracle can
 reason about it. Self-reported "done" by the agent is never trusted; only the
 exit code, the parsed test counts, and the HTTP responses count.
 """
+
 from __future__ import annotations
 
-import json
 import os
 import re
 import signal
@@ -83,7 +83,9 @@ class ExecutionOracle:
                 success=False,
                 exit_code=124,
                 duration_s=round(time.monotonic() - start, 3),
-                stdout=(e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or ""),
+                stdout=(e.stdout or b"").decode()
+                if isinstance(e.stdout, bytes)
+                else (e.stdout or ""),
                 stderr="TIMEOUT",
             )
 
@@ -97,11 +99,7 @@ class ExecutionOracle:
         res.metrics = self._parse_pytest_summary(res.stdout + "\n" + res.stderr)
         # Ground truth: success only if pytest reports >0 passed and 0 failed/errors.
         m = res.metrics
-        res.success = (
-            res.exit_code == 0
-            and m.get("failed", 0) == 0
-            and m.get("errors", 0) == 0
-        )
+        res.success = res.exit_code == 0 and m.get("failed", 0) == 0 and m.get("errors", 0) == 0
         return res
 
     @staticmethod
@@ -130,8 +128,12 @@ class ExecutionOracle:
             import httpx
         except ImportError:
             return ExecutionResult(
-                kind="http", command=server_command, success=False,
-                exit_code=-1, duration_s=0.0, stderr="httpx not installed",
+                kind="http",
+                command=server_command,
+                success=False,
+                exit_code=-1,
+                duration_s=0.0,
+                stderr="httpx not installed",
             )
 
         start = time.monotonic()
@@ -150,8 +152,11 @@ class ExecutionOracle:
         try:
             if not booted:
                 return ExecutionResult(
-                    kind="http", command=server_command, success=False,
-                    exit_code=-1, duration_s=round(time.monotonic() - start, 3),
+                    kind="http",
+                    command=server_command,
+                    success=False,
+                    exit_code=-1,
+                    duration_s=round(time.monotonic() - start, 3),
                     stderr=f"server did not open {host}:{port} within {boot_timeout}s",
                 )
             base = f"http://{host}:{port}"
@@ -166,15 +171,23 @@ class ExecutionOracle:
                             ok = ok and resp.status_code == chk["expect_status"]
                         if "expect_contains" in chk:
                             ok = ok and chk["expect_contains"] in resp.text
-                        results.append({
-                            "path": path, "method": method,
-                            "status": resp.status_code, "ok": ok,
-                        })
+                        results.append(
+                            {
+                                "path": path,
+                                "method": method,
+                                "status": resp.status_code,
+                                "ok": ok,
+                            }
+                        )
                     except httpx.RequestError as e:
-                        results.append({"path": path, "method": method, "ok": False, "error": str(e)})
+                        results.append(
+                            {"path": path, "method": method, "ok": False, "error": str(e)}
+                        )
             success = bool(results) and all(r.get("ok") for r in results)
             return ExecutionResult(
-                kind="http", command=server_command, success=success,
+                kind="http",
+                command=server_command,
+                success=success,
                 exit_code=0 if success else 1,
                 duration_s=round(time.monotonic() - start, 3),
                 metrics={"checks": results},

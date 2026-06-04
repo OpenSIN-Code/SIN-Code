@@ -1,4 +1,5 @@
 """Background-Daemon, der alle Watchdogs vereint."""
+
 from __future__ import annotations
 
 import json
@@ -40,14 +41,10 @@ class WatchdogDaemon:
         )
         while self._running:
             try:
-                reports = self.analyzer.analyze(
-                    self.repo_root, exclude=self.DEFAULT_EXCLUDE
-                )
+                reports = self.analyzer.analyze(self.repo_root, exclude=self.DEFAULT_EXCLUDE)
                 current = self.analyzer.debt_score(reports)
                 total_cost = self.cost.total_for()["total_usd"]
-                self.breaker.check(
-                    current_cost=total_cost, current_debt=current["score"]
-                )
+                self.breaker.check(current_cost=total_cost, current_debt=current["score"])
                 if current["score"] > baseline["score"] + 20:
                     self._alert("debt_spike", current)
             except BreakerTripped as exc:

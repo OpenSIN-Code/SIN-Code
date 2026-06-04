@@ -1,4 +1,5 @@
 """Berechnet Risiko-Scores fuer Changes."""
+
 from __future__ import annotations
 
 from .ast_diff import Change

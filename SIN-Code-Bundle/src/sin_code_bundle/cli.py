@@ -3,6 +3,7 @@
 Subsysteme werden lazy und defensiv importiert: fehlt eines, bleibt der Rest
 nutzbar und es wird eine klare Meldung statt eines Importfehlers ausgegeben.
 """
+
 from __future__ import annotations
 
 import json
@@ -12,9 +13,7 @@ import typer
 
 app = typer.Typer(help="SIN-Code Bundle - Unified SOTA Agent-Engineering Stack")
 
-gitnexus_app = typer.Typer(
-    help="GitNexus bridge - mandatory graph context for coder agents."
-)
+gitnexus_app = typer.Typer(help="GitNexus bridge - mandatory graph context for coder agents.")
 app.add_typer(gitnexus_app, name="gitnexus")
 
 markitdown_app = typer.Typer(
@@ -22,9 +21,7 @@ markitdown_app = typer.Typer(
 )
 app.add_typer(markitdown_app, name="markitdown")
 
-rtk_app = typer.Typer(
-    help="RTK bridge - token-saving command proxy for coder agents."
-)
+rtk_app = typer.Typer(help="RTK bridge - token-saving command proxy for coder agents.")
 app.add_typer(rtk_app, name="rtk")
 
 _EXCLUDE = ["venv", ".venv", "node_modules", ".git", "__pycache__"]
@@ -37,10 +34,7 @@ def _require(module: str, hint: str):
     try:
         return importlib.import_module(module)
     except ImportError:
-        typer.echo(
-            f"[SIN-BUNDLE] Subsystem '{module}' not installed. "
-            f"Install with: {hint}"
-        )
+        typer.echo(f"[SIN-BUNDLE] Subsystem '{module}' not installed. Install with: {hint}")
         raise typer.Exit(code=1)
 
 
@@ -68,9 +62,7 @@ def status():
     from sin_code_bundle import gitnexus, markitdown, rtk
 
     report["GitNexus (graph context, external)"] = gitnexus.detect_env().available
-    report["MarkItDown (doc->markdown, external)"] = (
-        markitdown.detect_env().mcp_available
-    )
+    report["MarkItDown (doc->markdown, external)"] = markitdown.detect_env().mcp_available
     report["RTK (token-saving proxy, external)"] = rtk.detect_env().available
     typer.echo(json.dumps(report, indent=2))
 
@@ -118,11 +110,7 @@ def review(file_a: Path, file_b: Path):
     changes = ASTDiff().diff_files(str(file_a), str(file_b))
     intents = IntentSummarizer().summarize(changes)
     risk = RiskScorer().score(changes)
-    typer.echo(
-        json.dumps(
-            {"intents": [i.__dict__ for i in intents], "risk": risk}, indent=2
-        )
-    )
+    typer.echo(json.dumps({"intents": [i.__dict__ for i in intents], "risk": risk}, indent=2))
 
 
 @app.command()
@@ -347,20 +335,14 @@ def rtk_gain():
 # --------------------------------------------------------------------------- #
 @app.command()
 def init(
-    agent: str = typer.Argument(
-        ..., help="Target agent CLI: opencode | codex | hermes | all"
-    ),
-    scope: str = typer.Option(
-        "local", help="'local' (this repo) or 'global' (user home)."
-    ),
+    agent: str = typer.Argument(..., help="Target agent CLI: opencode | codex | hermes | all"),
+    scope: str = typer.Option("local", help="'local' (this repo) or 'global' (user home)."),
     with_agents_md: bool = typer.Option(
         True,
         "--agents-md/--no-agents-md",
         help="Also write AGENTS.md workflow doctrine.",
     ),
-    force: bool = typer.Option(
-        False, "--force", help="Overwrite an existing AGENTS.md."
-    ),
+    force: bool = typer.Option(False, "--force", help="Overwrite an existing AGENTS.md."),
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Print what would be written, change nothing."
     ),
@@ -400,8 +382,7 @@ def init(
             typer.echo(f"[SIN-BUNDLE] Wrote AGENTS.md -> {md_path}")
         else:
             typer.echo(
-                f"[SIN-BUNDLE] AGENTS.md already exists at {md_path} "
-                "(use --force to overwrite)."
+                f"[SIN-BUNDLE] AGENTS.md already exists at {md_path} (use --force to overwrite)."
             )
 
     typer.echo("[SIN-BUNDLE] init complete. Restart your agent to load the MCP server.")
@@ -426,17 +407,13 @@ def agents_md_cmd(
     if written:
         typer.echo(f"[SIN-BUNDLE] Wrote {path}")
     else:
-        typer.echo(
-            f"[SIN-BUNDLE] {path} already exists (use --force to overwrite)."
-        )
+        typer.echo(f"[SIN-BUNDLE] {path} already exists (use --force to overwrite).")
 
 
 @app.command()
 def preflight(
     root: str = typer.Argument(".", help="Repository root"),
-    no_auto: bool = typer.Option(
-        False, "--no-auto", help="Do not auto-index; only report."
-    ),
+    no_auto: bool = typer.Option(False, "--no-auto", help="Do not auto-index; only report."),
 ):
     """Ensure agents are not coding blind: guarantee a fresh GitNexus index.
 
@@ -473,7 +450,9 @@ def serve():
     try:
         from mcp.server.fastmcp import FastMCP
     except ImportError:
-        typer.echo("[SIN-BUNDLE] mcp package required: pip install 'sin-code-bundle[mcp]'", err=True)
+        typer.echo(
+            "[SIN-BUNDLE] mcp package required: pip install 'sin-code-bundle[mcp]'", err=True
+        )
         raise typer.Exit(code=1)
 
     mcp = FastMCP("sin-code-bundle")
@@ -498,9 +477,7 @@ def serve():
             changes = ASTDiff().diff_files(file_a, file_b)
             intents = IntentSummarizer().summarize(changes)
             risk = RiskScorer().score(changes)
-            return json.dumps(
-                {"intents": [i.__dict__ for i in intents], "risk": risk}
-            )
+            return json.dumps({"intents": [i.__dict__ for i in intents], "risk": risk})
     except ImportError:
         pass
 
@@ -515,7 +492,6 @@ def serve():
             return json.dumps(analyzer.debt_score(reports))
     except ImportError:
         pass
-
 
     try:
         from sin_code_oracle import VerificationOracle
@@ -560,7 +536,7 @@ def serve():
         pass
 
     try:
-        from sin_code_orchestration import Orchestrator, TaskSpec, Role
+        from sin_code_orchestration import Orchestrator, Role, TaskSpec
 
         @mcp.tool()
         def orchestrate(task_id: str, role: str, input_data: str) -> str:
@@ -593,11 +569,13 @@ def serve():
             changes = ASTDiff().diff_files(file_a, file_b)
             intents = IntentSummarizer().summarize(changes)
             risk = RiskScorer().score(changes)
-            return json.dumps({
-                "intents": [i.__dict__ for i in intents],
-                "risk": risk,
-                "recommendation": "Approve" if risk["risk"] == "low" else "Review Manually"
-            })
+            return json.dumps(
+                {
+                    "intents": [i.__dict__ for i in intents],
+                    "risk": risk,
+                    "recommendation": "Approve" if risk["risk"] == "low" else "Review Manually",
+                }
+            )
     except ImportError:
         pass
 

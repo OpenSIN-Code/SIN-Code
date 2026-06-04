@@ -1,4 +1,5 @@
 """CLI fuer den Ephemeral Mock Orchestrator."""
+
 from __future__ import annotations
 
 import json

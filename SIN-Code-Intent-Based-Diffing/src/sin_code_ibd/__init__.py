@@ -1,4 +1,5 @@
 """SIN-Code Intent-Based Diffing."""
+
 __version__ = "0.1.0"
 
 from .ast_diff import ASTDiff, Change

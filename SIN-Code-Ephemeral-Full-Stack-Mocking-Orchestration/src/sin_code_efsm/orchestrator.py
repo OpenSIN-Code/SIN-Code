@@ -1,4 +1,5 @@
 """Orchestriert Mock-Server und Sandbox fuer einen Agent-Task."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -32,9 +33,7 @@ class EphemeralOrchestrator:
         host = "host.docker.internal" if docker_available() else "127.0.0.1"
         for api in task_context.get("external_apis", []):
             self.mock_server.add_mock(StatefulMock(name=api, base_path=f"/{api}"))
-            env_vars[f"{api.upper()}_BASE_URL"] = (
-                f"http://{host}:{self._mock_port}/{api}"
-            )
+            env_vars[f"{api.upper()}_BASE_URL"] = f"http://{host}:{self._mock_port}/{api}"
 
         db_dsn = None
         if task_context.get("requires_db"):
@@ -50,9 +49,7 @@ class EphemeralOrchestrator:
         )
 
     def run_tests(self, test_command: str, with_network: bool = True) -> dict:
-        extra_hosts = (
-            {"host.docker.internal": "host-gateway"} if with_network else None
-        )
+        extra_hosts = {"host.docker.internal": "host-gateway"} if with_network else None
         try:
             result = self.sandbox.run_command(
                 test_command,

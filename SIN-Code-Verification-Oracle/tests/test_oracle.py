@@ -1,12 +1,10 @@
-import json
-import os
 import tempfile
 from pathlib import Path
 
-from sin_code_oracle.execution import ExecutionOracle
-from sin_code_oracle.trace_diff import TraceDiffer
-from sin_code_oracle.oracle import VerificationOracle, Confidence
 from sin_code_oracle.eval_harness import EvalHarness, EvalTask
+from sin_code_oracle.execution import ExecutionOracle
+from sin_code_oracle.oracle import Confidence, VerificationOracle
+from sin_code_oracle.trace_diff import TraceDiffer
 
 
 def test_execution_command_success():
@@ -19,7 +17,7 @@ def test_execution_command_success():
 
 def test_execution_command_failure():
     oracle = ExecutionOracle(root=".")
-    res = oracle.run_command("python -c \"import sys; sys.exit(3)\"")
+    res = oracle.run_command('python -c "import sys; sys.exit(3)"')
     assert not res.success
     assert res.exit_code == 3
 
@@ -59,7 +57,7 @@ def test_oracle_unverified_when_no_signal():
 def test_oracle_passes_on_green_test():
     oracle = VerificationOracle(root=".")
     verdict = oracle.verify(
-        test_command="python -c \"assert 1 + 1 == 2\"",
+        test_command='python -c "assert 1 + 1 == 2"',
         run_diagnostics=False,
     )
     assert verdict.verified is True
@@ -69,7 +67,7 @@ def test_oracle_passes_on_green_test():
 def test_oracle_fails_on_red_test():
     oracle = VerificationOracle(root=".")
     verdict = oracle.verify(
-        test_command="python -c \"assert False\"",
+        test_command='python -c "assert False"',
         run_diagnostics=False,
     )
     assert verdict.passed is False

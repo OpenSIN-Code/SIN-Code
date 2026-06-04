@@ -1,4 +1,5 @@
 """CLI fuer den Architectural Debt Watchdog."""
+
 from __future__ import annotations
 
 import json
@@ -30,9 +31,7 @@ def scan(root: str = "."):
             {
                 "debt": debt,
                 "files_scanned": len(reports),
-                "top_hotspots": sorted(
-                    hotspots, key=lambda x: -x["complexity"]
-                )[:10],
+                "top_hotspots": sorted(hotspots, key=lambda x: -x["complexity"])[:10],
             },
             indent=2,
         )

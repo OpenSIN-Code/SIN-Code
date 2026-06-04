@@ -1,4 +1,5 @@
 """Circuit Breaker fuer Agent-Loops."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -35,17 +36,11 @@ class CircuitBreaker:
         if iteration is not None:
             self._iterations = iteration
         if self._iterations >= self.config.max_iterations:
-            raise BreakerTripped(
-                f"Max iterations {self.config.max_iterations} reached"
-            )
+            raise BreakerTripped(f"Max iterations {self.config.max_iterations} reached")
         if current_cost - self._start_cost >= self.config.max_cost_usd:
-            raise BreakerTripped(
-                f"Cost limit ${self.config.max_cost_usd} exceeded"
-            )
+            raise BreakerTripped(f"Cost limit ${self.config.max_cost_usd} exceeded")
         if current_debt - self._start_debt >= self.config.max_debt_increase:
-            raise BreakerTripped(
-                f"Debt increased by {self.config.max_debt_increase} points"
-            )
+            raise BreakerTripped(f"Debt increased by {self.config.max_debt_increase} points")
 
     def reset(self, start_cost: float = 0.0, start_debt: float = 0.0) -> None:
         self._iterations = 0

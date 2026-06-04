@@ -1,13 +1,10 @@
 import pytest
-
 from sin_code_ibd.ast_diff import ASTDiff
 from sin_code_ibd.intent_summarizer import IntentSummarizer
 from sin_code_ibd.risk_scorer import RiskScorer
 
 _ad = ASTDiff()
-_skip = pytest.mark.skipif(
-    not _ad.available, reason="tree-sitter python grammar not available"
-)
+_skip = pytest.mark.skipif(not _ad.available, reason="tree-sitter python grammar not available")
 
 
 @_skip

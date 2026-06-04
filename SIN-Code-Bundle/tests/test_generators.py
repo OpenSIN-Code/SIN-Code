@@ -1,4 +1,5 @@
 """Tests for sin_code_bundle.generators (sin init / sin agents-md)."""
+
 from __future__ import annotations
 
 import json
@@ -71,13 +72,13 @@ def test_idempotent_merge_preserves_existing_opencode(tmp_path: Path, monkeypatc
     monkeypatch.chdir(tmp_path)
     write_agent_config("opencode", "local")
     data = json.loads(cfg.read_text())
-    assert data["theme"] == "dark"          # untouched
-    assert "other" in data["mcp"]           # untouched
+    assert data["theme"] == "dark"  # untouched
+    assert "other" in data["mcp"]  # untouched
     assert data["mcp"]["sin"]["command"] == ["sin", "serve"]  # added
 
 
 def test_idempotent_merge_preserves_existing_codex(tmp_path: Path, monkeypatch):
-    existing_toml = "[mcp_servers.other]\ncommand = \"other-tool\"\n"
+    existing_toml = '[mcp_servers.other]\ncommand = "other-tool"\n'
     codex_dir = tmp_path / ".codex"
     codex_dir.mkdir()
     cfg = codex_dir / "config.toml"
@@ -85,8 +86,8 @@ def test_idempotent_merge_preserves_existing_codex(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     write_agent_config("codex", "local")
     result = cfg.read_text()
-    assert "[mcp_servers.other]" in result   # untouched
-    assert "[mcp_servers.sin]" in result     # added
+    assert "[mcp_servers.other]" in result  # untouched
+    assert "[mcp_servers.sin]" in result  # added
 
 
 # --------------------------------------------------------------------------- #
@@ -136,6 +137,7 @@ def test_agents_md_dry_run_writes_nothing(tmp_path: Path):
 # --------------------------------------------------------------------------- #
 def test_cli_init_dry_run(tmp_path: Path, monkeypatch):
     from typer.testing import CliRunner
+
     from sin_code_bundle.cli import app
 
     monkeypatch.chdir(tmp_path)
@@ -146,6 +148,7 @@ def test_cli_init_dry_run(tmp_path: Path, monkeypatch):
 
 def test_cli_init_all_dry_run(tmp_path: Path, monkeypatch):
     from typer.testing import CliRunner
+
     from sin_code_bundle.cli import app
 
     monkeypatch.chdir(tmp_path)
@@ -157,6 +160,7 @@ def test_cli_init_all_dry_run(tmp_path: Path, monkeypatch):
 
 def test_cli_init_unknown_agent(tmp_path: Path, monkeypatch):
     from typer.testing import CliRunner
+
     from sin_code_bundle.cli import app
 
     monkeypatch.chdir(tmp_path)
@@ -166,6 +170,7 @@ def test_cli_init_unknown_agent(tmp_path: Path, monkeypatch):
 
 def test_cli_agents_md_dry_run(tmp_path: Path, monkeypatch):
     from typer.testing import CliRunner
+
     from sin_code_bundle.cli import app
 
     monkeypatch.chdir(tmp_path)

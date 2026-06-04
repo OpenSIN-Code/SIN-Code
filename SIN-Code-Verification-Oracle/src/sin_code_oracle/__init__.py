@@ -11,15 +11,16 @@ Three ground-truth signal sources, combined into a single Verdict:
 
 Plus an Eval-Harness to measure whether any of this actually improves results.
 """
+
 from __future__ import annotations
 
 __version__ = "0.1.0"
 
-from .oracle import VerificationOracle, Verdict, SignalResult, Confidence
-from .diagnostics import DiagnosticsOracle, Diagnostic
+from .diagnostics import Diagnostic, DiagnosticsOracle
+from .eval_harness import EvalHarness, EvalReport, EvalTask
 from .execution import ExecutionOracle, ExecutionResult
-from .trace_diff import TraceDiffer, BehaviorTrace, TraceDelta
-from .eval_harness import EvalHarness, EvalTask, EvalReport
+from .oracle import Confidence, SignalResult, Verdict, VerificationOracle
+from .trace_diff import BehaviorTrace, TraceDelta, TraceDiffer
 
 __all__ = [
     "VerificationOracle",

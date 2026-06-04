@@ -1,4 +1,5 @@
 """CLI for the SIN-Code Verification Oracle."""
+
 from __future__ import annotations
 
 import json
@@ -13,7 +14,9 @@ from .eval_harness import EvalHarness
 from .oracle import VerificationOracle
 from .trace_diff import TraceDiffer
 
-app = typer.Typer(help="SIN-Code Verification Oracle — independent ground-truth verification for AI agents.")
+app = typer.Typer(
+    help="SIN-Code Verification Oracle — independent ground-truth verification for AI agents."
+)
 console = Console()
 
 
@@ -40,10 +43,12 @@ def verify(
     )
     color = "green" if verdict.passed else ("yellow" if not verdict.verified else "red")
     status = "PASS" if verdict.passed else ("UNVERIFIED" if not verdict.verified else "FAIL")
-    console.print(Panel(
-        f"[bold {color}]{status}[/bold {color}]  confidence={verdict.confidence.value}",
-        title="Verification Oracle",
-    ))
+    console.print(
+        Panel(
+            f"[bold {color}]{status}[/bold {color}]  confidence={verdict.confidence.value}",
+            title="Verification Oracle",
+        )
+    )
     for r in verdict.reasons:
         console.print(f"  • {r}")
     # Non-zero exit on FAIL so CI / agent loops can gate on it.
@@ -75,11 +80,15 @@ def trace_diff(
     before_data = json.loads(Path(before).read_text())
     after = differ.capture(command, events_file=events_file)
     changed = before_data.get("fingerprint") != after.fingerprint
-    console.print_json(json.dumps({
-        "changed": changed,
-        "before_fingerprint": before_data.get("fingerprint"),
-        "after_fingerprint": after.fingerprint,
-    }))
+    console.print_json(
+        json.dumps(
+            {
+                "changed": changed,
+                "before_fingerprint": before_data.get("fingerprint"),
+                "after_fingerprint": after.fingerprint,
+            }
+        )
+    )
     raise typer.Exit(code=1 if changed else 0)
 
 
@@ -98,10 +107,12 @@ def eval(
         return None
 
     report = harness.run_suite(tasks, noop_agent)
-    console.print(Panel(
-        f"resolved {report.resolved}/{report.total}  ([bold]{report.resolved_rate:.1%}[/bold])",
-        title=f"Eval: {label}",
-    ))
+    console.print(
+        Panel(
+            f"resolved {report.resolved}/{report.total}  ([bold]{report.resolved_rate:.1%}[/bold])",
+            title=f"Eval: {label}",
+        )
+    )
     console.print_json(json.dumps(report.as_dict()))
 
 
@@ -109,6 +120,7 @@ def eval(
 def serve():
     """Run as an MCP server for agent integration."""
     from .mcp_server import main
+
     main()
 
 

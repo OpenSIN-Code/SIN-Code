@@ -1,4 +1,5 @@
 """NetworkX-basierter Knowledge Graph mit temporalen Kanten."""
+
 from __future__ import annotations
 
 import json
@@ -128,9 +129,7 @@ class KnowledgeGraph:
         down = self.downstream(fqid)
         up = self.upstream(fqid)
         files_affected = {
-            self.graph.nodes[n].get("file")
-            for n in down
-            if self.graph.nodes[n].get("file")
+            self.graph.nodes[n].get("file") for n in down if self.graph.nodes[n].get("file")
         }
         return {
             "symbol": fqid,
@@ -145,9 +144,7 @@ class KnowledgeGraph:
         if len(self.graph) == 0:
             return {"total_nodes": 0, "total_edges": 0, "hubs": []}
         try:
-            deg = sorted(
-                self.graph.out_degree(), key=lambda x: x[1], reverse=True
-            )[:top_k]
+            deg = sorted(self.graph.out_degree(), key=lambda x: x[1], reverse=True)[:top_k]
             return {
                 "total_nodes": len(self.graph),
                 "total_edges": self.graph.number_of_edges(),

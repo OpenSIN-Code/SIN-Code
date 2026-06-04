@@ -3,12 +3,13 @@
 Nutzt echte Callables (keine eval-Strings) und passende hypothesis-Strategien
 je nach Property.
 """
+
 from __future__ import annotations
 
 import ast
 import inspect
 import textwrap
-from typing import Any, Callable
+from typing import Callable
 
 from .property_generator import Property, PropertyGenerator
 
@@ -19,6 +20,7 @@ class RuntimeVerifier:
 
     def _strategy_for(self, prop: Property):
         from hypothesis import strategies as st
+
         hint = prop.strategy_hint
         if hint.startswith("lists"):
             return st.lists(st.integers(min_value=-1000, max_value=1000), max_size=20)
@@ -29,10 +31,8 @@ class RuntimeVerifier:
             )
         return st.integers(min_value=-1000, max_value=1000)
 
-    def verify_function(
-        self, fn: Callable, properties: list[Property] | None = None
-    ) -> dict:
-        from hypothesis import given, settings, HealthCheck
+    def verify_function(self, fn: Callable, properties: list[Property] | None = None) -> dict:
+        from hypothesis import HealthCheck, given, settings
 
         if properties is None:
             sig = self.extract_signature(fn)

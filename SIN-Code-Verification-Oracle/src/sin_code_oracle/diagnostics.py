@@ -12,6 +12,7 @@ Each provider:
 
 Adding a language = adding a Provider. No core changes required.
 """
+
 from __future__ import annotations
 
 import json
@@ -196,9 +197,7 @@ class DiagnosticsOracle:
 
     def check(self, root: str, changed_files: list[str] | None = None) -> DiagnosticsReport:
         root = str(Path(root).resolve())
-        files = changed_files or [
-            str(p) for p in Path(root).rglob("*") if p.is_file()
-        ]
+        files = changed_files or [str(p) for p in Path(root).rglob("*") if p.is_file()]
         report = DiagnosticsReport()
         for provider in self.providers:
             if not provider.covers(files):

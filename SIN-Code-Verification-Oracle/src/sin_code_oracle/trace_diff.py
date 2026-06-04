@@ -12,22 +12,29 @@ caught here even when line-diffs and type-checks are clean.
 Determinism helpers: the trace normalizes common sources of noise (timestamps,
 temp paths, memory addresses, uuids) so diffs reflect semantics, not entropy.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
 import re
 import subprocess
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 # Patterns that introduce non-determinism and would create false-positive diffs.
 _NOISE_PATTERNS = [
-    (re.compile(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b"), "<TIMESTAMP>"),
+    (
+        re.compile(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b"),
+        "<TIMESTAMP>",
+    ),
     (re.compile(r"0x[0-9a-fA-F]+"), "<ADDR>"),
-    (re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"), "<UUID>"),
+    (
+        re.compile(
+            r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b"
+        ),
+        "<UUID>",
+    ),
     (re.compile(r"/tmp/[^\s\"']+"), "<TMP>"),
     (re.compile(r"\b\d+\.\d+s\b"), "<DURATION>"),
 ]
@@ -104,8 +111,13 @@ class TraceDiffer:
         """
         try:
             proc = subprocess.run(
-                command, shell=True, cwd=self.root,
-                capture_output=True, text=True, timeout=timeout, check=False,
+                command,
+                shell=True,
+                cwd=self.root,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
             )
             exit_code, raw = proc.returncode, proc.stdout
         except subprocess.TimeoutExpired:
@@ -180,6 +192,7 @@ class TraceDiffer:
     @staticmethod
     def _diff_events(before: list[dict], after: list[dict]) -> list[dict]:
         """Multiset diff of structured events keyed by their JSON content."""
+
         def key(e: dict) -> str:
             return json.dumps(e, sort_keys=True)
 

@@ -6,6 +6,7 @@ Das ist sicher und vermeidet NameError fuer Properties, die eine Inverse
 benoetigen (diese werden als `needs_inverse` markiert und in der automatischen
 Verifikation uebersprungen).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,9 +17,9 @@ from typing import Callable
 class Property:
     name: str
     description: str
-    strategy_hint: str          # menschенlesbarer hypothesis-Strategiename
-    predicate: Callable         # predicate(fn, x) -> bool
-    check_code: str             # menschenlesbarer Ausdruck (nur fuer Rendering)
+    strategy_hint: str  # menschенlesbarer hypothesis-Strategiename
+    predicate: Callable  # predicate(fn, x) -> bool
+    check_code: str  # menschenlesbarer Ausdruck (nur fuer Rendering)
     needs_inverse: bool = False  # benoetigt eine Inverse g -> nicht autoverifizierbar
 
 
