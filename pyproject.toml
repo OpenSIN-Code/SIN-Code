@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sin-code-bundle"
-version = "0.4.0"
+version = "0.5.0"
 description = "Structural intelligence for AI coding agents: impact analysis, semantic diff, architectural-debt breaker, and an independent verification Oracle — over MCP."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -85,6 +85,8 @@ Issues = "https://github.com/OpenSIN-Code/SIN-Code-Bundle/issues"
 
 [project.scripts]
 sin = "sin_code_bundle.cli:app"
+sin-serve = "sin_code_bundle.mcp_server:main"
+sin-serve-mcp = "sin_code_bundle.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -98,7 +100,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "0.4.0"
+target-version = "0.5.0"
 # CoDocs example fixtures demonstrate doc co-location, not runnable code.
 extend-exclude = ["examples", "build", "dist"]
 

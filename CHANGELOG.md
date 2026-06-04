@@ -97,3 +97,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All 9 subsystem Python packages importable
 - `sin serve` exposes 24 tools via `tools/list` MCP handshake
 - `pip install -e .[all]` completes successfully
+
+## [0.5.0] - 2026-06-04 — Standalone mcp_server.py + 28 tools + README coverage
+
+### Added
+- **`src/sin_code_bundle/mcp_server.py`** — standalone MCP server module
+  (in addition to `cli.py::serve`). Invoke via:
+  - `python -m sin_code_bundle.mcp_server`
+  - `sin-serve` console script
+  - `sin serve` (legacy, identical)
+- **2 new console scripts**: `sin-serve`, `sin-serve-mcp`
+- **4 new MCP tools** (sin serve now exposes **28** instead of 24):
+  - `sin_vfs_resolve` — resolve a SIN URI scheme (`sckg://`, `poc://`, etc.) to structured content
+  - `sin_vfs_schemes` — list all available URI schemes with descriptions
+  - `sin_ast_edit` — tree-sitter AST-based edit with POC verification, falls back to hashline
+  - `sin_hashline_validate` — validate a previously-created hashline patch can still be applied
+- **`review` tool** from sin-code-review-interface subsystem
+- **README**: full tool-coverage table (native → SIN) + 28-tool MCP inventory
+  + console script examples + install verification
+
+### Changed
+- `pyproject.toml` adds `sin-serve` and `sin-serve-mcp` console scripts
+- Bundle version bumped to 0.5.0
+
+### Verified
+- `sin-serve` MCP handshake returns **28 tools**
+- All 4 new tools (sin_vfs_resolve, sin_vfs_schemes, sin_ast_edit, sin_hashline_validate) functional
+- `sin serve` (legacy) still works, returns same 28 tools
