@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sin-code-oracle"
+version = "0.1.0"
+description = "Independent, execution-based Verification Oracle + Eval Harness for AI coding agents"
+requires-python = ">=3.11"
+dependencies = [
+    "typer>=0.9.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.5",
+    "rich>=13.0",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+# These are the *external* oracles we shell out to. They are optional because
+# the oracle degrades gracefully when a tool is absent (reports "unavailable"
+# instead of crashing). Install the ones relevant to your repo's languages.
+mcp = ["mcp>=1.0.0"]
+
+[project.scripts]
+oracle = "sin_code_oracle.cli:app"
+
+[project.entry-points."mcp.server"]
+oracle = "sin_code_oracle.mcp_server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+# Das examples/-Verzeichnis enthaelt absichtlich fehlerhafte Fixture-Workspaces
+# (Eval-Harness-Testdaten) und darf nicht als reale Testsuite gesammelt werden.
+testpaths = ["tests"]

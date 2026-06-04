@@ -1,0 +1,6 @@
+# Merge this block into ~/.codex/config.toml
+# or let `sin init codex --scope global` handle it automatically.
+
+[mcp_servers.sin]
+command = "sin"
+args = ["serve"]

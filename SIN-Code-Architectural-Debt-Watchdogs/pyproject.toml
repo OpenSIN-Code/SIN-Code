@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sin-code-adw"
+version = "0.1.0"
+description = "Architectural Debt Watchdog & Circuit Breaker for AI Agents"
+requires-python = ">=3.11"
+dependencies = [
+    "radon>=6.0",
+    "psutil>=5.9",
+    "typer>=0.9.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.5",
+]
+
+[project.optional-dependencies]
+server = ["fastapi>=0.110", "uvicorn>=0.27"]
+test = ["pytest>=8.0"]
+
+[project.scripts]
+adw = "sin_code_adw.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]

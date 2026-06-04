@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sin-code-ibd"
+version = "0.1.0"
+description = "Intent-Based Diffing for AI-Generated Code"
+requires-python = ">=3.11"
+dependencies = [
+    "tree-sitter>=0.22,<0.24",
+    "tree-sitter-python>=0.23,<0.24",
+    "gitpython>=3.1.40",
+    "typer>=0.9.0",
+    "pyyaml>=6.0",
+    "pydantic>=2.5",
+    "rich>=13.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[project.scripts]
+ibd = "sin_code_ibd.cli:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
