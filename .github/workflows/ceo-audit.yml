@@ -65,6 +65,17 @@ jobs:
           pip install "sin-code-bundle[ceo-audit,dev]" || \
             pip install "sin-code-bundle[ceo-audit,dev] @ git+https://github.com/OpenSIN-Code/SIN-Code-Bundle.git@v0.4.4"
 
+      - name: Install ceo-audit skill
+        run: |
+          # sin-code-bundle does not yet ship the skill scripts.
+          # Clone the SSOT (Infra-SIN-OpenCode-Stack) to get audit.sh + axis scripts.
+          git clone --depth 1 --branch main https://github.com/OpenSIN-Code/Infra-SIN-OpenCode-Stack.git /tmp/infra
+          mkdir -p ~/.config/opencode/skills/ceo-audit
+          cp -r /tmp/infra/skills/ceo-audit/scripts ~/.config/opencode/skills/ceo-audit/
+          cp -r /tmp/infra/skills/ceo-audit/lib ~/.config/opencode/skills/ceo-audit/
+          chmod +x ~/.config/opencode/skills/ceo-audit/scripts/audit.sh
+          ls ~/.config/opencode/skills/ceo-audit/scripts/audit.sh
+
       - name: Locate audit.sh on PATH
         id: locate
         run: |
