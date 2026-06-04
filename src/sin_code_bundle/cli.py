@@ -928,23 +928,19 @@ def serve():
             cmd_path = _sh.which("execute") or str(_Path.home() / ".local/bin/execute")
             if _Path(cmd_path).exists():
                 proc = _sp.run(
-                    [cmd_path, "--timeout", str(timeout), "--json", command],
+                    [cmd_path, "-timeout", str(timeout), "-format", "json", "-command", command],
                     capture_output=True,
                     text=True,
                     timeout=timeout + 10,
                 )
-                out = proc.stdout
-                try:
-                    return out
-                except Exception:
-                    return json.dumps(
-                        {
-                            "stdout": proc.stdout,
-                            "stderr": proc.stderr,
-                            "returncode": proc.returncode,
-                            "redacted": True,
-                        }
-                    )
+                return json.dumps(
+                    {
+                        "stdout": proc.stdout,
+                        "stderr": proc.stderr,
+                        "returncode": proc.returncode,
+                        "redacted": True,
+                    }
+                )
             proc = _sp.run(
                 command,
                 shell=True,
@@ -974,6 +970,8 @@ def serve():
         back to Python regex if scout binary is missing.
 
         search_type: semantic | regex | symbol | usage
+
+        Accepts both directory paths (rglob) and single files (single file scan).
         """
         import subprocess as _sp
         import shutil as _sh
@@ -986,29 +984,45 @@ def serve():
                     text=True,
                     timeout=30,
                 )
-                return proc.stdout or json.dumps({"results": [], "returncode": proc.returncode})
+                if proc.returncode == 0 and proc.stdout.strip():
+                    try:
+                        return proc.stdout
+                    except Exception:
+                        pass
+                # fall through to python-regex fallback
             import re as _re
             results = []
-            for p in _Path(path).rglob("*"):
-                if not p.is_file() or ".git" in p.parts:
-                    continue
+            target = _Path(path).expanduser()
+            # Determine which files to scan
+            if target.is_file():
+                files = [target]
+            elif target.is_dir():
+                files = [p for p in target.rglob("*") if p.is_file() and ".git" not in p.parts]
+            else:
+                return json.dumps({"error": f"path not found: {path}"})
+            for p in files:
                 try:
                     text = p.read_text(encoding="utf-8", errors="ignore")
                 except Exception:
                     continue
                 for m in _re.finditer(query, text):
+                    line_no = text[: m.start()].count("\n") + 1
+                    line_text = text.splitlines()[line_no - 1] if line_no <= len(text.splitlines()) else ""
                     results.append(
                         {
                             "file": str(p),
-                            "line": text[: m.start()].count("\n") + 1,
+                            "line": line_no,
                             "match": m.group(0),
+                            "context": line_text[:200],
                         }
                     )
                     if len(results) >= 200:
                         break
                 if len(results) >= 200:
                     break
-            return json.dumps({"results": results, "count": len(results), "fallback": "python-regex"})
+            return json.dumps(
+                {"results": results, "count": len(results), "fallback": "python-regex"}
+            )
         except Exception as exc:
             return json.dumps({"error": str(exc), "query": query})
 
