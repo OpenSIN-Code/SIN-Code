@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 
+# ── InterceptorRule: Single Pattern Matcher ────────────────────────────────
 class InterceptorRule:
     def __init__(self, name: str, pattern: str, message: str, severity: str = "error"):
         self.name = name
@@ -21,6 +22,7 @@ class InterceptorRule:
         return bool(self.pattern.search(content))
 
 
+# ── SINInterceptor: Tool-Call Rule Engine ─────────────────────────────────
 class SINInterceptor:
     """Intercepts tool calls and validates against architectural rules."""
 

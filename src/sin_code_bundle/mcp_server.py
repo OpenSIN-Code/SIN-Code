@@ -69,9 +69,7 @@ mcp = FastMCP("sin-code-bundle")
 _EXCLUDE = {".git", ".venv", "venv", "__pycache__", "node_modules", "dist", "build"}
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Core file-ops (replace opencode native read/write/edit/bash/search)
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Core file-ops (replace opencode native read/write/edit/bash/search) ─────
 
 
 @mcp.tool()
@@ -218,7 +216,7 @@ def sin_edit(
 
 
 @mcp.tool()
-def sin_bash(command: str, timeout: int = 60) -> str:
+def sin_bash(command: str, timeout: int = 60) -> str:  # 60s = default; max allowed is 600s
     """SIN-Code bash — replaces native bash.
 
     Safe command execution via the `execute` Go binary with:
@@ -277,6 +275,8 @@ def sin_search(query: str, path: str = ".", search_type: str = "semantic") -> st
     try:
         cmd_path = shutil.which("scout") or str(Path.home() / ".local/bin/scout")
         if Path(cmd_path).exists():
+            # 30s = conservative ceiling for the `scout` Go tool; an LLM should
+            # never block on a search call for longer than typical tool timeouts.
             proc = subprocess.run(
                 [cmd_path, "--query", query, "--path", path, "--type", search_type, "--json"],
                 capture_output=True,
@@ -316,6 +316,9 @@ def sin_search(query: str, path: str = ".", search_type: str = "semantic") -> st
                         "context": line_text[:200],
                     }
                 )
+                # 200 = hard ceiling for python-regex fallback; keeps the
+                # fallback path from flooding the agent context if a query
+                # matches millions of lines (e.g. `import ` across a big repo).
                 if len(results) >= 200:
                     break
             if len(results) >= 200:
@@ -325,9 +328,7 @@ def sin_search(query: str, path: str = ".", search_type: str = "semantic") -> st
         return json.dumps({"error": str(exc), "query": query})
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# VFS / Memory / AST-edit / Hashline (dedicated tools, per user request)
-# ─────────────────────────────────────────────────────────────────────────────
+# ── VFS / AST-edit / Hashline (dedicated tools, per user request) ──────────
 
 
 @mcp.tool()
@@ -419,9 +420,7 @@ def sin_hashline_validate(file_path: str, patch: dict) -> str:
         return json.dumps({"error": str(exc), "file_path": file_path})
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Subsystem tools (graceful degradation: try-import, skip on missing)
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Subsystem Tools (graceful degradation: try-import, skip on missing) ────
 
 
 def _try_subsystem_tools() -> None:
@@ -504,7 +503,9 @@ def _try_subsystem_tools() -> None:
         from sin_code_efsm import EphemeralMockServer
 
         @mcp.tool()
-        def mock_env(action: str = "up", port: int = 8888) -> str:
+        def mock_env(
+            action: str = "up", port: int = 8888
+        ) -> str:  # 8888 = EFSM default ephemeral-mock port
             """Manage ephemeral full-stack mock environment."""
             server = EphemeralMockServer(port=port)
             if action == "up":
@@ -621,14 +622,16 @@ def _try_external_tools() -> None:
         pass
 
 
+# ── Tool Wiring (graceful degradation) ─────────────────────────────────────
+# All subsystem + memory + external tools are registered in try-import blocks
+# above. A missing sin-code-* package leaves the server fully functional
+# (graceful degradation — never crashes the MCP).
 _try_subsystem_tools()
 _try_memory_tools()
 _try_external_tools()
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# DAP Runtime Tracing
-# ─────────────────────────────────────────────────────────────────────────────
+# ── DAP Runtime Tracing ────────────────────────────────────────────────────
 
 
 @mcp.tool()
@@ -658,9 +661,7 @@ def sin_stop_trace(session_id: str) -> str:
         return json.dumps({"error": str(exc)})
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Interceptor (Architectural Enforcement)
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Interceptor (Architectural Enforcement) ─────────────────────────────────
 
 
 @mcp.tool()
@@ -677,9 +678,7 @@ def sin_check_architecture(tool_name: str, tool_input: dict) -> str:
         return json.dumps({"error": str(exc)})
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Worktree Orchestration
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Worktree Orchestration ──────────────────────────────────────────────────
 
 
 @mcp.tool()

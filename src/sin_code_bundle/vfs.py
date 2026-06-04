@@ -33,6 +33,7 @@ URI_SCHEMES = {
 }
 
 
+# ── SINVirtualFS: URI Dispatcher + Resolvers ───────────────────────────────
 class SINVirtualFS:
     """Resolves SIN-specific URI schemes.
 
@@ -235,6 +236,8 @@ class SINVirtualFS:
             # git-based and cheap: `git diff --name-only --diff-filter=U`
             # lists unmerged (U-status) paths. We don't need to parse
             # conflict markers ourselves — just surface the file list.
+            # 10s timeout — `git diff` is in-memory; only a broken index would
+            # make it slow, and we want to fail fast in that case.
             result = subprocess.run(
                 ["git", "diff", "--name-only", "--diff-filter=U"],
                 capture_output=True,

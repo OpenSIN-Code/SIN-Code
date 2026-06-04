@@ -16,6 +16,7 @@ from pathlib import Path
 START_MARKER = "<!-- sin:start -->"
 END_MARKER = "<!-- sin:end -->"
 
+# ── Playbooks (situation → tool) ───────────────────────────────────────────
 # Mapping: wann welches Tool. Bewusst knapp und handlungsorientiert.
 _PLAYBOOK = [
     (
@@ -87,6 +88,7 @@ _NEGATIVE_CONSTRAINTS = [
 ]
 
 
+# ── Block Builder + Public Renderers ───────────────────────────────────────
 def _build_block(memory_available: bool = False, inject_text: str = "") -> str:
     """Baut den Inhalt zwischen den Markern (ohne die Marker selbst).
 

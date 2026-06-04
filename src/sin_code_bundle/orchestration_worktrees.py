@@ -26,7 +26,13 @@ class SINWorktreeOrchestrator:
     def create_worktree(self, branch_name: Optional[str] = None) -> dict:
         if not self.is_git_repo():
             return {"error": "Not a git repository. Worktree isolation requires git."}
-        branch = branch_name or f"sin-task-{uuid.uuid4().hex[:8]}"  # 8 hex chars = 32 bits, plenty unique for worktrees
+        # Sibling-dir layout (.sin-worktrees-<name>) keeps the worktrees
+        # OUTSIDE the repo's own working tree. That matters because git
+        # refuses to checkout branches into a worktree that overlaps the
+        # main repo's `.git`-tracked files (silent failure mode).
+        branch = (
+            branch_name or f"sin-task-{uuid.uuid4().hex[:8]}"
+        )  # 8 hex chars = 32 bits, plenty unique for worktrees
         worktree_path = self.repo_root.parent / f".sin-worktrees-{self.repo_root.name}" / branch
         try:
             subprocess.run(

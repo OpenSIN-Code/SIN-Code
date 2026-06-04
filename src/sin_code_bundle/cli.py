@@ -17,6 +17,10 @@ import typer
 
 app = typer.Typer(help="SIN-Code Bundle - Unified SOTA Agent-Engineering Stack")
 
+# ── Sub-App Registration ────────────────────────────────────────────────────
+# Each sub-Typer becomes a `sin <name>` command group. The seven external
+# SIN-Code Go tools + ceo-audit + browser + vfs + hashline + ast are all
+# registered as sub-apps so users get a unified `sin --help` surface.
 gitnexus_app = typer.Typer(help="GitNexus bridge - mandatory graph context for coder agents.")
 app.add_typer(gitnexus_app, name="gitnexus")
 
@@ -80,6 +84,7 @@ def _require(module: str, hint: str):
         raise typer.Exit(code=1)
 
 
+# ── Core Status / Bootstrap Commands ────────────────────────────────────────
 @app.command()
 def status():
     """Zeigt, welche Subsysteme installiert sind."""
@@ -294,9 +299,7 @@ def gitnexus_ai_context(
         raise typer.Exit(code=1)
 
 
-# --------------------------------------------------------------------------- #
-# MarkItDown (document -> Markdown) bridge commands
-# --------------------------------------------------------------------------- #
+# ── MarkItDown Bridge Commands (document -> Markdown) ──────────────────────
 @markitdown_app.command("doctor")
 def markitdown_doctor():
     """Check MarkItDown MCP/CLI availability."""
@@ -340,9 +343,7 @@ def markitdown_convert(
         raise typer.Exit(code=1)
 
 
-# --------------------------------------------------------------------------- #
-# RTK (token-saving command proxy) bridge commands
-# --------------------------------------------------------------------------- #
+# ── RTK Bridge Commands (token-saving command proxy) ───────────────────────
 @rtk_app.command("doctor")
 def rtk_doctor():
     """Check whether the RTK binary is installed."""
@@ -638,7 +639,9 @@ def serve():
         from sin_code_efsm import EphemeralMockServer
 
         @mcp.tool()
-        def mock_env(action: str = "up", port: int = 8888) -> str:
+        def mock_env(
+            action: str = "up", port: int = 8888
+        ) -> str:  # 8888 = EFSM default ephemeral-mock port
             """Manage ephemeral full-stack mock environment."""
             server = EphemeralMockServer(port=port)
             if action == "up":
@@ -1019,6 +1022,9 @@ def serve():
                             "context": line_text[:200],
                         }
                     )
+                    # 200 = hard ceiling for python-regex fallback; keeps
+                    # the fallback from flooding agent context on common
+                    # broad queries like `import `.
                     if len(results) >= 200:
                         break
                 if len(results) >= 200:
@@ -1037,9 +1043,7 @@ if __name__ == "__main__":
     app()
 
 
-# --------------------------------------------------------------------------- #
-# sin bench  — SWE-bench A/B harness
-# --------------------------------------------------------------------------- #
+# ── SIN Bench (SWE-bench A/B harness) ──────────────────────────────────────
 @app.command()
 def bench(
     tasks: str | None = typer.Option(
@@ -1112,9 +1116,7 @@ def _build_cli_runner(agent: str):
     return CommandRunner(build_cmd=build_cmd, timeout_s=1800)
 
 
-# --------------------------------------------------------------------------- #
-# sin hooks  — automatic SIN-Brain calls via .opencode hooks
-# --------------------------------------------------------------------------- #
+# ── SIN Hooks (automatic SIN-Brain calls via .opencode hooks) ──────────────
 @app.command(name="hooks-install")
 def hooks_install(
     target: str = typer.Argument("opencode", help="Target CLI: opencode"),
@@ -1183,9 +1185,7 @@ def hooks_list(
             typer.echo(f"[SIN-BUNDLE] Hook -> {path}")
 
 
-# --------------------------------------------------------------------------- #
-# sin skills  — compile portable skills into an agent's native format
-# --------------------------------------------------------------------------- #
+# ── Skills (compile portable skills into an agent's native format) ─────────
 @app.command()
 def skills(
     target: str = typer.Argument(..., help="opencode | codex | claude | all"),
@@ -1209,9 +1209,7 @@ def skills(
             typer.echo(f"[SIN-BUNDLE] No skills found in '{source}'.")
 
 
-# --------------------------------------------------------------------------- #
-# sin policy  — inspect / initialize the policy and audit log
-# --------------------------------------------------------------------------- #
+# ── Policy (inspect / initialize the policy and audit log) ─────────────────
 @app.command()
 def policy(
     action: str = typer.Argument("show", help="show | init | verify"),
@@ -1259,9 +1257,7 @@ def policy(
     typer.echo(f"  auto_approve = {p.auto_approve}")
 
 
-# --------------------------------------------------------------------------- #
-# sin doctor  — environment diagnostics
-# --------------------------------------------------------------------------- #
+# ── Doctor (environment diagnostics) ──────────────────────────────────────
 @app.command()
 def doctor(root: str = typer.Option(".", help="Project root.")):
     """Diagnose the environment: detected languages, LSP servers, audit chain."""
@@ -1282,9 +1278,7 @@ def doctor(root: str = typer.Option(".", help="Project root.")):
     typer.echo(f"[SIN-BUNDLE] Audit chain: {'intact' if ok else 'TAMPERED'}")
 
 
-# --------------------------------------------------------------------------- #
-# SIN-Code Go Tools commands
-# --------------------------------------------------------------------------- #
+# ── SIN-Code Go Tools Commands ─────────────────────────────────────────────
 @sin_code_app.command("run")
 def sin_code_run(
     tool: str = typer.Argument(
@@ -1423,10 +1417,7 @@ def sin_code_agents_md(
     typer.echo(f"[SIN-CODE] Generated {output}")
 
 
-# ─────────────────────────────────────────────────────────────────────
-# CEO Audit sub-commands — SOTA repo review
-# ─────────────────────────────────────────────────────────────────────
-
+# ── CEO Audit Sub-Commands (SOTA repo review) ─────────────────────────────
 _CEO_AUDIT_SKILL_PATH = Path.home() / ".config" / "opencode" / "skills" / "ceo-audit"
 _CEO_AUDIT_SCRIPT = _CEO_AUDIT_SKILL_PATH / "scripts" / "audit.sh"
 
@@ -1526,10 +1517,7 @@ def ceo_audit_status():
         typer.echo("  Install: sin ceo-audit install")
 
 
-# ─────────────────────────────────────────────────────────────────────
-# sin-browser sub-commands — 106 browser-automation tools
-# ─────────────────────────────────────────────────────────────────────
-
+# ── sin-browser Sub-Commands (106 browser-automation tools) ────────────────
 browser_app = typer.Typer(
     help="sin-browser — 106 browser-automation tools (navigate, click, fill, screenshot, scrape, etc.)"
 )
@@ -1634,10 +1622,7 @@ def browser_status():
     typer.echo("  See: sin browser list")
 
 
-# ─────────────────────────────────────────────────────────────────────
-# v2 sub-commands — VFS, Hashline, Memory, AST
-# ─────────────────────────────────────────────────────────────────────
-
+# ── v2 Sub-Commands (VFS, Hashline, Memory, AST) ───────────────────────────
 vfs_app = typer.Typer(
     help="VFS — resolve SIN URI schemes (sckg://, poc://, ibd://, adw://, efsm://, oracle://, conflict://)"
 )

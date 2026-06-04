@@ -52,6 +52,7 @@ def _repo_fingerprint(root: Path, exts: tuple[str, ...]) -> str:
     return h.hexdigest()
 
 
+# ── GraphCache: On-disk Cache Layer ────────────────────────────────────────
 class GraphCache:
     """On-disk cache for expensive SCKG / impact results, keyed by repo state.
 

@@ -102,6 +102,10 @@ def _lang_for(path: Path) -> Optional[str]:
 def _score_risk(
     callers: int, touches_tests: bool, touches_api: bool
 ) -> Literal["low", "medium", "high"]:
+    # Thresholds are intentionally simple and conservative. >10 callers = broad
+    # blast radius (high). >3 = significant surface area (medium). Tests + API
+    # each escalate one tier (e.g. a 4-caller non-test/non-api function is
+    # "low" but a 4-caller test-touching one is "medium").
     if touches_api or callers > 10:
         return "high"
     if touches_tests or callers > 3:
@@ -169,6 +173,9 @@ async def _lsp_impact(
     touches_tests = any(_is_test_path(c.file) for c in callers)
     touches_api = any(_is_public_api_path(c.file) for c in callers)
     fan_in = len(callers)
+    # Cap caller list at 25 — fits an LLM prompt-friendly blast-radius view
+    # without dropping high-fan-in signals. Anything larger reports the
+    # truncated count in `notes` so the agent can ask for more if needed.
     return ImpactResult(
         symbol=symbol,
         defined_at=def_loc,
@@ -221,6 +228,8 @@ def _treesitter_impact(root: Path, symbol: str) -> ImpactResult:
     touches_tests = any(_is_test_path(c.file) for c in callers)
     touches_api = any(_is_public_api_path(c.file) for c in callers)
     fan_in = len(callers)
+    # Mirror the same 25-caller cap as the LSP path above — keeps both
+    # backend outputs structurally identical so callers don't have to branch.
     return ImpactResult(
         symbol=symbol,
         defined_at=defined_at,

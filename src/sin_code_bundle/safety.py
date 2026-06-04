@@ -36,7 +36,9 @@ def run_checked(
         raise SafetyError(f"command timed out after {timeout}s: {cmd}") from exc
 
 
-def sanitize_prompt(text: str, max_len: int = 8000) -> str:
+def sanitize_prompt(
+    text: str, max_len: int = 8000
+) -> str:  # 8000 chars ≈ 2K tokens; fits LLM context without flooding
     """Neutralize obvious prompt-injection markers in untrusted task text."""
     if len(text) > max_len:
         text = text[:max_len] + "\n...[truncated]"

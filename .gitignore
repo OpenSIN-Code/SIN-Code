@@ -13,3 +13,16 @@ __v0_jsx-dev-runtime.ts
 node_modules
 .next/
 .DS_Store
+__pycache__/
+*.pyc
+*.egg-info/
+bom.json
+bom.*.json
+*.sbom.json
+.sin_memory.db
+*.brain.db
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.egg

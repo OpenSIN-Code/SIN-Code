@@ -92,7 +92,7 @@ def detect_env(package: str = GITNEXUS_PACKAGE) -> GitNexusEnv:
 def _run(
     cmd: list[str],
     cwd: str | os.PathLike[str] | None = None,
-    timeout: int = 900,
+    timeout: int = 900,  # 900s = 15min default — npx cold-cache + first-time `gitnexus analyze` can be slow on monorepos
     capture: bool = True,
 ) -> subprocess.CompletedProcess:
     try:
@@ -154,7 +154,7 @@ def index_state(root: str = ".", stale_seconds: int = DEFAULT_STALE_SECONDS) -> 
 def analyze(
     root: str = ".",
     env: GitNexusEnv | None = None,
-    timeout: int = 1800,
+    timeout: int = 1800,  # 1800s = 30min — full re-analyze of a large repo; auto-only on missing or stale
 ) -> subprocess.CompletedProcess:
     """Build/refresh the GitNexus index for ``root`` (``gitnexus analyze``)."""
     env = env or detect_env()
@@ -215,7 +215,7 @@ def _query(
     subcommand: list[str],
     root: str = ".",
     env: GitNexusEnv | None = None,
-    timeout: int = 300,
+    timeout: int = 300,  # 300s = 5min for read-only graph queries (should hit npx cache, hence lower than analyze)
 ) -> str:
     """Run a read-only GitNexus query command and return stdout."""
     env = env or detect_env()

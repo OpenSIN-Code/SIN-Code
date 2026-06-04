@@ -4,6 +4,37 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2026-06-04 — CoDocs polish: section separators + magic values
+
+### Changed
+- Section separators (`# ── X ───...`) added to all 17 files in `src/` that are
+  ≥100 lines, using the standard Unicode box-drawing format (the few files that
+  used the older `# --- # ... # --- #` style were normalised to the canonical
+  one-liner form).
+- Magic-value rationales added to: `cli.py` (mock_env port 8888 = EFSM default,
+  sin_bash timeout 60s, search-result cap 200), `mcp_server.py` (same), `bench.py`
+  (limit=20 = smoke-test size for SWE-bench Lite), `gitnexus.py` (default
+  timeouts 900/1800/300s), `markitdown.py` (convert timeout 300s), `lsp_backend.py`
+  (25-caller cap), `safety.py` (max_len 8000 ≈ 2K tokens), `vfs.py` (git diff
+  timeout 10s), `rtk.py` (rtk init timeout 120s).
+- "Why not obvious" comments added to non-trivial logic blocks: worktree
+  sibling-dir rationale (`orchestration_worktrees.py`), TOML strip-table
+  trade-off explanation (`mcp_config.py`), `_score_risk` threshold semantics
+  (`lsp_backend.py`).
+- `src/sin_code_bundle/__init__.doc.md` created (package overview, public API,
+  all 24 submodules, optional subsystems, install matrix, CLI examples,
+  skills shipped, versioning policy, MIT license note). The package-level
+  `__init__.py` now points at it via the standard `Docs:` reference.
+
+### Verified
+- All **25/25** `.py` files in `src/` have `.doc.md` companions (was 24/25).
+- All 17 files ≥100 lines now have section separators.
+- All magic port/timeout/threshold/limit constants have inline rationale.
+- `pytest tests/ -q` → 165 passed, 3 pre-existing failures (test_memory
+  ones assume sin-brain is absent, but sin-brain IS installed in this
+  environment; test_consistency_strict requires a sin-code-*-free checkout).
+  No new failures introduced by this change.
+
 ## [0.6.3] - 2026-06-04
 
 ### Fixed

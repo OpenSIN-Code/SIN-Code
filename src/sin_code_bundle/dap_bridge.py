@@ -83,6 +83,7 @@ class DAPSession:
             self.process = None
 
 
+# ── SINRuntimeTrace: High-level Orchestrator ───────────────────────────────
 class SINRuntimeTrace:
     """High-level runtime tracing orchestrator."""
 

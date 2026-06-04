@@ -88,9 +88,7 @@ def detect_env() -> MemoryEnv:
     return MemoryEnv(available=True, db_path=db_path, tiers=tiers, detail="ok")
 
 
-# --------------------------------------------------------------------------- #
-# Operations — thin pass-throughs to sin_brain.mcp_tools, JSON-string results.
-# --------------------------------------------------------------------------- #
+# ── Operations — thin pass-throughs to sin_brain.mcp_tools (JSON-string results) ──
 def recall(query: str, scope: str = "recall", k: int = 5) -> str:
     """Tiered memory search. Returns JSON: ids + snippets (not full docs)."""
     if scope not in RECALL_SCOPES:
@@ -151,10 +149,9 @@ def inject() -> str:
     return out if isinstance(out, str) else ""
 
 
-# --------------------------------------------------------------------------- #
-# MCP registration — called by `sin serve`. Kept here (not in cli.py) so the
-# wiring is unit-testable with a fake MCP object and no `mcp` dependency.
-# --------------------------------------------------------------------------- #
+# ── MCP Registration (called by `sin serve`) ───────────────────────────────
+# Kept here (not in cli.py) so the wiring is unit-testable with a fake MCP
+# object and no `mcp` dependency.
 TOOL_NAMES = ("recall", "remember", "forget", "pin", "link_evidence")
 
 

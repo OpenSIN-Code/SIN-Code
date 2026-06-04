@@ -113,7 +113,9 @@ def mcp_server_command(env: MarkItDownEnv | None = None) -> dict[str, Any]:
 # CLI, which would expand the attack surface considerably.
 
 
-def convert(path: str, env: MarkItDownEnv | None = None, timeout: int = 300) -> str:
+def convert(
+    path: str, env: MarkItDownEnv | None = None, timeout: int = 300
+) -> str:  # 300s = 5min; large PDFs / pptx with embedded media can be slow on first pass
     """Convert a document to Markdown using the upstream ``markitdown`` CLI."""
     env = env or detect_env()
     cli = env.cli_cmd()
@@ -157,9 +159,7 @@ def doctor() -> dict[str, Any]:
 # through MCP, the same surface as GitNexus, so behaviour is uniform.
 
 
-# --------------------------------------------------------------------------- #
-# MCP wiring into coder-agent configs (mirrors the GitNexus bridge).
-# --------------------------------------------------------------------------- #
+# ── MCP Wiring (mirrors the GitNexus bridge) ──────────────────────────────
 def _opencode_config_path() -> Path:
     return Path.home() / ".config" / "opencode" / "opencode.json"
 

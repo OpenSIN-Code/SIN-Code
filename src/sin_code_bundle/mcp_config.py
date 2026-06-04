@@ -51,9 +51,7 @@ FULL_TOOLS: list[tuple[str, list[str]]] = [
 ]
 
 
-# --------------------------------------------------------------------------- #
-# Generatoren (reine Strings)
-# --------------------------------------------------------------------------- #
+# ── Generatoren (reine Strings) ────────────────────────────────────────────
 def generate_opencode(env: dict[str, str] | None = None) -> str:
     """OpenCode liest ``opencode.json``: Key ``mcp`` mit lokalem Server.
 
@@ -225,9 +223,7 @@ def generate(client: str, env: dict[str, str] | None = None) -> str:
     raise ValueError(f"Unknown client '{client}'. Supported: {', '.join(SUPPORTED_CLIENTS)}")
 
 
-# --------------------------------------------------------------------------- #
-# Default-Zielpfade pro Client
-# --------------------------------------------------------------------------- #
+# ── Default-Zielpfade pro Client ────────────────────────────────────────────
 def default_path(client: str) -> Path:
     """Konventioneller Konfigurationspfad des jeweiligen Clients."""
     client = client.lower()
@@ -240,9 +236,7 @@ def default_path(client: str) -> Path:
     raise ValueError(f"Unknown client '{client}'")
 
 
-# --------------------------------------------------------------------------- #
-# Idempotentes Mergen in bestehende Dateien (--write)
-# --------------------------------------------------------------------------- #
+# ── Idempotentes Mergen in bestehende Dateien (--write) ─────────────────────
 def merge_into_file(client: str, path: Path, env: dict[str, str] | None = None) -> str:
     """Fuegt den sin-Server in eine bestehende Config-Datei ein bzw. legt sie an.
 
@@ -338,9 +332,7 @@ def _merge_codex_toml(path: Path, env: dict[str, str] | None) -> str:
     return f"Merged 'sin' MCP server into {path}"
 
 
-# --------------------------------------------------------------------------- #
-# Full-config merge helpers (BR-3)
-# --------------------------------------------------------------------------- #
+# ── Full-config merge helpers (BR-3) ───────────────────────────────────────
 def _merge_json_full(path: Path, env: dict[str, str] | None) -> str:
     data: dict[str, Any] = {}
     if path.exists() and path.read_text().strip():
@@ -421,9 +413,7 @@ def _merge_codex_toml_full(path: Path, env: dict[str, str] | None) -> str:
     return f"Merged {len(FULL_TOOLS)} MCP servers into {path}"
 
 
-# --------------------------------------------------------------------------- #
-# Hilfsfunktionen
-# --------------------------------------------------------------------------- #
+# ── Hilfsfunktionen ────────────────────────────────────────────────────────
 def _toml_array(items: list[str]) -> str:
     inner = ", ".join(f'"{i}"' for i in items)
     return f"[{inner}]"
@@ -433,7 +423,13 @@ def _strip_toml_table(content: str, table_prefix: str) -> str:
     """Entfernt ``[table_prefix]`` und alle Sub-Tables ``[table_prefix.*]``.
 
     Zeilenbasiert und bewusst simpel: ausreichend fuer das von uns erzeugte
-    Format und fremde, klar getrennte Tabellen.
+    Format und fremde, klar getrennte Tabellen. We do NOT use a real TOML
+    parser because:
+
+    - The merge runs without a toml extra-dep so the bundle stays slim.
+    - We only need to recognise lines we wrote ourselves (``[mcp_servers.X]``
+      + ``[mcp_servers.X.env]``). Foreign tables stay untouched as long as
+      they don't share our prefix.
     """
     if not content:
         return ""
@@ -445,6 +441,8 @@ def _strip_toml_table(content: str, table_prefix: str) -> str:
         if stripped.startswith("[") and stripped.endswith("]"):
             name = stripped[1:-1].strip()
             # Header-Form [[name]] reduziert sich nach obigem Slicing auf [name]
+            # (a real TOML parser would distinguish array-of-tables; we don't
+            # need that for mcp_servers entries which are all single tables).
             name = name.lstrip("[").rstrip("]").strip()
             if name == table_prefix or name.startswith(table_prefix + "."):
                 skip = True

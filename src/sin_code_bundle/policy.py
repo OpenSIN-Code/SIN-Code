@@ -95,10 +95,7 @@ class Policy:
         return self.rules.get(risk, "ask")
 
 
-# ── PolicyEngine: Evaluate & Enforce ──────────────────────────────────
-# --------------------------------------------------------------------------- #
-# Tamper-evident audit log (hash chain)
-# --------------------------------------------------------------------------- #
+# ── Tamper-evident Audit Log (hash chain) ────────────────────────────────
 class AuditLog:
     """Append-only JSONL log under `<root>/.sin/audit/log.jsonl`.
 
@@ -174,9 +171,7 @@ class AuditLog:
         return True
 
 
-# --------------------------------------------------------------------------- #
-# Path sandboxing
-# --------------------------------------------------------------------------- #
+# ── Path Sandboxing ───────────────────────────────────────────────────────
 def ensure_within_root(target: str | Path, root: Optional[str | Path] = None) -> Path:
     """Resolve `target` and guarantee it stays inside the project root."""
     root_path = Path(root or os.environ.get("SIN_PROJECT_ROOT", ".")).resolve()
@@ -190,9 +185,7 @@ def ensure_within_root(target: str | Path, root: Optional[str | Path] = None) ->
     return resolved
 
 
-# --------------------------------------------------------------------------- #
-# Gate used by the MCP server to wrap a tool call
-# --------------------------------------------------------------------------- #
+# ── Guarded Tool Wrapper (MCP gate) ────────────────────────────────────────
 def guarded(
     tool: str,
     args: dict,

@@ -92,7 +92,9 @@ def init_args(agent: str) -> list[str]:
         raise RtkError(f"Unknown agent: {agent!r}. Known: {', '.join(AGENTS)}")
 
 
-def _run(cmd: list[str], timeout: int = 120) -> str:
+def _run(
+    cmd: list[str], timeout: int = 120
+) -> str:  # 120s = 2min; rtk init/rewrites are sub-second, 2min leaves headroom for slow CI disks
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     except FileNotFoundError as exc:  # pragma: no cover - guarded by detect_env

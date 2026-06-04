@@ -433,7 +433,13 @@ def load_tasks_jsonl(path: Path, limit: Optional[int] = None) -> list[Task]:
 
 
 def load_swebench_lite(limit: Optional[int] = 20) -> list[Task]:
-    """Load SWE-bench Lite via `datasets` if available; else raise a clear error."""
+    """Load SWE-bench Lite via `datasets` if available; else raise a clear error.
+
+    Default limit=20 is a smoke-test size — 20 tasks ≈ 10h on a single agent
+    (clone + setup + 30-min LLM rollout per task), enough to detect a
+    resolved-rate delta without burning a full 300-task run. Bump to None
+    for the full benchmark.
+    """
     try:
         from datasets import load_dataset  # type: ignore
     except ImportError as exc:

@@ -1,3 +1,6 @@
-"""SIN-Code Bundle - Unified SOTA Agent-Engineering Stack."""
+"""SIN-Code Bundle - Unified SOTA Agent-Engineering Stack.
 
-__version__ = "0.6.3"
+Docs: __init__.doc.md
+"""
+
+__version__ = "0.6.4"
