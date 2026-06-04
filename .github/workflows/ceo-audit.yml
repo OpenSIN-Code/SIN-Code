@@ -65,13 +65,30 @@ jobs:
           pip install "sin-code-bundle[ceo-audit,dev]" || \
             pip install "sin-code-bundle[ceo-audit,dev] @ git+https://github.com/OpenSIN-Code/SIN-Code-Bundle.git@v0.4.4"
 
+      - name: Locate audit.sh on PATH
+        id: locate
+        run: |
+          # After 'pip install sin-code-bundle[ceo-audit,dev]', audit.sh is
+          # shipped at <site-packages>/sin_code_bundle/resources/ceo-audit/scripts/audit.sh.
+          # We also accept a git-clone of the skill to ~/.config/opencode/skills/.
+          SITE_PKG_SCRIPT=$(python3 -c "import sin_code_bundle, os; root=os.path.dirname(sin_code_bundle.__file__); p=os.path.join(root,'resources','ceo-audit','scripts','audit.sh'); print(p if os.path.isfile(p) else '')" 2>/dev/null)
+          if [ -n "$SITE_PKG_SCRIPT" ] && [ -f "$SITE_PKG_SCRIPT" ]; then
+            echo "script=$SITE_PKG_SCRIPT" >> $GITHUB_OUTPUT
+          elif [ -f ~/.config/opencode/skills/ceo-audit/scripts/audit.sh ]; then
+            echo "script=~/.config/opencode/skills/ceo-audit/scripts/audit.sh" >> $GITHUB_OUTPUT
+          else
+            echo '::error::Could not locate audit.sh (not in site-packages, not on disk)'
+            exit 1
+          fi
+          echo "Located audit script: $SITE_PKG_SCRIPT"
+
       - name: Run CEO Audit
         id: audit
         run: |
           mkdir -p ceo-audit-output
           # Run audit; capture exit code (allow failure so we can still post the report)
           set +e
-          ~/.config/opencode/skills/ceo-audit/scripts/audit.sh \
+          ${{ steps.locate.outputs.script }} \
             "$AUDIT_REPO" \
             --profile="$AUDIT_PROFILE" \
             --grade="$AUDIT_GRADE" \
