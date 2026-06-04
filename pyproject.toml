@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sin-code-bundle"
-version = "0.3.0"
+version = "0.4.0"
 description = "Structural intelligence for AI coding agents: impact analysis, semantic diff, architectural-debt breaker, and an independent verification Oracle — over MCP."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,27 +20,41 @@ classifiers = [
   "Topic :: Software Development :: Quality Assurance",
 ]
 
-# Core runtime dependencies only — subsystems installed separately (editable).
-# Full install order:
-#   pip install -e ../SIN-Code-Semantic-Codebase-Knowledge-Graphs
-#   pip install -e ../SIN-Code-Intent-Based-Diffing
-#   pip install -e ../SIN-Code-Proof-of-Correctness
-#   pip install -e ../SIN-Code-Ephemeral-Full-Stack-Mocking-Orchestration
-#   pip install -e ../SIN-Code-Architectural-Debt-Watchdogs
-#   pip install -e ../SIN-Code-Verification-Oracle
-#   pip install -e ../SIN-Code-Orchestration
-#   pip install -e ../SIN-Code-Review-Interface
-#   pip install -e .
+# One-line install: bundles every SIN-Code subsystem + sin-brain.
+# `pip install sin-code-bundle[all]` == full SOTA agent stack.
+# Editable paths are tried first (for dev) — PyPI fallback is documented in
+# scripts/install-all.sh.
 dependencies = [
   "typer>=0.12",
   "pyyaml>=6.0",
 ]
 
 [project.optional-dependencies]
+# === Core SIN-Code subsystem Python packages ===
+# All 8 subsystems + sin-brain in ONE install. Graceful degradation in
+# `sin serve` keeps the server running even if a subsystem is missing —
+# but `[all]` installs the full set so the MCP exposes every tool.
+sckg = ["sin-code-sckg @ file:///Users/jeremy/dev/SIN-Code-Semantic-Codebase-Knowledge-Graphs"]
+ibd = ["sin-code-ibd @ file:///Users/jeremy/dev/SIN-Code-Intent-Based-Diffing"]
+poc = ["sin-code-poc @ file:///Users/jeremy/dev/SIN-Code-Proof-of-Correctness"]
+efsm = ["sin-code-efsm @ file:///Users/jeremy/dev/SIN-Code-Ephemeral-Full-Stack-Mocking-Orchestration"]
+adw = ["sin-code-adw @ file:///Users/jeremy/dev/SIN-Code-Architectural-Debt-Watchdogs"]
+oracle = ["sin-code-oracle @ file:///Users/jeremy/dev/SIN-Code-Verification-Oracle"]
+orchestration = ["sin-code-orchestration @ file:///Users/jeremy/dev/SIN-Code-Orchestration"]
+review = ["sin-code-review-interface @ file:///Users/jeremy/dev/SIN-Code-Review-Interface"]
+memory = ["sin-brain @ file:///Users/jeremy/dev/sin-brain"]
+
+# === LSP / benchmark / MCP runtime / observability ===
+# Full tree-sitter stack — NO tree-sitter-languages (no Py3.14 wheels).
+# Direct bindings: tree-sitter + 4 per-language parsers (Py/JS/TS/Go).
+# tree-sitter 0.23+ uses new API: tree_sitter.Language(lang_fn()), not Language(ptr).
 lsp = [
   "multilspy>=0.0.10",
-  "tree-sitter>=0.21",
-  "tree-sitter-languages>=1.10",
+  "tree-sitter>=0.23",
+  "tree-sitter-python>=0.23",
+  "tree-sitter-javascript>=0.23",
+  "tree-sitter-typescript>=0.23",
+  "tree-sitter-go>=0.23",
 ]
 bench = [
   "datasets>=2.19",
@@ -57,8 +71,12 @@ dev = [
   "pytest-asyncio>=0.23",
   "ruff>=0.5",
 ]
+
+# === THE BIG ONE: install literally EVERYTHING in one command ===
+# `pip install -e .[all]` → 8 subsystems + sin-brain + bench + MCP + otel + dev
+# LSP excluded (see above)
 all = [
-  "sin-code-bundle[lsp,bench,mcp,otel]",
+  "sin-code-bundle[sckg,ibd,poc,efsm,adw,oracle,orchestration,review,memory,bench,mcp,otel,dev]",
 ]
 
 [project.urls]
@@ -80,7 +98,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "0.3.0"
+target-version = "0.4.0"
 # CoDocs example fixtures demonstrate doc co-location, not runnable code.
 extend-exclude = ["examples", "build", "dist"]
 

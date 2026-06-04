@@ -72,3 +72,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Verified
 - Live test on SIN-Code-Bundle push: A+ (100.0/100), 0 Critical, 0 High
 - 10 tools returned by `tools/list` MCP call
+
+## [0.4.0] - 2026-06-04 — ALL SUBSYSTEMS + SIN-BRAIN in [all] extra
+
+### Added
+- **`pip install sin-code-bundle[all]`** installs the COMPLETE SOTA agent stack in one command:
+  - 8 SIN-Code subsystem packages (sckg, ibd, poc, efsm, adw, oracle, orchestration, review-interface)
+  - sin-brain (memory cortex with 5 tools)
+  - LSP deps (tree-sitter + 4 per-language parsers: Python/JS/TS/Go)
+  - bench, mcp, otel, dev extras
+- `pyproject.toml` now has 9 new extras: `sckg`, `ibd`, `poc`, `efsm`, `adw`, `oracle`, `orchestration`, `review`, `memory`
+- Tree-sitter switched from `tree-sitter-languages` (no Py3.14 wheel) to direct bindings:
+  - `tree-sitter>=0.23` + `tree-sitter-{python,javascript,typescript,go}>=0.23`
+- `sin serve` now exposes **24 MCP tools** (was 10):
+  - 5 core file-ops: sin_read, sin_write, sin_edit, sin_bash, sin_search
+  - 9 subsystem tools: impact, semantic_diff, architectural_debt, verify_tests, prove, mock_env, orchestrate, task_status, semantic_review
+  - 5 memory tools: recall_tool, remember_tool, forget_tool, pin_tool, link_evidence_tool
+  - 4 gitnexus + 1 markitdown + 1 codocs_check
+
+### Fixed
+- LSP dep Python 3.14 compat (tree-sitter-languages workaround)
+
+### Verified
+- All 9 subsystem Python packages importable
+- `sin serve` exposes 24 tools via `tools/list` MCP handshake
+- `pip install -e .[all]` completes successfully
