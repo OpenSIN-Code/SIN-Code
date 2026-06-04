@@ -46,6 +46,7 @@ Run via:
     # or (legacy, identical):
     sin serve
 """
+
 from __future__ import annotations
 
 import json
@@ -53,14 +54,12 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 try:
     from mcp.server.fastmcp import FastMCP
 except ImportError as exc:
-    sys.stderr.write(
-        "[SIN-CODE-BUNDLE] mcp package required: pip install 'sin-code-bundle[mcp]'\n"
-    )
+    sys.stderr.write("[SIN-CODE-BUNDLE] mcp package required: pip install 'sin-code-bundle[mcp]'\n")
     raise SystemExit(1) from exc
 
 
@@ -73,6 +72,7 @@ _EXCLUDE = {".git", ".venv", "venv", "__pycache__", "node_modules", "dist", "bui
 # ─────────────────────────────────────────────────────────────────────────────
 # Core file-ops (replace opencode native read/write/edit/bash/search)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 @mcp.tool()
 def sin_read(path: str, summarize: bool = False, max_chars: int = 50000) -> str:
@@ -89,6 +89,7 @@ def sin_read(path: str, summarize: bool = False, max_chars: int = 50000) -> str:
     try:
         if "://" in path:
             from sin_code_bundle import vfs
+
             v = vfs.SINVirtualFS()
             return json.dumps(v.resolve(path), indent=2, default=str)
         p = Path(path).expanduser()
@@ -158,9 +159,7 @@ def sin_write(path: str, content: str, verify: bool = True) -> str:
                 verified = False
                 if backup:
                     Path(backup).replace(p)
-                return json.dumps(
-                    {"success": False, "error": f"syntax error: {e}", "path": str(p)}
-                )
+                return json.dumps({"success": False, "error": f"syntax error: {e}", "path": str(p)})
         return json.dumps(
             {
                 "success": True,
@@ -196,6 +195,7 @@ def sin_edit(
         if not p.exists():
             return json.dumps({"error": f"file not found: {file_path}"})
         from sin_code_bundle import hashline
+
         patcher = hashline.SINHashlinePatch(repo_root=p.parent)
         patch = patcher.create_semantic_patch(
             file_path=str(p),
@@ -212,9 +212,7 @@ def sin_edit(
                 }
             )
         ok, msg = patcher.apply_semantic_patch(patch)
-        return json.dumps(
-            {"success": ok, "message": msg, "intent": intent, "patch": patch}
-        )
+        return json.dumps({"success": ok, "message": msg, "intent": intent, "patch": patch})
     except Exception as exc:
         return json.dumps({"error": str(exc), "file_path": file_path})
 
@@ -250,9 +248,7 @@ def sin_bash(command: str, timeout: int = 60) -> str:
                     "redacted": True,
                 }
             )
-        proc = subprocess.run(
-            command, shell=True, capture_output=True, text=True, timeout=timeout
-        )
+        proc = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=timeout)
         return json.dumps(
             {
                 "stdout": proc.stdout[-10000:],
@@ -293,6 +289,7 @@ def sin_search(query: str, path: str = ".", search_type: str = "semantic") -> st
                 except Exception:
                     pass
         import re as _re
+
         results: list[dict[str, Any]] = []
         target = Path(path).expanduser()
         if target.is_file():
@@ -308,7 +305,9 @@ def sin_search(query: str, path: str = ".", search_type: str = "semantic") -> st
                 continue
             for m in _re.finditer(query, text):
                 line_no = text[: m.start()].count("\n") + 1
-                line_text = text.splitlines()[line_no - 1] if line_no <= len(text.splitlines()) else ""
+                line_text = (
+                    text.splitlines()[line_no - 1] if line_no <= len(text.splitlines()) else ""
+                )
                 results.append(
                     {
                         "file": str(p),
@@ -330,6 +329,7 @@ def sin_search(query: str, path: str = ".", search_type: str = "semantic") -> st
 # VFS / Memory / AST-edit / Hashline (dedicated tools, per user request)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @mcp.tool()
 def sin_vfs_resolve(uri: str) -> str:
     """Resolve a SIN URI scheme to structured content.
@@ -346,6 +346,7 @@ def sin_vfs_resolve(uri: str) -> str:
     """
     try:
         from sin_code_bundle import vfs
+
         return json.dumps(vfs.SINVirtualFS().resolve(uri), indent=2, default=str)
     except Exception as exc:
         return json.dumps({"error": str(exc), "uri": uri})
@@ -356,6 +357,7 @@ def sin_vfs_schemes() -> str:
     """List all available SIN-Code URI schemes and their meanings."""
     try:
         from sin_code_bundle import vfs
+
         return json.dumps(vfs.URI_SCHEMES, indent=2)
     except Exception as exc:
         return json.dumps({"error": str(exc)})
@@ -379,14 +381,18 @@ def sin_ast_edit(
             return json.dumps({"error": f"file not found: {file_path}"})
         try:
             from sin_code_bundle import ast_edit as _ast
+
             editor = _ast.SINASTEdit(repo_root=p.parent)
             if editor.is_available():
                 result = editor.edit(p, old_content, new_content, verify_with_poc=verify_with_poc)
-                return json.dumps(result.to_dict() if hasattr(result, "to_dict") else {"result": str(result)})
+                return json.dumps(
+                    result.to_dict() if hasattr(result, "to_dict") else {"result": str(result)}
+                )
         except Exception:
             pass
         # Fallback: hashline
         from sin_code_bundle import hashline
+
         patcher = hashline.SINHashlinePatch(repo_root=p.parent)
         patch = patcher.create_semantic_patch(
             file_path=str(p), old_text=old_content, new_text=new_content, intent=""
@@ -404,6 +410,7 @@ def sin_hashline_validate(file_path: str, patch: dict) -> str:
     """Validate a previously-created hashline patch can still be applied."""
     try:
         from sin_code_bundle.hashline import HashlineAnchor
+
         content = Path(file_path).read_text(encoding="utf-8", errors="replace")
         anchor = HashlineAnchor(content)
         is_valid, msg = anchor.validate_patch(patch)
@@ -415,6 +422,7 @@ def sin_hashline_validate(file_path: str, patch: dict) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 # Subsystem tools (graceful degradation: try-import, skip on missing)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _try_subsystem_tools() -> None:
     """Wire subsystem tools; each block skips on ImportError."""
@@ -447,7 +455,11 @@ def _try_subsystem_tools() -> None:
             intents = IntentSummarizer().summarize(changes)
             risk = RiskScorer().score(changes)
             return json.dumps(
-                {"intents": [i.__dict__ for i in intents], "risk": risk, "verdict": "see risk.score"}
+                {
+                    "intents": [i.__dict__ for i in intents],
+                    "risk": risk,
+                    "verdict": "see risk.score",
+                }
             )
     except ImportError:
         pass
@@ -540,7 +552,9 @@ def _try_subsystem_tools() -> None:
             ri = ReviewServer()
             if hasattr(ri, "review_file"):
                 return json.dumps(ri.review_file(file_path))
-            return json.dumps({"file_path": file_path, "status": "ReviewServer available, no review_file method"})
+            return json.dumps(
+                {"file_path": file_path, "status": "ReviewServer available, no review_file method"}
+            )
     except ImportError:
         pass
 
@@ -549,6 +563,7 @@ def _try_memory_tools() -> None:
     """Wire sin-brain memory tools; skip if not installed."""
     try:
         from sin_code_bundle import memory
+
         memory.register_tools(mcp)
     except ImportError:
         pass
@@ -615,6 +630,7 @@ _try_external_tools()
 # DAP Runtime Tracing
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @mcp.tool()
 def sin_runtime_trace(file_path: str, function_name: str, language: str = "python") -> str:
     """Start a DAP debugging session for a specific function.
@@ -623,6 +639,7 @@ def sin_runtime_trace(file_path: str, function_name: str, language: str = "pytho
     """
     try:
         from sin_code_bundle.dap_bridge import SINRuntimeTrace
+
         tracer = SINRuntimeTrace()
         return json.dumps(tracer.trace_function(file_path, function_name, language))
     except Exception as exc:
@@ -634,6 +651,7 @@ def sin_stop_trace(session_id: str) -> str:
     """Stop an active DAP debugging session."""
     try:
         from sin_code_bundle.dap_bridge import SINRuntimeTrace
+
         tracer = SINRuntimeTrace()
         return json.dumps(tracer.stop_trace(session_id))
     except Exception as exc:
@@ -644,6 +662,7 @@ def sin_stop_trace(session_id: str) -> str:
 # Interceptor (Architectural Enforcement)
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @mcp.tool()
 def sin_check_architecture(tool_name: str, tool_input: dict) -> str:
     """Pre-flight: validate if a tool call violates architectural rules.
@@ -652,6 +671,7 @@ def sin_check_architecture(tool_name: str, tool_input: dict) -> str:
     """
     try:
         from sin_code_bundle.interceptor import SINInterceptor
+
         return json.dumps(SINInterceptor().preflight(tool_name, tool_input))
     except Exception as exc:
         return json.dumps({"error": str(exc)})
@@ -661,11 +681,13 @@ def sin_check_architecture(tool_name: str, tool_input: dict) -> str:
 # Worktree Orchestration
 # ─────────────────────────────────────────────────────────────────────────────
 
+
 @mcp.tool()
 def sin_create_worktree(branch_name: str = "") -> str:
     """Create an isolated git worktree for parallel agent task execution."""
     try:
         from sin_code_bundle.orchestration_worktrees import SINWorktreeOrchestrator
+
         return json.dumps(SINWorktreeOrchestrator().create_worktree(branch_name or None))
     except Exception as exc:
         return json.dumps({"error": str(exc)})
@@ -676,6 +698,7 @@ def sin_cleanup_worktree(worktree_path: str, merge_back: bool = False) -> str:
     """Clean up an isolated worktree. Optionally merge back to main."""
     try:
         from sin_code_bundle.orchestration_worktrees import SINWorktreeOrchestrator
+
         return json.dumps(SINWorktreeOrchestrator().cleanup_worktree(worktree_path, merge_back))
     except Exception as exc:
         return json.dumps({"error": str(exc)})
@@ -684,6 +707,7 @@ def sin_cleanup_worktree(worktree_path: str, merge_back: bool = False) -> str:
 def main() -> None:
     """Run the MCP server (stdio)."""
     import sys
+
     sys.stderr.write("[SIN-CODE-BUNDLE] MCP server starting (stdio).\n")
     sys.stderr.flush()
     mcp.run()

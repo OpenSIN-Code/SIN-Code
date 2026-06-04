@@ -2,18 +2,17 @@
 
 Docs: test_mcp_integration.doc.md
 """
+
 from __future__ import annotations
 
 import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from sin_code_bundle.dap_bridge import DAPSession, SINRuntimeTrace  # noqa: E402
 from sin_code_bundle.interceptor import SINInterceptor  # noqa: E402
-from sin_code_bundle.dap_bridge import SINRuntimeTrace, DAPSession  # noqa: E402
 from sin_code_bundle.orchestration_worktrees import SINWorktreeOrchestrator  # noqa: E402
 
 
@@ -59,7 +58,9 @@ class TestDAPBridge:
     def test_runtime_trace_unknown_function_returns_error(self, tmp_path):
         tracer = SINRuntimeTrace(repo_root=tmp_path)
         # Should attempt start; debugpy may or may not be installed
-        result = tracer.trace_function("nonexistent.py", "nonexistent", "python", store_in_memory=False)
+        result = tracer.trace_function(
+            "nonexistent.py", "nonexistent", "python", store_in_memory=False
+        )
         # Either succeeds (debugpy installed) or returns error (missing) — both acceptable
         assert "success" in result or "error" in result
 

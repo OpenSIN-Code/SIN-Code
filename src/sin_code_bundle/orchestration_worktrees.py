@@ -2,6 +2,7 @@
 
 Docs: orchestration_worktrees.doc.md
 """
+
 from __future__ import annotations
 
 import os
@@ -9,7 +10,7 @@ import shutil
 import subprocess
 import uuid
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 
 class SINWorktreeOrchestrator:
@@ -30,11 +31,15 @@ class SINWorktreeOrchestrator:
         try:
             subprocess.run(
                 ["git", "worktree", "add", str(worktree_path), "-b", branch],
-                cwd=self.repo_root, check=True, capture_output=True, text=True,
+                cwd=self.repo_root,
+                check=True,
+                capture_output=True,
+                text=True,
             )
             self.active_worktrees.append(worktree_path)
             return {
-                "success": True, "worktree_path": str(worktree_path),
+                "success": True,
+                "worktree_path": str(worktree_path),
                 "branch": branch,
                 "message": f"Isolated worktree created at {worktree_path}",
             }
@@ -59,16 +64,29 @@ class SINWorktreeOrchestrator:
         try:
             if merge_back:
                 branch = path.name
-                subprocess.run(["git", "checkout", "main"], cwd=self.repo_root, check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "checkout", "main"], cwd=self.repo_root, check=True, capture_output=True
+                )
                 merge_result = subprocess.run(
-                    ["git", "merge", "--no-ff", branch, "-m", f"Auto-merge from SIN worktree: {branch}"],
-                    cwd=self.repo_root, capture_output=True, text=True,
+                    [
+                        "git",
+                        "merge",
+                        "--no-ff",
+                        branch,
+                        "-m",
+                        f"Auto-merge from SIN worktree: {branch}",
+                    ],
+                    cwd=self.repo_root,
+                    capture_output=True,
+                    text=True,
                 )
                 if merge_result.returncode != 0:
                     return {"error": f"Merge conflict: {merge_result.stderr}"}
             subprocess.run(
                 ["git", "worktree", "remove", str(path), "--force"],
-                cwd=self.repo_root, check=True, capture_output=True,
+                cwd=self.repo_root,
+                check=True,
+                capture_output=True,
             )
             self.active_worktrees.remove(path)
             if path.exists():

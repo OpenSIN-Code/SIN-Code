@@ -2,13 +2,12 @@
 
 Docs: dap_bridge.doc.md
 """
+
 from __future__ import annotations
 
-import json
 import subprocess
-import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 
 class DAPSession:
@@ -26,30 +25,50 @@ class DAPSession:
             if self.language == "python":
                 self.port = 5678
                 self.process = subprocess.Popen(
-                    ["python", "-m", "debugpy", "--listen", str(self.port),
-                     "--wait-for-client", self.target],
+                    [
+                        "python",
+                        "-m",
+                        "debugpy",
+                        "--listen",
+                        str(self.port),
+                        "--wait-for-client",
+                        self.target,
+                    ],
                     cwd=self.repo_root,
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                 )
             elif self.language == "go":
                 self.port = 2345
                 self.process = subprocess.Popen(
-                    ["dlv", "debug", "--headless", "--listen", f":{self.port}",
-                     "--api-version=2", self.target],
+                    [
+                        "dlv",
+                        "debug",
+                        "--headless",
+                        "--listen",
+                        f":{self.port}",
+                        "--api-version=2",
+                        self.target,
+                    ],
                     cwd=self.repo_root,
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                 )
             elif self.language in ("node", "javascript", "typescript"):
                 self.port = 9229
                 self.process = subprocess.Popen(
                     ["node", f"--inspect-brk={self.port}", self.target],
                     cwd=self.repo_root,
-                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
                 )
             else:
                 return {"error": f"Unsupported language for DAP: {self.language}"}
-            return {"success": True, "port": self.port,
-                    "message": f"Debugger attached on port {self.port}"}
+            return {
+                "success": True,
+                "port": self.port,
+                "message": f"Debugger attached on port {self.port}",
+            }
         except FileNotFoundError:
             return {"error": f"Debugger for {self.language} not found (install debugpy/dlv/node)."}
         except Exception as e:
@@ -87,6 +106,7 @@ class SINRuntimeTrace:
         if store_in_memory:
             try:
                 from sin_code_bundle import memory
+
                 memory.remember(
                     f"Runtime trace initiated for {function_name} in {file_path} on port {result['port']}",
                     kind="runtime",
