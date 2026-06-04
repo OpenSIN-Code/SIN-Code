@@ -174,10 +174,18 @@ jobs:
           SIN_GITHUB_APP_CLIENT_ID: Iv23livllaHIBTdQdyhY
         run: |
           # post_audit_pr.py lives in the cloned Infra repo (see 'Install ceo-audit skill' step)
+          # score.json is written by audit.sh to ~/ceo-audits/<repo>-ceo-audit-<runid>/score.json
+          # We search both ceo-audit-output/ and ~/ceo-audits/ to be robust.
+          SCORE_FILE=$(find $HOME/ceo-audits ceo-audit-output -name 'score.json' 2>/dev/null | head -1)
+          if [ -z "$SCORE_FILE" ]; then
+            echo "::warning::No score.json found — skipping App commenter (Action comment above still posts)"
+            exit 0
+          fi
+          echo "Using score.json: $SCORE_FILE"
           python3 ${{ github.workspace }}/infra/skills/ceo-audit/scripts/post_audit_pr.py \
             --repo ${{ github.repository }} \
             --pr ${{ github.event.pull_request.number }} \
-            --score-json ceo-audit-output/score.json \
+            --score-json "$SCORE_FILE" \
             --artifact-url ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }} \
             --run-id ${{ github.run_id }}
 
