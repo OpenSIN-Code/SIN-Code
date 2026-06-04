@@ -24,6 +24,10 @@
 #   --skip-go   Skip Go tool build (only install Python bundle + register MCP)
 #   --bundle-only  Alias for --skip-go
 #   --skip-external  Skip gitnexus, simone-mcp, and SIN-Brain checks
+#   --with-externals  Auto-install external bridges (GitNexus, MarkItDown,
+#                     RTK, Simone-MCP) instead of just verifying them.
+#                     Default behaviour: verify-only (idempotent, never modifies
+#                     those tools' global install paths).
 #
 # Environment overrides (all optional):
 #   SIN_CODE_BIN_DIR     Install dir for Go binaries (default: $HOME/.local/bin)
@@ -47,6 +51,11 @@ VERBOSE=0
 FORCE=0
 SKIP_GO=0
 SKIP_EXTERNAL=0
+# --with-externals: when set, run `auto_install_externals` (npm/pipx/brew
+# against the 4 external bridges) instead of the default verify-only flow.
+# Default is verify-only to keep `install.sh` idempotent and side-effect free
+# for the user-installed global tools.
+WITH_EXTERNALS=0
 
 # Tool registry: binary name ↔ module path ↔ repo dir name
 # Order is deliberate: discover first (most-used), orchestrate last.
@@ -108,6 +117,8 @@ Options:
   --skip-go        Skip Go tool build (only install Python bundle + register MCP)
   --bundle-only    Alias for --skip-go
   --skip-external  Skip gitnexus, simone-mcp, and SIN-Brain checks
+  --with-externals  Auto-install external bridges (GitNexus, MarkItDown, RTK,
+                    Simone-MCP) — default is verify-only
 
 Environment overrides:
   SIN_CODE_BIN_DIR         Install dir for Go binaries (default: ~/.local/bin)
@@ -141,6 +152,7 @@ while [[ $# -gt 0 ]]; do
     --force)    FORCE=1 ;;
     --skip-go|--bundle-only) SKIP_GO=1 ;;
     --skip-external) SKIP_EXTERNAL=1 ;;
+    --with-externals) WITH_EXTERNALS=1 ;;
     -h)         usage; exit 2 ;;
     *)          err "Unknown flag: $1"; usage; exit 1 ;;
   esac
@@ -496,6 +508,123 @@ check_sin_brain() {
     info "SIN-Brain is private and currently docs-only."
     info "If you have access, clone it: git clone https://github.com/OpenSIN-Code/SIN-Brain.git $brain_repo"
   fi
+}
+
+# ── Optional: --with-externals auto-install ──────────────────────────────
+# Default behaviour: setup_gitnexus / setup_simone_mcp only install their
+# respective tools when missing; MarkItDown and RTK are NOT touched at all
+# (they are external bridges the user is expected to install via
+# `sin markitdown setup` / `sin rtk setup`).
+#
+# --with-externals switches this to: for every missing external bridge,
+# attempt the platform-native install path:
+#   • GitNexus:  `npm install -g @abhigyanpatwari/gitnexus`
+#   • MarkItDown: `pipx install markitdown` (fallback: `pip install 'markitdown[all]'`)
+#   • RTK:       `brew install rtk` (Homebrew required; no fallback if missing)
+#   • Simone-MCP: `npm install` in $REPOS_DIR/Simone-MCP (must be cloned first)
+#
+# Each step is best-effort: failures print a warning with the manual install
+# command and continue. We never abort the whole install over a missing
+# external bridge — they are optional and the bundle runs fine without them.
+auto_install_externals() {
+  if [[ "$WITH_EXTERNALS" -eq 0 ]]; then
+    return 0
+  fi
+  if [[ "$SKIP_EXTERNAL" -eq 1 ]]; then
+    warn "--with-externals ignored (--skip-external takes precedence)"
+    return 0
+  fi
+
+  heading "Optional: auto-install external bridges (--with-externals)"
+
+  # GitNexus — npm global install
+  if npx gitnexus --version >/dev/null 2>&1; then
+    ok "GitNexus already installed: $(npx gitnexus --version 2>/dev/null)"
+  else
+    info "  → GitNexus (graph context) — npm install -g @abhigyanpatwari/gitnexus"
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      dry "npm install -g @abhigyanpatwari/gitnexus"
+    elif command -v npm >/dev/null 2>&1; then
+      if run npm install -g @abhigyanpatwari/gitnexus; then
+        ok "GitNexus installed"
+      else
+        warn "GitNexus npm install failed — try: npm install -g @abhigyanpatwari/gitnexus"
+      fi
+    else
+      warn "npm not found — install Node.js >= 18 then: npm install -g @abhigyanpatwari/gitnexus"
+    fi
+  fi
+
+  # MarkItDown — pipx preferred, pip fallback
+  if python3 -c "import markitdown" 2>/dev/null; then
+    ok "MarkItDown already installed"
+  else
+    info "  → MarkItDown (document → markdown)"
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      dry "pipx install markitdown"
+      dry "pip install 'markitdown[all]'   # fallback"
+    elif command -v pipx >/dev/null 2>&1; then
+      if run pipx install markitdown; then
+        ok "MarkItDown installed via pipx"
+      else
+        warn "pipx install markitdown failed — trying pip fallback"
+        if run python3 -m pip install --user 'markitdown[all]'; then
+          ok "MarkItDown installed via pip --user"
+        else
+          warn "MarkItDown install failed — try: pipx install markitdown  OR  pip install 'markitdown[all]'"
+        fi
+      fi
+    else
+      warn "pipx not found — falling back to pip install"
+      if run python3 -m pip install --user 'markitdown[all]'; then
+        ok "MarkItDown installed via pip --user"
+      else
+        warn "MarkItDown install failed — try: pip install 'markitdown[all]'"
+      fi
+    fi
+  fi
+
+  # RTK — brew only (no apt/winget fallback; RTK upstream is Homebrew-only)
+  if command -v rtk >/dev/null 2>&1; then
+    ok "RTK already installed: $(command -v rtk)"
+  else
+    info "  → RTK (token-saving shell proxy)"
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      dry "brew install rtk"
+    elif command -v brew >/dev/null 2>&1; then
+      if run brew install rtk; then
+        ok "RTK installed via Homebrew"
+      else
+        warn "brew install rtk failed — try: brew install rtk"
+      fi
+    else
+      warn "Homebrew not found — install RTK manually: https://github.com/rtk-ai/rtk"
+    fi
+  fi
+
+  # Simone-MCP — npm install in $REPOS_DIR/Simone-MCP
+  if python3 -c "import simone_mcp" 2>/dev/null; then
+    ok "Simone-MCP already installed (Python package)"
+  else
+    info "  → Simone-MCP (code intelligence)"
+    local simone_repo="$REPOS_DIR/Simone-MCP"
+    if [[ -d "$simone_repo" ]]; then
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        dry "cd $simone_repo && npm install --silent"
+      else
+        if (cd "$simone_repo" && run npm install --silent); then
+          ok "Simone-MCP dependencies installed"
+        else
+          warn "Simone-MCP npm install failed — try: cd $simone_repo && npm install"
+        fi
+      fi
+    else
+      warn "Simone-MCP not cloned at $simone_repo"
+      warn "Clone it first: gh repo clone OpenSIN-Code/Simone-MCP $simone_repo"
+    fi
+  fi
+
+  ok "External bridge auto-install complete (best-effort — see warnings above)"
 }
 
 # ── Step 9: Python subsystem health check ────────────────────────────────
@@ -880,6 +1009,7 @@ main() {
   setup_gitnexus
   setup_simone_mcp
   check_sin_brain
+  auto_install_externals   # no-op unless --with-externals
   check_python_subsystems
   smoke_test
   patch_opencode_config

@@ -4,6 +4,36 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.6] - 2026-06-04 — PyPI Trusted Publisher setup + external auto-install
+
+### Added
+- `tools/setup_pypi_publisher.sh` — one-time PyPI Trusted Publisher
+  registration via PyPI's `_/v1/publisher` API. Handles 2FA/TOTP (append
+  the 6-digit code to the password), PEP 503 project-name normalisation,
+  HTTP-status interpretation (201/200/400/401/403/409/422), and prints a
+  manual fallback URL on any failure. After one interactive run, every
+  `v*` tag push auto-publishes to PyPI via `release.yml` (which already
+  has `id-token: write` and `environment: pypi`).
+- `tools/setup_pypi_publisher.doc.md` — CoDocs companion: failure-mode
+  table, security notes, pre-conditions, related files.
+- `install.sh --with-externals` flag — upgrades the install from
+  "verify only" to actually auto-installing the 4 external bridges
+  (GitNexus via `npm install -g`, MarkItDown via `pipx install` /
+  `pip install 'markitdown[all]'` fallback, RTK via `brew install` if
+  Homebrew is present, Simone-MCP via `npm install` if `~/dev/Simone-MCP`
+  is already cloned). Without the flag, behaviour is unchanged.
+- README "Publishing to PyPI" section — quick-start for
+  `tools/setup_pypi_publisher.sh` and the manual fallback URL.
+- README flag list extended with `--with-externals` + rationale.
+
+### Verified
+- `bash -n tools/setup_pypi_publisher.sh` → syntax OK (201 lines).
+- `bash -n install.sh` → syntax OK.
+- `pytest tests/` → unchanged (no source changes affecting test surface).
+- Project name normalisation matches PEP 503 (lowercase, `_` → `-`).
+- `release.yml` confirmed already has `id-token: write` + `environment: pypi`
+  so no workflow changes are needed for Trusted Publishing to function.
+
 ## [0.6.5] - 2026-06-04 — env-aware test skipif
 
 ### Fixed

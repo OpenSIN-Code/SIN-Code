@@ -51,12 +51,46 @@ bash uninstall.sh     # Remove everything bash install.sh installed
 bash update.sh        # Update in-place without full reinstall
 ```
 
-Flags: `--help`, `--dry-run`, `--verbose`, `--force`, `--skip-go`, `--skip-external`
+Flags: `--help`, `--dry-run`, `--verbose`, `--force`, `--skip-go`, `--skip-external`, `--with-externals`
+
+`--with-externals` upgrades the install from "check only" to actually
+auto-installing the external bridges: GitNexus (npm), MarkItDown (pipx/pip),
+RTK (brew), and Simone-MCP (npm in `~/dev/Simone-MCP`). Without this flag,
+those tools are only verified/registered — the user must run `sin xxx setup`
+manually for each one.
 
 Environment overrides:
 ```bash
 SIN_CODE_BIN_DIR=~/custom-bin SIN_CODE_REPOS_DIR=~/my-repos bash install.sh
+SIN_CODE_BIN_DIR=~/custom-bin bash install.sh --with-externals
 ```
+
+### Publishing to PyPI (one-time setup)
+
+The `release.yml` workflow uses **PyPI Trusted Publishing** (no API tokens, no
+manual uploads). To enable it for the first time, the maintainer must
+register the publisher once:
+
+```bash
+bash tools/setup_pypi_publisher.sh
+# Follow the prompts, check email, click the magic link
+```
+
+After this one-time setup, every `git tag v0.X.Y && git push origin v0.X.Y`
+triggers:
+
+1. Build sdist + wheel
+2. Verify install in a clean venv
+3. Publish to PyPI via Trusted Publisher (tokenless OIDC)
+4. Attach assets to GitHub Release
+
+**Manual fallback:** <https://pypi.org/manage/account/publishing/> — Add pending publisher:
+
+- Project: `sin-code-bundle` (PEP 503 normalised)
+- Owner: `OpenSIN-Code`
+- Repo: `SIN-Code-Bundle`
+- Workflow filename: `release.yml`
+- Environment name: `pypi`
 
 ---
 

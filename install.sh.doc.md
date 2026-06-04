@@ -58,6 +58,8 @@ Docs: install.sh (source of truth — this file is the "what and why")
 | `--verbose` | Echo every command via `set -x`-style logging |
 | `--force` | Rebuild all Go tools even if up-to-date |
 | `--skip-go` / `--bundle-only` | Skip Go build; only install Python bundle + register MCP |
+| `--skip-external` | Skip gitnexus, simone-mcp, and SIN-Brain checks entirely |
+| `--with-externals` | Auto-install external bridges (GitNexus, MarkItDown, RTK, Simone-MCP) instead of just verifying them. Default is verify-only — the user is expected to run `sin gitnexus setup` / `sin markitdown setup` / `sin rtk setup` manually. With this flag, `auto_install_externals` runs after step 8 and best-effort installs: `npm install -g @abhigyanpatwari/gitnexus` / `pipx install markitdown` (pip fallback) / `brew install rtk` / `npm install` in `$REPOS_DIR/Simone-MCP`. Each step warns on failure and continues — never aborts the whole install over an optional external. |
 
 ---
 
