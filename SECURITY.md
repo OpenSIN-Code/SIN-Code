@@ -67,27 +67,23 @@ subsystems. Its security model is layered:
 |-------|------------------|--------------------|------|
 | **Code execution** | Process isolation (Go subprocess) | N/A | N/A |
 | **API keys (v0.4.3+)** | Fernet AES-128-CBC | `SINATOR_ENCRYPTION_KEY` env var | `SINATOR_API_TOKEN` header |
-| **Honcho peer memory** | Honcho server (separate process) | Honcho-managed | Honcho workspace ID |
-| **SQLite memory** | Local file `.sin_memory.db` | Plaintext (local-only) | N/A (machine-scoped) |
+| **sin-brain memory** | `sin_brain` package (separate PyPI module) | `sin_brain`-managed (SQLite at the location reported by `sin memory detect`) | `sin_brain` workspace ID |
 | **CoDocs references** | Code-level only | N/A | N/A |
 
 ## Hardening Checklist (for operators)
 
 ```bash
-# 1. Always set a strong API key for Honcho (32+ bytes)
-export HONCHO_API_KEY="$(openssl rand -base64 32)"
-
-# 2. Use Fernet encryption for any SIN-Code keys
+# 1. Use Fernet encryption for any SIN-Code keys
 python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 # → Set as SINATOR_ENCRYPTION_KEY env var
 
-# 3. Run ceo-audit regularly to detect regressions
+# 2. Run ceo-audit regularly to detect regressions
 ~/.config/opencode/skills/ceo-audit/scripts/audit.sh . --profile=SECURITY --grade=B
 
-# 4. Enable Dependabot/Renovate for automatic CVE patching
+# 3. Enable Dependabot/Renovate for automatic CVE patching
 # (configured in .github/dependabot.yml if you forked us)
 
-# 5. Pin Python versions in production
+# 4. Pin Python versions in production
 python3 -m pip install 'sin-code-bundle==0.4.4'  # exact pin
 ```
 

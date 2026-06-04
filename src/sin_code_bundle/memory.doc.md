@@ -1,178 +1,151 @@
 # memory.py
 
-Persistent memory layer with three stacked backends:
+Thin pass-through adapter to the external **`sin-brain`** package. The bundle
+holds **no** memory logic itself — this module only:
 
-1. **SQLite** — always-on durable store (facts, tags, context).
-2. **SCKG** — optional code-knowledge graph (`sin_code_sckg`).
-3. **Honcho** — optional behavioral-memory layer (`honcho-ai`).
+1. detects whether `sin_brain` is importable (for `sin status`), and
+2. exposes the five memory operations as MCP tools registered by `sin serve`.
 
-Inspired by the retain / recall / reflect patterns from Hindsight and
-Letta. SCKG and Honcho are both *optional* dependencies and gracefully
-degrade to no-ops when the package is missing or the server is
-unreachable. SQLite is the durable source of truth.
+## Architecture
+
+```
++-----------------------------+
+|  sin_code_bundle/memory.py  |   ← THIS module: pass-through adapter
+|  (detect_env, register_tools)|
++-------------↓---------------+
+              | importlib (lazy)
+              v
++-----------------------------+
+|  sin_brain.mcp_tools        |   ← REAL memory: SQLite + FTS5
+|  (recall, remember, forget, |      1500+ LOC, MIT
+|   pin, link_evidence)       |
++-----------------------------+
+              |
+              v
++-----------------------------+
+|  sin_brain                  |   ← AGENTS.md inject, tiered recall,
+|  (storage + retrieval core) |      evidence graph, ttl, pin
++-----------------------------+
+```
+
+## What this module exports
+
+| Symbol | Purpose |
+|---|---|
+| `MemoryUnavailable` | Raised when `sin_brain` is not installed. |
+| `MemoryEnv` | Dataclass for `detect_env()` output (available, db_path, tiers). |
+| `detect_env()` | Cheap import-check; reads `sin_brain.stats()` if present. |
+| `recall(query, scope, k)` | Tiered search. Returns JSON. |
+| `remember(content, kind, ttl_days, scope)` | Persist. Returns JSON. |
+| `forget(id)` | Remove. Returns JSON. |
+| `pin(id)` | Protect from eviction. Returns JSON. |
+| `link_evidence(entity, verdict, source)` | Attach subsystem verdict to code entity. |
+| `inject()` | Return `sin_brain.inject()` AGENTS.md block (SB-4), or `""`. |
+| `register_tools(mcp)` | Wire the five tools to an MCP server. Returns list of names. |
+| `TOOL_NAMES` | Tuple `("recall", "remember", "forget", "pin", "link_evidence")`. |
 
 ## Dependencies
 
-- stdlib: `sqlite3`, `json`, `datetime`, `pathlib`
-- optional: `sin_code_sckg` (`KnowledgeGraph` with `add_node`)
-- optional: `honcho-ai` 2.1+ (`Honcho`, `Honcho.peer`, `Honcho.session`)
+- stdlib: `importlib`, `json`, `dataclasses`, `typing`
+- optional: **`sin_brain`** (separate package — `pip install sin-brain`,
+  or `pip install sin-code-bundle[memory]`)
+
+The `sin_brain` package is the **only** memory backend. There is no Honcho
+integration in this bundle. If you want behavioral memory, install Honcho
+separately and run your own server:
+
+```bash
+pip install honcho-ai
+honcho serve    # default: http://localhost:8000
+```
+
+…then call Honcho from your own application code. The bundle does not
+proxy to it.
 
 ## Touched by
 
-- (none yet — this is a leaf module exposed for agent use)
+- `cli.py` — no longer references `SINMemory` / `HonchoBackend`; the
+  `sin memory` and `sin context` sub-commands were removed in the Honcho
+  cleanup commit (see git log).
+- `mcp_server.py` — calls `register_tools(mcp)` to wire the five tools.
+- `agents_md.py` — calls `inject()` to embed the AGENTS.md block (SB-4).
+- `tests/test_memory.py` — adapter-level unit tests with a fake `sin_brain`.
 
-## What it does
+## What it does NOT do (deliberate)
 
-1. **`SINMemory(repo_root, db_path, honcho_workspace, honcho_base_url)`**
-   — opens a SQLite DB at `<repo_root>/.sin_memory.db` (overridable),
-   then *attempts* to construct a `sin_code_sckg.KnowledgeGraph` rooted
-   at `repo_root`, then attaches a `HonchoBackend`. All optional
-   backends degrade silently on failure.
-2. **`retain(fact, context, tags)`** — inserts a row into
-   `memories(id, fact, context, tags, created_at)`, then best-effort
-   adds a `memory:<id>` node to SCKG. SQLite is the source of truth.
-3. **`recall(query, limit, tags)`** — `LIKE %query%` search,
-   AND-combined over the supplied `tags` list, ordered newest-first.
-4. **`reflect(query, context)`** — convenience wrapper that
-   concatenates the top-5 recall hits into a single answer with a
-   fixed 0.5 confidence and a hint to use an LLM for real synthesis.
-5. **`forget(memory_id)`** — deletes a single row by id, returns
-   whether a row was actually removed.
-6. **`get_context_for_query(query)`** — unified context retrieval
-   that fans out to SCKG (code knowledge) and Honcho (behavioral
-   insights) and produces a single `synthesis` string suitable for
-   LLM prompt injection. Always returns a well-formed dict.
-7. **`get_stats()`** — returns `{total_facts, tags, backend, honcho}`
-   where `backend` is `"SQLite + SCKG"` or `"SQLite only"`, and
-   `honcho` is the `HonchoBackend.get_status()` payload.
+- No SQLite access of its own — `sin_brain` owns the DB and FTS5 schema.
+- No Honcho / behavioral-memory proxy.
+- No CLI sub-commands — the `sin memory {retain,recall,reflect,stats,forget}`
+  and `sin context query` commands referenced the old in-bundle `SINMemory`
+  class. That class was moved to `sin-brain` during BR-1 (commit af69464).
+  The bundle now exposes memory only as MCP tools, not as a CLI surface.
+- No semantic search / vector embeddings — `sin_brain` decides the recall
+  backend (currently LIKE + FTS5; vector recall is on the roadmap upstream).
 
-## Honcho Backend (Behavioral Memory)
+## Usage
 
-Honcho is a **behavioral memory** service — it remembers things about
-*peers* (users, agents) and their *interactions*: preferences, tone,
-recurring mistakes, and peer-specific context. It is the
-*complementary* half of the memory stack:
-
-| | SCKG (Code) | Honcho (Behavioral) |
-|---|---|---|
-| **Stores** | Module / File / Function graph | Conversations, preferences, peer-models |
-| **Use** | "Which modules are affected?" | "How does this user react to errors?" |
-| **Granularity** | Code | Session, peer |
-
-`HonchoBackend` exposes:
-
-- `is_available()` — cheap, cached connectivity check.
-- `get_status()` — `{available, workspace_id, base_url, error}`.
-- `get_or_create_peer(name)` / `get_or_create_session(name)`.
-- `retain_message(peer, content, role, session, metadata)` — stores a
-  message; optional session attachment.
-- `get_session_context(name)` — dialectic context for a session.
-- `chat(peer, query)` — ask the peer a question (dialectic).
-- `search(query, peer_name=...)` — semantic search across memory.
-
-### Graceful degradation
-
-Honcho is **optional** in every direction:
-
-- If `honcho-ai` is not installed → `is_available()` returns `False`
-  and every other method returns `None` / `[]` / `{"error": ...}`.
-- If the server is unreachable → same behaviour; the failure is
-  cached in `_init_error` and surfaced via `get_status()`.
-- A 2-second `timeout` is the default; we never want a Honcho outage
-  to block `retain` / `recall` / agent timeouts.
-- `SINMemory` is fully usable with no Honcho at all — `retain` still
-  writes to SQLite, and `get_context_for_query` returns
-  `{"synthesis": "No context available.", ...}`.
-
-### Setting up the Honcho server
-
-```bash
-# Install (already a transitive dep in many envs)
-pip install honcho-ai
-
-# Start the local server (default: http://localhost:8000)
-honcho serve
-
-# Or set a custom URL
-export HONCHO_BASE_URL="https://honcho.example.com"
-```
-
-If you don't run the server, `HonchoBackend` will detect the
-connection error on first use and silently turn into a no-op.
-
-### Using the combined stack
+### Detect availability
 
 ```python
-from pathlib import Path
-from sin_code_bundle.memory import SINMemory
+from sin_code_bundle import memory
 
-mem = SINMemory(
-    Path("/path/to/repo"),
-    honcho_workspace="my-team",       # optional, defaults to f"sin-bundle-{repo_name}"
-    honcho_base_url="http://localhost:8000",
-)
+env = memory.detect_env()
+print(env.to_dict())
+# → {"available": True, "db_path": "...", "tiers": {...}, "detail": "ok"}
+# → {"available": False, "detail": "sin_brain package not importable"}
+```
 
-# Backend status
-print(mem.get_stats())
-# → {"total_facts": 0, "tags": [], "backend": "SQLite + SCKG", "honcho": {...}}
+### Call the five operations directly (Python)
 
-# Unified context (SCKG + Honcho + SQLite-synthesis)
-ctx = mem.get_context_for_query("How should we handle auth errors?")
-print(ctx["synthesis"])
-print(ctx["backends"])  # {"sqlite": True, "sckg": True, "honcho": False}
+```python
+from sin_code_bundle import memory
+
+memory.remember("User prefers TypeScript over JavaScript",
+                kind="preference", scope="user")
+hits = memory.recall("typescript", scope="recall", k=5)
+# All five operations return JSON strings.
+```
+
+### Register as MCP tools (what `sin serve` does)
+
+```python
+from sin_code_bundle import memory
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("sin")
+names = memory.register_tools(mcp)
+# → ["recall", "remember", "forget", "pin", "link_evidence"]
 ```
 
 ## Important config
 
-- `db_path` — defaults to `<repo_root>/.sin_memory.db`. Pass an
-  explicit path to keep multiple memory stores side-by-side.
-- `repo_root` — defaults to `Path.cwd()`. Used as the SCKG root and
-  as the parent for the default DB path.
-- `honcho_workspace` — defaults to `f"sin-bundle-{repo_root.name}".
-  Distinct workspaces isolate peer/session namespaces in Honcho.
-- `honcho_base_url` — defaults to `http://localhost:8000`. Honcho is
-  treated as a local sidecar in dev.
-- `tags` in `retain` — stored as a comma-joined string, so a tag
-  cannot contain a comma. `recall(tags=[...])` uses
-  `LIKE '%tag%'` per tag (AND-combined), so substring collisions
-  between tags are possible — keep tag names short and atomic.
-
-## Usage
-
-```python
-from pathlib import Path
-from sin_code_bundle.memory import SINMemory, HonchoBackend
-
-# Full stack (SCKG + Honcho, if both are installed/reachable)
-mem = SINMemory(Path("/path/to/repo"))
-result = mem.retain("User prefers TypeScript", tags=["preference"])
-print(result["id"], result["stored_in"])  # → "SQLite only" or "SQLite + SCKG"
-
-hits = mem.recall("typescript", limit=5)
-for h in hits:
-    print(h["id"], h["fact"], h["tags"])
-
-print(mem.reflect("typescript")["confidence"])  # 0.0 or 0.5
-print(mem.get_stats())
-
-# Honcho-only usage (rarely needed; usually go through SINMemory)
-hb = HonchoBackend(workspace_id="my-ws")
-if hb.is_available():
-    hb.retain_message("coding-agent", "Likes small PRs", role="user")
-    print(hb.chat("coding-agent", "What does the user prefer?"))
-```
+- `scope` in `recall` — one of `("recall", "archival", "graph")`. Invalid
+  values raise `ValueError` (NOT `MemoryUnavailable`) — they are programming
+  errors, not deployment errors.
+- `kind` in `remember` — one of `("decision", "convention", "fix", "pitfall", "preference")`.
+  These are the kinds AGENTS.md cares about; keep them stable.
+- `scope` in `remember` — `("repo", "user")`. Repo-scoped facts survive
+  across sessions for the project; user-scoped facts persist across repos.
+- `ttl_days` in `remember` — `0` or `None` means no expiry. Otherwise the
+  entry is eligible for eviction after N days.
+- `source` in `link_evidence` — one of `("oracle", "poc", "ibd", "sckg", "adw")`.
+  The five SIN-Code subsystem identifiers. Adding a new one needs a code
+  change upstream.
 
 ## Known caveats
 
-- Search is **LIKE-based**, not semantic — substring matches only.
-  SCKG integration exists for *graph* queries, not for vector search.
-- Honcho peer models are *evolving* — early sessions yield thin
-  insights until the peer has seen enough interactions. Don't
-  treat `behavioral_insights` as authoritative on day one.
-- No schema migrations yet — adding columns requires manual ALTER.
-- Reflect is intentionally dumb; a real synthesizer (LLM) should
-  replace it before relying on `reflect()` for decisions.
-- SQLite writes are not WAL-mode here; high-frequency retains from
-  many threads should switch to WAL or move to a real server.
-- Honcho is a **sidecar**, not a source of truth. If the server is
-  wiped, behavioral insights are lost; durable facts live in SQLite.
+- The bundle does **not** implement a CLI surface for memory. The
+  `sin_brain` package owns its own CLI (when installed) — use that for
+  shell-level access.
+- `inject()` returns `""` on **any** failure (import, call, exception) —
+  by design, AGENTS.md injection must never crash the caller.
+- `register_tools()` returns `[]` when `sin_brain` is missing. The MCP
+  server is allowed to start with zero memory tools; the agent contract
+  is that they degrade gracefully.
+
+## See also
+
+- `sin-brain` package — the real backend
+- `src/sin_code_bundle/memory.py` — the adapter
+- `tests/test_memory.py` — adapter tests with fake `sin_brain`
+- `AGENTS.md` (this repo) — operational mandates around memory tools

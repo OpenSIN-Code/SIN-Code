@@ -42,6 +42,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Packaged agent skill (`data/codocs/SKILL.md`), `docs/CODOCS.md`, and a
     worked example under `examples/codocs/`.
 
+### Removed
+- **Dead Honcho / in-bundle `SINMemory` code paths.** The CLI sub-commands
+  `sin memory {retain,recall,reflect,stats,forget,honcho-status,honcho-retain,honcho-chat}`
+  and `sin context query` referenced `SINMemory` and `HonchoBackend` classes
+  that were moved to the external `sin-brain` package (commit `af69464`,
+  BR-1, Issue #14). Running any of those commands raised `ImportError`. The
+  bundle's `memory.py` is now an honest thin pass-through to
+  `sin_brain.mcp_tools`; the five memory operations are exposed only as MCP
+  tools (`recall`, `remember`, `forget`, `pin`, `link_evidence`) registered
+  by `sin serve`, not as a CLI surface. Honcho integration is out of scope
+  for this bundle: install it separately (`pip install honcho-ai`,
+  `honcho serve`) and call it from your own application code.
+  - `src/sin_code_bundle/cli.py`: 204 lines of dead code removed (the entire
+    `memory_app` and `context_app` typer sub-apps).
+  - `tests/test_v2_features.py`: 12 perpetually-skipped tests removed
+    (the entire `Memory: SQLite + Honcho Backend` section + the
+    `_skip_memory_v2` machinery); file 367 → 142 lines.
+  - `src/sin_code_bundle/memory.doc.md`: rewritten from 178 lines of stale
+    architecture description to 151 lines of honest current-state
+    documentation (thin adapter to `sin_brain`, no Honcho).
+  - `tests/test_v2_features.doc.md`: test count + Honcho notes corrected
+    (19 → 11, no Honcho section).
+  - `SECURITY.md`: `Honcho peer memory` row + `HONCHO_API_KEY` hint
+    replaced with a `sin-brain memory` row that reflects the real
+    deployment.
+
 ## [0.1.0] - 2026-05-30
 
 ### Added
