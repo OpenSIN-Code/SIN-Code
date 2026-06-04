@@ -4,6 +4,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] - 2026-06-04
+
+### Fixed
+- CoDocs compliance: added the 4 missing `.doc.md` companion files
+  (`dap_bridge.doc.md`, `interceptor.doc.md`, `orchestration_worktrees.doc.md`,
+  `mcp_server.doc.md`). Inline header references that previously pointed at
+  non-existent companion docs are now satisfied. 24/25 source files have
+  companions (the 25th, `__init__.py`, is a version-info file with no
+  `Docs:` reference — intentionally no companion).
+
 ## [Unreleased]
 
 ### Added
