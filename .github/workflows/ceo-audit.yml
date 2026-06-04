@@ -11,10 +11,12 @@
 name: ceo-audit
 
 on:
+  # NUR main/master (Branches sind verboten — siehe globale AGENTS.md).
+  # PRs sind weiterhin willkommen (last line of defense wenn doch einer entsteht).
   push:
-    branches: [main, master, develop]
+    branches: [main, master]
   pull_request:
-    branches: [main, master, develop]
+    branches: [main, master]
   workflow_dispatch:
     inputs:
       profile:
@@ -165,16 +167,20 @@ jobs:
 
       - name: Post official audit comment (SIN-GitHub-Issues App)
         if: github.event_name == 'pull_request' && always()
-        # Tries SIN_GITHUB_INSTALLATION_TOKEN first, falls back to GITHUB_TOKEN.
-        # On public repos with org secret set, posts as the App (better UX).
-        # On private repos or when secret missing, falls back to GITHUB_TOKEN (Action identity).
+        # Token resolution chain (highest priority first):
+        #   1. SIN_GITHUB_INSTALLATION_TOKEN (org secret, App identity, public repos only)
+        #   2. SIN_GITHUB_FALLBACK_TOKEN (repo secret, PAT — works on ALL repos incl. private)
+        #   3. GITHUB_TOKEN (built-in, Action identity, always present)
+        # Resolution happens inside post_audit_pr.py via github_app.get_token().
+        # If ALL tokens are missing, the step fails but continue-on-error prevents
+        # the workflow from blocking on App issues.
         continue-on-error: true
         env:
           PYTHONPATH: ${{ github.workspace }}/infra/skills/ceo-audit/lib
           SIN_GITHUB_APP_CLIENT_ID: Iv23livllaHIBTdQdyhY
-          # Pass through the built-in GITHUB_TOKEN (always present in CI).
-          # Will be used as fallback if SIN_GITHUB_INSTALLATION_TOKEN is unset.
+          # Chain of GitHub tokens (post_audit_pr.py picks the first available).
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SIN_GITHUB_FALLBACK_TOKEN: ${{ secrets.SIN_GITHUB_FALLBACK_TOKEN }}
         run: |
           # post_audit_pr.py lives in the cloned Infra repo (see 'Install ceo-audit skill' step)
           # score.json is written by audit.sh to ~/ceo-audits/<repo>-ceo-audit-<runid>/score.json
