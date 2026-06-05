@@ -27,6 +27,11 @@
 | `sin-scout` | `sin-scout` | `OpenSIN-Code/SIN-Code-Scout-Tool` | `sin-scout` | ✅ `~/.local/bin/scout` |
 | `sin-harvest` | `sin-harvest` | `OpenSIN-Code/SIN-Code-Harvest-Tool` | `sin-harvest` | ✅ `~/.local/bin/harvest` |
 | `sin-orchestrate` | `sin-orchestrate` | `OpenSIN-Code/SIN-Code-Orchestrate-Tool` | `sin-orchestrate` | ✅ `~/.local/bin/orchestrate` |
+| `sin-websearch` | `sin-websearch` | `OpenSIN-Code/SIN-Code-Websearch-Skill` | `sin-websearch` | ✅ `~/.config/opencode/skills/sin-websearch` |
+| `sin-scheduler` | `sin-scheduler` | `OpenSIN-Code/SIN-Code-Scheduler-Skill` | `sin-scheduler` | ✅ `~/.config/opencode/skills/sin-scheduler` |
+| `sin-marketplace` | `sin-marketplace` | `OpenSIN-Code/SIN-Code-Marketplace-Skill` | `sin-marketplace` | ✅ `~/.config/opencode/skills/sin-marketplace` |
+| `sin-slash` | `sin-slash` | `OpenSIN-Code/SIN-Code-Slash-Skill` | `sin-slash` | ✅ `~/.config/opencode/skills/sin-slash` |
+| `sin-goal-mode` | `sin-goal-mode` | `OpenSIN-Code/SIN-Code-Goal-Mode-Skill` | `sin-goal-mode` | ✅ `~/.config/opencode/skills/sin-goal-mode` |
 
 ### Anwendungsbeispiele
 
