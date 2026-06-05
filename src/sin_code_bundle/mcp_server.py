@@ -37,7 +37,13 @@ It exposes:
     - markitdown_convert
     - codocs_check
 
-Total: **24 tools** when all extras are installed.
+Total: **28 tools** when all extras are installed (24 prior + 4 v0.8.0 baseline).
+
+  **Baseline Workflow Tools** (v0.8.0) — never have to remember tool names:
+    - sin_immortal_commit     : one-call commit + tag + push (Conventional Commits)
+    - sin_programming_workflow: orchestrator (pre_write/write/post_write/pre_commit/refactor/session_warmup)
+    - sin_session_warmup      : first-call session context primer
+    - sin_merge_safety        : pre-merge / pre-PR safety gate
 
 Run via:
     python -m sin_code_bundle.mcp_server
@@ -783,6 +789,161 @@ def sin_cleanup_worktree(worktree_path: str, merge_back: bool = False) -> str:
         return json.dumps(SINWorktreeOrchestrator().cleanup_worktree(worktree_path, merge_back))
     except Exception as exc:
         return json.dumps({"error": str(exc)})
+
+
+# ── Baseline Workflow Tools (v0.8.0) ───────────────────────────────────────
+# Four tools that make the agent NEVER have to remember underlying tool names.
+# Each replaces 3-5 separate MCP calls with a single high-level action.
+# See immortal_commit.doc.md / programming_workflow.doc.md /
+#     session_warmup.doc.md / merge_safety.doc.md.
+
+
+@mcp.tool()
+def sin_immortal_commit(
+    message: str,
+    tag: str = "",
+    push: bool = True,
+    force_main: bool = True,
+    main_branch: str = "main",
+) -> str:
+    """One-call immortal commit — Conventional Commits + tag + push in 1 call.
+
+    Replaces the agent's raw `git add && git commit && git tag && git push`
+    sequence with a single tool that enforces four rules:
+
+    1. **Conventional Commits** — message must match ``type(scope): subject``
+       (subject >= 5 chars). Valid types: feat, fix, docs, chore, style,
+       test, refactor, perf, ci, build.
+    2. **No secrets in message** — substring scan for ``sk-``, ``ghp_``,
+       ``AIza``, ``AKIA``/``ASIA``, ``BEGIN PRIVATE KEY`` etc.
+    3. **Main only** — refuses to run on any branch other than ``main``
+       (configurable via ``main_branch=...``). Per the NEVER-BRANCHES mandate.
+    4. **Pre-commit snapshot** — creates a ``sin-honcho-rollback snapshot`` so
+       the user can roll back. Independent of the commit; failure is non-fatal.
+
+    Args:
+        message: Conventional Commits message (required).
+        tag: optional annotated tag (e.g. ``v0.8.0``).
+        push: if True, push to ``origin/<main_branch>`` after commit.
+        force_main: if True, refuse to run on any branch other than main.
+        main_branch: which branch counts as ``main`` (default ``main``).
+
+    Returns:
+        JSON string with ``success``, ``sha``, ``branch``, ``tag``, ``pushed``,
+        ``warnings``, ``steps`` (per-step status), ``snapshot`` info.
+    """
+    try:
+        from sin_code_bundle.immortal_commit import ImmortalCommitter
+
+        committer = ImmortalCommitter()
+        result = committer.commit(
+            message=message,
+            tag=tag,
+            push=push,
+            force_main=force_main,
+            main_branch=main_branch,
+        )
+        return json.dumps(result, indent=2, default=str)
+    except Exception as exc:
+        return json.dumps({"error": str(exc), "message": message})
+
+
+@mcp.tool()
+def sin_programming_workflow(
+    action: str,
+    target: str = "",
+    content: str = "",
+    message: str = "",
+    checkpoint_name: str = "",
+    base: str = "main",
+    head: str = "HEAD",
+) -> str:
+    """Orchestrate common programming workflows in a single call.
+
+    Actions:
+        pre_write       : sin_read + sin_preflight → READY / FIX_FIRST
+        write           : sin_preflight + sin_write → PROCEED / BLOCK
+        post_write      : sin_preflight + codocs_check + pytest --collect-only
+        pre_commit      : sin_checkpoint + git_status + codocs + ceo-audit (cached 5min)
+                          returns ``suggested_message`` if no message given
+        refactor        : sin_checkpoint + gitnexus_impact + gitnexus_detect_changes
+        session_warmup  : sin_session_warmup (branch, git_state, ceo_audit_grade,
+                          top_risks, session_recommendation)
+
+    Returns:
+        JSON string with ``action``, ``steps``, ``verdict``, plus action-
+        specific extras (e.g. ``suggested_message`` for pre_commit).
+    """
+    try:
+        from sin_code_bundle.programming_workflow import ProgrammingWorkflow
+
+        wf = ProgrammingWorkflow()
+        result = wf.run(
+            action=action,
+            target=target,
+            content=content,
+            message=message,
+            checkpoint_name=checkpoint_name,
+            base=base,
+            head=head,
+        )
+        return json.dumps(result, indent=2, default=str)
+    except Exception as exc:
+        return json.dumps({"error": str(exc), "action": action})
+
+
+@mcp.tool()
+def sin_session_warmup(repo_path: str = ".") -> str:
+    """One-call session context primer — call ONCE at the start of every session.
+
+    Returns a snapshot of the current repo:
+        branch, git_state, git_changes_count, last_commit_age,
+        codocs_coverage, ceo_audit_grade, top_risks, session_recommendation.
+
+    The ``session_recommendation`` field is a single-line string so the agent
+    can decide "ready" vs "fix first" in one read:
+        - "BLOCK — ceo-audit grade F. Fix critical issues first."
+        - "FIX — improve docs/quality before coding"
+        - "STASH or COMMIT first — working tree dirty"
+        - "READY — proceed with coding"
+    """
+    try:
+        from sin_code_bundle.session_warmup import SessionWarmup
+
+        warmup = SessionWarmup(repo_root=Path(repo_path).expanduser())
+        return json.dumps(warmup.warmup(), indent=2, default=str)
+    except Exception as exc:
+        return json.dumps({"error": str(exc), "repo_path": repo_path})
+
+
+@mcp.tool()
+def sin_merge_safety(
+    base: str = "main",
+    head: str = "HEAD",
+    profile: str = "QUICK",
+) -> str:
+    """Pre-merge / pre-PR safety gate.
+
+    Runs 4 independent checks in one call:
+        1. CoDocs coverage (broken .doc.md references → blocker)
+        2. ceo-audit grade (cached 5 min per (profile, base, head))
+           - F → blocker, D → warning
+        3. git diff stat (size + secret scan via substring + regex)
+           - >1000 lines → warning, secrets → blocker
+        4. Working tree state (clean/dirty)
+
+    Returns:
+        JSON string with ``pass`` (bool), ``verdict`` ("READY" or "FIX_FIRST"),
+        ``blockers`` and ``warnings`` (lists of human-readable strings),
+        ``checks`` (per-check dict).
+    """
+    try:
+        from sin_code_bundle.merge_safety import MergeSafety
+
+        gate = MergeSafety()
+        return json.dumps(gate.check(base=base, head=head, profile=profile), indent=2, default=str)
+    except Exception as exc:
+        return json.dumps({"error": str(exc), "base": base, "head": head})
 
 
 def main() -> None:

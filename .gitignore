@@ -21,8 +21,9 @@ bom.*.json
 *.sbom.json
 .sin_memory.db
 *.brain.db
+.sin/
 .pytest_cache/
 .ruff_cache/
 .coverage
 htmlcov/
-*.egg
+*.egg.sin/
