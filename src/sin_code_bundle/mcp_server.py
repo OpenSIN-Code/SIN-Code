@@ -39,6 +39,10 @@ It exposes:
 
 Total: **28 tools** when all extras are installed (24 prior + 4 v0.8.0 baseline).
 
+Companion skills (separate MCP servers, auto-detected via opencode.json):
+  - sin-websearch (5 tools), sin-scheduler (6 tools), sin-marketplace (7 tools),
+    sin-slash (6 tools), sin-goal-mode (8 tools) — 32 additional tools.
+
   **Baseline Workflow Tools** (v0.8.0) — never have to remember tool names:
     - sin_immortal_commit     : one-call commit + tag + push (Conventional Commits)
     - sin_programming_workflow: orchestrator (pre_write/write/post_write/pre_commit/refactor/session_warmup)
