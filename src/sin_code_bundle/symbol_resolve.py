@@ -15,7 +15,6 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
 # Default binary names we look up on PATH. Hard-coded fallback paths exist
 # for the dev machine layout documented in AGENTS.md so the tool keeps
 # working when PATH is restricted (e.g. inside the MCP stdio process).

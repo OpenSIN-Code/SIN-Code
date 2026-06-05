@@ -15,7 +15,6 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
 # Hard-coded fallback for the dev-machine layout from AGENTS.md so the
 # MCP stdio process (which may have a stripped PATH) can still find the
 # rollback CLI.
