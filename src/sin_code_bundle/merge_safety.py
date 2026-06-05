@@ -16,14 +16,12 @@ proceed with the merge or fix issues first.
 from __future__ import annotations
 
 import json
-import os
 import re
 import shutil
 import subprocess
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-
 
 # Coarse secret pattern: keys/tokens/passwords in added lines.
 _SECRET_LINE_PATTERN = re.compile(
@@ -35,12 +33,13 @@ _SECRET_HINTS = (
     "BEGIN RSA PRIVATE KEY",
     "BEGIN OPENSSH PRIVATE KEY",
     "BEGIN PRIVATE KEY",
-    "sk-",                # OpenAI / many SaaS keys
-    "ghp_",               # GitHub PAT
-    "github_pat_",        # GitHub fine-grained PAT
-    "xoxb-", "xoxp-",     # Slack tokens
-    "AIza",               # Google API keys
-    "AKIA",               # AWS access key
+    "sk-",  # OpenAI / many SaaS keys
+    "ghp_",  # GitHub PAT
+    "github_pat_",  # GitHub fine-grained PAT
+    "xoxb-",
+    "xoxp-",  # Slack tokens
+    "AIza",  # Google API keys
+    "AKIA",  # AWS access key
     "ASIA",
 )
 
@@ -187,7 +186,14 @@ class MergeSafety:
                 return {"ok": False, "error": "sin CLI not installed"}
 
             proc = subprocess.run(
-                [sin_bin, "ceo-audit", "run", str(self.repo_root), f"--profile={profile}", "--json"],
+                [
+                    sin_bin,
+                    "ceo-audit",
+                    "run",
+                    str(self.repo_root),
+                    f"--profile={profile}",
+                    "--json",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=180,  # 3min ceiling

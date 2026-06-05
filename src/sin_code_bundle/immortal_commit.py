@@ -18,7 +18,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
 # Conventional Commit format: type(scope): subject (subject >= 5 chars).
 # Permitted types mirror the git-immortal-commit skill (AGENTS.md) — adding
 # a new type here means adding it to that skill as well.
@@ -34,12 +33,13 @@ _SECRET_HINTS = (
     "BEGIN RSA PRIVATE KEY",
     "BEGIN OPENSSH PRIVATE KEY",
     "BEGIN PRIVATE KEY",
-    "sk-",                # OpenAI / many SaaS keys
-    "ghp_",               # GitHub PAT
-    "github_pat_",        # GitHub fine-grained PAT
-    "xoxb-", "xoxp-",     # Slack tokens
-    "AIza",               # Google API keys
-    "AKIA",               # AWS access key
+    "sk-",  # OpenAI / many SaaS keys
+    "ghp_",  # GitHub PAT
+    "github_pat_",  # GitHub fine-grained PAT
+    "xoxb-",
+    "xoxp-",  # Slack tokens
+    "AIza",  # Google API keys
+    "AKIA",  # AWS access key
     "ASIA",
 )
 
@@ -105,7 +105,9 @@ class ImmortalCommitter:
             snap = self._create_snapshot(snap_name, message)
             result["snapshot"] = snap
             if snap.get("ok"):
-                result["steps"].append({"step": "snapshot", "ok": True, "id": snap.get("snapshot_id")})
+                result["steps"].append(
+                    {"step": "snapshot", "ok": True, "id": snap.get("snapshot_id")}
+                )
             else:
                 # Snapshot is best-effort; log but don't fail the commit.
                 result["steps"].append(

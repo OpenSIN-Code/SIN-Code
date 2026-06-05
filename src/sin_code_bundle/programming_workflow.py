@@ -33,7 +33,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-
 # Hard-coded fallback for the dev-machine layout.
 _CEO_AUDIT_FALLBACK = "/Users/jeremy/.local/bin/sin"
 
@@ -174,12 +173,8 @@ class ProgrammingWorkflow:
                 lambda: _preflight(self.repo_root, "sin_write", {"path": target}),
             )
         )
-        steps.append(
-            self._safe_call("codocs_check", lambda: _codocs_check(self.repo_root))
-        )
-        steps.append(
-            self._safe_call("pytest_collect", lambda: _pytest_collect(self.repo_root))
-        )
+        steps.append(self._safe_call("codocs_check", lambda: _codocs_check(self.repo_root)))
+        steps.append(self._safe_call("pytest_collect", lambda: _pytest_collect(self.repo_root)))
 
         verdict = "READY" if all(s.get("ok") for s in steps) else "FIX_FIRST"
         return {"action": "post_write", "target": target, "steps": steps, "verdict": verdict}
@@ -216,9 +211,7 @@ class ProgrammingWorkflow:
             blockers.append("ceo-audit grade F — fix critical issues first")
         codocs_step = next((s for s in steps if s.get("name") == "codocs_check"), None)
         if codocs_step and codocs_step.get("broken", 0) > 0:
-            blockers.append(
-                f"codocs: {codocs_step['broken']} broken .doc.md reference(s)"
-            )
+            blockers.append(f"codocs: {codocs_step['broken']} broken .doc.md reference(s)")
 
         verdict = "READY_TO_COMMIT" if not blockers else "FIX_FIRST"
 
@@ -275,9 +268,7 @@ class ProgrammingWorkflow:
 
     def _action_session_warmup(self, **_: Any) -> Dict[str, Any]:
         steps: List[Dict[str, Any]] = []
-        steps.append(
-            self._safe_call("sin_session_warmup", lambda: _session_warmup(self.repo_root))
-        )
+        steps.append(self._safe_call("sin_session_warmup", lambda: _session_warmup(self.repo_root)))
         warm = steps[0] if steps else {}
         verdict = warm.get("session_recommendation", "READY — proceed with coding")
         return {
@@ -317,8 +308,9 @@ class ProgrammingWorkflow:
 def _read(repo_root: Path, target: str) -> Dict[str, Any]:
     if not target:
         return {"ok": False, "error": "no target"}
-    from . import preflight  # noqa: F401  (import keeps relative namespace hot)
-    from . import checkpoint
+    from . import (
+        preflight,  # noqa: F401  (import keeps relative namespace hot)
+    )
 
     return {
         "ok": True,
@@ -334,7 +326,6 @@ def _preflight(repo_root: Path, tool_name: str, tool_input: Dict[str, Any]) -> D
 
 
 def _write_file(repo_root: Path, target: str, content: str) -> Dict[str, Any]:
-    from .mcp_server import sin_write  # type: ignore
 
     # Note: calling the MCP tool directly is a circular dep risk; we just
     # do an atomic file write with the same logic for the workflow use case.
@@ -366,7 +357,11 @@ def _pytest_collect(repo_root: Path) -> Dict[str, Any]:
             text=True,
             timeout=15,
         )
-        return {"ok": proc.returncode == 0, "returncode": proc.returncode, "stdout_tail": proc.stdout[-500:]}
+        return {
+            "ok": proc.returncode == 0,
+            "returncode": proc.returncode,
+            "stdout_tail": proc.stdout[-500:],
+        }
     except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
         return {"ok": True, "skipped": True, "error": str(exc)}
 
@@ -422,7 +417,11 @@ def _gitnexus_impact(repo_root: Path, symbol: str) -> Dict[str, Any]:
         from sin_code_bundle import gitnexus  # type: ignore
 
         data = gitnexus.get_impact(symbol)
-        return {"ok": True, "risk": data.get("risk"), "affected_count": len(data.get("affected", []))}
+        return {
+            "ok": True,
+            "risk": data.get("risk"),
+            "affected_count": len(data.get("affected", [])),
+        }
     except ImportError:
         pass
     except Exception as exc:

@@ -426,7 +426,9 @@ def preflight(
 
 @app.command("preflight-write")
 def preflight_write(
-    tool: str = typer.Option(..., "--tool", help="Tool about to be called (sin_write, sin_edit, ...)"),
+    tool: str = typer.Option(
+        ..., "--tool", help="Tool about to be called (sin_write, sin_edit, ...)"
+    ),
     path: str = typer.Option("", "--path", help="Target file path"),
 ):
     """Pre-write safety gate — runs sin_preflight + CoDocs for a single write."""
@@ -438,7 +440,9 @@ def preflight_write(
 
 @app.command("programming-workflow")
 def programming_workflow_cli(
-    action: str = typer.Argument(..., help="One of: pre_write, write, post_write, pre_commit, refactor, session_warmup"),
+    action: str = typer.Argument(
+        ..., help="One of: pre_write, write, post_write, pre_commit, refactor, session_warmup"
+    ),
     target: str = typer.Option("", "--target"),
     message: str = typer.Option("", "--message"),
     checkpoint_name: str = typer.Option("", "--checkpoint-name"),
@@ -465,7 +469,9 @@ def immortal_commit_cli(
     message: str = typer.Option("", "--message", help="Conventional Commits message"),
     tag: str = typer.Option("", "--tag", help="Optional annotated tag"),
     push: bool = typer.Option(False, "--push", help="Push to origin after commit"),
-    post_hook: bool = typer.Option(False, "--post-hook", help="Post-commit hook mode: tag + push only, no commit"),
+    post_hook: bool = typer.Option(
+        False, "--post-hook", help="Post-commit hook mode: tag + push only, no commit"
+    ),
 ):
     """CLI wrapper around the sin_immortal_commit MCP tool.
 
@@ -481,25 +487,34 @@ def immortal_commit_cli(
         result: dict = {"mode": "post_hook", "message": message, "tag": tag or None, "steps": []}
         if tag:
             import subprocess
+
             tag_proc = subprocess.run(
                 ["git", "tag", "-a", tag, "-m", f"Release {tag}"],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             result["steps"].append({"step": "git_tag", "ok": tag_proc.returncode == 0})
         if push:
             import subprocess
+
             push_proc = subprocess.run(
                 ["git", "push", "origin", "main"],
-                capture_output=True, text=True, timeout=60,
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             result["steps"].append({"step": "git_push", "ok": push_proc.returncode == 0})
             if tag:
                 tag_push = subprocess.run(
                     ["git", "push", "origin", tag],
-                    capture_output=True, text=True, timeout=30,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
                 )
                 result["steps"].append({"step": "git_push_tag", "ok": tag_push.returncode == 0})
         import subprocess as _sp
+
         sha = _sp.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
         result["sha"] = sha
         result["success"] = all(s.get("ok") for s in result["steps"])

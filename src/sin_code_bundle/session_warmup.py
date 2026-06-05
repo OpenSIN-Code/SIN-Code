@@ -17,10 +17,34 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-
 # Hard-coded fallback for the dev-machine layout (AGENTS.md).
 _CEO_AUDIT_FALLBACK = "/Users/jeremy/.local/bin/sin"
 _ROLLBACK_FALLBACK = "/Users/jeremy/Library/Python/3.14/bin/sin-honcho-rollback"
+
+
+def _human_age(seconds: int) -> str:
+    """Format a duration in seconds as a short human-readable string.
+
+    Examples:
+        >>> _human_age(45)
+        '45s'
+        >>> _human_age(3700)
+        '1h 1m'
+        >>> _human_age(90000)
+        '1d 1h'
+    """
+    if seconds < 0:
+        return "0s"
+    if seconds < 60:
+        return f"{seconds}s"
+    minutes, sec = divmod(seconds, 60)
+    if minutes < 60:
+        return f"{minutes}m {sec}s"
+    hours, m = divmod(minutes, 60)
+    if hours < 24:
+        return f"{hours}h {m}m"
+    days, h = divmod(hours, 24)
+    return f"{days}d {h}h"
 
 
 class SessionWarmup:
@@ -95,13 +119,16 @@ class SessionWarmup:
     # ── helpers ─────────────────────────────────────────────────────
     def _git_state(self) -> Dict[str, Any]:
         try:
-            branch = subprocess.run(
-                ["git", "branch", "--show-current"],
-                cwd=self.repo_root,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            ).stdout.strip() or "(detached)"
+            branch = (
+                subprocess.run(
+                    ["git", "branch", "--show-current"],
+                    cwd=self.repo_root,
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                ).stdout.strip()
+                or "(detached)"
+            )
             status = subprocess.run(
                 ["git", "status", "--porcelain"],
                 cwd=self.repo_root,
@@ -162,7 +189,10 @@ class SessionWarmup:
             files: List[Dict[str, Any]] = []
             for p in self.repo_root.rglob("*.py"):
                 rel = p.relative_to(self.repo_root)
-                if any(part.startswith(".") or part in {"__pycache__", "node_modules", "venv", ".venv"} for part in rel.parts):
+                if any(
+                    part.startswith(".") or part in {"__pycache__", "node_modules", "venv", ".venv"}
+                    for part in rel.parts
+                ):
                     continue
                 try:
                     n = sum(1 for _ in p.open("r", encoding="utf-8", errors="ignore"))
