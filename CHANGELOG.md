@@ -4,6 +4,58 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-06-05 — One-click PyPI Trusted Publisher (API-token path)
+
+### Added
+- `src/sin_code_bundle/tools/pypi_setup.py` — non-interactive PyPI
+  Trusted Publisher registration via a PyPI API token
+  (`pypi-...`). Replaces the interactive `read -p` username +
+  password flow with a single `python -m sin_code_bundle.tools.pypi_setup
+  --api-token "$PYPI_API_TOKEN"` call. Works in CI / agents / headless
+  servers. Implements PEP 503 project-name normalisation
+  (`normalise_project_name`), strict payload validation
+  (`get_pending_publisher_payload`), structured HTTP error handling
+  (`add_pending_publisher`), and both human-friendly and `--json`
+  output modes. Pure stdlib — no `requests`/`httpx` dependency.
+- `src/sin_code_bundle/tools/pypi_setup.doc.md` — CoDocs companion:
+  usage examples, failure-mode table, security notes, pre-conditions,
+  and a side-by-side comparison of API token vs. username/password.
+- `src/sin_code_bundle/tools/__init__.py` + `__init__.doc.md` — the new
+  `tools/` subpackage for maintainer-facing CLIs. Future helpers
+  (e.g. release dry-runs, dependency audits) belong here.
+- `tests/test_pypi_setup.py` — 28 tests across 5 test classes
+  (`TestNormaliseProjectName`, `TestPayloadBuilder`, `TestArgParser`,
+  `TestAddPendingPublisher`, `TestMain`). Covers PEP 503
+  normalisation, payload schema, arg-parsing, HTTP 201/4xx/5xx,
+  network errors, and end-to-end through `main()` with mocked
+  `urlopen`. **No real PyPI calls are made in tests.**
+- README "Publishing to PyPI" section — now documents the new
+  non-interactive API-token path as the **Recommended** method, with
+  the bash script as the **Legacy fallback**. The 1-click path
+  resolves the original "NOT 1-click" complaint about
+  `tools/setup_pypi_publisher.sh` requiring interactive prompts.
+
+### Verified
+- `pytest tests/test_pypi_setup.py` → **28 passed** in 0.19s.
+- `python -m sin_code_bundle.tools.pypi_setup --help` works.
+- `python -m sin_code_bundle.tools.pypi_setup --dry-run --api-token dummy`
+  → prints the JSON payload, exits 0, makes no HTTP call.
+- `python -m sin_code_bundle.tools.pypi_setup --dry-run --api-token dummy --json`
+  → emits a single JSON line (CI-friendly).
+- The new module is importable from the published wheel
+  (`pip install sin-code-bundle` → `python -m
+  sin_code_bundle.tools.pypi_setup ...` works without cloning the
+  repo).
+
+### Notes
+- The legacy `tools/setup_pypi_publisher.sh` is **kept** for users
+  who do not have a PyPI API token. Both paths produce identical
+  server-side state (a pending Trusted Publisher).
+- The new module is **not** registered in `[project.scripts]`. It is
+  invoked via `python -m sin_code_bundle.tools.pypi_setup`, not as a
+  top-level command, so the wheel's `bin/` namespace stays reserved
+  for the agent-facing `sin`, `sin-serve`, `sin-serve-mcp` entries.
+
 ## [0.7.0] - 2026-06-05 — 3 consolidation tools (34 → 37)
 
 ### Added

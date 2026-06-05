@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![CI](https://img.shields.io/badge/CI-A%2B%20(100%2F100)-brightgreen)](#)
-[![Version](https://img.shields.io/badge/Version-0.6.1-blue)](#)
+[![Version](https://img.shields.io/badge/Version-0.8.1-blue)](#)
 
 **The universal semantic backend for AI coding agents.**
 
@@ -69,12 +69,33 @@ SIN_CODE_BIN_DIR=~/custom-bin bash install.sh --with-externals
 
 The `release.yml` workflow uses **PyPI Trusted Publishing** (no API tokens, no
 manual uploads). To enable it for the first time, the maintainer must
-register the publisher once:
+register the publisher once.
+
+**Recommended (non-interactive, API token):**
+
+```bash
+# 1. Generate a PyPI API token at https://pypi.org/manage/account/token/
+#    (scope: "Entire account" works, or scope to a single project)
+# 2. Run:
+export PYPI_API_TOKEN="pypi-..."
+python -m sin_code_bundle.tools.pypi_setup --api-token "$PYPI_API_TOKEN"
+# 3. Check your email, click the magic link PyPI sent
+```
+
+This is the **1-click** path: no TTY, no prompts, no 2FA dance. It works in
+CI scripts, agents, and headless servers. See
+[`pypi_setup.doc.md`](./src/sin_code_bundle/tools/pypi_setup.doc.md) for
+the full failure-mode table and security notes.
+
+**Legacy fallback (interactive username + password):**
 
 ```bash
 bash tools/setup_pypi_publisher.sh
 # Follow the prompts, check email, click the magic link
 ```
+
+Kept for maintainers who do not have a PyPI API token. Does not work in
+CI / non-TTY environments.
 
 After this one-time setup, every `git tag v0.X.Y && git push origin v0.X.Y`
 triggers:
