@@ -419,6 +419,131 @@ def preflight(
     typer.echo(json.dumps(state.to_dict(), indent=2))
 
 
+# ── v0.8.0 Baseline Workflow CLI subcommands ──────────────────────────────
+# CLI wrappers around the new MCP tools so hooks (post-commit.sh etc.)
+# can call them without an MCP client.
+
+
+@app.command("preflight-write")
+def preflight_write(
+    tool: str = typer.Option(..., "--tool", help="Tool about to be called (sin_write, sin_edit, ...)"),
+    path: str = typer.Option("", "--path", help="Target file path"),
+):
+    """Pre-write safety gate — runs sin_preflight + CoDocs for a single write."""
+    from sin_code_bundle.preflight import PreflightChecker
+
+    result = PreflightChecker().check(tool, {"path": path} if path else {})
+    typer.echo(json.dumps(result, indent=2, default=str))
+
+
+@app.command("programming-workflow")
+def programming_workflow_cli(
+    action: str = typer.Argument(..., help="One of: pre_write, write, post_write, pre_commit, refactor, session_warmup"),
+    target: str = typer.Option("", "--target"),
+    message: str = typer.Option("", "--message"),
+    checkpoint_name: str = typer.Option("", "--checkpoint-name"),
+    base: str = typer.Option("main", "--base"),
+    head: str = typer.Option("HEAD", "--head"),
+):
+    """CLI wrapper around the sin_programming_workflow MCP tool."""
+    from sin_code_bundle.programming_workflow import ProgrammingWorkflow
+
+    wf = ProgrammingWorkflow()
+    result = wf.run(
+        action=action,
+        target=target,
+        message=message,
+        checkpoint_name=checkpoint_name,
+        base=base,
+        head=head,
+    )
+    typer.echo(json.dumps(result, indent=2, default=str))
+
+
+@app.command("immortal-commit")
+def immortal_commit_cli(
+    message: str = typer.Option("", "--message", help="Conventional Commits message"),
+    tag: str = typer.Option("", "--tag", help="Optional annotated tag"),
+    push: bool = typer.Option(False, "--push", help="Push to origin after commit"),
+    post_hook: bool = typer.Option(False, "--post-hook", help="Post-commit hook mode: tag + push only, no commit"),
+):
+    """CLI wrapper around the sin_immortal_commit MCP tool.
+
+    Two modes:
+      - Default: validates message, creates commit (and tag/push if requested).
+      - --post-hook: assumes the commit was already made; only does tag + push.
+    """
+    from sin_code_bundle.immortal_commit import ImmortalCommitter
+
+    if post_hook:
+        # Post-hook mode: tag + push only, no new commit.
+        committer = ImmortalCommitter()
+        result: dict = {"mode": "post_hook", "message": message, "tag": tag or None, "steps": []}
+        if tag:
+            import subprocess
+            tag_proc = subprocess.run(
+                ["git", "tag", "-a", tag, "-m", f"Release {tag}"],
+                capture_output=True, text=True, timeout=30,
+            )
+            result["steps"].append({"step": "git_tag", "ok": tag_proc.returncode == 0})
+        if push:
+            import subprocess
+            push_proc = subprocess.run(
+                ["git", "push", "origin", "main"],
+                capture_output=True, text=True, timeout=60,
+            )
+            result["steps"].append({"step": "git_push", "ok": push_proc.returncode == 0})
+            if tag:
+                tag_push = subprocess.run(
+                    ["git", "push", "origin", tag],
+                    capture_output=True, text=True, timeout=30,
+                )
+                result["steps"].append({"step": "git_push_tag", "ok": tag_push.returncode == 0})
+        import subprocess as _sp
+        sha = _sp.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        result["sha"] = sha
+        result["success"] = all(s.get("ok") for s in result["steps"])
+        typer.echo(json.dumps(result, indent=2, default=str))
+        return
+
+    if not message:
+        typer.echo("[immortal-commit] error: --message is required (or pass --post-hook)", err=True)
+        raise typer.Exit(code=2)
+
+    committer = ImmortalCommitter()
+    result = committer.commit(message=message, tag=tag, push=push, force_main=True)
+    typer.echo(json.dumps(result, indent=2, default=str))
+    if not result.get("success"):
+        raise typer.Exit(code=1)
+
+
+@app.command("session-warmup")
+def session_warmup_cli(
+    repo_path: str = typer.Argument(".", help="Path to the repository"),
+):
+    """CLI wrapper around the sin_session_warmup MCP tool."""
+    from sin_code_bundle.session_warmup import SessionWarmup
+
+    warm = SessionWarmup(repo_root=Path(repo_path))
+    typer.echo(json.dumps(warm.warmup(), indent=2, default=str))
+
+
+@app.command("merge-safety")
+def merge_safety_cli(
+    base: str = typer.Option("main", "--base"),
+    head: str = typer.Option("HEAD", "--head"),
+    profile: str = typer.Option("QUICK", "--profile"),
+):
+    """CLI wrapper around the sin_merge_safety MCP tool."""
+    from sin_code_bundle.merge_safety import MergeSafety
+
+    gate = MergeSafety()
+    result = gate.check(base=base, head=head, profile=profile)
+    typer.echo(json.dumps(result, indent=2, default=str))
+    if not result.get("pass"):
+        raise typer.Exit(code=1)
+
+
 @codocs_app.command("check")
 def codocs_check(
     root: str = typer.Argument(".", help="Repository root to scan"),
