@@ -135,9 +135,9 @@ To disable native opencode tools and force SIN-Code usage, add to
 
 ---
 
-## 📦 Unified MCP Tool Inventory (34 Tools)
+## 📦 Unified MCP Tool Inventory (37 Tools)
 
-When `sin-serve` is running, agents get **34 tools**. Native opencode tools
+When `sin-serve` is running, agents get **37 tools**. Native opencode tools
 should be **disabled** to enforce SIN-Code usage.
 
 ### Core File Operations (5) — Replace native read/write/edit/bash/search
@@ -169,6 +169,14 @@ should be **disabled** to enforce SIN-Code usage.
 | Tool | What it does |
 |---|---|
 | `sin_check_architecture` | Pre-flight ADW rule check — blocks hardcoded secrets, eval/exec, frontend-DB imports |
+
+### Consolidation Tools (3) — v0.7.0 — Replace 3-4 separate calls with 1
+
+| Tool | Replaces | What it does |
+|---|---|---|
+| `sin_preflight` | `sin_check_architecture` + `sin_bash("sin codocs check")` + `sin_bash("git status")` + `sin_bash("pytest --collect-only")` | Pre-flight safety gate: policy + docs + git + tests in 1 call. Returns `{allowed, policy_ok, docs_ok, git_clean, tests_status, estimated_risk}` |
+| `sin_symbol_resolve` | `gitnexus_query` + `gitnexus_context` + `gitnexus_impact` + `gitnexus_detect_changes` | Unified code archaeology for a symbol. Fans out to 4 gitnexus primitives + optional sin-context-bridge. Returns unified graph view with `sources_queried` list |
+| `sin_checkpoint` | `rollback_snapshot` + `sin_bash("sin codocs check")` + `sin_bash("git status")` + `sin_search("X", type="usage")` + `sin_bash("pytest --collect-only")` | Pre-refactor checkpoint: recoverable snapshot + state report in 1 call. Idempotent on `name`. Returns `{snapshot_id, docs_broken, git_clean, usages_found, tests_status, tests_collected}` |
 
 ### Runtime Debugging — DAP (2)
 

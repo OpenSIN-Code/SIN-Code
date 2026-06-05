@@ -678,6 +678,88 @@ def sin_check_architecture(tool_name: str, tool_input: dict) -> str:
         return json.dumps({"error": str(exc)})
 
 
+# ── Consolidation Tools (v0.7.0) ───────────────────────────────────────────
+# Three high-ROI consolidations: each replaces 3-4 separate calls with one.
+# See preflight.doc.md / symbol_resolve.doc.md / checkpoint.doc.md.
+
+
+@mcp.tool()
+def sin_preflight(tool_name: str, tool_input: dict) -> str:
+    """Pre-flight safety gate: policy + docs + git + tests in 1 call.
+
+    Run BEFORE any state-changing call (sin_write, sin_edit, sin_bash, sin_ast_edit).
+    Returns structured JSON with {allowed, policy_ok, docs_ok, git_clean,
+    tests_status, estimated_risk}.
+    """
+    try:
+        from sin_code_bundle.preflight import PreflightChecker
+
+        return json.dumps(
+            PreflightChecker().check(tool_name, tool_input),
+            indent=2,
+            default=str,
+        )
+    except Exception as exc:
+        return json.dumps({"error": str(exc), "tool_name": tool_name})
+
+
+@mcp.tool()
+def sin_symbol_resolve(
+    name: str,
+    depth: int = 2,
+    include: str = "callers,callees,blast,recent",
+) -> str:
+    """Unified code archaeology for a symbol (function, class, module).
+
+    Combines gitnexus_query + gitnexus_context + gitnexus_impact +
+    gitnexus_detect_changes into 1 call. Optionally integrates
+    sin-context-bridge for cross-source context.
+
+    Args:
+        name: symbol name (e.g. "validate_user", "AuthService", "auth/handler")
+        depth: how many call-graph levels to traverse (1-3)
+        include: comma-separated list of {callers, callees, blast, recent, cross}
+    """
+    try:
+        from sin_code_bundle.symbol_resolve import SymbolResolver
+
+        return json.dumps(
+            SymbolResolver().resolve(name, depth, include.split(",")),
+            indent=2,
+            default=str,
+        )
+    except Exception as exc:
+        return json.dumps({"error": str(exc), "name": name})
+
+
+@mcp.tool()
+def sin_checkpoint(
+    name: str,
+    include: str = "snapshot,docs,git,usages,tests",
+    description: str = "",
+) -> str:
+    """Combined snapshot + state report before a risky change.
+
+    Use before refactoring or any risky edit. Creates a recoverable snapshot
+    AND a state report (docs status, git state, usages, tests).
+
+    Args:
+        name: snapshot name (e.g. "before-auth-refactor")
+        include: comma-separated list of {snapshot, docs, git, usages, tests}
+        description: optional human-readable description
+    """
+    try:
+        from sin_code_bundle.checkpoint import Checkpointer
+
+        return json.dumps(
+            Checkpointer().create(name, include.split(","), description),
+            indent=2,
+            default=str,
+        )
+    except Exception as exc:
+        return json.dumps({"error": str(exc), "name": name})
+
+
 # ── Worktree Orchestration ──────────────────────────────────────────────────
 
 

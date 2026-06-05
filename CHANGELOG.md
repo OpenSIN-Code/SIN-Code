@@ -4,6 +4,41 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-06-05 — 3 consolidation tools (34 → 37)
+
+### Added
+- **`sin_preflight`** — Pre-flight safety gate. Replaces the manual chain
+  `sin_check_architecture` + `sin_bash("sin codocs check")` +
+  `sin_bash("git status")` + `sin_bash("pytest --collect-only")` with one
+  call. Returns `{allowed, policy_ok, docs_ok, git_clean, tests_status,
+  estimated_risk}`. ROI 10/10.
+- **`sin_symbol_resolve`** — Unified code archaeology. Fans out to
+  `gitnexus context` + `gitnexus impact` + `gitnexus detect-changes` (+
+  optional `sin-context-bridge`) in one call. Returns unified graph view
+  with `sources_queried` transparency. ROI 9/10.
+- **`sin_checkpoint`** — Pre-refactor checkpoint. Creates a recoverable
+  snapshot via `sin-honcho-rollback` AND reports on docs + git + usages +
+  tests in one call. Idempotent on `name` (safe to call twice). ROI 8/10.
+- 6 new CoDocs companions: `preflight.doc.md`, `preflight.py`,
+  `symbol_resolve.doc.md`, `symbol_resolve.py`, `checkpoint.doc.md`,
+  `checkpoint.py` (purpose + docs headers on all 3 modules).
+
+### Changed
+- Tool inventory: **34 → 37 tools** (3 new consolidation tools).
+- `src/sin_code_bundle/mcp_server.py` — added 3 `@mcp.tool()` decorators
+  with graceful-degradation try/except wrappers (never crash the MCP).
+- README "Unified MCP Tool Inventory" updated with Consolidation Tools
+  section showing the manual chains that each tool replaces.
+
+### Quality
+- All 3 modules follow the same pattern: independent sub-checks wrapped
+  in `try/except`, structured dict return, never raises to caller.
+- Hard-coded fallback paths for `gitnexus` / `sin-honcho-rollback` /
+  `scout` / `sin-context-bridge` so the MCP stdio process (with stripped
+  PATH) can still find the dev-machine binaries.
+- Each module has a `.doc.md` companion explaining: what it does, when to
+  use it, graceful degradation rules, and caveats.
+
 ## [0.6.6] - 2026-06-04 — PyPI Trusted Publisher setup + external auto-install
 
 ### Added
