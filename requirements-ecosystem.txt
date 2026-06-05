@@ -1,0 +1,23 @@
+# SIN-Code Ecosystem Packages (local file:// installs for development)
+#
+# PyPI's core-metadata spec forbids direct URL references (file://) in
+# package extras. These ecosystem packages are NOT on PyPI yet — they are
+# installed locally for dev and integration testing.
+#
+# Usage (from a clone of the SIN-Code-Bundle repo):
+#   pip install -r requirements-ecosystem.txt
+#
+# Or, to install a specific ecosystem package:
+#   pip install file:///Users/jeremy/dev/SIN-Code-Semantic-Codebase-Knowledge-Graphs
+#   pip install file:///Users/jeremy/dev/SIN-Code-Intent-Based-Diffing
+#   ...
+
+sin-code-sckg @ file:///Users/jeremy/dev/SIN-Code-Semantic-Codebase-Knowledge-Graphs
+sin-code-ibd @ file:///Users/jeremy/dev/SIN-Code-Intent-Based-Diffing
+sin-code-poc @ file:///Users/jeremy/dev/SIN-Code-Proof-of-Correctness
+sin-code-efsm @ file:///Users/jeremy/dev/SIN-Code-Ephemeral-Full-Stack-Mocking-Orchestration
+sin-code-adw @ file:///Users/jeremy/dev/SIN-Code-Architectural-Debt-Watchdogs
+sin-code-oracle @ file:///Users/jeremy/dev/SIN-Code-Verification-Oracle
+sin-code-orchestration @ file:///Users/jeremy/dev/SIN-Code-Orchestration
+sin-code-review-interface @ file:///Users/jeremy/dev/SIN-Code-Review-Interface
+sin-brain @ file:///Users/jeremy/dev/sin-brain

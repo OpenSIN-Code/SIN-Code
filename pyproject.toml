@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sin-code-bundle"
-version = "0.9.1"
+version = "0.9.2"
 description = "Structural intelligence for AI coding agents: impact analysis, semantic diff, architectural-debt breaker, and an independent verification Oracle — over MCP."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -29,21 +29,13 @@ dependencies = [
   "pyyaml>=6.0",
 ]
 
-[project.optional-dependencies]
-# === Core SIN-Code subsystem Python packages ===
-# All 8 subsystems + sin-brain in ONE install. Graceful degradation in
-# `sin serve` keeps the server running even if a subsystem is missing —
-# but `[all]` installs the full set so the MCP exposes every tool.
-sckg = ["sin-code-sckg @ file:///Users/jeremy/dev/SIN-Code-Semantic-Codebase-Knowledge-Graphs"]
-ibd = ["sin-code-ibd @ file:///Users/jeremy/dev/SIN-Code-Intent-Based-Diffing"]
-poc = ["sin-code-poc @ file:///Users/jeremy/dev/SIN-Code-Proof-of-Correctness"]
-efsm = ["sin-code-efsm @ file:///Users/jeremy/dev/SIN-Code-Ephemeral-Full-Stack-Mocking-Orchestration"]
-adw = ["sin-code-adw @ file:///Users/jeremy/dev/SIN-Code-Architectural-Debt-Watchdogs"]
-oracle = ["sin-code-oracle @ file:///Users/jeremy/dev/SIN-Code-Verification-Oracle"]
-orchestration = ["sin-code-orchestration @ file:///Users/jeremy/dev/SIN-Code-Orchestration"]
-review = ["sin-code-review-interface @ file:///Users/jeremy/dev/SIN-Code-Review-Interface"]
-memory = ["sin-brain @ file:///Users/jeremy/dev/sin-brain"]
+# === ECOSYSTEM PACKAGES (file:// deps) ===
+# The 9 SIN-Code ecosystem packages (sin-code-sckg, sin-code-ibd, etc.) are
+# installed via `requirements-ecosystem.txt` for local dev — PyPI's core-metadata
+# spec forbids direct URL references (file://) in extras.
+# See https://packaging.python.org/specifications/core-metadata
 
+[project.optional-dependencies]
 # === LSP / benchmark / MCP runtime / observability ===
 # Full tree-sitter stack — NO tree-sitter-languages (no Py3.14 wheels).
 # Direct bindings: tree-sitter + 4 per-language parsers (Py/JS/TS/Go).
@@ -72,11 +64,13 @@ dev = [
   "ruff>=0.5",
 ]
 
-# === THE BIG ONE: install literally EVERYTHING in one command ===
-# `pip install -e .[all]` → 8 subsystems + sin-brain + bench + MCP + otel + dev
-# LSP excluded (see above)
+# === PyPI-clean: all available extras ===
+# `pip install sin-code-bundle[all]` → lsp + bench + mcp + otel + dev
+# For the 9 SIN-Code ecosystem packages (sckg, ibd, poc, efsm, adw, oracle,
+# orchestration, review, sin-brain), install with:
+#   pip install -r https://raw.githubusercontent.com/OpenSIN-Code/SIN-Code-Bundle/main/requirements-ecosystem.txt
 all = [
-  "sin-code-bundle[sckg,ibd,poc,efsm,adw,oracle,orchestration,review,memory,bench,mcp,otel,dev]",
+  "sin-code-bundle[lsp,bench,mcp,otel,dev]",
 ]
 
 [project.urls]
