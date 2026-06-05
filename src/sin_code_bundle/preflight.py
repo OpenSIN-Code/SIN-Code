@@ -103,9 +103,7 @@ class PreflightChecker:
         # Only runs when a tests/ or test/ directory exists AND pytest is
         # importable. Collection (not execution) keeps the pre-flight cheap.
         try:
-            has_tests = (self.repo_root / "tests").exists() or (
-                self.repo_root / "test"
-            ).exists()
+            has_tests = (self.repo_root / "tests").exists() or (self.repo_root / "test").exists()
             if has_tests:
                 proc = subprocess.run(
                     ["python3", "-m", "pytest", "--collect-only", "-q"],

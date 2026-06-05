@@ -98,10 +98,7 @@ class Checkpointer:
                         data = json.loads(proc.stdout)
                         # The CLI nests the id under "snapshot.id" — fall
                         # back to top-level "id" for older schemas.
-                        result["snapshot_id"] = (
-                            data.get("snapshot", {}).get("id")
-                            or data.get("id")
-                        )
+                        result["snapshot_id"] = data.get("snapshot", {}).get("id") or data.get("id")
                     else:
                         result["snapshot_error"] = proc.stderr[-500:]
             except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception) as exc:

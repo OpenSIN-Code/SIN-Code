@@ -130,9 +130,7 @@ class SymbolResolver:
                     # Filter cheaply by checking each change dict's JSON
                     # representation; cheaper than traversing every field.
                     result["recent_changes"] = [
-                        c
-                        for c in all_changes
-                        if name.lower() in json.dumps(c).lower()
+                        c for c in all_changes if name.lower() in json.dumps(c).lower()
                     ]
                     result["sources_queried"].append("gitnexus:detect-changes")
             except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception):
