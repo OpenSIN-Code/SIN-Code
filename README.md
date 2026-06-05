@@ -245,6 +245,37 @@ To keep the bundle MIT-licensed and lightweight, these upstream tools are
 
 ---
 
+## 🧩 Companion Skills (Separate MCP Servers)
+
+The Bundle exposes 37 tools via `sin serve`. Several **companion skills** ship
+as *separate* MCP servers — they are not part of the bundle core, but
+register cleanly alongside it in any opencode / Claude Code / Cursor config.
+
+| Companion | Tools | Install | Run |
+|---|---|---|---|
+| **[sin-context-bridge](https://github.com/OpenSIN-Code/SIN-Code-Bundle)** | 2 tools — unified context across SCKG + sin-brain + GitNexus + local SQLite | `pip install sin-code-bundle[all]` | `sin-context-bridge serve` |
+| **[sin-honcho-rollback](https://github.com/OpenSIN-Code/sin-honcho-rollback)** | 4 MCP tools + CLI — snapshot, rollback, audit log for sin-brain memory | `pip install sin-honcho-rollback` | `sin-honcho-rollback serve` |
+| **[symfony-lens](https://github.com/OpenSIN-Code/SIN-Code-Symfony-Lens)** | 8 tools — Symfony-specific static analysis (services, routes, entities, Twig, migrations, PHPStan) | `pip install sin-code-symfony-lens` | `python -m symfony_lens.server` |
+
+### Wire them into opencode
+
+```jsonc
+{
+  "mcp": {
+    "sin-code-bundle":     { "type": "local", "command": ["sin", "serve"] },
+    "sin-context-bridge":  { "type": "local", "command": ["sin-context-bridge", "serve"] },
+    "sin-honcho-rollback": { "type": "local", "command": ["sin-honcho-rollback", "serve"] },
+    "symfony-lens":        { "type": "local", "command": ["symfony-lens"] }
+  }
+}
+```
+
+All three companions follow the Bundle's graceful-degradation contract: if
+the server isn't running, the consumer falls back to local-only behaviour
+without crashing.
+
+---
+
 ## 🛡️ Graceful Degradation
 
 Every subsystem is an **optional** dependency. If a subsystem is missing, the
