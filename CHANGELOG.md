@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-06 — `sin tui` Bubbletea interface + shared design system
+
+### Added
+- **`sin tui` Bubbletea TUI** — interactive terminal menu over every `sin` subcommand
+  - 5-state FSM: Menu → Search → Prompt → Running → Output
+  - 40+ commands across 7 groups (Code / Go / Python / Security / Skills / MCP / System)
+  - Live filter (`/`), exec (`enter`), back (`esc`), quit (`q`/`ctrl+c`)
+  - Streamed stdout/stderr via `subprocess.run(..., text=True)` to a viewport
+  - Non-TTY fallback: `sin tui --fallback` prints a plain catalog
+  - Graceful "binary missing" error if `sin-tui` not built (with install instructions)
+- **`sin-tui` Go binary** — `cmd/sin-tui/main.go`, ~3 MB
+  - 5 unit tests: unique keys, group presence, filter, full-list on empty, group ordering
+  - Build: `go build -o ~/.local/bin/sin-tui ./cmd/sin-tui`
+- **Shared design system**
+  - TUI palette in `internal/tui/theme/tokens.go` (charmbracelet/lipgloss)
+  - 40+ semantic styles in `internal/tui/theme/styles.go` (App, Containers, Text, Status, Menu, Table, Progress, Search, Modal, Button, Tab)
+  - GUI mirror in `SIN-Code-Bundle-Web/theme/tokens.css` (HSL custom properties)
+  - Color story matches: Base `#1e1e2e`, Primary `#cba6f7`, Accent `#94e2d5`
+- **CI** — `.gitignore` excludes the local `sin-tui` binary; `web/` submodule bumped to include the design tokens
+
+### Notes
+- The TUI is a thin shell-out to `sin <subcommand>` — it does not duplicate the Python CLI's parser
+- The Python `sin tui` subcommand detects TTY, builds, and hands off the terminal
+- Bundle-Web is now ready for Tauri (issue #32) — Next.js + Rust desktop, reusing the shared design tokens
+
 ## [1.1.0] - 2026-06-06 — Unified `sin code` subcommand hub
 
 ### Added
