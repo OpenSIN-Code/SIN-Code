@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 # ── Protocol constants ─────────────────────────────────────────────────
 PROTOCOL_VERSION = "2026-06-30"
-SUPPORTED_VERSIONS = ["2026-06-30", "2025-11-25", "2025-03-26"]
+SUPPORTED_VERSIONS = ["2026-06-30", "2025-11-25", "2025-03-26", "2024-11-05"]
 # SSE retry hint (ms) sent to clients on reconnect — 5s is conservative.
 SSE_RETRY_MS = 5000
 # Task retention: 1h. Cleanup is amortized (every 64 ops).
@@ -423,7 +423,9 @@ def _negotiate_version(client_version: str | None) -> str:
     for v in sorted_versions:
         if v <= client_version:
             return v
-    return PROTOCOL_VERSION
+    # Client version is older than all supported versions; return the oldest
+    # supported version so the client can attempt backward-compatible operation.
+    return sorted_versions[-1]
 
 
 def _extract_request_meta(params: dict[str, Any]) -> dict[str, Any]:
