@@ -6,6 +6,9 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal"
 	"github.com/spf13/cobra"
 )
@@ -43,6 +46,18 @@ func init() {
 }
 
 func main() {
+	// If invoked via a symlink named after a subcommand (e.g. `discover` ->
+	// `sin-code discover`), automatically route to that subcommand.
+	if len(os.Args) > 0 {
+		name := filepath.Base(os.Args[0])
+		for _, cmd := range rootCmd.Commands() {
+			if cmd.Name() == name {
+				args := append([]string{name}, os.Args[1:]...)
+				rootCmd.SetArgs(args)
+				break
+			}
+		}
+	}
 	if err := rootCmd.Execute(); err != nil {
 		internal.PrintError(err)
 	}
