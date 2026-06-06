@@ -1,6 +1,6 @@
 """Purpose: `sin-search` CLI shim — wraps `scout` Go tool (regex/semantic/symbol).
 
-Docs: cli/sin_search.doc.md
+Docs: sin_search.doc.md
 
 Wraps `sin_code_bundle.file_ops.sin_search` as a real binary.
 

@@ -1,6 +1,6 @@
 """Purpose: `sin-write` CLI shim — atomic write with backup + syntax verify.
 
-Docs: cli/sin_write.doc.md
+Docs: sin_write.doc.md
 
 Wraps `sin_code_bundle.file_ops.sin_write` as a real binary.
 

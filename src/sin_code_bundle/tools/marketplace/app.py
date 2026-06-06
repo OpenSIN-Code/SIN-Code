@@ -1,5 +1,5 @@
 # Purpose: Typer subcommand for `sin marketplace <sub>` (issue #29)
-# Docs: sin_code_bundle/tools/marketplace.doc.md
+# Docs: marketplace.doc.md
 """Typer subcommand exposing ``sin marketplace ...``.
 
 Originally the standalone ``sin-marketplace-skill`` MCP skill; merged into

@@ -1,5 +1,5 @@
 # Purpose: Typer subcommand for `sin mcp-server <sub>` (issue #29)
-# Docs: sin_code_bundle/tools/mcp_server_builder.doc.md
+# Docs: mcp_server_builder.doc.md
 """Typer subcommand exposing ``sin mcp-server ...``.
 
 Originally the standalone ``sin-mcp-server-builder`` MCP skill; merged into

@@ -1,6 +1,6 @@
 """Purpose: `sin-read` CLI shim — URI-aware, size-safe file read.
 
-Docs: cli/sin_read.doc.md
+Docs: sin_read.doc.md
 
 Wraps `sin_code_bundle.file_ops.sin_read` as a real binary so sub-agents
 and shell users can call it without spinning up the MCP server.

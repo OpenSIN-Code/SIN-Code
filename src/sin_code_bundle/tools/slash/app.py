@@ -1,5 +1,5 @@
 # Purpose: Typer subcommand exposing `sin slash <subcommand>` (issue #29)
-# Docs: sin_code_bundle/cli/slash.doc.md
+# Docs: slash.doc.md
 """Typer subcommand for the consolidated sin-slash skill.
 
 Exposes the same surface as the legacy Click CLI as ``sin slash ...``::

@@ -1,0 +1,17 @@
+# slash.doc.md
+
+Typer subcommand exposing `sin slash <subcommand>` (issue #29).
+
+## What this file does
+
+Typer subcommand exposing `sin slash <subcommand>` (issue #29). See source file for implementation details.
+
+## Dependencies
+
+- See source file imports for dependency details.
+
+## Usage
+
+```bash
+sin codocs check
+```

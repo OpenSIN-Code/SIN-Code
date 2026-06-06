@@ -1,6 +1,6 @@
 """Purpose: Tests for the `sin-write` CLI shim.
 
-Docs: tests/cli/test_sin_write.doc.md
+Docs: test_sin_write.doc.md
 
 Run as module:
     python -m sin_code_bundle.cli_shims.sin_write <path> --content "..."

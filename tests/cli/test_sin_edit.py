@@ -1,6 +1,6 @@
 """Purpose: Tests for the `sin-edit` CLI shim.
 
-Docs: tests/cli/test_sin_edit.doc.md
+Docs: test_sin_edit.doc.md
 
 Run as module:
     python -m sin_code_bundle.cli_shims.sin_edit <file> --old "..." --new "..."

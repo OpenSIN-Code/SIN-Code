@@ -1,6 +1,6 @@
 """Purpose: Tests for the `sin-bash` CLI shim.
 
-Docs: tests/cli/test_sin_bash.doc.md
+Docs: test_sin_bash.doc.md
 
 Run as module:
     python -m sin_code_bundle.cli_shims.sin_bash --command "echo hi"

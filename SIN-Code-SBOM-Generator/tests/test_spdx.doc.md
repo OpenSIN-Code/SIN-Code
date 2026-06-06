@@ -1,0 +1,17 @@
+# test_spdx.doc.md
+
+Tests for test_spdx.py.
+
+## What this file does
+
+Tests for test_spdx.py. See source file for implementation details.
+
+## Dependencies
+
+- See source file imports for dependency details.
+
+## Usage
+
+```bash
+sin codocs check
+```

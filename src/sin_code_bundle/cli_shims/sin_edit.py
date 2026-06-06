@@ -1,6 +1,6 @@
 """Purpose: `sin-edit` CLI shim — hashline-anchored semantic patching.
 
-Docs: cli/sin_edit.doc.md
+Docs: sin_edit.doc.md
 
 Wraps `sin_code_bundle.file_ops.sin_edit` as a real binary.
 

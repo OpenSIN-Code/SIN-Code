@@ -1,6 +1,6 @@
 """Purpose: `sin-bash` CLI shim — safe shell exec via `execute` Go binary.
 
-Docs: cli/sin_bash.doc.md
+Docs: sin_bash.doc.md
 
 Wraps `sin_code_bundle.file_ops.sin_bash` as a real binary.
 

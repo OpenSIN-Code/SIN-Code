@@ -1,5 +1,5 @@
 # Purpose: SIN-Code Slash Skill - merged from sin-slash v0.1.0
-# Docs: sin_code_bundle/cli/slash.doc.md
+# Docs: slash.doc.md
 """SIN-Code Slash Skill - MCP server for slash command dispatch.
 
 Provides built-in slash commands (/refactor, /test, /docs, etc.) and a custom

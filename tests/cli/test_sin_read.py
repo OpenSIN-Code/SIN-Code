@@ -1,6 +1,6 @@
 """Purpose: Tests for the `sin-read` CLI shim.
 
-Docs: tests/cli/test_sin_read.doc.md
+Docs: test_sin_read.doc.md
 
 Run as module:
     python -m sin_code_bundle.cli_shims.sin_read <path>

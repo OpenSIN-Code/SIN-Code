@@ -1,6 +1,6 @@
 """Purpose: Tests for the `sin-search` CLI shim.
 
-Docs: tests/cli/test_sin_search.doc.md
+Docs: test_sin_search.doc.md
 
 Run as module:
     python -m sin_code_bundle.cli_shims.sin_search --query "..." --path ...
