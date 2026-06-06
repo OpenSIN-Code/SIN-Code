@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sin-code-bundle"
-version = "0.9.2"
-description = "Structural intelligence for AI coding agents: impact analysis, semantic diff, architectural-debt breaker, and an independent verification Oracle — over MCP."
+version = "0.9.3"
+description = "Unified CLI and MCP server for the SIN-Code agent-engineering stack — Bundle glues the standalone tools (Discover, Execute, Map, Grasp, Scout, Harvest, Orchestrate, SCKG, IBD, PoC, EFM, ADW, Oracle) into a single pip-installable package."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
@@ -20,20 +20,20 @@ classifiers = [
   "Topic :: Software Development :: Quality Assurance",
 ]
 
-# One-line install: bundles every SIN-Code subsystem + sin-brain.
-# `pip install sin-code-bundle[all]` == full SOTA agent stack.
-# Editable paths are tried first (for dev) — PyPI fallback is documented in
-# scripts/install-all.sh.
+# Core deps — everything else (SCKG, IBD, PoC, EFM, ADW, Oracle, etc.)
+# is an OPTIONAL subsystem installed from its own OpenSIN-Code repo.
 dependencies = [
   "typer>=0.12",
   "pyyaml>=6.0",
 ]
 
-# === ECOSYSTEM PACKAGES (file:// deps) ===
-# The 9 SIN-Code ecosystem packages (sin-code-sckg, sin-code-ibd, etc.) are
-# installed via `requirements-ecosystem.txt` for local dev — PyPI's core-metadata
-# spec forbids direct URL references (file://) in extras.
-# See https://packaging.python.org/specifications/core-metadata
+# === ECOSYSTEM PACKAGES (git+ deps via requirements-ecosystem.txt) ===
+# The 6 SIN-Code core ecosystem packages (sin-code-sckg, sin-code-ibd,
+# sin-code-poc, sin-code-efsm, sin-code-adw, sin-code-oracle) were
+# extracted from this monorepo into standalone repos under OpenSIN-Code/
+# as part of issue #28. They are installed via `requirements-ecosystem.txt`,
+# which uses git+https URLs — PyPI's core-metadata spec forbids direct URL
+# references in extras. See https://packaging.python.org/specifications/core-metadata
 
 [project.optional-dependencies]
 # === LSP / benchmark / MCP runtime / observability ===
@@ -66,8 +66,8 @@ dev = [
 
 # === PyPI-clean: all available extras ===
 # `pip install sin-code-bundle[all]` → lsp + bench + mcp + otel + dev
-# For the 9 SIN-Code ecosystem packages (sckg, ibd, poc, efsm, adw, oracle,
-# orchestration, review, sin-brain), install with:
+# For the 6 SIN-Code core ecosystem packages (sckg, ibd, poc, efsm, adw,
+# oracle), install with:
 #   pip install -r https://raw.githubusercontent.com/OpenSIN-Code/SIN-Code-Bundle/main/requirements-ecosystem.txt
 all = [
   "sin-code-bundle[lsp,bench,mcp,otel,dev]",

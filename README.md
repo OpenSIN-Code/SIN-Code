@@ -8,10 +8,16 @@
 **The universal semantic backend for AI coding agents.**
 
 One CLI (`sin`) and one unified MCP server (`sin-serve` / `sin serve`) that
-orchestrate **8 Python subsystems, 7 Go tools, and 5 external bridges** — giving
-AI agents the signals they actually lack: structural knowledge, semantic diffs,
-correctness proofs, ephemeral test environments, debt guardrails, and
-persistent memory.
+orchestrate **7 Go tools and 5 external bridges** — giving AI agents the
+signals they actually lack: structural knowledge, semantic diffs, correctness
+proofs, ephemeral test environments, debt guardrails, and persistent memory.
+
+> **As of v0.9.3 (issue #28) the 6 Python subsystems (SCKG, IBD, PoC, EFM,
+> ADW, Oracle) and the Next.js Web frontend are no longer vendored in this
+> monorepo.** They live in their own standalone OpenSIN-Code repos and are
+> installed separately via `requirements-ecosystem.txt`. The Bundle has
+> shrunk from ~50k LOC to the core glue: CLI + MCP server + VFS resolver +
+> AST editor + sin-brain memory hooks.
 
 ---
 
@@ -322,17 +328,18 @@ sin status
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ sin-serve MCP server (stdio)                                │
-│   34 tools exposed (5 core + 2 VFS + 2 AST + 1 arch +       │
-│   2 runtime + 2 worktree + 10 subsystem + 5 memory +        │
-│   5 external bridges)                                       │
+│   19 tools exposed (5 core + 2 VFS + 2 AST + 1 arch +       │
+│   2 runtime + 2 worktree + 5 memory) + 10 OPTIONAL          │
+│   ecosystem tools (SCKG, IBD, PoC, EFM, ADW, Oracle + ... ) │
+│   loaded only when the matching pip pkg is installed.       │
 └─────────────────────────────────────────────────────────────┘
                           │
        ┌──────────────────┼──────────────────┐
        │                  │                  │
        ▼                  ▼                  ▼
 ┌────────────┐   ┌──────────────┐   ┌──────────────────┐
-│ 7 Go tools │   │ 8 Python     │   │ 5 External       │
-│ (grasp,    │   │ subsystems   │   │ bridges          │
+│ 7 Go tools │   │ 6+2 ECOSYSTEM│   │ 5 External       │
+│ (grasp,    │   │ packages     │   │ bridges          │
 │  scout,    │   │ (sckg, ibd,  │   │ (GitNexus,       │
 │  discover, │   │  poc, efsm,  │   │  Simone-MCP,     │
 │  execute,  │   │  adw, oracle,│   │  MarkItDown,     │
@@ -340,14 +347,33 @@ sin status
 │  harvest,  │   │  review-     │   │                  │
 │  orchestrate)│ │  interface)  │   │                  │
 └────────────┘   └──────────────┘   └──────────────────┘
+                          ▲
+                          │ pip install -r
+                          │   requirements-ecosystem.txt
                           │
-                          ▼
                   ┌──────────────┐
                   │ sin-brain    │
                   │ (SQLite+FTS5 │
                   │ memory)      │
                   └──────────────┘
 ```
+
+> **Ecosystem packages** (SCKG, IBD, PoC, EFM, ADW, Oracle, Orchestration,
+> Review-Interface) are NOT vendored in this monorepo anymore (issue #28).
+> Install them from their standalone repos via
+> [`requirements-ecosystem.txt`](./requirements-ecosystem.txt). Each is a
+> standard pip-installable package with its own README + LICENSE.
+>
+> | Ecosystem pkg | Standalone repo | Description |
+> |---|---|---|
+> | `sin-code-sckg` | [SIN-Code-SCKG-Tool](https://github.com/OpenSIN-Code/SIN-Code-SCKG-Tool) | Semantic Codebase Knowledge Graphs |
+> | `sin-code-ibd`  | [SIN-Code-IBD-Tool](https://github.com/OpenSIN-Code/SIN-Code-IBD-Tool)   | Intent-Based Diffing |
+> | `sin-code-poc`  | [SIN-Code-PoC-Tool](https://github.com/OpenSIN-Code/SIN-Code-PoC-Tool)   | Proof-of-Correctness |
+> | `sin-code-efsm` | [SIN-Code-EFM-Tool](https://github.com/OpenSIN-Code/SIN-Code-EFM-Tool)  | Ephemeral Full-Stack Mocking |
+> | `sin-code-adw`  | [SIN-Code-ADW-Tool](https://github.com/OpenSIN-Code/SIN-Code-ADW-Tool)  | Architectural Debt Watchdog |
+> | `sin-code-oracle` | [SIN-Code-Oracle-Tool](https://github.com/OpenSIN-Code/SIN-Code-Oracle-Tool) | Verification Oracle |
+>
+> The Next.js web frontend lives in [SIN-Code-Bundle-Web](https://github.com/OpenSIN-Code/SIN-Code-Bundle-Web).
 
 ---
 
