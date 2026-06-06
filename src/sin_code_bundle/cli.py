@@ -2577,6 +2577,70 @@ def efm():
     _forward_to_binary("efm", _NEW_TOOL_BINARIES["efm"][0])
 
 
+@app.command()
+def tui(
+    fallback: bool = typer.Option(
+        False,
+        "--fallback",
+        help="Skip the TUI and show a plain menu (used when no TTY is available).",
+    ),
+) -> None:
+    """Launch the SIN-Code TUI (Bubbletea) — interactive menu over every `sin` subcommand.
+
+    The TUI is a separate Go binary (sin-tui) that the Python CLI shells out to.
+    Build it once with:
+
+        go build -o ~/.local/bin/sin-tui ./cmd/sin-tui
+
+    If the binary is missing, this command prints a short installation hint and
+    exits 1 instead of crashing, so `sin tui` is always safe to call.
+    """
+    import sys
+
+    if fallback or not sys.stdout.isatty():
+        # Plain-text menu fallback for non-TTY environments (CI, logs, pipes).
+        typer.echo("sin tui — interactive mode (fallback, no TTY detected)\n")
+        for c in _TU_CATALOG:
+            typer.echo(f"  {c['title']:<22}  {c['desc']}")
+        typer.echo("\nRun `sin <subcommand> --help` for details.")
+        return
+
+    binary = shutil.which("sin-tui")
+    if not binary:
+        typer.echo(
+            "[SIN-BUNDLE] 'sin-tui' binary not found in PATH.\n"
+            "Build it from this repo:\n"
+            "  go build -o ~/.local/bin/sin-tui ./cmd/sin-tui\n"
+            "Or download a prebuilt binary from the SIN-Code-Bundle release page.",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    # Hand off the terminal to the Go binary (it uses alt-screen + mouse).
+    result = subprocess.run([binary, *sys.argv[sys.argv.index("tui") + 1 :]])
+    raise typer.Exit(code=result.returncode)
+
+
+# Catalog used by the non-TTY fallback in `tui`. Keep in sync with
+# internal/tui/commands.go (the Go side is the source of truth at runtime).
+_TU_CATALOG = [
+    {"title": "sin code", "desc": "Unified coding workflow hub"},
+    {"title": "sin code full <path>", "desc": "Run preflight → codocs → debt → sckg"},
+    {"title": "sin sckg", "desc": "Semantic codebase knowledge graph"},
+    {"title": "sin ibd", "desc": "Intent-based diffing"},
+    {"title": "sin poc", "desc": "Proof-of-correctness"},
+    {"title": "sin adw", "desc": "Architectural debt watchdog"},
+    {"title": "sin oracle", "desc": "Independent verification oracle"},
+    {"title": "sin sin-code run map <path>", "desc": "Architecture map"},
+    {"title": "sin sin-code run scout <q>", "desc": "Code search"},
+    {"title": "sin status", "desc": "Subsystem status"},
+    {"title": "sin doctor", "desc": "Diagnose environment"},
+    {"title": "sin bootstrap <path>", "desc": "Initialize subsystems"},
+    {"title": "sin serve", "desc": "Expose tools as MCP server"},
+    {"title": "sin brain", "desc": "Behavioral memory"},
+    {"title": "sin context-bridge <q>", "desc": "Unified context query"},
+]
+
 
 if __name__ == "__main__":
     app()

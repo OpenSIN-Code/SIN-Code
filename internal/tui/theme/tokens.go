@@ -84,9 +84,9 @@ const (
 
 // Border styles.
 var (
-	BorderNone   = lipgloss.NoBorder()
-	BorderHair   = lipgloss.HairLineBorder()
-	BorderThin   = lipgloss.ThickBorder() // use sparingly
+	BorderNone    = lipgloss.HiddenBorder()
+	BorderHair    = lipgloss.NormalBorder()
+	BorderThin    = lipgloss.ThickBorder() // use sparingly
 	BorderRounded = lipgloss.RoundedBorder()
-	BorderDouble = lipgloss.DoubleBorder()
+	BorderDouble  = lipgloss.DoubleBorder()
 )

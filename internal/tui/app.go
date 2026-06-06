@@ -405,7 +405,7 @@ func (m *Model) viewPreview(w, h int) string {
 	header := m.styles.Title.Render(c.Title)
 	desc := m.styles.Muted.Render(c.Description)
 	args := m.styles.Help.Render("Args: ") + m.styles.Code.Render(c.Args)
-	group := m.styles.Help.Render("Group: ") + m.styles.Accent(c.Group).Render(c.Group)
+	group := m.styles.Help.Render("Group: ") + m.styles.Subtitle.Render(c.Group)
 	cmd := m.styles.Help.Render("Command: ") + m.styles.Bold.Render("sin "+c.Key+" "+c.Args)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
@@ -414,7 +414,7 @@ func (m *Model) viewPreview(w, h int) string {
 }
 
 // makeAccent returns a style for an inline accent (workaround helper).
-func (m *Model) Accent(s string) lipgloss.Style {
+func (m *Model) Accent() lipgloss.Style {
 	return m.styles.Text.Foreground(theme.Palette.Accent)
 }
 

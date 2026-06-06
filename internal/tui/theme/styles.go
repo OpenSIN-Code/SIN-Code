@@ -1,5 +1,5 @@
-# Purpose: Semantic styles for the SIN-Code TUI (built on lipgloss).
-# Docs: styles.doc.md
+// Purpose: Semantic styles for the SIN-Code TUI (built on lipgloss).
+// Docs: styles.doc.md
 
 package theme
 
