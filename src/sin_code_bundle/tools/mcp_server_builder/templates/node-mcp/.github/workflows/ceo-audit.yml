@@ -1,0 +1,22 @@
+name: CEO Audit
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - run: npm test
+      - name: CEO Audit
+        run: |
+          pip install sin-code-bundle[ceo-audit]
+          sin ceo-audit run . --profile=QUICK --grade=B
+        env:
+          SIN_GITHUB_FALLBACK_TOKEN: ${{ secrets.SIN_GITHUB_FALLBACK_TOKEN }}

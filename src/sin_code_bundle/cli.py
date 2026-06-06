@@ -1179,6 +1179,43 @@ def serve():
     mcp.run()
 
 
+# ── v0.9.3 Consolidated Skill Subcommands (issue #29) ─────────────────────
+# Migrated 3 baseline skills into the bundle CLI:
+#   - sin-slash           -> sin slash <sub>
+#   - sin-mcp-server-builder -> sin mcp-server <sub>
+#   - sin-marketplace     -> sin marketplace <sub>
+# Source repos are now archived (see DEPRECATED notice in their READMEs).
+try:
+    from sin_code_bundle.tools.slash.app import app as slash_app
+    app.add_typer(slash_app, name="slash")
+except ImportError as exc:
+    @app.command("slash")
+    def slash_missing() -> None:
+        """Slash commands (slash module not installed)."""
+        typer.echo(f"[SIN-BUNDLE] slash module unavailable: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+try:
+    from sin_code_bundle.tools.mcp_server_builder.app import app as mcp_server_app
+    app.add_typer(mcp_server_app, name="mcp-server")
+except ImportError as exc:
+    @app.command("mcp-server")
+    def mcp_server_missing() -> None:
+        """MCP server builder (mcp_server_builder module not installed)."""
+        typer.echo(f"[SIN-BUNDLE] mcp-server module unavailable: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+try:
+    from sin_code_bundle.tools.marketplace.app import app as marketplace_app
+    app.add_typer(marketplace_app, name="marketplace")
+except ImportError as exc:
+    @app.command("marketplace")
+    def marketplace_missing() -> None:
+        """Marketplace (marketplace module not installed)."""
+        typer.echo(f"[SIN-BUNDLE] marketplace module unavailable: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()
 
@@ -1936,6 +1973,43 @@ def ast_status():
         typer.echo(f"AST edit available. Languages: {', '.join(ast.SUPPORTED_LANGS)}")
     else:
         typer.echo("AST edit NOT available. Run: pip install tree-sitter tree-sitter-languages")
+        raise typer.Exit(code=1)
+
+
+# ── v0.9.3 Consolidated Skill Subcommands (issue #29) ─────────────────────
+# Migrated 3 baseline skills into the bundle CLI:
+#   - sin-slash           -> sin slash <sub>
+#   - sin-mcp-server-builder -> sin mcp-server <sub>
+#   - sin-marketplace     -> sin marketplace <sub>
+# Source repos are now archived (see DEPRECATED notice in their READMEs).
+try:
+    from sin_code_bundle.tools.slash.app import app as slash_app
+    app.add_typer(slash_app, name="slash")
+except ImportError as exc:
+    @app.command("slash")
+    def slash_missing() -> None:
+        """Slash commands (slash module not installed)."""
+        typer.echo(f"[SIN-BUNDLE] slash module unavailable: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+try:
+    from sin_code_bundle.tools.mcp_server_builder.app import app as mcp_server_app
+    app.add_typer(mcp_server_app, name="mcp-server")
+except ImportError as exc:
+    @app.command("mcp-server")
+    def mcp_server_missing() -> None:
+        """MCP server builder (mcp_server_builder module not installed)."""
+        typer.echo(f"[SIN-BUNDLE] mcp-server module unavailable: {exc}", err=True)
+        raise typer.Exit(code=1)
+
+try:
+    from sin_code_bundle.tools.marketplace.app import app as marketplace_app
+    app.add_typer(marketplace_app, name="marketplace")
+except ImportError as exc:
+    @app.command("marketplace")
+    def marketplace_missing() -> None:
+        """Marketplace (marketplace module not installed)."""
+        typer.echo(f"[SIN-BUNDLE] marketplace module unavailable: {exc}", err=True)
         raise typer.Exit(code=1)
 
 

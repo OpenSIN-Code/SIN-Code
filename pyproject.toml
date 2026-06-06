@@ -25,6 +25,13 @@ classifiers = [
 dependencies = [
   "typer>=0.12",
   "pyyaml>=6.0",
+  # Consolidated skill deps (issue #29 — sin-slash, sin-mcp-server-builder, sin-marketplace)
+  "click>=8.0",        # sin-slash Click CLI (legacy)
+  "rich>=13.0",        # sin-slash + sin-marketplace pretty printing
+  "fastmcp>=2.0",      # MCP server surfaces for all 3 subcommands
+  "jinja2>=3.0",       # sin-mcp-server-builder templates
+  "httpx>=0.27",       # sin-marketplace remote catalog
+  "gitpython>=3.1",    # sin-marketplace install/update
 ]
 
 # === ECOSYSTEM PACKAGES (git+ deps via requirements-ecosystem.txt) ===
@@ -73,6 +80,15 @@ all = [
   "sin-code-bundle[lsp,bench,mcp,otel,dev]",
 ]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+sin_code_bundle = [
+  "data/codocs/*.md",
+  "tools/mcp_server_builder/templates/**/*",
+]
+
 [project.urls]
 Homepage = "https://github.com/OpenSIN-Code/SIN-Code-Bundle"
 Issues = "https://github.com/OpenSIN-Code/SIN-Code-Bundle/issues"
@@ -81,12 +97,16 @@ Issues = "https://github.com/OpenSIN-Code/SIN-Code-Bundle/issues"
 sin = "sin_code_bundle.cli:app"
 sin-serve = "sin_code_bundle.mcp_server:main"
 sin-serve-mcp = "sin_code_bundle.mcp_server:main"
+# issue #29 — backward-compat entry points for the consolidated skills.
+# These are kept for scripts that still invoke the old names; they all
+# forward to the same `sin` Typer app.
+sin-slash = "sin_code_bundle.tools.slash.cli:main"
+sin-mcp-server-builder = "sin_code_bundle.tools.mcp_server_builder.mcp_server:main"
+sin-marketplace-skill = "sin_code_bundle.tools.marketplace.legacy_cli:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
 
-[tool.setuptools.package-data]
-sin_code_bundle = ["data/codocs/*.md"]
+
+
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

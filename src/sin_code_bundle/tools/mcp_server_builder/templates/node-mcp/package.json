@@ -1,0 +1,26 @@
+{
+  "name": "sin-{{ slug }}",
+  "version": "{{ version }}",
+  "description": "{{ description }}",
+  "main": "src/index.js",
+  "bin": {
+    "sin-{{ slug }}-mcp": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test tests/"
+  },
+  "keywords": ["mcp", "sin-code", "{{ slug }}"],
+  "author": "OpenSIN-Code <contact@opensincode.org>",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
+}

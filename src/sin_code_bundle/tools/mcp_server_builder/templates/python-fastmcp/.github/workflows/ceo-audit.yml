@@ -1,0 +1,35 @@
+name: CEO Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Run tests
+        run: pytest -q
+      - name: Lint
+        run: |
+          black --check src/ tests/
+          ruff check src/ tests/
+      - name: Type check
+        run: mypy src/
+      - name: CEO Audit
+        run: |
+          pip install sin-code-bundle[ceo-audit]
+          sin ceo-audit run . --profile=QUICK --grade=B
+        env:
+          SIN_GITHUB_FALLBACK_TOKEN: ${{ secrets.SIN_GITHUB_FALLBACK_TOKEN }}
