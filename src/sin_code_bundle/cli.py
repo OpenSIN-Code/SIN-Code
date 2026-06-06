@@ -2795,6 +2795,15 @@ _TU_CATALOG = [
     {"title": "sin context-bridge <q>", "desc": "Unified context query"},
     {"title": "sin update", "desc": "Upgrade pipx package + rebuild Go tools"},
     {"title": "sin config", "desc": "Read/write the layered config (TOML + opencode + env)"},
+    {"title": "sin security secrets", "desc": "Scan for hardcoded secrets"},
+    {"title": "sin security sast", "desc": "Static application security testing"},
+    {"title": "sin security sca", "desc": "Software composition analysis (deps)"},
+    {"title": "sin security sbom", "desc": "Generate SBOM (SPDX + CycloneDX)"},
+    {"title": "sin security container", "desc": "Scan container images"},
+    {"title": "sin security iac", "desc": "Scan IaC (Terraform, etc.)"},
+    {"title": "sin security license", "desc": "License compliance check"},
+    {"title": "sin security dast", "desc": "Dynamic application security testing"},
+    {"title": "sin security full <path>", "desc": "Run all 8 security tools"},
 ]
 
 

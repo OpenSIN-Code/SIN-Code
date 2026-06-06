@@ -67,8 +67,16 @@ var Commands = []Command{
 	{Key: "efm", Title: "🧪 efm", Description: "Ephemeral Full-Stack Mocking", Group: GroupPython, Args: "<spec>"},
 	{Key: "sckg", Title: "🕸️  sckg", Description: "SCKG — knowledge graph (11 cmds)", Group: GroupPython, Args: "<cmd> [args]"},
 
-	// ── Security (planned) ───────────────────────────────────────
-	{Key: "security", Title: "🔐 security", Description: "8-tool security bundle (Snyk alt.)", Group: GroupSecurity, Args: "scan <path>"},
+	// ── Security (sin security) ─────────────────────────────────
+	{Key: "security secrets", Title: "🔐 secrets", Description: "Scan for hardcoded secrets (regex + entropy)", Group: GroupSecurity, Args: "[path]"},
+	{Key: "security sast", Title: "🛡️  sast", Description: "Static application security testing", Group: GroupSecurity, Args: "[path]"},
+	{Key: "security sca", Title: "📦 sca", Description: "Software composition analysis (deps + CVEs)", Group: GroupSecurity, Args: "[path]"},
+	{Key: "security sbom", Title: "📋 sbom", Description: "Generate SBOM (SPDX + CycloneDX)", Group: GroupSecurity, Args: "[path]"},
+	{Key: "security container", Title: "🐳 container", Description: "Scan container images", Group: GroupSecurity, Args: "<image>"},
+	{Key: "security iac", Title: "🏗️  iac", Description: "Scan IaC (Terraform, CloudFormation, K8s)", Group: GroupSecurity, Args: "[path]"},
+	{Key: "security license", Title: "📜 license", Description: "License compliance check", Group: GroupSecurity, Args: "[path]"},
+	{Key: "security dast", Title: "🎯 dast", Description: "Dynamic application security testing", Group: GroupSecurity, Args: "<target>"},
+	{Key: "security full", Title: "🛡️  full", Description: "Run all 8 security tools in sequence", Group: GroupSecurity, Args: "<path>"},
 
 	// ── Skills ───────────────────────────────────────────────────
 	{Key: "brain", Title: "🧠 brain", Description: "Global/project behavioral rules", Group: GroupSkills},
