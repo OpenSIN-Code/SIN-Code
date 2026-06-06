@@ -194,6 +194,96 @@ def verify(test_command: str, root: str = "."):
     typer.echo(json.dumps(verdict.to_dict(), indent=2))
 
 
+# ── Unified `sin code` Subcommand Hub ──────────────────────────────────────
+def _normalize_root_flag(args: list[str]) -> list[str]:
+    """Normalize positional path arg to --root flag for commands that need it.
+
+    `sin debt <path>` -> `sin debt --root <path>`
+    `sin debt --root <path>` -> unchanged
+    """
+    if not args:
+        return []
+    # If first arg is a path (not a flag), wrap it with --root
+    if not args[0].startswith("-"):
+        return ["--root", args[0]] + args[1:]
+    return args
+
+
+@app.command()
+def code(
+    action: str = typer.Argument(
+        ...,
+        help="Action: review, debt, verify, preflight, codocs, sckg, audit, oracle, adw, ibd, discover, scout, or full",
+    ),
+    args: list[str] = typer.Argument(default_factory=list, help="Arguments to pass to the underlying command"),
+):
+    """Unified coding workflow hub — shortcut to all sin coding tools.
+
+    Examples:
+      sin code review file_a.py file_b.py
+      sin code debt .
+      sin code preflight
+      sin code codocs check
+      sin code discover
+      sin code audit
+      sin code full .   # runs preflight + codocs + debt pipeline
+    """
+    actions_map = {
+        "review": (["review"], args),
+        "debt": (["debt"], _normalize_root_flag(args)),
+        "verify": (["verify"], args),
+        "preflight": (["preflight"], args),
+        "preflight-write": (["preflight-write"], args),
+        "codocs": (["codocs"], args),
+        "sckg": (["sin-code", "run", "scout"], args),
+        "audit": (["ceo-audit"], args),
+        "oracle": (["verify"], args),
+        "adw": (["debt"], _normalize_root_flag(args)),
+        "ibd": (["review"], args),
+        "discover": (["sin-code", "run", "discover"], args),
+        "scout": (["sin-code", "run", "scout"], args),
+        "grasp": (["sin-code", "run", "grasp"], args),
+        "map": (["sin-code", "run", "map"], args),
+        "harvest": (["sin-code", "run", "harvest"], args),
+    }
+
+    if action == "full":
+        # Run a complete coding review pipeline
+        typer.echo("[SIN-CODE] Running full coding review pipeline...")
+        steps = [
+            (["preflight"], "Preflight (GitNexus index freshness)"),
+            (["codocs", "check", "."], "CoDocs validation"),
+            (["debt", "--root", "."], "Architectural debt analysis"),
+        ]
+        for cmd, label in steps:
+            typer.echo(f"\n[SIN-CODE] → {label}")
+            full_cmd = ["sin"] + cmd
+            result = subprocess.run(full_cmd, capture_output=True, text=True)
+            if result.stdout:
+                typer.echo(result.stdout)
+            if result.returncode != 0 and result.stderr:
+                typer.echo(f"[WARN] {label} returned {result.returncode}", err=True)
+        typer.echo("\n[SIN-CODE] ✓ Full pipeline complete")
+        return
+
+    if action not in actions_map:
+        typer.echo(
+            f"[SIN-CODE] Unknown action: {action}. Available: {', '.join(actions_map.keys())}, full",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+
+    cmd_prefix, cmd_args = actions_map[action]
+    full_cmd = ["sin"] + cmd_prefix + cmd_args
+    typer.echo(f"[SIN-CODE] {' '.join(full_cmd)}")
+    result = subprocess.run(full_cmd, capture_output=True, text=True)
+    if result.stdout:
+        typer.echo(result.stdout)
+    if result.stderr:
+        typer.echo(result.stderr, err=True)
+    raise typer.Exit(code=result.returncode)
+
+
 @gitnexus_app.command("doctor")
 def gitnexus_doctor(root: str = typer.Argument(".", help="Repository root")):
     """Check Node/npx + GitNexus index health."""
@@ -1285,6 +1375,152 @@ def efm():
     _forward_to_binary("efm", _NEW_TOOL_BINARIES["efm"][0])
 
 
+# ── Pocock Workflow Tools (v0.11.0) ───────────────────────────────────────
+# Implements the Matt Pocock System-Design Paradigm:
+#   - grill-me      -> Socratic alignment & PRD generation
+#   - tdd-enforcer  -> TDD Red-Green-Refactor cycle enforcement
+#   - dag-kanban    -> DAG-based task orchestration
+#   - zod-patch     -> Zod v3/v4 compatibility sandbox
+#   - safe-start    -> Safe OpenCode bootstrap with env injection
+#   - cleanup-hook  -> Post-flight system cleanup
+#   - teammate      -> Multi-agent swarm communication
+
+pocock_app = typer.Typer(
+    help="Pocock Workflow - Socratic alignment, TDD enforcement, DAG orchestration, multi-agent swarm."
+)
+app.add_typer(pocock_app, name="pocock")
+
+
+@pocock_app.command("grill-me")
+def pocock_grill_me(
+    goal: str = typer.Argument(..., help="Development goal / feature description"),
+    output: str = typer.Option("PRD.md", "--output", "-o", help="Output path for PRD.md"),
+    non_interactive: bool = typer.Option(False, "--non-interactive", help="Non-interactive mode (CI/CD)"),
+    answers: str = typer.Option(None, "--answers", help="JSON answers for non-interactive mode"),
+    json_out: bool = typer.Option(False, "--json", help="Output JSON"),
+):
+    """Socratic alignment tool - asks clarifying questions before coding."""
+    from sin_code_bundle.tools.pocock.grill_me import GrillMe
+
+    grill = GrillMe(goal)
+    if non_interactive:
+        if not answers:
+            typer.echo("❌ --non-interactive requires --answers JSON", err=True)
+            raise typer.Exit(code=1)
+        import json
+        answers_dict = json.loads(answers)
+        grill.run_non_interactive(answers_dict)
+    else:
+        grill.run_interactive()
+
+    grill.generate_prd(output)
+
+    if json_out:
+        typer.echo(grill.to_json())
+    else:
+        typer.echo(f"🎉 PRD generated: {output}")
+
+
+@pocock_app.command("tdd-enforcer")
+def pocock_tdd_enforcer(
+    test_cmd: str = typer.Argument(..., help="Test command (e.g., 'pytest tests/')"),
+    file: str = typer.Argument(..., help="File to edit"),
+    lock_dir: str = typer.Option(None, "--lock-dir", help="Directory for lock files"),
+    reset: bool = typer.Option(False, "--reset", help="Reset TDD state for this file"),
+    check: bool = typer.Option(False, "--check", help="Only check lock status"),
+    json_out: bool = typer.Option(False, "--json", help="Output JSON"),
+):
+    """TDD gatekeeper - enforces Red-Green-Refactor cycle before editing."""
+    from sin_code_bundle.tools.pocock.tdd_enforcer import TDDEnforcer
+
+    enforcer = TDDEnforcer(test_cmd, file, lock_dir)
+
+    if reset:
+        enforcer.reset()
+        raise typer.Exit()
+
+    if check:
+        result = {
+            "is_locked": enforcer.is_locked(),
+            "phase": enforcer._get_current_phase(),
+            "file": file,
+            "lock_file": enforcer.lock_file,
+        }
+        if json_out:
+            typer.echo(json.dumps(result, indent=2))
+        else:
+            status = "🔒 Locked" if result["is_locked"] else "🔓 Unlocked"
+            typer.echo(f"{status} - Phase: {result['phase']}")
+        raise typer.Exit()
+
+    result = enforcer.enforce()
+
+    if json_out:
+        typer.echo(json.dumps(result, indent=2, ensure_ascii=False))
+    else:
+        typer.echo(f"\n{'=' * 60}")
+        typer.echo(f"Result: {result['status'].upper()}")
+        typer.echo(f"Phase: {result['phase'].upper()}")
+        typer.echo(f"{'=' * 60}")
+
+    if result["status"] == "blocked":
+        raise typer.Exit(code=1)
+
+
+@pocock_app.command("dag-kanban")
+def pocock_dag_kanban(
+    prd: str = typer.Option("PRD.md", "--prd", help="Path to PRD.md"),
+    json_out: bool = typer.Option(False, "--json", help="Output JSON"),
+    docker: bool = typer.Option(False, "--docker", help="Export Docker Compose"),
+    output: str = typer.Option("docker-compose.dag.yml", "--output", help="Docker Compose output path"),
+):
+    """DAG-based Kanban - parses PRD and creates task execution graph."""
+    from sin_code_bundle.tools.pocock.dag_kanban import DAGKanban
+
+    runner = DAGKanban(prd)
+    order = runner.run()
+
+    if json_out:
+        typer.echo(runner.to_json())
+
+    if docker:
+        try:
+            import yaml
+            runner.export_docker_compose(output)
+        except ImportError:
+            typer.echo("⚠️  PyYAML not installed. Run: pip install pyyaml", err=True)
+            raise typer.Exit(code=1)
+
+
+@pocock_app.command("cleanup")
+def pocock_cleanup():
+    """Run post-flight cleanup hook (system cleanup after task runs)."""
+    script_path = Path(__file__).parent.parent.parent / "scripts" / "pocock" / "opencode-cleanup-hook.sh"
+    if not script_path.exists():
+        typer.echo("❌ Cleanup script not found. Is the bundle installed correctly?", err=True)
+        raise typer.Exit(code=1)
+
+    result = subprocess.run(["bash", str(script_path)], capture_output=True, text=True)
+    typer.echo(result.stdout)
+    if result.stderr:
+        typer.echo(result.stderr, err=True)
+    raise typer.Exit(code=result.returncode)
+
+
+@pocock_app.command("safe-start")
+def pocock_safe_start():
+    """Start OpenCode with safe environment injection (Zod patch + env substitution)."""
+    script_path = Path(__file__).parent.parent.parent / "scripts" / "pocock" / "opencode-safe-start.sh"
+    if not script_path.exists():
+        typer.echo("❌ Safe-start script not found. Is the bundle installed correctly?", err=True)
+        raise typer.Exit(code=1)
+
+    # Forward remaining args to the script
+    import sys
+    args = sys.argv[sys.argv.index("safe-start") + 1:]
+    result = subprocess.run(["bash", str(script_path), *args])
+    raise typer.Exit(code=result.returncode)
+
 if __name__ == "__main__":
     app()
 
@@ -2149,6 +2385,7 @@ def oracle():
 def efm():
     """Ephemeral Full-Stack Mocking (EFM) — thin wrapper around the `efm` binary."""
     _forward_to_binary("efm", _NEW_TOOL_BINARIES["efm"][0])
+
 
 
 if __name__ == "__main__":
