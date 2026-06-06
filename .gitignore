@@ -41,3 +41,7 @@ SIN-Code-Security-Bundle/
 .coverage
 htmlcov/
 *.egg.sin/
+
+# Local TUI binary (build with: go build -o ./sin-tui ./cmd/sin-tui)
+sin-tui
+
