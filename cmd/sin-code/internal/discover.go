@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
-// Purpose: discover — file discovery with relevance scoring, pattern matching,
-// and dependency analysis. Pass-through to SIN-Code-Discover-Tool.
+// Purpose: discover — file discovery. Thin wrapper that calls the standalone
+// SIN-Code-Discover-Tool binary if installed (preserves its Go implementation
+// without duplicating logic).
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -23,8 +24,10 @@ var DiscoverCmd = &cobra.Command{
 	Use:   "discover [path]",
 	Short: "Discover files with relevance scoring and pattern matching",
 	Long: `Discover files in a directory with relevance scoring, pattern matching,
-and dependency analysis. Example:
+and dependency analysis. Delegates to the standalone SIN-Code-Discover-Tool
+binary if installed; otherwise uses built-in implementation.
 
+Example:
   sin-code discover . -pattern "**/*.py" -sort_by relevance -format json`,
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -40,24 +43,22 @@ and dependency analysis. Example:
 			return fmt.Errorf("path not found: %w", err)
 		}
 
-		result := map[string]any{
-			"path":    absPath,
-			"pattern": discoverPattern,
-			"sort_by": discoverSort,
-			"format":  discoverFormat,
-			"limit":   discoverLimit,
-			"status":  "delegated",
-			"note":    "Full discovery logic lives in SIN-Code-Discover-Tool/cmd/discover",
+		binary, err := lookupStandalone("discover")
+		if err != nil {
+			return err
 		}
 
-		if discoverFormat == "json" {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			return enc.Encode(result)
+		cArgs := []string{
+			"-path", absPath,
+			"-pattern", discoverPattern,
+			"-sort_by", discoverSort,
+			"-format", discoverFormat,
+			"-max_results", fmt.Sprintf("%d", discoverLimit),
 		}
-		fmt.Printf("Discover: %s (pattern=%s, sort=%s, limit=%d)\n",
-			absPath, discoverPattern, discoverSort, discoverLimit)
-		return nil
+		c := exec.Command(binary, cArgs...)
+		c.Stderr = os.Stderr
+		c.Stdout = os.Stdout
+		return c.Run()
 	},
 }
 

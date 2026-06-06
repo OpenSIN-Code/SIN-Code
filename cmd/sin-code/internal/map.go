@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-// Purpose: map — architecture analysis with dependency graphs, entry points,
-// hot paths, and module-level analysis. Pass-through to SIN-Code-Map-Tool.
+// Purpose: map — architecture analysis. Thin wrapper around standalone
+// SIN-Code-Map-Tool binary if installed.
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -22,9 +22,7 @@ var MapCmd = &cobra.Command{
 	Use:   "map [path]",
 	Short: "Map code architecture with dependency graphs and hot-path analysis",
 	Long: `Map code architecture with dependency graphs, entry points, hot paths,
-and module-level analysis. Example:
-
-  sin-code map . -action map -format json`,
+and module-level analysis. Delegates to standalone SIN-Code-Map-Tool.`,
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := "."
@@ -38,22 +36,15 @@ and module-level analysis. Example:
 		if _, err := os.Stat(absPath); err != nil {
 			return fmt.Errorf("path not found: %w", err)
 		}
-
-		result := map[string]any{
-			"path":   absPath,
-			"action": mapAction,
-			"format": mapFormat,
-			"status": "delegated",
-			"note":   "Full mapping logic lives in SIN-Code-Map-Tool/cmd/map",
+		binary, err := lookupStandalone("map")
+		if err != nil {
+			return err
 		}
-
-		if mapFormat == "json" {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			return enc.Encode(result)
-		}
-		fmt.Printf("Map: %s (action=%s)\n", absPath, mapAction)
-		return nil
+		cArgs := []string{"-path", absPath, "-action", mapAction, "-format", mapFormat}
+		c := exec.Command(binary, cArgs...)
+		c.Stderr = os.Stderr
+		c.Stdout = os.Stdout
+		return c.Run()
 	},
 }
 

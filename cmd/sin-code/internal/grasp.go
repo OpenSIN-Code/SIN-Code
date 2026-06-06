@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-// Purpose: grasp — deep code understanding for individual files. Structure,
-// dependencies, usage, and related context. Pass-through to SIN-Code-Grasp-Tool.
+// Purpose: grasp — deep code understanding. Thin wrapper around standalone
+// SIN-Code-Grasp-Tool binary if installed.
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -21,9 +21,7 @@ var GraspCmd = &cobra.Command{
 	Use:   "grasp [path]",
 	Short: "Deep code understanding for a single file",
 	Long: `Deep code understanding for individual files — structure, dependencies,
-usage, and related context. Example:
-
-  sin-code grasp ./src/main.py -format json`,
+usage, and related context. Delegates to standalone SIN-Code-Grasp-Tool.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		absPath, err := filepath.Abs(args[0])
@@ -33,21 +31,15 @@ usage, and related context. Example:
 		if _, err := os.Stat(absPath); err != nil {
 			return fmt.Errorf("file not found: %w", err)
 		}
-
-		result := map[string]any{
-			"path":   absPath,
-			"format": graspFormat,
-			"status": "delegated",
-			"note":   "Full grasp logic lives in SIN-Code-Grasp-Tool/cmd/grasp",
+		binary, err := lookupStandalone("grasp")
+		if err != nil {
+			return err
 		}
-
-		if graspFormat == "json" {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			return enc.Encode(result)
-		}
-		fmt.Printf("Grasp: %s\n", absPath)
-		return nil
+		cArgs := []string{"-file", absPath, "-format", graspFormat}
+		c := exec.Command(binary, cArgs...)
+		c.Stderr = os.Stderr
+		c.Stdout = os.Stdout
+		return c.Run()
 	},
 }
 

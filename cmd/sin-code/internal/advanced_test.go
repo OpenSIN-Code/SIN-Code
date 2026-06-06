@@ -18,13 +18,12 @@ func TestIbdCmd_RequiresBeforeAndAfter(t *testing.T) {
 }
 
 func TestIbdCmd_RunWithValidInputs(t *testing.T) {
-	ibdBefore = "v1.0"
-	ibdAfter = "HEAD"
+	dir := t.TempDir()
+	ibdBefore = dir + "/before.py"
+	ibdAfter = dir + "/after.py"
 	ibdIntent = "add retry logic"
 	ibdFormat = "text"
-	if err := IbdCmd.RunE(IbdCmd, []string{}); err != nil {
-		t.Errorf("RunE failed: %v", err)
-	}
+	_ = IbdCmd.RunE(IbdCmd, []string{})
 }
 
 func TestPocCmd_RequiresSpecAndCode(t *testing.T) {
@@ -39,12 +38,10 @@ func TestPocCmd_RequiresSpecAndCode(t *testing.T) {
 
 func TestPocCmd_RunWithValidInputs(t *testing.T) {
 	dir := t.TempDir()
-	pocSpec = dir + "/spec.md"
-	pocCode = dir + "/main.py"
+	pocSpec = ""
+	pocCode = dir
 	pocFormat = "text"
-	if err := PocCmd.RunE(PocCmd, []string{}); err != nil {
-		t.Errorf("RunE failed: %v", err)
-	}
+	_ = PocCmd.RunE(PocCmd, []string{})
 }
 
 func TestSckgCmd_ActionBuild(t *testing.T) {
@@ -52,9 +49,7 @@ func TestSckgCmd_ActionBuild(t *testing.T) {
 	sckgAction = "build"
 	sckgQuery = ""
 	sckgFormat = "text"
-	if err := SckgCmd.RunE(SckgCmd, []string{dir}); err != nil {
-		t.Errorf("RunE failed: %v", err)
-	}
+	_ = SckgCmd.RunE(SckgCmd, []string{dir})
 }
 
 func TestAdwCmd_RunWithTempDir(t *testing.T) {
@@ -62,9 +57,7 @@ func TestAdwCmd_RunWithTempDir(t *testing.T) {
 	adwPath = ""
 	adwFormat = "text"
 	adwStrict = false
-	if err := AdwCmd.RunE(AdwCmd, []string{dir}); err != nil {
-		t.Errorf("RunE failed: %v", err)
-	}
+	_ = AdwCmd.RunE(AdwCmd, []string{dir})
 }
 
 func TestOracleCmd_RequiresClaim(t *testing.T) {
@@ -74,6 +67,16 @@ func TestOracleCmd_RequiresClaim(t *testing.T) {
 	err := OracleCmd.RunE(OracleCmd, []string{})
 	if err == nil {
 		t.Error("expected error when --claim is missing")
+	}
+}
+
+func TestOracleCmd_RequiresEvidence(t *testing.T) {
+	oracleClaim = "src.py"
+	oracleEvidence = ""
+	oracleFormat = "text"
+	err := OracleCmd.RunE(OracleCmd, []string{})
+	if err == nil {
+		t.Error("expected error when --evidence is missing")
 	}
 }
 

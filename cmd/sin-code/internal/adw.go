@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
-// Purpose: adw — Architectural Debt Watchdogs. Detect and report architectural
-// debt (god modules, circular deps, high coupling, etc.). Pass-through wrapper.
+// Purpose: adw — Architectural Debt Watchdogs. Delegates to the Python `adw`
+// module in SIN-Code-ADW-Tool (source of truth).
 package internal
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -19,12 +20,15 @@ var (
 )
 
 var AdwCmd = &cobra.Command{
-	Use:   "adw [path]",
+	Use:   "adw",
 	Short: "Architectural Debt Watchdogs — detect god modules, circular deps, etc.",
-	Long: `Detect and report architectural debt in a codebase. Example:
+	Long: `Detect and report architectural debt in a codebase. Delegates to the Python
+` + "`adw`" + ` module.
 
-  sin-code adw . -format json
-  sin-code adw ./src --strict`,
+Examples:
+  sin-code adw .
+  sin-code adw ./src --strict
+  sin-code adw . --format json`,
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := "."
@@ -39,21 +43,27 @@ var AdwCmd = &cobra.Command{
 			return fmt.Errorf("path not found: %w", err)
 		}
 
-		result := map[string]any{
-			"path":   absPath,
-			"format": adwFormat,
-			"strict": adwStrict,
-			"status": "delegated",
-			"note":   "Full ADW logic lives in SIN-Code-ADW-Tool/cmd/adw",
-			"debt_items": []map[string]any{},
+		pythonArgs := []string{"-m", "adw.cli", "scan", absPath}
+		if adwStrict {
+			pythonArgs = append(pythonArgs, "--strict")
+		}
+
+		c := exec.Command("python3", pythonArgs...)
+		c.Stderr = os.Stderr
+		out, err := c.Output()
+		if err != nil {
+			return fmt.Errorf("adw execution failed: %w", err)
 		}
 
 		if adwFormat == "json" {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			return enc.Encode(result)
+			var pretty map[string]any
+			if err := json.Unmarshal(out, &pretty); err == nil {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(pretty)
+			}
 		}
-		fmt.Printf("ADW: %s (strict=%v)\n", absPath, adwStrict)
+		fmt.Print(string(out))
 		return nil
 	},
 }

@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
-// Purpose: efm — Ephemeral Full-Stack Mocking. Spin up disposable full-stack
-// environments (backend, DB, frontend) for testing. Pass-through wrapper.
+// Purpose: efm — Ephemeral Full-Stack Mocking. Delegates to the Python `efm`
+// module in SIN-Code-Ephemeral-Full-Stack-Mocking-Orchestration (source of truth).
 package internal
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 )
@@ -22,29 +23,48 @@ var EfmCmd = &cobra.Command{
 	Use:   "efm",
 	Short: "Ephemeral Full-Stack Mocking — spin up disposable test environments",
 	Long: `Spin up disposable full-stack environments (backend, DB, frontend) for
-testing. Example:
+testing. Delegates to the Python ` + "`efm`" + ` module.
 
-  sin-code efm -action up -stack ./docker-compose.yml -ttl 3600 -format json`,
+Examples:
+  sin-code efm --action list
+  sin-code efm --action up --stack docker-compose.yml --ttl 3600
+  sin-code efm --action down
+  sin-code efm --action status`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if efmStack == "" && efmAction != "list" {
 			return fmt.Errorf("--stack is required for actions other than 'list'")
 		}
 
-		result := map[string]any{
-			"action":  efmAction,
-			"stack":   efmStack,
-			"ttl_s":   efmTTL,
-			"format":  efmFormat,
-			"status":  "delegated",
-			"note":    "Full EFM logic lives in SIN-Code-EFM-Tool/cmd/efm",
+		pythonArgs := []string{"-m", "efm.cli"}
+		switch efmAction {
+		case "up":
+			pythonArgs = append(pythonArgs, "up", efmStack, "--ttl", fmt.Sprintf("%d", efmTTL))
+		case "down":
+			pythonArgs = append(pythonArgs, "down")
+		case "list":
+			pythonArgs = append(pythonArgs, "status")
+		case "status":
+			pythonArgs = append(pythonArgs, "status")
+		default:
+			return fmt.Errorf("unknown action: %s (use up|down|list|status)", efmAction)
+		}
+
+		c := exec.Command("python3", pythonArgs...)
+		c.Stderr = os.Stderr
+		out, err := c.Output()
+		if err != nil {
+			return fmt.Errorf("efm execution failed: %w", err)
 		}
 
 		if efmFormat == "json" {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			return enc.Encode(result)
+			var pretty map[string]any
+			if err := json.Unmarshal(out, &pretty); err == nil {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(pretty)
+			}
 		}
-		fmt.Printf("EFM: action=%s, stack=%s, ttl=%ds\n", efmAction, efmStack, efmTTL)
+		fmt.Print(string(out))
 		return nil
 	},
 }

@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: MIT
-// Purpose: scout — code search with regex, semantic, symbol, and usage search.
-// Includes dead-code detection. Pass-through to SIN-Code-Scout-Tool.
+// Purpose: scout — code search. Thin wrapper around standalone SIN-Code-Scout-Tool.
 package internal
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -25,9 +23,7 @@ var ScoutCmd = &cobra.Command{
 	Use:   "scout",
 	Short: "Search code with regex, semantic, symbol, and usage search",
 	Long: `Search code with regex, semantic, symbol, and usage search. Includes
-dead-code detection. Example:
-
-  sin-code scout -query "func.*main" -path . -search_type regex -format json`,
+dead-code detection. Delegates to standalone SIN-Code-Scout-Tool.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if scoutQuery == "" {
 			return fmt.Errorf("--query is required")
@@ -39,41 +35,21 @@ dead-code detection. Example:
 		if _, err := os.Stat(absPath); err != nil {
 			return fmt.Errorf("path not found: %w", err)
 		}
-
-		matches := []map[string]any{}
-		if scoutType == "regex" {
-			err := filepath.Walk(absPath, func(path string, info os.FileInfo, err error) error {
-				if err != nil || info.IsDir() {
-					return nil
-				}
-				if !strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, ".py") {
-					return nil
-				}
-				return nil
-			})
-			if err != nil {
-				return fmt.Errorf("walk failed: %w", err)
-			}
+		binary, err := lookupStandalone("scout")
+		if err != nil {
+			return err
 		}
-
-		result := map[string]any{
-			"query":      scoutQuery,
-			"path":       absPath,
-			"search_type": scoutType,
-			"format":     scoutFormat,
-			"matches":    matches,
-			"count":      len(matches),
-			"max":        scoutMax,
+		cArgs := []string{
+			"-query", scoutQuery,
+			"-path", absPath,
+			"-search_type", scoutType,
+			"-format", scoutFormat,
+			"-max_results", fmt.Sprintf("%d", scoutMax),
 		}
-
-		if scoutFormat == "json" {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			return enc.Encode(result)
-		}
-		fmt.Printf("Scout: query=%q, path=%s, type=%s, matches=%d\n",
-			scoutQuery, absPath, scoutType, len(matches))
-		return nil
+		c := exec.Command(binary, cArgs...)
+		c.Stderr = os.Stderr
+		c.Stdout = os.Stdout
+		return c.Run()
 	},
 }
 

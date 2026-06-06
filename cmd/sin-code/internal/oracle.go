@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
-// Purpose: oracle — Verification Oracle. Independent verification of code
-// changes, specs, or claims. Pass-through wrapper to SIN-Code-Oracle-Tool.
+// Purpose: oracle — Verification Oracle. Delegates to the Python `oracle`
+// module in SIN-Code-Oracle-Tool (source of truth). The Python oracle
+// actually checks test coverage of a source file against an existing test
+// file (subcommand: check).
 package internal
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 )
@@ -19,36 +22,46 @@ var (
 
 var OracleCmd = &cobra.Command{
 	Use:   "oracle",
-	Short: "Verification Oracle — independent verification of claims",
-	Long: `Independent verification of code changes, specs, or claims. Example:
+	Short: "Verification Oracle — test coverage check (delegates to oracle.cli check)",
+	Long: `The Python oracle module checks test coverage of a source file against
+an existing test file. Use --claim to specify the source file and
+--evidence to specify the test file.
 
-  sin-code oracle -claim "function returns sorted slice" -evidence ./tests/ -format json`,
+Examples:
+  sin-code oracle --claim src/main.py --evidence tests/test_main.py
+  sin-code oracle --claim src/auth.py --evidence tests/test_auth.py`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if oracleClaim == "" {
-			return fmt.Errorf("--claim is required")
+			return fmt.Errorf("--claim (source file) is required")
+		}
+		if oracleEvidence == "" {
+			return fmt.Errorf("--evidence (test file) is required")
 		}
 
-		result := map[string]any{
-			"claim":    oracleClaim,
-			"evidence": oracleEvidence,
-			"format":   oracleFormat,
-			"status":   "delegated",
-			"note":     "Full Oracle logic lives in SIN-Code-Oracle-Tool/cmd/oracle",
-			"verdict":  nil,
+		pythonArgs := []string{"-m", "oracle.cli", "check", oracleClaim, "--against", oracleEvidence}
+
+		c := exec.Command("python3", pythonArgs...)
+		c.Stderr = os.Stderr
+		out, err := c.Output()
+		if err != nil {
+			return fmt.Errorf("oracle execution failed: %w", err)
 		}
 
 		if oracleFormat == "json" {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			return enc.Encode(result)
+			var pretty map[string]any
+			if err := json.Unmarshal(out, &pretty); err == nil {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(pretty)
+			}
 		}
-		fmt.Printf("Oracle: claim=%q, evidence=%s\n", oracleClaim, oracleEvidence)
+		fmt.Print(string(out))
 		return nil
 	},
 }
 
 func init() {
-	OracleCmd.Flags().StringVarP(&oracleClaim, "claim", "c", "", "Claim to verify")
-	OracleCmd.Flags().StringVarP(&oracleEvidence, "evidence", "e", "", "Evidence (file, directory, or test result)")
+	OracleCmd.Flags().StringVarP(&oracleClaim, "claim", "c", "", "Source file to check coverage for")
+	OracleCmd.Flags().StringVarP(&oracleEvidence, "evidence", "e", "", "Existing test file to compare against")
 	OracleCmd.Flags().StringVarP(&oracleFormat, "format", "f", "text", "Output format: text|json")
 }

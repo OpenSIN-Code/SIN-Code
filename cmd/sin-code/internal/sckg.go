@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
-// Purpose: sckg — Semantic Codebase Knowledge Graphs. Build and query a
-// semantic graph of a codebase. Pass-through wrapper to SIN-Code-SCKG-Tool.
+// Purpose: sckg — Semantic Codebase Knowledge Graphs. Delegates to the Python
+// `sckg` module in SIN-Code-SCKG-Tool (source of truth).
 package internal
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
@@ -22,10 +23,14 @@ var (
 var SckgCmd = &cobra.Command{
 	Use:   "sckg",
 	Short: "Semantic Codebase Knowledge Graphs — build & query code graph",
-	Long: `Build and query a semantic graph of a codebase. Example:
+	Long: `Build and query a semantic graph of a codebase. Delegates to the Python
+` + "`sckg`" + ` module.
 
-  sin-code sckg . -action build -format json
-  sin-code sckg . -action query -query "auth module dependencies" -format json`,
+Examples:
+  sin-code sckg . --action build
+  sin-code sckg . --action query --query "auth module dependencies"
+  sin-code sckg . --action stats
+  sin-code sckg . --action export --output graph.json`,
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := "."
@@ -40,21 +45,39 @@ var SckgCmd = &cobra.Command{
 			return fmt.Errorf("path not found: %w", err)
 		}
 
-		result := map[string]any{
-			"path":   absPath,
-			"action": sckgAction,
-			"query":  sckgQuery,
-			"format": sckgFormat,
-			"status": "delegated",
-			"note":   "Full SCKG logic lives in SIN-Code-SCKG-Tool/cmd/sckg",
+		pythonArgs := []string{"-m", "sckg.cli"}
+		switch sckgAction {
+		case "build":
+			pythonArgs = append(pythonArgs, "build", absPath)
+		case "query":
+			if sckgQuery == "" {
+				return fmt.Errorf("--query is required for action=query")
+			}
+			pythonArgs = append(pythonArgs, "query", sckgQuery)
+		case "stats":
+			pythonArgs = append(pythonArgs, "stats", absPath)
+		case "export":
+			pythonArgs = append(pythonArgs, "export", absPath)
+		default:
+			return fmt.Errorf("unknown action: %s (use build|query|stats|export)", sckgAction)
+		}
+
+		c := exec.Command("python3", pythonArgs...)
+		c.Stderr = os.Stderr
+		out, err := c.Output()
+		if err != nil {
+			return fmt.Errorf("sckg execution failed: %w", err)
 		}
 
 		if sckgFormat == "json" {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			return enc.Encode(result)
+			var pretty map[string]any
+			if err := json.Unmarshal(out, &pretty); err == nil {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(pretty)
+			}
 		}
-		fmt.Printf("SCKG: %s (action=%s, query=%q)\n", absPath, sckgAction, sckgQuery)
+		fmt.Print(string(out))
 		return nil
 	},
 }
