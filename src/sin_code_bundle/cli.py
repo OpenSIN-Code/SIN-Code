@@ -1216,6 +1216,75 @@ except ImportError as exc:
         raise typer.Exit(code=1)
 
 
+# ── Thin binary wrappers for new SIN-Code tools (v0.10.0) ──────────────────
+# These forward to standalone binaries if installed; otherwise they show a
+# helpful installation hint.  They complement the Python-module commands
+# (review, debt, verify) so agents can use either interface.
+
+_NEW_TOOL_BINARIES = {
+    "ibd": ("SIN-Code-Intent-Based-Diffing", "ibd"),
+    "poc": ("SIN-Code-Proof-of-Correctness", "poc"),
+    "sckg": ("SIN-Code-Semantic-Codebase-Knowledge-Graphs", "sckg"),
+    "adw": ("SIN-Code-Architectural-Debt-Watchdogs", "adw"),
+    "oracle": ("SIN-Code-Verification-Oracle", "oracle"),
+    "efm": ("SIN-Code-EFM-Tool", "efm"),
+}
+
+
+def _forward_to_binary(name: str, repo_hint: str) -> None:
+    """Forward remaining CLI args to the binary *name* if it exists on PATH."""
+    import sys
+
+    binary = shutil.which(name)
+    if not binary:
+        typer.echo(
+            f"[SIN-BUNDLE] '{name}' binary not found in PATH. "
+            f"Install: pip install -e ~/{repo_hint}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # Forward everything after the subcommand name
+    args = sys.argv[sys.argv.index(name) + 1 :]
+    result = subprocess.run([binary, *args])
+    raise typer.Exit(code=result.returncode)
+
+
+@app.command()
+def ibd():
+    """Intent-Based Diffing (IBD) — thin wrapper around the `ibd` binary."""
+    _forward_to_binary("ibd", _NEW_TOOL_BINARIES["ibd"][0])
+
+
+@app.command()
+def poc():
+    """Proof-of-Correctness (POC) — thin wrapper around the `poc` binary."""
+    _forward_to_binary("poc", _NEW_TOOL_BINARIES["poc"][0])
+
+
+@app.command()
+def sckg():
+    """Semantic Codebase Knowledge Graphs (SCKG) — thin wrapper around the `sckg` binary."""
+    _forward_to_binary("sckg", _NEW_TOOL_BINARIES["sckg"][0])
+
+
+@app.command()
+def adw():
+    """Architectural Debt Watchdogs (ADW) — thin wrapper around the `adw` binary."""
+    _forward_to_binary("adw", _NEW_TOOL_BINARIES["adw"][0])
+
+
+@app.command()
+def oracle():
+    """Verification Oracle — thin wrapper around the `oracle` binary."""
+    _forward_to_binary("oracle", _NEW_TOOL_BINARIES["oracle"][0])
+
+
+@app.command()
+def efm():
+    """Ephemeral Full-Stack Mocking (EFM) — thin wrapper around the `efm` binary."""
+    _forward_to_binary("efm", _NEW_TOOL_BINARIES["efm"][0])
+
+
 if __name__ == "__main__":
     app()
 
@@ -2011,6 +2080,75 @@ except ImportError as exc:
         """Marketplace (marketplace module not installed)."""
         typer.echo(f"[SIN-BUNDLE] marketplace module unavailable: {exc}", err=True)
         raise typer.Exit(code=1)
+
+
+# ── Thin binary wrappers for new SIN-Code tools (v0.10.0) ──────────────────
+# These forward to standalone binaries if installed; otherwise they show a
+# helpful installation hint.  They complement the Python-module commands
+# (review, debt, verify) so agents can use either interface.
+
+_NEW_TOOL_BINARIES = {
+    "ibd": ("SIN-Code-Intent-Based-Diffing", "ibd"),
+    "poc": ("SIN-Code-Proof-of-Correctness", "poc"),
+    "sckg": ("SIN-Code-Semantic-Codebase-Knowledge-Graphs", "sckg"),
+    "adw": ("SIN-Code-Architectural-Debt-Watchdogs", "adw"),
+    "oracle": ("SIN-Code-Verification-Oracle", "oracle"),
+    "efm": ("SIN-Code-EFM-Tool", "efm"),
+}
+
+
+def _forward_to_binary(name: str, repo_hint: str) -> None:
+    """Forward remaining CLI args to the binary *name* if it exists on PATH."""
+    import sys
+
+    binary = shutil.which(name)
+    if not binary:
+        typer.echo(
+            f"[SIN-BUNDLE] '{name}' binary not found in PATH. "
+            f"Install: pip install -e ~/{repo_hint}",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    # Forward everything after the subcommand name
+    args = sys.argv[sys.argv.index(name) + 1 :]
+    result = subprocess.run([binary, *args])
+    raise typer.Exit(code=result.returncode)
+
+
+@app.command()
+def ibd():
+    """Intent-Based Diffing (IBD) — thin wrapper around the `ibd` binary."""
+    _forward_to_binary("ibd", _NEW_TOOL_BINARIES["ibd"][0])
+
+
+@app.command()
+def poc():
+    """Proof-of-Correctness (POC) — thin wrapper around the `poc` binary."""
+    _forward_to_binary("poc", _NEW_TOOL_BINARIES["poc"][0])
+
+
+@app.command()
+def sckg():
+    """Semantic Codebase Knowledge Graphs (SCKG) — thin wrapper around the `sckg` binary."""
+    _forward_to_binary("sckg", _NEW_TOOL_BINARIES["sckg"][0])
+
+
+@app.command()
+def adw():
+    """Architectural Debt Watchdogs (ADW) — thin wrapper around the `adw` binary."""
+    _forward_to_binary("adw", _NEW_TOOL_BINARIES["adw"][0])
+
+
+@app.command()
+def oracle():
+    """Verification Oracle — thin wrapper around the `oracle` binary."""
+    _forward_to_binary("oracle", _NEW_TOOL_BINARIES["oracle"][0])
+
+
+@app.command()
+def efm():
+    """Ephemeral Full-Stack Mocking (EFM) — thin wrapper around the `efm` binary."""
+    _forward_to_binary("efm", _NEW_TOOL_BINARIES["efm"][0])
 
 
 if __name__ == "__main__":
