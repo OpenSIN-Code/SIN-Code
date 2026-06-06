@@ -72,6 +72,17 @@ except ImportError as exc:
     sys.stderr.write("[SIN-CODE-BUNDLE] mcp package required: pip install 'sin-code-bundle[mcp]'\n")
     raise SystemExit(1) from exc
 
+# Core file-ops live in `file_ops.py` so the MCP server (here) and the
+# standalone CLI shims (`sin-read`, `sin-write`, `sin-edit`, `sin-bash`,
+# `sin-search`) can call the SAME implementation. See file_ops.doc.md.
+from sin_code_bundle.file_ops import (
+    sin_read as _sin_read_impl,
+    sin_write as _sin_write_impl,
+    sin_edit as _sin_edit_impl,
+    sin_bash as _sin_bash_impl,
+    sin_search as _sin_search_impl,
+)
+
 
 mcp = FastMCP("sin-code-bundle")
 
@@ -93,51 +104,10 @@ def sin_read(path: str, summarize: bool = False, max_chars: int = 50000) -> str:
 
     Better than native read: URI semantics, size safety, no accidental
     multi-MB dumps into context.
-    """
-    try:
-        if "://" in path:
-            from sin_code_bundle import vfs
 
-            v = vfs.SINVirtualFS()
-            return json.dumps(v.resolve(path), indent=2, default=str)
-        p = Path(path).expanduser()
-        if not p.exists():
-            return json.dumps({"error": f"path not found: {path}"})
-        if p.is_dir():
-            items = sorted([str(x.relative_to(p)) for x in p.iterdir()])
-            return json.dumps({"type": "directory", "path": str(p), "items": items})
-        content = p.read_text(encoding="utf-8", errors="replace")
-        n = len(content)
-        if n > max_chars:
-            head = content[: max_chars // 2]
-            tail = content[-max_chars // 2 :]
-            truncated = True
-        else:
-            head = content
-            tail = ""
-            truncated = False
-        if summarize:
-            lines = content.splitlines()
-            return json.dumps(
-                {
-                    "path": str(p),
-                    "lines": len(lines),
-                    "chars": n,
-                    "first_5": lines[:5],
-                    "last_5": lines[-5:],
-                }
-            )
-        return json.dumps(
-            {
-                "path": str(p),
-                "chars": n,
-                "truncated": truncated,
-                "content": head,
-                "tail": tail,
-            }
-        )
-    except Exception as exc:
-        return json.dumps({"error": str(exc), "path": path})
+    Implementation: see `sin_code_bundle.file_ops.sin_read`.
+    """
+    return _sin_read_impl(path, summarize, max_chars)
 
 
 @mcp.tool()
@@ -150,35 +120,10 @@ def sin_write(path: str, content: str, verify: bool = True) -> str:
 
     Better than native write: atomic (no half-written files on crash),
     syntax pre-validation, optional backup.
+
+    Implementation: see `sin_code_bundle.file_ops.sin_write`.
     """
-    try:
-        p = Path(path).expanduser()
-        backup = None
-        if p.exists() and verify:
-            backup = str(p) + ".bak"
-            p.replace(backup)
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(content, encoding="utf-8")
-        verified = True
-        if verify and p.suffix == ".py":
-            try:
-                compile(content, str(p), "exec")
-            except SyntaxError as e:
-                verified = False
-                if backup:
-                    Path(backup).replace(p)
-                return json.dumps({"success": False, "error": f"syntax error: {e}", "path": str(p)})
-        return json.dumps(
-            {
-                "success": True,
-                "path": str(p),
-                "chars": len(content),
-                "verified": verified,
-                "backup": backup,
-            }
-        )
-    except Exception as exc:
-        return json.dumps({"error": str(exc), "path": path})
+    return _sin_write_impl(path, content, verify)
 
 
 @mcp.tool()
@@ -197,32 +142,10 @@ def sin_edit(
 
     Better than native edit: line-shift resilient, multi-edit support
     (apply N changes atomically), validates with hashline before/after.
-    """
-    try:
-        p = Path(file_path).expanduser()
-        if not p.exists():
-            return json.dumps({"error": f"file not found: {file_path}"})
-        from sin_code_bundle import hashline
 
-        patcher = hashline.SINHashlinePatch(repo_root=p.parent)
-        patch = patcher.create_semantic_patch(
-            file_path=str(p),
-            old_text=old_content,
-            new_text=new_content,
-            intent=intent,
-        )
-        if not patch:
-            return json.dumps(
-                {
-                    "success": False,
-                    "error": "anchor not found (content drift detected)",
-                    "hint": "use sin_read first to see current state",
-                }
-            )
-        ok, msg = patcher.apply_semantic_patch(patch)
-        return json.dumps({"success": ok, "message": msg, "intent": intent, "patch": patch})
-    except Exception as exc:
-        return json.dumps({"error": str(exc), "file_path": file_path})
+    Implementation: see `sin_code_bundle.file_ops.sin_edit`.
+    """
+    return _sin_edit_impl(file_path, old_content, new_content, intent)
 
 
 @mcp.tool()
@@ -281,61 +204,10 @@ def sin_search(query: str, path: str = ".", search_type: str = "semantic") -> st
     single files and directories.
 
     search_type: semantic | regex | symbol | usage
-    """
-    try:
-        cmd_path = shutil.which("scout") or str(Path.home() / ".local/bin/scout")
-        if Path(cmd_path).exists():
-            # 30s = conservative ceiling for the `scout` Go tool; an LLM should
-            # never block on a search call for longer than typical tool timeouts.
-            proc = subprocess.run(
-                [cmd_path, "--query", query, "--path", path, "--type", search_type, "--json"],
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            if proc.returncode == 0 and proc.stdout.strip():
-                try:
-                    return proc.stdout
-                except Exception:
-                    pass
-        import re as _re
 
-        results: list[dict[str, Any]] = []
-        target = Path(path).expanduser()
-        if target.is_file():
-            files = [target]
-        elif target.is_dir():
-            files = [p for p in target.rglob("*") if p.is_file() and ".git" not in p.parts]
-        else:
-            return json.dumps({"error": f"path not found: {path}"})
-        for p in files:
-            try:
-                text = p.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
-                continue
-            for m in _re.finditer(query, text):
-                line_no = text[: m.start()].count("\n") + 1
-                line_text = (
-                    text.splitlines()[line_no - 1] if line_no <= len(text.splitlines()) else ""
-                )
-                results.append(
-                    {
-                        "file": str(p),
-                        "line": line_no,
-                        "match": m.group(0),
-                        "context": line_text[:200],
-                    }
-                )
-                # 200 = hard ceiling for python-regex fallback; keeps the
-                # fallback path from flooding the agent context if a query
-                # matches millions of lines (e.g. `import ` across a big repo).
-                if len(results) >= 200:
-                    break
-            if len(results) >= 200:
-                break
-        return json.dumps({"results": results, "count": len(results), "fallback": "python-regex"})
-    except Exception as exc:
-        return json.dumps({"error": str(exc), "query": query})
+    Implementation: see `sin_code_bundle.file_ops.sin_search`.
+    """
+    return _sin_search_impl(query, path, search_type)
 
 
 # ── VFS / AST-edit / Hashline (dedicated tools, per user request) ──────────

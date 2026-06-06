@@ -97,6 +97,16 @@ Issues = "https://github.com/OpenSIN-Code/SIN-Code-Bundle/issues"
 sin = "sin_code_bundle.cli:app"
 sin-serve = "sin_code_bundle.mcp_server:main"
 sin-serve-mcp = "sin_code_bundle.mcp_server:main"
+# v0.9.3 — Standalone CLI shims for the 5 MCP-only file-ops. Lets
+# sub-agents and shell users call sin-read/sin-write/etc. without
+# spinning up the MCP server. Implementation lives in file_ops.py.
+# Note: package is `cli_shims` (NOT `cli`) to avoid shadowing the
+# existing `sin_code_bundle.cli` Typer app (the `sin` console script).
+sin-read = "sin_code_bundle.cli_shims.sin_read:main"
+sin-write = "sin_code_bundle.cli_shims.sin_write:main"
+sin-edit = "sin_code_bundle.cli_shims.sin_edit:main"
+sin-bash = "sin_code_bundle.cli_shims.sin_bash:main"
+sin-search = "sin_code_bundle.cli_shims.sin_search:main"
 # issue #29 — backward-compat entry points for the consolidated skills.
 # These are kept for scripts that still invoke the old names; they all
 # forward to the same `sin` Typer app.
