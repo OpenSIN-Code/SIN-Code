@@ -4,6 +4,41 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-06-06 — v1.0.0 stable release: 7 sub-projects extracted, 5 CLI shims, governance
+
+### Added
+- 5 new CLI shims (`sin-read`, `sin-write`, `sin-edit`, `sin-bash`, `sin-search`) — drop-in replacements for native opencode tools
+- `slash` subcommand — slash-command management
+- `mcp-server` subcommand — MCP server scaffolding and registration
+- `marketplace` subcommand — skill catalog and installation
+- Skill Creation Charter — governance framework for new skill proposals
+
+### Changed
+- Switched `requirements-ecosystem.txt` to `git+https` URLs for external dependencies
+- Extracted 7 sub-projects into standalone repositories:
+  - `SIN-Code-Bundle-Web` (frontend)
+  - `SIN-Code-Oracle-Tool` (Verification Oracle)
+  - `SIN-Code-SCKG-Tool` (Semantic Codebase Knowledge Graphs)
+  - `SIN-Code-PoC-Tool` (Proof-of-Correctness)
+  - `SIN-Code-IBD-Tool` (Intent-Based Diffing)
+  - `SIN-Code-EFM-Tool` (Ephemeral Full-Stack Mocking Orchestration)
+  - `SIN-Code-ADW-Tool` (Architectural Debt Watchdogs)
+- Added 5 companion skills (websearch, scheduler, marketplace, slash, goal-mode)
+- Added MCP fuzz harness + integration tests (moved from SINator-v0)
+- Added skill-audit-matrix governance documentation
+- Updated `AGENTS.md` tool table with new skills
+
+### Fixed
+- Removed nested `SIN-Code-Bundle` self-clone from repository
+- Removed `file://` dependencies from `pyproject.toml` (PyPI spec violation), moved to `requirements-ecosystem.txt`
+
+### Deprecated
+- Old standalone skill paths (legacy skill directories no longer maintained in monorepo)
+
+### Verified
+- All 14 commits between v0.8.1 and v1.0.0 pass CI
+- Bundle version bumped to 1.0.0
+
 ## [0.8.1] - 2026-06-05 — One-click PyPI Trusted Publisher (API-token path)
 
 ### Added
