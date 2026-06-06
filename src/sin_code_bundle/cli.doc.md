@@ -29,6 +29,7 @@ command tree:
 | Sub-app | Purpose | Key commands |
 |---------|---------|--------------|
 | `sin status` / `bootstrap` / `review` / `debt` / `verify` | top-level orchestration | status, bootstrap, review, debt, verify, preflight, doctor |
+| `sin code …` | **Unified coding workflow hub** (v1.1.0) | review, debt, verify, preflight, codocs, sckg, audit, oracle, adw, ibd, discover, scout, grasp, map, harvest, full |
 | `sin gitnexus …` | GitNexus bridge | doctor, setup, index, status, context, impact, ai-context |
 | `sin markitdown …` | MarkItDown bridge | doctor, setup, convert |
 | `sin rtk …` | RTK bridge | doctor, setup, gain |
@@ -42,6 +43,55 @@ command tree:
 | `sin hooks-install` / `hooks-uninstall` / `hooks-list` | opencode hooks |
 | `sin skills` | compile `skills/*.md` to a target agent |
 | `sin policy` | view/edit `.sin/policy.yaml` |
+
+## `sin code` Unified Hub (v1.1.0+)
+
+A single shortcut entry point for the full SIN-Code coding workflow.
+Routes to the underlying subcommand and translates positional args
+where needed (e.g. `sin debt <path>` → `sin debt --root <path>`).
+
+| Action | Routes to | Aliases |
+|--------|-----------|---------|
+| `review` | `sin review` | `ibd` |
+| `debt` | `sin debt` (positional → `--root`) | `adw` |
+| `verify` | `sin verify` | `oracle` |
+| `preflight` | `sin preflight` | — |
+| `preflight-write` | `sin preflight-write` | — |
+| `codocs` | `sin codocs` | — |
+| `sckg` | `sin sin-code run scout` | — |
+| `audit` | `sin ceo-audit` | — |
+| `discover` / `scout` / `grasp` / `map` / `harvest` | `sin sin-code run <tool>` | — |
+| `full` | Pipeline: preflight + codocs + debt | — |
+
+### Examples
+
+```bash
+# File discovery
+sin code discover
+
+# Architectural debt (positional path works as --root)
+sin code debt .
+
+# Verify with Oracle
+sin code verify "pytest tests/"
+
+# Full review pipeline (preflight + codocs + debt)
+sin code full
+
+# Knowledge graph (SCKG)
+sin code sckg stats
+```
+
+### `sin code full` pipeline
+
+Runs in order:
+1. **`preflight`** — GitNexus index freshness check
+2. **`codocs check .`** — CoDocs validation (.doc.md companion files)
+3. **`debt --root .`** — Architectural debt analysis (ADW)
+
+Continues even if a step fails (exit code 0 at the end with `WARN` lines
+for failed steps). Use individual `sin code <action>` calls for strict
+CI behavior.
 
 ## Important constants
 
@@ -58,6 +108,8 @@ command tree:
   exists, else `which(name)`, else `None`
 - `_require(module, hint)` — import a subsystem or `typer.Exit(1)`
   with a clear install hint
+- `_normalize_root_flag(args)` — converts positional path → `--root` flag
+  for commands like `debt` that take `--root` not positional
 
 ## Usage
 
@@ -70,6 +122,11 @@ sin gitnexus setup
 
 # Start the unified MCP server (stdio; used by opencode/codex)
 sin serve
+
+# Unified coding workflow (NEW in v1.1.0)
+sin code full
+sin code debt .
+sin code review file_a.py file_b.py
 ```
 
 ## Known caveats
@@ -80,6 +137,10 @@ sin serve
   a `Tool not found` error from the MCP client, not a Python traceback.
 - `_require()` exits with `typer.Exit(1)` on `ImportError`. Run inside
   CI by checking `$?` after each call.
+- `sin code <action>` is a thin wrapper that `subprocess.run`s the
+  underlying `sin <full-cmd>`. It inherits the underlying exit code.
+- `sin code full` continues on errors — use individual `sin code <action>`
+  calls for strict CI behavior.
 - Section separators and command groups inside this file are a
   convenience for human readers; the order of `@app.command()`
   decorators is the order `sin --help` lists them.

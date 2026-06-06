@@ -4,6 +4,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-06 — Unified `sin code` subcommand hub
+
+### Added
+- **`sin code` unified hub** — single shortcut entry point for the full SIN-Code coding workflow
+  - 17 actions: `review`, `debt`, `verify`, `preflight`, `preflight-write`, `codocs`, `sckg`, `audit`, `oracle`, `adw`, `ibd`, `discover`, `scout`, `grasp`, `map`, `harvest`, `full`
+  - Aliases: `oracle=verify`, `adw=debt`, `ibd=review` for consistency
+  - Positional → `--root` translation: `sin code debt /path` → `sin debt --root /path`
+  - `sin code full` runs a pipeline: `preflight` + `codocs check .` + `debt --root .`
+  - All actions are thin wrappers that `subprocess.run` the underlying `sin <cmd>` and inherit its exit code
+
+### Changed
+- `cli.doc.md` updated with `sin code` section, examples, and pipeline documentation
+
 ## [1.0.0] - 2026-06-06 — v1.0.0 stable release: 7 sub-projects extracted, 5 CLI shims, governance
 
 ### Added

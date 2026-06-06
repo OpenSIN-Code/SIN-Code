@@ -6,6 +6,11 @@ __v0_jsx-dev-runtime.ts
 .v0-trash/
 .vercel/
 
+# Pocock Workflow lock files
+.tdd-locks/
+.dag-locks/
+PRD.md
+
 # Environment variables
 .env*.local
 

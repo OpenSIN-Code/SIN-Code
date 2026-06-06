@@ -45,6 +45,56 @@ Architectural debt overview using ADW.
 sin debt .
 ```
 
+## `sin code` — Unified Coding Workflow Hub (v1.1.0+)
+
+A single shortcut entry point for the full SIN-Code coding workflow. Routes to
+the underlying subcommand and translates positional args where needed.
+
+```bash
+sin code <action> [args...]
+```
+
+| Action | Routes to | Use case |
+|--------|-----------|----------|
+| `review` | `sin review` | Semantic review (IBD) |
+| `debt` | `sin debt` (positional → `--root`) | Architectural debt |
+| `verify` | `sin verify` | Proof-of-correctness (Oracle) |
+| `preflight` | `sin preflight` | GitNexus index check |
+| `preflight-write` | `sin preflight-write` | Pre-write safety gate |
+| `codocs` | `sin codocs` | CoDocs validation |
+| `sckg` | `sin sin-code run scout` | Knowledge graph |
+| `audit` | `sin ceo-audit` | 47-gate repo audit |
+| `discover` / `scout` / `grasp` / `map` / `harvest` | `sin sin-code run <tool>` | Go tool runners |
+| `full` | preflight + codocs + debt | Full review pipeline |
+
+Aliases: `oracle=verify`, `adw=debt`, `ibd=review`.
+
+### Examples
+
+```bash
+# File discovery
+sin code discover
+
+# Architectural debt (positional path works as --root)
+sin code debt .
+
+# Verify with Oracle
+sin code verify "pytest tests/"
+
+# Full review pipeline (preflight + codocs + debt)
+sin code full
+```
+
+### `sin code full` pipeline
+
+Runs in order:
+1. `preflight` — GitNexus index freshness check
+2. `codocs check .` — CoDocs validation
+3. `debt --root .` — Architectural debt analysis
+
+Continues even if a step fails (exits 0 with `WARN` lines). Use individual
+`sin code <action>` calls for strict CI behavior.
+
 ## `sin serve`
 
 Run the unified MCP server. Tools are registered only for subsystems that are
@@ -68,3 +118,5 @@ sin serve
 2. Agent queries `impact` / `semantic_diff` while planning and editing.
 3. Before reporting done, the agent calls the Oracle's `verify_change`.
 4. `sin debt` and the ADW circuit breaker keep cost/complexity in check.
+5. **Shortcut:** Use `sin code <action>` for any of the above without remembering
+   which subcommand does what. `sin code full` runs the whole pre-commit checklist.
