@@ -95,9 +95,30 @@
 
 ---
 
-## Governance-Policy (Phase 4)
+## Governance (Issue #30)
 
-> **Ab sofort:** Jeder neue Skill braucht schriftliche Begründung:
+> **The Skill Creation Charter is the ONLY gate for creating a new skill.**
+> See [`docs/governance/skill-creation-charter.md`](governance/skill-creation-charter.md).
+
+**Link to charter:** [Skill Creation Charter](governance/skill-creation-charter.md)
+**Baseline purposes:** [Baseline Skills — Purpose Notes](governance/baseline-skills-purpose.md)
+
+### Summary (from Charter)
+
+Every new skill must pass **all 4 tests**:
+
+1. **One-sentence purpose** — "This skill does X, distinct from Y, because Z."
+2. **Existing-skill audit** — comparison table vs. 3 closest existing skills
+3. **Repo-fit audit** — matches the repo-path table in the charter
+4. **Owner + maintenance budget** — named person/team + time budget
+
+**Cap:** target 14, hard cap 16. Re-evaluate quarterly.
+
+**PR template:** [`.github/PULL_REQUEST_TEMPLATE.md`](../.github/PULL_REQUEST_TEMPLATE.md) — charter checklist embedded.
+
+### Old (Phase 4 draft, superseded by Charter)
+
+> Ab sofort: Jeder neue Skill braucht schriftliche Begründung:
 > 1. **Zweck** (1 Satz, klar abgegrenzt von existierenden Skills)
 > 2. **Beweis** dass kein existierender Skill die Funktion abdeckt
 > 3. **Owner** mit Zeitbudget für Maintenance
