@@ -26,7 +26,16 @@ bom.*.json
 *.sbom.json
 .sin_memory.db
 *.brain.db
+sin_goal_mode.db
 .sin/
+
+# Standalone subprojects (have own pyproject.toml/go.mod)
+SIN-Code-Container-Tool/
+SIN-Code-DAST-Tool/
+SIN-Code-IaC-Tool/
+SIN-Code-License-Tool/
+SIN-Code-SCA-Tool/
+SIN-Code-Security-Bundle/
 .pytest_cache/
 .ruff_cache/
 .coverage
