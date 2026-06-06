@@ -4,6 +4,32 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - `sin security` sub-Typer (SIN-Code-Security-Bundle v1.3.0)
+
+### Added
+- **`sin security` sub-Typer** — thin pass-through to the `sin-security` Go binary from
+  [SIN-Code-Security-Bundle](https://github.com/OpenSIN-Code/SIN-Code-Security-Bundle)
+  - 8 security tools exposed as positional subcommands: `secrets`, `sast`, `sca`, `sbom`,
+    `container`, `iac`, `license`, `dast`
+  - 1 convenience command: `sin security full <path>` delegates to the binary's built-in
+    `scan` subcommand, which runs all 8 tools in sequence and supports `--compliance`
+    (cis, nist, soc2, iso27001, gdpr, hipaa, pci, owasp) and `--skip-tools` flags
+  - All flags and arguments are forwarded unchanged to the underlying binary, so
+    `sin-security <tool> --help` and `sin security <tool> --help` are equivalent
+  - 8 catalog entries added to `_TU_CATALOG` so the new commands surface in
+    `sin tui --fallback`
+  - Helper `_forward_security_subcommand(subcommand)` — unlike the existing
+    `_forward_to_binary`, it indexes `sys.argv` on the subcommand name (not the binary
+    name), so it works correctly when the binary is one level deep in a Typer group
+
+### Build
+```bash
+cd ~/SIN-Code-Security-Bundle
+go build -o ~/.local/bin/sin-security ./cmd/sin-security
+cd ../SIN-Code-Bundle
+pipx install -e . --force
+```
+
 ## [1.3.0] - 2026-06-06 — `sin tui` Bubbletea interface + shared design system
 
 ### Added

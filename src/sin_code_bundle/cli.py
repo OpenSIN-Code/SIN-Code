@@ -40,6 +40,12 @@ sin_code_app = typer.Typer(
 )
 app.add_typer(sin_code_app, name="sin-code")
 
+# SIN-Code Security Bundle - 8 tools, 8 compliance frameworks
+security_app = typer.Typer(
+    help="SIN-Code Security Bundle - 8 tools (secrets, sast, sca, sbom, container, iac, license, dast) + 8 compliance frameworks (cis, nist, soc2, iso27001, gdpr, hipaa, pci, owasp)."
+)
+app.add_typer(security_app, name="security")
+
 # CEO Audit - SOTA repo review (delegates to the opencode skill)
 sckg_app = typer.Typer(help="SCKG - Semantic Codebase Knowledge Graph")
 app.add_typer(sckg_app, name="sckg")
@@ -1541,6 +1547,31 @@ def _forward_to_binary(name: str, repo_hint: str) -> None:
     raise typer.Exit(code=result.returncode)
 
 
+def _forward_security_subcommand(subcommand: str) -> None:
+    """Forward `subcommand <rest of argv>` to the `sin-security` Go binary.
+
+    Unlike `_forward_to_binary`, this helper is meant to be called from a Typer
+    subcommand (e.g. `sin security secrets /path`). It extracts everything in
+    sys.argv after the first occurrence of `subcommand` and prepends it to the
+    binary invocation, so the binary sees the same shape it would if invoked
+    directly (e.g. `sin-security secrets /path`).
+    """
+    import sys
+
+    binary = shutil.which("sin-security")
+    if not binary:
+        typer.echo(
+            "[SIN-BUNDLE] 'sin-security' binary not found in PATH. "
+            "Build it from ~/SIN-Code-Security-Bundle:\n"
+            "  go build -o ~/.local/bin/sin-security ./cmd/sin-security",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    args = sys.argv[sys.argv.index(subcommand) + 1 :] if subcommand in sys.argv else []
+    result = subprocess.run([binary, subcommand, *args])
+    raise typer.Exit(code=result.returncode)
+
+
 @app.command()
 def ibd():
     """Intent-Based Diffing (IBD) — thin wrapper around the `ibd` binary."""
@@ -2095,6 +2126,104 @@ def sin_code_agents_md(
     typer.echo(f"[SIN-CODE] Generated {output}")
 
 
+# ── SIN-Code Security Bundle Sub-Commands ──────────────────────────────────
+# Each of the 8 tools is a thin pass-through to the `sin-security` Go binary
+# shipped by SIN-Code-Security-Bundle (https://github.com/OpenSIN-Code/SIN-Code-Security-Bundle).
+# The `full` convenience command delegates to the binary's built-in `scan`
+# subcommand, which runs all 8 tools in sequence and emits a combined report.
+
+
+@security_app.command("secrets")
+def security_secrets(
+    path: str = typer.Argument(".", help="Path to scan for hardcoded secrets"),
+):
+    """Secret scanning (regex + Shannon entropy)."""
+    _forward_security_subcommand("secrets")
+
+
+@security_app.command("sast")
+def security_sast(
+    path: str = typer.Argument(".", help="Path to scan with static analysis"),
+):
+    """Static application security testing (SAST)."""
+    _forward_security_subcommand("sast")
+
+
+@security_app.command("sca")
+def security_sca(
+    path: str = typer.Argument(".", help="Path to scan for vulnerable dependencies"),
+):
+    """Software composition analysis (SCA) — deps + CVEs."""
+    _forward_security_subcommand("sca")
+
+
+@security_app.command("sbom")
+def security_sbom(
+    path: str = typer.Argument(".", help="Path to generate SBOM for"),
+):
+    """Generate SBOM in SPDX and CycloneDX formats."""
+    _forward_security_subcommand("sbom")
+
+
+@security_app.command("container")
+def security_container(
+    path: str = typer.Argument(".", help="Path (image name or Dockerfile) to scan"),
+):
+    """Container image security scan."""
+    _forward_security_subcommand("container")
+
+
+@security_app.command("iac")
+def security_iac(
+    path: str = typer.Argument(".", help="Path to IaC files (Terraform, etc.)"),
+):
+    """Infrastructure-as-Code security scan (Terraform, CloudFormation, K8s)."""
+    _forward_security_subcommand("iac")
+
+
+@security_app.command("license")
+def security_license(
+    path: str = typer.Argument(".", help="Path to scan for license compliance"),
+):
+    """License compliance check across all dependencies."""
+    _forward_security_subcommand("license")
+
+
+@security_app.command("dast")
+def security_dast(
+    path: str = typer.Argument(".", help="Path or target URL for DAST scan"),
+):
+    """Dynamic application security testing (DAST)."""
+    _forward_security_subcommand("dast")
+
+
+@security_app.command("full")
+def security_full(
+    path: str = typer.Argument(".", help="Path to run all 8 security tools against"),
+):
+    """Run all 8 security tools in sequence and emit a combined report.
+
+    Delegates to the binary's built-in `scan` subcommand, which orchestrates
+    secrets, sast, sca, sbom, container, iac, license, and dast. Use
+    `--compliance` to scope to a framework (e.g. cis,nist,soc2,iso27001,gdpr,
+    hipaa,pci,owasp) and `--skip-tools` to exclude specific tools.
+    """
+    import sys
+
+    binary = shutil.which("sin-security")
+    if not binary:
+        typer.echo(
+            "[SIN-BUNDLE] 'sin-security' binary not found in PATH. "
+            "Build it from ~/SIN-Code-Security-Bundle:\n"
+            "  go build -o ~/.local/bin/sin-security ./cmd/sin-security",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    args = sys.argv[sys.argv.index("full") + 1 :] if "full" in sys.argv else []
+    result = subprocess.run([binary, "scan", *args])
+    raise typer.Exit(code=result.returncode)
+
+
 # ── CEO Audit Sub-Commands (SOTA repo review) ─────────────────────────────
 _CEO_AUDIT_SKILL_PATH = Path.home() / ".config" / "opencode" / "skills" / "ceo-audit"
 _CEO_AUDIT_SCRIPT = _CEO_AUDIT_SKILL_PATH / "scripts" / "audit.sh"
@@ -2547,6 +2676,31 @@ def _forward_to_binary(name: str, repo_hint: str) -> None:
     raise typer.Exit(code=result.returncode)
 
 
+def _forward_security_subcommand(subcommand: str) -> None:
+    """Forward `subcommand <rest of argv>` to the `sin-security` Go binary.
+
+    Unlike `_forward_to_binary`, this helper is meant to be called from a Typer
+    subcommand (e.g. `sin security secrets /path`). It extracts everything in
+    sys.argv after the first occurrence of `subcommand` and prepends it to the
+    binary invocation, so the binary sees the same shape it would if invoked
+    directly (e.g. `sin-security secrets /path`).
+    """
+    import sys
+
+    binary = shutil.which("sin-security")
+    if not binary:
+        typer.echo(
+            "[SIN-BUNDLE] 'sin-security' binary not found in PATH. "
+            "Build it from ~/SIN-Code-Security-Bundle:\n"
+            "  go build -o ~/.local/bin/sin-security ./cmd/sin-security",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    args = sys.argv[sys.argv.index(subcommand) + 1 :] if subcommand in sys.argv else []
+    result = subprocess.run([binary, subcommand, *args])
+    raise typer.Exit(code=result.returncode)
+
+
 @app.command()
 def ibd():
     """Intent-Based Diffing (IBD) — thin wrapper around the `ibd` binary."""
@@ -2639,7 +2793,519 @@ _TU_CATALOG = [
     {"title": "sin serve", "desc": "Expose tools as MCP server"},
     {"title": "sin brain", "desc": "Behavioral memory"},
     {"title": "sin context-bridge <q>", "desc": "Unified context query"},
+    {"title": "sin update", "desc": "Upgrade pipx package + rebuild Go tools"},
+    {"title": "sin config", "desc": "Read/write the layered config (TOML + opencode + env)"},
 ]
+
+
+# ── v1.4.0 —  and  commands ────────────────────────────────────────────
+# See update.doc.md and config.doc.md for per-module design notes.
+
+update_app = typer.Typer(
+    help="Update the SIN-Code bundle and its Go toolchain.",
+    no_args_is_help=True,
+)
+app.add_typer(update_app, name="update")
+
+
+@update_app.callback()
+def _update_callback() -> None:
+    """Update the bundle (pipx) and/or the Go toolchain under ~/dev/."""
+
+
+@update_app.command("run")
+def update_run(
+    core: bool = typer.Option(
+        False, "--core", help="Only update the Python package (pipx upgrade)."
+    ),
+    go: bool = typer.Option(
+        False, "--go", help="Only rebuild Go tools under ~/dev/SIN-Code-*-Tool/."
+    ),
+    check: bool = typer.Option(
+        False, "--check", help="Dry run — print the plan but do not modify anything."
+    ),
+    json_out: bool = typer.Option(False, "--json", help="Output JSON instead of a table."),
+) -> None:
+    """Upgrade pipx package and rebuild every Go tool binary in place."""
+    from sin_code_bundle import update as upd
+
+    results = upd.run_update(core=core, go=go, check=check)
+    if json_out:
+        typer.echo(
+            json.dumps([r.__dict__ for r in results], indent=2, default=str)
+        )
+    else:
+        typer.echo(upd.render_table(results))
+    failed = [r for r in results if r.status == "failed"]
+    if failed and not check:
+        raise typer.Exit(code=1)
+
+
+config_app = typer.Typer(
+    help="Read/write the layered SIN-Code config (TOML + opencode + env).",
+    no_args_is_help=True,
+)
+app.add_typer(config_app, name="config")
+
+
+@config_app.callback()
+def _config_callback() -> None:
+    """Manage the layered SIN-Code configuration."""
+
+
+@config_app.command("show")
+def config_show(
+    json_out: bool = typer.Option(False, "--json", help="Output JSON instead of text."),
+) -> None:
+    """Show the resolved config (all sources merged, secrets redacted)."""
+    from sin_code_bundle import config as cfg
+
+    payload, origins = cfg.merged()
+    if json_out:
+        typer.echo(
+            json.dumps(
+                {
+                    "config": payload,
+                    "origins": {
+                        k: {"label": v.label, "path": str(v.path)}
+                        for k, v in origins.items()
+                    },
+                },
+                indent=2,
+                default=str,
+            )
+        )
+    else:
+        typer.echo(cfg.format_show(payload, origins))
+
+
+@config_app.command("get")
+def config_get(key: str = typer.Argument(..., help="Dotted key, e.g. tui.theme")) -> None:
+    """Print the value of a single config key (respects redaction)."""
+    from sin_code_bundle import config as cfg
+
+    view = cfg.get(key)
+    if view.value is cfg.MISSING:
+        typer.echo(f"(unset: {key})", err=True)
+        raise typer.Exit(code=1)
+    if cfg._is_sensitive(key):
+        typer.echo(cfg.REDACTED_PLACEHOLDER)
+    else:
+        typer.echo(view.value)
+
+
+@config_app.command("set")
+def config_set(
+    key: str = typer.Argument(..., help="Dotted key, e.g. tui.theme"),
+    value: str = typer.Argument(..., help="Value to store (always as string)"),
+) -> None:
+    """Set a config value in ./sin.config.toml (project-local)."""
+    from sin_code_bundle import config as cfg
+
+    try:
+        path = cfg.set_value(key, value)
+    except ValueError as exc:
+        typer.echo(f"[SIN-BUNDLE] {exc}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"{key} = {value!r}  ->  {path}")
+
+
+@config_app.command("unset")
+def config_unset(key: str = typer.Argument(..., help="Dotted key to remove")) -> None:
+    """Remove a config value from ./sin.config.toml."""
+    from sin_code_bundle import config as cfg
+
+    if cfg.unset_value(key):
+        typer.echo(f"Removed: {key}")
+    else:
+        typer.echo(f"(was unset: {key})")
+        raise typer.Exit(code=1)
+
+
+@config_app.command("path")
+def config_path() -> None:
+    """Print every config file path the resolver checks, with existence markers."""
+    from sin_code_bundle import config as cfg
+
+    typer.echo(cfg.format_path(cfg.all_paths()))
+
+
+# ── SIN Developer CLI (lint, docs, git) ────────────────────────────────────
+# Issue #42: Python-based SIN-Code Developer CLI
+
+lint_app = typer.Typer(help="Lint code with popular linters (ruff, flake8, mypy, eslint, etc.).")
+app.add_typer(lint_app, name="lint")
+
+@lint_app.command("run")
+def lint_run(
+    path: str = typer.Argument(".", help="Path to lint."),
+    tool: str = typer.Option("auto", help="Linter to use: auto, ruff, flake8, mypy, pylint, eslint, golangci-lint, shellcheck."),
+    fix: bool = typer.Option(False, help="Auto-fix issues where supported."),
+):
+    """Run a linter on the given path."""
+    import shutil
+
+    linters = {
+        "ruff": ("ruff", ["check", path] + (["--fix"] if fix else [])),
+        "flake8": ("flake8", [path]),
+        "mypy": ("mypy", [path]),
+        "pylint": ("pylint", [path]),
+        "eslint": ("eslint", [path] + (["--fix"] if fix else [])),
+        "golangci-lint": ("golangci-lint", ["run", path]),
+        "shellcheck": ("shellcheck", [path]),
+    }
+
+    if tool == "auto":
+        for name, (binary, _) in linters.items():
+            if shutil.which(binary):
+                tool = name
+                break
+        else:
+            typer.echo("[SIN-BUNDLE] No supported linter found on PATH. Install one: ruff, flake8, mypy, pylint, eslint, golangci-lint, shellcheck", err=True)
+            raise typer.Exit(code=1)
+
+    if tool not in linters:
+        typer.echo(f"[SIN-BUNDLE] Unknown linter '{tool}'.", err=True)
+        raise typer.Exit(code=1)
+
+    binary, args = linters[tool]
+    if not shutil.which(binary):
+        typer.echo(f"[SIN-BUNDLE] '{binary}' not found on PATH. Install it first.", err=True)
+        raise typer.Exit(code=1)
+
+    result = subprocess.run([binary, *args], capture_output=True, text=True)
+    if result.stdout:
+        typer.echo(result.stdout)
+    if result.stderr:
+        typer.echo(result.stderr, err=True)
+    raise typer.Exit(code=result.returncode)
+
+
+@lint_app.command("check")
+def lint_check(
+    path: str = typer.Argument(".", help="Path to check."),
+):
+    """Check which linters are available and what they would report."""
+    import shutil
+
+    available = []
+    for name, binary in [
+        ("ruff", "ruff"), ("flake8", "flake8"), ("mypy", "mypy"),
+        ("pylint", "pylint"), ("eslint", "eslint"), ("golangci-lint", "golangci-lint"),
+        ("shellcheck", "shellcheck"),
+    ]:
+        if shutil.which(binary):
+            available.append(name)
+
+    if not available:
+        typer.echo("[SIN-BUNDLE] No linters found on PATH.")
+    else:
+        typer.echo(f"[SIN-BUNDLE] Available linters: {', '.join(available)}")
+
+    for name in available:
+        typer.echo(f"\n--- {name} ---")
+        if name == "ruff":
+            result = subprocess.run(["ruff", "check", path], capture_output=True, text=True)
+        elif name == "flake8":
+            result = subprocess.run(["flake8", path], capture_output=True, text=True)
+        elif name == "mypy":
+            result = subprocess.run(["mypy", path], capture_output=True, text=True)
+        else:
+            continue
+
+        if result.stdout:
+            typer.echo(result.stdout)
+        if result.stderr:
+            typer.echo(result.stderr, err=True)
+
+
+docs_app = typer.Typer(help="Documentation helpers — generate README, API docs, check coverage.")
+app.add_typer(docs_app, name="docs")
+
+@docs_app.command("generate")
+def docs_generate(
+    path: str = typer.Argument(".", help="Project path."),
+    output: str = typer.Option("README.md", help="Output file name."),
+    template: str = typer.Option("default", help="Template: default, minimal, full."),
+):
+    """Generate a README.md from project metadata."""
+    import os
+    import json
+
+    proj = Path(path)
+    if not proj.exists():
+        typer.echo(f"[SIN-BUNDLE] Path not found: {path}", err=True)
+        raise typer.Exit(code=1)
+
+    # Gather metadata
+    name = proj.resolve().name
+    pyproject = proj / "pyproject.toml"
+    package_json = proj / "package.json"
+    go_mod = proj / "go.mod"
+
+    language = "unknown"
+    version = "0.1.0"
+    description = f"{name} project"
+    dependencies = []
+
+    if pyproject.exists():
+        language = "Python"
+        content = pyproject.read_text()
+        for line in content.splitlines():
+            if line.startswith("name"):
+                name = line.split("=")[1].strip().strip('"').strip("'")
+            if line.startswith("version"):
+                version = line.split("=")[1].strip().strip('"').strip("'")
+            if line.startswith("description"):
+                description = line.split("=")[1].strip().strip('"').strip("'")
+    elif package_json.exists():
+        language = "JavaScript/TypeScript"
+        data = json.loads(package_json.read_text())
+        name = data.get("name", name)
+        version = data.get("version", "0.1.0")
+        description = data.get("description", description)
+        dependencies = list(data.get("dependencies", {}).keys())
+    elif go_mod.exists():
+        language = "Go"
+        content = go_mod.read_text()
+        for line in content.splitlines():
+            if line.startswith("module "):
+                name = line.split()[1]
+
+    readme = f"""# {name}
+
+{description}
+
+## Overview
+
+- **Language**: {language}
+- **Version**: {version}
+- **Path**: `{proj.resolve()}`
+
+## Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd {name}
+
+# Install dependencies
+"""
+
+    if language == "Python":
+        readme += "pip install -e .\n"
+    elif language == "JavaScript/TypeScript":
+        readme += "npm install\n"
+    elif language == "Go":
+        readme += "go mod tidy\n"
+    else:
+        readme += "# See project documentation\n"
+
+    readme += """```
+
+## Usage
+
+```bash
+# Run the project
+# (Add usage examples here)
+```
+
+## Testing
+
+```bash
+# Run tests
+"""
+
+    if language == "Python":
+        readme += "pytest\n"
+    elif language == "JavaScript/TypeScript":
+        readme += "npm test\n"
+    elif language == "Go":
+        readme += "go test ./...\n"
+    else:
+        readme += "# See project documentation\n"
+
+    readme += """```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a Pull Request
+
+## License
+
+MIT - OpenSIN-Code Project
+"""
+
+    if dependencies:
+        readme += "\n## Dependencies\n\n"
+        for dep in dependencies[:10]:
+            readme += f"- {dep}\n"
+
+    output_path = proj / output
+    output_path.write_text(readme, encoding="utf-8")
+    typer.echo(f"[SIN-BUNDLE] Generated {output_path}")
+
+
+@docs_app.command("check")
+def docs_check(
+    path: str = typer.Argument(".", help="Project path."),
+):
+    """Check documentation coverage (README, docstrings, .doc.md files)."""
+    proj = Path(path)
+    if not proj.exists():
+        typer.echo(f"[SIN-BUNDLE] Path not found: {path}", err=True)
+        raise typer.Exit(code=1)
+
+    readme = proj / "README.md"
+    has_readme = readme.exists()
+
+    doc_md_files = list(proj.rglob("*.doc.md"))
+    py_files = list(proj.rglob("*.py"))
+    docstring_count = 0
+
+    for py_file in py_files:
+        content = py_file.read_text()
+        if '"""' in content or "'''" in content:
+            docstring_count += 1
+
+    typer.echo(f"[SIN-BUNDLE] Documentation Coverage Report for {proj.resolve()}")
+    typer.echo(f"  README.md: {'✅' if has_readme else '❌'}")
+    typer.echo(f"  .doc.md files: {len(doc_md_files)}")
+    typer.echo(f"  Python files: {len(py_files)}")
+    typer.echo(f"  Files with docstrings: {docstring_count}/{len(py_files)} ({100*docstring_count//max(len(py_files),1)}%)")
+
+    if not has_readme:
+        typer.echo("  ⚠️  Missing README.md — run `sin docs generate` to create one.")
+
+
+git_app = typer.Typer(help="Git workflow helpers — status, commit, push, clean branches.")
+app.add_typer(git_app, name="git")
+
+@git_app.command("status")
+def git_status(
+    path: str = typer.Argument(".", help="Repository path."),
+):
+    """Show git status with a clean summary."""
+    result = subprocess.run(
+        ["git", "-C", path, "status", "--short"],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        typer.echo(f"[SIN-BUNDLE] Not a git repository: {path}", err=True)
+        raise typer.Exit(code=1)
+
+    lines = result.stdout.strip().splitlines()
+    if not lines:
+        typer.echo("[SIN-BUNDLE] Working tree clean ✨")
+        return
+
+    typer.echo(f"[SIN-BUNDLE] Git status ({len(lines)} changed file(s)):")
+    for line in lines:
+        typer.echo(f"  {line}")
+
+
+@git_app.command("commit")
+def git_commit(
+    message: str = typer.Argument(..., help="Commit message.", metavar="MESSAGE"),
+    path: str = typer.Option(".", help="Repository path."),
+    all: bool = typer.Option(False, "--all", "-a", help="Stage all modified files before committing."),
+    push: bool = typer.Option(False, "--push", help="Push after committing."),
+):
+    """Create a git commit with the given message."""
+    if all:
+        stage = subprocess.run(["git", "-C", path, "add", "-A"], capture_output=True, text=True)
+        if stage.returncode != 0:
+            typer.echo(f"[SIN-BUNDLE] Failed to stage files: {stage.stderr}", err=True)
+            raise typer.Exit(code=1)
+
+    result = subprocess.run(
+        ["git", "-C", path, "commit", "-m", message],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        typer.echo(f"[SIN-BUNDLE] Commit failed: {result.stderr}", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo(f"[SIN-BUNDLE] Committed: {message}")
+
+    if push:
+        push_result = subprocess.run(["git", "-C", path, "push"], capture_output=True, text=True)
+        if push_result.returncode != 0:
+            typer.echo(f"[SIN-BUNDLE] Push failed: {push_result.stderr}", err=True)
+            raise typer.Exit(code=1)
+        typer.echo("[SIN-BUNDLE] Pushed to remote ✨")
+
+
+@git_app.command("clean")
+def git_clean(
+    path: str = typer.Argument(".", help="Repository path."),
+    dry_run: bool = typer.Option(True, "--dry-run/--no-dry-run", help="Show what would be deleted without deleting."),
+    force: bool = typer.Option(False, "--force", "-f", help="Force delete merged branches."),
+):
+    """Clean up merged branches and stale references."""
+    # Fetch and prune
+    subprocess.run(["git", "-C", path, "fetch", "--prune"], capture_output=True, text=True)
+
+    # List merged branches (excluding current, main, master)
+    result = subprocess.run(
+        ["git", "-C", path, "branch", "--merged"],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        typer.echo(f"[SIN-BUNDLE] Failed to list branches: {result.stderr}", err=True)
+        raise typer.Exit(code=1)
+
+    branches = [b.strip() for b in result.stdout.splitlines() if b.strip() and not b.startswith("*")]
+    protected = {"main", "master", "develop", "dev"}
+    to_delete = [b for b in branches if b not in protected]
+
+    if not to_delete:
+        typer.echo("[SIN-BUNDLE] No merged branches to clean up ✨")
+        return
+
+    typer.echo(f"[SIN-BUNDLE] Branches to clean up ({len(to_delete)}):")
+    for b in to_delete:
+        typer.echo(f"  - {b}")
+
+    if dry_run:
+        typer.echo("\n[SIN-BUNDLE] Dry-run mode — no branches deleted. Use --no-dry-run to delete.")
+        return
+
+    if not force:
+        typer.echo("\n[SIN-BUNDLE] Use --force to confirm deletion.")
+        return
+
+    for b in to_delete:
+        del_result = subprocess.run(["git", "-C", path, "branch", "-d", b], capture_output=True, text=True)
+        if del_result.returncode == 0:
+            typer.echo(f"  ✅ Deleted {b}")
+        else:
+            typer.echo(f"  ⚠️  Could not delete {b}: {del_result.stderr}", err=True)
+
+
+@git_app.command("log")
+def git_log(
+    path: str = typer.Argument(".", help="Repository path."),
+    count: int = typer.Option(10, "-n", help="Number of commits to show."),
+    oneline: bool = typer.Option(True, "--oneline/--no-oneline", help="Show one-line summary."),
+):
+    """Show recent commit history."""
+    args = ["git", "-C", path, "log", f"-{count}"]
+    if oneline:
+        args.append("--oneline")
+    args.append("--graph")
+    args.append("--decorate")
+
+    result = subprocess.run(args, capture_output=True, text=True)
+    if result.returncode != 0:
+        typer.echo(f"[SIN-BUNDLE] Failed to get log: {result.stderr}", err=True)
+        raise typer.Exit(code=1)
+
+    typer.echo(result.stdout)
 
 
 if __name__ == "__main__":

@@ -35,12 +35,12 @@ type Styles struct {
 	Help      lipgloss.Style
 
 	// Status
-	Success   lipgloss.Style
-	Warning   lipgloss.Style
-	Danger    lipgloss.Style
-	Info      lipgloss.Style
-	Running   lipgloss.Style
-	Skipped   lipgloss.Style
+	Success lipgloss.Style
+	Warning lipgloss.Style
+	Danger  lipgloss.Style
+	Info    lipgloss.Style
+	Running lipgloss.Style
+	Skipped lipgloss.Style
 
 	// Severity (security)
 	Critical lipgloss.Style
@@ -85,11 +85,34 @@ type Styles struct {
 	Tab         lipgloss.Style
 	TabActive   lipgloss.Style
 	TabInactive lipgloss.Style
+
+	// Toast
+	Toast lipgloss.Style
 }
 
 // Default returns the canonical SIN-Code dark theme.
 func Default() *Styles {
-	p := &Palette
+	return buildStyles(&Palette)
+}
+
+// Light returns the warm-light theme. Same shape as Default, swapped palette.
+func Light() *Styles {
+	return buildStyles(&LightPalette)
+}
+
+// New returns the styles for the named theme. Unknown names fall back to dark
+// so a corrupt config never makes the TUI unrenderable.
+func New(name string) *Styles {
+	if name == ThemeLight {
+		return Light()
+	}
+	return Default()
+}
+
+// buildStyles is the single place where every style is defined. Both Default
+// and Light call into it with their respective palette so the visual language
+// stays in sync across themes.
+func buildStyles(p *paletteSet) *Styles {
 	s := &Styles{}
 
 	// App-level
@@ -98,32 +121,32 @@ func Default() *Styles {
 		Foreground(p.Text)
 
 	s.Header = lipgloss.NewStyle().
-			Background(p.Surface).
-			Foreground(p.Text).
-			Bold(true).
-			Padding(0, Space2).
-			MarginBottom(Space1)
+		Background(p.Surface).
+		Foreground(p.Text).
+		Bold(true).
+		Padding(0, Space2).
+		MarginBottom(Space1)
 
 	s.Footer = lipgloss.NewStyle().
-			Background(p.Surface).
-			Foreground(p.Muted).
-			Padding(0, Space2).
-			MarginTop(Space1)
+		Background(p.Surface).
+		Foreground(p.Muted).
+		Padding(0, Space2).
+		MarginTop(Space1)
 
 	s.Divider = lipgloss.NewStyle().
-			Foreground(p.Subtle)
+		Foreground(p.Subtle)
 
 	s.Title = lipgloss.NewStyle().
 		Foreground(p.Primary).
 		Bold(true)
 
 	s.Subtitle = lipgloss.NewStyle().
-			Foreground(p.Accent).
-			Italic(true)
+		Foreground(p.Accent).
+		Italic(true)
 
 	s.Breadcrumb = lipgloss.NewStyle().
-			Foreground(p.Muted).
-			Italic(true)
+		Foreground(p.Muted).
+		Italic(true)
 
 	// Containers
 	s.Panel = lipgloss.NewStyle().
@@ -133,10 +156,10 @@ func Default() *Styles {
 		MarginBottom(Space1)
 
 	s.PanelActive = lipgloss.NewStyle().
-			Border(BorderRounded).
-			BorderForeground(p.Primary).
-			Padding(Space1, Space2).
-			MarginBottom(Space1)
+		Border(BorderRounded).
+		BorderForeground(p.Primary).
+		Padding(Space1, Space2).
+		MarginBottom(Space1)
 
 	s.Card = lipgloss.NewStyle().
 		Border(BorderHair).
@@ -159,9 +182,9 @@ func Default() *Styles {
 		Background(p.Surface).
 		Padding(0, Space1)
 	s.CodeBlock = lipgloss.NewStyle().
-			Foreground(p.Text).
-			Background(p.Surface).
-			Padding(Space1, Space2)
+		Foreground(p.Text).
+		Background(p.Surface).
+		Padding(Space1, Space2)
 	s.Link = lipgloss.NewStyle().
 		Foreground(p.Info).
 		Underline(true)
@@ -184,71 +207,71 @@ func Default() *Styles {
 
 	// Menu
 	s.MenuItem = lipgloss.NewStyle().
-			Foreground(p.Text).
-			Padding(0, Space2)
+		Foreground(p.Text).
+		Padding(0, Space2)
 
 	s.MenuItemActive = lipgloss.NewStyle().
-				Foreground(p.Base).
-				Background(p.Primary).
-				Bold(true).
-				Padding(0, Space2)
+		Foreground(p.Base).
+		Background(p.Primary).
+		Bold(true).
+		Padding(0, Space2)
 
 	s.MenuItemSelected = lipgloss.NewStyle().
-				Foreground(p.Success).
-				Bold(true).
-				Padding(0, Space2)
+		Foreground(p.Success).
+		Bold(true).
+		Padding(0, Space2)
 
 	s.MenuIcon = lipgloss.NewStyle().
-			Foreground(p.Accent).
-			Width(Space3)
+		Foreground(p.Accent).
+		Width(Space3)
 
 	s.MenuShortcut = lipgloss.NewStyle().
-			Foreground(p.Muted).
-			Width(Space6)
+		Foreground(p.Muted).
+		Width(Space6)
 
 	s.MenuDesc = lipgloss.NewStyle().Foreground(p.Muted).Italic(true)
 
 	// Table
 	s.TableHeader = lipgloss.NewStyle().
-			Foreground(p.Primary).
-			Bold(true).
-			BorderBottom(true).
-			BorderForeground(p.Subtle).
-			Padding(0, Space1)
+		Foreground(p.Primary).
+		Bold(true).
+		BorderBottom(true).
+		BorderForeground(p.Subtle).
+		Padding(0, Space1)
 
 	s.TableCell = lipgloss.NewStyle().
-			Foreground(p.Text).
-			Padding(0, Space1)
+		Foreground(p.Text).
+		Padding(0, Space1)
 
 	s.TableRow = lipgloss.NewStyle().
-			Foreground(p.Muted).
-			Padding(0, Space1)
+		Foreground(p.Muted).
+		Padding(0, Space1)
 
 	// Progress
 	s.ProgressBar = lipgloss.NewStyle().
-			Foreground(p.Primary)
+		Foreground(p.Primary)
 
 	s.ProgressTrack = lipgloss.NewStyle().
-			Foreground(p.Subtle)
+		Foreground(p.Subtle)
 
 	s.Spinner = lipgloss.NewStyle().
-			Foreground(p.Accent).
-			Bold(true)
+		Foreground(p.Accent).
+		Bold(true)
 
 	// Search
 	s.SearchInput = lipgloss.NewStyle().
-			Foreground(p.Text).
-			Background(p.Surface).
-			Padding(0, Space2)
+		Foreground(p.Text).
+		Background(p.Surface).
+		Padding(0, Space2)
 
 	s.SearchPrompt = lipgloss.NewStyle().
-			Foreground(p.Primary).
-			Bold(true)
+		Foreground(p.Primary).
+		Bold(true)
 
 	s.SearchMatch = lipgloss.NewStyle().
-			Foreground(p.Base).
-			Background(p.Accent).
-			Bold(true)
+		Foreground(p.Base).
+		Background(p.Accent).
+		Bold(true)
 
 	// Modal
 	s.Modal = lipgloss.NewStyle().
@@ -256,42 +279,49 @@ func Default() *Styles {
 		BorderForeground(p.Primary).
 		Background(p.Base).
 		Foreground(p.Text).
-		Padding(Space2, Space3).
-		Align(lipgloss.Center, lipgloss.Center)
+		Padding(Space2, Space3)
 
 	s.ModalBackdrop = lipgloss.NewStyle().
-			Foreground(p.Faint)
+		Foreground(p.Faint)
 
 	// Button
 	s.Button = lipgloss.NewStyle().
-			Foreground(p.Text).
-			Background(p.Surface).
-			Padding(0, Space2)
+		Foreground(p.Text).
+		Background(p.Surface).
+		Padding(0, Space2)
 
 	s.ButtonActive = lipgloss.NewStyle().
-			Foreground(p.Base).
-			Background(p.Primary).
-			Bold(true).
-			Padding(0, Space2)
+		Foreground(p.Base).
+		Background(p.Primary).
+		Bold(true).
+		Padding(0, Space2)
 
 	s.ButtonDanger = lipgloss.NewStyle().
-			Foreground(p.Base).
-			Background(p.Danger).
-			Bold(true).
-			Padding(0, Space2)
+		Foreground(p.Base).
+		Background(p.Danger).
+		Bold(true).
+		Padding(0, Space2)
 
 	// Tab
 	s.Tab = lipgloss.NewStyle().
 		Foreground(p.Muted).
 		Padding(0, Space2)
 	s.TabActive = lipgloss.NewStyle().
-			Foreground(p.Primary).
-			Bold(true).
-			Background(p.Surface).
-			Padding(0, Space2)
+		Foreground(p.Primary).
+		Bold(true).
+		Background(p.Surface).
+		Padding(0, Space2)
 	s.TabInactive = lipgloss.NewStyle().
-			Foreground(p.Muted).
-			Padding(0, Space2)
+		Foreground(p.Muted).
+		Padding(0, Space2)
+
+	// Toast — short-lived inline status (e.g. "Copied!"). Bold + success
+	// color so it pops without needing its own line.
+	s.Toast = lipgloss.NewStyle().
+		Foreground(p.Base).
+		Background(p.Success).
+		Bold(true).
+		Padding(0, Space1)
 
 	return s
 }
