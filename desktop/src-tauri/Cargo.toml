@@ -1,0 +1,43 @@
+[package]
+name = "sin-desktop"
+version = "1.0.0"
+description = "SIN-Code Desktop GUI — Tauri v2 + Next.js + shared design tokens"
+authors = ["OpenSIN-Code <delqhi@users.noreply.github.com>"]
+license = "MIT OR Apache-2.0"
+edition = "2021"
+publish = false
+
+[workspace]
+members = [".."]
+
+[dependencies]
+tauri = { version = "2.0", features = ["macros", "tray-icon", "global-shortcut", "clipboard-manager", "dialog", "fs", "http", "notification", "os", "process", "shell", "updater", "webview-window"] }
+tauri-plugin-store = "2.0"
+tauri-plugin-opener = "2.0"
+tauri-plugin-clipboard-manager = "2.0"
+tauri-plugin-dialog = "2.0"
+tauri-plugin-fs = "2.0"
+tauri-plugin-http = "2.0"
+tauri-plugin-notification = "2.0"
+tauri-plugin-os = "2.0"
+tauri-plugin-process = "2.0"
+tauri-plugin-shell = "2.0"
+tauri-plugin-updater = "2.0"
+tauri-plugin-webview-window = "2.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.38", features = ["full"] }
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dirs = "5.0"
+semver = "1.0"
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"

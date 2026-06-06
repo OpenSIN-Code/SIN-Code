@@ -1,0 +1,34 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+dist/
+
+# Rust / Tauri
+target/
+src-tauri/target/
+*.pdb
+
+# Build artifacts
+*.exe
+*.dmg
+*.deb
+*.rpm
+*.AppImage
+*.app
+
+# IDE
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Local config
+.env
+.env.local

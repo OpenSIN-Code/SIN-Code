@@ -1,0 +1,57 @@
+@import "../../../web/theme/tokens.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: light dark;
+  }
+  body {
+    @apply bg-sin-base text-sin-text font-sans;
+    font-family: var(--sin-font-sans);
+  }
+  * {
+    border-color: var(--sin-color-border);
+  }
+}
+
+@layer components {
+  .sin-card {
+    @apply bg-sin-surface rounded-sin-md border border-sin-border p-sin-4;
+  }
+  .sin-button-primary {
+    @apply bg-sin-primary text-white px-sin-4 py-sin-2 rounded-sin-md;
+    @apply transition-colors duration-sin-fast ease-sin-out;
+    @apply hover:bg-sin-primaryHover;
+    @apply focus:outline-none focus:ring-2 focus:ring-sin-focus;
+  }
+  .sin-button-secondary {
+    @apply bg-sin-surface text-sin-text px-sin-4 py-sin-2 rounded-sin-md;
+    @apply border border-sin-border;
+    @apply transition-colors duration-sin-fast ease-sin-out;
+    @apply hover:bg-sin-base;
+    @apply focus:outline-none focus:ring-2 focus:ring-sin-focus;
+  }
+  .sin-input {
+    @apply bg-sin-base text-sin-text px-sin-3 py-sin-2 rounded-sin-sm;
+    @apply border border-sin-border;
+    @apply focus:outline-none focus:ring-2 focus:ring-sin-focus;
+  }
+  .sin-badge {
+    @apply px-sin-2 py-sin-1 rounded-sin-sm text-sin-xs font-medium;
+  }
+  .sin-badge-success {
+    @apply bg-sin-success/20 text-sin-success;
+  }
+  .sin-badge-warning {
+    @apply bg-sin-warning/20 text-sin-warning;
+  }
+  .sin-badge-danger {
+    @apply bg-sin-danger/20 text-sin-danger;
+  }
+  .sin-badge-info {
+    @apply bg-sin-info/20 text-sin-info;
+  }
+}
