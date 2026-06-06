@@ -1,6 +1,6 @@
 [project]
 name = "simone-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Simone MCP - State-of-the-art MCP 2.0 code worker with hybrid memory"
 authors = [{name = "Delqhi", email = "info@zukunftsorientierte-energie.de"}]
 license = "MIT"
@@ -41,6 +41,19 @@ dev = [
 
 [project.scripts]
 simone-cli = "simone_mcp.cli:main"
+# v0.2.0 — Standalone CLI shims for the 9 public MCP tools. Lets shell
+# users and sub-agents invoke Simone's code-analysis tools without
+# spinning up the FastAPI/MCP server. Each shim is a thin argparse
+# wrapper around the corresponding function in simone_mcp.core.
+simone-symbol-search = "simone_mcp.cli_shims.simone_symbol_search:main"
+simone-find-references = "simone_mcp.cli_shims.simone_find_references:main"
+simone-replace-symbol-body = "simone_mcp.cli_shims.simone_replace_symbol_body:main"
+simone-insert-after-symbol = "simone_mcp.cli_shims.simone_insert_after_symbol:main"
+simone-project-overview = "simone_mcp.cli_shims.simone_project_overview:main"
+simone-execute-action = "simone_mcp.cli_shims.simone_execute_action:main"
+simone-process-lsp-task = "simone_mcp.cli_shims.simone_process_lsp_task:main"
+simone-dashboard = "simone_mcp.cli_shims.simone_dashboard:main"
+simone-build-agent-card = "simone_mcp.cli_shims.simone_build_agent_card:main"
 
 [build-system]
 requires = ["hatchling>=1.20.0"]
