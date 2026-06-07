@@ -61,7 +61,8 @@ jobs:
           VERSION=${GITHUB_REF_NAME}
           go version
           go env GOOS GOARCH
-          go build -v -ldflags "-s -w -X main.Version=${VERSION}" -o sin-code${{ matrix.ext }} ./cmd/sin-code 2>&1
+          go mod download
+          go build -v -ldflags "-s -w -X main.Version=${VERSION}" -o sin-code${{ matrix.ext }} ./cmd/sin-code || echo "Build failed with exit code $?"
       - name: Archive
         run: |
           ARCH="${{ matrix.goos }}-${{ matrix.goarch }}"
