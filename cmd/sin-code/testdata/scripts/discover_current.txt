@@ -1,0 +1,8 @@
+mkdir src
+cp main.go src/main.go
+sin-code discover .
+stdout 'src'
+! stdout 'panic'
+
+-- main.go --
+package main

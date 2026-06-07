@@ -1,0 +1,5 @@
+sin-code adw --help
+stdout 'Usage:'
+stdout 'adw'
+! stdout 'panic'
+! stderr 'Error'

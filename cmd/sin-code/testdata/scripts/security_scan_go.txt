@@ -1,0 +1,8 @@
+mkdir -p testproject
+cp main.go testproject/main.go
+cd testproject
+sin-code security .
+! stdout 'panic'
+
+-- main.go --
+package main

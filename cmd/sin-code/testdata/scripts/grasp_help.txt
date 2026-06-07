@@ -1,0 +1,5 @@
+sin-code grasp --help
+stdout 'Usage:'
+stdout 'grasp'
+! stdout 'panic'
+! stderr 'Error'

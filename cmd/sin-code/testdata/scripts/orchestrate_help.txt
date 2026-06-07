@@ -1,0 +1,5 @@
+sin-code orchestrate --help
+stdout 'Usage:'
+stdout 'orchestrate'
+! stdout 'panic'
+! stderr 'Error'

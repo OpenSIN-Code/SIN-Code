@@ -1,0 +1,5 @@
+sin-code efm --help
+stdout 'Usage:'
+stdout 'efm'
+! stdout 'panic'
+! stderr 'Error'

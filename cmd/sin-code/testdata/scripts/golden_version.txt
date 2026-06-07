@@ -1,0 +1,5 @@
+sin-code --version
+cmp stdout version.golden
+
+-- version.golden --
+sin-code version dev

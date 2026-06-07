@@ -1,0 +1,5 @@
+sin-code poc --help
+stdout 'Usage:'
+stdout 'poc'
+! stdout 'panic'
+! stderr 'Error'

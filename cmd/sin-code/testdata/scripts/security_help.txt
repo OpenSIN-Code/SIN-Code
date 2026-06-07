@@ -1,0 +1,5 @@
+sin-code security --help
+stdout 'Usage:'
+stdout 'security'
+! stdout 'panic'
+! stderr 'Error'

@@ -2,7 +2,7 @@
 
 ## ⚠️ ABSOLUTE REGEL: Niemals opencode-eigene Tools nutzen, wenn unsere SIN-Code Tools verfügbar sind!
 
-**UNSERE 17 SIN-Code Tools sind BESSER als die opencode-eigenen Alternativen.** Jeder Agent MUSS unsere Tools nutzen, niemals die opencode-internen.
+**UNSERE 19 SIN-Code Subcommands (13 MCP + 6 CLI-only) sind BESSER als die opencode-eigenen Alternativen.** Jeder Agent MUSS unsere Tools nutzen, niemals die opencode-internen.
 
 ### Wann welches Tool?
 
@@ -18,8 +18,9 @@
 
 ### Tool-Verweisung & Skills/MCP
 
-**⚡ UNIFIED BINARY (v1.0.5+):** All 17 sin-code tools live in a single Go binary: `~/.local/bin/sin-code`.
-The opencode.json registers ONE MCP server `sin-code` that exposes all 16 tools via the `serve` subcommand.
+**⚡ UNIFIED BINARY (v1.0.5+):** All 19 sin-code subcommands (13 MCP + 6 CLI-only) live in a single Go binary: `~/.local/bin/sin-code`.
+The opencode.json registers ONE MCP server `sin-code` that exposes all 13 tools via the `serve` subcommand.
+Note: 6 utility subcommands (config, sbom, security, self-update, tui, serve) are CLI-only, not exposed via MCP.
 
 | Tool (MCP) | CLI | Subcommand | Purpose |
 |------------|-----|------------|---------|
@@ -36,12 +37,14 @@ The opencode.json registers ONE MCP server `sin-code` that exposes all 16 tools 
 | `sin_adw` | `sin-code` | `adw` | Architectural Debt Watchdogs |
 | `sin_oracle` | `sin-code` | `oracle` | Verification Oracle |
 | `sin_efm` | `sin-code` | `efm` | Ephemeral Full-Stack Mocking |
-| `sin_security` | `sin-code` | `security` | Security-Scan (Go/Python/Node/Generic) |
-| `sin_config` | `sin-code` | `config` | Konfiguration verwalten |
-| `sin_tui` | `sin-code` | `tui` | Interaktives TUI Menu |
-| `sin_sbom` | `sin-code` | `sbom` | SBOM Generation (SPDX/CycloneDX) |
+| `sin_security` | `sin-code` | `security` | Security-Scan (Go/Python/Node/Generic) — CLI-only |
+| `sin_config` | `sin-code` | `config` | Konfiguration verwalten — CLI-only |
+| `sin_tui` | `sin-code` | `tui` | Interaktives TUI Menu — CLI-only |
+| `sin_sbom` | `sin-code` | `sbom` | SBOM Generation (SPDX/CycloneDX) — CLI-only |
+| — | `sin-code` | `self-update` | Update to latest release — CLI-only |
+| — | `sin-code` | `serve` | Start MCP server (13 tools) — CLI-only |
 
-**Installiert:** `~/.local/bin/sin-code` (1 binary, 17 tools)
+**Installiert:** `~/.local/bin/sin-code` (1 binary, 19 subcommands: 13 MCP + 6 CLI-only)
 **Repo:** `OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code`
 | `sin-websearch` | `sin-websearch` | `OpenSIN-Code/SIN-Code-Websearch-Skill` | `sin-websearch` | ✅ `~/.config/opencode/skills/sin-websearch` |
 | `sin-scheduler` | `sin-scheduler` | `OpenSIN-Code/SIN-Code-Scheduler-Skill` | `sin-scheduler` | ✅ `~/.config/opencode/skills/sin-scheduler` |

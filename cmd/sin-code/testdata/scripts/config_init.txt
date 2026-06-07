@@ -1,0 +1,5 @@
+env HOME=$WORK/home
+sin-code config init
+stdout 'Created default configuration'
+! stdout 'panic'
+! stderr 'Error'

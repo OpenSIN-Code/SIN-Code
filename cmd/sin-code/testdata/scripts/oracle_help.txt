@@ -1,0 +1,5 @@
+sin-code oracle --help
+stdout 'Usage:'
+stdout 'oracle'
+! stdout 'panic'
+! stderr 'Error'

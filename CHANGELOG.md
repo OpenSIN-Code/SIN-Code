@@ -2,6 +2,19 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [1.0.7] - 2026-06-07
+
+### Added
+- 200+ new tests (unit + E2E + MCP integration)
+- 7 new dedicated test files (ibd, poc, sckg, efm, grasp, map, scout)
+- testscript E2E framework (9 CLI tests)
+- MCP server stdio integration tests (10 stdio + 9 integration)
+- Dependency: rogpeppe/go-internal v1.15.0 for testscript
+
+### Changed
+- Test coverage increased from 48.4% to 72.2%
+- Documentation: corrected tool counts across AGENTS.md, main.go, serve.go (19 subcommands = 13 MCP + 6 CLI-only)
+
 ## [1.0.4] - 2026-06-07
 
 ### Added

@@ -1,0 +1,4 @@
+sin-code --version
+stdout 'sin-code'
+! stdout 'panic'
+! stderr 'Error'

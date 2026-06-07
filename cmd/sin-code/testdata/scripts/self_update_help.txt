@@ -1,0 +1,5 @@
+sin-code self-update --help
+stdout 'Usage:'
+stdout 'self-update'
+! stdout 'panic'
+! stderr 'Error'

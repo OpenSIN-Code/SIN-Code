@@ -1,0 +1,5 @@
+sin-code --help
+stdout 'Usage:'
+stdout 'sin-code'
+! stdout 'panic'
+! stderr 'Error'

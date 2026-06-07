@@ -1,0 +1,4 @@
+sin-code execute --command 'echo hello'
+stdout 'hello'
+! stdout 'panic'
+! stderr 'Error'

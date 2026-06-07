@@ -34,11 +34,15 @@ subcommands as MCP tools. This allows opencode (and any MCP-compatible client)
 to use sin-code as a single registered MCP server instead of registering 13
 separate binaries.
 
+Note: security, sbom, config, self-update, and tui are CLI-only subcommands
+and are NOT exposed as MCP tools. The MCP server only exposes the 13 core
+analysis tools listed below.
+
 Example opencode.json entry:
 
   "sin-code": {
     "command": ["/Users/jeremy/.local/bin/sin-code", "serve"],
-    "description": "SIN-Code unified toolchain (13 tools)",
+    "description": "SIN-Code unified toolchain (13 MCP tools)",
     "enabled": true,
     "type": "local"
   }

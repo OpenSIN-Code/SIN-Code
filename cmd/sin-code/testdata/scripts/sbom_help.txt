@@ -1,0 +1,5 @@
+sin-code sbom --help
+stdout 'Usage:'
+stdout 'sbom'
+! stdout 'panic'
+! stderr 'Error'

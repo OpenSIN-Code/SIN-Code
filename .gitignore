@@ -46,11 +46,13 @@ htmlcov/
 sin-tui
 
 # Build artifacts
-sin-code
+/sin-code
 sin-code.exe
 dist/
 coverage.json
 coverage.out
+*.test
+*.bak
 
 # System / IDE files
 .claude/

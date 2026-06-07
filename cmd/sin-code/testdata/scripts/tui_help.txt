@@ -1,0 +1,5 @@
+sin-code tui --help
+stdout 'Usage:'
+stdout 'tui'
+! stdout 'panic'
+! stderr 'Error'

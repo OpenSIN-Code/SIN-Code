@@ -1,0 +1,15 @@
+Discover files in a directory with relevance scoring, pattern matching,
+and dependency analysis. Pure Go implementation — no external binary needed.
+
+Example:
+  sin-code discover . --pattern "**/*.go" --sort_by relevance --format json
+
+Usage:
+  sin-code discover [path] [flags]
+
+Flags:
+  -f, --format string    Output format: text|json (default "text")
+  -h, --help             help for discover
+  -l, --limit int        Max results (default 100)
+  -p, --pattern string   File pattern (glob) (default "**/*")
+  -s, --sort_by string   Sort by: relevance|name|size|mtime (default "relevance")

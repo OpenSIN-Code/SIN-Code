@@ -5,7 +5,7 @@
 
 module github.com/OpenSIN-Code/SIN-Code-Bundle
 
-go 1.24.3
+go 1.25
 
 require (
 	github.com/charmbracelet/bubbles v1.0.0
@@ -35,6 +35,7 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/rogpeppe/go-internal v1.15.0 // indirect
 	github.com/sahilm/fuzzy v0.1.1 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
 	github.com/segmentio/encoding v0.5.4 // indirect
@@ -44,4 +45,5 @@ require (
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/text v0.3.8 // indirect
+	golang.org/x/tools v0.41.0 // indirect
 )

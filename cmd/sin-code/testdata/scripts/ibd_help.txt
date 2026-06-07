@@ -1,0 +1,5 @@
+sin-code ibd --help
+stdout 'Usage:'
+stdout 'ibd'
+! stdout 'panic'
+! stderr 'Error'

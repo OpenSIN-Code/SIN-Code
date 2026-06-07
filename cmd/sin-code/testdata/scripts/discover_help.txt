@@ -1,0 +1,5 @@
+sin-code discover --help
+stdout 'Usage:'
+stdout 'discover'
+! stdout 'panic'
+! stderr 'Error'

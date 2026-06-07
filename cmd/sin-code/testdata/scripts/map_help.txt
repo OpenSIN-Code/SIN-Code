@@ -1,0 +1,5 @@
+sin-code map --help
+stdout 'Usage:'
+stdout 'map'
+! stdout 'panic'
+! stderr 'Error'

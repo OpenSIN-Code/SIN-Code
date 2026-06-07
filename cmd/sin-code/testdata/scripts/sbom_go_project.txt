@@ -1,0 +1,7 @@
+mkdir src
+cp main.go src/main.go
+sin-code sbom --format spdx-json .
+stdout 'SPDX'
+
+-- main.go --
+package main

@@ -1,0 +1,46 @@
+sin-code --help
+cmp stdout help.golden
+
+-- help.golden --
+sin-code is the unified Go binary for the SIN-Code tool suite.
+It consolidates 19 subcommands (13 core tools + 6 utility commands) into a single cobra-based CLI:
+
+  Core analysis:    discover, execute, map, grasp, scout, harvest, orchestrate
+  Advanced tools:   ibd, poc, sckg, adw, oracle, efm
+  Utility commands: security, sbom, config, self-update, tui, serve
+
+Each subcommand is also a thin pass-through to the standalone tool repos
+for backwards compatibility — the standalone binaries are still maintained
+but "sin-code" is now the primary distribution channel.
+
+Usage:
+  sin-code [command]
+
+Available Commands:
+  adw         Architectural Debt Watchdogs — detect god modules, circular deps, etc.
+  completion  Generate the autocompletion script for the specified shell
+  config      View and manage sin-code configuration
+  discover    Discover files with relevance scoring and pattern matching
+  efm         Ephemeral Full-Stack Mocking — spin up disposable test environments
+  execute     Execute shell commands safely with secret redaction and timeout
+  grasp       Deep code understanding for a single file
+  harvest     Fetch URLs with caching, structure extraction, and change detection
+  help        Help about any command
+  ibd         Intent-Based Diffing — compare code changes against stated intent
+  map         Map code architecture with dependency graphs and hot-path analysis
+  oracle      Verification Oracle — verify claims with evidence
+  orchestrate Manage tasks with dependencies, parallel execution, and rollback plans
+  poc         Proof-of-Correctness — verify code satisfies its specification
+  sbom        Generate SPDX or CycloneDX JSON SBOM for a project
+  sckg        Semantic Codebase Knowledge Graphs — build & query code graph
+  scout       Search code with regex, semantic, symbol, and usage search
+  security    Fast security analysis — auto-detects project type and runs available tools
+  self-update Check for and install the latest sin-code release
+  serve       Start an MCP server exposing all 13 sin-code tools
+  tui         Interactive TUI menu for all sin-code subcommands
+
+Flags:
+  -h, --help      help for sin-code
+  -v, --version   version for sin-code
+
+Use "sin-code [command] --help" for more information about a command.

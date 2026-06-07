@@ -1,0 +1,5 @@
+sin-code harvest --help
+stdout 'Usage:'
+stdout 'harvest'
+! stdout 'panic'
+! stderr 'Error'

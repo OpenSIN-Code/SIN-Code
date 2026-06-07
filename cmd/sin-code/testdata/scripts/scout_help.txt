@@ -1,0 +1,5 @@
+sin-code scout --help
+stdout 'Usage:'
+stdout 'scout'
+! stdout 'panic'
+! stderr 'Error'

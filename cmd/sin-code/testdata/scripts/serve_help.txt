@@ -1,0 +1,5 @@
+sin-code serve --help
+stdout 'Usage:'
+stdout 'serve'
+! stdout 'panic'
+! stderr 'Error'

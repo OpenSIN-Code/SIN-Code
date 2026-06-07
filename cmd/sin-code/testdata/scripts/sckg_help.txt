@@ -1,0 +1,5 @@
+sin-code sckg --help
+stdout 'Usage:'
+stdout 'sckg'
+! stdout 'panic'
+! stderr 'Error'
