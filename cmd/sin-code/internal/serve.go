@@ -292,7 +292,30 @@ func registerAllMCPTools(server *mcp.Server) {
 }
 
 func handleDiscover(ctx context.Context, args map[string]any) (string, error) {
-	return runSubcommand(ctx, "discover", args)
+	// discover takes path as positional argument, not --path
+	path := "."
+	if p, ok := args["path"].(string); ok && p != "" {
+		path = p
+		delete(args, "path")
+	}
+	cmdArgs := []string{"discover", path}
+	for k, v := range args {
+		switch val := v.(type) {
+		case string:
+			if val != "" {
+				cmdArgs = append(cmdArgs, "--"+k, val)
+			}
+		case bool:
+			if val {
+				cmdArgs = append(cmdArgs, "--"+k)
+			}
+		case float64:
+			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%v", int(val)))
+		case int:
+			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%d", val))
+		}
+	}
+	return runSubcommandRaw(ctx, cmdArgs)
 }
 
 func handleExecute(ctx context.Context, args map[string]any) (string, error) {
@@ -300,11 +323,55 @@ func handleExecute(ctx context.Context, args map[string]any) (string, error) {
 }
 
 func handleMap(ctx context.Context, args map[string]any) (string, error) {
-	return runSubcommand(ctx, "map", args)
+	path := "."
+	if p, ok := args["path"].(string); ok && p != "" {
+		path = p
+		delete(args, "path")
+	}
+	cmdArgs := []string{"map", path}
+	for k, v := range args {
+		switch val := v.(type) {
+		case string:
+			if val != "" {
+				cmdArgs = append(cmdArgs, "--"+k, val)
+			}
+		case bool:
+			if val {
+				cmdArgs = append(cmdArgs, "--"+k)
+			}
+		case float64:
+			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%v", int(val)))
+		case int:
+			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%d", val))
+		}
+	}
+	return runSubcommandRaw(ctx, cmdArgs)
 }
 
 func handleGrasp(ctx context.Context, args map[string]any) (string, error) {
-	return runSubcommand(ctx, "grasp", args)
+	path := "."
+	if p, ok := args["path"].(string); ok && p != "" {
+		path = p
+		delete(args, "path")
+	}
+	cmdArgs := []string{"grasp", path}
+	for k, v := range args {
+		switch val := v.(type) {
+		case string:
+			if val != "" {
+				cmdArgs = append(cmdArgs, "--"+k, val)
+			}
+		case bool:
+			if val {
+				cmdArgs = append(cmdArgs, "--"+k)
+			}
+		case float64:
+			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%v", int(val)))
+		case int:
+			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%d", val))
+		}
+	}
+	return runSubcommandRaw(ctx, cmdArgs)
 }
 
 func handleScout(ctx context.Context, args map[string]any) (string, error) {
@@ -324,15 +391,84 @@ func handleIbd(ctx context.Context, args map[string]any) (string, error) {
 }
 
 func handlePoc(ctx context.Context, args map[string]any) (string, error) {
-	return runSubcommand(ctx, "poc", args)
+	code := "."
+	if c, ok := args["code"].(string); ok && c != "" {
+		code = c
+		delete(args, "code")
+	} else if s, ok := args["spec"].(string); ok && s != "" {
+		code = s
+		delete(args, "spec")
+	}
+	cmdArgs := []string{"poc", code}
+	for k, v := range args {
+		switch val := v.(type) {
+		case string:
+			if val != "" {
+				cmdArgs = append(cmdArgs, "--"+k, val)
+			}
+		case bool:
+			if val {
+				cmdArgs = append(cmdArgs, "--"+k)
+			}
+		case float64:
+			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%v", int(val)))
+		case int:
+			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%d", val))
+		}
+	}
+	return runSubcommandRaw(ctx, cmdArgs)
 }
 
 func handleSckg(ctx context.Context, args map[string]any) (string, error) {
-	return runSubcommand(ctx, "sckg", args)
+	path := "."
+	if p, ok := args["path"].(string); ok && p != "" {
+		path = p
+		delete(args, "path")
+	}
+	cmdArgs := []string{"sckg", path}
+	for k, v := range args {
+		switch val := v.(type) {
+		case string:
+			if val != "" {
+				cmdArgs = append(cmdArgs, "--"+k, val)
+			}
+		case bool:
+			if val {
+				cmdArgs = append(cmdArgs, "--"+k)
+			}
+		case float64:
+			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%v", int(val)))
+		case int:
+			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%d", val))
+		}
+	}
+	return runSubcommandRaw(ctx, cmdArgs)
 }
 
 func handleAdw(ctx context.Context, args map[string]any) (string, error) {
-	return runSubcommand(ctx, "adw", args)
+	path := "."
+	if p, ok := args["path"].(string); ok && p != "" {
+		path = p
+		delete(args, "path")
+	}
+	cmdArgs := []string{"adw", path}
+	for k, v := range args {
+		switch val := v.(type) {
+		case string:
+			if val != "" {
+				cmdArgs = append(cmdArgs, "--"+k, val)
+			}
+		case bool:
+			if val {
+				cmdArgs = append(cmdArgs, "--"+k)
+			}
+		case float64:
+			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%v", int(val)))
+		case int:
+			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%d", val))
+		}
+	}
+	return runSubcommandRaw(ctx, cmdArgs)
 }
 
 func handleOracle(ctx context.Context, args map[string]any) (string, error) {
@@ -344,11 +480,6 @@ func handleEfm(ctx context.Context, args map[string]any) (string, error) {
 }
 
 func runSubcommand(ctx context.Context, name string, args map[string]any) (string, error) {
-	selfPath, err := os.Executable()
-	if err != nil {
-		return "", fmt.Errorf("cannot find self: %w", err)
-	}
-
 	cmdArgs := []string{name}
 	for k, v := range args {
 		switch val := v.(type) {
@@ -366,6 +497,14 @@ func runSubcommand(ctx context.Context, name string, args map[string]any) (strin
 		case int:
 			cmdArgs = append(cmdArgs, "--"+k, fmt.Sprintf("%d", val))
 		}
+	}
+	return runSubcommandRaw(ctx, cmdArgs)
+}
+
+func runSubcommandRaw(ctx context.Context, cmdArgs []string) (string, error) {
+	selfPath, err := os.Executable()
+	if err != nil {
+		return "", fmt.Errorf("cannot find self: %w", err)
 	}
 
 	c := exec.CommandContext(ctx, selfPath, cmdArgs...)

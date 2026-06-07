@@ -20,7 +20,6 @@ func TestMapCmd_Flags(t *testing.T) {
 
 func TestMapCmd_RunWithTempDir(t *testing.T) {
 	dir := t.TempDir()
-	mapPath = ""
 	mapAction = "map"
 	mapFormat = "text"
 	if err := MapCmd.RunE(MapCmd, []string{dir}); err != nil {
