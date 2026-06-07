@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the WS4 cross-repo consistency check."""
 
 from __future__ import annotations

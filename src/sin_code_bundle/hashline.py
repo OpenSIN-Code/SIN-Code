@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: Hashline Anchor Patching for resilient code edits.
 
 Docs: hashline.doc.md

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for SIN Developer CLI commands (lint, docs, git).
 
 Docs: test_developer_cli.doc.md

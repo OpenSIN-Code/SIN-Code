@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Smoke tests for the {{ name }} MCP server tools.
 Docs: test_mcp_server.doc.md

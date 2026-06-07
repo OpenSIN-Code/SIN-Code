@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: One-call session context primer.
 
 Docs: session_warmup.doc.md

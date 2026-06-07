@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Tests for the CLI interface.
 # Docs: test_cli.doc.md
 """Test the CLI interface.

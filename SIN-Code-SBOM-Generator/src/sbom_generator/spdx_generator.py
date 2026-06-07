@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """SPDX 2.3 JSON SBOM generator.
 
 Docs: spdx_generator.doc.md

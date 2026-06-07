@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Test the top-level package API and version (mcp_server_builder).
 Docs: test_package.doc.md

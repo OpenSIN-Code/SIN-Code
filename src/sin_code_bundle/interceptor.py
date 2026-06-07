@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: ADW interceptor — pre-flight architectural rule enforcement.
 
 Docs: interceptor.doc.md

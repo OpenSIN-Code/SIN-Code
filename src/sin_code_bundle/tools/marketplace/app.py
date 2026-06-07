@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Typer subcommand for `sin marketplace <sub>` (issue #29)
 # Docs: marketplace.doc.md
 """Typer subcommand exposing ``sin marketplace ...``.

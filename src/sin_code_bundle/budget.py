@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Keep MCP tool outputs compact so they don't blow the agent's context window.
 
 Every tool result is passed through `trim()` before returning. Lists are capped,

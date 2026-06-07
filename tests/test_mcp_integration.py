@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: Integration tests for the SIN-Code MCP tools.
 
 Docs: test_mcp_integration.doc.md

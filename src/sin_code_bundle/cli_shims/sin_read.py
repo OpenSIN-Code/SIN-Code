@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: `sin-read` CLI shim — URI-aware, size-safe file read.
 
 Docs: sin_read.doc.md

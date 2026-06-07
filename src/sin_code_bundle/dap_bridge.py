@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: DAP runtime bridge for SIN-Code — attach debuggers, store runtime facts.
 
 Docs: dap_bridge.doc.md

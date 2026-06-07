@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Purpose: Copy text to the system clipboard. Calls macOS `pbcopy` directly
 // so the TUI has no extra runtime dependency on a Go clipboard library.
 // Docs: copy.doc.md

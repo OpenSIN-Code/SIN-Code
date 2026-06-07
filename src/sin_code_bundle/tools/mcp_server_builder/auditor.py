@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Run a ceo-audit on a freshly scaffolded MCP server.
 Docs: auditor.doc.md

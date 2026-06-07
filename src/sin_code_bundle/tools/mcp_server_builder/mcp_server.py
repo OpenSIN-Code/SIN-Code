@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: FastMCP server exposing 8 meta-tools for building MCP servers.
 Docs: mcp_server.doc.md

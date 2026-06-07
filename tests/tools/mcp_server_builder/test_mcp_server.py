@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Test the FastMCP server entry points.
 Docs: test_mcp_server.doc.md

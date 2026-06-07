@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: One-click PyPI Trusted Publisher registration via API token.
 # Docs: pypi_setup.doc.md
 """One-click PyPI Trusted Publisher setup via API token.

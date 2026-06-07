@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Unified code archaeology — graph + cross-source context in 1 call.
 # Docs: symbol_resolve.doc.md
 """Consolidates gitnexus_query + gitnexus_context + gitnexus_impact +

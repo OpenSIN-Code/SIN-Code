@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 package models
 
 // SecretFinding represents a detected secret

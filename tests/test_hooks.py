@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the hooks module (automatic .opencode hook installation).
 
 Purpose: Verify that hooks.py correctly installs, lists, and uninstalls

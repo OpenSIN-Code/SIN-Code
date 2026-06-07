@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Hardened subprocess + input-sanitization helpers shared by all subsystems."""
 
 from __future__ import annotations

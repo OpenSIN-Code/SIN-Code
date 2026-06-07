@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Register a new MCP server in opencode.json (mcp section).
 Docs: registrar.doc.md

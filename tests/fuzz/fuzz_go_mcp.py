@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """Fuzz test runner for any Go MCP tool binary.
 

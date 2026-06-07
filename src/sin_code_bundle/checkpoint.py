@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Pre-refactor checkpoint — snapshot + state report in 1 call.
 # Docs: checkpoint.doc.md
 """Consolidates rollback_snapshot + codocs_check + git status + sin_search

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Test MCP server tools (search, install, list, remove, info, update, sync)
 # Docs: test_server.py.doc.md
 """Tests for sin_code_bundle.tools.marketplace.server MCP tools."""

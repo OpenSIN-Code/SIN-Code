@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests fuer WS2 (mcp-config) und WS4 (agents-md)."""
 
 import json

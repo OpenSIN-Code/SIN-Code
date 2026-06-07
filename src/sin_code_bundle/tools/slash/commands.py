@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Built-in slash commands and their mappings.
 # Docs: commands.doc.md
 """Built-in slash commands and their mappings.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Security audit tests for SIN-Code-Bundle hooks.py and SIN-Brain
 # Docs: test_security_audit_bundle.py
 

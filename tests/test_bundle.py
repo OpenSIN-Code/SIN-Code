@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 from typer.testing import CliRunner
 
 from sin_code_bundle.cli import app

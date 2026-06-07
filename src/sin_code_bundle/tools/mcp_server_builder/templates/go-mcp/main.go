@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Purpose: {{ name }} MCP server entry point.
 // Docs: main.doc.md
 package main

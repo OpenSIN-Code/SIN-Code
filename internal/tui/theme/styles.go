@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Purpose: Semantic styles for the SIN-Code TUI (built on lipgloss).
 // Docs: styles.doc.md
 

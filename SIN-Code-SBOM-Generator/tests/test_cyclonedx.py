@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for CycloneDX generator.
 
 Docs: test_cyclonedx.doc.md

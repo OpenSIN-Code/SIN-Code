@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: Tests for the `sin-write` CLI shim.
 
 Docs: test_sin_write.doc.md

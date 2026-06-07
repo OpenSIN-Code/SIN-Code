@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Test catalog loading, search, and filtering
 # Docs: test_catalog.py.doc.md
 """Tests for sin_code_bundle.tools.marketplace.catalog."""

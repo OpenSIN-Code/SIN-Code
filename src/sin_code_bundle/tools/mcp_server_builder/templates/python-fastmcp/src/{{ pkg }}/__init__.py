@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: {{ name }} — MCP server package.
 Docs: {{ pkg }}/__init__.doc.md

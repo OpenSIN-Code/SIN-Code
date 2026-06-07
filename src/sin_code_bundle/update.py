@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Update the SIN-Code Bundle and its Go toolchain.
 
 Bumps the Python package (pipx upgrade) and rebuilds every Go tool repo

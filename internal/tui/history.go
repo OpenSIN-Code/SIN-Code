@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Purpose: In-memory ring buffer holding the most recent search terms typed
 // in the TUI so up/down arrows recall prior queries.
 // Docs: history.doc.md

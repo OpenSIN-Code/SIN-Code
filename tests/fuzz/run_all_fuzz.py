@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """Master MCP fuzz orchestrator — runs all 7 Go tools + SIN-Brain.
 

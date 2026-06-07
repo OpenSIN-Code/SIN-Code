@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the SWE-bench harness — using DryRunRunner so no LLM or network needed."""
 
 import json

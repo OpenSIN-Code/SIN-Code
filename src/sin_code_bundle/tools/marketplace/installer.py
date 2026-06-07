@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Clone repos, install dependencies, and register skills in opencode.json
 # Docs: installer.py.doc.md
 """

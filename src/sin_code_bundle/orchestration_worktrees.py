@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: Isolated worktree orchestration — parallel agent tasks without conflicts.
 
 Docs: orchestration_worktrees.doc.md

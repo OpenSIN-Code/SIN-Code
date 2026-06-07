@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: FastMCP server exposing slash command tools.
 # Docs: mcp_server.doc.md
 """FastMCP server exposing slash command tools.

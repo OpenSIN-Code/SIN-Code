@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Purpose: sin tui — the Bubbletea program. Two-pane layout: a searchable
 // command menu on the left, a live preview + output stream on the right.
 // Layered on top: ? Help modal, t theme switch, ↑/↓ history recall in

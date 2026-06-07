@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: Tests for the `sin-read` CLI shim.
 
 Docs: test_sin_read.doc.md

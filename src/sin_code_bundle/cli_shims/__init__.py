@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: CLI shim package — exposes MCP-only file-ops as real binaries.
 
 Docs: __init__.doc.md

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: Pre-merge / pre-PR safety gate.
 
 Docs: merge_safety.doc.md

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Test the Validator.
 Docs: test_validator.doc.md

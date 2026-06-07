@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Design tokens for the SIN-Code TUI (Bubbletea/Lipgloss).
 //
 // Centralised theme so CLI/TUI/GUI all share the same color story.

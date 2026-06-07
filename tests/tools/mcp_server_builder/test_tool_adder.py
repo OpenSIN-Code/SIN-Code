@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Test the ToolAdder and ToolSpec.
 Docs: test_tool_adder.doc.md

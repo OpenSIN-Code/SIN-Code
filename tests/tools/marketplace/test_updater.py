@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Test git pull and update status checks
 # Docs: test_updater.py.doc.md
 """Tests for sin_code_bundle.tools.marketplace.updater."""

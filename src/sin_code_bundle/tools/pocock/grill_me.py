@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Socratic Alignment Tool (Grill Me) for Pocock Workflow.
 
 This tool implements the Matt Pocock System-Design Paradigm's alignment phase,

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Generate pytest test cases for an MCP tool.
 Docs: test_gen.doc.md

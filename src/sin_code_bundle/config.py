@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Layered config store for the SIN-Code CLI.
 
 Resolves a single dotted key (e.g. ``tui.theme``) against four sources,

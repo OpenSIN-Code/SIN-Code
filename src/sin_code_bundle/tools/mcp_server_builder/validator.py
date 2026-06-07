@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Validate an MCP server (tools, type hints, docstrings, CoDocs).
 Docs: validator.doc.md

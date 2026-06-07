@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 package models
 
 // SBOMPackage represents a package/component in an SBOM.

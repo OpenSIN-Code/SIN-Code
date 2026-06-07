@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Publish an MCP server to PyPI (Python) or npm (Node).
 Docs: publisher.doc.md

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the RTK bridge.
 
 No real RTK invocation: discovery (shutil.which) and subprocess are stubbed so

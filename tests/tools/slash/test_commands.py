@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Tests for built-in commands.
 # Docs: test_commands.doc.md
 """Test built-in command definitions.

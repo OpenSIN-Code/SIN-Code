@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """Execute-Tool Performance Benchmarks.
 

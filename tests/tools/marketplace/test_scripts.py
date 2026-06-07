@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Test bash scripts exist and are executable
 # Docs: test_scripts.py.doc.md
 """Tests for bash scripts."""

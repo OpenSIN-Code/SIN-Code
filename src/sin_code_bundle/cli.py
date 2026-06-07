@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Unified CLI fuer den gesamten SIN-Code Stack.
 
 Subsysteme werden lazy und defensiv importiert: fehlt eines, bleibt der Rest
@@ -254,8 +255,10 @@ ceo_audit_app = typer.Typer(
 )
 app.add_typer(ceo_audit_app, name="ceo-audit")
 
-# Available SIN-Code Go binaries
+# Available SIN-Code Go tools (now unified in single `sin-code` binary v1.0.0+)
+# The repo key is kept for legacy fallback (standalone binary install).
 _SIN_CODE_TOOLS = {
+    # Core analysis (7)
     "discover": "SIN-Code-Discover-Tool",
     "execute": "SIN-Code-Execute-Tool",
     "map": "SIN-Code-Map-Tool",
@@ -263,6 +266,13 @@ _SIN_CODE_TOOLS = {
     "scout": "SIN-Code-Scout-Tool",
     "harvest": "SIN-Code-Harvest-Tool",
     "orchestrate": "SIN-Code-Orchestrate-Tool",
+    # Advanced tools (6) — previously thin wrappers, now native subcommands
+    "ibd": "SIN-Code-IBD-Tool",
+    "poc": "SIN-Code-PoC-Tool",
+    "sckg": "SIN-Code-SCKG-Tool",
+    "adw": "SIN-Code-ADW-Tool",
+    "oracle": "SIN-Code-Oracle-Tool",
+    "efm": "SIN-Code-EFM-Tool",
 }
 
 
@@ -1368,7 +1378,7 @@ def serve():
             cmd_path = _sh.which("execute") or str(_Path.home() / ".local/bin/execute")
             if _Path(cmd_path).exists():
                 proc = _sp.run(
-                    [cmd_path, "-timeout", str(timeout), "-format", "json", "-command", command],
+                    [cmd_path, "--timeout", str(timeout), "--format", "json", "--command", command],
                     capture_output=True,
                     text=True,
                     timeout=timeout + 10,
@@ -1991,11 +2001,16 @@ def doctor(root: str = typer.Option(".", help="Project root.")):
 @sin_code_app.command("run")
 def sin_code_run(
     tool: str = typer.Argument(
-        ..., help="Tool name: discover, execute, map, grasp, scout, harvest, orchestrate"
+        ..., help="Tool name: discover, execute, map, grasp, scout, harvest, orchestrate, ibd, poc, sckg, adw, oracle, efm"
     ),
     args: list[str] = typer.Argument(default_factory=list, help="Arguments to pass to the tool"),
 ):
-    """Run a SIN-Code Go tool with the given arguments."""
+    """Run a SIN-Code Go tool with the given arguments.
+
+    Uses the unified `sin-code` Go binary (v1.0.0+) which consolidates 13 tools
+    into a single cobra-based CLI. Falls back to standalone binaries if the
+    unified binary is not installed.
+    """
     if tool not in _SIN_CODE_TOOLS:
         typer.echo(
             f"[SIN-CODE] Unknown tool: {tool}. Available: {', '.join(_SIN_CODE_TOOLS.keys())}",
@@ -2003,10 +2018,21 @@ def sin_code_run(
         )
         raise typer.Exit(code=1)
 
+    # Prefer the unified sin-code binary (single binary, 13 subcommands)
+    unified = shutil.which("sin-code")
+    if unified:
+        result = subprocess.run([unified, tool, *args], capture_output=True, text=True)
+        if result.stdout:
+            typer.echo(result.stdout)
+        if result.stderr:
+            typer.echo(result.stderr, err=True)
+        raise typer.Exit(code=result.returncode)
+
+    # Fallback: standalone binary (legacy, kept for backwards compat)
     path = _sin_code_tool_path(tool)
     if not path:
         typer.echo(
-            f"[SIN-CODE] Tool '{tool}' not found. Install: go install github.com/OpenSIN-Code/{_SIN_CODE_TOOLS[tool]}/cmd/{tool}@latest",
+            f"[SIN-CODE] Tool '{tool}' not found. Install: go install github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code@latest",
             err=True,
         )
         raise typer.Exit(code=1)

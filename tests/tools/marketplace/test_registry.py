@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Test SQLite registry CRUD operations
 # Docs: test_registry.py.doc.md
 """Tests for sin_code_bundle.tools.marketplace.registry."""

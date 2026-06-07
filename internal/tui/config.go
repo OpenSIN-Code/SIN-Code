@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Purpose: Persistent TUI preferences — read/write ~/.config/sin/tui.toml.
 // Hand-rolled TOML scalar parser; no new dependencies.
 // Docs: config.doc.md

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for SPDX generator.
 
 Docs: test_spdx.doc.md

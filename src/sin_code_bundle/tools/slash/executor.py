@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Execute slash commands (built-in and custom).
 # Docs: executor.doc.md
 """Execute slash commands (built-in and custom).

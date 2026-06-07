@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Typer subcommand exposing `sin slash <subcommand>` (issue #29)
 # Docs: slash.doc.md
 """Typer subcommand for the consolidated sin-slash skill.

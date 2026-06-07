@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 from sin_code_bundle.budget import trim
 
 

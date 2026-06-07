@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Test the TestGenerator.
 Docs: test_test_gen.doc.md

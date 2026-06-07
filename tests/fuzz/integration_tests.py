@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """Cross-tool integration tests for the SIN-Code tool suite.
 

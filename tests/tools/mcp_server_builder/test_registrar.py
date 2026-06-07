@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Test the Registrar and McpServerEntry.
 Docs: test_registrar.doc.md

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Dispatch slash commands to the appropriate executor action.
 # Docs: dispatcher.doc.md
 """Dispatch slash commands to the appropriate executor action.

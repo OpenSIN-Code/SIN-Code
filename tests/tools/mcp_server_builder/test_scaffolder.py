@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Test the Scaffolder and ScaffoldSpec.
 Docs: test_scaffolder.doc.md

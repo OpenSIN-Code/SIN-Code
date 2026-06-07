@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: SIN-MCP-Server-Builder Skill — meta-skill that scaffolds new MCP servers.
 Docs: __init__.doc.md

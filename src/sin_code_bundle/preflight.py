@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Pre-flight safety gate — checks before state-changing tool calls.
 # Docs: preflight.doc.md
 """Consolidates policy (sin_check_architecture) + docs (codocs) + git + tests

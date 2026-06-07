@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Purpose: Tests for the in-memory search history ring buffer.
 // Docs: history.doc.md
 

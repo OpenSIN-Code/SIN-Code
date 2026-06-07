@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Tests for the slash command parser.
 # Docs: test_parser.doc.md
 """Test the slash command parser.

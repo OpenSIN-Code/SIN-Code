@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Track installed skills in a local SQLite database
 # Docs: registry.py.doc.md
 """

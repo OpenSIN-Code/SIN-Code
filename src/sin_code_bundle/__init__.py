@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """SIN-Code Bundle - Unified SOTA Agent-Engineering Stack.
 
 Docs: __init__.doc.md

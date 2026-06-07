@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """SIN-Brain memory adapter (BR-1, Issue #14).
 
 Thin, defensive bridge to the external ``sin_brain`` package. The bundle holds

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Purpose: sin tui entry point — a separate Go binary that the Python
 // `sin` CLI can shell out to. Keep the runtime self-contained; no Python deps.
 // Docs: main.doc.md

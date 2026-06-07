@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """SIN-Code SBOM Generator — SPDX and CycloneDX format support.
 
 Docs: sbom_generator.doc.md

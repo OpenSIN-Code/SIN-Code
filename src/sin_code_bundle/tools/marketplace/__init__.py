@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Package init for sin_marketplace
 # Docs: __init__.py.doc.md
 """SIN Marketplace — manage OpenSIN-Code skills via MCP and CLI."""

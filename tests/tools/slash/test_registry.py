@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Tests for the command registry.
 # Docs: test_registry.doc.md
 """Test the SQLite-backed command registry.

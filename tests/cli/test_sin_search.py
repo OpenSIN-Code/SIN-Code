@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: Tests for the `sin-search` CLI shim.
 
 Docs: test_sin_search.doc.md

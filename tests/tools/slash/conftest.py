@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Shared test fixtures and configuration.
 # Docs: conftest.doc.md
 """Shared fixtures for pytest.

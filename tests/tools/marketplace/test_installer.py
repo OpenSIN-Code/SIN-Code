@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Test skill installation, removal, and opencode.json registration
 # Docs: test_installer.py.doc.md
 """Tests for sin_code_bundle.tools.marketplace.installer."""

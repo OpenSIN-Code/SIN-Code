@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 package models
 
 // ContainerVulnerability represents a single container vulnerability.

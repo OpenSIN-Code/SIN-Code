@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Main SBOM generation orchestrator.
 
 Aggregates data from SCA scans and generates SBOMs in SPDX and CycloneDX formats.

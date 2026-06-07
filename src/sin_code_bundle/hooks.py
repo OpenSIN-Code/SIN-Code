@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Generate .opencode hooks for automatic SIN-Brain calls.
 
 Purpose: Installs pre- and post-command shell hooks into ~/.opencode/hooks/ so

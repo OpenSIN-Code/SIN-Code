@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Typer subcommand for `sin mcp-server <sub>` (issue #29)
 # Docs: mcp_server_builder.doc.md
 """Typer subcommand exposing ``sin mcp-server ...``.

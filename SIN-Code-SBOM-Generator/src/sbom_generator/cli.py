@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """CLI for the SBOM generator.
 
 Docs: cli.doc.md

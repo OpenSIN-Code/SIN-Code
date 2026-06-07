@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: CLI entry point for sin-slash.
 # Docs: cli.doc.md
 """CLI entry point for sin-slash.

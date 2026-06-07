@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: One-call immortal commit — conventional commit + tag + push.
 
 Docs: immortal_commit.doc.md

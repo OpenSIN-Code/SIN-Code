@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the SIN-Brain memory adapter (BR-1, Issue #14).
 
 These run without `sin_brain` installed: we simulate presence/absence by

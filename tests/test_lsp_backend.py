@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for lsp_backend — primarily the tree-sitter fallback path,
 since LSP servers won't be available in CI.
 """

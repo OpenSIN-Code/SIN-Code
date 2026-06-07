@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """Cross-repo consistency check for the SIN-Code Bundle (WS4 of operational-hardening).
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the MarkItDown bridge.
 
 No real MarkItDown / uvx invocation: discovery (shutil.which) and config HOME

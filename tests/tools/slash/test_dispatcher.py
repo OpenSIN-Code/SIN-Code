@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Tests for the command dispatcher.
 # Docs: test_dispatcher.doc.md
 """Test the command dispatcher.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for sin code unified hub.
 
 Docs: test_sin_code.doc.md

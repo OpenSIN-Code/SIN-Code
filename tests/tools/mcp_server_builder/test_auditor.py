@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Test the Auditor (degraded mode + JSON parsing).
 Docs: test_auditor.doc.md

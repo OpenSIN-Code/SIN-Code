@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: `sin-bash` CLI shim — safe shell exec via `execute` Go binary.
 
 Docs: sin_bash.doc.md

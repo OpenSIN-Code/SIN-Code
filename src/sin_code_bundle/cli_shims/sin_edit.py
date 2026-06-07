@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: `sin-edit` CLI shim — hashline-anchored semantic patching.
 
 Docs: sin_edit.doc.md

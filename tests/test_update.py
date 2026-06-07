@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for `sin update` — pure unit tests so no real pipx/git/go needed."""
 
 from __future__ import annotations

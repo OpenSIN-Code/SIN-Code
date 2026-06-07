@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: Tests for the `sin-bash` CLI shim.
 
 Docs: test_sin_bash.doc.md

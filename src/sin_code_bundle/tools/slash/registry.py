@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: SQLite-backed registry for custom slash commands.
 # Docs: registry.doc.md
 """SQLite-backed registry for custom slash commands.

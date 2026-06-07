@@ -220,7 +220,7 @@ def sin_bash(command: str, timeout: int = 60) -> str:  # 60s = default; max allo
             # 10s buffer over `execute`'s own timeout — gives the Go tool
             # time to flush JSON + clean up before Python kills it.
             proc = subprocess.run(
-                [cmd_path, "-timeout", str(timeout), "-format", "json", "-command", command],
+                [cmd_path, "--timeout", str(timeout), "--format", "json", "--command", command],
                 capture_output=True,
                 text=True,
                 timeout=timeout + 10,

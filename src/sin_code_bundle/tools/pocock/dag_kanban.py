@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """DAG-Kanban Parser & Task Runner for Pocock Workflow.
 
 Analyzes the PRD.md to build a directed acyclic graph (DAG) of tasks/slices,

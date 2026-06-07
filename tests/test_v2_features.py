@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: Tests for SIN-Code v2 features (VFS, Hashline, AST).
 
 Docs: test_v2_features.doc.md

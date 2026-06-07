@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the SBOM generator.
 
 Docs: test_generator.doc.md

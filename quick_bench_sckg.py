@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 #!/usr/bin/env python3
 """Quick benchmark for SCKG query performance after inverted index fix."""
 

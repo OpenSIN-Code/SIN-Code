@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Incremental, content-hashed cache for SCKG / impact results.
 
 Avoids rescanning the whole repo on every `impact()` call. Keyed by a hash of

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Test the templates engine and template discovery.
 Docs: test_templates.doc.md

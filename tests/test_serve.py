@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the `sin serve` MCP server and SIN-Brain tool registration."""
 
 import json

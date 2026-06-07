@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Purpose: Command catalog for the sin tui. Mirrors `sin --help` subcommands
 // so the TUI is a 1:1 discoverable interface for the CLI.
 // Docs: commands.doc.md

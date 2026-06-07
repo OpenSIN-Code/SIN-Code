@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Pocock Workflow Tools for SIN Code Bundle.
 
 This module provides tools for the Pocock development paradigm:

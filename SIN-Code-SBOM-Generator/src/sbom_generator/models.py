@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Data models for SBOM generation.
 
 Docs: models.doc.md

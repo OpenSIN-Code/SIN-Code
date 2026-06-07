@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Shared fixtures and configuration for test suite
 # Docs: conftest.py.doc.md
 """Shared pytest configuration for sin-marketplace tests."""

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Jinja2 template engine and template discovery for MCP server scaffolds.
 Docs: templates.doc.md

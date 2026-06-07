@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: MCP server exposing 7 marketplace tools via FastMCP
 # Docs: server.py.doc.md
 """

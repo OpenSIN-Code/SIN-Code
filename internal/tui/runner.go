@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Purpose: Command runner — executes `sin <args>` in a subprocess, streams
 // stdout/stderr line-by-line into the TUI.
 // Docs: runner.doc.md

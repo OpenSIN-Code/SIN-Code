@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Detect repo languages and ensure the matching language servers are present.
 
 `sin doctor` uses this to tell users exactly what to install for accurate

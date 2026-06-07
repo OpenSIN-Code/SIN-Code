@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 package models
 
 // Vulnerability represents a single security vulnerability.

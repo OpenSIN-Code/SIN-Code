@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: CLI entry point for sin-marketplace commands
 # Docs: cli.py.doc.md
 """

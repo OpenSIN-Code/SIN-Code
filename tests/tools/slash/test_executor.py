@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Tests for the command executor.
 # Docs: test_executor.doc.md
 """Test the command executor.

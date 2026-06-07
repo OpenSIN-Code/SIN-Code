@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 // Purpose: Tests for the TUI command catalog, themes, and persisted config.
 // Docs: app_test.doc.md
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Check for updates, git pull, and version comparison
 # Docs: updater.py.doc.md
 """

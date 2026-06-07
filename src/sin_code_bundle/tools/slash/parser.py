@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Parse slash command syntax with support for arguments, flags, and quoted strings.
 # Docs: parser.doc.md
 """Parse slash command syntax.

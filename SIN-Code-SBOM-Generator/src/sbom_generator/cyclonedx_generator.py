@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """CycloneDX 1.5 JSON SBOM generator.
 
 Docs: cyclonedx_generator.doc.md

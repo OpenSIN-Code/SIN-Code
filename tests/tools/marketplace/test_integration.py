@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: End-to-end integration tests for full marketplace workflow
 # Docs: test_integration.py.doc.md
 """Integration tests for the full marketplace workflow."""

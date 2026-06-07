@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Test CLI commands for search, install, list, remove, update, sync, info
 # Docs: test_cli.py.doc.md
 """Tests for sin_code_bundle.tools.marketplace.legacy_cli."""

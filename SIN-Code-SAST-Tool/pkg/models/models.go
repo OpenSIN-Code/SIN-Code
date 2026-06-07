@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 package models
 
 // SASTFinding represents a single security finding

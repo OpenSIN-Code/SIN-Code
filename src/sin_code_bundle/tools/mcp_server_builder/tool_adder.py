@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Add a new tool to an existing MCP server, preserving CoDocs structure.
 Docs: tool_adder.doc.md

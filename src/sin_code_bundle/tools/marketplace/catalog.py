@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Read and query the Infra-SIN-OpenCode-Stack skills catalog
 # Docs: catalog.py.doc.md
 """

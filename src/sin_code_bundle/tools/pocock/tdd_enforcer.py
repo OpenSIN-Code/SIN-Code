@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """TDD Gatekeeper: Red-Green-Refactor Enforcer for Pocock Workflow.
 
 This tool enforces the strict Test-Driven Development cycle by blocking

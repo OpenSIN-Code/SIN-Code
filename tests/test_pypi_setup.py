@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for sin_code_bundle.tools.pypi_setup.
 
 Docs: test_pypi_setup.doc.md

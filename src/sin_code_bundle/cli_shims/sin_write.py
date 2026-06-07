@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: `sin-write` CLI shim — atomic write with backup + syntax verify.
 
 Docs: sin_write.doc.md

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Test the Publisher and dispatcher.
 Docs: test_publisher.doc.md

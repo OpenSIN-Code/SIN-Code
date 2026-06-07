@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 # Purpose: Test package init and version (marketplace)
 # Docs: test_init.py.doc.md
 """Tests for sin_code_bundle.tools.marketplace.__init__."""

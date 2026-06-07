@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """
 Purpose: Generate a new MCP server directory structure from a ScaffoldSpec.
 Docs: scaffolder.doc.md

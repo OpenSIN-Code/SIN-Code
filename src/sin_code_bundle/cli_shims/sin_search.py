@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Purpose: `sin-search` CLI shim — wraps `scout` Go tool (regex/semantic/symbol).
 
 Docs: sin_search.doc.md

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: MIT
 """Tests for the GitNexus bridge.
 
 These never invoke real GitNexus/Node: subprocess and discovery are stubbed so
