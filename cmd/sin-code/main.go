@@ -49,6 +49,7 @@ func init() {
 	rootCmd.AddCommand(internal.EfmCmd)
 	rootCmd.AddCommand(internal.ServeCmd)
 	rootCmd.AddCommand(internal.SecurityCmd)
+	rootCmd.AddCommand(internal.SbomCmd)
 	rootCmd.AddCommand(internal.ConfigCmd)
 	rootCmd.AddCommand(internal.SelfUpdateCmd)
 	rootCmd.AddCommand(tuiCmd)
