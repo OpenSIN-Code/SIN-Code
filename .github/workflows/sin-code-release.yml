@@ -20,11 +20,11 @@ jobs:
       - name: Test
         run: go test -v ./cmd/sin-code/... 2>&1 | tee test-output.txt
       - name: Vet
-        run: go vet ./cmd/sin-code/... || true
+        run: go vet ./cmd/sin-code/...
       - name: govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./cmd/sin-code/... || true
+          govulncheck ./cmd/sin-code/...
 
   build:
     name: Build
@@ -72,7 +72,7 @@ jobs:
           if [ "${{ matrix.goos }}" = "windows" ]; then
             zip -j "dist/sin-code-${ARCH}.zip" "sin-code${{ matrix.ext }}"
           else
-            tar -czf "dist/sin-code-${ARCH}.tar.gz" "sin-code${{ matrix.ext }}"
+            tar -czf "dist/sin-code-${ARCH}.tar.gz" -C . "sin-code${{ matrix.ext }}"
           fi
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -99,4 +99,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*
+          body: |
+            Unified sin-code binary with 13 subcommands, MCP server mode, and cross-platform builds.
           generate_release_notes: true
