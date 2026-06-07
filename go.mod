@@ -5,7 +5,7 @@
 
 module github.com/OpenSIN-Code/SIN-Code-Bundle
 
-go 1.25.0
+go 1.25.11
 
 require (
 	github.com/charmbracelet/bubbles v1.0.0
