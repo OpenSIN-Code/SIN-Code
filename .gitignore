@@ -45,3 +45,14 @@ htmlcov/
 # Local TUI binary (build with: go build -o ./sin-tui ./cmd/sin-tui)
 sin-tui
 
+# Build artifacts
+sin-code
+sin-code.exe
+dist/
+coverage.json
+coverage.out
+
+# System / IDE files
+.claude/
+CLAUDE.md
+
