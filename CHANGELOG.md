@@ -2,6 +2,29 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [1.1.0] - 2026-06-07
+
+### Added
+- **TUI 2.0** — complete rewrite of `sin-code tui` as a multi-pane command center
+  - Session tab bar (top, up to 6 sessions)
+  - Collapsible left sidebar (Ctrl+B) with 5 views + 19 subcommands
+  - Custom SIN-Code loading animation (rotating half-block halo + ⚡)
+  - Bottom footer with view name, agent (Build/Audit/Stats), token stats, cost
+  - Command palette (Ctrl+P), subagents popup (Ctrl+X), view switcher
+  - 5 themes: default, Dracula, Nord, Solarized, Monokai
+  - Multi-view support: Tools, Sessions, EFM, Config, History
+- **EFM OrbStack support** — auto-detect `orb` on macOS, `--runtime orb|docker|auto` flag
+- **OrbStack mandate** (PRIORITY -5.0) — added to all 3 AGENTS.md files
+- **TUI design doc** — `docs/tui-v2-design.md` (1,319 lines, opencode research)
+
+### Changed
+- TUI moved to dedicated `cmd/sin-code/tui/` package (~2,900 LOC, 15 files)
+- Old monolithic `tui_test.go` + `tui_interactive_test.go` removed (replaced by 61 new tests)
+
+### Architecture
+- Bubbletea v1.3.10 (matches go.mod)
+- 5 themes via Lipgloss, multi-pane via lipgloss.JoinHorizontal/Vertical
+
 ## [1.0.9] - 2026-06-07
 
 ### Added
