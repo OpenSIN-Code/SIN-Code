@@ -17,8 +17,6 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.3'
-      - name: Set GOTOOLCHAIN
-        run: echo "GOTOOLCHAIN=auto" >> $GITHUB_ENV
       - name: Test
         run: go test -v ./cmd/sin-code/... 2>&1 | tee test-output.txt
       - name: Vet
@@ -46,28 +44,24 @@ jobs:
           - goos: darwin
             goarch: arm64
             ext: ''
-          # Temporarily disabled - cross-compilation issue
-          # - goos: windows
-          #   goarch: amd64
-          #   ext: '.exe'
+          - goos: windows
+            goarch: amd64
+            ext: '.exe'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24.3'
-      - name: Set GOTOOLCHAIN
-        run: echo "GOTOOLCHAIN=auto" >> $GITHUB_ENV
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          GOTOOLCHAIN: auto
         run: |
           set -e
           VERSION=${GITHUB_REF_NAME}
           go version
-          go env GOOS GOARCH GOTOOLCHAIN
+          go env GOOS GOARCH
           go mod download
           go build -v -ldflags "-s -w -X main.Version=${VERSION} -X github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal.ServerVersion=${VERSION}" -o sin-code${{ matrix.ext }} ./cmd/sin-code
       - name: Archive
