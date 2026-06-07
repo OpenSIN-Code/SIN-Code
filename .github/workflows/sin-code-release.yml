@@ -46,9 +46,10 @@ jobs:
           - goos: darwin
             goarch: arm64
             ext: ''
-          - goos: windows
-            goarch: amd64
-            ext: '.exe'
+          # Temporarily disabled - cross-compilation issue
+          # - goos: windows
+          #   goarch: amd64
+          #   ext: '.exe'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
