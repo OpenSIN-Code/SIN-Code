@@ -16,33 +16,50 @@
 | **URLs abrufen, APIs konsumieren** | `sin-harvest` | `opencode` interne HTTP-Requests | Caching, Struktur-Extraktion, Change-Detection, Auth-Management |
 | **Tasks managen, Planung, Rollback** | `sin-orchestrate` | `opencode` interne Task-Planung | Dependencies, Parallel-Execution, Blocker-Detection, Rollback-Plan |
 
+## ⚠️ DEPRECATION WARNING — `sin-code-bundle` (Python, legacy `sin` CLI)
+
+> ⚠️ **DEPRECATED:** The `sin-code-bundle` MCP server (Python, old `sin` CLI) is DEPRECATED as of v1.1.0.
+> Use `sin-code` (Go binary at `~/.local/bin/sin-code serve`) instead. The Go binary's tools are named
+> `sin_discover`, `sin_execute`, `sin_map`, `sin_grasp`, `sin_scout`, `sin_harvest`, `sin_orchestrate`,
+> `sin_ibd`, `sin_poc`, `sin_sckg`, `sin_adw`, `sin_oracle`, `sin_efm` — NOT `sin-code-bundle_*`.
+>
+> **Reason:** The legacy Python MCP server's tools (`sin-code-bundle_sin_edit`, `sin-code-bundle_sin_search`,
+> etc.) have a longer `sin-code-bundle_` prefix and were winning tool-selection over the newer Go tools.
+> The legacy server is now `enabled: false` in `opencode.json`. Re-enable only for rollback.
+
 ### Tool-Verweisung & Skills/MCP
 
 **⚡ UNIFIED BINARY (v1.0.5+):** All 19 sin-code subcommands (13 MCP + 6 CLI-only) live in a single Go binary: `~/.local/bin/sin-code`.
 The opencode.json registers ONE MCP server `sin-code` that exposes all 13 tools via the `serve` subcommand.
 Note: 6 utility subcommands (config, sbom, security, self-update, tui, serve) are CLI-only, not exposed via MCP.
 
-| Tool (MCP) | CLI | Subcommand | Purpose |
-|------------|-----|------------|---------|
-| `sin_discover` | `sin-code` | `discover` | Dateien suchen, Relevanz-Scoring |
-| `sin_execute` | `sin-code` | `execute` | Befehle sicher ausführen |
-| `sin_map` | `sin-code` | `map` | Architektur analysieren |
-| `sin_grasp` | `sin-code` | `grasp` | Einzelne Datei verstehen |
-| `sin_scout` | `sin-code` | `scout` | Code durchsuchen |
-| `sin_harvest` | `sin-code` | `harvest` | URLs abrufen |
-| `sin_orchestrate` | `sin-code` | `orchestrate` | Tasks managen |
-| `sin_ibd` | `sin-code` | `ibd` | Intent-Based Diffing |
-| `sin_poc` | `sin-code` | `poc` | Proof-of-Correctness |
-| `sin_sckg` | `sin-code` | `sckg` | Semantic Codebase Knowledge Graphs |
-| `sin_adw` | `sin-code` | `adw` | Architectural Debt Watchdogs |
-| `sin_oracle` | `sin-code` | `oracle` | Verification Oracle |
-| `sin_efm` | `sin-code` | `efm` | Ephemeral Full-Stack Mocking (auto: OrbStack on macOS, Docker on Linux; `--runtime orb|docker|auto` to override) |
-| `sin_security` | `sin-code` | `security` | Security-Scan (Go/Python/Node/Generic) — CLI-only |
-| `sin_config` | `sin-code` | `config` | Konfiguration verwalten — CLI-only |
-| `sin_tui` | `sin-code` | `tui` | Interaktives TUI Menu — CLI-only |
-| `sin_sbom` | `sin-code` | `sbom` | SBOM Generation (SPDX/CycloneDX) — CLI-only |
-| — | `sin-code` | `self-update` | Update to latest release — CLI-only |
-| — | `sin-code` | `serve` | Start MCP server (13 tools) — CLI-only |
+| Tool (MCP, **preferred — Go**) | Backend | Status | Purpose |
+|------------------------------|---------|--------|---------|
+| `sin_discover` ✅ | `sin-code` (Go) | ✅ Native | Dateien suchen, Relevanz-Scoring |
+| `sin_execute` ✅ | `sin-code` (Go) | ✅ Native | Befehle sicher ausführen |
+| `sin_map` ✅ | `sin-code` (Go) | ✅ Native | Architektur analysieren |
+| `sin_grasp` ✅ | `sin-code` (Go) | ✅ Native | Einzelne Datei verstehen |
+| `sin_scout` ✅ | `sin-code` (Go) | ✅ Native | Code durchsuchen |
+| `sin_harvest` ✅ | `sin-code` (Go) | ✅ Native | URLs abrufen |
+| `sin_orchestrate` ✅ | `sin-code` (Go) | ✅ Native | Tasks managen |
+| `sin_ibd` ✅ | `sin-code` (Go) | ✅ Native | Intent-Based Diffing |
+| `sin_poc` ✅ | `sin-code` (Go) | ✅ Native | Proof-of-Correctness |
+| `sin_sckg` ✅ | `sin-code` (Go) | ✅ Native | Semantic Codebase Knowledge Graphs |
+| `sin_adw` ✅ | `sin-code` (Go) | ✅ Native | Architectural Debt Watchdogs |
+| `sin_oracle` ✅ | `sin-code` (Go) | ✅ Native | Verification Oracle |
+| `sin_efm` ✅ | `sin-code` (Go) | ✅ Native | Ephemeral Full-Stack Mocking (auto: OrbStack on macOS, Docker on Linux; `--runtime orb|docker|auto` to override) |
+| `sin-code-bundle_sin_edit` ⚠️ | `sin-code-bundle` (Python, **DEPRECATED**) | ⚠️ Legacy | Hashline-anchored edit only — disabled by default |
+| `sin-code-bundle_sin_read` 🚫 | `sin-code-bundle` (Python, **DEPRECATED**) | 🚫 Do not use | Use `read` URI schemes instead (sckg://, oracle://, etc.) |
+| `sin-code-bundle_sin_write` 🚫 | `sin-code-bundle` (Python, **DEPRECATED**) | 🚫 Do not use | Use `sin_discover` + native editors |
+| `sin-code-bundle_sin_search` 🚫 | `sin-code-bundle` (Python, **DEPRECATED**) | 🚫 Do not use | Use `sin_scout` instead |
+| `sin-code-bundle_sin_bash` 🚫 | `sin-code-bundle` (Python, **DEPRECATED**) | 🚫 Do not use | Use `sin_execute` instead |
+| `sin_security` ✅ | `sin-code` (Go) | ✅ Native | Security-Scan (Go/Python/Node/Generic) — CLI-only |
+| `sin_config` ✅ | `sin-code` (Go) | ✅ Native | Konfiguration verwalten — CLI-only |
+| `sin_tui` ✅ | `sin-code` (Go) | ✅ Native | Interaktives TUI Menu — CLI-only |
+| `sin_sbom` ✅ | `sin-code` (Go) | ✅ Native | SBOM Generation (SPDX/CycloneDX) — CLI-only |
+| — | `sin-code` (Go) | ✅ Native | `self-update` — Update to latest release — CLI-only |
+| — | `sin-code` (Go) | ✅ Native | `serve` — Start MCP server (13 tools) — CLI-only |
+
 
 **Installiert:** `~/.local/bin/sin-code` (1 binary, 19 subcommands: 13 MCP + 6 CLI-only)
 **Repo:** `OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code`
@@ -460,53 +477,35 @@ v0.2.4-fixes
 
 ---
 
-# SIN-Code-Bundle
+# SIN-Code-Bundle (LEGACY — superseded by `sin-code` Go binary)
 
-Unified CLI and MCP server for the entire SIN-Code agent-engineering stack.
+> ⚠️ **DEPRECATED as of v1.1.0.** The Python `sin` CLI / `sin-code-bundle` MCP server is **superseded**
+> by the unified Go binary `sin-code` (`~/.local/bin/sin-code serve`). The Python repo lives on for
+> historical reference and as a fallback for users who cannot install the Go toolchain. Do not start a
+> new project on the Python stack.
 
-## Quick Start
+The Python implementation that originally unified the SIN-Code agent-engineering stack. The active stack
+is now the **Go binary** documented in the **SIN-Code Tool Suite** section above.
 
-```bash
-# Install
-pip install -e .
+## Migration
 
-# Show status
-sin status
+| Old (Python, deprecated) | New (Go, current) |
+|--------------------------|-------------------|
+| `pip install -e .` (in `SIN-Code-Bundle/`) | `go install` or download release of `sin-code` |
+| `sin status` | `sin-code tui` (or just `sin-code --help`) |
+| `sin bootstrap .` | `sin-code adw` (Architectural Debt Watchdogs) |
+| `sin sin-code run discover --path . ...` | `sin-code discover --path . ...` |
+| `sin serve` (launches the Python MCP) | `sin-code serve` (launches the Go MCP, 13 tools) |
+| `sin sin-code agents-md --output AGENTS.md` | Not needed — the canonical AGENTS.md ships in this repo |
 
-# Bootstrap repo
-sin bootstrap .
+## Why the Go binary won
 
-# Run SIN-Code Go tool
-sin sin-code run discover --path . -pattern "**/*.py" -format json
-
-# Generate AGENTS.md
-sin sin-code agents-md --output AGENTS.md
-```
-
-## Features
-
-- **Unified CLI**: Single `sin` command for all tools
-- **MCP server**: Unified MCP server for all agents
-- **Status detection**: Auto-detects installed subsystems
-- **Graceful degradation**: Works with partial installations
-- **Go tool integration**: Runs SIN-Code Go tools via `sin sin-code run`
-- **AGENTS.md generator**: Generates tool suite documentation
-
-## Links
-
-- [GitHub](https://github.com/OpenSIN-Code/SIN-Code-Bundle)
-- [SIN-Code-Discover-Tool](https://github.com/OpenSIN-Code/SIN-Code-Discover-Tool)
-- [SIN-Code-Execute-Tool](https://github.com/OpenSIN-Code/SIN-Code-Execute-Tool)
-- [SIN-Code-Map-Tool](https://github.com/OpenSIN-Code/SIN-Code-Map-Tool)
-- [SIN-Code-Grasp-Tool](https://github.com/OpenSIN-Code/SIN-Code-Grasp-Tool)
-- [SIN-Code-Scout-Tool](https://github.com/OpenSIN-Code/SIN-Code-Scout-Tool)
-- [SIN-Code-Harvest-Tool](https://github.com/OpenSIN-Code/SIN-Code-Harvest-Tool)
-- [SIN-Code-Orchestrate-Tool](https://github.com/OpenSIN-Code/SIN-Code-Orchestrate-Tool)
-- [SIN-Brain](https://github.com/OpenSIN-Code/SIN-Brain)
-
-## Version
-
-v0.2.0
+- **Single binary** — no Python venv to maintain, no pip resolution, no platform issues
+- **13 MCP tools in one server** — replaces the Python MCP's tool sprawl with a clean, discoverable set
+- **No tool-shadowing** — Go tools have short, consistent names (`sin_discover`, `sin_execute`, …) that
+  do not collide with the deprecated `sin-code-bundle_*` prefix
+- **Atomic, AST-verified writes** — `sin-code-bundle_sin_edit` survives line shifts; for everything else
+  the Go binary uses standard `read`/`write` URI schemes (`sckg://`, `oracle://`, etc.)
 
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence

@@ -57,6 +57,15 @@ type Model struct {
 	ToolList  list.Model
 	ToolItems []list.Item
 
+	TodoItems []TodoRow
+	TodoSel   int
+
+	NotificationBanner *NotificationItem
+	Notifications      []NotificationItem
+
+	ChatInput   *chatInput
+	ChatHistory []string
+
 	OnRun func(name string, args []string) error
 }
 
@@ -111,8 +120,9 @@ func defaultPaletteCommands() []string {
 		"discover", "execute", "map", "grasp", "scout", "harvest",
 		"orchestrate", "ibd", "poc", "sckg", "adw", "oracle",
 		"efm", "serve", "security", "sbom", "config", "self-update",
+		"todo add", "todo list", "todo ready", "todo complete",
 		"theme: next", "agent: cycle", "view: tools", "view: sessions",
-		"view: efm", "view: config", "view: history",
+		"view: efm", "view: config", "view: history", "view: todos",
 		"sidebar: toggle", "quit",
 	}
 }

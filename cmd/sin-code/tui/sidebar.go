@@ -16,6 +16,8 @@ func DefaultSidebarItems() []SidebarItem {
 		{View: ViewEFM, Icon: "⚡", Label: "EFM", Shortcut: "3"},
 		{View: ViewConfig, Icon: "⚙", Label: "Config", Shortcut: "4"},
 		{View: ViewHistory, Icon: "⏱", Label: "History", Shortcut: "5"},
+		{View: ViewTodos, Icon: "☐", Label: "Todos", Shortcut: "6"},
+		{View: ViewChat, Icon: "💬", Label: "Chat", Shortcut: "7"},
 	}
 }
 
@@ -26,6 +28,11 @@ type Sidebar struct {
 	Collapsed    bool
 	ToolSubItems []ToolSubItem
 	ToolSel      int
+
+	TodoOpen    int
+	TodoBlocked int
+	TodoOverdue int
+	TodoReady   int
 }
 
 type ToolSubItem struct {
@@ -144,6 +151,9 @@ func (s Sidebar) View(styles Styles) string {
 
 	for i, it := range s.Items {
 		label := " " + it.Icon + "  " + it.Label
+		if it.View == ViewTodos && (s.TodoOpen > 0 || s.TodoBlocked > 0 || s.TodoOverdue > 0) {
+			label += badgeFor(s)
+		}
 		if i == s.Selected {
 			padded := padRight(label, width-2)
 			b.WriteString(styles.SidebarSel.Render(padded))
@@ -180,4 +190,44 @@ func padRight(s string, w int) string {
 		return s
 	}
 	return s + strings.Repeat(" ", w-len(s))
+}
+
+func badgeFor(s Sidebar) string {
+	if s.TodoOpen == 0 && s.TodoBlocked == 0 && s.TodoOverdue == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("  ")
+	if s.TodoOpen > 0 {
+		b.WriteString("🔵")
+		b.WriteString(itoa(s.TodoOpen))
+	}
+	if s.TodoBlocked > 0 {
+		b.WriteString(" 🟡")
+		b.WriteString(itoa(s.TodoBlocked))
+	}
+	if s.TodoOverdue > 0 {
+		b.WriteString(" 🔴")
+		b.WriteString(itoa(s.TodoOverdue))
+	}
+	return b.String()
+}
+
+func itoa(n int) string {
+	if n == 0 {
+		return "0"
+	}
+	neg := n < 0
+	if neg {
+		n = -n
+	}
+	digits := []byte{}
+	for n > 0 {
+		digits = append([]byte{byte('0' + n%10)}, digits...)
+		n /= 10
+	}
+	if neg {
+		return "-" + string(digits)
+	}
+	return string(digits)
 }

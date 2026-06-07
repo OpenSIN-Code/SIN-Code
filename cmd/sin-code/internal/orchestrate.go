@@ -26,9 +26,19 @@ var (
 
 var OrchestrateCmd = &cobra.Command{
 	Use:   "orchestrate",
-	Short: "Manage tasks with dependencies, parallel execution, and rollback plans",
+	Short: "Legacy task manager (use 'sin-code todo' for the SOTA issue tracker)",
 	Long: `Manage tasks with dependencies, parallel execution plans, blocker
 detection, and rollback plans. Pure Go implementation with JSON file storage.
+
+DEPRECATED: This command is maintained for backward compatibility.
+For new projects, use 'sin-code todo' which provides:
+  - bbolt storage (faster, ACID)
+  - Hash-based IDs (st-a1b2)
+  - Dependency graph with cycle detection
+  - Append-only audit log
+  - Ready/Blocked queries
+  - Project namespaces
+  - Compaction for old closed tasks
 
 Example:
   sin-code orchestrate --action add --title "Implement feature X" --tags "urgent,backend"

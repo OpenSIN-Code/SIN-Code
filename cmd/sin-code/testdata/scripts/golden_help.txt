@@ -17,27 +17,32 @@ Usage:
   sin-code [command]
 
 Available Commands:
-  adw         Architectural Debt Watchdogs — detect god modules, circular deps, etc.
-  completion  Generate the autocompletion script for the specified shell
-  config      View and manage sin-code configuration
-  discover    Discover files with relevance scoring and pattern matching
-  efm         Ephemeral Full-Stack Mocking — spin up disposable test environments
-  execute     Execute shell commands safely with secret redaction and timeout
-  grasp       Deep code understanding for a single file
-  harvest     Fetch URLs with caching, structure extraction, and change detection
-  help        Help about any command
-  ibd         Intent-Based Diffing — compare code changes against stated intent
-  map         Map code architecture with dependency graphs and hot-path analysis
-  oracle      Verification Oracle — verify claims with evidence
-  orchestrate Manage tasks with dependencies, parallel execution, and rollback plans
-  poc         Proof-of-Correctness — verify code satisfies its specification
-  sbom        Generate SPDX or CycloneDX JSON SBOM for a project
-  sckg        Semantic Codebase Knowledge Graphs — build & query code graph
-  scout       Search code with regex, semantic, symbol, and usage search
-  security    Fast security analysis — auto-detects project type and runs available tools
-  self-update Check for and install the latest sin-code release
-  serve       Start an MCP server exposing all 13 sin-code tools
-  tui         Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
+  adw                 Architectural Debt Watchdogs — detect god modules, circular deps, etc.
+  completion          Generate the autocompletion script for the specified shell
+  config              View and manage sin-code configuration
+  discover            Discover files with relevance scoring and pattern matching
+  efm                 Ephemeral Full-Stack Mocking — spin up disposable test environments
+  execute             Execute shell commands safely with secret redaction and timeout
+  grasp               Deep code understanding for a single file
+  harvest             Fetch URLs with caching, structure extraction, and change detection
+  help                Help about any command
+  ibd                 Intent-Based Diffing — compare code changes against stated intent
+  map                 Map code architecture with dependency graphs and hot-path analysis
+  notifications       Manage sin-code todo notifications
+  oracle              Verification Oracle — verify claims with evidence
+  orchestrate         Legacy task manager (use 'sin-code todo' for the SOTA issue tracker)
+  orchestrator-agents List available agents (default + user-defined)
+  orchestrator-plan   Build a plan from a prompt (no execution)
+  orchestrator-run    Run a prompt through the multi-agent orchestrator (Pre-LLM router → planner → parallel agents)
+  poc                 Proof-of-Correctness — verify code satisfies its specification
+  sbom                Generate SPDX or CycloneDX JSON SBOM for a project
+  sckg                Semantic Codebase Knowledge Graphs — build & query code graph
+  scout               Search code with regex, semantic, symbol, and usage search
+  security            Fast security analysis — auto-detects project type and runs available tools
+  self-update         Check for and install the latest sin-code release
+  serve               Start an MCP server exposing all 13 sin-code tools
+  todo                Issue tracker with dependencies, audit log, and project namespaces
+  tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
 
 Flags:
   -h, --help      help for sin-code

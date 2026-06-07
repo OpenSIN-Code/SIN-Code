@@ -1,0 +1,11 @@
+env HOME=$WORK/home
+mkdir $WORK/home
+sin-code todo --db $WORK/todo.db init
+sin-code todo --db $WORK/todo.db add --title 'A' --priority P0
+sin-code todo --db $WORK/todo.db add --title 'B' --priority P1
+sin-code todo --db $WORK/todo.db add --title 'C' --priority P2
+sin-code todo --db $WORK/todo.db stats
+stdout 'Total: 3'
+stdout 'P0'
+stdout 'P1'
+stdout 'P2'

@@ -1,0 +1,8 @@
+env HOME=$WORK/home
+mkdir $WORK/home
+sin-code todo --db $WORK/todo.db init
+sin-code todo --db $WORK/todo.db add --title 'Test feature' --priority P0 --type feature
+stdout 'Created st-'
+sin-code todo --db $WORK/todo.db list
+stdout 'Test feature'
+stdout 'P0'

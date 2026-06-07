@@ -10,6 +10,8 @@ const (
 	ViewEFM
 	ViewConfig
 	ViewHistory
+	ViewTodos
+	ViewChat
 )
 
 func (v ViewKind) String() string {
@@ -24,6 +26,10 @@ func (v ViewKind) String() string {
 		return "Config"
 	case ViewHistory:
 		return "History"
+	case ViewTodos:
+		return "Todos"
+	case ViewChat:
+		return "Chat"
 	}
 	return "Unknown"
 }
@@ -40,8 +46,41 @@ func (v ViewKind) Short() string {
 		return "4·Config"
 	case ViewHistory:
 		return "5·History"
+	case ViewTodos:
+		return "6·Todos"
+	case ViewChat:
+		return "7·Chat"
 	}
 	return "?·"
+}
+
+// NotificationMsg is fired when the TUI receives a new notification
+// from the sin-code notifications broadcaster.
+type NotificationMsg struct {
+	N NotificationSource
+}
+
+// CountsMsg is fired when todo counts are recomputed (open/blocked/overdue).
+type CountsMsg struct {
+	Open    int
+	Blocked int
+	Overdue int
+	Ready   int
+}
+
+// TodosLoadedMsg is fired when the todo list is reloaded.
+type TodosLoadedMsg struct {
+	Items []TodoRow
+}
+
+// TodoRow is a lightweight struct for displaying todos in the TUI.
+type TodoRow struct {
+	ID       string
+	Title    string
+	Priority string
+	Status   string
+	Type     string
+	Assignee string
 }
 
 type EFMStack struct {

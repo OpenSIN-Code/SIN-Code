@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal"
+	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/notifications"
+	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/todo"
 	"github.com/spf13/cobra"
 )
 
@@ -53,6 +55,11 @@ func init() {
 	rootCmd.AddCommand(internal.SbomCmd)
 	rootCmd.AddCommand(internal.ConfigCmd)
 	rootCmd.AddCommand(internal.SelfUpdateCmd)
+	rootCmd.AddCommand(todo.TodoCmd)
+	rootCmd.AddCommand(notifications.NotificationsCmd)
+	rootCmd.AddCommand(internal.OrchestratorRunCmd)
+	rootCmd.AddCommand(internal.OrchestratorAgentsCmd)
+	rootCmd.AddCommand(internal.OrchestratorPlanCmd)
 	rootCmd.AddCommand(tuiCmd)
 
 	// Pass build-time version to self-update module.

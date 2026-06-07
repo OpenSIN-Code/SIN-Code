@@ -1,0 +1,6 @@
+env HOME=$WORK/home
+mkdir $WORK/home
+sin-code orchestrator-agents
+stdout 'coder'
+stdout 'claude-sonnet'
+stdout 'Loaded 6 agents'

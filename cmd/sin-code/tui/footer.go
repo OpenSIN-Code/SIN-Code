@@ -19,6 +19,10 @@ type Footer struct {
 	HintKeys   []HintPair
 	Loading    bool
 	Spinner    Spinner
+	TodoOpen    int
+	TodoBlocked int
+	TodoOverdue int
+	TodoReady   int
 }
 
 type HintPair struct {
@@ -31,7 +35,7 @@ func DefaultHints(view ViewKind) []HintPair {
 	case ViewTools:
 		return []HintPair{
 			{"Tab", "view"},
-			{"1-5", "jump"},
+			{"1-6", "jump"},
 			{"r", "run"},
 			{"t", "theme"},
 			{"ctrl+b", "side"},
@@ -61,10 +65,19 @@ func DefaultHints(view ViewKind) []HintPair {
 			{"c", "clear"},
 			{"q", "quit"},
 		}
+	case ViewTodos:
+		return []HintPair{
+			{"Tab", "view"},
+			{"↑/↓", "navigate"},
+			{"o", "open"},
+			{"d", "dismiss"},
+			{"n", "next"},
+			{"q", "quit"},
+		}
 	default:
 		return []HintPair{
 			{"Tab", "view"},
-			{"1-5", "jump"},
+			{"1-6", "jump"},
 			{"t", "theme"},
 			{"q", "quit"},
 		}
@@ -124,6 +137,9 @@ func (f Footer) Render(styles Styles) string {
 	left.WriteString(" ")
 	if f.Selection != "" {
 		left.WriteString(styles.FooterVal.Render(f.Selection))
+	} else if f.view == ViewTodos {
+		open := footerCount(f, "open", '🔵')
+		left.WriteString(open)
 	} else {
 		left.WriteString(styles.Muted.Render("(no selection)"))
 	}
@@ -158,4 +174,11 @@ func (f Footer) Render(styles Styles) string {
 	}
 
 	return styles.Footer.Render(left.String() + mid.String() + right.String())
+}
+
+func footerCount(f Footer, label string, icon rune) string {
+	if f.TodoOpen == 0 && f.TodoBlocked == 0 && f.TodoOverdue == 0 {
+		return fmt.Sprintf("%c %d %s", icon, f.TodoReady, label)
+	}
+	return fmt.Sprintf("%c %d open", icon, f.TodoOpen)
 }

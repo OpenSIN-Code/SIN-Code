@@ -11,7 +11,11 @@ import (
 )
 
 func (m *Model) Init() tea.Cmd {
-	cmds := []tea.Cmd{m.Spinner.Init()}
+	cmds := []tea.Cmd{
+		m.Spinner.Init(),
+		ListenForNotifications(),
+		RefreshTodosCmd(),
+	}
 	return tea.Batch(cmds...)
 }
 
@@ -47,13 +51,13 @@ func (m *Model) SwitchView(v ViewKind) {
 }
 
 func (m *Model) NextView() {
-	m.SwitchView(ViewKind((int(m.ViewKind) + 1) % 5))
+	m.SwitchView(ViewKind((int(m.ViewKind) + 1) % 7))
 }
 
 func (m *Model) PrevView() {
 	v := int(m.ViewKind) - 1
 	if v < 0 {
-		v = 4
+		v = 6
 	}
 	m.SwitchView(ViewKind(v))
 }
@@ -189,7 +193,38 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(cmds...)
 
+	case NotificationMsg:
+		m.SetBanner(&NotificationItem{
+			ID:      msg.N.GetID(),
+			Title:   msg.N.GetTitle(),
+			Message: msg.N.GetMessage(),
+			Type:    msg.N.GetType(),
+		})
+		cmds = append(cmds, ListenForNotifications())
+		return m, tea.Batch(cmds...)
+
+	case CountsMsg:
+		m.Sidebar.TodoOpen = msg.Open
+		m.Sidebar.TodoBlocked = msg.Blocked
+		m.Sidebar.TodoOverdue = msg.Overdue
+		m.Sidebar.TodoReady = msg.Ready
+		return m, nil
+
+	case TodosLoadedMsg:
+		m.TodoItems = msg.Items
+		if m.TodoSel >= len(m.TodoItems) {
+			m.TodoSel = 0
+		}
+		return m, nil
+
+	case BannerKeyMsg:
+		return m, nil
+
 	case tea.KeyMsg:
+		if m.ViewKind == ViewChat {
+			cmd := m.updateChat(msg)
+			return m, cmd
+		}
 		return m.handleKey(msg)
 	}
 
@@ -249,6 +284,12 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "5":
 		m.SwitchView(ViewHistory)
 		return m, nil
+	case "6":
+		m.SwitchView(ViewTodos)
+		return m, nil
+	case "7":
+		m.SwitchView(ViewChat)
+		return m, nil
 	case "t":
 		m.CycleTheme()
 		m.AppendHistory(m.ViewKind.String(), "theme", Themes[m.ThemeIdx].Name, true)
@@ -278,6 +319,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.ConfigSel > 0 {
 				m.ConfigSel--
 			}
+		case ViewTodos:
+			if m.TodoSel > 0 {
+				m.TodoSel--
+			}
 		}
 		return m, nil
 	case "down", "j":
@@ -288,6 +333,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.ConfigSel < len(m.Config)-1 {
 				m.ConfigSel++
 			}
+		case ViewTodos:
+			if m.TodoSel < len(m.TodoItems)-1 {
+				m.TodoSel++
+			}
 		}
 		return m, nil
 	case "up_left", "left", "h":
@@ -295,6 +344,22 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "right", "l":
 		_ = key
+		return m, nil
+	case "o":
+		if m.NotificationBanner != nil {
+			m.AppendHistory(ViewTodos.String(), "banner-open", m.NotificationBanner.Title, true)
+		}
+		return m, nil
+	case "d":
+		if m.NotificationBanner != nil {
+			m.DismissBanner()
+			m.AppendHistory(ViewTodos.String(), "banner-dismiss", "", true)
+		}
+		return m, nil
+	case "n":
+		if m.NotificationBanner != nil {
+			m.BannerNext()
+		}
 		return m, nil
 	}
 
@@ -448,6 +513,16 @@ func (m *Model) View() string {
 		content = RenderConfigView(m.Config, m.ConfigSel, m.Styles, m.contentWidth(), contentHeight)
 	case ViewHistory:
 		content = RenderHistoryView(m.History, len(m.History)-1, m.Styles, m.contentWidth(), contentHeight)
+	case ViewTodos:
+		content = m.RenderTodos(m.Styles, m.contentWidth(), contentHeight)
+	case ViewChat:
+		m.initChatInput()
+		content = m.renderChat(m.Styles, m.contentWidth(), contentHeight)
+	}
+
+	if m.NotificationBanner != nil {
+		banner := m.RenderBanner(m.Styles, m.contentWidth())
+		content = banner + content
 	}
 
 	if m.Mode == ModeArgInput && m.ArgInput.Open {

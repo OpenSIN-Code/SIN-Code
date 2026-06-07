@@ -60,3 +60,7 @@ CLAUDE.md
 
 coverage.*.out
 coverage.map.out
+
+# Backup files (timestamped AGENTS.md backups, pre-version docs)
+AGENTS.md.backup-*
+*.bak-pre-v*

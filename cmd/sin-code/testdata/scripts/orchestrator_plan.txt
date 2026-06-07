@@ -1,0 +1,7 @@
+sin-code orchestrator-plan 'Add OAuth2 authentication and write tests'
+stdout 'Plan pl-'
+stdout 'architect'
+stdout 'coder'
+stdout 'tester'
+stdout 'reviewer'
+stdout 'deps='

@@ -1,0 +1,8 @@
+sin-code orchestrator-agents
+stdout 'coder'
+stdout 'tester'
+stdout 'reviewer'
+stdout 'docs'
+stdout 'security'
+stdout 'architect'
+stdout 'claude'

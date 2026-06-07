@@ -1,0 +1,7 @@
+env HOME=$WORK/home
+mkdir $WORK/home
+sin-code todo --db $WORK/todo.db init
+sin-code todo --db $WORK/todo.db add --title 'A' --priority P0
+stdout 'Created st-'
+sin-code todo --db $WORK/todo.db show --help
+stdout 'Show full details'

@@ -1,0 +1,8 @@
+env HOME=$WORK/home
+mkdir $WORK/home
+sin-code todo --db $WORK/todo.db init
+sin-code todo --db $WORK/todo.db add --title 'A' --priority P0
+sin-code todo --db $WORK/todo.db add --title 'B' --priority P1
+sin-code todo --db $WORK/todo.db graph
+stdout 'digraph'
+stdout 'st-'

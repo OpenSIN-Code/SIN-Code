@@ -1,0 +1,10 @@
+env HOME=$WORK/home
+mkdir $WORK/home
+sin-code todo --db $WORK/todo.db init
+sin-code todo hook --config $WORK/hooks.toml add post_complete --command 'echo done' --timeout 5s
+stdout 'Added hook'
+sin-code todo hook --config $WORK/hooks.toml list
+stdout 'post_complete'
+stdout 'echo done'
+sin-code todo hook --config $WORK/hooks.toml path
+stdout 'hooks.toml'

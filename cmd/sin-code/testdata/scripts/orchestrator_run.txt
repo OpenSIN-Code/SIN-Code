@@ -1,0 +1,5 @@
+sin-code orchestrator-run 'Add a hello world function'
+stdout 'Plan pl-'
+stdout 'coder'
+stdout 'success'
+stdout 'Total:'
