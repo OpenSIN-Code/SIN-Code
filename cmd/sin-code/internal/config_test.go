@@ -1,6 +1,11 @@
+// SPDX-License-Identifier: MIT
+// Purpose: Unit tests for config.go (expanded: roundtrip, list, path, init, multi-value).
 package internal
 
 import (
+	"bytes"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,11 +42,9 @@ func TestConfig_ConfigDir(t *testing.T) {
 }
 
 func TestConfig_SaveAndLoad(t *testing.T) {
-	// Create a temporary config file.
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "sin-code.toml")
 
-	// Write config manually.
 	content := `theme = "light"
 default_timeout = 120
 default_format = "text"
@@ -51,7 +54,6 @@ mcp_server_enabled = false
 		t.Fatalf("write temp config: %v", err)
 	}
 
-	// Parse it back.
 	data, err := os.ReadFile(tmpFile)
 	if err != nil {
 		t.Fatalf("read temp config: %v", err)
@@ -66,7 +68,6 @@ mcp_server_enabled = false
 }
 
 func TestConfig_GetConfigValue(t *testing.T) {
-	// This test relies on the default config if no file exists.
 	val, err := getConfigValue("theme")
 	if err != nil {
 		t.Fatalf("getConfigValue(theme): %v", err)
@@ -82,19 +83,16 @@ func TestConfig_GetConfigValue(t *testing.T) {
 }
 
 func TestConfig_SetConfigValue_Validation(t *testing.T) {
-	// Test validation for theme.
 	err := setConfigValue("theme", "invalid")
 	if err == nil {
 		t.Error("expected error for invalid theme")
 	}
 
-	// Test validation for format.
 	err = setConfigValue("default_format", "xml")
 	if err == nil {
 		t.Error("expected error for invalid format")
 	}
 
-	// Test unknown key.
 	err = setConfigValue("unknown", "value")
 	if err == nil {
 		t.Error("expected error for unknown key")
@@ -103,4 +101,281 @@ func TestConfig_SetConfigValue_Validation(t *testing.T) {
 
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+func TestConfig_GetSetRoundtrip(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	initCfg := defaultConfig()
+	if err := saveConfig(initCfg); err != nil {
+		t.Fatalf("saveConfig: %v", err)
+	}
+
+	if err := setConfigValue("theme", "light"); err != nil {
+		t.Fatalf("setConfigValue(theme, light): %v", err)
+	}
+	val, err := getConfigValue("theme")
+	if err != nil {
+		t.Fatalf("getConfigValue(theme): %v", err)
+	}
+	if val != "light" {
+		t.Errorf("expected 'light', got %q", val)
+	}
+
+	if err := setConfigValue("default_timeout", "30"); err != nil {
+		t.Fatalf("setConfigValue(default_timeout, 30): %v", err)
+	}
+	val, err = getConfigValue("default_timeout")
+	if err != nil {
+		t.Fatalf("getConfigValue(default_timeout): %v", err)
+	}
+	if val != "30" {
+		t.Errorf("expected '30', got %q", val)
+	}
+
+	if err := setConfigValue("default_format", "text"); err != nil {
+		t.Fatalf("setConfigValue(default_format, text): %v", err)
+	}
+	val, err = getConfigValue("default_format")
+	if err != nil {
+		t.Fatalf("getConfigValue(default_format): %v", err)
+	}
+	if val != "text" {
+		t.Errorf("expected 'text', got %q", val)
+	}
+
+	if err := setConfigValue("mcp_server_enabled", "false"); err != nil {
+		t.Fatalf("setConfigValue(mcp_server_enabled, false): %v", err)
+	}
+	val, err = getConfigValue("mcp_server_enabled")
+	if err != nil {
+		t.Fatalf("getConfigValue(mcp_server_enabled): %v", err)
+	}
+	if val != "false" {
+		t.Errorf("expected 'false', got %q", val)
+	}
+}
+
+func TestConfig_List(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveConfig(defaultConfig()); err != nil {
+		t.Fatalf("saveConfig: %v", err)
+	}
+
+	var buf bytes.Buffer
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	err := configListCmd.RunE(configListCmd, []string{})
+	w.Close()
+	io.Copy(&buf, r)
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("configListCmd.RunE: %v", err)
+	}
+	output := buf.String()
+	if !contains(output, "Configuration directory") {
+		t.Error("expected output to contain 'Configuration directory'")
+	}
+	if !contains(output, "theme") {
+		t.Error("expected output to contain 'theme'")
+	}
+	if !contains(output, "default_timeout") {
+		t.Error("expected output to contain 'default_timeout'")
+	}
+	if !contains(output, "default_format") {
+		t.Error("expected output to contain 'default_format'")
+	}
+	if !contains(output, "mcp_server_enabled") {
+		t.Error("expected output to contain 'mcp_server_enabled'")
+	}
+}
+
+func TestConfig_Path(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	var buf bytes.Buffer
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	err := configPathCmd.RunE(configPathCmd, []string{})
+	w.Close()
+	io.Copy(&buf, r)
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("configPathCmd.RunE: %v", err)
+	}
+	expected := filepath.Join(tmpDir, ".config", "sin") + "\n"
+	got := buf.String()
+	if got != expected {
+		t.Errorf("expected %q, got %q", expected, got)
+	}
+}
+
+func TestConfig_Init(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	var buf bytes.Buffer
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	err := configInitCmd.RunE(configInitCmd, []string{})
+	w.Close()
+	io.Copy(&buf, r)
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("configInitCmd.RunE: %v", err)
+	}
+	output := buf.String()
+	if !contains(output, "Created default configuration") {
+		t.Error("expected init output to mention 'Created default configuration'")
+	}
+
+	cfgPath := filepath.Join(tmpDir, ".config", "sin", "sin-code.toml")
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("config file not created: %v", err)
+	}
+	content := string(data)
+	if !contains(content, "dark") {
+		t.Error("expected default config to contain 'dark' theme")
+	}
+	if !contains(content, "mcp_server_enabled = true") {
+		t.Error("expected default config to contain 'mcp_server_enabled = true'")
+	}
+}
+
+func TestConfig_MultipleValuesPersistAndReload(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveConfig(defaultConfig()); err != nil {
+		t.Fatalf("saveConfig: %v", err)
+	}
+
+	if err := setConfigValue("theme", "light"); err != nil {
+		t.Fatalf("set theme: %v", err)
+	}
+	if err := setConfigValue("default_timeout", "90"); err != nil {
+		t.Fatalf("set timeout: %v", err)
+	}
+	if err := setConfigValue("default_format", "text"); err != nil {
+		t.Fatalf("set format: %v", err)
+	}
+	if err := setConfigValue("mcp_server_enabled", "false"); err != nil {
+		t.Fatalf("set mcp: %v", err)
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.Theme != "light" {
+		t.Errorf("expected theme 'light', got %q", cfg.Theme)
+	}
+	if cfg.DefaultTimeout != 90 {
+		t.Errorf("expected timeout 90, got %d", cfg.DefaultTimeout)
+	}
+	if cfg.DefaultFormat != "text" {
+		t.Errorf("expected format 'text', got %q", cfg.DefaultFormat)
+	}
+	if cfg.MCPServerEnabled {
+		t.Error("expected MCP server disabled")
+	}
+}
+
+func TestConfig_InvalidKeyGet(t *testing.T) {
+	_, err := getConfigValue("foobar")
+	if err == nil {
+		t.Error("expected error for unknown key in getConfigValue")
+	}
+	if !contains(fmt.Sprintf("%v", err), "unknown config key") {
+		t.Errorf("expected 'unknown config key' in error, got %v", err)
+	}
+}
+
+func TestConfig_InvalidKeySet(t *testing.T) {
+	err := setConfigValue("foobar", "baz")
+	if err == nil {
+		t.Error("expected error for unknown key in setConfigValue")
+	}
+	if !contains(fmt.Sprintf("%v", err), "unknown config key") {
+		t.Errorf("expected 'unknown config key' in error, got %v", err)
+	}
+}
+
+func TestConfig_InvalidTimeout(t *testing.T) {
+	err := setConfigValue("default_timeout", "notanumber")
+	if err == nil {
+		t.Error("expected error for non-numeric timeout")
+	}
+}
+
+func TestConfig_LoadMissingFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig on missing file should not error: %v", err)
+	}
+	if cfg.Theme != "dark" {
+		t.Errorf("expected default theme 'dark', got %q", cfg.Theme)
+	}
+	if cfg.DefaultTimeout != 60 {
+		t.Errorf("expected default timeout 60, got %d", cfg.DefaultTimeout)
+	}
+}
+
+func TestConfig_LoadWithComments(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := `# this is a comment
+theme = "light"
+
+# another comment
+default_timeout = 45
+default_format = "json"
+mcp_server_enabled = true
+`
+	cfgPath := filepath.Join(cfgDir, "sin-code.toml")
+	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.Theme != "light" {
+		t.Errorf("expected theme 'light', got %q", cfg.Theme)
+	}
+	if cfg.DefaultTimeout != 45 {
+		t.Errorf("expected timeout 45, got %d", cfg.DefaultTimeout)
+	}
 }

@@ -72,6 +72,8 @@ type GitHubRelease struct {
 // Since we can't import main package, we'll use a placeholder that gets overridden.
 var currentVersion = "dev"
 
+var githubAPIURL = "https://api.github.com/repos/OpenSIN-Code/SIN-Code-Bundle/releases/latest"
+
 func SetCurrentVersion(v string) {
 	currentVersion = v
 }
@@ -194,7 +196,7 @@ func runSelfUpdate(dryRun bool) error {
 // ─── GitHub API helpers ──────────────────────────────────────────────────
 
 func fetchLatestRelease() (*GitHubRelease, error) {
-	url := "https://api.github.com/repos/OpenSIN-Code/SIN-Code-Bundle/releases/latest"
+	url := githubAPIURL
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
