@@ -67,10 +67,11 @@ jobs:
         run: |
           ARCH="${{ matrix.goos }}-${{ matrix.goarch }}"
           mkdir -p dist
+          ls -la sin-code${{ matrix.ext }} || echo "Binary not found"
           if [ "${{ matrix.goos }}" = "windows" ]; then
             zip -j "dist/sin-code-${ARCH}.zip" "sin-code${{ matrix.ext }}"
           else
-            tar -czf "dist/sin-code-${ARCH}.tar.gz" -C . "sin-code${{ matrix.ext }}"
+            tar -czf "dist/sin-code-${ARCH}.tar.gz" "sin-code${{ matrix.ext }}"
           fi
       - name: Upload artifact
         uses: actions/upload-artifact@v4
