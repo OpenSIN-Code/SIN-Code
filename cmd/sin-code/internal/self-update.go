@@ -6,6 +6,7 @@ package internal
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/gzip"
 	"encoding/json"
 	"fmt"
@@ -280,9 +281,47 @@ func extractTarGz(archivePath, destDir string) (string, error) {
 }
 
 func extractZip(archivePath, destDir string) (string, error) {
-	// Simplified: for now, just return the archive path since we don't have archive/zip imported.
-	// On Windows, the user can extract manually or we can add archive/zip later.
-	return "", fmt.Errorf("zip extraction not yet implemented (Windows support coming soon)")
+	r, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return "", err
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		if strings.HasPrefix(f.Name, "sin-code") {
+			path := filepath.Join(destDir, f.Name)
+			out, err := os.Create(path)
+			if err != nil {
+				return "", err
+			}
+			defer out.Close()
+
+			rc, err := f.Open()
+			if err != nil {
+				return "", err
+			}
+			defer rc.Close()
+
+			if _, err := io.Copy(out, rc); err != nil {
+				return "", err
+			}
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("no sin-code binary found in archive")
+}
+
+// CheckUpdateAvailable queries GitHub for the latest release and reports whether
+// the current binary is outdated.
+func CheckUpdateAvailable() (string, bool, error) {
+	latest, err := fetchLatestRelease()
+	if err != nil {
+		return "", false, err
+	}
+	if latest.TagName != currentVersion {
+		return latest.TagName, true, nil
+	}
+	return latest.TagName, false, nil
 }
 
 func formatDate(s string) string {
