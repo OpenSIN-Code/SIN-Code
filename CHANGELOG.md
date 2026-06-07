@@ -2,6 +2,21 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [1.0.8] - 2026-06-07
+
+### Added
+- 84 new tests bringing coverage from 73.6% to 82.7%
+- self_update_test.go: 30 tests with httptest mocks for GitHub API, tar.gz/zip extraction, downloadFile
+- security_extended_test.go: 28 tests for tool runners (govulncheck, gosec, bandit, safety, npm audit, secrets-grep, file-permissions)
+- main_extended_test.go: 11 tests for checkUpdate stamp logic + symlink routing
+- common_test.go: 7 tests for PrintError, lookupStandalone, capitalize
+- config_test.go: +12 tests for get/set roundtrip, list, path, init, persist/reload
+
+### Changed
+- self-update.go: extract githubAPIURL var for testability (was hardcoded URL)
+- Test coverage increased from 73.6% to 82.7% (+9.1%)
+- Total tests: 331 → 415
+
 ## [1.0.7] - 2026-06-07
 
 ### Added
