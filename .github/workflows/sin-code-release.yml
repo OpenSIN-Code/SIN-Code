@@ -62,7 +62,7 @@ jobs:
           go version
           go env GOOS GOARCH
           go mod download
-          go build -v -ldflags "-s -w -X main.Version=${VERSION}" -o sin-code${{ matrix.ext }} ./cmd/sin-code || echo "Build failed with exit code $?"
+          go build -v -ldflags "-s -w -X main.Version=${VERSION} -X github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal.ServerVersion=${VERSION}" -o sin-code${{ matrix.ext }} ./cmd/sin-code || echo "Build failed with exit code $?"
       - name: Archive
         run: |
           ARCH="${{ matrix.goos }}-${{ matrix.goarch }}"

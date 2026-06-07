@@ -23,6 +23,9 @@ var (
 	servePort      int
 )
 
+// ServerVersion is set at build time via -ldflags "-X github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal.ServerVersion=..."
+var ServerVersion = "dev"
+
 var ServeCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start an MCP server exposing all 13 sin-code tools",
@@ -49,7 +52,7 @@ MCP tools.`,
 
 		server := mcp.NewServer(&mcp.Implementation{
 			Name:    "sin-code",
-			Version: "1.0.0",
+			Version: ServerVersion,
 		}, &mcp.ServerOptions{
 			Capabilities: &mcp.ServerCapabilities{
 				Tools: &mcp.ToolCapabilities{},
