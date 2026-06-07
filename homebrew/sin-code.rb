@@ -1,25 +1,25 @@
 class SinCode < Formula
   desc "SIN-Code unified toolchain — 13 analysis and manipulation tools in one binary"
   homepage "https://github.com/OpenSIN-Code/SIN-Code-Bundle"
-  version "1.0.2"
+  version "1.0.3"
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/OpenSIN-Code/SIN-Code-Bundle/releases/download/v1.0.2-sin-code/sin-code-darwin-arm64.tar.gz"
-      sha256 "a562dace23f609f3a7e615c2dacf84ca62eb7538f5e976131b5a4977b167c44d"
+      url "https://github.com/OpenSIN-Code/SIN-Code-Bundle/releases/download/v1.0.3-sin-code/sin-code-darwin-arm64.tar.gz"
+      sha256 "d43c5f0cbe797eae9b498558e505f1964d8e4b98712015beb0906e1cd9f315ec"
     else
-      url "https://github.com/OpenSIN-Code/SIN-Code-Bundle/releases/download/v1.0.2-sin-code/sin-code-darwin-amd64.tar.gz"
-      sha256 "4709870c44604bf0cdb42793395b653d08a0335334665dc19ef8f3e7b6b1537f"
+      url "https://github.com/OpenSIN-Code/SIN-Code-Bundle/releases/download/v1.0.3-sin-code/sin-code-darwin-amd64.tar.gz"
+      sha256 "67390989de1129824cd4c949d49dfccaaebacb630805f7dcfef010fd39f9e00d"
     end
   end
 
   on_linux do
     if Hardware::CPU.arm?
-      url "https://github.com/OpenSIN-Code/SIN-Code-Bundle/releases/download/v1.0.2-sin-code/sin-code-linux-arm64.tar.gz"
-      sha256 "708519f3c7d8e47468d783205950ac19c7f8b118a974e02cfafcdf938244f4d1"
+      url "https://github.com/OpenSIN-Code/SIN-Code-Bundle/releases/download/v1.0.3-sin-code/sin-code-linux-arm64.tar.gz"
+      sha256 "c03ca8fd41c9037887d2d08edaf87aced46ae631cd26e0bd3e3f30a94651496c"
     else
-      url "https://github.com/OpenSIN-Code/SIN-Code-Bundle/releases/download/v1.0.2-sin-code/sin-code-linux-amd64.tar.gz"
-      sha256 "d3df6b46b4436dab6b7481ee1942fc4fee147b608d27c01367fbfcb254d11f05"
+      url "https://github.com/OpenSIN-Code/SIN-Code-Bundle/releases/download/v1.0.3-sin-code/sin-code-linux-amd64.tar.gz"
+      sha256 "a381ccecab6f8f101aad820d8b8b49a3f88e2f270555667952523074b30978a5"
     end
   end
 
