@@ -45,6 +45,7 @@ func init() {
 	rootCmd.AddCommand(internal.OracleCmd)
 	rootCmd.AddCommand(internal.EfmCmd)
 	rootCmd.AddCommand(internal.ServeCmd)
+	rootCmd.AddCommand(internal.SecurityCmd)
 	rootCmd.AddCommand(tuiCmd)
 }
 
