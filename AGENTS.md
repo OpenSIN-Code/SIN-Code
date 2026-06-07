@@ -486,7 +486,7 @@ v0.2.0
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **SIN-Code-Bundle** (8727 symbols, 15372 relationships, 252 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **SIN-Code-Bundle** (9997 symbols, 17832 relationships, 273 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -526,3 +526,11 @@ This project is indexed by GitNexus as **SIN-Code-Bundle** (8727 symbols, 15372 
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+---
+
+## Documentation
+
+- [CHANGELOG.md](CHANGELOG.md) — version history and release notes
+- [docs/](/docs) — architectural documentation and design decisions
+- CoDocs companion files (`.doc.md`) exist alongside every significant code file
