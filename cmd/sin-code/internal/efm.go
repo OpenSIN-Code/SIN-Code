@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ var (
 	efmAction  string
 	efmTTL     int
 	efmFormat  string
+	efmRuntime string
 )
 
 var EfmCmd = &cobra.Command{
@@ -29,13 +31,24 @@ var EfmCmd = &cobra.Command{
 	Long: `Manage disposable full-stack environments (Docker Compose, ephemeral containers).
 Pure Go implementation.
 
+Container runtime:
+  On macOS, OrbStack ('orb') is preferred and used automatically when available,
+  with 'docker' as the fallback. On Linux, 'docker' is used directly.
+  The runtime is fully Docker CLI-compatible, so the same compose commands work.
+
+  Use --runtime to override the auto-detected value:
+    --runtime auto    auto-detect (default)
+    --runtime orb     force OrbStack
+    --runtime docker  force Docker (incl. legacy docker-compose fallback)
+
 Examples:
   sin-code efm --action list
   sin-code efm --action up --stack docker-compose.yml --ttl 3600
   sin-code efm --action down --stack docker-compose.yml
-  sin-code efm --action status`,
+  sin-code efm --action status
+  sin-code efm --action list --runtime orb`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runEFM(efmAction, efmStack, efmTTL, efmFormat)
+		return runEFM(efmAction, efmStack, efmTTL, efmFormat, efmRuntime)
 	},
 }
 
@@ -46,6 +59,7 @@ type efmResult struct {
 	Services  []efmService  `json:"services,omitempty"`
 	Error     string        `json:"error,omitempty"`
 	Duration  string        `json:"duration,omitempty"`
+	Runtime   string        `json:"runtime,omitempty"`
 }
 
 type efmService struct {
@@ -55,13 +69,14 @@ type efmService struct {
 	Image  string `json:"image,omitempty"`
 }
 
-func runEFM(action, stack string, ttl int, format string) error {
+func runEFM(action, stack string, ttl int, format string, runtimeOverride string) error {
 	start := time.Now()
-	result := efmResult{Action: action, Stack: stack}
+	rt := resolveContainerRuntime(runtimeOverride)
+	result := efmResult{Action: action, Stack: stack, Runtime: rt}
 
 	switch action {
 	case "list":
-		services, err := listDockerContainers()
+		services, err := listDockerContainers(rt)
 		if err != nil {
 			result.Status = "error"
 			result.Error = err.Error()
@@ -73,21 +88,20 @@ func runEFM(action, stack string, ttl int, format string) error {
 		if stack == "" {
 			return fmt.Errorf("--stack is required for action 'up'")
 		}
-		err := dockerComposeUp(stack, ttl)
+		err := dockerComposeUp(stack, ttl, rt)
 		if err != nil {
 			result.Status = "error"
 			result.Error = err.Error()
 		} else {
 			result.Status = "started"
-			// List services after start
-			services, _ := listDockerContainers()
+			services, _ := listDockerContainers(rt)
 			result.Services = filterServices(services, stack)
 		}
 	case "down":
 		if stack == "" {
 			return fmt.Errorf("--stack is required for action 'down'")
 		}
-		err := dockerComposeDown(stack)
+		err := dockerComposeDown(stack, rt)
 		if err != nil {
 			result.Status = "error"
 			result.Error = err.Error()
@@ -96,8 +110,7 @@ func runEFM(action, stack string, ttl int, format string) error {
 		}
 	case "status":
 		if stack == "" {
-			// List all running containers
-			services, err := listDockerContainers()
+			services, err := listDockerContainers(rt)
 			if err != nil {
 				result.Status = "error"
 				result.Error = err.Error()
@@ -106,7 +119,7 @@ func runEFM(action, stack string, ttl int, format string) error {
 				result.Services = services
 			}
 		} else {
-			status, err := dockerComposeStatus(stack)
+			status, err := dockerComposeStatus(stack, rt)
 			if err != nil {
 				result.Status = "error"
 				result.Error = err.Error()
@@ -128,15 +141,80 @@ func runEFM(action, stack string, ttl int, format string) error {
 	return outputTextEFM(result)
 }
 
-func listDockerContainers() ([]efmService, error) {
-	cmd := exec.Command("docker", "ps", "--format", "{{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}")
-	out, err := cmd.Output()
-	if err != nil {
-		// Docker might not be running or installed
-		if exitErr, ok := err.(*exec.ExitError); ok && len(exitErr.Stderr) > 0 {
-			return nil, fmt.Errorf("docker not available: %s", string(exitErr.Stderr))
+func resolveContainerRuntime(override string) string {
+	switch override {
+	case "orb":
+		return "orb"
+	case "docker":
+		return "docker"
+	case "", "auto":
+		return detectContainerRuntime()
+	default:
+		return detectContainerRuntime()
+	}
+}
+
+func detectContainerRuntime() string {
+	if runtime.GOOS == "darwin" {
+		if _, err := exec.LookPath("orb"); err == nil {
+			return "orb"
 		}
-		return nil, fmt.Errorf("docker not available: %w", err)
+		if _, err := exec.LookPath("docker"); err == nil {
+			return "docker"
+		}
+		return "docker"
+	}
+	if _, err := exec.LookPath("docker"); err == nil {
+		return "docker"
+	}
+	return "docker"
+}
+
+func containerCommand(rt string, args ...string) *exec.Cmd {
+	bin := rt
+	if bin == "" {
+		bin = detectContainerRuntime()
+	}
+	if bin == "" {
+		bin = "docker"
+	}
+	return exec.Command(bin, args...)
+}
+
+func legacyComposeCommand(rt string, args ...string) *exec.Cmd {
+	if rt == "orb" || rt == "docker" {
+		return exec.Command(rt+"-compose", args...)
+	}
+	return exec.Command("docker-compose", args...)
+}
+
+func listDockerContainers(rt string) ([]efmService, error) {
+	rt = resolveComposeRuntime(rt)
+	cands := composeCandidates(rt)
+	var out []byte
+	var lastErr error
+	var usedRt string
+	for _, c := range cands {
+		if _, err := exec.LookPath(c); err != nil {
+			continue
+		}
+		cmd := exec.Command(c, "ps", "--format", "{{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}")
+		var err error
+		out, err = cmd.Output()
+		if err == nil {
+			usedRt = c
+			break
+		}
+		lastErr = err
+	}
+	if out == nil {
+		if lastErr != nil {
+			return nil, fmt.Errorf("no container runtime responded (tried %v): %w", cands, lastErr)
+		}
+		return nil, fmt.Errorf("no container runtime binary found (tried %v)", cands)
+	}
+	if usedRt != "" {
+		_ = usedRt
 	}
 
 	var services []efmService
@@ -160,7 +238,46 @@ func listDockerContainers() ([]efmService, error) {
 	return services, nil
 }
 
-func dockerComposeUp(stack string, ttl int) error {
+func composeCandidates(rt string) []string {
+	if rt == "" {
+		rt = detectContainerRuntime()
+	}
+	cands := []string{}
+	seen := map[string]bool{}
+	add := func(b string) {
+		if b != "" && !seen[b] {
+			seen[b] = true
+			cands = append(cands, b)
+		}
+	}
+	if rt == "orb" {
+		add("orb")
+		add("orb-compose")
+		add("docker")
+		add("docker-compose")
+	} else {
+		add("docker")
+		add("docker-compose")
+		if rt == "docker" {
+			add("orb")
+			add("orb-compose")
+		}
+	}
+	return cands
+}
+
+func isModern(bin string) bool {
+	return bin == "docker" || bin == "orb"
+}
+
+func resolveComposeRuntime(rt string) string {
+	if rt == "" || rt == "auto" {
+		return detectContainerRuntime()
+	}
+	return rt
+}
+
+func dockerComposeUp(stack string, ttl int, rt string) error {
 	absPath, err := filepath.Abs(stack)
 	if err != nil {
 		return err
@@ -169,29 +286,21 @@ func dockerComposeUp(stack string, ttl int) error {
 		return fmt.Errorf("stack file not found: %w", err)
 	}
 
-	cmd := exec.Command("docker", "compose", "-f", absPath, "up", "-d")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		// Try legacy docker-compose
-		cmd = exec.Command("docker-compose", "-f", absPath, "up", "-d")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("docker compose up failed: %w", err)
-		}
+	rt = resolveComposeRuntime(rt)
+	if err := runComposeCandidates(rt, []string{"-f", absPath, "up", "-d"}, true); err != nil {
+		return fmt.Errorf("%s compose up failed: %w", rt, err)
 	}
 
-	// Store TTL info in a metadata file
 	if ttl > 0 {
 		metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
 		_ = os.MkdirAll(metadataDir, 0755)
 		metadataFile := filepath.Join(metadataDir, filepath.Base(absPath)+".meta")
 		meta := map[string]string{
-			"stack":     absPath,
-			"started":   time.Now().Format(time.RFC3339),
-			"ttl":       fmt.Sprintf("%d", ttl),
-			"expires":   time.Now().Add(time.Duration(ttl) * time.Second).Format(time.RFC3339),
+			"stack":   absPath,
+			"started": time.Now().Format(time.RFC3339),
+			"ttl":     fmt.Sprintf("%d", ttl),
+			"expires": time.Now().Add(time.Duration(ttl) * time.Second).Format(time.RFC3339),
+			"runtime": rt,
 		}
 		data, _ := json.MarshalIndent(meta, "", "  ")
 		_ = os.WriteFile(metadataFile, data, 0644)
@@ -200,7 +309,7 @@ func dockerComposeUp(stack string, ttl int) error {
 	return nil
 }
 
-func dockerComposeDown(stack string) error {
+func dockerComposeDown(stack string, rt string) error {
 	absPath, err := filepath.Abs(stack)
 	if err != nil {
 		return err
@@ -209,19 +318,11 @@ func dockerComposeDown(stack string) error {
 		return fmt.Errorf("stack file not found: %w", err)
 	}
 
-	cmd := exec.Command("docker", "compose", "-f", absPath, "down")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		cmd = exec.Command("docker-compose", "-f", absPath, "down")
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("docker compose down failed: %w", err)
-		}
+	rt = resolveComposeRuntime(rt)
+	if err := runComposeCandidates(rt, []string{"-f", absPath, "down"}, true); err != nil {
+		return fmt.Errorf("%s compose down failed: %w", rt, err)
 	}
 
-	// Remove metadata file
 	metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
 	metadataFile := filepath.Join(metadataDir, filepath.Base(absPath)+".meta")
 	_ = os.Remove(metadataFile)
@@ -229,7 +330,7 @@ func dockerComposeDown(stack string) error {
 	return nil
 }
 
-func dockerComposeStatus(stack string) (string, error) {
+func dockerComposeStatus(stack string, rt string) (string, error) {
 	absPath, err := filepath.Abs(stack)
 	if err != nil {
 		return "", err
@@ -238,21 +339,72 @@ func dockerComposeStatus(stack string) (string, error) {
 		return "", fmt.Errorf("stack file not found: %w", err)
 	}
 
-	cmd := exec.Command("docker", "compose", "-f", absPath, "ps", "--format", "{{.State}}")
-	out, err := cmd.Output()
+	rt = resolveComposeRuntime(rt)
+	out, err := runComposeCapture(rt, []string{"-f", absPath, "ps", "--format", "{{.State}}"})
 	if err != nil {
-		cmd = exec.Command("docker-compose", "-f", absPath, "ps", "--format", "{{.State}}")
-		out, err = cmd.Output()
-		if err != nil {
-			return "", fmt.Errorf("docker compose ps failed: %w", err)
+		return "", fmt.Errorf("%s compose ps failed: %w", rt, err)
+	}
+	return parseComposeStates(string(out)), nil
+}
+
+func runComposeCandidates(rt string, args []string, attachStdio bool) error {
+	cands := composeCandidates(rt)
+	var lastErr error
+	for _, c := range cands {
+		if _, err := exec.LookPath(c); err != nil {
+			continue
 		}
+		full := append([]string{}, args...)
+		if isModern(c) {
+			full = append([]string{"compose"}, full...)
+		}
+		cmd := exec.Command(c, full...)
+		if attachStdio {
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		}
+		if err := cmd.Run(); err != nil {
+			lastErr = err
+			continue
+		}
+		return nil
 	}
+	if lastErr != nil {
+		return lastErr
+	}
+	return fmt.Errorf("no container runtime binary found (tried %v)", cands)
+}
 
-	states := strings.Split(strings.TrimSpace(string(out)), "\n")
+func runComposeCapture(rt string, args []string) ([]byte, error) {
+	cands := composeCandidates(rt)
+	var lastErr error
+	for _, c := range cands {
+		if _, err := exec.LookPath(c); err != nil {
+			continue
+		}
+		full := append([]string{}, args...)
+		if isModern(c) {
+			full = append([]string{"compose"}, full...)
+		}
+		cmd := exec.Command(c, full...)
+		out, err := cmd.Output()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		return out, nil
+	}
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return nil, fmt.Errorf("no container runtime binary found (tried %v)", cands)
+}
+
+func parseComposeStates(raw string) string {
+	states := strings.Split(strings.TrimSpace(raw), "\n")
 	if len(states) == 0 || (len(states) == 1 && states[0] == "") {
-		return "no containers running", nil
+		return "no containers running"
 	}
-
 	allRunning := true
 	for _, state := range states {
 		if !strings.Contains(strings.ToLower(state), "running") {
@@ -261,13 +413,12 @@ func dockerComposeStatus(stack string) (string, error) {
 		}
 	}
 	if allRunning {
-		return "all running", nil
+		return "all running"
 	}
-	return "partial", nil
+	return "partial"
 }
 
 func filterServices(services []efmService, stack string) []efmService {
-	// Filter services by stack name (project name)
 	projectName := strings.TrimSuffix(filepath.Base(stack), filepath.Ext(stack))
 	var filtered []efmService
 	for _, svc := range services {
@@ -280,6 +431,9 @@ func filterServices(services []efmService, stack string) []efmService {
 
 func outputTextEFM(r efmResult) error {
 	fmt.Printf("EFM: %s\n", r.Action)
+	if r.Runtime != "" {
+		fmt.Printf("Runtime: %s\n", r.Runtime)
+	}
 	if r.Stack != "" {
 		fmt.Printf("Stack: %s\n", r.Stack)
 	}
@@ -313,4 +467,5 @@ func init() {
 	EfmCmd.Flags().StringVarP(&efmStack, "stack", "s", "", "Stack definition (docker-compose.yml, k8s manifest, etc.)")
 	EfmCmd.Flags().IntVarP(&efmTTL, "ttl", "t", 3600, "Time-to-live in seconds (0 = no auto-cleanup)")
 	EfmCmd.Flags().StringVarP(&efmFormat, "format", "f", "text", "Output format: text|json")
+	EfmCmd.Flags().StringVar(&efmRuntime, "runtime", "auto", "Container runtime: auto|orb|docker (default: auto — OrbStack on macOS, Docker on Linux)")
 }

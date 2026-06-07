@@ -1,0 +1,112 @@
+package tui
+
+import "time"
+
+type ViewKind int
+
+const (
+	ViewTools ViewKind = iota
+	ViewSessions
+	ViewEFM
+	ViewConfig
+	ViewHistory
+)
+
+func (v ViewKind) String() string {
+	switch v {
+	case ViewTools:
+		return "Tools"
+	case ViewSessions:
+		return "Sessions"
+	case ViewEFM:
+		return "EFM"
+	case ViewConfig:
+		return "Config"
+	case ViewHistory:
+		return "History"
+	}
+	return "Unknown"
+}
+
+func (v ViewKind) Short() string {
+	switch v {
+	case ViewTools:
+		return "1·Tools"
+	case ViewSessions:
+		return "2·Sessions"
+	case ViewEFM:
+		return "3·EFM"
+	case ViewConfig:
+		return "4·Config"
+	case ViewHistory:
+		return "5·History"
+	}
+	return "?·"
+}
+
+type EFMStack struct {
+	Name      string
+	Status    string
+	URL       string
+	CreatedAt time.Time
+	TTL       int
+}
+
+type HistoryEntry struct {
+	Time    time.Time
+	View    string
+	Action  string
+	Detail  string
+	Success bool
+}
+
+type SpinnerTickMsg time.Time
+
+type ViewSwitchMsg struct {
+	View ViewKind
+}
+
+type ThemeChangedMsg struct {
+	Index int
+}
+
+type SidebarToggleMsg struct{}
+
+type PaletteOpenMsg struct {
+	Open bool
+}
+
+type SubagentsOpenMsg struct {
+	Open bool
+}
+
+type InterruptMsg struct{}
+
+type ToolRunMsg struct {
+	Name string
+	Args []string
+}
+
+type EFMRefreshMsg struct {
+	Stacks []EFMStack
+}
+
+type HistoryAppendMsg struct {
+	Entry HistoryEntry
+}
+
+type AgentCycleMsg struct {
+	Index int
+}
+
+type SessionAddMsg struct {
+	Name string
+}
+
+type SessionCloseMsg struct {
+	Index int
+}
+
+type SessionSelectMsg struct {
+	Index int
+}

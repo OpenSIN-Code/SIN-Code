@@ -36,7 +36,7 @@ Note: 6 utility subcommands (config, sbom, security, self-update, tui, serve) ar
 | `sin_sckg` | `sin-code` | `sckg` | Semantic Codebase Knowledge Graphs |
 | `sin_adw` | `sin-code` | `adw` | Architectural Debt Watchdogs |
 | `sin_oracle` | `sin-code` | `oracle` | Verification Oracle |
-| `sin_efm` | `sin-code` | `efm` | Ephemeral Full-Stack Mocking |
+| `sin_efm` | `sin-code` | `efm` | Ephemeral Full-Stack Mocking (auto: OrbStack on macOS, Docker on Linux; `--runtime orb|docker|auto` to override) |
 | `sin_security` | `sin-code` | `security` | Security-Scan (Go/Python/Node/Generic) — CLI-only |
 | `sin_config` | `sin-code` | `config` | Konfiguration verwalten — CLI-only |
 | `sin_tui` | `sin-code` | `tui` | Interaktives TUI Menu — CLI-only |
@@ -123,6 +123,20 @@ sin-code sbom --path /Users/jeremy/dev/PROJEKT --format spdx-json --output sbom.
 | sin-scout | v0.1.5-fixes | ✅ Stable |
 | sin-harvest | v0.1.4-fixes | ✅ Stable |
 | sin-orchestrate | v0.1.6-fixes | ✅ Stable |
+
+---
+
+# 🐳 CONTAINER MANDATE — OrbStack on macOS (PRIORITY -5.0)
+
+**STRICT RULE:** On macOS, ALWAYS use **OrbStack** (`orb`) for container operations. NEVER use `docker` directly.
+
+- **OrbStack binary:** `orb` (Docker CLI-compatible, located at `/opt/homebrew/bin/orb`)
+- **Docker binary:** `docker` (installed but FLAKY — crashes on Mac, must NOT be used)
+- **Rule:** When writing scripts, MCP tools, CI configs, or any container operations targeting macOS, use `orb` instead of `docker`
+- **Why:** Docker Desktop on Mac is unstable and crashes. OrbStack uses native macOS virtualization and is fully Docker CLI-compatible
+- **Cross-platform:** On Linux CI (GitHub Actions), regular `docker` is fine. The rule only applies to macOS dev environments
+- **How to detect:** Use `uname` to check OS. If Darwin/macOS → use `orb`. If Linux → use `docker`
+- **EFM (Ephemeral Full-Stack Mocking) in sin-code:** Already supports both. On Mac, OrbStack is the default runtime
 
 ---
 

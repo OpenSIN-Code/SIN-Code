@@ -37,7 +37,7 @@ Available Commands:
   security    Fast security analysis — auto-detects project type and runs available tools
   self-update Check for and install the latest sin-code release
   serve       Start an MCP server exposing all 13 sin-code tools
-  tui         Interactive TUI menu for all sin-code subcommands
+  tui         Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
 
 Flags:
   -h, --help      help for sin-code

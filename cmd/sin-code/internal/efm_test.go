@@ -8,9 +8,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
+
+const testRuntime = "auto"
 
 func dockerAvailable() bool {
 	_, err := exec.LookPath("docker")
@@ -28,7 +31,7 @@ func TestRunEFM_ListAction(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("list", "", 0, "text")
+	err := runEFM("list", "", 0, "text", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -45,7 +48,7 @@ func TestRunEFM_ListAction(t *testing.T) {
 }
 
 func TestRunEFM_UpRequiresStack(t *testing.T) {
-	err := runEFM("up", "", 3600, "text")
+	err := runEFM("up", "", 3600, "text", testRuntime)
 	if err == nil {
 		t.Error("expected error when --stack is missing for action 'up'")
 	}
@@ -55,7 +58,7 @@ func TestRunEFM_UpRequiresStack(t *testing.T) {
 }
 
 func TestRunEFM_DownRequiresStack(t *testing.T) {
-	err := runEFM("down", "", 0, "text")
+	err := runEFM("down", "", 0, "text", testRuntime)
 	if err == nil {
 		t.Error("expected error when --stack is missing for action 'down'")
 	}
@@ -65,7 +68,7 @@ func TestRunEFM_DownRequiresStack(t *testing.T) {
 }
 
 func TestDockerComposeUp_NonExistentStack(t *testing.T) {
-	err := dockerComposeUp("/nonexistent/docker-compose.yml", 3600)
+	err := dockerComposeUp("/nonexistent/docker-compose.yml", 3600, testRuntime)
 	if err == nil {
 		t.Error("expected error for nonexistent stack file")
 	}
@@ -75,7 +78,7 @@ func TestDockerComposeUp_NonExistentStack(t *testing.T) {
 }
 
 func TestDockerComposeDown_NonExistentStack(t *testing.T) {
-	err := dockerComposeDown("/nonexistent/docker-compose.yml")
+	err := dockerComposeDown("/nonexistent/docker-compose.yml", testRuntime)
 	if err == nil {
 		t.Error("expected error for nonexistent stack file")
 	}
@@ -85,7 +88,7 @@ func TestDockerComposeDown_NonExistentStack(t *testing.T) {
 }
 
 func TestRunEFM_InvalidAction(t *testing.T) {
-	err := runEFM("invalid", "", 0, "text")
+	err := runEFM("invalid", "", 0, "text", testRuntime)
 	if err == nil {
 		t.Error("expected error for invalid action")
 	}
@@ -99,7 +102,7 @@ func TestRunEFM_StatusNoStack(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("status", "", 0, "text")
+	err := runEFM("status", "", 0, "text", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -116,7 +119,7 @@ func TestRunEFM_StatusNoStack(t *testing.T) {
 }
 
 func TestDockerComposeStatus_NonExistentStack(t *testing.T) {
-	_, err := dockerComposeStatus("/nonexistent/docker-compose.yml")
+	_, err := dockerComposeStatus("/nonexistent/docker-compose.yml", testRuntime)
 	if err == nil {
 		t.Error("expected error for nonexistent stack file in status")
 	}
@@ -127,7 +130,7 @@ func TestRunEFM_JSONOutput(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("list", "", 0, "json")
+	err := runEFM("list", "", 0, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -153,7 +156,7 @@ func TestRunEFM_JSONOutput_WithStack(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("up", "nonexistent.yml", 3600, "json")
+	err := runEFM("up", "nonexistent.yml", 3600, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -188,7 +191,7 @@ func TestRunEFM_DownWithStack_Error(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("down", "nonexistent.yml", 0, "text")
+	err := runEFM("down", "nonexistent.yml", 0, "text", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -212,7 +215,7 @@ func TestRunEFM_StatusWithStack_Error(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("status", "nonexistent.yml", 0, "json")
+	err := runEFM("status", "nonexistent.yml", 0, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -242,7 +245,7 @@ func TestRunEFM_UpWithStack_DockerError(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("up", stackFile, 3600, "json")
+	err := runEFM("up", stackFile, 3600, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -275,7 +278,7 @@ func TestRunEFM_DownWithStack_DockerError(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("down", stackFile, 0, "json")
+	err := runEFM("down", stackFile, 0, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -305,7 +308,7 @@ func TestRunEFM_StatusWithStack_DockerError(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("status", stackFile, 0, "json")
+	err := runEFM("status", stackFile, 0, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -391,7 +394,7 @@ func TestDockerComposeUp_TTLMetadata(t *testing.T) {
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: nginx\n"), 0644)
 
-	err := dockerComposeUp(stackFile, 3600)
+	err := dockerComposeUp(stackFile, 3600, testRuntime)
 	if err != nil {
 		metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
 		metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
@@ -425,7 +428,7 @@ func TestDockerComposeUp_NoTTL(t *testing.T) {
 	metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
 	_ = os.Remove(metadataFile)
 
-	err := dockerComposeUp(stackFile, 0)
+	err := dockerComposeUp(stackFile, 0, testRuntime)
 	if err != nil {
 		t.Skipf("dockerComposeUp failed: %v", err)
 	}
@@ -435,7 +438,7 @@ func TestDockerComposeUp_NoTTL(t *testing.T) {
 		_ = os.Remove(metadataFile)
 	}
 
-	_ = dockerComposeDown(stackFile)
+	_ = dockerComposeDown(stackFile, testRuntime)
 }
 
 func TestDockerComposeDown_RemovesMetadata(t *testing.T) {
@@ -458,7 +461,7 @@ func TestDockerComposeDown_RemovesMetadata(t *testing.T) {
 	data, _ := json.MarshalIndent(meta, "", "  ")
 	_ = os.WriteFile(metadataFile, data, 0644)
 
-	_ = dockerComposeDown(stackFile)
+	_ = dockerComposeDown(stackFile, testRuntime)
 
 	if _, err := os.Stat(metadataFile); err == nil {
 		t.Error("expected metadata file to be removed after down")
@@ -469,7 +472,7 @@ func TestListDockerContainers_DockerNotAvailable(t *testing.T) {
 	if dockerAvailable() {
 		t.Skip("Docker daemon is available, skipping unavailable-path test")
 	}
-	_, err := listDockerContainers()
+	_, err := listDockerContainers(testRuntime)
 	if err == nil {
 		t.Error("expected error when Docker is not available")
 	}
@@ -483,7 +486,7 @@ func TestDockerComposeUp_DockerAvailable(t *testing.T) {
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: hello-world\n"), 0644)
 
-	err := dockerComposeUp(stackFile, 60)
+	err := dockerComposeUp(stackFile, 60, testRuntime)
 	if err != nil {
 		t.Logf("dockerComposeUp returned error (may be expected): %v", err)
 	}
@@ -497,7 +500,7 @@ func TestDockerComposeDown_DockerAvailable(t *testing.T) {
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: hello-world\n"), 0644)
 
-	err := dockerComposeDown(stackFile)
+	err := dockerComposeDown(stackFile, testRuntime)
 	if err != nil {
 		t.Logf("dockerComposeDown returned error (may be expected): %v", err)
 	}
@@ -511,7 +514,7 @@ func TestDockerComposeStatus_DockerAvailable(t *testing.T) {
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: hello-world\n"), 0644)
 
-	status, err := dockerComposeStatus(stackFile)
+	status, err := dockerComposeStatus(stackFile, testRuntime)
 	if err != nil {
 		t.Logf("dockerComposeStatus returned error (may be expected): %v", err)
 	}
@@ -835,7 +838,7 @@ func TestRunEFM_AllActions_JSON(t *testing.T) {
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			err := runEFM(action, "", 0, "json")
+			err := runEFM(action, "", 0, "json", testRuntime)
 			w.Close()
 			os.Stdout = oldStdout
 
@@ -870,7 +873,7 @@ func TestRunEFM_ListAction_DockerUnavailable(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("list", "", 0, "json")
+	err := runEFM("list", "", 0, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -961,7 +964,7 @@ func TestRunEFM_UpWithExistingStack_TTLZero(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("up", stackFile, 0, "json")
+	err := runEFM("up", stackFile, 0, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -995,7 +998,7 @@ func TestDockerComposeUp_SuccessWithTTL(t *testing.T) {
 	metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
 	_ = os.Remove(metadataFile)
 
-	err := dockerComposeUp(stackFile, 60)
+	err := dockerComposeUp(stackFile, 60, testRuntime)
 	if err != nil {
 		t.Skipf("dockerComposeUp failed: %v", err)
 	}
@@ -1012,7 +1015,7 @@ func TestDockerComposeUp_SuccessWithTTL(t *testing.T) {
 		t.Errorf("ttl = %q, want 60", meta["ttl"])
 	}
 
-	_ = dockerComposeDown(stackFile)
+	_ = dockerComposeDown(stackFile, testRuntime)
 }
 
 func TestRunEFM_UpSuccess(t *testing.T) {
@@ -1027,7 +1030,7 @@ func TestRunEFM_UpSuccess(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("up", stackFile, 60, "json")
+	err := runEFM("up", stackFile, 60, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -1050,7 +1053,7 @@ func TestRunEFM_UpSuccess(t *testing.T) {
 		t.Error("expected non-empty duration")
 	}
 
-	_ = dockerComposeDown(stackFile)
+	_ = dockerComposeDown(stackFile, testRuntime)
 }
 
 func TestRunEFM_UpSuccess_Text(t *testing.T) {
@@ -1065,7 +1068,7 @@ func TestRunEFM_UpSuccess_Text(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("up", stackFile, 60, "text")
+	err := runEFM("up", stackFile, 60, "text", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -1084,7 +1087,7 @@ func TestRunEFM_UpSuccess_Text(t *testing.T) {
 		t.Errorf("expected 'started' in output, got %q", out)
 	}
 
-	_ = dockerComposeDown(stackFile)
+	_ = dockerComposeDown(stackFile, testRuntime)
 }
 
 func TestDockerComposeStatus_AllRunning(t *testing.T) {
@@ -1095,12 +1098,12 @@ func TestDockerComposeStatus_AllRunning(t *testing.T) {
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
 
-	err := dockerComposeUp(stackFile, 60)
+	err := dockerComposeUp(stackFile, 60, testRuntime)
 	if err != nil {
 		t.Skipf("dockerComposeUp failed: %v", err)
 	}
 
-	status, err := dockerComposeStatus(stackFile)
+	status, err := dockerComposeStatus(stackFile, testRuntime)
 	if err != nil {
 		t.Fatalf("dockerComposeStatus failed: %v", err)
 	}
@@ -1108,7 +1111,7 @@ func TestDockerComposeStatus_AllRunning(t *testing.T) {
 		t.Errorf("unexpected status: %q", status)
 	}
 
-	_ = dockerComposeDown(stackFile)
+	_ = dockerComposeDown(stackFile, testRuntime)
 }
 
 func TestDockerComposeStatus_NoContainers(t *testing.T) {
@@ -1119,7 +1122,7 @@ func TestDockerComposeStatus_NoContainers(t *testing.T) {
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
 
-	status, err := dockerComposeStatus(stackFile)
+	status, err := dockerComposeStatus(stackFile, testRuntime)
 	if err != nil {
 		t.Fatalf("dockerComposeStatus failed: %v", err)
 	}
@@ -1136,7 +1139,7 @@ func TestRunEFM_StatusWithStack_Success(t *testing.T) {
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
 
-	err := dockerComposeUp(stackFile, 60)
+	err := dockerComposeUp(stackFile, 60, testRuntime)
 	if err != nil {
 		t.Skipf("dockerComposeUp failed: %v", err)
 	}
@@ -1145,7 +1148,7 @@ func TestRunEFM_StatusWithStack_Success(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err = runEFM("status", stackFile, 0, "json")
+	err = runEFM("status", stackFile, 0, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -1165,7 +1168,7 @@ func TestRunEFM_StatusWithStack_Success(t *testing.T) {
 		t.Errorf("expected non-error status, got %q with error %q", result.Status, result.Error)
 	}
 
-	_ = dockerComposeDown(stackFile)
+	_ = dockerComposeDown(stackFile, testRuntime)
 }
 
 func TestRunEFM_DownSuccess(t *testing.T) {
@@ -1176,7 +1179,7 @@ func TestRunEFM_DownSuccess(t *testing.T) {
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
 
-	err := dockerComposeUp(stackFile, 60)
+	err := dockerComposeUp(stackFile, 60, testRuntime)
 	if err != nil {
 		t.Skipf("dockerComposeUp failed: %v", err)
 	}
@@ -1185,7 +1188,7 @@ func TestRunEFM_DownSuccess(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err = runEFM("down", stackFile, 0, "json")
+	err = runEFM("down", stackFile, 0, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -1210,7 +1213,7 @@ func TestListDockerContainers_Parsing(t *testing.T) {
 	if !dockerAvailable() {
 		t.Skip("Docker daemon not available")
 	}
-	services, err := listDockerContainers()
+	services, err := listDockerContainers(testRuntime)
 	if err != nil {
 		t.Fatalf("listDockerContainers failed: %v", err)
 	}
@@ -1232,7 +1235,7 @@ func TestRunEFM_ListWithDockerRunning(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("list", "", 0, "json")
+	err := runEFM("list", "", 0, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -1261,7 +1264,7 @@ func TestRunEFM_StatusNoStackWithDockerRunning(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("status", "", 0, "json")
+	err := runEFM("status", "", 0, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -1287,7 +1290,7 @@ func TestDockerComposeUp_AbsPathError(t *testing.T) {
 	os.Chdir("/nonexistent/dir/xyz")
 	defer os.Chdir(oldWd)
 
-	err := dockerComposeUp("relative-compose.yml", 60)
+	err := dockerComposeUp("relative-compose.yml", 60, testRuntime)
 	if err == nil {
 		t.Error("expected error for filepath.Abs failure")
 	}
@@ -1298,7 +1301,7 @@ func TestDockerComposeDown_AbsPathError(t *testing.T) {
 	os.Chdir("/nonexistent/dir/xyz")
 	defer os.Chdir(oldWd)
 
-	err := dockerComposeDown("relative-compose.yml")
+	err := dockerComposeDown("relative-compose.yml", testRuntime)
 	if err == nil {
 		t.Error("expected error for filepath.Abs failure")
 	}
@@ -1309,7 +1312,7 @@ func TestDockerComposeStatus_AbsPathError(t *testing.T) {
 	os.Chdir("/nonexistent/dir/xyz")
 	defer os.Chdir(oldWd)
 
-	_, err := dockerComposeStatus("relative-compose.yml")
+	_, err := dockerComposeStatus("relative-compose.yml", testRuntime)
 	if err == nil {
 		t.Error("expected error for filepath.Abs failure")
 	}
@@ -1323,18 +1326,18 @@ func TestDockerComposeStatus_PartialState(t *testing.T) {
 	stackFile := filepath.Join(dir, "compose-partial.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n  broken:\n    image: nonexistent-image-xyz:latest\n"), 0644)
 
-	err := dockerComposeUp(stackFile, 60)
+	err := dockerComposeUp(stackFile, 60, testRuntime)
 	if err != nil {
 		t.Skipf("docker compose up failed: %v", err)
 	}
 
-	status, err := dockerComposeStatus(stackFile)
+	status, err := dockerComposeStatus(stackFile, testRuntime)
 	if err != nil {
 		t.Fatalf("dockerComposeStatus failed: %v", err)
 	}
 	t.Logf("status = %q", status)
 
-	_ = dockerComposeDown(stackFile)
+	_ = dockerComposeDown(stackFile, testRuntime)
 }
 
 func TestRunEFM_UpWithStartedStatus(t *testing.T) {
@@ -1349,7 +1352,7 @@ func TestRunEFM_UpWithStartedStatus(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := runEFM("up", stackFile, 60, "json")
+	err := runEFM("up", stackFile, 60, "json", testRuntime)
 	w.Close()
 	os.Stdout = oldStdout
 
@@ -1369,5 +1372,228 @@ func TestRunEFM_UpWithStartedStatus(t *testing.T) {
 		t.Errorf("expected status='started', got %q", result.Status)
 	}
 
-	_ = dockerComposeDown(stackFile)
+	_ = dockerComposeDown(stackFile, testRuntime)
+}
+
+func TestDetectContainerRuntime_OrbOnMac(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("only runs on macOS")
+	}
+	rt := detectContainerRuntime()
+	if rt != "orb" && rt != "docker" {
+		t.Errorf("expected orb or docker, got %q", rt)
+	}
+}
+
+func TestDetectContainerRuntime_ReturnsKnownValue(t *testing.T) {
+	rt := detectContainerRuntime()
+	if rt != "orb" && rt != "docker" {
+		t.Errorf("detectContainerRuntime returned unexpected value %q (must be orb or docker)", rt)
+	}
+}
+
+func TestDetectContainerRuntime_FallsBackToDocker(t *testing.T) {
+	rt := detectContainerRuntime()
+	if rt == "" {
+		t.Error("detectContainerRuntime returned empty string, expected fallback to docker")
+	}
+}
+
+func TestContainerCommand_UsesRightBinary(t *testing.T) {
+	cmdOrb := containerCommand("orb", "ps")
+	if cmdOrb.Path == "" && cmdOrb.Args[0] != "orb" {
+		t.Errorf("expected cmd.Args[0] to be 'orb', got %q", cmdOrb.Args[0])
+	}
+	if cmdOrb.Args[0] != "orb" {
+		t.Errorf("expected 'orb' as first arg, got %q", cmdOrb.Args[0])
+	}
+	if len(cmdOrb.Args) < 2 || cmdOrb.Args[1] != "ps" {
+		t.Errorf("expected 'ps' as second arg, got %v", cmdOrb.Args)
+	}
+
+	cmdDocker := containerCommand("docker", "ps")
+	if cmdDocker.Args[0] != "docker" {
+		t.Errorf("expected 'docker' as first arg, got %q", cmdDocker.Args[0])
+	}
+
+	cmdEmpty := containerCommand("", "ps")
+	if cmdEmpty.Args[0] != "orb" && cmdEmpty.Args[0] != "docker" {
+		t.Errorf("expected fallback to orb or docker, got %q", cmdEmpty.Args[0])
+	}
+}
+
+func TestContainerCommand_PassesArgs(t *testing.T) {
+	cmd := containerCommand("docker", "compose", "-f", "stack.yml", "up", "-d")
+	expected := []string{"docker", "compose", "-f", "stack.yml", "up", "-d"}
+	if len(cmd.Args) != len(expected) {
+		t.Fatalf("expected %d args, got %d (%v)", len(expected), len(cmd.Args), cmd.Args)
+	}
+	for i, a := range expected {
+		if cmd.Args[i] != a {
+			t.Errorf("arg[%d] = %q, want %q", i, cmd.Args[i], a)
+		}
+	}
+}
+
+func TestLegacyComposeCommand_DockerFallback(t *testing.T) {
+	cmd := legacyComposeCommand("docker", "-f", "stack.yml", "down")
+	if cmd.Args[0] != "docker-compose" {
+		t.Errorf("expected 'docker-compose' legacy binary, got %q", cmd.Args[0])
+	}
+	if cmd.Args[1] != "-f" {
+		t.Errorf("expected '-f' as second arg, got %q", cmd.Args[1])
+	}
+}
+
+func TestLegacyComposeCommand_OrbFallback(t *testing.T) {
+	cmd := legacyComposeCommand("orb", "-f", "stack.yml", "down")
+	if cmd.Args[0] != "orb-compose" {
+		t.Errorf("expected 'orb-compose' legacy binary, got %q", cmd.Args[0])
+	}
+}
+
+func TestLegacyComposeCommand_EmptyFallback(t *testing.T) {
+	cmd := legacyComposeCommand("", "-f", "stack.yml", "down")
+	if cmd.Args[0] != "docker-compose" {
+		t.Errorf("expected 'docker-compose' for empty runtime, got %q", cmd.Args[0])
+	}
+}
+
+func TestResolveContainerRuntime_OverrideOrb(t *testing.T) {
+	rt := resolveContainerRuntime("orb")
+	if rt != "orb" {
+		t.Errorf("resolveContainerRuntime('orb') = %q, want 'orb'", rt)
+	}
+}
+
+func TestResolveContainerRuntime_OverrideDocker(t *testing.T) {
+	rt := resolveContainerRuntime("docker")
+	if rt != "docker" {
+		t.Errorf("resolveContainerRuntime('docker') = %q, want 'docker'", rt)
+	}
+}
+
+func TestResolveContainerRuntime_OverrideAuto(t *testing.T) {
+	rt := resolveContainerRuntime("auto")
+	if rt != "orb" && rt != "docker" {
+		t.Errorf("resolveContainerRuntime('auto') = %q, want orb or docker", rt)
+	}
+}
+
+func TestResolveContainerRuntime_OverrideEmpty(t *testing.T) {
+	rt := resolveContainerRuntime("")
+	if rt != "orb" && rt != "docker" {
+		t.Errorf("resolveContainerRuntime('') = %q, want orb or docker", rt)
+	}
+}
+
+func TestResolveContainerRuntime_OverrideUnknownFallsBack(t *testing.T) {
+	rt := resolveContainerRuntime("podman-warpzone-9")
+	if rt != "orb" && rt != "docker" {
+		t.Errorf("resolveContainerRuntime(unknown) = %q, want orb or docker fallback", rt)
+	}
+}
+
+func TestEfmCmd_RuntimeFlag_Default(t *testing.T) {
+	rtFlag, err := EfmCmd.Flags().GetString("runtime")
+	if err != nil {
+		t.Fatalf("failed to get runtime flag: %v", err)
+	}
+	if rtFlag != "auto" {
+		t.Errorf("default runtime = %q, want 'auto'", rtFlag)
+	}
+}
+
+func TestEfmCmd_RuntimeFlag_Set(t *testing.T) {
+	if err := EfmCmd.Flags().Set("runtime", "orb"); err != nil {
+		t.Fatalf("failed to set runtime flag: %v", err)
+	}
+	rtFlag, err := EfmCmd.Flags().GetString("runtime")
+	if err != nil {
+		t.Fatalf("failed to get runtime flag: %v", err)
+	}
+	if rtFlag != "orb" {
+		t.Errorf("runtime after set = %q, want 'orb'", rtFlag)
+	}
+	if err := EfmCmd.Flags().Set("runtime", "docker"); err != nil {
+		t.Fatalf("failed to reset runtime flag: %v", err)
+	}
+	rtFlag, _ = EfmCmd.Flags().GetString("runtime")
+	if rtFlag != "docker" {
+		t.Errorf("runtime after docker set = %q, want 'docker'", rtFlag)
+	}
+}
+
+func TestRunEFM_RuntimeOverrideOrb(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("list", "", 0, "json", "orb")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM list with orb override failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Runtime != "orb" {
+		t.Errorf("expected runtime='orb' in result, got %q", result.Runtime)
+	}
+}
+
+func TestRunEFM_RuntimeOverrideDocker(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("list", "", 0, "json", "docker")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM list with docker override failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Runtime != "docker" {
+		t.Errorf("expected runtime='docker' in result, got %q", result.Runtime)
+	}
+}
+
+func TestRunEFM_RuntimeInTextOutput(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("list", "", 0, "text", "orb")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM list text with orb override failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	if !strings.Contains(out, "Runtime: orb") {
+		t.Errorf("expected 'Runtime: orb' in text output, got %q", out)
+	}
 }
