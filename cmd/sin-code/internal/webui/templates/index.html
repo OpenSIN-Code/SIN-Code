@@ -1,0 +1,39 @@
+{{define "body"}}
+<h1>sin-code Web UI</h1>
+<p class="muted">Browser front-end for the SIN-Code orchestrator, todo store, notifications, and EFM stacks.</p>
+
+<div class="cards">
+  <div class="card">
+    <h3>Orchestrator</h3>
+    <p>Run a prompt through the multi-agent orchestrator (router → planner → parallel agents → aggregator).</p>
+    <a class="btn" href="/orchestrator">Open</a>
+  </div>
+  <div class="card">
+    <h3>Todos</h3>
+    <p>Issue tracker with dependencies, audit log, and project namespaces. Backed by bbolt.</p>
+    <a class="btn" href="/todos">Open</a>
+  </div>
+  <div class="card">
+    <h3>Notifications</h3>
+    <p>Recent system notifications emitted by the todo system and other tools.</p>
+    <a class="btn" href="/notifications">Open</a>
+  </div>
+  <div class="card">
+    <h3>EFM Stacks</h3>
+    <p>List of ephemeral full-stack mocking stacks and their container state.</p>
+    <a class="btn" href="/efm">Open</a>
+  </div>
+</div>
+
+<h2>JSON API</h2>
+<table>
+  <thead>
+    <tr><th>Endpoint</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>GET /api/orchestrator/agents.json</code></td><td>List available orchestrator agents.</td></tr>
+    <tr><td><code>GET /api/todos.json</code></td><td>List all todos as JSON.</td></tr>
+    <tr><td><code>GET /api/notifications.json</code></td><td>List notifications as JSON.</td></tr>
+  </tbody>
+</table>
+{{end}}

@@ -1,0 +1,31 @@
+{{define "body"}}
+<h1>Notifications</h1>
+<p class="muted">{{.Total}} total · {{.Unread}} unread</p>
+
+{{if .Notifications}}
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Type</th>
+      <th>Title</th>
+      <th>Read</th>
+      <th>Created</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Notifications}}
+    <tr>
+      <td><code>{{.ID}}</code></td>
+      <td><span class="badge">{{.Type}}</span></td>
+      <td>{{.Title}}</td>
+      <td>{{if .Read}}<span class="badge done">read</span>{{else}}<span class="badge in_progress">unread</span>{{end}}</td>
+      <td><code>{{.Created.Format "2006-01-02 15:04:05"}}</code></td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<div class="empty">No notifications.</div>
+{{end}}
+{{end}}

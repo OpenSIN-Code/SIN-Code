@@ -1,0 +1,35 @@
+{{define "body"}}
+<h1>EFM Stacks</h1>
+<p class="muted">Ephemeral full-stack environments detected via <code>{{.Runtime}}</code>.</p>
+
+{{if .Error}}
+  <div class="alert err">{{.Error}}</div>
+{{end}}
+
+{{if .Stacks}}
+<table>
+  <thead>
+    <tr>
+      <th>Stack</th>
+      <th>Status</th>
+      <th>Started</th>
+      <th>Expires</th>
+      <th>Runtime</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Stacks}}
+    <tr>
+      <td><a href="/efm/{{.Name}}"><code>{{.Name}}</code></a><br><span class="muted">{{.Path}}</span></td>
+      <td><span class="badge {{.StatusBadge}}">{{.Status}}</span></td>
+      <td>{{if .Started}}<code>{{.Started.Format "2006-01-02 15:04:05"}}</code>{{else}}-{{end}}</td>
+      <td>{{if .Expires}}<code>{{.Expires.Format "2006-01-02 15:04:05"}}</code>{{else}}-{{end}}</td>
+      <td>{{.Runtime}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<div class="empty">No ephemeral stacks found. Start one with <code>sin-code efm --action up --stack docker-compose.yml</code>.</div>
+{{end}}
+{{end}}

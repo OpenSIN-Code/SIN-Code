@@ -5,6 +5,7 @@ package chat
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -175,6 +176,10 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if msg.Paste {
+			i.handlePaste(string(msg.Runes))
+			return nil, nil
+		}
 		switch msg.String() {
 		case "ctrl+s", "ctrl+enter":
 			val := strings.TrimSpace(i.RawValue())
@@ -199,6 +204,116 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 	}
 	i.textarea, cmd = i.textarea.Update(msg)
 	return cmd, nil
+}
+
+// handlePaste inspects a pasted payload and dispatches it as an attachment
+// when possible (raw image bytes or an existing file path). Otherwise the
+// payload is inserted as text in the textarea.
+//
+// This works on Bubbletea v1.3.10 by intercepting the bracketed-paste
+// KeyMsg (Type=KeyRunes, Paste=true, Runes=payload) and short-circuiting
+// before the textarea swallows it. When sin-code eventually upgrades to
+// Bubbletea v2, the same logic can be triggered by a public tea.PasteMsg.
+// See docs/bubbletea-v2-migration.md.
+func (i *Input) handlePaste(content string) {
+	if i.isImageBytes(content) {
+		name := "pasted-" + imageExt(content)
+		if err := i.AttachBytes([]byte(content), name); err == nil {
+			return
+		}
+	}
+	if i.isFilePath(content) {
+		if err := i.Attach(content); err == nil {
+			return
+		}
+	}
+	i.textarea.InsertString(content)
+}
+
+// HandlePasteBytes is a public entry-point for paste events that carry raw
+// bytes (e.g. an image dragged into the terminal, or a future Bubbletea v2
+// tea.PasteMsg adapter). The Bubbletea v1 KeyMsg.Paste path runs the
+// payload through utf8.DecodeRune which corrupts non-UTF-8 image data, so
+// programmatic callers (tests, future drag-and-drop handlers) should use
+// this method to preserve byte fidelity.
+func (i *Input) HandlePasteBytes(data []byte) {
+	if i.isImageBytes(string(data)) {
+		name := "pasted-" + imageExt(string(data))
+		if err := i.AttachBytes(data, name); err == nil {
+			return
+		}
+	}
+	if i.isFilePath(string(data)) {
+		if err := i.Attach(string(data)); err == nil {
+			return
+		}
+	}
+	i.textarea.InsertString(string(data))
+}
+
+// isImageBytes reports whether the payload starts with the magic bytes
+// of a known image format (PNG, JPEG, GIF, WebP).
+func (i *Input) isImageBytes(content string) bool {
+	b := []byte(content)
+	if len(b) >= 4 {
+		if b[0] == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G' {
+			return true
+		}
+		if b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF {
+			return true
+		}
+		if string(b[:4]) == "RIFF" && len(b) >= 12 && string(b[8:12]) == "WEBP" {
+			return true
+		}
+	}
+	if len(b) >= 6 {
+		if string(b[:6]) == "GIF87a" || string(b[:6]) == "GIF89a" {
+			return true
+		}
+	}
+	return false
+}
+
+// isFilePath reports whether content looks like a single filesystem path
+// (starts with /, ~/, or ./, contains no newlines) and resolves to an
+// existing regular file.
+func (i *Input) isFilePath(content string) bool {
+	trimmed := strings.TrimRight(content, "\r\n\t ")
+	if trimmed == "" || strings.ContainsAny(trimmed, "\r\n") {
+		return false
+	}
+	if !(strings.HasPrefix(trimmed, "/") || strings.HasPrefix(trimmed, "~/") || strings.HasPrefix(trimmed, "./")) {
+		return false
+	}
+	if strings.HasPrefix(trimmed, "~/") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return false
+		}
+		trimmed = filepath.Join(home, trimmed[2:])
+	}
+	info, err := os.Stat(trimmed)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
+}
+
+func imageExt(content string) string {
+	b := []byte(content)
+	if len(b) >= 4 && b[0] == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G' {
+		return "png"
+	}
+	if len(b) >= 3 && b[0] == 0xFF && b[1] == 0xD8 && b[2] == 0xFF {
+		return "jpg"
+	}
+	if len(b) >= 6 && (string(b[:6]) == "GIF87a" || string(b[:6]) == "GIF89a") {
+		return "gif"
+	}
+	if len(b) >= 12 && string(b[:4]) == "RIFF" && string(b[8:12]) == "WEBP" {
+		return "webp"
+	}
+	return "bin"
 }
 
 type SubmitMsg struct {

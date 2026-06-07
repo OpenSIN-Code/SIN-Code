@@ -338,3 +338,152 @@ func TestInputUpdateOtherKey(t *testing.T) {
 		t.Errorf("expected 'a' in value, got %q", i.RawValue())
 	}
 }
+
+func TestInputHandlePasteImage(t *testing.T) {
+	i := newTestInput(t)
+	png := []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, 'I', 'H', 'D', 'R'}
+	i.HandlePasteBytes(png)
+	if got := len(i.Attachments()); got != 1 {
+		t.Fatalf("expected 1 attachment, got %d", got)
+	}
+	a := i.Attachments()[0]
+	if a.MIME != "image/png" {
+		t.Errorf("expected MIME image/png, got %q", a.MIME)
+	}
+	if a.Size != int64(len(png)) {
+		t.Errorf("expected size %d, got %d", len(png), a.Size)
+	}
+	if i.RawValue() != "" {
+		t.Errorf("expected empty textarea, got %q", i.RawValue())
+	}
+}
+
+func TestInputHandlePasteJPEG(t *testing.T) {
+	i := newTestInput(t)
+	jpg := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0, 0x10, 'J', 'F', 'I', 'F'}
+	i.HandlePasteBytes(jpg)
+	if got := len(i.Attachments()); got != 1 {
+		t.Fatalf("expected 1 attachment, got %d", got)
+	}
+	a := i.Attachments()[0]
+	if a.MIME != "image/jpeg" {
+		t.Errorf("expected MIME image/jpeg, got %q", a.MIME)
+	}
+	if i.RawValue() != "" {
+		t.Errorf("expected empty textarea, got %q", i.RawValue())
+	}
+}
+
+func TestInputHandlePasteFilePath(t *testing.T) {
+	i := newTestInput(t)
+	dir := t.TempDir()
+	dst := filepath.Join(dir, "photo.png")
+	png := []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13}
+	if err := os.WriteFile(dst, png, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd, submit := i.Update(tea.KeyMsg{
+		Type:  tea.KeyRunes,
+		Runes: []rune(dst),
+		Paste: true,
+	})
+	if cmd != nil {
+		t.Errorf("expected nil cmd, got %v", cmd)
+	}
+	if submit != nil {
+		t.Errorf("expected nil submit, got %+v", submit)
+	}
+	if got := len(i.Attachments()); got != 1 {
+		t.Fatalf("expected 1 attachment, got %d", got)
+	}
+	a := i.Attachments()[0]
+	if a.MIME != "image/png" {
+		t.Errorf("expected MIME image/png, got %q", a.MIME)
+	}
+	if a.Name != "photo.png" {
+		t.Errorf("expected name photo.png, got %q", a.Name)
+	}
+	if i.RawValue() != "" {
+		t.Errorf("expected empty textarea, got %q", i.RawValue())
+	}
+}
+
+func TestInputHandlePasteText(t *testing.T) {
+	i := newTestInput(t)
+	text := "just some plain text from clipboard"
+	cmd, submit := i.Update(tea.KeyMsg{
+		Type:  tea.KeyRunes,
+		Runes: []rune(text),
+		Paste: true,
+	})
+	if cmd != nil {
+		t.Errorf("expected nil cmd, got %v", cmd)
+	}
+	if submit != nil {
+		t.Errorf("expected nil submit, got %+v", submit)
+	}
+	if got := len(i.Attachments()); got != 0 {
+		t.Errorf("expected 0 attachments, got %d", got)
+	}
+	if !strings.Contains(i.RawValue(), text) {
+		t.Errorf("expected text in textarea, got %q", i.RawValue())
+	}
+}
+
+func TestInputIsImageBytes(t *testing.T) {
+	i := newTestInput(t)
+	cases := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{"png", "\x89PNG\r\n\x1a\nIHDR", true},
+		{"jpeg", "\xff\xd8\xff\xe0JFIF", true},
+		{"gif87a", "GIF87a...", true},
+		{"gif89a", "GIF89a...", true},
+		{"webp", "RIFF\x00\x00\x00\x00WEBPVP8", true},
+		{"text", "hello world", false},
+		{"empty", "", false},
+		{"path", "/tmp/x.png", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := i.isImageBytes(tc.content); got != tc.want {
+				t.Errorf("isImageBytes(%q) = %v, want %v", tc.name, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestInputIsFilePath(t *testing.T) {
+	i := newTestInput(t)
+	dir := t.TempDir()
+	real := filepath.Join(dir, "real.txt")
+	if err := os.WriteFile(real, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{"absolute-existing", real, true},
+		{"absolute-missing", "/nonexistent/file/abc", false},
+		{"relative-existing", "./" + filepath.Base(real), true},
+		{"text-content", "hello world", false},
+		{"empty", "", false},
+		{"multiline", "/tmp/x\nrm -rf /", false},
+		{"no-prefix", "foo.png", false},
+		{"dir-not-file", dir, false},
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := i.isFilePath(tc.content); got != tc.want {
+				t.Errorf("isFilePath(%q) = %v, want %v", tc.name, got, tc.want)
+			}
+		})
+	}
+}

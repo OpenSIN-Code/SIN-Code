@@ -61,6 +61,7 @@ func init() {
 	rootCmd.AddCommand(internal.OrchestratorAgentsCmd)
 	rootCmd.AddCommand(internal.OrchestratorPlanCmd)
 	rootCmd.AddCommand(tuiCmd)
+	rootCmd.AddCommand(webuiCmd)
 
 	// Pass build-time version to self-update module.
 	internal.SetCurrentVersion(Version)

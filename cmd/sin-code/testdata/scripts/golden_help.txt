@@ -43,6 +43,7 @@ Available Commands:
   serve               Start an MCP server exposing all 13 sin-code tools
   todo                Issue tracker with dependencies, audit log, and project namespaces
   tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
+  webui               Start the sin-code web UI server
 
 Flags:
   -h, --help      help for sin-code

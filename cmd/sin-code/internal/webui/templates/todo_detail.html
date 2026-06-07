@@ -1,0 +1,51 @@
+{{define "body"}}
+<h1>Todo <code>{{.Todo.ID}}</code></h1>
+<p class="muted"><a href="/todos">← back to all todos</a></p>
+
+{{if .Error}}
+  <div class="alert err">{{.Error}}</div>
+{{else}}
+<dl class="kv">
+  <dt>Title</dt><dd>{{.Todo.Title}}</dd>
+  {{if .Todo.Description}}
+    <dt>Description</dt><dd><pre>{{.Todo.Description}}</pre></dd>
+  {{end}}
+  <dt>Status</dt><dd><span class="badge {{.Todo.Status}}">{{.Todo.Status}}</span></dd>
+  <dt>Priority</dt><dd><span class="badge {{.Todo.Priority}}">{{.Todo.Priority}}</span></dd>
+  <dt>Type</dt><dd><span class="badge">{{.Todo.Type}}</span></dd>
+  {{if .Todo.Assignee}}<dt>Assignee</dt><dd>{{.Todo.Assignee}}</dd>{{end}}
+  {{if .Todo.Project}}<dt>Project</dt><dd>{{.Todo.Project}}</dd>{{end}}
+  {{if .Todo.ExternalRef}}<dt>External Ref</dt><dd><code>{{.Todo.ExternalRef}}</code></dd>{{end}}
+  {{if .Todo.Tags}}<dt>Tags</dt><dd>{{range .Todo.Tags}}<span class="badge">{{.}}</span> {{end}}</dd>{{end}}
+  <dt>Created</dt><dd><code>{{.Todo.CreatedAt.Format "2006-01-02 15:04:05 UTC"}}</code></dd>
+  <dt>Updated</dt><dd><code>{{.Todo.UpdatedAt.Format "2006-01-02 15:04:05 UTC"}}</code></dd>
+  {{if .Todo.ClosedAt}}<dt>Closed</dt><dd><code>{{.Todo.ClosedAt.Format "2006-01-02 15:04:05 UTC"}}</code></dd>{{end}}
+</dl>
+
+{{if .Deps}}
+  <h2>Dependencies</h2>
+  <ul>
+    {{range .Deps}}<li><code>{{.From}}</code> → <code>{{.To}}</code> <span class="badge">{{.Type}}</span></li>{{end}}
+  </ul>
+{{end}}
+
+{{if .Audit}}
+  <h2>Audit Log</h2>
+  <table>
+    <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>From</th><th>To</th><th>Note</th></tr></thead>
+    <tbody>
+      {{range .Audit}}
+        <tr>
+          <td><code>{{.Timestamp.Format "2006-01-02 15:04:05"}}</code></td>
+          <td>{{.Actor}}</td>
+          <td><span class="badge">{{.Action}}</span></td>
+          <td>{{.From}}</td>
+          <td>{{.To}}</td>
+          <td class="muted">{{.Note}}</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+{{end}}
+{{end}}
+{{end}}

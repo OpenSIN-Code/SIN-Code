@@ -1,0 +1,85 @@
+{{define "body"}}
+<h1>Todos</h1>
+<p class="muted">{{.Total}} total · {{.Open}} open · {{.Done}} done</p>
+
+<details style="margin-bottom:1rem;">
+  <summary class="muted">+ Add a new todo</summary>
+  <form method="post" action="/todos/add" style="margin-top:0.6rem;">
+    <div class="row">
+      <div class="col">
+        <label><strong>Title</strong></label>
+        <input type="text" name="title" required placeholder="Short summary">
+      </div>
+      <div class="col">
+        <label><strong>Description</strong></label>
+        <input type="text" name="description" placeholder="Optional">
+      </div>
+    </div>
+    <div class="row" style="margin-top:0.5rem;">
+      <div class="col">
+        <label>Priority</label>
+        <select name="priority">
+          <option value="P0">P0 — Critical</option>
+          <option value="P1">P1 — High</option>
+          <option value="P2" selected>P2 — Medium</option>
+          <option value="P3">P3 — Low</option>
+        </select>
+      </div>
+      <div class="col">
+        <label>Type</label>
+        <select name="type">
+          <option value="task" selected>task</option>
+          <option value="bug">bug</option>
+          <option value="feature">feature</option>
+          <option value="chore">chore</option>
+          <option value="epic">epic</option>
+          <option value="question">question</option>
+        </select>
+      </div>
+      <div class="col">
+        <label>Assignee</label>
+        <input type="text" name="assignee" placeholder="(optional)">
+      </div>
+    </div>
+    <div style="margin-top:0.6rem;">
+      <button type="submit" class="btn">Add Todo</button>
+    </div>
+  </form>
+</details>
+
+{{if .Added}}
+  <div class="alert ok">Created <code>{{.Added.ID}}</code> — {{.Added.Title}}</div>
+{{end}}
+{{if .Error}}
+  <div class="alert err">{{.Error}}</div>
+{{end}}
+
+{{if .Todos}}
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Title</th>
+      <th>Status</th>
+      <th>Priority</th>
+      <th>Type</th>
+      <th>Assignee</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{range .Todos}}
+    <tr>
+      <td><a href="/todos/{{.ID}}"><code>{{.ID}}</code></a></td>
+      <td>{{.Title}}</td>
+      <td><span class="badge {{.Status}}">{{.Status}}</span></td>
+      <td><span class="badge {{.Priority}}">{{.Priority}}</span></td>
+      <td><span class="badge">{{.Type}}</span></td>
+      <td class="muted">{{if .Assignee}}{{.Assignee}}{{else}}-{{end}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<div class="empty">No todos yet. Add one above to get started.</div>
+{{end}}
+{{end}}

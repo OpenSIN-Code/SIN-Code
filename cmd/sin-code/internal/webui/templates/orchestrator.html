@@ -1,0 +1,70 @@
+{{define "body"}}
+<h1>Orchestrator</h1>
+<p class="muted">Submit a prompt. The orchestrator routes the prompt, builds a plan, dispatches specialized agents in parallel, and aggregates the results.</p>
+
+<form method="post" action="/orchestrator/run">
+  <label for="prompt"><strong>Prompt</strong></label>
+  <textarea id="prompt" name="prompt" placeholder="e.g. Add user authentication with OAuth2 and write tests" required>{{.Prompt}}</textarea>
+  <div class="row" style="margin-top:0.6rem;align-items:center;">
+    <button type="submit" class="btn">Run</button>
+    <a class="btn ghost" href="/orchestrator">Clear</a>
+    <span class="muted">Agents loaded: <strong>{{len .Agents}}</strong></span>
+  </div>
+</form>
+
+{{if .Error}}
+  <div class="alert err"><strong>Error:</strong> {{.Error}}</div>
+{{end}}
+
+{{if .Result}}
+  <h2>Result</h2>
+  {{if .Result.Plan}}
+    <div class="alert info">
+      <strong>Plan</strong> <code>{{.Result.Plan.ID}}</code>
+      · intent=<span class="badge">{{.Result.Plan.Intent}}</span>
+      · tasks={{.Result.TotalTasks}}
+      · success={{.Result.Plan.Success}}
+      · cost=${{printf "%.4f" .Result.Plan.TotalCost}}
+      · tokens={{.Result.Plan.TokensUsed}}
+    </div>
+
+    <h3>Tasks</h3>
+    {{range .Result.Plan.Tasks}}
+      <div class="task-result">
+        <h4>
+          {{if eq .Status "completed"}}✓{{else}}✗{{end}}
+          <span class="badge {{.Status}}">{{.Status}}</span>
+          <span class="badge">{{.Type}}</span>
+          <code>{{.ID}}</code>
+          <span class="muted">by {{.AgentName}}</span>
+        </h4>
+        <div class="meta">{{.Description}}</div>
+        {{if .Result}}<pre>{{.Result}}</pre>{{end}}
+        {{if .Error}}<div class="alert err">{{.Error}}</div>{{end}}
+      </div>
+    {{end}}
+  {{end}}
+
+  {{if .Result.Summary}}
+    <h3>Summary</h3>
+    <pre>{{.Result.Summary}}</pre>
+  {{end}}
+{{end}}
+
+<h2>Available Agents</h2>
+<table>
+  <thead>
+    <tr><th>Name</th><th>Type</th><th>Model</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    {{range .Agents}}
+      <tr>
+        <td><code>{{.Name}}</code></td>
+        <td><span class="badge">{{.Type}}</span></td>
+        <td><code>{{.Model}}</code></td>
+        <td class="muted">{{.Description}}</td>
+      </tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}

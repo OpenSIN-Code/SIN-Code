@@ -1,0 +1,27 @@
+{{define "base"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{.Title}} · sin-code webui</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="site">
+    <span class="brand">⚡ sin-code</span>
+    <nav>
+      <a href="/" {{if eq .Active "home"}}class="active"{{end}}>Home</a>
+      <a href="/orchestrator" {{if eq .Active "orchestrator"}}class="active"{{end}}>Orchestrator</a>
+      <a href="/todos" {{if eq .Active "todos"}}class="active"{{end}}>Todos</a>
+      <a href="/notifications" {{if eq .Active "notifications"}}class="active"{{end}}>Notifications</a>
+      <a href="/efm" {{if eq .Active "efm"}}class="active"{{end}}>EFM</a>
+    </nav>
+  </header>
+  <main>
+    {{template "body" .}}
+  </main>
+  <footer class="site">
+    sin-code webui · listening on <code>{{.Addr}}</code>
+  </footer>
+</body>
+</html>{{end}}
