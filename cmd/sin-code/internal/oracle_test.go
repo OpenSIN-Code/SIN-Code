@@ -360,3 +360,150 @@ func TestOutputTextOracle_FullCoverage(t *testing.T) {
 		t.Errorf("expected output to contain 100.0%%, got %q", out)
 	}
 }
+
+func TestExtractSymbols_RustDispatch(t *testing.T) {
+	syms := extractSymbols("main.rs", "fn main() {}\nstruct Point {}\n", "rust")
+	if len(syms) < 1 {
+		t.Errorf("expected at least 1 rust symbol, got %d", len(syms))
+	}
+}
+
+func TestExtractSymbols_JavaDispatch(t *testing.T) {
+	syms := extractSymbols("App.java", "public class App {}\n", "java")
+	if len(syms) < 1 {
+		t.Errorf("expected at least 1 java symbol, got %d", len(syms))
+	}
+}
+
+func TestExtractSymbols_GenericDispatch(t *testing.T) {
+	syms := extractSymbols("main.cob", "function myFunc()\n", "cobol")
+	if len(syms) < 1 {
+		t.Errorf("expected at least 1 generic symbol, got %d", len(syms))
+	}
+}
+
+func TestVerifyCoverage_JSONOutput(t *testing.T) {
+	dir := t.TempDir()
+	claim := filepath.Join(dir, "main.go")
+	evidence := filepath.Join(dir, "main_test.go")
+
+	os.WriteFile(claim, []byte("package main\nfunc Add(a, b int) int { return a + b }\n"), 0644)
+	os.WriteFile(evidence, []byte("package main\nimport \"testing\"\nfunc TestAdd(t *testing.T) {}\n"), 0644)
+
+	oracleClaim = claim
+	oracleEvidence = evidence
+	oracleFormat = "json"
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := OracleCmd.RunE(OracleCmd, []string{})
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("OracleCmd.RunE failed: %v", err)
+	}
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+	if !strings.Contains(out, `"coverage"`) {
+		t.Errorf("expected JSON output with coverage field, got %q", out)
+	}
+}
+
+func TestVerifyCoverage_MissingClaimFlag(t *testing.T) {
+	oracleClaim = ""
+	oracleEvidence = "something"
+	oracleFormat = "text"
+	err := OracleCmd.RunE(OracleCmd, []string{})
+	if err == nil {
+		t.Error("expected error when --claim is missing")
+	}
+}
+
+func TestVerifyCoverage_MissingEvidenceFlag(t *testing.T) {
+	oracleClaim = "something"
+	oracleEvidence = ""
+	oracleFormat = "text"
+	err := OracleCmd.RunE(OracleCmd, []string{})
+	if err == nil {
+		t.Error("expected error when --evidence is missing")
+	}
+}
+
+func TestOutputTextOracle_WithTestsWithoutSource(t *testing.T) {
+	result := &oracleResult{
+		Claim:              "main.go",
+		Evidence:           "main_test.go",
+		Coverage:           0,
+		ClaimSymbols:       []symbolInfo{{Name: "Add", Type: "function", Line: 1}},
+		TestSymbols:        []symbolInfo{{Name: "TestSubtract", Type: "function", Line: 1}},
+		TestsWithoutSource: []symbolInfo{{Name: "TestSubtract", Type: "function", Line: 1}},
+		Uncovered:          []symbolInfo{{Name: "Add", Type: "function", Line: 1}},
+		Summary:            "Coverage: 0.0% (0/1 functions covered), 1 tests without matching source",
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	if err := outputTextOracle(result); err != nil {
+		t.Fatalf("outputTextOracle failed: %v", err)
+	}
+	w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+	if !strings.Contains(out, "TestSubtract") {
+		t.Errorf("expected output to contain tests without source, got %q", out)
+	}
+	if !strings.Contains(out, "?") {
+		t.Errorf("expected question mark icon for tests without source, got %q", out)
+	}
+}
+
+func TestNormalizeTestName_ShouldPrefix(t *testing.T) {
+	if got := normalizeTestName("shouldDoThing"); got != "dothing" {
+		t.Errorf("normalizeTestName(\"shouldDoThing\") = %q, want %q", got, "dothing")
+	}
+}
+
+func TestNormalizeTestName_CanPrefix(t *testing.T) {
+	if got := normalizeTestName("canDoThing"); got != "dothing" {
+		t.Errorf("normalizeTestName(\"canDoThing\") = %q, want %q", got, "dothing")
+	}
+}
+
+func TestNormalizeTestName_WillPrefix(t *testing.T) {
+	if got := normalizeTestName("willDoThing"); got != "dothing" {
+		t.Errorf("normalizeTestName(\"willDoThing\") = %q, want %q", got, "dothing")
+	}
+}
+
+func TestNormalizeTestName_DoesPrefix(t *testing.T) {
+	if got := normalizeTestName("doesDoThing"); got != "dothing" {
+		t.Errorf("normalizeTestName(\"doesDoThing\") = %q, want %q", got, "dothing")
+	}
+}
+
+func TestExtractGoSymbols_WithMethod(t *testing.T) {
+	content := `package main
+type Server struct{}
+func (s *Server) Start() {}
+func (s Server) Stop() {}
+`
+	syms := extractGoSymbols("main.go", content)
+	found := false
+	for _, sym := range syms {
+		if sym.Name == "(Server).Start" || sym.Name == "(Server).Stop" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected method symbol names, got %v", syms)
+	}
+}

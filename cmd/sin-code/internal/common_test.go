@@ -8,11 +8,26 @@ import (
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestMain(m *testing.M) {
 	if os.Getenv("TEST_PRINT_ERROR") == "1" {
 		PrintError(fmt.Errorf("test error"))
+		return
+	}
+	if os.Getenv("SIN_CODE_SUBPROCESS") == "1" {
+		SetCurrentVersion("test")
+		root := &cobra.Command{Use: "sin-code", Version: "test"}
+		root.AddCommand(DiscoverCmd, ExecuteCmd, MapCmd, GraspCmd, ScoutCmd,
+			HarvestCmd, OrchestrateCmd, IbdCmd, PocCmd, SckgCmd, AdwCmd,
+			OracleCmd, EfmCmd, ServeCmd, SecurityCmd, SbomCmd, ConfigCmd,
+			SelfUpdateCmd)
+		root.SetArgs(os.Args[1:])
+		if err := root.Execute(); err != nil {
+			os.Exit(1)
+		}
 		return
 	}
 	os.Exit(m.Run())

@@ -657,3 +657,138 @@ func TestExtractStructure_LangDispatch(t *testing.T) {
 		})
 	}
 }
+
+func TestAnalyzeFile_ReadError(t *testing.T) {
+	dir := t.TempDir()
+	goFile := filepath.Join(dir, "unreadable.go")
+	os.WriteFile(goFile, []byte("package main\n"), 0644)
+	os.Chmod(goFile, 0000)
+	defer os.Chmod(goFile, 0644)
+
+	info, _ := os.Stat(goFile)
+	_, err := analyzeFile(goFile, info)
+	if err == nil {
+		t.Error("expected error for unreadable file")
+	}
+}
+
+func TestExtractJavaStructure(t *testing.T) {
+	lines := []string{
+		"public class Main {",
+		"    public void run() {}",
+		"}",
+		"interface Runnable {}",
+		"private String name;",
+	}
+	items := extractJavaStructure(lines)
+	if len(items) < 1 {
+		t.Fatalf("expected at least 1 java item, got %d", len(items))
+	}
+	found := false
+	for _, item := range items {
+		if item.Name == "Main" && item.Type == "class" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected Main class, got %v", items)
+	}
+}
+
+func TestCountLines_PythonBlockComment(t *testing.T) {
+	content := `"""block
+comment
+here"""
+import os
+def main():
+    pass
+`
+	_, _, comments, _ := countLines(content, "python")
+	if comments < 2 {
+		t.Errorf("expected at least 2 comment lines for block comment, got %d", comments)
+	}
+}
+
+func TestCountLines_PythonTripleSingleQuote(t *testing.T) {
+	content := `'''block
+comment
+here'''
+import os
+`
+	_, _, comments, _ := countLines(content, "python")
+	if comments < 2 {
+		t.Errorf("expected at least 2 comment lines for single-quote block comment, got %d", comments)
+	}
+}
+
+func TestCountLines_BashComments(t *testing.T) {
+	content := "// comment\\necho hello\\n"
+	_, _, comments, _ := countLines(content, "bash")
+	if comments < 1 {
+		t.Errorf("expected at least 1 comment line for bash, got %d", comments)
+	}
+}
+
+func TestCountLines_RubyComments(t *testing.T) {
+	content := "# comment\nputs 'hello'\n"
+	_, _, comments, _ := countLines(content, "ruby")
+	if comments < 1 {
+		t.Errorf("expected at least 1 comment, got %d", comments)
+	}
+}
+
+func TestExtractExports_TypeScriptExport(t *testing.T) {
+	content := `export function myFunc() {}\nexport class MyClass {}\nexport default function() {}\n`
+	exports := extractExports(content, "typescript")
+	if len(exports) < 1 {
+		t.Errorf("expected at least 1 TS export, got %v", exports)
+	}
+}
+
+func TestExtractExports_PythonWithAll(t *testing.T) {
+	content := `__all__ = ["Func1", "Func2", "Func3"]
+def Func1(): pass
+`
+	exports := extractExports(content, "python")
+	if len(exports) != 3 {
+		t.Errorf("expected 3 exports, got %v", exports)
+	}
+}
+
+func TestGraspCmd_InvalidAbsPath(t *testing.T) {
+	graspFormat = "text"
+	err := GraspCmd.RunE(GraspCmd, []string{"\x00invalid"})
+	if err == nil {
+		t.Error("expected error for invalid path")
+	}
+}
+
+func TestAnalyzeFile_JSFile(t *testing.T) {
+	dir := t.TempDir()
+	jsFile := filepath.Join(dir, "app.js")
+	os.WriteFile(jsFile, []byte("function hello() { return 1; }\nconst x = 5;\n"), 0644)
+	info, _ := os.Stat(jsFile)
+
+	result, err := analyzeFile(jsFile, info)
+	if err != nil {
+		t.Fatalf("analyzeFile failed: %v", err)
+	}
+	if result.Language != "javascript" {
+		t.Errorf("expected language javascript, got %q", result.Language)
+	}
+}
+
+func TestAnalyzeFile_RustFile(t *testing.T) {
+	dir := t.TempDir()
+	rsFile := filepath.Join(dir, "main.rs")
+	os.WriteFile(rsFile, []byte("fn main() {}\nstruct Point {}\n"), 0644)
+	info, _ := os.Stat(rsFile)
+
+	result, err := analyzeFile(rsFile, info)
+	if err != nil {
+		t.Fatalf("analyzeFile failed: %v", err)
+	}
+	if result.Language != "rust" {
+		t.Errorf("expected language rust, got %q", result.Language)
+	}
+}

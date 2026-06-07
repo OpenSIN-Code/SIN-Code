@@ -170,3 +170,102 @@ func TestHarvestURLFetch_PostMethod(t *testing.T) {
 		t.Errorf("expected output to contain 'ok', got %q", string(out))
 	}
 }
+
+func TestHarvestURLFetch_CacheJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintln(w, `{"data":"cached"}`)
+	}))
+	defer server.Close()
+
+	cacheDir := filepath.Join(os.Getenv("HOME"), ".cache", "sin-code", "harvest")
+	os.RemoveAll(cacheDir)
+
+	err := harvestURLFetch(server.URL, "GET", 5, "text")
+	if err != nil {
+		t.Fatalf("first fetch failed: %v", err)
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	err = harvestURLFetch(server.URL, "GET", 5, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("cached json fetch failed: %v", err)
+	}
+	out, _ := io.ReadAll(r)
+	if !strings.Contains(string(out), `"cached": true`) {
+		t.Errorf("expected JSON output to contain cached=true, got %q", string(out))
+	}
+}
+
+func TestHarvestURLFetch_ErrorJSON(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := harvestURLFetch("http://localhost:1", "GET", 1, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("expected no error for failing URL in json mode, got %v", err)
+	}
+	out, _ := io.ReadAll(r)
+	if !strings.Contains(string(out), `"error"`) {
+		t.Errorf("expected JSON output to contain error field, got %q", string(out))
+	}
+}
+
+func TestHarvestURLFetch_InvalidURLJSON(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := harvestURLFetch("not-a-valid-url", "GET", 5, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("expected no error for invalid URL in json mode, got %v", err)
+	}
+	out, _ := io.ReadAll(r)
+	if !strings.Contains(string(out), `"error"`) {
+		t.Errorf("expected JSON output to contain error field, got %q", string(out))
+	}
+}
+
+func TestHarvestURLFetch_MissingURL(t *testing.T) {
+	harvestURL = ""
+	err := HarvestCmd.RunE(HarvestCmd, []string{})
+	if err == nil {
+		t.Error("expected error when --url is missing")
+	}
+}
+
+func TestHarvestURLFetch_ServerError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprintln(w, "internal error")
+	}))
+	defer server.Close()
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := harvestURLFetch(server.URL, "GET", 5, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("harvestURLFetch failed: %v", err)
+	}
+	out, _ := io.ReadAll(r)
+	if !strings.Contains(string(out), `"status": 500`) {
+		t.Errorf("expected JSON output to contain status 500, got %q", string(out))
+	}
+}

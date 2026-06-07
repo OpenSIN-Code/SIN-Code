@@ -566,3 +566,113 @@ func TestIbdCmd_ArgsPathWithFromTo(t *testing.T) {
 		t.Errorf("expected note about git diff, got %q", stderr)
 	}
 }
+
+func TestDiffWithIntent_AfterEmptyUsesBefore(t *testing.T) {
+	dir := t.TempDir()
+	beforeFile := filepath.Join(dir, "before.go")
+	os.WriteFile(beforeFile, []byte("package main\nfunc Hello() {}\n"), 0644)
+
+	result, err := diffWithIntent(beforeFile, "", "refactor code")
+	if err != nil {
+		t.Fatalf("diffWithIntent failed: %v", err)
+	}
+	if countChanged(result.Diff) != 0 {
+		t.Errorf("expected 0 changed lines when after is empty (same content), got %d", countChanged(result.Diff))
+	}
+}
+
+func TestDiffWithIntent_BeforeFileReadError(t *testing.T) {
+	_, err := diffWithIntent("/nonexistent/before.go", "/also/missing/after.go", "test")
+	if err != nil {
+		t.Fatalf("readFileOrString returns path as string if not found: %v", err)
+	}
+}
+
+func TestReadFileOrString_UnreadableFile(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "unreadable.txt")
+	os.WriteFile(f, []byte("secret"), 0644)
+	os.Chmod(f, 0000)
+	defer os.Chmod(f, 0644)
+
+	content, err := readFileOrString(f)
+	if err == nil {
+		t.Error("expected error for unreadable file")
+	}
+	_ = content
+}
+
+func TestEvaluateIntent_DeleteKeyword(t *testing.T) {
+	removed := []symbolInfo{{Name: "OldFunc", Type: "function", Line: 3}}
+	match, score := evaluateIntent("delete deprecated code", nil, removed, nil, nil)
+	if match == "none" {
+		t.Errorf("expected non-none match for delete keyword, got %q", match)
+	}
+	if score <= 50 {
+		t.Errorf("expected score > 50, got %d", score)
+	}
+}
+
+func TestEvaluateIntent_DeleteKeywordNoRemovals(t *testing.T) {
+	_, score := evaluateIntent("delete old code", nil, nil, nil, nil)
+	if score >= 50 {
+		t.Errorf("expected score < 50 when intent says delete but no removals, got %d", score)
+	}
+}
+
+func TestEvaluateIntent_OptimizeKeywordWithModifications(t *testing.T) {
+	modified := []symbolInfo{{Name: "SlowFunc", Type: "function", Line: 10}}
+	_, score := evaluateIntent("optimize performance", nil, nil, modified, nil)
+	if score <= 50 {
+		t.Errorf("expected score > 50, got %d", score)
+	}
+}
+
+func TestEvaluateIntent_ImproveKeywordWithModifications(t *testing.T) {
+	modified := []symbolInfo{{Name: "Func", Type: "function", Line: 10}}
+	_, score := evaluateIntent("improve error handling", nil, nil, modified, nil)
+	if score <= 50 {
+		t.Errorf("expected score > 50, got %d", score)
+	}
+}
+
+func TestEvaluateIntent_ExceptionInDiff(t *testing.T) {
+	diff := []diffLine{
+		{Type: "added", Line: 5, Text: "catch (Exception e) {", Number: 5},
+	}
+	_, score := evaluateIntent("add exception handling", nil, nil, []symbolInfo{{Name: "F", Type: "function", Line: 1}}, diff)
+	if score <= 10 {
+		t.Errorf("expected score > 10 for exception handling, got %d", score)
+	}
+}
+
+func TestIbdCmd_TextOutput(t *testing.T) {
+	dir := t.TempDir()
+	beforeFile := filepath.Join(dir, "before.py")
+	afterFile := filepath.Join(dir, "after.py")
+	os.WriteFile(beforeFile, []byte("def old(): pass\n"), 0644)
+	os.WriteFile(afterFile, []byte("def new(): pass\n"), 0644)
+
+	ibdBefore = beforeFile
+	ibdAfter = afterFile
+	ibdIntent = "refactor code"
+	ibdFormat = "text"
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := IbdCmd.RunE(IbdCmd, []string{})
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("IbdCmd.RunE failed: %v", err)
+	}
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+	if !strings.Contains(out, "Intent-Based Diffing") {
+		t.Errorf("expected header in output, got %q", out)
+	}
+}

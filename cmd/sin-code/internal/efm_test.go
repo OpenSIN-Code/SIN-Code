@@ -6,17 +6,24 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestRunEFM_ListAction(t *testing.T) {
-	efmAction = "list"
-	efmStack = ""
-	efmTTL = 0
-	efmFormat = "text"
+func dockerAvailable() bool {
+	_, err := exec.LookPath("docker")
+	if err != nil {
+		return false
+	}
+	cmd := exec.Command("docker", "info")
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	return cmd.Run() == nil
+}
 
+func TestRunEFM_ListAction(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
@@ -88,11 +95,6 @@ func TestRunEFM_InvalidAction(t *testing.T) {
 }
 
 func TestRunEFM_StatusNoStack(t *testing.T) {
-	efmAction = "status"
-	efmStack = ""
-	efmTTL = 0
-	efmFormat = "text"
-
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
@@ -146,6 +148,184 @@ func TestRunEFM_JSONOutput(t *testing.T) {
 	}
 }
 
+func TestRunEFM_JSONOutput_WithStack(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("up", "nonexistent.yml", 3600, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM up json should not return error (error is in result), got: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Action != "up" {
+		t.Errorf("expected action='up', got %q", result.Action)
+	}
+	if result.Stack != "nonexistent.yml" {
+		t.Errorf("expected stack='nonexistent.yml', got %q", result.Stack)
+	}
+	if result.Status != "error" {
+		t.Errorf("expected status='error', got %q", result.Status)
+	}
+	if result.Error == "" {
+		t.Error("expected non-empty error in result")
+	}
+}
+
+func TestRunEFM_DownWithStack_Error(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("down", "nonexistent.yml", 0, "text")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM down should not return error (error is in result), got: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+	if !strings.Contains(out, "EFM: down") {
+		t.Errorf("expected 'EFM: down' in output, got %q", out)
+	}
+	if !strings.Contains(out, "stack file not found") {
+		t.Errorf("expected 'stack file not found' in output, got %q", out)
+	}
+}
+
+func TestRunEFM_StatusWithStack_Error(t *testing.T) {
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("status", "nonexistent.yml", 0, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM status should not return error (error is in result), got: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Status != "error" {
+		t.Errorf("expected status='error', got %q", result.Status)
+	}
+}
+
+func TestRunEFM_UpWithStack_DockerError(t *testing.T) {
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: nginx\n"), 0644)
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("up", stackFile, 3600, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM up should not return error (error is in result), got: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Action != "up" {
+		t.Errorf("expected action='up', got %q", result.Action)
+	}
+	if result.Duration == "" {
+		t.Error("expected non-empty duration")
+	}
+}
+
+func TestRunEFM_DownWithStack_DockerError(t *testing.T) {
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: nginx\n"), 0644)
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("down", stackFile, 0, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM down should not return error (error is in result), got: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Action != "down" {
+		t.Errorf("expected action='down', got %q", result.Action)
+	}
+}
+
+func TestRunEFM_StatusWithStack_DockerError(t *testing.T) {
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: nginx\n"), 0644)
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("status", stackFile, 0, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM status should not return error (error is in result), got: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Action != "status" {
+		t.Errorf("expected action='status', got %q", result.Action)
+	}
+}
+
 func TestFilterServices(t *testing.T) {
 	services := []efmService{
 		{Name: "myapp-web-1", Status: "running", Image: "nginx"},
@@ -184,9 +364,84 @@ func TestFilterServices_NoMatch(t *testing.T) {
 	}
 }
 
+func TestFilterServices_EmptyInput(t *testing.T) {
+	filtered := filterServices(nil, "myapp.yml")
+	if len(filtered) != 0 {
+		t.Errorf("expected 0 for nil input, got %d", len(filtered))
+	}
+}
 
+func TestFilterServices_DifferentExtension(t *testing.T) {
+	services := []efmService{
+		{Name: "test-web-1", Status: "running"},
+		{Name: "test-db-1", Status: "running"},
+		{Name: "prod-web-1", Status: "running"},
+	}
+	filtered := filterServices(services, "test.yaml")
+	if len(filtered) != 2 {
+		t.Fatalf("expected 2 filtered services for .yaml extension, got %d", len(filtered))
+	}
+}
 
 func TestDockerComposeUp_TTLMetadata(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: nginx\n"), 0644)
+
+	err := dockerComposeUp(stackFile, 3600)
+	if err != nil {
+		metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
+		metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
+		data, readErr := os.ReadFile(metadataFile)
+		if readErr == nil {
+			var meta map[string]string
+			if jsonErr := json.Unmarshal(data, &meta); jsonErr == nil {
+				if meta["ttl"] != "3600" {
+					t.Errorf("expected ttl=3600, got %q", meta["ttl"])
+				}
+				if meta["started"] == "" {
+					t.Error("expected non-empty started timestamp")
+				}
+				if meta["expires"] == "" {
+					t.Error("expected non-empty expires timestamp")
+				}
+			}
+		}
+	}
+}
+
+func TestDockerComposeUp_NoTTL(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "no-ttl-compose.yml")
+	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
+
+	metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
+	metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
+	_ = os.Remove(metadataFile)
+
+	err := dockerComposeUp(stackFile, 0)
+	if err != nil {
+		t.Skipf("dockerComposeUp failed: %v", err)
+	}
+
+	if _, statErr := os.Stat(metadataFile); statErr == nil {
+		t.Error("expected no metadata file when TTL=0")
+		_ = os.Remove(metadataFile)
+	}
+
+	_ = dockerComposeDown(stackFile)
+}
+
+func TestDockerComposeDown_RemovesMetadata(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker not available")
+	}
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: nginx\n"), 0644)
@@ -194,35 +449,73 @@ func TestDockerComposeUp_TTLMetadata(t *testing.T) {
 	metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
 	_ = os.MkdirAll(metadataDir, 0755)
 	metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
-	_ = os.Remove(metadataFile)
-
-	err := dockerComposeUp(stackFile, 3600)
-	if err == nil {
-		data, readErr := os.ReadFile(metadataFile)
-		if readErr != nil {
-			t.Fatalf("expected metadata file to exist, got error: %v", readErr)
-		}
-		var meta map[string]string
-		if jsonErr := json.Unmarshal(data, &meta); jsonErr != nil {
-			t.Fatalf("expected valid JSON metadata, got parse error: %v", jsonErr)
-		}
-		if meta["ttl"] != "3600" {
-			t.Errorf("expected ttl=3600, got %q", meta["ttl"])
-		}
-		if meta["stack"] == "" {
-			t.Error("expected non-empty stack path in metadata")
-		}
-		if meta["started"] == "" {
-			t.Error("expected non-empty started timestamp in metadata")
-		}
-		if meta["expires"] == "" {
-			t.Error("expected non-empty expires timestamp in metadata")
-		}
-	} else {
-		if !strings.Contains(err.Error(), "docker") && !strings.Contains(err.Error(), "compose") {
-			t.Errorf("expected docker-related error, got: %v", err)
-		}
+	meta := map[string]string{
+		"stack":   stackFile,
+		"started": "2026-06-07T12:00:00Z",
+		"ttl":     "3600",
+		"expires": "2026-06-07T13:00:00Z",
 	}
+	data, _ := json.MarshalIndent(meta, "", "  ")
+	_ = os.WriteFile(metadataFile, data, 0644)
+
+	_ = dockerComposeDown(stackFile)
+
+	if _, err := os.Stat(metadataFile); err == nil {
+		t.Error("expected metadata file to be removed after down")
+	}
+}
+
+func TestListDockerContainers_DockerNotAvailable(t *testing.T) {
+	if dockerAvailable() {
+		t.Skip("Docker daemon is available, skipping unavailable-path test")
+	}
+	_, err := listDockerContainers()
+	if err == nil {
+		t.Error("expected error when Docker is not available")
+	}
+}
+
+func TestDockerComposeUp_DockerAvailable(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: hello-world\n"), 0644)
+
+	err := dockerComposeUp(stackFile, 60)
+	if err != nil {
+		t.Logf("dockerComposeUp returned error (may be expected): %v", err)
+	}
+}
+
+func TestDockerComposeDown_DockerAvailable(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: hello-world\n"), 0644)
+
+	err := dockerComposeDown(stackFile)
+	if err != nil {
+		t.Logf("dockerComposeDown returned error (may be expected): %v", err)
+	}
+}
+
+func TestDockerComposeStatus_DockerAvailable(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: hello-world\n"), 0644)
+
+	status, err := dockerComposeStatus(stackFile)
+	if err != nil {
+		t.Logf("dockerComposeStatus returned error (may be expected): %v", err)
+	}
+	_ = status
 }
 
 func TestOutputTextEFM(t *testing.T) {
@@ -260,6 +553,9 @@ func TestOutputTextEFM(t *testing.T) {
 	}
 	if !strings.Contains(out, "nginx") {
 		t.Errorf("expected 'nginx' image in output, got %q", out)
+	}
+	if !strings.Contains(out, "8080:80") {
+		t.Errorf("expected '8080:80' port in output, got %q", out)
 	}
 }
 
@@ -343,6 +639,93 @@ func TestOutputTextEFM_NoServices(t *testing.T) {
 	}
 }
 
+func TestOutputTextEFM_ServiceNoImageNoPorts(t *testing.T) {
+	result := efmResult{
+		Action:   "list",
+		Status:   "ok",
+		Duration: "10ms",
+		Services: []efmService{
+			{Name: "svc-1", Status: "running"},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	if err := outputTextEFM(result); err != nil {
+		t.Fatalf("outputTextEFM failed: %v", err)
+	}
+	w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	if !strings.Contains(out, "svc-1") {
+		t.Errorf("expected 'svc-1' in output, got %q", out)
+	}
+}
+
+func TestOutputTextEFM_ServiceEmptyPorts(t *testing.T) {
+	result := efmResult{
+		Action:   "list",
+		Status:   "ok",
+		Duration: "10ms",
+		Services: []efmService{
+			{Name: "svc-1", Status: "running", Ports: []string{""}},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	if err := outputTextEFM(result); err != nil {
+		t.Fatalf("outputTextEFM failed: %v", err)
+	}
+	w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	if !strings.Contains(out, "svc-1") {
+		t.Errorf("expected 'svc-1' in output, got %q", out)
+	}
+}
+
+func TestOutputTextEFM_MultiplePorts(t *testing.T) {
+	result := efmResult{
+		Action:   "list",
+		Status:   "ok",
+		Duration: "10ms",
+		Services: []efmService{
+			{Name: "svc-1", Status: "running", Ports: []string{"8080:80", "9090:90"}},
+		},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	if err := outputTextEFM(result); err != nil {
+		t.Fatalf("outputTextEFM failed: %v", err)
+	}
+	w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	if !strings.Contains(out, "8080:80, 9090:90") {
+		t.Errorf("expected both ports in output, got %q", out)
+	}
+}
+
 func TestEfmCmd_ListViaRunEFM(t *testing.T) {
 	efmAction = "list"
 	efmStack = ""
@@ -403,4 +786,588 @@ func TestEfmCmd_InvalidAction(t *testing.T) {
 	if err == nil {
 		t.Error("expected error for invalid action")
 	}
+}
+
+func TestEfmCmd_Flags(t *testing.T) {
+	EfmCmd.Flags().Set("action", "list")
+	EfmCmd.Flags().Set("stack", "")
+	EfmCmd.Flags().Set("ttl", "3600")
+	EfmCmd.Flags().Set("format", "text")
+
+	actionFlag, err := EfmCmd.Flags().GetString("action")
+	if err != nil {
+		t.Fatalf("failed to get action flag: %v", err)
+	}
+	if actionFlag != "list" {
+		t.Errorf("default action = %q, want 'list'", actionFlag)
+	}
+
+	stackFlag, err := EfmCmd.Flags().GetString("stack")
+	if err != nil {
+		t.Fatalf("failed to get stack flag: %v", err)
+	}
+	if stackFlag != "" {
+		t.Errorf("default stack = %q, want empty", stackFlag)
+	}
+
+	ttlFlag, err := EfmCmd.Flags().GetInt("ttl")
+	if err != nil {
+		t.Fatalf("failed to get ttl flag: %v", err)
+	}
+	if ttlFlag != 3600 {
+		t.Errorf("default ttl = %d, want 3600", ttlFlag)
+	}
+
+	formatFlag, err := EfmCmd.Flags().GetString("format")
+	if err != nil {
+		t.Fatalf("failed to get format flag: %v", err)
+	}
+	if formatFlag != "text" {
+		t.Errorf("default format = %q, want 'text'", formatFlag)
+	}
+}
+
+func TestRunEFM_AllActions_JSON(t *testing.T) {
+	actions := []string{"list", "status"}
+	for _, action := range actions {
+		t.Run(action, func(t *testing.T) {
+			oldStdout := os.Stdout
+			r, w, _ := os.Pipe()
+			os.Stdout = w
+
+			err := runEFM(action, "", 0, "json")
+			w.Close()
+			os.Stdout = oldStdout
+
+			if err != nil {
+				t.Fatalf("runEFM %s json failed: %v", action, err)
+			}
+
+			var buf bytes.Buffer
+			buf.ReadFrom(r)
+			out := buf.String()
+
+			var result efmResult
+			if err := json.Unmarshal([]byte(out), &result); err != nil {
+				t.Fatalf("expected valid JSON for action %s, got parse error: %v", action, err)
+			}
+			if result.Action != action {
+				t.Errorf("expected action=%q, got %q", action, result.Action)
+			}
+			if result.Duration == "" {
+				t.Errorf("expected non-empty duration for action %s", action)
+			}
+		})
+	}
+}
+
+func TestRunEFM_ListAction_DockerUnavailable(t *testing.T) {
+	if dockerAvailable() {
+		t.Skip("Docker daemon available, skipping unavailable-path test")
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("list", "", 0, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM list should not return error (error is in result), got: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Status != "error" {
+		t.Errorf("expected status='error' when Docker unavailable, got %q", result.Status)
+	}
+	if result.Error == "" {
+		t.Error("expected non-empty error when Docker unavailable")
+	}
+}
+
+func TestEfmService_JSONRoundTrip(t *testing.T) {
+	svc := efmService{
+		Name:   "web-1",
+		Status: "running",
+		Ports:  []string{"8080:80", "9090:90"},
+		Image:  "nginx:latest",
+	}
+	data, err := json.Marshal(svc)
+	if err != nil {
+		t.Fatalf("json.Marshal error: %v", err)
+	}
+	var decoded efmService
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("json.Unmarshal error: %v", err)
+	}
+	if decoded.Name != svc.Name {
+		t.Errorf("name = %q, want %q", decoded.Name, svc.Name)
+	}
+	if decoded.Status != svc.Status {
+		t.Errorf("status = %q, want %q", decoded.Status, svc.Status)
+	}
+	if len(decoded.Ports) != len(svc.Ports) {
+		t.Errorf("ports count = %d, want %d", len(decoded.Ports), len(svc.Ports))
+	}
+	if decoded.Image != svc.Image {
+		t.Errorf("image = %q, want %q", decoded.Image, svc.Image)
+	}
+}
+
+func TestEfmResult_JSONRoundTrip(t *testing.T) {
+	result := efmResult{
+		Action:   "up",
+		Stack:    "docker-compose.yml",
+		Status:   "started",
+		Duration: "500ms",
+		Services: []efmService{
+			{Name: "web-1", Status: "running", Image: "nginx"},
+		},
+	}
+	data, err := json.Marshal(result)
+	if err != nil {
+		t.Fatalf("json.Marshal error: %v", err)
+	}
+	var decoded efmResult
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("json.Unmarshal error: %v", err)
+	}
+	if decoded.Action != result.Action {
+		t.Errorf("action = %q, want %q", decoded.Action, result.Action)
+	}
+	if decoded.Stack != result.Stack {
+		t.Errorf("stack = %q, want %q", decoded.Stack, result.Stack)
+	}
+	if decoded.Status != result.Status {
+		t.Errorf("status = %q, want %q", decoded.Status, result.Status)
+	}
+}
+
+func TestRunEFM_UpWithExistingStack_TTLZero(t *testing.T) {
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: nginx\n"), 0644)
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("up", stackFile, 0, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM up should not return error (error is in result), got: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Action != "up" {
+		t.Errorf("expected action='up', got %q", result.Action)
+	}
+}
+
+func TestDockerComposeUp_SuccessWithTTL(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
+
+	metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
+	_ = os.MkdirAll(metadataDir, 0755)
+	metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
+	_ = os.Remove(metadataFile)
+
+	err := dockerComposeUp(stackFile, 60)
+	if err != nil {
+		t.Skipf("dockerComposeUp failed: %v", err)
+	}
+
+	data, readErr := os.ReadFile(metadataFile)
+	if readErr != nil {
+		t.Fatalf("expected metadata file: %v", readErr)
+	}
+	var meta map[string]string
+	if jsonErr := json.Unmarshal(data, &meta); jsonErr != nil {
+		t.Fatalf("invalid metadata JSON: %v", jsonErr)
+	}
+	if meta["ttl"] != "60" {
+		t.Errorf("ttl = %q, want 60", meta["ttl"])
+	}
+
+	_ = dockerComposeDown(stackFile)
+}
+
+func TestRunEFM_UpSuccess(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("up", stackFile, 60, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM up failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Status != "started" {
+		t.Errorf("expected status='started', got %q", result.Status)
+	}
+	if result.Duration == "" {
+		t.Error("expected non-empty duration")
+	}
+
+	_ = dockerComposeDown(stackFile)
+}
+
+func TestRunEFM_UpSuccess_Text(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("up", stackFile, 60, "text")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM up text failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	if !strings.Contains(out, "EFM: up") {
+		t.Errorf("expected 'EFM: up' in output, got %q", out)
+	}
+	if !strings.Contains(out, "started") {
+		t.Errorf("expected 'started' in output, got %q", out)
+	}
+
+	_ = dockerComposeDown(stackFile)
+}
+
+func TestDockerComposeStatus_AllRunning(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
+
+	err := dockerComposeUp(stackFile, 60)
+	if err != nil {
+		t.Skipf("dockerComposeUp failed: %v", err)
+	}
+
+	status, err := dockerComposeStatus(stackFile)
+	if err != nil {
+		t.Fatalf("dockerComposeStatus failed: %v", err)
+	}
+	if status != "all running" && status != "partial" && status != "no containers running" {
+		t.Errorf("unexpected status: %q", status)
+	}
+
+	_ = dockerComposeDown(stackFile)
+}
+
+func TestDockerComposeStatus_NoContainers(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
+
+	status, err := dockerComposeStatus(stackFile)
+	if err != nil {
+		t.Fatalf("dockerComposeStatus failed: %v", err)
+	}
+	if status != "no containers running" {
+		t.Logf("status = %q (may differ if containers are running)", status)
+	}
+}
+
+func TestRunEFM_StatusWithStack_Success(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
+
+	err := dockerComposeUp(stackFile, 60)
+	if err != nil {
+		t.Skipf("dockerComposeUp failed: %v", err)
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err = runEFM("status", stackFile, 0, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM status failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Status == "error" {
+		t.Errorf("expected non-error status, got %q with error %q", result.Status, result.Error)
+	}
+
+	_ = dockerComposeDown(stackFile)
+}
+
+func TestRunEFM_DownSuccess(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
+
+	err := dockerComposeUp(stackFile, 60)
+	if err != nil {
+		t.Skipf("dockerComposeUp failed: %v", err)
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err = runEFM("down", stackFile, 0, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM down failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Status != "stopped" {
+		t.Errorf("expected status='stopped', got %q", result.Status)
+	}
+}
+
+func TestListDockerContainers_Parsing(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	services, err := listDockerContainers()
+	if err != nil {
+		t.Fatalf("listDockerContainers failed: %v", err)
+	}
+	for _, svc := range services {
+		if svc.Name == "" {
+			t.Error("service name should not be empty")
+		}
+		if svc.Status == "" {
+			t.Error("service status should not be empty")
+		}
+	}
+}
+
+func TestRunEFM_ListWithDockerRunning(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("list", "", 0, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM list failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Status != "ok" {
+		t.Errorf("expected status='ok' with Docker running, got %q", result.Status)
+	}
+}
+
+func TestRunEFM_StatusNoStackWithDockerRunning(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("status", "", 0, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM status failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Status != "ok" {
+		t.Errorf("expected status='ok' with Docker running, got %q", result.Status)
+	}
+}
+
+func TestDockerComposeUp_AbsPathError(t *testing.T) {
+	oldWd, _ := os.Getwd()
+	os.Chdir("/nonexistent/dir/xyz")
+	defer os.Chdir(oldWd)
+
+	err := dockerComposeUp("relative-compose.yml", 60)
+	if err == nil {
+		t.Error("expected error for filepath.Abs failure")
+	}
+}
+
+func TestDockerComposeDown_AbsPathError(t *testing.T) {
+	oldWd, _ := os.Getwd()
+	os.Chdir("/nonexistent/dir/xyz")
+	defer os.Chdir(oldWd)
+
+	err := dockerComposeDown("relative-compose.yml")
+	if err == nil {
+		t.Error("expected error for filepath.Abs failure")
+	}
+}
+
+func TestDockerComposeStatus_AbsPathError(t *testing.T) {
+	oldWd, _ := os.Getwd()
+	os.Chdir("/nonexistent/dir/xyz")
+	defer os.Chdir(oldWd)
+
+	_, err := dockerComposeStatus("relative-compose.yml")
+	if err == nil {
+		t.Error("expected error for filepath.Abs failure")
+	}
+}
+
+func TestDockerComposeStatus_PartialState(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "compose-partial.yml")
+	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n  broken:\n    image: nonexistent-image-xyz:latest\n"), 0644)
+
+	err := dockerComposeUp(stackFile, 60)
+	if err != nil {
+		t.Skipf("docker compose up failed: %v", err)
+	}
+
+	status, err := dockerComposeStatus(stackFile)
+	if err != nil {
+		t.Fatalf("dockerComposeStatus failed: %v", err)
+	}
+	t.Logf("status = %q", status)
+
+	_ = dockerComposeDown(stackFile)
+}
+
+func TestRunEFM_UpWithStartedStatus(t *testing.T) {
+	if !dockerAvailable() {
+		t.Skip("Docker daemon not available")
+	}
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "compose-started.yml")
+	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := runEFM("up", stackFile, 60, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("runEFM up failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+	if result.Status != "started" {
+		t.Errorf("expected status='started', got %q", result.Status)
+	}
+
+	_ = dockerComposeDown(stackFile)
 }

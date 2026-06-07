@@ -365,7 +365,11 @@ func parseGoModFallback(path string) ([]dependency, error) {
 			continue
 		}
 		if inRequire || strings.HasPrefix(trim, "require ") {
-			m := re.FindStringSubmatch(trim)
+			rest := trim
+			if !inRequire && strings.HasPrefix(trim, "require ") {
+				rest = strings.TrimPrefix(trim, "require ")
+			}
+			m := re.FindStringSubmatch(rest)
 			if len(m) >= 3 && !strings.Contains(m[1], "go") {
 				deps = append(deps, dependency{
 					Name:             m[1],

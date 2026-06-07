@@ -379,3 +379,185 @@ mcp_server_enabled = true
 		t.Errorf("expected timeout 45, got %d", cfg.DefaultTimeout)
 	}
 }
+
+func TestConfig_ConfigDirEmptyOnHomeError(t *testing.T) {
+	t.Setenv("HOME", "")
+	dir := configDir()
+	_ = dir
+}
+
+func TestConfig_LoadConfigReadError(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfgPath := filepath.Join(cfgDir, "sin-code.toml")
+	if err := os.WriteFile(cfgPath, []byte("test"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	os.Chmod(cfgPath, 0000)
+	defer os.Chmod(cfgPath, 0644)
+
+	_, err := loadConfig()
+	if err == nil {
+		t.Error("expected error for unreadable config file")
+	}
+}
+
+func TestConfig_SaveConfigMkdirError(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	readOnlyDir := filepath.Join(tmpDir, "readonly")
+	if err := os.MkdirAll(readOnlyDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	os.Chmod(readOnlyDir, 0555)
+	defer os.Chmod(readOnlyDir, 0755)
+
+	t.Setenv("HOME", readOnlyDir)
+	cfg := defaultConfig()
+	err := saveConfig(cfg)
+	if err == nil {
+		t.Error("expected error for unwritable config dir")
+	}
+}
+
+func TestConfig_InitConfigSaveError(t *testing.T) {
+	readOnlyDir := t.TempDir()
+	os.Chmod(readOnlyDir, 0555)
+	defer os.Chmod(readOnlyDir, 0755)
+
+	t.Setenv("HOME", readOnlyDir)
+	err := initConfig()
+	if err == nil {
+		t.Error("expected error when saveConfig fails in initConfig")
+	}
+}
+
+func TestConfig_LoadConfigEmptyLines(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := `
+theme = "light"
+
+invalid_line_without_equals
+default_format = "text"
+`
+	cfgPath := filepath.Join(cfgDir, "sin-code.toml")
+	if err := os.WriteFile(cfgPath, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.Theme != "light" {
+		t.Errorf("expected theme 'light', got %q", cfg.Theme)
+	}
+	if cfg.DefaultFormat != "text" {
+		t.Errorf("expected format 'text', got %q", cfg.DefaultFormat)
+	}
+	if cfg.DefaultTimeout != 60 {
+		t.Errorf("expected default timeout 60 for missing key, got %d", cfg.DefaultTimeout)
+	}
+}
+
+func TestConfig_SetConfigValueSaveError(t *testing.T) {
+	readOnlyDir := t.TempDir()
+	os.Chmod(readOnlyDir, 0555)
+	defer os.Chmod(readOnlyDir, 0755)
+
+	t.Setenv("HOME", readOnlyDir)
+	err := setConfigValue("theme", "dark")
+	if err == nil {
+		t.Error("expected error when saveConfig fails in setConfigValue")
+	}
+}
+
+func TestConfig_GetConfigAllKeys(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveConfig(defaultConfig()); err != nil {
+		t.Fatal(err)
+	}
+
+	keys := []string{"theme", "default_timeout", "default_format", "mcp_server_enabled"}
+	for _, key := range keys {
+		val, err := getConfigValue(key)
+		if err != nil {
+			t.Errorf("getConfigValue(%q) error: %v", key, err)
+		}
+		if val == "" {
+			t.Errorf("expected non-empty value for %q", key)
+		}
+	}
+}
+
+func TestConfig_SetGetMcpEnabledTrue(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveConfig(defaultConfig()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := setConfigValue("mcp_server_enabled", "true"); err != nil {
+		t.Fatalf("setConfigValue(mcp_server_enabled, true): %v", err)
+	}
+	val, err := getConfigValue("mcp_server_enabled")
+	if err != nil {
+		t.Fatalf("getConfigValue(mcp_server_enabled): %v", err)
+	}
+	if val != "true" {
+		t.Errorf("expected 'true', got %q", val)
+	}
+}
+
+func TestConfig_SetConfigValueOutput(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveConfig(defaultConfig()); err != nil {
+		t.Fatal(err)
+	}
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	err := setConfigValue("theme", "dark")
+	w.Close()
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("setConfigValue: %v", err)
+	}
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+	if !contains(out, "Set theme") {
+		t.Errorf("expected output to mention 'Set theme', got %q", out)
+	}
+}

@@ -554,3 +554,408 @@ func TestSearchFiles_MultipleFileTypes(t *testing.T) {
 		t.Errorf("expected at least 3 results across file types, got %d", len(results))
 	}
 }
+
+func TestScoreRelevanceScout_CommentTypes(t *testing.T) {
+	tests := []struct {
+		name    string
+		relPath string
+		line    string
+	}{
+		{"hash comment", "app.py", "# this is a comment"},
+		{"block comment start", "app.go", "/* block comment */"},
+		{"block comment star", "app.go", "* middle of block"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			score := scoreRelevanceScout(tt.relPath, tt.line)
+			if score >= 60 {
+				t.Errorf("expected penalty for comment, got %.1f", score)
+			}
+		})
+	}
+}
+
+func TestScoreRelevanceScout_ZeroFloor(t *testing.T) {
+	score := scoreRelevanceScout("_test_test.go", "// test comment # /* */")
+	if score < 0 {
+		t.Errorf("score should be floored at 0, got %.1f", score)
+	}
+}
+
+func TestSearchFiles_MaxResultsReached(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("// match1\n// match2\npackage main\nfunc main() {}\n// match3\n"), 0644)
+
+	results, err := searchFiles(dir, `match`, "regex", 2)
+	if err != nil {
+		t.Fatalf("searchFiles failed: %v", err)
+	}
+	if len(results) > 2 {
+		t.Errorf("expected at most 2 results, got %d", len(results))
+	}
+}
+
+func TestSearchFiles_SemanticInvalid(t *testing.T) {
+	dir := t.TempDir()
+	_, err := searchFiles(dir, "[invalid", "semantic", 50)
+	if err == nil {
+		t.Error("expected error for invalid semantic query")
+	}
+}
+
+func TestSearchFiles_UsageEscapesQuery(t *testing.T) {
+	dir := t.TempDir()
+	_, err := searchFiles(dir, "[invalid", "usage", 50)
+	if err != nil {
+		t.Errorf("usage search should escape special chars via QuoteMeta: %v", err)
+	}
+}
+
+func TestSearchFiles_SymbolEscapesQuery(t *testing.T) {
+	dir := t.TempDir()
+	_, err := searchFiles(dir, "[invalid", "symbol", 50)
+	if err != nil {
+		t.Errorf("symbol search should escape special chars via QuoteMeta: %v", err)
+	}
+}
+
+func TestScoutCmd_InvalidAbsPath(t *testing.T) {
+	scoutQuery = "test"
+	scoutPath = "\x00invalid"
+	scoutType = "regex"
+	scoutFormat = "text"
+	err := ScoutCmd.RunE(ScoutCmd, []string{})
+	if err == nil {
+		t.Error("expected error for invalid abs path")
+	}
+}
+
+func TestGetContext_ShortLines(t *testing.T) {
+	lines := []string{"a", "b", "c"}
+	ctx := getContext(lines, 0, 5)
+	if len(ctx) != 3 {
+		t.Errorf("expected 3 context lines, got %d", len(ctx))
+	}
+}
+
+func TestScoreRelevanceScout_CommentPenalty(t *testing.T) {
+	score := scoreRelevanceScout("main.go", "// this is a comment")
+	noComment := scoreRelevanceScout("main.go", "func main()")
+	if score >= noComment {
+		t.Errorf("expected comment line to score lower, got %.1f vs %.1f", score, noComment)
+	}
+}
+
+func TestScoreRelevanceScout_HashComment(t *testing.T) {
+	score := scoreRelevanceScout("app.py", "# this is a python comment")
+	if score > 60 {
+		t.Errorf("expected hash comment penalty, got %.1f", score)
+	}
+}
+
+func TestScoreRelevanceScout_TestFilePenalty(t *testing.T) {
+	score := scoreRelevanceScout("main_test.go", "func TestSomething()")
+	normal := scoreRelevanceScout("main.go", "func TestSomething()")
+	if score >= normal {
+		t.Errorf("expected test file penalty, got %.1f vs %.1f", score, normal)
+	}
+}
+
+func TestScoreRelevanceScout_BlockComment(t *testing.T) {
+	score := scoreRelevanceScout("main.go", "/* block comment */")
+	if score > 65 {
+		t.Errorf("expected block comment penalty, got %.1f", score)
+	}
+}
+
+func TestScoreRelevanceScout_DefinitionBoost(t *testing.T) {
+	score := scoreRelevanceScout("main.go", "func Handler()")
+	base := scoreRelevanceScout("main.go", "x = 1")
+	if score <= base {
+		t.Errorf("expected definition boost, got %.1f vs %.1f", score, base)
+	}
+}
+
+func TestScoreRelevanceScout_NonCodeFile(t *testing.T) {
+	score := scoreRelevanceScout("data.csv", "value")
+	codeScore := scoreRelevanceScout("main.go", "value")
+	if score >= codeScore {
+		t.Errorf("expected non-code file to score lower, got %.1f vs %.1f", score, codeScore)
+	}
+}
+
+func TestSearchFiles_SemanticSearch(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "app.go"), []byte("package main\nfunc HandleRequest() {}\n"), 0644)
+	results, err := searchFiles(dir, "HandleRequest", "semantic", 10)
+	if err != nil {
+		t.Fatalf("semantic search failed: %v", err)
+	}
+	if len(results) == 0 {
+		t.Error("expected at least 1 semantic search result")
+	}
+}
+
+func TestSearchFiles_SymbolSearch(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc MyFunc() {}\n"), 0644)
+	results, err := searchFiles(dir, "MyFunc", "symbol", 10)
+	if err != nil {
+		t.Fatalf("symbol search failed: %v", err)
+	}
+	_ = results
+}
+
+func TestSearchFiles_UsageSearch(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() { MyFunc() }\n"), 0644)
+	results, err := searchFiles(dir, "MyFunc", "usage", 10)
+	if err != nil {
+		t.Fatalf("usage search failed: %v", err)
+	}
+	_ = results
+}
+
+func TestSearchFiles_ContextExtraction(t *testing.T) {
+	dir := t.TempDir()
+	content := "package main\nimport \"fmt\"\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n"
+	os.WriteFile(filepath.Join(dir, "app.go"), []byte(content), 0644)
+	results, err := searchFiles(dir, "fmt.Println", "regex", 10)
+	if err != nil {
+		t.Fatalf("regex search failed: %v", err)
+	}
+	for _, r := range results {
+		if len(r.Context) == 0 {
+			t.Errorf("expected context lines for result in %s:%d", r.File, r.Line)
+		}
+	}
+}
+
+func TestScoreRelevanceScout_StarComment(t *testing.T) {
+	score := scoreRelevanceScout("main.go", "* continuation of block comment")
+	if score > 60 {
+		t.Errorf("expected star-comment penalty, got %.1f", score)
+	}
+}
+
+func TestScoreRelevanceScout_ZeroFloorCheck(t *testing.T) {
+	score := scoreRelevanceScout("data.csv", "// comment with penalty")
+	if score < 0 {
+		t.Errorf("score should not be negative, got %.1f", score)
+	}
+}
+
+func TestScoutCmd_TextOutput(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "app.go"), []byte("package main\nfunc main() {}\n"), 0644)
+
+	scoutQuery = "main"
+	scoutPath = dir
+	scoutType = "regex"
+	scoutFormat = "text"
+	scoutMax = 10
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := ScoutCmd.RunE(ScoutCmd, []string{})
+	w.Close()
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("ScoutCmd.RunE failed: %v", err)
+	}
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+	if !strings.Contains(out, "matches found") {
+		t.Errorf("expected matches found in output, got: %q", out)
+	}
+}
+
+func TestSearchFiles_MaxResultsLimited(t *testing.T) {
+	dir := t.TempDir()
+	for i := 0; i < 20; i++ {
+		os.WriteFile(filepath.Join(dir, fmt.Sprintf("file_%d.go", i)), []byte(fmt.Sprintf("package main\nfunc Func%d() {}\n", i)), 0644)
+	}
+	results, err := searchFiles(dir, "Func", "regex", 5)
+	if err != nil {
+		t.Fatalf("searchFiles failed: %v", err)
+	}
+	if len(results) > 5 {
+		t.Errorf("expected max 5 results, got %d", len(results))
+	}
+}
+
+func TestSearchFiles_WalkError(t *testing.T) {
+	dir := t.TempDir()
+	subdir := filepath.Join(dir, "sub")
+	os.Mkdir(subdir, 0755)
+	os.WriteFile(filepath.Join(subdir, "app.go"), []byte("package main\n"), 0644)
+	os.Chmod(subdir, 0000)
+	defer os.Chmod(subdir, 0755)
+
+	results, err := searchFiles(dir, "main", "regex", 10)
+	_ = results
+	_ = err
+}
+
+func TestScoutCmd_SearchError(t *testing.T) {
+	scoutQuery = "test"
+	scoutPath = "/nonexistent/path/that/does/not/exist"
+	scoutType = "regex"
+	scoutFormat = "text"
+	scoutMax = 10
+
+	err := ScoutCmd.RunE(ScoutCmd, []string{})
+	if err == nil {
+		t.Error("expected error for nonexistent search path")
+	}
+}
+
+func TestScoutCmd_InvalidRegexQuery(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "app.go"), []byte("package main\n"), 0644)
+
+	scoutQuery = "[invalid("
+	scoutPath = dir
+	scoutType = "regex"
+	scoutFormat = "text"
+	scoutMax = 10
+
+	err := ScoutCmd.RunE(ScoutCmd, []string{})
+	if err == nil {
+		t.Error("expected error for invalid regex query")
+	}
+}
+
+func TestScoutCmd_NotDirPath(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "notdir.txt")
+	os.WriteFile(filePath, []byte("hello"), 0644)
+
+	scoutQuery = "test"
+	scoutPath = filePath
+	scoutType = "regex"
+	scoutFormat = "text"
+	scoutMax = 10
+
+	err := ScoutCmd.RunE(ScoutCmd, []string{})
+	if err == nil {
+		t.Error("expected error when path is not a directory")
+	}
+}
+
+func TestSearchFiles_PermDeniedSubdir(t *testing.T) {
+	dir := t.TempDir()
+	subdir := filepath.Join(dir, "denied")
+	os.Mkdir(subdir, 0755)
+	os.WriteFile(filepath.Join(subdir, "secret.go"), []byte("package secret\nfunc Secret() {}\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "public.go"), []byte("package main\nfunc Public() {}\n"), 0644)
+	os.Chmod(subdir, 0000)
+	defer os.Chmod(subdir, 0755)
+
+	results, err := searchFiles(dir, "func", "regex", 100)
+	_ = results
+	_ = err
+}
+
+func TestScoutCmd_SearchFileError(t *testing.T) {
+	scoutQuery = "[invalid("
+	scoutPath = os.TempDir()
+	scoutType = "regex"
+	scoutFormat = "text"
+	scoutMax = 10
+
+	err := ScoutCmd.RunE(ScoutCmd, []string{})
+	if err == nil {
+		t.Error("expected error for invalid regex via RunE")
+	}
+}
+
+func TestSearchFiles_InvalidType(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "app.go"), []byte("package main\n"), 0644)
+	_, err := searchFiles(dir, "test", "bogus_type", 10)
+	if err == nil {
+		t.Error("expected error for unknown search type")
+	}
+}
+
+func TestScoutCmd_PathNotFound(t *testing.T) {
+	scoutQuery = "test"
+	scoutPath = "/nonexistent/path"
+	scoutType = "regex"
+	scoutFormat = "text"
+	scoutMax = 10
+
+	err := ScoutCmd.RunE(ScoutCmd, []string{})
+	if err == nil {
+		t.Error("expected error for path not found")
+	}
+}
+
+func TestSearchFiles_EmptyQuery(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "app.go"), []byte("package main\nfunc main() {}\n"), 0644)
+	results, err := searchFiles(dir, "", "regex", 10)
+	if err != nil {
+		t.Fatalf("empty query should not error: %v", err)
+	}
+	_ = results
+}
+
+func TestSearchFiles_SemanticMultiWord(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "handler.go"), []byte("package main\nfunc HandleRequest() {}\nfunc ProcessData() {}\n"), 0644)
+	results, err := searchFiles(dir, "Handle Request", "semantic", 10)
+	if err != nil {
+		t.Fatalf("semantic multi-word search failed: %v", err)
+	}
+	if len(results) == 0 {
+		t.Error("expected results for semantic multi-word search")
+	}
+}
+
+func TestScoutCmd_JSONOutput(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "app.go"), []byte("package main\nfunc main() {}\n"), 0644)
+
+	scoutQuery = "main"
+	scoutPath = dir
+	scoutType = "regex"
+	scoutFormat = "json"
+	scoutMax = 10
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := ScoutCmd.RunE(ScoutCmd, []string{})
+	w.Close()
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("ScoutCmd.RunE json failed: %v", err)
+	}
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	var results []scoutResult
+	if jsonErr := json.Unmarshal(buf.Bytes(), &results); jsonErr != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", jsonErr)
+	}
+}
+
+func TestScoutCmd_NoQuery(t *testing.T) {
+	scoutQuery = ""
+	scoutPath = "."
+	scoutType = "regex"
+	scoutFormat = "text"
+	scoutMax = 10
+
+	err := ScoutCmd.RunE(ScoutCmd, []string{})
+	if err == nil {
+		t.Error("expected error for empty query")
+	}
+}

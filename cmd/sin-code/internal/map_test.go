@@ -282,7 +282,7 @@ func main() {
 	}
 }
 
-func TestMapArchitecture_OrphanDetection(t *testing.T) {
+func TestMapArchitecture_OrphanCheck(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "orphan.go"), []byte("package orphan\nfunc Standalone() {}\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
@@ -433,4 +433,364 @@ func TestContent_Nonexistent(t *testing.T) {
 	if got != "" {
 		t.Errorf("expected empty string for nonexistent file, got %q", got)
 	}
+}
+
+func TestMapArchitecture_RustEntryPoint(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "main.rs"), []byte("fn main() {}\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	found := false
+	for _, ep := range result.EntryPoints {
+		if strings.HasSuffix(ep, "main.rs") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected main.rs as entry point, got %v", result.EntryPoints)
+	}
+}
+
+func TestMapArchitecture_JavaEntryPoint(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "App.java"), []byte("public class App { public static void main(String[] args) {} }\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	found := false
+	for _, ep := range result.EntryPoints {
+		if strings.HasSuffix(ep, "App.java") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected App.java as entry point, got %v", result.EntryPoints)
+	}
+}
+
+func TestMapArchitecture_ModuleTracking(t *testing.T) {
+	dir := t.TempDir()
+	os.Mkdir(filepath.Join(dir, "cmd"), 0755)
+	os.WriteFile(filepath.Join(dir, "cmd", "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	if result.Summary.TotalFiles < 1 {
+		t.Errorf("expected at least 1 file, got %d", result.Summary.TotalFiles)
+	}
+}
+
+func TestMapArchitecture_TypeScriptEntryPoint(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "main.ts"), []byte("const x = 1;\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	found := false
+	for _, ep := range result.EntryPoints {
+		if strings.HasSuffix(ep, "main.ts") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected main.ts as entry point, got %v", result.EntryPoints)
+	}
+}
+
+func TestMapArchitecture_ConfigDetection(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "package.json"), []byte("{}\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "go.sum"), []byte("\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "Dockerfile"), []byte("FROM golang\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	if result.Summary.ConfigFiles < 3 {
+		t.Errorf("expected at least 3 config files, got %d", result.Summary.ConfigFiles)
+	}
+}
+
+func TestMapArchitecture_DocDetection(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "README.md"), []byte("# Test\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "LICENSE"), []byte("MIT\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "CHANGELOG.md"), []byte("# Changelog\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	if result.Summary.Documentation < 2 {
+		t.Errorf("expected at least 2 doc files, got %d", result.Summary.Documentation)
+	}
+}
+
+func TestMapArchitecture_PythonEntryPoint(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "app.py"), []byte("import os\nif __name__ == \"__main__\":\n    os.exit(0)\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	found := false
+	for _, ep := range result.EntryPoints {
+		if strings.HasSuffix(ep, "app.py") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected app.py as entry point (contains __main__), got %v", result.EntryPoints)
+	}
+}
+
+func TestMapCmd_InvalidAbsPath(t *testing.T) {
+	mapFormat = "text"
+	mapAction = "map"
+	err := MapCmd.RunE(MapCmd, []string{"\x00invalid"})
+	if err == nil {
+		t.Error("expected error for invalid path")
+	}
+}
+
+func TestOutputTextMap_NoEntryPoints(t *testing.T) {
+	r := &mapResult{
+		Path: "/tmp/test",
+		Summary: mapSummary{
+			TotalFiles: 1,
+			TotalLines: 10,
+			Languages:  map[string]int{"go": 1},
+		},
+		HotPaths: []hotPath{},
+		Orphans:  []string{},
+	}
+
+	old := os.Stdout
+	pr, pw, _ := os.Pipe()
+	os.Stdout = pw
+
+	err := outputTextMap(r)
+	pw.Close()
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("outputTextMap failed: %v", err)
+	}
+	var buf bytes.Buffer
+	buf.ReadFrom(pr)
+	out := buf.String()
+	if !strings.Contains(out, "Total files") {
+		t.Errorf("expected summary in output, got %q", out)
+	}
+}
+
+func TestMin_Equal(t *testing.T) {
+	if got := min(5, 5); got != 5 {
+		t.Errorf("min(5,5) = %d, want 5", got)
+	}
+}
+
+func TestMapArchitecture_VendorSkip(t *testing.T) {
+	dir := t.TempDir()
+	os.Mkdir(filepath.Join(dir, "vendor"), 0755)
+	os.WriteFile(filepath.Join(dir, "vendor", "lib.go"), []byte("package vendor\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	for _, f := range result.Summary.Languages {
+		_ = f
+	}
+	for lang := range result.Summary.Languages {
+		_ = lang
+	}
+}
+
+func TestMapArchitecture_HotPathDetection(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nimport \"fmt\"\nfunc main() { fmt.Println() }\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	_ = result.HotPaths
+}
+
+
+
+func TestMapArchitecture_TestFileCount(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "main_test.go"), []byte("package main\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	if result.Summary.TestFiles < 1 {
+		t.Errorf("expected at least 1 test file, got %d", result.Summary.TestFiles)
+	}
+}
+
+func TestMapCmd_JSONOutput(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n"), 0644)
+
+	mapFormat = "json"
+	mapAction = "map"
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := MapCmd.RunE(MapCmd, []string{dir})
+	w.Close()
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("MapCmd.RunE failed: %v", err)
+	}
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	var result mapResult
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("expected valid JSON output, got parse error: %v", err)
+	}
+}
+
+func TestOutputTextMap_WithOrphans(t *testing.T) {
+	r := &mapResult{
+		Path: "/tmp/test",
+		Summary: mapSummary{
+			TotalFiles: 3, TotalLines: 100,
+			Languages: map[string]int{"go": 3},
+		},
+		EntryPoints: []string{"main.go"},
+		HotPaths:   []hotPath{{Path: "utils.go", Imports: 5}},
+		Orphans:    []string{"orphan1.go", "orphan2.go"},
+	}
+
+	old := os.Stdout
+	pr, pw, _ := os.Pipe()
+	os.Stdout = pw
+
+	err := outputTextMap(r)
+	pw.Close()
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("outputTextMap failed: %v", err)
+	}
+	var buf bytes.Buffer
+	buf.ReadFrom(pr)
+	out := buf.String()
+	if !strings.Contains(out, "Orphans") {
+		t.Errorf("expected Orphans in output, got: %q", out)
+	}
+	if !strings.Contains(out, "Hot Paths") {
+		t.Errorf("expected Hot Paths in output, got: %q", out)
+	}
+}
+
+func TestOutputTextMap_ManyOrphans(t *testing.T) {
+	orphans := make([]string, 25)
+	for i := range orphans {
+		orphans[i] = fmt.Sprintf("orphan_%d.go", i)
+	}
+	r := &mapResult{
+		Path: "/tmp/test",
+		Summary: mapSummary{
+			TotalFiles: 25, TotalLines: 500,
+			Languages: map[string]int{"go": 25},
+		},
+		Orphans: orphans,
+	}
+
+	old := os.Stdout
+	pr, pw, _ := os.Pipe()
+	os.Stdout = pw
+
+	err := outputTextMap(r)
+	pw.Close()
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("outputTextMap failed: %v", err)
+	}
+	var buf bytes.Buffer
+	buf.ReadFrom(pr)
+	_ = buf.String()
+}
+
+func TestMin_AGreaterThanB(t *testing.T) {
+	if got := min(10, 5); got != 5 {
+		t.Errorf("min(10,5) = %d, want 5", got)
+	}
+}
+
+func TestMapArchitecture_WithImports(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nimport \"fmt\"\nfunc main() { fmt.Println() }\n"), 0644)
+	os.Mkdir(filepath.Join(dir, "pkg"), 0755)
+	os.WriteFile(filepath.Join(dir, "pkg", "utils.go"), []byte("package pkg\nfunc Helper() {}\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	if result.Summary.TotalFiles < 2 {
+		t.Errorf("expected at least 2 files, got %d", result.Summary.TotalFiles)
+	}
+}
+
+func TestMapCmd_InvalidPath(t *testing.T) {
+	mapFormat = "text"
+	mapAction = "map"
+	err := MapCmd.RunE(MapCmd, []string{"/nonexistent/path"})
+	if err == nil {
+		t.Error("expected error for nonexistent path")
+	}
+}
+
+func TestMapArchitecture_MultipleModules(t *testing.T) {
+	dir := t.TempDir()
+	os.Mkdir(filepath.Join(dir, "cmd"), 0755)
+	os.WriteFile(filepath.Join(dir, "cmd", "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
+	os.Mkdir(filepath.Join(dir, "internal"), 0755)
+	os.WriteFile(filepath.Join(dir, "internal", "handler.go"), []byte("package internal\nfunc Handle() {}\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	_ = result.Modules
+}
+
+func TestMapArchitecture_LargeFileSkip(t *testing.T) {
+	dir := t.TempDir()
+	bigFile := filepath.Join(dir, "big.go")
+	bigContent := "package main\n" + strings.Repeat("// fill\n", 500000)
+	os.WriteFile(bigFile, []byte(bigContent), 0644)
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
+
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	_ = result.Summary
 }

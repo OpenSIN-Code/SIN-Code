@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"fmt"
 	"testing"
 )
 
@@ -590,5 +591,263 @@ func TestSckgCmd_FileAsPath(t *testing.T) {
 	err := SckgCmd.RunE(SckgCmd, []string{f})
 	if err == nil {
 		t.Error("expected error when path is a file not a directory")
+	}
+}
+
+func TestBuildGraph_TypeScriptFile(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "app.ts"), []byte("interface MyInterface {}\ntype MyType = string;\nexport function hello(): string { return 'hi'; }\nconst x = 5;\n"), 0644)
+
+	graph, err := buildGraph(dir)
+	if err != nil {
+		t.Fatalf("buildGraph failed: %v", err)
+	}
+	foundInterface := false
+	foundType := false
+	for _, node := range graph.Nodes {
+		if node.Type == "interface" && node.Name == "MyInterface" {
+			foundInterface = true
+		}
+		if node.Type == "type" && node.Name == "MyType" {
+			foundType = true
+		}
+	}
+	if !foundInterface {
+		t.Error("expected interface node 'MyInterface'")
+	}
+	if !foundType {
+		t.Error("expected type node 'MyType'")
+	}
+}
+
+func TestBuildGraph_LargeFileSkipped(t *testing.T) {
+	dir := t.TempDir()
+	bigContent := strings.Repeat("package main\nfunc F() {}\n", 200000)
+	os.WriteFile(filepath.Join(dir, "big.go"), []byte(bigContent), 0644)
+
+	graph, err := buildGraph(dir)
+	if err != nil {
+		t.Fatalf("buildGraph failed: %v", err)
+	}
+	for _, node := range graph.Nodes {
+		if strings.Contains(node.Path, "big.go") && node.Type == "function" {
+			t.Error("expected large file to skip symbol extraction")
+		}
+	}
+}
+
+func TestBuildGraph_ReadErrorSkipped(t *testing.T) {
+	dir := t.TempDir()
+	secretFile := filepath.Join(dir, "secret.go")
+	os.WriteFile(secretFile, []byte("package main\n"), 0644)
+	os.Chmod(secretFile, 0000)
+	defer os.Chmod(secretFile, 0644)
+
+	graph, err := buildGraph(dir)
+	if err != nil {
+		t.Fatalf("buildGraph should not fail on unreadable file: %v", err)
+	}
+	for _, node := range graph.Nodes {
+		if strings.Contains(node.Path, "secret.go") && node.Type == "function" {
+			t.Error("expected unreadable file to be skipped")
+		}
+	}
+}
+
+func TestBuildGraph_VendorDir(t *testing.T) {
+	dir := t.TempDir()
+	vendorDir := filepath.Join(dir, "vendor")
+	os.MkdirAll(vendorDir, 0755)
+	os.WriteFile(filepath.Join(vendorDir, "lib.go"), []byte("package lib\nfunc Hidden() {}\n"), 0644)
+
+	graph, err := buildGraph(dir)
+	if err != nil {
+		t.Fatalf("buildGraph failed: %v", err)
+	}
+	for _, node := range graph.Nodes {
+		if strings.Contains(node.Path, "vendor") {
+			t.Errorf("expected vendor dir to be skipped, found: %v", node)
+		}
+	}
+}
+
+func TestQueryGraph_RelatedByTarget(t *testing.T) {
+	graph := &sckgGraph{
+		Nodes: []sckgNode{
+			{ID: "file:a.go", Type: "file", Name: "a.go", Path: "a.go"},
+			{ID: "file:b.go", Type: "file", Name: "b.go", Path: "b.go"},
+			{ID: "func:a.go:Hello", Type: "function", Name: "Hello", Path: "a.go", Line: 5},
+		},
+		Edges: []sckgEdge{
+			{Source: "file:b.go", Target: "func:a.go:Hello", Type: "contains"},
+		},
+	}
+
+	result := queryGraph(graph, "hello")
+	if len(result.Matches) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(result.Matches))
+	}
+	if len(result.Related) == 0 {
+		t.Error("expected related nodes when match is edge target")
+	}
+}
+
+func TestQueryGraph_ByPath(t *testing.T) {
+	graph := &sckgGraph{
+		Nodes: []sckgNode{
+			{ID: "file:auth/login.go", Type: "file", Name: "login.go", Path: "auth/login.go"},
+		},
+		Edges: []sckgEdge{},
+	}
+
+	result := queryGraph(graph, "auth")
+	if len(result.Matches) != 1 {
+		t.Errorf("expected 1 match for path 'auth', got %d", len(result.Matches))
+	}
+}
+
+func TestGraphStats_TopImportsTruncated(t *testing.T) {
+	var nodes []sckgNode
+	var edges []sckgEdge
+	nodes = append(nodes, sckgNode{ID: "file:main.go", Type: "file", Name: "main.go"})
+	for i := 0; i < 15; i++ {
+		depID := fmt.Sprintf("dep:pkg%d", i)
+		nodes = append(nodes, sckgNode{ID: depID, Type: "module", Name: fmt.Sprintf("pkg%d", i)})
+		edges = append(edges, sckgEdge{Source: "file:main.go", Target: depID, Type: "imports"})
+	}
+
+	graph := &sckgGraph{Nodes: nodes, Edges: edges}
+	stats := graphStats(graph)
+	if len(stats.TopImports) > 10 {
+		t.Errorf("expected at most 10 top imports, got %d", len(stats.TopImports))
+	}
+}
+
+func TestGraphStats_NoOrphansForFiles(t *testing.T) {
+	graph := &sckgGraph{
+		Nodes: []sckgNode{
+			{ID: "file:a.go", Type: "file", Name: "a.go"},
+		},
+		Edges: []sckgEdge{},
+	}
+
+	stats := graphStats(graph)
+	for _, o := range stats.OrphanNodes {
+		if o == "a.go" {
+			t.Error("file nodes should not be reported as orphans")
+		}
+	}
+}
+
+func TestOutputTextSCKGStats_NoImports(t *testing.T) {
+	stats := &sckgStats{
+		TotalNodes:  1,
+		TotalEdges:  0,
+		NodeTypes:   map[string]int{"file": 1},
+		EdgeTypes:   map[string]int{},
+		TopImports:  nil,
+		OrphanNodes: nil,
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	if err := outputTextSCKGStats(stats); err != nil {
+		t.Fatalf("outputTextSCKGStats failed: %v", err)
+	}
+	w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+	if !strings.Contains(out, "SCKG Graph Statistics") {
+		t.Errorf("expected header in output, got %q", out)
+	}
+}
+
+func TestOutputTextSCKGStats_WithOrphans(t *testing.T) {
+	stats := &sckgStats{
+		TotalNodes:  3,
+		TotalEdges:  1,
+		NodeTypes:   map[string]int{"file": 1, "function": 2},
+		EdgeTypes:   map[string]int{"contains": 1},
+		OrphanNodes: []string{"OrphanFunc"},
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	if err := outputTextSCKGStats(stats); err != nil {
+		t.Fatalf("outputTextSCKGStats failed: %v", err)
+	}
+	w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+	if !strings.Contains(out, "Orphan nodes") {
+		t.Errorf("expected 'Orphan nodes' in output, got %q", out)
+	}
+}
+
+func TestSckgCmd_ActionQueryJSON(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc Hello() {}\n"), 0644)
+
+	sckgAction = "query"
+	sckgQuery = "hello"
+	sckgFormat = "json"
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := SckgCmd.RunE(SckgCmd, []string{dir})
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("SckgCmd.RunE failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+	var result queryResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+}
+
+func TestSckgCmd_ActionStatsJSON(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc Hello() {}\n"), 0644)
+
+	sckgAction = "stats"
+	sckgQuery = ""
+	sckgFormat = "json"
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := SckgCmd.RunE(SckgCmd, []string{dir})
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("SckgCmd.RunE failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+	var stats sckgStats
+	if err := json.Unmarshal([]byte(out), &stats); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
 	}
 }

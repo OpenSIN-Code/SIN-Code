@@ -450,3 +450,131 @@ func TestPocCmd_JSONOutput(t *testing.T) {
 		t.Errorf("expected code=%s, got %s", codeFile, result.Code)
 	}
 }
+
+func TestVerifyCorrectness_SpecSameAsCode(t *testing.T) {
+	dir := t.TempDir()
+	codeFile := filepath.Join(dir, "main.go")
+	os.WriteFile(codeFile, []byte("package main\nfunc Hello() {}\n"), 0644)
+
+	result, err := verifyCorrectness(codeFile, codeFile)
+	if err != nil {
+		t.Fatalf("verifyCorrectness failed: %v", err)
+	}
+	if result.Spec != codeFile {
+		t.Errorf("expected spec=%s, got %s", codeFile, result.Spec)
+	}
+}
+
+func TestExtractRequirements_StructKeyword(t *testing.T) {
+	content := "struct DataContainer must implement Save"
+	reqs := extractRequirements(content)
+	found := false
+	for _, r := range reqs {
+		if r.Name == "DataContainer" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected DataContainer requirement, got %v", reqs)
+	}
+}
+
+func TestExtractRequirements_TypeKeyword(t *testing.T) {
+	content := "should define type Config for settings"
+	reqs := extractRequirements(content)
+	if len(reqs) == 0 {
+		t.Fatal("expected at least 1 requirement")
+	}
+}
+
+func TestExtractRequirements_MustHaveKeyword(t *testing.T) {
+	content := "must have Database connection pool"
+	reqs := extractRequirements(content)
+	if len(reqs) == 0 {
+		t.Fatal("expected at least 1 requirement")
+	}
+	found := false
+	for _, r := range reqs {
+		if r.Name == "Database" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected 'Database' requirement, got %v", reqs)
+	}
+}
+
+func TestVerifyCorrectness_FixmeInGo(t *testing.T) {
+	dir := t.TempDir()
+	codeFile := filepath.Join(dir, "lib.go")
+	os.WriteFile(codeFile, []byte("package lib\n// FIXME: broken\nfunc Hello() {}\n"), 0644)
+
+	result, err := verifyCorrectness("", codeFile)
+	if err != nil {
+		t.Fatalf("verifyCorrectness failed: %v", err)
+	}
+	found := false
+	for _, check := range result.Checks {
+		if check.Name == "FIXME" && check.Type == "forbidden" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected FIXME forbidden warning, checks: %v", result.Checks)
+	}
+}
+
+func TestOutputTextPOC_WarnStatus(t *testing.T) {
+	result := &pocResult{
+		Spec:        "spec.md",
+		Code:        "main.go",
+		Passed:      0,
+		Failed:      0,
+		TotalChecks: 1,
+		Coverage:    0,
+		Checks: []pocCheck{
+			{Name: "os.Exit", Type: "forbidden", Status: "warn", Message: "os.Exit found in library code"},
+		},
+		Summary: "Coverage: 0.0% (0/0 requirements, 1 checks, 0 passed, 0 failed, 1 warnings)",
+	}
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	if err := outputTextPOC(result); err != nil {
+		t.Fatalf("outputTextPOC failed: %v", err)
+	}
+	w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+	if !strings.Contains(out, "▲") {
+		t.Errorf("expected warn icon ▲ in output, got %q", out)
+	}
+}
+
+func TestVerifyCorrectness_UnderscoreName(t *testing.T) {
+	dir := t.TempDir()
+	specFile := filepath.Join(dir, "spec.md")
+	codeFile := filepath.Join(dir, "main.go")
+
+	os.WriteFile(specFile, []byte("must implement user_auth module\n"), 0644)
+	os.WriteFile(codeFile, []byte("package main\nfunc user_auth() {}\n"), 0644)
+
+	result, err := verifyCorrectness(specFile, codeFile)
+	if err != nil {
+		t.Fatalf("verifyCorrectness failed: %v", err)
+	}
+	found := false
+	for _, check := range result.Checks {
+		if check.Status == "pass" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected pass for underscore name match, got %v", result.Checks)
+	}
+}

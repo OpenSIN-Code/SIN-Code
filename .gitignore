@@ -58,3 +58,5 @@ coverage.out
 .claude/
 CLAUDE.md
 
+coverage.*.out
+coverage.map.out

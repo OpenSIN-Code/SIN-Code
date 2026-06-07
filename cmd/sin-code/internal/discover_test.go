@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"fmt"
 	"testing"
 )
 
@@ -402,5 +403,133 @@ func TestOutputText(t *testing.T) {
 	}
 	if !strings.Contains(out, "score: 50.0") {
 		t.Errorf("expected output to contain 'score: 50.0', got %q", out)
+	}
+}
+
+func TestDiscoverFiles_DotDirsSkipped(t *testing.T) {
+	dir := t.TempDir()
+	os.Mkdir(filepath.Join(dir, ".git"), 0755)
+	os.WriteFile(filepath.Join(dir, ".git", "config"), []byte("git"), 0644)
+	os.Mkdir(filepath.Join(dir, "node_modules"), 0755)
+	os.WriteFile(filepath.Join(dir, "node_modules", "foo.js"), []byte("module"), 0644)
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n"), 0644)
+
+	results, err := discoverFiles(dir, "**/*", 100)
+	if err != nil {
+		t.Fatalf("discoverFiles failed: %v", err)
+	}
+	for _, r := range results {
+		if strings.Contains(r.RelPath, ".git") || strings.Contains(r.RelPath, "node_modules") {
+			t.Errorf("expected .git and node_modules dirs to be skipped, got %q", r.RelPath)
+		}
+	}
+}
+
+func TestScoreRelevance_MediumFile(t *testing.T) {
+	score := scoreRelevance("big.go", 500_000)
+	noPenalty := scoreRelevance("big.go", 10_000)
+	if score >= noPenalty {
+		t.Errorf("expected medium file to score lower than small file, got %.1f vs %.1f", score, noPenalty)
+	}
+}
+
+func TestScoreRelevance_SmallFile(t *testing.T) {
+	score := scoreRelevance("main.go", 500)
+	if score <= 50 {
+		t.Errorf("expected no penalty for small file, got %.1f", score)
+	}
+}
+
+func TestExtractDependencies_LargeFile(t *testing.T) {
+	dir := t.TempDir()
+	bigFile := filepath.Join(dir, "big.go")
+	bigContent := "package main\nimport \"fmt\"\n" + strings.Repeat("// fill\n", 100000)
+	os.WriteFile(bigFile, []byte(bigContent), 0644)
+
+	deps := extractDependencies(bigFile)
+	_ = deps
+}
+
+func TestExtractDependencies_ReadError(t *testing.T) {
+	dir := t.TempDir()
+	secretFile := filepath.Join(dir, "secret.go")
+	os.WriteFile(secretFile, []byte("package main\nimport \"fmt\"\n"), 0644)
+	os.Chmod(secretFile, 0000)
+	defer os.Chmod(secretFile, 0644)
+
+	deps := extractDependencies(secretFile)
+	if deps != nil {
+		t.Errorf("expected nil for unreadable file, got %v", deps)
+	}
+}
+
+func TestDiscoverFiles_EarlyStop(t *testing.T) {
+	dir := t.TempDir()
+	for i := 0; i < 50; i++ {
+		os.WriteFile(filepath.Join(dir, fmt.Sprintf("file_%d.go", i)), []byte("package main\n"), 0644)
+	}
+
+	results, err := discoverFiles(dir, "**/*", 5)
+	if err != nil {
+		t.Fatalf("discoverFiles failed: %v", err)
+	}
+	if len(results) > 500 {
+		t.Errorf("expected limited results, got %d", len(results))
+	}
+}
+
+func TestDiscoverCmd_InvalidPath(t *testing.T) {
+	discoverFormat = "text"
+	discoverPattern = "**/*"
+	discoverSort = "relevance"
+	discoverLimit = 10
+	err := DiscoverCmd.RunE(DiscoverCmd, []string{"/nonexistent/path"})
+	if err == nil {
+		t.Error("expected error for nonexistent path")
+	}
+}
+
+func TestDiscoverCmd_JSONOutput(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n"), 0644)
+
+	discoverFormat = "json"
+	discoverPattern = "**/*"
+	discoverSort = "relevance"
+	discoverLimit = 10
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	err := DiscoverCmd.RunE(DiscoverCmd, []string{dir})
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("DiscoverCmd.RunE failed: %v", err)
+	}
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	var results []fileResult
+	if err := json.Unmarshal(buf.Bytes(), &results); err != nil {
+		t.Fatalf("expected valid JSON, got parse error: %v", err)
+	}
+}
+
+func TestScoreRelevance_EntryKeywords(t *testing.T) {
+	score := scoreRelevance("index.ts", 1000)
+	if score <= 50 {
+		t.Errorf("expected bonus for index filename, got %.1f", score)
+	}
+}
+
+func TestBuildGlobMatcher_SpecialChars(t *testing.T) {
+	matcher, err := buildGlobMatcher("[invalid")
+	if err != nil {
+		t.Fatalf("buildGlobMatcher should handle special chars: %v", err)
+	}
+	if !matcher("[invalid") {
+		t.Error("escaped glob should match literal [invalid")
 	}
 }
