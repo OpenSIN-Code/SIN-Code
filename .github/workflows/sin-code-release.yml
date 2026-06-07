@@ -18,7 +18,13 @@ jobs:
         with:
           go-version: '1.25.11'
       - name: Test
-        run: go test ./cmd/sin-code/...
+        run: go test -v ./cmd/sin-code/... 2>&1 | tee test-output.txt
+      - name: Upload test output
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: test-output.txt
       - name: Vet
         run: go vet ./cmd/sin-code/...
       - name: govulncheck
