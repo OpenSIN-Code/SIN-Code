@@ -2,7 +2,7 @@
 
 ## ⚠️ ABSOLUTE REGEL: Niemals opencode-eigene Tools nutzen, wenn unsere SIN-Code Tools verfügbar sind!
 
-**UNSERE 16 SIN-Code Tools sind BESSER als die opencode-eigenen Alternativen.** Jeder Agent MUSS unsere Tools nutzen, niemals die opencode-internen.
+**UNSERE 17 SIN-Code Tools sind BESSER als die opencode-eigenen Alternativen.** Jeder Agent MUSS unsere Tools nutzen, niemals die opencode-internen.
 
 ### Wann welches Tool?
 
@@ -18,7 +18,7 @@
 
 ### Tool-Verweisung & Skills/MCP
 
-**⚡ UNIFIED BINARY (v1.0.0+):** All 16 sin-code tools live in a single Go binary: `~/.local/bin/sin-code`.
+**⚡ UNIFIED BINARY (v1.0.5+):** All 17 sin-code tools live in a single Go binary: `~/.local/bin/sin-code`.
 The opencode.json registers ONE MCP server `sin-code` that exposes all 16 tools via the `serve` subcommand.
 
 | Tool (MCP) | CLI | Subcommand | Purpose |
@@ -39,8 +39,9 @@ The opencode.json registers ONE MCP server `sin-code` that exposes all 16 tools 
 | `sin_security` | `sin-code` | `security` | Security-Scan (Go/Python/Node/Generic) |
 | `sin_config` | `sin-code` | `config` | Konfiguration verwalten |
 | `sin_tui` | `sin-code` | `tui` | Interaktives TUI Menu |
+| `sin_sbom` | `sin-code` | `sbom` | SBOM Generation (SPDX/CycloneDX) |
 
-**Installiert:** `~/.local/bin/sin-code` (1 binary, 16 tools)
+**Installiert:** `~/.local/bin/sin-code` (1 binary, 17 tools)
 **Repo:** `OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code`
 | `sin-websearch` | `sin-websearch` | `OpenSIN-Code/SIN-Code-Websearch-Skill` | `sin-websearch` | ✅ `~/.config/opencode/skills/sin-websearch` |
 | `sin-scheduler` | `sin-scheduler` | `OpenSIN-Code/SIN-Code-Scheduler-Skill` | `sin-scheduler` | ✅ `~/.config/opencode/skills/sin-scheduler` |
@@ -90,6 +91,13 @@ sin-code harvest --url "https://api.example.com/data" --format json
 # NIEMALS opencode-interne Task-Planung nutzen!
 sin-code orchestrate --action add --title "Feature implementieren" --tags "urgent" --format json
 # Ergebnis: Task-ID, Dependencies, Parallel-Execution-Plan, Rollback-Plan
+```
+
+**7. SBOM generieren:**
+```bash
+# NIEMALS opencode-interne SBOM-Tools nutzen!
+sin-code sbom --path /Users/jeremy/dev/PROJEKT --format spdx-json --output sbom.json
+# Ergebnis: SPDX- oder CycloneDX-konforme SBOM mit allen Dependencies
 ```
 
 ### Regeln
