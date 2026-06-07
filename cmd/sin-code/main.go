@@ -46,7 +46,12 @@ func init() {
 	rootCmd.AddCommand(internal.EfmCmd)
 	rootCmd.AddCommand(internal.ServeCmd)
 	rootCmd.AddCommand(internal.SecurityCmd)
+	rootCmd.AddCommand(internal.ConfigCmd)
+	rootCmd.AddCommand(internal.SelfUpdateCmd)
 	rootCmd.AddCommand(tuiCmd)
+
+	// Pass build-time version to self-update module.
+	internal.SetCurrentVersion(Version)
 }
 
 func main() {
