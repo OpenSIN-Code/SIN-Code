@@ -21,7 +21,8 @@ jobs:
       - name: Test
         run: go test -v ./cmd/sin-code/... 2>&1 | tee test-output.txt
       - name: Upload test output
-        uses: actions/upload-artifact@v4
+        if: always()
+        uses: actions/upload-artifact@v3
         with:
           name: test-output
           path: test-output.txt
@@ -29,7 +30,7 @@ jobs:
         run: go vet ./cmd/sin-code/... 2>&1 | tee vet-output.txt
       - name: Upload vet output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: vet-output
           path: vet-output.txt
@@ -39,7 +40,7 @@ jobs:
           govulncheck ./cmd/sin-code/... 2>&1 | tee govulncheck-output.txt
       - name: Upload govulncheck output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: govulncheck-output
           path: govulncheck-output.txt
