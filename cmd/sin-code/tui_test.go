@@ -31,6 +31,19 @@ func TestTuiFallbackOutput(t *testing.T) {
 	}
 }
 
+func TestTuiRunnableCommands(t *testing.T) {
+	// Verify that serve and orchestrate are marked as runnable without args.
+	if !runnableWithoutArgs["serve"] {
+		t.Error("expected 'serve' to be runnable without args")
+	}
+	if !runnableWithoutArgs["orchestrate"] {
+		t.Error("expected 'orchestrate' to be runnable without args")
+	}
+	if runnableWithoutArgs["discover"] {
+		t.Error("did not expect 'discover' to be runnable without args")
+	}
+}
+
 func TestTuiCmdStructure(t *testing.T) {
 	if tuiCmd.Name() != "tui" {
 		t.Errorf("expected command name 'tui', got %q", tuiCmd.Name())

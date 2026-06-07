@@ -62,6 +62,13 @@ func (m tuiModel) Init() tea.Cmd {
 	return nil
 }
 
+// runnableWithoutArgs lists commands that can be executed without arguments.
+var runnableWithoutArgs = map[string]bool{
+	"serve":       true, // starts MCP server with defaults
+	"orchestrate": true, // lists tasks by default
+	"tui":         true, // recursive, but technically valid
+}
+
 func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -71,7 +78,7 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.String() == "enter" {
 			if i, ok := m.list.SelectedItem().(tuiItem); ok {
-				// Run --help for the selected subcommand
+				// Show --help for the selected subcommand
 				cmd := getSubcommand(i.name)
 				if cmd != nil {
 					cmd.SetArgs([]string{"--help"})
@@ -80,6 +87,20 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.quitting = true
 				return m, tea.Quit
+			}
+		}
+		if msg.String() == "r" {
+			if i, ok := m.list.SelectedItem().(tuiItem); ok {
+				if runnableWithoutArgs[i.name] {
+					cmd := getSubcommand(i.name)
+					if cmd != nil {
+						cmd.SetArgs([]string{})
+						cmd.SetOut(os.Stdout)
+						_ = cmd.Execute()
+					}
+					m.quitting = true
+					return m, tea.Quit
+				}
 			}
 		}
 	case tea.WindowSizeMsg:
@@ -94,7 +115,13 @@ func (m tuiModel) View() string {
 	if m.quitting {
 		return ""
 	}
-	return m.list.View() + "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render("Press Enter to show --help, q to quit")
+	var hint string
+	if i, ok := m.list.SelectedItem().(tuiItem); ok && runnableWithoutArgs[i.name] {
+		hint = "Enter: show --help, r: run without args, q: quit"
+	} else {
+		hint = "Enter: show --help, q: quit"
+	}
+	return m.list.View() + "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render(hint)
 }
 
 // getSubcommand returns the cobra.Command for a given subcommand name.
@@ -116,7 +143,10 @@ Controls:
   ↑/↓ or k/j    Navigate the list
   /             Filter/search
   Enter         Show --help for the selected command
+  r             Run the selected command without arguments (if supported)
   q or Ctrl+C   Quit
+
+Commands that support 'r' (run without args): serve, orchestrate
 
 If no TTY is detected, a plain text catalog is printed instead.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
