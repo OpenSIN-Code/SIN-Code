@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var Version = "dev" // Set at build time via -ldflags "-X main.Version=..."
+
 var rootCmd = &cobra.Command{
 	Use:   "sin-code",
 	Short: "SIN-Code unified analysis & manipulation toolchain",
@@ -25,7 +27,7 @@ It consolidates 13 specialized tools into a single cobra-based CLI:
 Each subcommand is also a thin pass-through to the standalone tool repos
 for backwards compatibility — the standalone binaries are still maintained
 but "sin-code" is now the primary distribution channel.`,
-	Version: "1.0.0",
+	Version: Version,
 }
 
 func init() {

@@ -12,7 +12,6 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -20,30 +19,12 @@ jobs:
           go-version: '1.25.11'
       - name: Test
         run: go test -v ./cmd/sin-code/... 2>&1 | tee test-output.txt
-      - name: Upload test output
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-output
-          path: test-output.txt
       - name: Vet
-        run: go vet ./cmd/sin-code/... 2>&1 | tee vet-output.txt
-      - name: Upload vet output
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: vet-output
-          path: vet-output.txt
+        run: go vet ./cmd/sin-code/...
       - name: govulncheck
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./cmd/sin-code/... 2>&1 | tee govulncheck-output.txt
-      - name: Upload govulncheck output
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: govulncheck-output
-          path: govulncheck-output.txt
+          govulncheck ./cmd/sin-code/...
 
   build:
     name: Build
