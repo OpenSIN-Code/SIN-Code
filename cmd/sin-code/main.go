@@ -6,8 +6,11 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal"
 	"github.com/spf13/cobra"
@@ -54,6 +57,59 @@ func init() {
 	internal.SetCurrentVersion(Version)
 }
 
+func checkUpdate() {
+	// Only run when invoked with no args or --version/-v.
+	if len(os.Args) > 1 {
+		first := os.Args[1]
+		if first != "--version" && first != "-v" {
+			return
+		}
+	}
+
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return
+	}
+	stampDir := filepath.Join(configDir, "sin")
+	stampPath := filepath.Join(stampDir, ".last-update-check")
+
+	if info, err := os.Stat(stampPath); err == nil {
+		if time.Since(info.ModTime()) < 24*time.Hour {
+			return
+		}
+	}
+
+	// Touch the stamp file immediately so repeated invocations don't hammer GitHub.
+	os.MkdirAll(stampDir, 0755)
+	os.WriteFile(stampPath, []byte(time.Now().Format(time.RFC3339)), 0644)
+
+	// Query GitHub with a short timeout so the CLI stays responsive.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	type result struct {
+		version string
+		has     bool
+		err     error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		v, h, e := internal.CheckUpdateAvailable()
+		ch <- result{v, h, e}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return
+	case res := <-ch:
+		if res.err != nil || !res.has {
+			return
+		}
+		fmt.Printf("\n🔄 A new version of sin-code is available: %s → %s\n", Version, res.version)
+		fmt.Println("   Run 'sin-code self-update' to install.")
+	}
+}
+
 func main() {
 	// If invoked via a symlink named after a subcommand (e.g. `discover` ->
 	// `sin-code discover`), automatically route to that subcommand.
@@ -67,6 +123,9 @@ func main() {
 			}
 		}
 	}
+
+	checkUpdate()
+
 	if err := rootCmd.Execute(); err != nil {
 		internal.PrintError(err)
 	}
