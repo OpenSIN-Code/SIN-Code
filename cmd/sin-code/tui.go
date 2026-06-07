@@ -8,8 +8,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
@@ -26,10 +28,33 @@ func (t tuiItem) Title() string       { return t.name }
 func (t tuiItem) Description() string { return t.description }
 func (t tuiItem) FilterValue() string { return t.name + " " + t.description }
 
+// themeColors holds the 5 built-in accent colors for the TUI.
+var themeColors = []string{
+	"#7D56F4", // default purple
+	"#FF79C6", // Dracula pink
+	"#88C0D0", // Nord blue
+	"#B58900", // Solarized yellow
+	"#A6E22E", // Monokai green
+}
+
+// themeNames maps indices to human-readable names.
+var themeNames = []string{
+	"default",
+	"Dracula",
+	"Nord",
+	"Solarized",
+	"Monokai",
+}
+
 // tuiModel is the Bubbletea model for the sin-code TUI.
 type tuiModel struct {
-	list     list.Model
-	quitting bool
+	list        list.Model
+	delegate    list.DefaultDelegate
+	quitting    bool
+	themeIndex  int
+	inputMode   bool
+	input       textinput.Model
+	selectedCmd string
 }
 
 func newTUIModel() tuiModel {
@@ -50,12 +75,34 @@ func newTUIModel() tuiModel {
 		tuiItem{name: "serve", description: "Start MCP server (stdio)", helpText: "sin-code serve [--transport stdio]"},
 	}
 
-	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
+	delegate := list.NewDefaultDelegate()
+	l := list.New(items, delegate, 0, 0)
 	l.Title = "⚡ sin-code — choose a tool (↑/↓ to navigate, Enter to run --help, q to quit)"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(true)
-	l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#7D56F4"))
-	return tuiModel{list: l}
+	l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color(themeColors[0]))
+
+	ti := textinput.New()
+	ti.Placeholder = ""
+	ti.CharLimit = 256
+	ti.Width = 50
+
+	return tuiModel{
+		list:       l,
+		delegate:   delegate,
+		themeIndex: 0,
+		input:      ti,
+	}
+}
+
+func applyTheme(m *tuiModel) {
+	color := lipgloss.Color(themeColors[m.themeIndex])
+	m.list.Styles.Title = m.list.Styles.Title.Foreground(color)
+	m.delegate.Styles.NormalTitle = m.delegate.Styles.NormalTitle.Foreground(color)
+	m.delegate.Styles.NormalDesc = m.delegate.Styles.NormalDesc.Foreground(color)
+	m.delegate.Styles.SelectedTitle = m.delegate.Styles.SelectedTitle.Foreground(color).Bold(true)
+	m.delegate.Styles.SelectedDesc = m.delegate.Styles.SelectedDesc.Foreground(color)
+	m.list.SetDelegate(m.delegate)
 }
 
 func (m tuiModel) Init() tea.Cmd {
@@ -72,9 +119,63 @@ var runnableWithoutArgs = map[string]bool{
 func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if m.inputMode {
+			switch msg.String() {
+			case "esc":
+				m.inputMode = false
+				m.input.SetValue("")
+				return m, nil
+			case "ctrl+c":
+				m.quitting = true
+				return m, tea.Quit
+			case "enter":
+				argsStr := m.input.Value()
+				m.inputMode = false
+				m.input.SetValue("")
+				cmd := getSubcommand(m.selectedCmd)
+				if cmd != nil {
+					args := strings.Fields(argsStr)
+					cmd.SetArgs(args)
+					cmd.SetOut(os.Stdout)
+					_ = cmd.Execute()
+				}
+				m.quitting = true
+				return m, tea.Quit
+			}
+			var cmd tea.Cmd
+			m.input, cmd = m.input.Update(msg)
+			return m, cmd
+		}
+
 		if msg.String() == "q" || msg.String() == "ctrl+c" {
 			m.quitting = true
 			return m, tea.Quit
+		}
+		if m.list.FilterState() == list.Unfiltered {
+			if msg.String() == "t" {
+				m.themeIndex = (m.themeIndex + 1) % len(themeColors)
+				applyTheme(&m)
+				return m, nil
+			}
+			if msg.String() == "r" {
+				if i, ok := m.list.SelectedItem().(tuiItem); ok {
+					if runnableWithoutArgs[i.name] {
+						cmd := getSubcommand(i.name)
+						if cmd != nil {
+							cmd.SetArgs([]string{})
+							cmd.SetOut(os.Stdout)
+							_ = cmd.Execute()
+						}
+						m.quitting = true
+						return m, tea.Quit
+					}
+					// Enter arg input mode for commands that need arguments.
+					m.selectedCmd = i.name
+					m.inputMode = true
+					m.input.SetValue("")
+					return m, m.input.Focus()
+				}
+			}
 		}
 		if msg.String() == "enter" {
 			if i, ok := m.list.SelectedItem().(tuiItem); ok {
@@ -89,20 +190,6 @@ func (m tuiModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Quit
 			}
 		}
-		if msg.String() == "r" {
-			if i, ok := m.list.SelectedItem().(tuiItem); ok {
-				if runnableWithoutArgs[i.name] {
-					cmd := getSubcommand(i.name)
-					if cmd != nil {
-						cmd.SetArgs([]string{})
-						cmd.SetOut(os.Stdout)
-						_ = cmd.Execute()
-					}
-					m.quitting = true
-					return m, tea.Quit
-				}
-			}
-		}
 	case tea.WindowSizeMsg:
 		m.list.SetSize(msg.Width, msg.Height-2)
 	}
@@ -115,11 +202,15 @@ func (m tuiModel) View() string {
 	if m.quitting {
 		return ""
 	}
+	if m.inputMode {
+		prompt := fmt.Sprintf("Enter arguments for %s: ", m.selectedCmd)
+		return prompt + m.input.View() + "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render("Enter: run, Esc: cancel")
+	}
 	var hint string
 	if i, ok := m.list.SelectedItem().(tuiItem); ok && runnableWithoutArgs[i.name] {
-		hint = "Enter: show --help, r: run without args, q: quit"
+		hint = "Enter: show --help, r: run without args, t: change theme, q: quit"
 	} else {
-		hint = "Enter: show --help, q: quit"
+		hint = "Enter: show --help, r: run with args, t: change theme, q: quit"
 	}
 	return m.list.View() + "\n" + lipgloss.NewStyle().Foreground(lipgloss.Color("#666666")).Render(hint)
 }
@@ -143,10 +234,11 @@ Controls:
   ↑/↓ or k/j    Navigate the list
   /             Filter/search
   Enter         Show --help for the selected command
-  r             Run the selected command without arguments (if supported)
+  r             Run the selected command (without args if supported, otherwise prompts for args)
+  t             Change theme (cycles through 5 built-in themes)
   q or Ctrl+C   Quit
 
-Commands that support 'r' (run without args): serve, orchestrate
+Commands that run without args: serve, orchestrate. For others, 'r' will prompt for arguments.
 
 If no TTY is detected, a plain text catalog is printed instead.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -170,5 +262,3 @@ If no TTY is detected, a plain text catalog is printed instead.`,
 		return nil
 	},
 }
-
-

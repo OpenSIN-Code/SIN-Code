@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestTuiFallbackOutput(t *testing.T) {
@@ -84,5 +86,95 @@ func TestTuiItemInterface(t *testing.T) {
 	}
 	if item.FilterValue() != "discover test desc" {
 		t.Errorf("FilterValue() = %q, want 'discover test desc'", item.FilterValue())
+	}
+}
+
+func TestTuiThemeCycling(t *testing.T) {
+	m := newTUIModel()
+	if m.themeIndex != 0 {
+		t.Fatalf("expected initial themeIndex 0, got %d", m.themeIndex)
+	}
+	// Press 't' four times
+	for i := 1; i <= 4; i++ {
+		newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+		mm, ok := newM.(tuiModel)
+		if !ok {
+			t.Fatal("expected tuiModel")
+		}
+		m = mm
+		if m.themeIndex != i {
+			t.Fatalf("expected themeIndex %d after %d 't' presses, got %d", i, i, m.themeIndex)
+		}
+	}
+	// One more press wraps around to 0
+	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	mm, ok := newM.(tuiModel)
+	if !ok {
+		t.Fatal("expected tuiModel")
+	}
+	if mm.themeIndex != 0 {
+		t.Fatalf("expected themeIndex 0 after wrapping, got %d", mm.themeIndex)
+	}
+}
+
+func TestTuiThemeApplied(t *testing.T) {
+	m := newTUIModel()
+	initialTitle := m.list.Styles.Title.GetForeground()
+	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	mm := newM.(tuiModel)
+	newTitle := mm.list.Styles.Title.GetForeground()
+	if initialTitle == newTitle {
+		t.Fatal("expected title color to change after cycling theme")
+	}
+}
+
+func TestTuiArgInputMode(t *testing.T) {
+	m := newTUIModel()
+	// Press 'r' on discover (needs args)
+	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	mm, ok := newM.(tuiModel)
+	if !ok {
+		t.Fatal("expected tuiModel")
+	}
+	if !mm.inputMode {
+		t.Fatal("expected inputMode to be true for discover")
+	}
+	if mm.selectedCmd != "discover" {
+		t.Errorf("expected selectedCmd 'discover', got %q", mm.selectedCmd)
+	}
+}
+
+func TestTuiArgInputCancel(t *testing.T) {
+	m := newTUIModel()
+	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	mm := newM.(tuiModel)
+	if !mm.inputMode {
+		t.Fatal("expected inputMode to be true")
+	}
+	newM, _ = mm.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	mm = newM.(tuiModel)
+	if mm.inputMode {
+		t.Error("expected inputMode to be false after Esc")
+	}
+	if mm.quitting {
+		t.Error("expected quitting to be false after cancel")
+	}
+}
+
+func TestTuiArgInputSubmit(t *testing.T) {
+	m := newTUIModel()
+	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	mm := newM.(tuiModel)
+	if !mm.inputMode {
+		t.Fatal("expected inputMode to be true")
+	}
+	mm.input.SetValue(".")
+	newM, _ = mm.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	mm = newM.(tuiModel)
+	if mm.inputMode {
+		t.Error("expected inputMode to be false after Enter")
+	}
+	if !mm.quitting {
+		t.Error("expected quitting to be true after running command")
 	}
 }
