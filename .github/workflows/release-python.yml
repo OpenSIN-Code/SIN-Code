@@ -1,8 +1,10 @@
-name: release
+name: release-python
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["python-v*"]
+    # Note: Python releases now use the 'python-v*' tag prefix to avoid
+    # conflicting with Go sin-code releases which trigger on 'v*'.
 
 permissions:
   contents: write     # required to create the GitHub Release + upload assets
