@@ -104,7 +104,7 @@ var OrchestratorPlanCmd = &cobra.Command{
 
 func init() {
 	OrchestratorRunCmd.Flags().StringVar(&orch2Format, "format", "text", "Output format: text|json")
-	OrchestratorRunCmd.Flags().DurationVar(&orch2Timeout, "timeout", 5*time.Minute, "Max execution time")
+	OrchestratorRunCmd.Flags().DurationVar(&orch2Timeout, "timeout", 2*time.Minute, "Max execution time")
 	OrchestratorRunCmd.Flags().IntVar(&orch2MaxParallel, "max-parallel", 4, "Max parallel agents")
 	OrchestratorRunCmd.Flags().StringVar(&orch2AgentsDir, "agents-dir", "", "User agents dir (default ~/.config/sin-code/agents)")
 	OrchestratorRunCmd.Flags().BoolVar(&orch2PlanOnly, "plan-only", false, "Build plan and exit, no execution")
