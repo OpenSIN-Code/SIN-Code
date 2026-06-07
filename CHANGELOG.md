@@ -2,6 +2,23 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [1.0.9] - 2026-06-07
+
+### Added
+- 448 new tests bringing coverage from 82.7% to 93.6%
+- serve_handlers_test.go: all 13 MCP handleXxx functions + runSubcommand (1136 lines)
+- execute_extended_test.go: 55+ tests for runCommand, checkSafety, redactSecrets, signal handling
+- main_subprocess_test.go: 11 tests for main() symlink routing + checkUpdate
+- efm_test.go: expanded from 14 → 44 tests with Docker skip logic
+- sbom_test.go: expanded from 16 → 45 tests, CycloneDX + edge cases
+- All 12 core/advanced files pushed to 95%+ coverage
+
+### Changed
+- sbom.go: fix parseGoModFallback single-require parsing bug
+- Coverage increased from 82.7% to 93.6% (+10.9%)
+- Total tests: 415 → 863
+- Files at 95%+ coverage: 0/20 → 17/20
+
 ## [1.0.8] - 2026-06-07
 
 ### Added
