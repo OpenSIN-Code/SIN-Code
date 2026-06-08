@@ -1,0 +1,5 @@
+env HOME=$WORK/home
+mkdir $WORK/home
+sin-code lsp servers
+stdout 'Detected'
+stdout 'rust-analyzer'

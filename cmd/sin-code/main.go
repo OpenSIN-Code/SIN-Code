@@ -58,6 +58,7 @@ func init() {
 	rootCmd.AddCommand(todo.TodoCmd)
 	rootCmd.AddCommand(notifications.NotificationsCmd)
 	rootCmd.AddCommand(internal.MemoryCmd)
+	rootCmd.AddCommand(internal.LSPCmd)
 	rootCmd.AddCommand(internal.OrchestratorRunCmd)
 	rootCmd.AddCommand(internal.OrchestratorAgentsCmd)
 	rootCmd.AddCommand(internal.OrchestratorPlanCmd)
