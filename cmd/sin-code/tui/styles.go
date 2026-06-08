@@ -1,6 +1,10 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"image/color"
+
+	"charm.land/lipgloss/v2"
+)
 
 type Theme struct {
 	Name       string
@@ -107,7 +111,7 @@ type Styles struct {
 	Muted      lipgloss.Style
 }
 
-func c(s string) lipgloss.TerminalColor { return lipgloss.Color(s) }
+func c(s string) color.Color { return lipgloss.Color(s) }
 
 func NewStyles(theme Theme) Styles {
 	t := theme
@@ -209,18 +213,18 @@ func NewStyles(theme Theme) Styles {
 	return s
 }
 
-func (s Styles) BorderColor() lipgloss.TerminalColor {
+func (s Styles) BorderColor() color.Color {
 	return lipgloss.Color(s.Theme.Border)
 }
 
-func (s Styles) Accent() lipgloss.TerminalColor {
+func (s Styles) Accent() color.Color {
 	return lipgloss.Color(s.Theme.Accent)
 }
 
-func (s Styles) Text() lipgloss.TerminalColor {
+func (s Styles) Text() color.Color {
 	return lipgloss.Color(s.Theme.Text)
 }
 
-func (s Styles) TextDim() lipgloss.TerminalColor {
+func (s Styles) TextDim() color.Color {
 	return lipgloss.Color(s.Theme.TextDim)
 }

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/attachments"
 )
@@ -309,7 +309,7 @@ func TestInputRenderStatusWithAttachments(t *testing.T) {
 func TestInputUpdateSubmit(t *testing.T) {
 	i := newTestInput(t)
 	i.textarea.SetValue("hello world")
-	_, submit := i.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	_, submit := i.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
 	if submit == nil {
 		t.Fatal("expected submit msg")
 	}
@@ -321,7 +321,7 @@ func TestInputUpdateSubmit(t *testing.T) {
 func TestInputUpdateSlashHandled(t *testing.T) {
 	i := newTestInput(t)
 	i.textarea.SetValue("/clear")
-	_, submit := i.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	_, submit := i.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
 	if submit != nil {
 		t.Error("expected no submit for slash command")
 	}
@@ -332,7 +332,7 @@ func TestInputUpdateSlashHandled(t *testing.T) {
 
 func TestInputUpdateOtherKey(t *testing.T) {
 	i := newTestInput(t)
-	cmd, _ := i.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	cmd, _ := i.Update(tea.KeyPressMsg{Text: "a"})
 	_ = cmd
 	if !strings.Contains(i.RawValue(), "a") {
 		t.Errorf("expected 'a' in value, got %q", i.RawValue())
@@ -382,11 +382,7 @@ func TestInputHandlePasteFilePath(t *testing.T) {
 	if err := os.WriteFile(dst, png, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cmd, submit := i.Update(tea.KeyMsg{
-		Type:  tea.KeyRunes,
-		Runes: []rune(dst),
-		Paste: true,
-	})
+	cmd, submit := i.Update(tea.PasteMsg{Content: dst})
 	if cmd != nil {
 		t.Errorf("expected nil cmd, got %v", cmd)
 	}
@@ -411,11 +407,7 @@ func TestInputHandlePasteFilePath(t *testing.T) {
 func TestInputHandlePasteText(t *testing.T) {
 	i := newTestInput(t)
 	text := "just some plain text from clipboard"
-	cmd, submit := i.Update(tea.KeyMsg{
-		Type:  tea.KeyRunes,
-		Runes: []rune(text),
-		Paste: true,
-	})
+	cmd, submit := i.Update(tea.PasteMsg{Content: text})
 	if cmd != nil {
 		t.Errorf("expected nil cmd, got %v", cmd)
 	}

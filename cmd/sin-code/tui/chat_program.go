@@ -4,7 +4,7 @@
 // interface. Imported in main.go via tui.ProgramFromTeaProgram().
 package tui
 
-import tea "github.com/charmbracelet/bubbletea"
+import tea "charm.land/bubbletea/v2"
 
 // ProgramFromTeaProgram wraps a *tea.Program so it satisfies
 // teaProgramIface. Returns nil if p is nil.

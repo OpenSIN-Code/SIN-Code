@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestNewModelDefaults(t *testing.T) {
@@ -134,7 +134,7 @@ func TestViewJumpKeys(t *testing.T) {
 		{"5", ViewHistory},
 	}
 	for _, tc := range cases {
-		m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(tc.key)})
+		m.Update(tea.KeyPressMsg{Text: tc.key})
 		if m.ViewKind != tc.want {
 			t.Errorf("key %q: expected view %v, got %v", tc.key, tc.want, m.ViewKind)
 		}
@@ -145,7 +145,7 @@ func TestTabNextView(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	start := m.ViewKind
-	m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	if m.ViewKind == start {
 		t.Error("expected view to change after Tab")
 	}
@@ -154,9 +154,9 @@ func TestTabNextView(t *testing.T) {
 func TestShiftTabPrevView(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	mid := m.ViewKind
-	m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift})
 	if m.ViewKind == mid {
 		t.Error("expected view to change after Shift+Tab")
 	}
@@ -167,11 +167,11 @@ func TestSidebarToggle(t *testing.T) {
 	if m.Sidebar.Collapsed {
 		t.Fatal("expected sidebar visible initially")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlB})
+	m.Update(tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl})
 	if !m.Sidebar.Collapsed {
 		t.Error("expected sidebar collapsed after ctrl+b")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlB})
+	m.Update(tea.KeyPressMsg{Code: 'b', Mod: tea.ModCtrl})
 	if m.Sidebar.Collapsed {
 		t.Error("expected sidebar visible after second ctrl+b")
 	}
@@ -182,14 +182,14 @@ func TestCommandPaletteOpenClose(t *testing.T) {
 	if m.Palette.Open {
 		t.Fatal("expected palette closed")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m.Update(tea.KeyPressMsg{Code: 'p', Mod: tea.ModCtrl})
 	if !m.Palette.Open {
 		t.Error("expected palette open after ctrl+p")
 	}
 	if m.Mode != ModePalette {
 		t.Errorf("expected ModePalette, got %v", m.Mode)
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if m.Palette.Open {
 		t.Error("expected palette closed after esc")
 	}
@@ -225,7 +225,7 @@ func TestCommandPaletteSelect(t *testing.T) {
 		t.Fatal("expected palette to have items")
 	}
 	original := len(m.History)
-	m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.Palette.Open {
 		t.Error("expected palette to close after enter")
 	}
@@ -236,11 +236,11 @@ func TestCommandPaletteSelect(t *testing.T) {
 
 func TestSubagentsPopup(t *testing.T) {
 	m := NewModel()
-	m.Update(tea.KeyMsg{Type: tea.KeyCtrlX})
+	m.Update(tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
 	if m.Mode != ModeSubagents {
 		t.Errorf("expected ModeSubagents, got %v", m.Mode)
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 	if m.Mode != ModeNormal {
 		t.Errorf("expected ModeNormal after esc, got %v", m.Mode)
 	}
@@ -248,13 +248,13 @@ func TestSubagentsPopup(t *testing.T) {
 
 func TestQuitKeys(t *testing.T) {
 	m := NewModel()
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	m.Update(tea.KeyPressMsg{Text: "q"})
 	if !m.Quitting {
 		t.Error("expected Quitting after 'q'")
 	}
 
 	m2 := NewModel()
-	m2.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	m2.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	if !m2.Quitting {
 		t.Error("expected Quitting after ctrl+c")
 	}
@@ -379,7 +379,7 @@ func TestHistoryCap(t *testing.T) {
 func TestToolsViewRenders(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "Tools") {
 		t.Errorf("expected Tools in view, got:\n%s", view)
 	}
@@ -392,7 +392,7 @@ func TestEFMViewEmpty(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m.SwitchView(ViewEFM)
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "EFM") {
 		t.Errorf("expected 'EFM' in view, got:\n%s", view)
 	}
@@ -406,7 +406,7 @@ func TestEFMViewWithStacks(t *testing.T) {
 		{Name: "test-stack-2", Status: "down", URL: "http://localhost:5678", TTL: 0},
 	}
 	m.SwitchView(ViewEFM)
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "test-stack-1") {
 		t.Errorf("expected 'test-stack-1' in view, got:\n%s", view)
 	}
@@ -416,7 +416,7 @@ func TestConfigViewRenders(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m.SwitchView(ViewConfig)
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "Config") {
 		t.Errorf("expected 'Config' in view, got:\n%s", view)
 	}
@@ -430,7 +430,7 @@ func TestHistoryViewRenders(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m.AppendHistory("Tools", "test-action", "test-detail", true)
 	m.SwitchView(ViewHistory)
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "test-action") {
 		t.Errorf("expected 'test-action' in view, got:\n%s", view)
 	}
@@ -440,7 +440,7 @@ func TestSessionsViewRenders(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m.SwitchView(ViewSessions)
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "Session") {
 		t.Errorf("expected 'Session' in view, got:\n%s", view)
 	}
@@ -492,7 +492,7 @@ func TestArgInputEsc(t *testing.T) {
 	tool := m.Sidebar.SelectedTool()
 	if tool == nil && !tool.Runnable {
 		m.RunSelected()
-		m.Update(tea.KeyMsg{Type: tea.KeyEscape})
+		m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
 		if m.ArgInput.Open {
 			t.Error("expected arg input closed after esc")
 		}
@@ -555,7 +555,7 @@ func TestSidebarToolMoveUpDown(t *testing.T) {
 func TestViewTooSmall(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 10, Height: 4})
-	view := m.View()
+	view := m.View().Content
 	if !strings.Contains(view, "too small") && !strings.Contains(view, "Tools") {
 		t.Errorf("expected 'too small' message or fallback, got:\n%s", view)
 	}
@@ -564,7 +564,7 @@ func TestViewTooSmall(t *testing.T) {
 func TestViewQuitting(t *testing.T) {
 	m := NewModel()
 	m.Quitting = true
-	if view := m.View(); view != "" {
+	if view := m.View().Content; view != "" {
 		t.Errorf("expected empty view when quitting, got %q", view)
 	}
 }
@@ -699,7 +699,7 @@ func TestEFMStacksDisplayColors(t *testing.T) {
 func TestComposeLayout(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
-	view := m.View()
+	view := m.View().Content
 	if len(view) < 100 {
 		t.Errorf("expected substantial view output, got %d bytes", len(view))
 	}
@@ -708,7 +708,7 @@ func TestComposeLayout(t *testing.T) {
 func TestComposeLayoutSmall(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 30, Height: 10})
-	view := m.View()
+	view := m.View().Content
 	if view == "" {
 		t.Error("expected non-empty view even at small sizes")
 	}
@@ -734,11 +734,11 @@ func TestConfigViewSelectionMoves(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m.SwitchView(ViewConfig)
 	start := m.ConfigSel
-	m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.ConfigSel == start {
 		t.Error("expected config selection to move down")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	if m.ConfigSel != start {
 		t.Error("expected config selection to return")
 	}
@@ -748,11 +748,11 @@ func TestToolListSelectionMoves(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	start := m.Sidebar.ToolSel
-	m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.Sidebar.ToolSel == start {
 		t.Error("expected tool selection to move down")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	if m.Sidebar.ToolSel != start {
 		t.Error("expected tool selection to return")
 	}
@@ -810,7 +810,7 @@ func TestRunSelectedArgFlow(t *testing.T) {
 		t.Fatal("expected arg input to open")
 	}
 	m.ArgInput.Input.SetValue("--help")
-	m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.ArgInput.Open {
 		t.Error("expected arg input to close after enter")
 	}

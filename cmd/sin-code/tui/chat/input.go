@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/bubbles/textarea"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/bubbles/v2/textarea"
 
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/attachments"
 )
@@ -175,11 +175,10 @@ func (i *Input) detachByNameOrIndex(ref string) error {
 func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		if msg.Paste {
-			i.handlePaste(string(msg.Runes))
-			return nil, nil
-		}
+	case tea.PasteMsg:
+		i.handlePaste(msg.Content)
+		return nil, nil
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "ctrl+s", "ctrl+enter":
 			val := strings.TrimSpace(i.RawValue())

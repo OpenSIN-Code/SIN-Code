@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestViewTodosAdded(t *testing.T) {
@@ -61,7 +61,7 @@ func TestPrevViewCyclesAll6(t *testing.T) {
 
 func TestSwitchToTodosVia6(t *testing.T) {
 	m := NewModel()
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'6'}})
+	m.Update(tea.KeyPressMsg{Text: "6"})
 	if m.ViewKind != ViewTodos {
 		t.Errorf("expected ViewTodos, got %v", m.ViewKind)
 	}
@@ -78,15 +78,15 @@ func TestTodoItemsAndSelection(t *testing.T) {
 	if m.TodoSel != 0 {
 		t.Error("expected sel 0")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.TodoSel != 1 {
 		t.Errorf("expected sel 1, got %d", m.TodoSel)
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.TodoSel != 1 {
 		t.Error("expected sel to clamp at last")
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	if m.TodoSel != 0 {
 		t.Errorf("expected sel 0, got %d", m.TodoSel)
 	}
@@ -274,7 +274,7 @@ func TestRenderBannerIconForCompleted(t *testing.T) {
 func TestBannerKeyOpen(t *testing.T) {
 	m := NewModel()
 	m.SetBanner(&NotificationItem{ID: "nt-1", Title: "T", Type: "todo_created"})
-	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	_, _ = m.Update(tea.KeyPressMsg{Text: "o"})
 	if len(m.History) == 0 {
 		t.Error("expected history entry")
 	}
@@ -287,7 +287,7 @@ func TestBannerKeyOpen(t *testing.T) {
 func TestBannerKeyDismiss(t *testing.T) {
 	m := NewModel()
 	m.SetBanner(&NotificationItem{ID: "nt-1", Title: "T", Type: "todo_created"})
-	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	_, _ = m.Update(tea.KeyPressMsg{Text: "d"})
 	if m.NotificationBanner != nil {
 		t.Error("banner should be dismissed")
 	}
@@ -297,7 +297,7 @@ func TestBannerKeyNext(t *testing.T) {
 	m := NewModel()
 	m.SetBanner(&NotificationItem{ID: "nt-1", Title: "First", Type: "todo_created"})
 	m.SetBanner(&NotificationItem{ID: "nt-2", Title: "Second", Type: "todo_completed"})
-	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	_, _ = m.Update(tea.KeyPressMsg{Text: "n"})
 	if m.NotificationBanner == nil {
 		t.Fatal("banner should be set after next")
 	}
@@ -360,7 +360,7 @@ func TestViewIncludesTodosView(t *testing.T) {
 	m.Height = 30
 	m.Ready = true
 	m.ViewKind = ViewTodos
-	out := m.View()
+	out := m.View().Content
 	if !strings.Contains(out, "Todos") {
 		t.Error("expected 'Todos' in view")
 	}
@@ -373,7 +373,7 @@ func TestViewIncludesBanner(t *testing.T) {
 	m.Ready = true
 	m.ViewKind = ViewTools
 	m.SetBanner(&NotificationItem{ID: "nt-1", Title: "BANNER-TEST", Message: "msg", Type: "todo_created"})
-	out := m.View()
+	out := m.View().Content
 	if !strings.Contains(out, "BANNER-TEST") {
 		t.Error("expected banner in view")
 	}

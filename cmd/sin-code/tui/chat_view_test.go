@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/tui/chat"
 )
@@ -52,7 +52,7 @@ func TestNextViewCyclesAll7(t *testing.T) {
 
 func TestSwitchToChatVia7(t *testing.T) {
 	m := NewModel()
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'7'}})
+	m.Update(tea.KeyPressMsg{Text: "7"})
 	if m.ViewKind != ViewChat {
 		t.Errorf("expected ViewChat, got %v", m.ViewKind)
 	}
@@ -99,7 +99,7 @@ func TestRenderChatViewIncludesChatView(t *testing.T) {
 	m.Height = 30
 	m.Ready = true
 	m.ViewKind = ViewChat
-	out := m.View()
+	out := m.View().Content
 	if !strings.Contains(out, "Chat") {
 		t.Error("expected Chat in view")
 	}
@@ -178,7 +178,7 @@ func TestUpdateChatRoutesKey(t *testing.T) {
 	m := NewModel()
 	m.initChatInput()
 	m.ViewKind = ViewChat
-	_, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	_, _ = m.Update(tea.KeyPressMsg{Text: "a"})
 	if !strings.Contains(m.ChatInput.RawValue(), "a") {
 		t.Error("expected 'a' routed to chat input")
 	}

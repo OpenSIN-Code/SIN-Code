@@ -3,9 +3,9 @@ package tui
 import (
 	"context"
 
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/lipgloss/v2"
 
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/tui/chat"
 )
@@ -107,7 +107,7 @@ func NewModel() *Model {
 	ti := textinput.New()
 	ti.Placeholder = "args..."
 	ti.CharLimit = 256
-	ti.Width = 50
+	ti.SetWidth(50)
 
 	items := makeItemsForTools()
 	delegate := list.NewDefaultDelegate()

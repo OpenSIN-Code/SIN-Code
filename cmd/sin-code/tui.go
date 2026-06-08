@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/tui"
@@ -31,7 +31,7 @@ func runNewTUI(out io.Writer) {
 		c.SetErr(out)
 		return c.Execute()
 	}
-	prog := tea.NewProgram(pm, tea.WithAltScreen())
+	prog := tea.NewProgram(pm)
 	pm.Program = tui.ProgramFromTeaProgram(prog)
 	if _, err := prog.Run(); err != nil {
 		fmt.Fprintln(out, "sin-code subcommands (TUI not available, showing plain text):")

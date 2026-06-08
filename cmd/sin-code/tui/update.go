@@ -5,11 +5,11 @@ import (
 	"strings"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/tui/chat"
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	"charm.land/lipgloss/v2"
 )
 
 func (m *Model) Init() tea.Cmd {
@@ -226,7 +226,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.handleChatResponse(msg)
 		return m, nil
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		if m.ViewKind == ViewChat {
 			cmd := m.updateChat(msg)
 			return m, cmd
@@ -410,10 +410,8 @@ func (m *Model) handlePaletteKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	default:
-		if msg.Type == tea.KeyRunes {
-			m.Palette.Query += string(msg.Runes)
-			m.filterPalette(m.Palette.Query)
-		}
+		m.Palette.Query += msg.String()
+		m.filterPalette(m.Palette.Query)
 	}
 	return m, nil
 }
@@ -487,12 +485,16 @@ func splitArgs(s string) []string {
 	return out
 }
 
-func (m *Model) View() string {
+func (m *Model) View() tea.View {
 	if m.Quitting {
-		return ""
+		v := tea.NewView("")
+		v.AltScreen = true
+		return v
 	}
 	if m.Width < 20 || m.Height < 6 {
-		return m.Styles.Muted.Render("Terminal too small — resize to at least 20x6.")
+		v := tea.NewView(m.Styles.Muted.Render("Terminal too small — resize to at least 20x6."))
+		v.AltScreen = true
+		return v
 	}
 
 	var content string
@@ -554,7 +556,9 @@ func (m *Model) View() string {
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
 	}
 
-	return layout
+	v := tea.NewView(layout)
+	v.AltScreen = true
+	return v
 }
 
 func (m *Model) contentWidth() int {

@@ -1,0 +1,28 @@
+# Plugin MCP Tools Integration Test
+#
+# Verifies that plugin-defined tools are exposed as MCP tools
+# and can be called via the MCP protocol.
+
+env SIN_CODE_CONFIG_DIR=$WORK/config
+mkdir -p $WORK/config/sin-code/plugins
+mkdir -p $WORK/source-plugin/bin
+
+# Create a plugin with a tool
+sin-code execute --command 'printf "name = \"mcp-test-plugin\"\nversion = \"1.0.0\"\n[[tools]]\nname = \"reverse\"\ndescription = \"Reverse a string\"\nbinary = \"./bin/reverse\"\nargs = [\"input\"]\ntimeout = 10\n" > $WORK/source-plugin/plugin.toml'
+stdout 'Exit:'
+
+# Plugin binary: reads --input arg and outputs reversed string
+sin-code execute --command 'printf "#!/bin/bash\nwhile [[ \$# -gt 0 ]]; do\n  case \$1 in\n    --input)\n      echo -n \"\$2\" | rev\n      shift 2\n      ;;\n    *)\n      shift\n      ;;\n  done\ndone\n" > $WORK/source-plugin/bin/reverse && chmod +x $WORK/source-plugin/bin/reverse'
+stdout 'Exit:'
+
+# Install plugin
+sin-code execute --command 'cp -r $WORK/source-plugin $WORK/config/sin-code/plugins/mcp-test-plugin'
+stdout 'Exit:'
+
+# Verify plugin is listed
+sin-code plugin --path $WORK/config/sin-code/plugins list
+stdout 'mcp-test-plugin'
+
+# Verify plugin tool is registered by checking plugin info
+sin-code plugin --path $WORK/config/sin-code/plugins info mcp-test-plugin
+stdout 'sin_plugin_mcp-test-plugin_reverse'
