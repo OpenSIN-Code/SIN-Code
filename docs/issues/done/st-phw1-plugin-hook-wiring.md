@@ -4,7 +4,7 @@
 |-------------|-------------------------------------------------------------|
 | ID          | st-phw1                                                     |
 | Title       | Plugin hooks → todo event wiring                            |
-| Status      | open                                                        |
+| Status      | done                                                        |
 | Priority    | P0 (blocks v2.5.0 release)                                  |
 | Created     | 2026-06-08T13:50:00Z                                        |
 | Reporter    | jeremy (via sin-code v2.4.0 audit)                          |
