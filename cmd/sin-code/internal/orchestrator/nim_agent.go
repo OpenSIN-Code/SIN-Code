@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: MIT
-// Purpose: NIMAgent — Agent implementation backed by NVIDIA NIM (any
-// OpenAI-compatible chat/completions endpoint). Reads its system prompt
-// from AgentConfig.SystemFile (searched on disk), pastes prior scratchpad
-// context into the user prompt, calls the LLM, and writes outputs + token
-// usage back to the scratchpad. Env vars: SIN_NIM_API_KEY, SIN_NIM_BASE_URL,
-// SIN_AGENTS_DIR.
+// Purpose: LLMAgent — provider-agnostic LLM-backed agent. Uses the Provider
+// field in AgentConfig to pick a backend (nim, openai, anthropic, ollama,
+// groq, custom). Backwards-compatible: NIMAgent is a thin wrapper.
 package orchestrator
 
 import (
@@ -17,32 +14,65 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/llm"
 )
 
-type NIMAgent struct {
+type LLMAgent struct {
 	cfg    AgentConfig
 	client *llm.Client
 }
 
-func NewNIMAgent(cfg AgentConfig) *NIMAgent {
-	return NewNIMAgentWithClient(cfg, nil)
+func NewLLMAgent(cfg AgentConfig) *LLMAgent {
+	return NewLLMAgentWithClient(cfg, nil)
 }
 
-func NewNIMAgentWithClient(cfg AgentConfig, client *llm.Client) *NIMAgent {
-	if client == nil {
-		baseURL := os.Getenv("SIN_NIM_BASE_URL")
-		if baseURL == "" {
-			baseURL = llm.NIMDefaultBaseURL
-		}
-		apiKey := os.Getenv("SIN_NIM_API_KEY")
-		client = llm.NewClient(baseURL, apiKey)
+func NewLLMAgentWithClient(cfg AgentConfig, client *llm.Client) *LLMAgent {
+	if client != nil {
+		return &LLMAgent{cfg: cfg, client: client}
 	}
-	return &NIMAgent{cfg: cfg, client: client}
+	providerName := cfg.Provider
+	if providerName == "" {
+		providerName = inferProviderFromEnv()
+	}
+	if providerName == "" {
+		providerName = "nim"
+	}
+	c, err := llm.ProviderFromConfig(providerName, cfg.BaseURL, "", cfg.Model, 0)
+	if err != nil {
+		return &LLMAgent{cfg: cfg, client: nil}
+	}
+	return &LLMAgent{cfg: cfg, client: c}
 }
 
-func (n *NIMAgent) Name() string        { return n.cfg.Name }
-func (n *NIMAgent) Config() AgentConfig { return n.cfg }
+func inferProviderFromEnv() string {
+	if os.Getenv("SIN_NIM_API_KEY") != "" {
+		return "nim"
+	}
+	if os.Getenv("OPENAI_API_KEY") != "" {
+		return "openai"
+	}
+	if os.Getenv("ANTHROPIC_API_KEY") != "" {
+		return "anthropic"
+	}
+	if os.Getenv("GROQ_API_KEY") != "" {
+		return "groq"
+	}
+	return ""
+}
 
-func (n *NIMAgent) Run(ctx context.Context, task *Task, scratch *Scratchpad) (string, error) {
-	systemPrompt, err := n.loadSystemPrompt()
+// Backwards-compat alias.
+type NIMAgent = LLMAgent
+
+func NewNIMAgent(cfg AgentConfig) *NIMAgent { return NewLLMAgent(cfg) }
+func NewNIMAgentWithClient(cfg AgentConfig, client *llm.Client) *NIMAgent {
+	return NewLLMAgentWithClient(cfg, client)
+}
+
+func (a *LLMAgent) Name() string        { return a.cfg.Name }
+func (a *LLMAgent) Config() AgentConfig { return a.cfg }
+
+func (a *LLMAgent) Run(ctx context.Context, task *Task, scratch *Scratchpad) (string, error) {
+	if a.client == nil {
+		return "", fmt.Errorf("agent %s: no LLM client (missing API key?)", a.cfg.Name)
+	}
+	systemPrompt, err := a.loadSystemPrompt()
 	if err != nil {
 		return "", fmt.Errorf("load system prompt: %w", err)
 	}
@@ -55,46 +85,62 @@ func (n *NIMAgent) Run(ctx context.Context, task *Task, scratch *Scratchpad) (st
 		}
 	}
 
-	userPrompt := n.buildUserPrompt(task, priorInputs, priorOutputs)
-	scratch.Write(n.cfg.Name, "inputs", task.Description)
+	userPrompt := a.buildUserPrompt(task, priorInputs, priorOutputs)
+	scratch.Write(a.cfg.Name, "inputs", task.Description)
+
+	model := a.cfg.Model
+	if a.cfg.Provider != "" || a.cfg.BaseURL != "" {
+		if a.cfg.Provider == "" {
+			a.cfg.Provider = inferProviderFromEnv()
+		}
+		if prov, perr := llm.LookupProvider(a.cfg.Provider); perr == nil && a.cfg.Model == "" {
+			model = prov.DefaultModel
+		}
+	} else {
+		model = llm.ResolveModel(a.cfg.Model)
+	}
+	if model == "" {
+		prov, _ := llm.LookupProvider(a.cfg.Provider)
+		model = prov.DefaultModel
+	}
 
 	req := llm.ChatRequest{
-		Model:       llm.ResolveModel(n.cfg.Model),
+		Model:       model,
 		Messages: []llm.Message{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},
 		},
-		MaxTokens:   n.cfg.MaxTokens,
-		Temperature: n.cfg.Temperature,
+		MaxTokens:   a.cfg.MaxTokens,
+		Temperature: a.cfg.Temperature,
 	}
 	if req.MaxTokens == 0 {
 		req.MaxTokens = 4096
 	}
 
-	resp, err := n.client.Chat(ctx, req)
+	resp, err := a.client.Chat(ctx, req)
 	if err != nil {
 		return "", err
 	}
 
 	out := resp.ExtractText()
-	scratch.Write(n.cfg.Name, "outputs:"+task.ID, out)
-	scratch.Write(n.cfg.Name, "usage:"+task.ID, fmt.Sprintf("prompt=%d completion=%d total=%d",
+	scratch.Write(a.cfg.Name, "outputs:"+task.ID, out)
+	scratch.Write(a.cfg.Name, "usage:"+task.ID, fmt.Sprintf("prompt=%d completion=%d total=%d",
 		resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens))
 
 	return out, nil
 }
 
-func (n *NIMAgent) loadSystemPrompt() (string, error) {
-	if n.cfg.SystemFile == "" {
-		return n.defaultSystemPrompt(), nil
+func (a *LLMAgent) loadSystemPrompt() (string, error) {
+	if a.cfg.SystemFile == "" {
+		return a.defaultSystemPrompt(), nil
 	}
 	candidates := []string{
-		n.cfg.SystemFile,
-		filepath.Join(".", n.cfg.SystemFile),
-		filepath.Join(os.Getenv("HOME"), ".config", "sin-code", n.cfg.SystemFile),
+		a.cfg.SystemFile,
+		filepath.Join(".", a.cfg.SystemFile),
+		filepath.Join(os.Getenv("HOME"), ".config", "sin-code", a.cfg.SystemFile),
 	}
 	if env := os.Getenv("SIN_AGENTS_DIR"); env != "" {
-		candidates = append(candidates, filepath.Join(env, n.cfg.SystemFile))
+		candidates = append(candidates, filepath.Join(env, a.cfg.SystemFile))
 	}
 	for _, p := range candidates {
 		if p == "" {
@@ -104,15 +150,15 @@ func (n *NIMAgent) loadSystemPrompt() (string, error) {
 			return string(data), nil
 		}
 	}
-	return n.defaultSystemPrompt(), nil
+	return a.defaultSystemPrompt(), nil
 }
 
-func (n *NIMAgent) defaultSystemPrompt() string {
+func (a *LLMAgent) defaultSystemPrompt() string {
 	return fmt.Sprintf("You are %s, a specialized agent.\n\nType: %s\nDescription: %s\n\nRespond concisely and accurately. Use the available scratchpad context to inform your answer.",
-		n.cfg.Name, n.cfg.Type, n.cfg.Description)
+		a.cfg.Name, a.cfg.Type, a.cfg.Description)
 }
 
-func (n *NIMAgent) buildUserPrompt(task *Task, priorInputs string, priorOutputs []string) string {
+func (a *LLMAgent) buildUserPrompt(task *Task, priorInputs string, priorOutputs []string) string {
 	var b strings.Builder
 	b.WriteString("## Task\n")
 	b.WriteString(fmt.Sprintf("ID: %s\n", task.ID))

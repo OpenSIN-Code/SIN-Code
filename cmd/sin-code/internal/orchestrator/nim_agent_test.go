@@ -52,7 +52,7 @@ func TestNIMAgentRunSuccess(t *testing.T) {
 	defer srv.Close()
 
 	a := newNIMTestAgent(t, srv, AgentConfig{
-		Name: "tester", Type: TaskTest, Model: "sonnet", MaxTokens: 2000, Temperature: 0.2,
+		Name: "tester", Type: TaskTest, Model: "qwen", MaxTokens: 2000, Temperature: 0.2,
 	})
 	task := &Task{ID: "tk-1", Type: TaskTest, Description: "say hi", AgentName: "tester"}
 	scratch := NewScratchpad()
@@ -73,7 +73,7 @@ func TestNIMAgentRunSuccess(t *testing.T) {
 	if captured.Messages[1].Role != "user" {
 		t.Errorf("second msg role: %s", captured.Messages[1].Role)
 	}
-	if captured.Model != llm.NIMClaudeModel {
+	if captured.Model != llm.NIMQwenModel {
 		t.Errorf("model alias not resolved: %s", captured.Model)
 	}
 	if captured.MaxTokens != 2000 {

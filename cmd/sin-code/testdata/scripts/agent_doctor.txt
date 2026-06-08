@@ -1,0 +1,8 @@
+env SIN_CODE_CONFIG_DIR=$WORK/config
+env SIN_NIM_API_KEY=fake-test-key
+env SIN_LLM_OFFLINE=1
+mkdir $WORK/config
+sin-code orchestrator-run agent-doctor --offline
+stdout 'Doctor'
+stdout 'provider:'
+stdout 'nim'

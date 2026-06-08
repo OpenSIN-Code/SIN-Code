@@ -5,4 +5,5 @@ stdout 'reviewer'
 stdout 'docs'
 stdout 'security'
 stdout 'architect'
-stdout 'claude'
+stdout 'qwen'
+

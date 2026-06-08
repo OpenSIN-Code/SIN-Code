@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/llm"
 )
 
 type Registry struct {
@@ -101,10 +103,25 @@ func UseNIM() bool {
 }
 
 func defaultAgentFactory(cfg AgentConfig) Agent {
-	if UseNIM() {
-		return NewNIMAgent(cfg)
+	if UseLLM() {
+		return NewLLMAgent(cfg)
 	}
 	return NewMockAgent(cfg)
+}
+
+// UseLLM returns true if any LLM provider is configured.
+func UseLLM() bool {
+	for _, p := range llm.Providers {
+		if p.APIKeyEnv != "" {
+			if os.Getenv(p.APIKeyEnv) != "" {
+				return true
+			}
+		}
+	}
+	if os.Getenv("SIN_LLM_API_KEY") != "" {
+		return true
+	}
+	return false
 }
 
 func NewRegistryWithDefaults(extraConfigs []AgentConfig) *Registry {

@@ -1,0 +1,11 @@
+env SIN_CODE_CONFIG_DIR=$WORK/config
+mkdir $WORK/config
+sin-code orchestrator-run agent-set myagent model=gpt-4o provider=openai
+stdout 'Updated'
+sin-code orchestrator-run agent-show myagent
+stdout 'provider:'
+stdout 'openai'
+stdout 'model:'
+stdout 'gpt-4o'
+sin-code orchestrator-run agent-reset myagent
+stdout 'Reset agent myagent'

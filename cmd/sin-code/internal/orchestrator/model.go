@@ -74,18 +74,20 @@ type Plan struct {
 }
 
 type AgentConfig struct {
-	Name        string   `toml:"name"`
-	Description string   `toml:"description"`
-	Type        TaskType `toml:"type"`
-	Model       string   `toml:"model"`
-	MaxTokens   int      `toml:"max_tokens"`
-	Temperature float64  `toml:"temperature"`
-	SystemFile  string   `toml:"system_file"`
-	MaxContext  int      `toml:"max_context_tokens"`
-	ToolsAllow  []string `toml:"tools_allow"`
-	ToolsDeny   []string `toml:"tools_deny"`
-	MemoryNS    string   `toml:"memory_namespace"`
-	RetentionDays int    `toml:"retention_days"`
+	Name         string   `toml:"name"`
+	Description  string   `toml:"description"`
+	Type         TaskType `toml:"type"`
+	Provider     string   `toml:"provider"`
+	BaseURL      string   `toml:"base_url"`
+	Model        string   `toml:"model"`
+	MaxTokens    int      `toml:"max_tokens"`
+	Temperature  float64  `toml:"temperature"`
+	SystemFile   string   `toml:"system_file"`
+	MaxContext   int      `toml:"max_context_tokens"`
+	ToolsAllow   []string `toml:"tools_allow"`
+	ToolsDeny    []string `toml:"tools_deny"`
+	MemoryNS     string   `toml:"memory_namespace"`
+	RetentionDays int     `toml:"retention_days"`
 }
 
 type ScratchpadEntry struct {
