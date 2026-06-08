@@ -134,23 +134,29 @@ func TestServeStdio_ListToolsViaInMemory(t *testing.T) {
 		t.Fatalf("ListTools failed: %v", err)
 	}
 
-	expectedTools := []string{
+	originalTools := []string{
 		"sin_discover", "sin_execute", "sin_map", "sin_grasp",
 		"sin_scout", "sin_harvest", "sin_orchestrate",
 		"sin_ibd", "sin_poc", "sin_sckg", "sin_adw", "sin_oracle", "sin_efm",
 	}
 
-	if len(toolsResult.Tools) != len(expectedTools) {
-		t.Errorf("expected %d tools, got %d", len(expectedTools), len(toolsResult.Tools))
+	if got := len(toolsResult.Tools); got < 40 {
+		t.Errorf("expected at least 40 tools, got %d", got)
 	}
 
 	found := make(map[string]bool)
 	for _, tool := range toolsResult.Tools {
 		found[tool.Name] = true
 	}
-	for _, name := range expectedTools {
-		if !found[name] {
-			t.Errorf("missing tool %q", name)
+
+	for _, want := range originalTools {
+		if !found[want] {
+			t.Errorf("missing original tool: %s", want)
+		}
+	}
+	for _, new := range []string{"sin_todo_add", "sin_memory_search", "sin_notifications_list", "sin_orchestrator_run"} {
+		if !found[new] {
+			t.Errorf("missing new tool: %s", new)
 		}
 	}
 }

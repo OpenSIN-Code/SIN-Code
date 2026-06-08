@@ -271,6 +271,302 @@ func registerAllMCPTools(server *mcp.Server) {
 				},
 			},
 		},
+		{
+			name:        "sin_todo_add",
+			description: "Add a todo (v2 bbolt store, hash ID, supports priority/type/tags/project/assignee)",
+			handler:     handleTodoAdd,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"title"},
+				"properties": map[string]any{
+					"title":       map[string]any{"type": "string"},
+					"description": map[string]any{"type": "string"},
+					"priority":    map[string]any{"type": "string", "enum": []string{"P0", "P1", "P2", "P3"}, "default": "P2"},
+					"type":        map[string]any{"type": "string", "enum": []string{"task", "bug", "feature", "chore", "epic", "question"}, "default": "task"},
+					"tags":        map[string]any{"type": "string", "description": "Comma-separated"},
+					"project":     map[string]any{"type": "string"},
+					"assignee":    map[string]any{"type": "string"},
+				},
+			},
+		},
+		{
+			name:        "sin_todo_list",
+			description: "List todos with filters (status/priority/tag/project/limit)",
+			handler:     handleTodoList,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status":   map[string]any{"type": "string"},
+					"priority": map[string]any{"type": "string"},
+					"tag":      map[string]any{"type": "string"},
+					"project":  map[string]any{"type": "string"},
+					"limit":    map[string]any{"type": "integer", "default": 50},
+				},
+			},
+		},
+		{
+			name:        "sin_todo_show",
+			description: "Show full details of a todo by ID (includes audit log + dependencies)",
+			handler:     handleTodoShow,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"id"},
+				"properties": map[string]any{
+					"id": map[string]any{"type": "string"},
+				},
+			},
+		},
+		{
+			name:        "sin_todo_complete",
+			description: "Mark a todo as done (status=done, sets closed_at, fires hooks+notifications)",
+			handler:     handleTodoComplete,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"id"},
+				"properties": map[string]any{
+					"id": map[string]any{"type": "string"},
+				},
+			},
+		},
+		{
+			name:        "sin_todo_claim",
+			description: "Atomically claim a todo (assigns to --as, sets status=in_progress)",
+			handler:     handleTodoClaim,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"id"},
+				"properties": map[string]any{
+					"id": map[string]any{"type": "string"},
+					"as": map[string]any{"type": "string", "description": "Actor (default git user.name)"},
+				},
+			},
+		},
+		{
+			name:        "sin_todo_ready",
+			description: "List unblocked open work (P0 first) — what should I work on next?",
+			handler:     handleTodoReady,
+			schema:      map[string]any{"type": "object", "properties": map[string]any{}},
+		},
+		{
+			name:        "sin_todo_blocked",
+			description: "List blocked todos (have open dependencies)",
+			handler:     handleTodoBlocked,
+			schema:      map[string]any{"type": "object", "properties": map[string]any{}},
+		},
+		{
+			name:        "sin_todo_search",
+			description: "Full-text search in todo titles + descriptions",
+			handler:     handleTodoSearch,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"query"},
+				"properties": map[string]any{
+					"query": map[string]any{"type": "string"},
+				},
+			},
+		},
+		{
+			name:        "sin_todo_prime",
+			description: "Print ready/blocked/mine context for agent prompts",
+			handler:     handleTodoPrime,
+			schema:      map[string]any{"type": "object", "properties": map[string]any{}},
+		},
+		{
+			name:        "sin_todo_stats",
+			description: "Counts by status/priority/type/assignee (JSON)",
+			handler:     handleTodoStats,
+			schema:      map[string]any{"type": "object", "properties": map[string]any{}},
+		},
+		{
+			name:        "sin_todo_dep_add",
+			description: "Add a dependency between two todos (child depends on parent)",
+			handler:     handleTodoDepAdd,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"child", "parent"},
+				"properties": map[string]any{
+					"child":  map[string]any{"type": "string"},
+					"parent": map[string]any{"type": "string"},
+					"rel":    map[string]any{"type": "string", "enum": []string{"blocks", "parent-child", "related", "discovered-from", "duplicates", "supersedes"}, "default": "blocks"},
+				},
+			},
+		},
+		{
+			name:        "sin_todo_deps",
+			description: "Show dependency tree of a todo",
+			handler:     handleTodoDep,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"child"},
+				"properties": map[string]any{
+					"child": map[string]any{"type": "string"},
+				},
+			},
+		},
+		{
+			name:        "sin_memory_add",
+			description: "Add a long-term project memory (insight, project, tags). Used by orchestrator agents via prime context.",
+			handler:     handleMemoryAdd,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"insight"},
+				"properties": map[string]any{
+					"insight": map[string]any{"type": "string"},
+					"project": map[string]any{"type": "string"},
+					"tags":    map[string]any{"type": "string", "description": "Comma-separated"},
+				},
+			},
+		},
+		{
+			name:        "sin_memory_list",
+			description: "List project memories (filter by project/tag)",
+			handler:     handleMemoryList,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"project": map[string]any{"type": "string"},
+					"tag":    map[string]any{"type": "string"},
+				},
+			},
+		},
+		{
+			name:        "sin_memory_search",
+			description: "Semantic search (uses NIM embeddings if SIN_NIM_API_KEY is set; substring fallback otherwise)",
+			handler:     handleMemorySearch,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"query"},
+				"properties": map[string]any{
+					"query":   map[string]any{"type": "string"},
+					"project": map[string]any{"type": "string"},
+					"top":     map[string]any{"type": "integer", "default": 10},
+				},
+			},
+		},
+		{
+			name:        "sin_memory_prime",
+			description: "Print top-K relevant memories for an LLM prompt (markdown formatted, ready to inject)",
+			handler:     handleMemoryPrime,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"query"},
+				"properties": map[string]any{
+					"query":   map[string]any{"type": "string"},
+					"project": map[string]any{"type": "string"},
+					"top":     map[string]any{"type": "integer", "default": 10},
+				},
+			},
+		},
+		{
+			name:        "sin_memory_stats",
+			description: "Memory DB statistics (total, links, embeddings, embedder status)",
+			handler:     handleMemoryStats,
+			schema:      map[string]any{"type": "object", "properties": map[string]any{}},
+		},
+		{
+			name:        "sin_notifications_list",
+			description: "List recent non-dismissed notifications (JSON, top 50)",
+			handler:     handleNotificationsList,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"limit": map[string]any{"type": "integer", "default": 50},
+				},
+			},
+		},
+		{
+			name:        "sin_notifications_stats",
+			description: "Notification statistics (total, unread, by type)",
+			handler:     handleNotificationsStats,
+			schema:      map[string]any{"type": "object", "properties": map[string]any{}},
+		},
+		{
+			name:        "sin_notifications_mark_read",
+			description: "Mark a notification as read by ID",
+			handler:     handleNotificationsMarkRead,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"id"},
+				"properties": map[string]any{
+					"id": map[string]any{"type": "string"},
+				},
+			},
+		},
+		{
+			name:        "sin_orchestrator_run",
+			description: "Run a prompt through the multi-agent orchestrator (Pre-LLM router → planner → parallel agents)",
+			handler:     handleOrchestratorRun,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"prompt"},
+				"properties": map[string]any{
+					"prompt":       map[string]any{"type": "string"},
+					"timeout":      map[string]any{"type": "string", "default": "2m"},
+					"max_parallel": map[string]any{"type": "integer", "default": 4},
+				},
+			},
+		},
+		{
+			name:        "sin_orchestrator_plan",
+			description: "Build a plan from a prompt (no execution) — previews sub-tasks and agents",
+			handler:     handleOrchestratorPlan,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"prompt"},
+				"properties": map[string]any{
+					"prompt": map[string]any{"type": "string"},
+				},
+			},
+		},
+		{
+			name:        "sin_orchestrator_agents",
+			description: "List all available agents (default + user-defined) with their config",
+			handler:     handleOrchestratorAgents,
+			schema:      map[string]any{"type": "object", "properties": map[string]any{}},
+		},
+		{
+			name:        "sin_agent_show",
+			description: "Show effective config for a single agent (merged defaults + user overrides)",
+			handler:     handleAgentShow,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"name"},
+				"properties": map[string]any{
+					"name": map[string]any{"type": "string"},
+				},
+			},
+		},
+		{
+			name:        "sin_agent_set",
+			description: "Set fields on a user agent (programmatic edit of agent.toml)",
+			handler:     handleAgentSet,
+			schema: map[string]any{
+				"type":     "object",
+				"required": []string{"name", "kvs"},
+				"properties": map[string]any{
+					"name": map[string]any{"type": "string"},
+					"kvs": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				},
+			},
+		},
+		{
+			name:        "sin_agent_doctor",
+			description: "Validate agents (model exists on provider, API key present, base URL reachable)",
+			handler:     handleAgentDoctor,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"name":    map[string]any{"type": "string"},
+					"offline": map[string]any{"type": "boolean", "default": false},
+				},
+			},
+		},
+		{
+			name:        "sin_lsp_servers",
+			description: "List detected LSP servers on PATH (gopls, pyright, tsserver, rust-analyzer)",
+			handler:     handleLspServers,
+			schema:      map[string]any{"type": "object", "properties": map[string]any{}},
+		},
 	}
 
 	for _, t := range tools {
