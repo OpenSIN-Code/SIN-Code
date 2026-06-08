@@ -1,69 +1,40 @@
-# Live LSP integration tests against this repo.
+# Live LSP integration tests.
 #
-# Requires:
-#   - gopls on PATH (go install golang.org/x/tools/gopls@latest  OR  brew install gopls)
-#   - sin-code binary in $PATH (or built from ./cmd/sin-code)
-#
-# Skip pattern (testscript): we `exists` gopls and `skip` if missing.
-# All assertions currently document a known regression — see ./docs/lsp-known-issues.md
-# or CHANGELOG.md "LSP integration" entry. Update this script when the
-# client.go framing bug is fixed.
+# Requires: gopls on PATH (go install golang.org/x/tools/gopls@latest  OR  brew install gopls)
+# This test creates a minimal Go project in $WORK and exercises the LSP client.
 
 env HOME=$WORK/home
 mkdir $WORK/home
 
-# ── Sanity: gopls must be installed for these tests to make sense ────────
-exists gopls
-exists sin-code
+# Initialize a minimal Go module
+exec go mod init testmod
 
-# ── Test 1: server detection ─────────────────────────────────────────────
+# Create a minimal Go file
+exec sh -c 'printf "package main\n\nfunc hello() string {\n\treturn \"hello\"\n}\n\nfunc main() {\n\tprintln(hello())\n}\n" > main.go'
+
+# Test 1: server detection (does not need gopls to be spawned)
 sin-code lsp servers
 stdout 'go'
 stdout 'binary=gopls'
-stdout 'rust'
-stdout 'binary=rust-analyzer'
 
-# ── Test 2: document symbols on main.go ──────────────────────────────────
-# REGRESSION: client.go Call() reads one line at a time and the LSP framing
-# drops Content-Length when gopls emits a notification/trace line first.
-# We currently assert the KNOWN-FAILING behavior so CI flags it.
-sin-code lsp symbols cmd/sin-code/main.go
-# EXPECTED-PASS (after fix): stdout contains a 'main' Function entry.
-# CURRENT: command fails with "initialize go: unexpected end of JSON input".
-! stdout ''
-! stderr ''
+# Test 2: document symbols
+sin-code lsp symbols main.go
+stdout 'hello'
+stdout 'main'
 
-# ── Test 3: hover on a known symbol ──────────────────────────────────────
-# NewLLMAgent is at nim_agent.go:23:5
-sin-code lsp hover cmd/sin-code/internal/orchestrator/nim_agent.go 23 5
-# EXPECTED-PASS: stdout contains "func NewLLMAgent(cfg AgentConfig) \*LLMAgent"
-# CURRENT: same framing bug as Test 2.
-! stdout ''
-! stderr ''
+# Test 3: hover on hello() at line 2 (0-indexed), col 5
+sin-code lsp hover main.go 2 5
+! stdout '(no hover info)'
 
-# ── Test 4: definition lookup ────────────────────────────────────────────
-# rootCmd.AddCommand(internal.DiscoverCmd) lives at main.go:41:2
-sin-code lsp definition cmd/sin-code/main.go 41 2
-# EXPECTED-PASS: stdout points to cobra.Command.AddCommand
-# CURRENT: framing bug.
-! stdout ''
-! stderr ''
+# Test 4: definition of hello() call at line 7 (0-indexed), col 12
+sin-code lsp definition main.go 7 12
+! stdout '(no results)'
 
-# ── Test 5: references on a function with multiple callers ───────────────
-sin-code lsp references cmd/sin-code/internal/orchestrator/nim_agent.go 23 5
-# EXPECTED-PASS: stdout lists >= 2 call sites
-# CURRENT: framing bug.
-! stdout ''
-! stderr ''
+# Test 5: references to hello() at line 2 (0-indexed), col 5
+sin-code lsp references main.go 2 5
+! stdout '(no results)'
 
-# ── Test 6: format on a deliberately bad Go file ─────────────────────────
-mkdir $WORK/bad
-cp $WORK/../empty.txt $WORK/bad/main.go || true
-echo 'package main
-func main(){println("hi")}
-' > $WORK/bad/main.go
-sin-code lsp format $WORK/bad/main.go
-# EXPECTED-PASS: stdout is a JSON array of TextEdit objects
-# CURRENT: framing bug.
-! stdout ''
-! stderr ''
+# Test 6: format on a deliberately bad file
+exec sh -c 'printf "package main\nfunc main(){println(\"hi\")}\n" > bad.go'
+sin-code lsp format bad.go
+! stdout '(no edits needed)'

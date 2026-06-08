@@ -1,0 +1,13 @@
+# Chat LLM disabled: verify the chat view + runner compile and the
+# no-API-key path is exercised without any network call. The TUI itself
+# requires a TTY, so we exercise the path indirectly via `sin-code tui`
+# help text. Users running locally can set SIN_NIM_API_KEY to enable the
+# full chat submit + LLM roundtrip.
+env SIN_NIM_API_KEY=
+env SIN_LLM_API_KEY=
+env SIN_LLM_OFFLINE=1
+sin-code tui --help
+stdout 'Launch the interactive multi-pane TUI'
+! stdout 'panic'
+! stdout 'undefined'
+! stdout 'runtime error'

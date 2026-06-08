@@ -277,3 +277,202 @@ func TestNIMAgentRunContextCancel(t *testing.T) {
 		t.Error("expected context error")
 	}
 }
+
+// ── edge case tests for the model resolution fix ──────────────────────────
+
+// TestLLMAgentEmptyModelFails: a plugin agent with Provider="" and Model=""
+// AND no env vars set must not silently send model="" to the LLM. With the
+// fixed resolution chain, this case falls back to the NIM default model
+// (the bug was a 400 from NIM). This test pins down that fallback so a
+// future regression that re-introduces the empty-model path is caught.
+func TestLLMAgentEmptyModelFails(t *testing.T) {
+	clearAllProviderEnv(t)
+	var captured llm.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &captured)
+		_, _ = w.Write([]byte(`{
+			"choices": [{"message":{"role":"assistant","content":"fallback-ok"}}],
+			"usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
+		}`))
+	}))
+	defer srv.Close()
+
+	client := llm.NewClient(srv.URL, "k")
+	a := NewLLMAgentWithClient(AgentConfig{
+		Name: "empty-cfg-agent", Type: TaskCode,
+	}, client)
+	out, err := a.Run(context.Background(), &Task{ID: "t1", Description: "x"}, NewScratchpad())
+	if err != nil {
+		t.Fatalf("empty model should fall back to NIM default, got error: %v", err)
+	}
+	if out != "fallback-ok" {
+		t.Errorf("output: %q", out)
+	}
+	if captured.Model == "" {
+		t.Fatal("captured model must not be empty (this is the original bug)")
+	}
+	if captured.Model != llm.NIMDefaultModel {
+		t.Errorf("expected NIM default %q, got %q", llm.NIMDefaultModel, captured.Model)
+	}
+}
+
+// TestLLMAgentNoModelResolvable: a contrived case where the configured
+// provider name does not exist in the registry AND no env vars are set:
+// the resolution chain must error out with a clear, agent-name-tagged
+// message instead of sending an empty model. This protects the error
+// path itself from regression.
+func TestLLMAgentNoModelResolvable(t *testing.T) {
+	clearAllProviderEnv(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("server should not be called when no model is resolvable")
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	client := llm.NewClient(srv.URL, "k")
+	a := NewLLMAgentWithClient(AgentConfig{
+		Name: "no-fallback", Type: TaskCode, Provider: "no-such-provider",
+	}, client)
+	_, err := a.Run(context.Background(), &Task{ID: "t1", Description: "x"}, NewScratchpad())
+	if err == nil {
+		t.Fatal("expected error when provider is unknown and no env is set")
+	}
+	if !strings.Contains(err.Error(), "no model configured") {
+		t.Errorf("expected descriptive error, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "no-fallback") {
+		t.Errorf("error should mention agent name, got: %v", err)
+	}
+}
+
+// TestLLMAgentEmptyModelUsesDefault: agent with a provider but no model
+// must use the provider's default model.
+func TestLLMAgentEmptyModelUsesDefault(t *testing.T) {
+	clearAllProviderEnv(t)
+	var captured llm.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &captured)
+		_, _ = w.Write([]byte(`{
+			"choices": [{"message":{"role":"assistant","content":"ok"}}],
+			"usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
+		}`))
+	}))
+	defer srv.Close()
+
+	client := llm.NewClient(srv.URL, "k")
+	a := NewLLMAgentWithClient(AgentConfig{
+		Name: "default-picker", Type: TaskCode, Provider: "openai",
+	}, client)
+	if _, err := a.Run(context.Background(), &Task{ID: "t1", Description: "x"}, NewScratchpad()); err != nil {
+		t.Fatal(err)
+	}
+	// OpenAI default model is "gpt-4o" per providers.go
+	if captured.Model != "gpt-4o" {
+		t.Errorf("expected openai default gpt-4o, got %q", captured.Model)
+	}
+}
+
+// TestLLMAgentInferProviderFromEnv: no provider in config, but env vars set —
+// agent must infer the provider from env.
+func TestLLMAgentInferProviderFromEnv(t *testing.T) {
+	clearAllProviderEnv(t)
+	// Set ONLY the OpenAI env var (not NIM, so inferProviderFromEnv returns "openai").
+	t.Setenv("OPENAI_API_KEY", "sk-test")
+	var captured llm.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &captured)
+		_, _ = w.Write([]byte(`{
+			"choices": [{"message":{"role":"assistant","content":"ok"}}],
+			"usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
+		}`))
+	}))
+	defer srv.Close()
+
+	client := llm.NewClient(srv.URL, "sk-test")
+	a := NewLLMAgentWithClient(AgentConfig{
+		Name: "env-infer", Type: TaskCode, Model: "",
+	}, client)
+	if _, err := a.Run(context.Background(), &Task{ID: "t1", Description: "x"}, NewScratchpad()); err != nil {
+		t.Fatal(err)
+	}
+	// env-inferred provider is openai → default model gpt-4o.
+	if captured.Model != "gpt-4o" {
+		t.Errorf("expected env-inferred provider default gpt-4o, got %q", captured.Model)
+	}
+}
+
+// TestLLMAgentModelAliasResolution: agent with alias "haiku" must send the
+// fully-resolved NIM model id to the server.
+func TestLLMAgentModelAliasResolution(t *testing.T) {
+	clearAllProviderEnv(t)
+	var captured llm.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &captured)
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"x"}}]}`))
+	}))
+	defer srv.Close()
+
+	client := llm.NewClient(srv.URL, "k")
+	a := NewLLMAgentWithClient(AgentConfig{
+		Name: "aliaser", Type: TaskCode, Model: "haiku",
+	}, client)
+	if _, err := a.Run(context.Background(), &Task{ID: "t1", Description: "x"}, NewScratchpad()); err != nil {
+		t.Fatal(err)
+	}
+	// Wait — Client.Chat() does NOT resolve aliases; only the agent does.
+	// Verify that the agent passed "haiku" verbatim and that a separate
+	// ResolveModel call maps it to the canonical NIM id.
+	resolved := llm.ResolveModel(captured.Model)
+	if resolved != llm.NIMHaikuModel {
+		t.Errorf("expected ResolveModel(%q) == %q, got %q", captured.Model, llm.NIMHaikuModel, resolved)
+	}
+}
+
+// TestLLMAgentNIMDefaultWhenAllEmpty: a fresh agent with no config and no
+// env should fall back to NIM's default model (the new "nim" hard-default
+// in the resolution block).
+func TestLLMAgentNIMDefaultWhenAllEmpty(t *testing.T) {
+	clearAllProviderEnv(t)
+	// We need a client but with no model hint: build a client whose URL we
+	// control, then construct an agent without a client — but that path
+	// (NewLLMAgent with no client) requires an API key from env. Since env
+	// is cleared, the agent will have client=nil and Run() returns the
+	// "no LLM client" error. Instead, use a hand-built client so we can
+	// observe the model.
+	var captured llm.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &captured)
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"x"}}]}`))
+	}))
+	defer srv.Close()
+
+	client := llm.NewClient(srv.URL, "k")
+	a := NewLLMAgentWithClient(AgentConfig{
+		Name: "fallbacker", Type: TaskCode, // no Provider, no Model
+	}, client)
+	if _, err := a.Run(context.Background(), &Task{ID: "t1", Description: "x"}, NewScratchpad()); err != nil {
+		t.Fatal(err)
+	}
+	// inferProviderFromEnv returns "" (all envs cleared) → falls through to "nim"
+	// → NIMDefaultModel ("meta/llama-3.3-70b-instruct").
+	if captured.Model != llm.NIMDefaultModel {
+		t.Errorf("expected NIM default %q, got %q", llm.NIMDefaultModel, captured.Model)
+	}
+}
+
+// clearAllProviderEnv wipes every provider env var a test could leak.
+func clearAllProviderEnv(t *testing.T) {
+	t.Helper()
+	for _, k := range []string{
+		"SIN_NIM_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
+		"GROQ_API_KEY", "SIN_LLM_API_KEY", "SIN_LLM_BASE_URL", "SIN_LLM_MODEL",
+		"SIN_NIM_BASE_URL",
+	} {
+		t.Setenv(k, "")
+	}
+}

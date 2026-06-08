@@ -1344,4 +1344,5 @@ func fireHooks(event HookEvent, t *Todo, from, to, note string) {
 		case "ignore":
 		}
 	}
+	firePluginHooks(event, t, from, to, note)
 }

@@ -298,8 +298,8 @@ func lspSetup(cmd *cobra.Command, fileFlag string, withPos bool) (*lsp.Manager, 
 	if !strings.HasPrefix(lspFile, "/") {
 		lspFile = filepath.Join(rootAbs, lspFile)
 	}
-	rootURI := "file://" + url.PathEscape(rootAbs)
-	fileURI := "file://" + url.PathEscape(lspFile)
+	rootURI := (&url.URL{Scheme: "file", Path: rootAbs}).String()
+	fileURI := (&url.URL{Scheme: "file", Path: lspFile}).String()
 	if lspLine == 0 && withPos {
 		return nil, "", "", fmt.Errorf("--line required (0-indexed)")
 	}

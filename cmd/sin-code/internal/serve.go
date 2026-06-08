@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/plugins"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 )
@@ -592,6 +593,79 @@ func registerAllMCPTools(server *mcp.Server) {
 			}, nil
 		})
 	}
+
+	// Plugin tools: each one becomes a sin_plugin_<plugin>_<tool> MCP tool
+	// that exec's the plugin binary with the caller's args.
+	registerPluginMCPTools(server)
+}
+
+func registerPluginMCPTools(server *mcp.Server) {
+	reg := plugins.NewRegistry()
+	_ = reg.LoadFromDir("")
+	for _, pt := range reg.MCPTools() {
+		pt := pt
+		server.AddTool(&mcp.Tool{
+			Name:        pt.Name,
+			Description: pt.Description,
+			InputSchema: pt.Schema,
+		}, func(ctx context.Context, req *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			args := make(map[string]any)
+			if req.Params.Arguments != nil {
+				_ = json.Unmarshal(req.Params.Arguments, &args)
+			}
+			result, err := runPluginMCPTool(ctx, pt, args)
+			if err != nil {
+				return &mcp.CallToolResult{
+					Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("ERROR: %v", err)}},
+					IsError: true,
+				}, nil
+			}
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: result}},
+			}, nil
+		})
+	}
+}
+
+// runPluginMCPTool exec's a plugin binary with the caller's args. Binary
+// path is resolved relative to the plugin dir; stdout/stderr are merged
+// and returned as a string. Timeout defaults to 60s.
+func runPluginMCPTool(ctx context.Context, pt plugins.MCPToolDef, args map[string]any) (string, error) {
+	plugin, ok := pluginLookup(pt.Plugin)
+	if !ok {
+		return "", fmt.Errorf("plugin %q not loaded", pt.Plugin)
+	}
+	fullPath := pt.Binary
+	if !filepath.IsAbs(fullPath) {
+		fullPath = filepath.Join(plugin.Path, fullPath)
+	}
+	cmdArgs := make([]string, 0, len(pt.Args)+len(args))
+	for _, a := range pt.Args {
+		cmdArgs = append(cmdArgs, "--"+a)
+		if v, ok := args[a]; ok {
+			cmdArgs = append(cmdArgs, fmt.Sprintf("%v", v))
+		}
+	}
+	timeout := time.Duration(pt.Timeout) * time.Second
+	if timeout <= 0 {
+		timeout = 60 * time.Second
+	}
+	execCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	c := exec.CommandContext(execCtx, fullPath, cmdArgs...)
+	c.Dir = plugin.Path
+	c.Env = append(os.Environ(), "SIN_PLUGIN="+pt.Plugin, "SIN_PLUGIN_TOOL="+pt.Tool)
+	out, err := c.CombinedOutput()
+	if err != nil {
+		return fmt.Sprintf("%s\nERROR: %v", string(out), err), nil
+	}
+	return string(out), nil
+}
+
+func pluginLookup(name string) (*plugins.Plugin, bool) {
+	reg := plugins.NewRegistry()
+	_ = reg.LoadFromDir("")
+	return reg.Get(name)
 }
 
 func handleDiscover(ctx context.Context, args map[string]any) (string, error) {

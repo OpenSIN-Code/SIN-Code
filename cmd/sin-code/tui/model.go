@@ -1,9 +1,13 @@
 package tui
 
 import (
+	"context"
+
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/tui/chat"
 )
 
 type Mode int
@@ -30,6 +34,17 @@ type ArgInputState struct {
 	Input textinput.Model
 }
 
+// teaProgramIface is the subset of *tea.Program the chat runner needs:
+// it just calls Send to push messages back into the event loop.
+// Defined here as a type alias for *tea.Program (declared in
+// chat_program.go) so the model file does not need to import bubbletea.
+type teaProgramIface interface {
+	Send(msg any)
+}
+
+// Model is the top-level TUI model. Program, ChatRunner, and ctxFn are
+// optional — when nil, the chat submit path falls back to synchronous
+// behavior (used by tests and headless invocations).
 type Model struct {
 	Width      int
 	Height     int
@@ -65,8 +80,25 @@ type Model struct {
 
 	ChatInput   *chatInput
 	ChatHistory []string
+	ChatRunner  *chat.Runner
+	Program     teaProgramIface
+	ctxFn       func() context.Context
 
 	OnRun func(name string, args []string) error
+}
+
+// ctx returns a context.Context for background goroutines. Defaults to
+// context.Background(); tests can override via SetContextFn.
+func (m *Model) ctx() context.Context {
+	if m.ctxFn != nil {
+		return m.ctxFn()
+	}
+	return context.Background()
+}
+
+// SetContextFn lets tests inject a cancellable context.
+func (m *Model) SetContextFn(fn func() context.Context) {
+	m.ctxFn = fn
 }
 
 func NewModel() *Model {

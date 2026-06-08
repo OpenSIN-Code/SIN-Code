@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/orchestrator"
+	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/plugins"
 )
 
 var (
@@ -24,6 +25,7 @@ var (
 	orch2AgentsDir    string
 	orch2PlanOnly     bool
 	orch2ShowScratch  bool
+	orch2NoPlugins    bool
 )
 
 var OrchestratorRunCmd = &cobra.Command{
@@ -39,6 +41,7 @@ var OrchestratorRunCmd = &cobra.Command{
 
 Default agents: coder, tester, reviewer, docs, security, architect.
 User agents can be added to ~/.config/sin-code/agents/{name}/agent.toml
+Plugin agents are auto-loaded from ~/.local/share/sin-code/plugins/<name>/
 
 Examples:
   sin-code orchestrate-run "Add user authentication with OAuth2"
@@ -53,20 +56,56 @@ Examples:
 
 var OrchestratorAgentsCmd = &cobra.Command{
 	Use:   "orchestrator-agents",
-	Short: "List available agents (default + user-defined)",
+	Short: "List available agents (default + user-defined + plugin)",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		extra, err := orchestrator.LoadUserAgents(orch2AgentsDir)
+		extra, err := loadAllAgents()
 		if err != nil {
 			return err
 		}
 		o := orchestrator.NewWithAgents(extra)
-		if orch2Format == "json" {
-			return json.NewEncoder(os.Stdout).Encode(o.Registry.List())
+		registry := o.Registry
+		all := registry.List()
+
+		// Build plugin name lookup for [plugin X] tagging.
+		pluginAgent := map[string]string{}
+		if !orch2NoPlugins {
+			pr := plugins.NewRegistry()
+			_ = pr.LoadFromDir("")
+			for _, p := range pr.List() {
+				for _, a := range p.Agents {
+					pluginAgent["plugin-"+p.Name+"-"+a.Name] = p.Name
+				}
+			}
 		}
-		fmt.Printf("Loaded %d agents:\n\n", len(o.Registry.List()))
-		for _, c := range o.Registry.List() {
-			fmt.Printf("  %-12s type=%-10s model=%-32s tools=%d\n",
-				c.Name, c.Type, c.Model, len(c.ToolsAllow))
+
+		if orch2Format == "json" {
+			out := make([]map[string]any, 0, len(all))
+			for _, c := range all {
+				entry := map[string]any{
+					"name":         c.Name,
+					"type":         c.Type,
+					"model":        c.Model,
+					"tools_allow":  c.ToolsAllow,
+					"description":  c.Description,
+				}
+				if src, ok := pluginAgent[c.Name]; ok {
+					entry["source"] = "plugin"
+					entry["plugin"] = src
+				} else {
+					entry["source"] = "default-or-user"
+				}
+				out = append(out, entry)
+			}
+			return json.NewEncoder(os.Stdout).Encode(out)
+		}
+		fmt.Printf("Loaded %d agents:\n\n", len(all))
+		for _, c := range all {
+			prefix := ""
+			if src, ok := pluginAgent[c.Name]; ok {
+				prefix = fmt.Sprintf("[plugin %s] ", src)
+			}
+			fmt.Printf("  %s%-12s type=%-10s model=%-32s tools=%d\n",
+				prefix, c.Name, c.Type, c.Model, len(c.ToolsAllow))
 			if c.Description != "" {
 				fmt.Printf("      %s\n", c.Description)
 			}
@@ -80,7 +119,7 @@ var OrchestratorPlanCmd = &cobra.Command{
 	Short: "Build a plan from a prompt (no execution)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		extra, err := orchestrator.LoadUserAgents(orch2AgentsDir)
+		extra, err := loadAllAgents()
 		if err != nil {
 			return err
 		}
@@ -102,6 +141,29 @@ var OrchestratorPlanCmd = &cobra.Command{
 	},
 }
 
+// loadAllAgents merges user agents (from --agents-dir) with plugin agents
+// (from the global plugin dir). Plugin agents are tagged with
+// "plugin-<plugin>-<agent>" so the registry can disambiguate from defaults.
+func loadAllAgents() ([]orchestrator.AgentConfig, error) {
+	user, err := orchestrator.LoadUserAgents(orch2AgentsDir)
+	if err != nil {
+		return nil, err
+	}
+	if orch2NoPlugins {
+		return user, nil
+	}
+	pr := plugins.NewRegistry()
+	_ = pr.LoadFromDir("")
+	pluginAgents := pr.AgentConfigs()
+	if len(pluginAgents) == 0 {
+		return user, nil
+	}
+	out := make([]orchestrator.AgentConfig, 0, len(user)+len(pluginAgents))
+	out = append(out, user...)
+	out = append(out, pluginAgents...)
+	return out, nil
+}
+
 func init() {
 	OrchestratorRunCmd.Flags().StringVar(&orch2Format, "format", "text", "Output format: text|json")
 	OrchestratorRunCmd.Flags().DurationVar(&orch2Timeout, "timeout", 2*time.Minute, "Max execution time")
@@ -109,16 +171,19 @@ func init() {
 	OrchestratorRunCmd.Flags().StringVar(&orch2AgentsDir, "agents-dir", "", "User agents dir (default ~/.config/sin-code/agents)")
 	OrchestratorRunCmd.Flags().BoolVar(&orch2PlanOnly, "plan-only", false, "Build plan and exit, no execution")
 	OrchestratorRunCmd.Flags().BoolVar(&orch2ShowScratch, "show-scratch", false, "Print shared scratchpad after dispatch")
+	OrchestratorRunCmd.Flags().BoolVar(&orch2NoPlugins, "no-plugins", false, "Skip loading plugin agents")
 
 	OrchestratorAgentsCmd.Flags().StringVar(&orch2Format, "format", "text", "Output format: text|json")
 	OrchestratorAgentsCmd.Flags().StringVar(&orch2AgentsDir, "agents-dir", "", "User agents dir (default ~/.config/sin-code/agents)")
+	OrchestratorAgentsCmd.Flags().BoolVar(&orch2NoPlugins, "no-plugins", false, "Skip loading plugin agents")
 
 	OrchestratorPlanCmd.Flags().StringVar(&orch2Format, "format", "text", "Output format: text|json")
 	OrchestratorPlanCmd.Flags().StringVar(&orch2AgentsDir, "agents-dir", "", "User agents dir (default ~/.config/sin-code/agents)")
+	OrchestratorPlanCmd.Flags().BoolVar(&orch2NoPlugins, "no-plugins", false, "Skip loading plugin agents")
 }
 
 func runOrchestrator() error {
-	extra, err := orchestrator.LoadUserAgents(orch2AgentsDir)
+	extra, err := loadAllAgents()
 	if err != nil {
 		return err
 	}

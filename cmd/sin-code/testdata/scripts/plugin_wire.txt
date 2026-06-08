@@ -1,0 +1,36 @@
+# Verify a plugin's agent appears in orchestrator-agents and that the
+# agent list reflects the plugin when SIN_CODE_CONFIG_DIR redirects the
+# plugin discovery path to a tmp dir.
+
+env SIN_CODE_CONFIG_DIR=$WORK/config
+mkdir -p $WORK/config/sin-code/plugins
+mkdir -p $WORK/source-plugin/bin
+
+# Write the plugin manifest. printf + shell-quoted escapes (no heredoc)
+# keeps the testscript parser happy.
+sin-code execute --command 'printf "name = \"hello-plugin\"\nversion = \"1.0.0\"\n[[subcommand]]\nname = \"greet\"\nbinary = \"./bin/greet\"\n[[agents]]\nname = \"fastcoder\"\ntype = \"code\"\nmodel = \"openai/gpt-4o\"\n[[tools]]\nname = \"shout\"\nbinary = \"./bin/shout\"\nargs = [\"name\"]\n" > $WORK/source-plugin/plugin.toml'
+stdout 'Exit:'
+
+# Plugin binaries.
+sin-code execute --command 'printf "#!/bin/sh\necho hi\n" > $WORK/source-plugin/bin/greet && chmod +x $WORK/source-plugin/bin/greet'
+stdout 'Exit:'
+sin-code execute --command 'printf "#!/bin/sh\necho shouting\n" > $WORK/source-plugin/bin/shout && chmod +x $WORK/source-plugin/bin/shout'
+stdout 'Exit:'
+
+# Install into the discovered plugin dir. Use the real cp via execute
+# because testscript's own cp requires the destination dir to pre-exist.
+sin-code execute --command 'cp -r $WORK/source-plugin $WORK/config/sin-code/plugins/hello-plugin'
+stdout 'Exit:'
+
+# plugin list still works
+sin-code plugin --path $WORK/config/sin-code/plugins list
+stdout 'hello-plugin'
+
+# plugin agent is merged into orchestrator-agents and tagged [plugin X]
+sin-code orchestrator-agents --agents-dir $WORK/none
+stdout 'plugin-hello-plugin-fastcoder'
+stdout '\[plugin hello-plugin\]'
+
+# plugin agent is also discoverable as JSON
+sin-code orchestrator-agents --agents-dir $WORK/none --format json
+stdout 'plugin-hello-plugin-fastcoder'

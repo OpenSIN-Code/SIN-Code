@@ -6,6 +6,8 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/tui/chat"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -218,6 +220,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case BannerKeyMsg:
+		return m, nil
+
+	case chat.ChatResponseMsg:
+		m.handleChatResponse(msg)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -582,4 +588,40 @@ func (m *Model) rightWidth() int {
 		return 24
 	}
 	return 20
+}
+
+// handleChatResponse replaces the most recent "assistant: thinking..."
+// placeholder in ChatHistory with the real response (or error). The
+// placeholder is always the last entry because handleChatSubmit appends
+// it immediately before spawning the goroutine, and the Update loop is
+// the only writer to ChatHistory in steady state.
+func (m *Model) handleChatResponse(msg chat.ChatResponseMsg) {
+	if len(m.ChatHistory) == 0 {
+		return
+	}
+	idx := len(m.ChatHistory) - 1
+	last := m.ChatHistory[idx]
+	if !strings.HasPrefix(last, "assistant: thinking...") {
+		// No placeholder — append as a new entry.
+		if msg.Error != nil {
+			m.ChatHistory = append(m.ChatHistory, "assistant: (error: "+msg.Error.Error()+")")
+		} else if msg.Text == "" {
+			m.ChatHistory = append(m.ChatHistory, "assistant: (empty response)")
+		} else {
+			m.ChatHistory = append(m.ChatHistory, "assistant: "+msg.Text)
+		}
+		if len(m.ChatHistory) > 500 {
+			m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
+		}
+		return
+	}
+	if msg.Error != nil {
+		m.ChatHistory[idx] = "assistant: (error: " + msg.Error.Error() + ")"
+		return
+	}
+	text := msg.Text
+	if text == "" {
+		text = "(empty response)"
+	}
+	m.ChatHistory[idx] = "assistant: " + text
 }

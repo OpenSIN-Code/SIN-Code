@@ -94,20 +94,27 @@ func (a *LLMAgent) Run(ctx context.Context, task *Task, scratch *Scratchpad) (st
 
 	scratch.Write(a.cfg.Name, "inputs", task.Description)
 
+	// Resolve model: priority is cfg.Model -> provider default -> "nim" default.
+	// Replaces the prior branching which could leave model empty when both
+	// cfg.Provider and cfg.Model were unset, causing 400s from NIM.
 	model := a.cfg.Model
-	if a.cfg.Provider != "" || a.cfg.BaseURL != "" {
-		if a.cfg.Provider == "" {
-			a.cfg.Provider = inferProviderFromEnv()
-		}
-		if prov, perr := llm.LookupProvider(a.cfg.Provider); perr == nil && a.cfg.Model == "" {
-			model = prov.DefaultModel
-		}
-	} else {
-		model = llm.ResolveModel(a.cfg.Model)
+	if model != "" {
+		model = llm.ResolveModel(model)
 	}
 	if model == "" {
-		prov, _ := llm.LookupProvider(a.cfg.Provider)
-		model = prov.DefaultModel
+		providerName := a.cfg.Provider
+		if providerName == "" {
+			providerName = inferProviderFromEnv()
+		}
+		if providerName == "" {
+			providerName = "nim" // sensible default
+		}
+		if prov, perr := llm.LookupProvider(providerName); perr == nil {
+			model = prov.DefaultModel
+		}
+	}
+	if model == "" {
+		return "", fmt.Errorf("agent %s: no model configured (set model in agent.toml)", a.cfg.Name)
 	}
 
 	req := llm.ChatRequest{

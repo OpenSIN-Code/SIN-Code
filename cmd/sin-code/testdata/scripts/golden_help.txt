@@ -33,7 +33,7 @@ Available Commands:
   notifications       Manage sin-code todo notifications
   oracle              Verification Oracle — verify claims with evidence
   orchestrate         Legacy task manager (use 'sin-code todo' for the SOTA issue tracker)
-  orchestrator-agents List available agents (default + user-defined)
+  orchestrator-agents List available agents (default + user-defined + plugin)
   orchestrator-plan   Build a plan from a prompt (no execution)
   orchestrator-run    Run a prompt through the multi-agent orchestrator (Pre-LLM router → planner → parallel agents)
   plugin              Manage user-installed plugins (subcommands, agents, tools, hooks)

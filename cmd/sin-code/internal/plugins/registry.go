@@ -26,7 +26,7 @@ func NewRegistry() *Registry {
 
 func (r *Registry) LoadFromDir(dir string) error {
 	if dir == "" {
-		dir = DefaultPluginDir()
+		dir = ResolvePluginDir("")
 	}
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return nil
@@ -43,6 +43,19 @@ func (r *Registry) LoadFromDir(dir string) error {
 		}
 	}
 	return nil
+}
+
+// ResolvePluginDir returns the plugin dir to use. Empty arg → env override
+// (SIN_CODE_CONFIG_DIR) → default user config dir. Lets testscripts redirect
+// discovery to a tmp dir without touching HOME.
+func ResolvePluginDir(override string) string {
+	if override != "" {
+		return override
+	}
+	if cfg := os.Getenv("SIN_CODE_CONFIG_DIR"); cfg != "" {
+		return filepath.Join(cfg, "sin-code", "plugins")
+	}
+	return DefaultPluginDir()
 }
 
 func (r *Registry) List() []*Plugin {
@@ -107,6 +120,92 @@ func (r *Registry) AgentConfigs() []orchestrator.AgentConfig {
 				SystemFile:  filepath.Join(p.Path, a.System),
 				MemoryNS:    "plugin-" + p.Name,
 			})
+		}
+	}
+	return out
+}
+
+// MCPToolDef describes one plugin tool to be exposed via the MCP server.
+// The Name uses the canonical "sin_plugin_<plugin>_<tool>" form, the
+// Description comes from the manifest, and Schema is built from the
+// manifest's Args slice (each arg → JSON Schema string property).
+type MCPToolDef struct {
+	Name        string
+	Description string
+	Plugin      string
+	Tool        string
+	Binary      string
+	Args        []string
+	Timeout     int
+	Schema      map[string]any
+}
+
+// MCPTools returns one MCPToolDef per enabled plugin tool, named
+// "sin_plugin_<plugin>_<tool>" so they are easily greppable and don't
+// collide with the built-in sin_* MCP tools.
+func (r *Registry) MCPTools() []MCPToolDef {
+	var out []MCPToolDef
+	for _, p := range r.List() {
+		for _, t := range p.Tools {
+			props := map[string]any{}
+			for _, a := range t.Args {
+				props[a] = map[string]any{
+					"type":        "string",
+					"description": "Argument passed as --" + a + " to the plugin binary",
+				}
+			}
+			schema := map[string]any{
+				"type":       "object",
+				"properties": props,
+			}
+			if len(t.Args) > 0 {
+				schema["required"] = t.Args
+			}
+			desc := t.Description
+			if desc == "" {
+				desc = fmt.Sprintf("[plugin %s] tool %s", p.Name, t.Name)
+			} else {
+				desc = fmt.Sprintf("[plugin %s] %s", p.Name, desc)
+			}
+			out = append(out, MCPToolDef{
+				Name:        "sin_plugin_" + p.Name + "_" + t.Name,
+				Description: desc,
+				Plugin:      p.Name,
+				Tool:        t.Name,
+				Binary:      t.Binary,
+				Args:        t.Args,
+				Timeout:     t.Timeout,
+				Schema:      schema,
+			})
+		}
+	}
+	return out
+}
+
+// HookDef is a plugin-registered todo event hook. Plugin hooks are run
+// as subprocesses with the same SIN_TODO_* env vars the built-in todo
+// hooks receive.
+type HookDef struct {
+	Plugin  string
+	Event   string
+	Command string
+	Timeout int
+}
+
+// HooksFor returns all enabled plugin hooks matching the given event name
+// (e.g. "post_complete"). Unknown events yield no hooks.
+func (r *Registry) HooksFor(event string) []HookDef {
+	var out []HookDef
+	for _, p := range r.List() {
+		for _, h := range p.Hooks {
+			if h.Event == event {
+				out = append(out, HookDef{
+					Plugin:  p.Name,
+					Event:   h.Event,
+					Command: h.Command,
+					Timeout: h.Timeout,
+				})
+			}
 		}
 	}
 	return out

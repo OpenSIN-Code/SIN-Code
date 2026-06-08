@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -58,6 +59,17 @@ func NewClient(baseURL, apiKey string) *Client {
 }
 
 func (c *Client) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
+	// Belt-and-suspenders: if the caller left Model empty, try to discover a
+	// default. Order of preference: explicit env override -> /v1/models probe
+	// (when we have an API key) -> error. Without this guard the request
+	// would go out with model="" and NIM/OpenAI return 400.
+	if req.Model == "" {
+		resolved, err := c.resolveEmptyModel(ctx)
+		if err != nil {
+			return nil, err
+		}
+		req.Model = resolved
+	}
 	body, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)
@@ -91,4 +103,39 @@ func (r *ChatResponse) ExtractText() string {
 		return r.Choices[0].Message.Content
 	}
 	return ""
+}
+
+func (c *Client) resolveEmptyModel(ctx context.Context) (string, error) {
+	if v := os.Getenv("SIN_LLM_MODEL"); v != "" {
+		return v, nil
+	}
+	if c.APIKey == "" {
+		return "", fmt.Errorf("no model specified and no default available (set ChatRequest.Model or SIN_LLM_MODEL)")
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", c.BaseURL+"/models", nil)
+	if err != nil {
+		return "", fmt.Errorf("build /v1/models request: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+	resp, err := c.HTTP.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("probe /v1/models: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		data, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("probe /v1/models: status %d: %s", resp.StatusCode, string(data))
+	}
+	var listing struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&listing); err != nil {
+		return "", fmt.Errorf("decode /v1/models: %w", err)
+	}
+	if len(listing.Data) == 0 || listing.Data[0].ID == "" {
+		return "", fmt.Errorf("no model specified and /v1/models returned no entries")
+	}
+	return listing.Data[0].ID, nil
 }

@@ -26,6 +26,11 @@ type Client struct {
 	nextID  int
 	rootURI string
 	lang    string
+
+	// notificationHandler is called for every server-to-client notification
+	// (e.g. window/logMessage, $/progress, textDocument/publishDiagnostics).
+	// If nil, notifications are silently discarded.
+	notificationHandler func(method string, params json.RawMessage)
 }
 
 type InitializeParams struct {
@@ -231,6 +236,15 @@ func (c *Client) initialize() error {
 func (c *Client) Lang() string { return c.lang }
 func (c *Client) RootURI() string { return c.rootURI }
 
+// SetNotificationHandler registers a callback for server-to-client
+// notifications (window/logMessage, $/progress, etc.). Notifications are
+// received in addition to response frames — they don't replace responses.
+func (c *Client) SetNotificationHandler(fn func(method string, params json.RawMessage)) {
+	c.mu.Lock()
+	c.notificationHandler = fn
+	c.mu.Unlock()
+}
+
 func (c *Client) Close() error {
 	if c == nil || c.cmd == nil || c.cmd.Process == nil {
 		return nil
@@ -393,46 +407,125 @@ func (c *Client) Call(method string, params any, result any, timeout time.Durati
 		return err
 	}
 	deadline := time.Now().Add(timeout)
+	resp, err := c.readLSPFrame(deadline)
+	if err != nil {
+		if err == io.EOF {
+			return fmt.Errorf("server closed before response")
+		}
+		if isTimeoutErr(err) {
+			return fmt.Errorf("LSP timeout after %s", timeout)
+		}
+		return err
+	}
+	if resp.Error != nil {
+		return fmt.Errorf("LSP error %d: %s", resp.Error.Code, resp.Error.Message)
+	}
+	if result != nil && len(resp.Result) > 0 {
+		return json.Unmarshal(resp.Result, result)
+	}
+	return nil
+}
+
+// readLSPFrame reads raw frames from the server, discards any server-to-client
+// notifications (frames without an "id"), and returns the first JSON-RPC response
+// frame (with an "id").  If the caller has registered a notification handler
+// it is invoked for every notification that is skipped.
+func (c *Client) readLSPFrame(deadline time.Time) (*Response, error) {
 	for time.Now().Before(deadline) {
 		c.mu.Lock()
 		stdout := c.stdout
 		c.mu.Unlock()
-		line, err := stdout.ReadString('\n')
-		if err == io.EOF {
-			return fmt.Errorf("server closed before response")
-		}
+		frame, err := readRawLSPFrame(stdout, deadline)
 		if err != nil {
-			return err
+			if err == io.EOF {
+				return nil, fmt.Errorf("server closed before response")
+			}
+			if isTimeoutErr(err) {
+				return nil, fmt.Errorf("LSP timeout")
+			}
+			return nil, err
+		}
+		var resp Response
+		if err := json.Unmarshal(frame, &resp); err != nil {
+			continue
+		}
+		if resp.ID == nil {
+			if c.notificationHandler != nil {
+				c.notificationHandler(resp.Method, resp.Params)
+			}
+			continue
+		}
+		return &resp, nil
+	}
+	return nil, fmt.Errorf("LSP timeout")
+}
+
+// readRawLSPFrame reads one raw LSP message (Content-Length: N\r\n\r\n<body>).
+// It returns the body bytes of the next frame on the stream, regardless of
+// whether it is a notification or a response.
+func readRawLSPFrame(stdout *bufio.Reader, deadline time.Time) ([]byte, error) {
+	contentLength := 0
+	for {
+		if time.Now().After(deadline) {
+			return nil, errTimeout
+		}
+		line, err := stdout.ReadString('\n')
+		if err != nil {
+			return nil, err
 		}
 		line = strings.TrimRight(line, "\r\n")
 		if line == "" {
+			if contentLength > 0 {
+				break
+			}
 			continue
 		}
-		var headerKey, headerVal string
-		if idx := strings.Index(line, ":"); idx > 0 {
-			headerKey = strings.TrimSpace(line[:idx])
-			headerVal = strings.TrimSpace(line[idx+1:])
+		idx := strings.Index(line, ":")
+		if idx <= 0 {
+			continue
 		}
-		if headerKey == "Content-Length" {
-			length, _ := strconv.Atoi(headerVal)
-			buf := make([]byte, length)
-			if _, err := io.ReadFull(stdout, buf); err != nil {
-				return err
+		key := strings.TrimSpace(line[:idx])
+		val := strings.TrimSpace(line[idx+1:])
+		if key == "Content-Length" {
+			n, perr := strconv.Atoi(val)
+			if perr != nil {
+				return nil, fmt.Errorf("invalid Content-Length %q: %w", val, perr)
 			}
-			var resp Response
-			if err := json.Unmarshal(buf, &resp); err != nil {
-				return err
-			}
-			if resp.Error != nil {
-				return fmt.Errorf("LSP error %d: %s", resp.Error.Code, resp.Error.Message)
-			}
-			if result != nil && len(resp.Result) > 0 {
-				return json.Unmarshal(resp.Result, result)
-			}
-			return nil
+			contentLength = n
 		}
 	}
-	return fmt.Errorf("LSP timeout after %s", timeout)
+	if contentLength <= 0 {
+		return nil, fmt.Errorf("no Content-Length header found")
+	}
+	buf := make([]byte, contentLength)
+	remaining := deadline.Sub(time.Now())
+	if remaining <= 0 {
+		return nil, errTimeout
+	}
+	if err := readFullWithDeadline(stdout, buf, remaining); err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
+func readFullWithDeadline(r *bufio.Reader, buf []byte, d time.Duration) error {
+	done := make(chan error, 1)
+	go func() {
+		_, err := io.ReadFull(r, buf)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(d):
+		return errTimeout
+	}
+}
+
+var errTimeout = fmt.Errorf("lsp read deadline exceeded")
+
+func isTimeoutErr(err error) bool {
+	return err == errTimeout
 }
 
 func (c *Client) Notify(method string, params any) error {

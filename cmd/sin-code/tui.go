@@ -32,6 +32,7 @@ func runNewTUI(out io.Writer) {
 		return c.Execute()
 	}
 	prog := tea.NewProgram(pm, tea.WithAltScreen())
+	pm.Program = tui.ProgramFromTeaProgram(prog)
 	if _, err := prog.Run(); err != nil {
 		fmt.Fprintln(out, "sin-code subcommands (TUI not available, showing plain text):")
 		fmt.Fprintln(out)

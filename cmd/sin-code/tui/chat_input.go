@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Purpose: TUI-side adapter for the chat.Input widget. Avoids the
 // `*chat.Input` direct dep in model.go by wrapping it in a local type.
+// Submits are routed through a chat.Runner (lazy-init singleton) and the
+// LLM call runs in a background goroutine so the UI stays responsive.
 package tui
 
 import (
@@ -26,11 +28,31 @@ func (m *Model) initChatInput() {
 	}
 }
 
+// initChatRunner lazily initializes the chat LLM runner. If no API key is
+// configured the runner stays nil and the submit handler prints an
+// in-band error rather than calling the LLM.
+func (m *Model) initChatRunner() {
+	if m.ChatRunner != nil {
+		return
+	}
+	r, err := chat.NewRunner()
+	if err != nil {
+		m.ChatRunner = nil
+		return
+	}
+	m.ChatRunner = r
+}
+
 type chatSubmitMsg struct {
 	Text        string
 	Attachments []*attachments.Attachment
 }
 
+// handleChatSubmit appends the user entry to history and, when a runner
+// is available, kicks off an async LLM call. A "thinking..." placeholder
+// is shown immediately; the background goroutine dispatches a
+// chat.ChatResponseMsg back into the Update loop via *tea.Program.Send
+// (or, when no program is set, blocks synchronously — used by tests).
 func handleChatSubmit(m *Model, submit chat.SubmitMsg) {
 	entry := submit.Text
 	if len(submit.Attachments) > 0 {
@@ -41,10 +63,66 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) {
 		entry += "]"
 	}
 	m.ChatHistory = append(m.ChatHistory, entry)
-	if len(m.ChatHistory) > 200 {
-		m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-200:]
+	if len(m.ChatHistory) > 500 {
+		m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
 	}
 	m.AppendHistory(ViewChat.String(), "chat-submit", entry, true)
+
+	m.initChatRunner()
+	if m.ChatRunner == nil {
+		m.ChatHistory = append(m.ChatHistory, "assistant: (no API key — set SIN_NIM_API_KEY)")
+		if len(m.ChatHistory) > 500 {
+			m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
+		}
+		return
+	}
+
+	// Show "thinking..." placeholder right away so the user sees feedback.
+	m.ChatHistory = append(m.ChatHistory, "assistant: thinking...")
+	if len(m.ChatHistory) > 500 {
+		m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
+	}
+	thinkingIdx := len(m.ChatHistory) - 1
+
+	// Snapshot the runner + history so the goroutine doesn't race the
+	// Update loop's mutations.
+	runner := m.ChatRunner
+	historySnapshot := append([]string(nil), m.ChatHistory[:thinkingIdx]...)
+	prompt := submit.Text
+
+	prog := m.Program
+	go func() {
+		text, err := runner.Run(m.ctx(), prompt, historySnapshot)
+		msg := chat.ChatResponseMsg{Text: text, Error: err}
+		if prog != nil {
+			prog.Send(msg)
+			return
+		}
+		// No program wired up (e.g. test path): apply synchronously via
+		// a tea.Cmd the next Update tick can pick up. The caller will
+		// see the assistant entry in history after the next Update.
+		applyChatResponseMsg(m, msg, thinkingIdx)
+	}()
+}
+
+// applyChatResponseMsg replaces the "thinking..." placeholder at idx with
+// the real assistant text (or error). Used by the synchronous fallback
+// path; the async path mutates m.ChatHistory directly from the goroutine
+// only when there's no *tea.Program, in which case the model is single-
+// threaded and there's no race.
+func applyChatResponseMsg(m *Model, msg chat.ChatResponseMsg, idx int) {
+	if idx < 0 || idx >= len(m.ChatHistory) {
+		return
+	}
+	if msg.Error != nil {
+		m.ChatHistory[idx] = "assistant: (error: " + msg.Error.Error() + ")"
+		return
+	}
+	text := msg.Text
+	if text == "" {
+		text = "(empty response)"
+	}
+	m.ChatHistory[idx] = "assistant: " + text
 }
 
 func (m *Model) updateChat(msg tea.Msg) tea.Cmd {
