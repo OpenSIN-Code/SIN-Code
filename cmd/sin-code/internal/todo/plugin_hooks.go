@@ -34,6 +34,12 @@ func pluginRegistry() *plugins.Registry {
 // event, with the same HookContext semantics the built-in hooks use. Errors
 // are logged to stderr but never block the caller — the primary op already
 // succeeded by the time hooks fire.
+//
+// TODO(st-phw1): hook output (stdout) is currently NOT recorded in the audit log.
+// Track at: docs/issues/st-phw1-plugin-hook-wiring.md
+// Plan:      docs/plans/plugin-system-completion.md
+// Target:    v2.5.0 — append stdout/stderr to the audit log entry so users can
+//            debug plugin hooks via `sin-code todo audit <id>`.
 func firePluginHooks(event HookEvent, t *Todo, from, to, note string) {
 	reg := pluginRegistry()
 	if reg == nil {

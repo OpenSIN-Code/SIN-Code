@@ -12,6 +12,8 @@ This directory contains the Architecture Decision Records (ADRs) for the SIN-Cod
 | [ADR-004](ADR-004-codocs-standard.md) | CoDocs — Co-located Documentation | Accepted |
 | [ADR-005](ADR-005-one-command-installer.md) | One-Command Installer (`install.sh`) | Accepted |
 | [ADR-006](ADR-006-gitnexus-mandatory-graph.md) | GitNexus for Code Knowledge Graphs | Accepted |
+| [ADR-007](ADR-007-plugin-extension-model.md) | Plugin Extension Model (TOML + subprocess) | Accepted |
+| [ADR-008](ADR-008-go-125-deferral.md) | Go 1.25 Deferral — govulncheck stays warn-only | Accepted |
 
 ## What is an ADR?
 

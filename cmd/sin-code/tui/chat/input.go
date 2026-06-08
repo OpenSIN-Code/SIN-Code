@@ -215,6 +215,14 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 // before the textarea swallows it. When sin-code eventually upgrades to
 // Bubbletea v2, the same logic can be triggered by a public tea.PasteMsg.
 // See docs/bubbletea-v2-migration.md.
+//
+// TODO(st-bvm3): Bubbletea v2 has a native tea.PasteMsg that carries raw
+// bytes (no UTF-8 corruption). When we migrate to v2, this synthetic Paste
+// flag detection in the KeyMsg Update() path (line ~179) should be replaced
+// with `case tea.PasteMsg:`.
+// Track at: docs/issues/st-bvm3-bubbletea-v2-migration.md
+// Plan:      docs/plans/bubbletea-v2-upgrade.md
+// Target:    v3.0.0 — pure migration, no functional change.
 func (i *Input) handlePaste(content string) {
 	if i.isImageBytes(content) {
 		name := "pasted-" + imageExt(content)

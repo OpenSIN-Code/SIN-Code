@@ -23,6 +23,11 @@ jobs:
         run: go vet ./cmd/sin-code/...
       - name: govulncheck
         # Blocking for non-stdlib CVEs; stdlib CVEs (Go 1.24.3) are expected until Go 1.25.
+        #
+        # TODO(st-gvc4): When Go 1.25 stable ships, this step should be made fully
+        # blocking (remove the `|| true` and the stdlib-CVE carve-out).
+        # Track at: docs/issues/st-gvc4-govulncheck-blocking.md
+        # ADR:      docs/adr/ADR-008-go-125-deferral.md
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./cmd/sin-code/... > govulncheck-output.txt 2>&1 || true
