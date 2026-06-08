@@ -1,0 +1,21 @@
+env HOME=$WORK/home
+mkdir $WORK/home
+sin-code execute --command 'mkdir -p $WORK/source-plugin/bin'
+stdout 'Exit:'
+sin-code execute --command 'printf "name = \"hello-plugin\"\nversion = \"1.0.0\"\n[[subcommand]]\nname = \"greet\"\nbinary = \"./bin/greet\"\n" > $WORK/source-plugin/plugin.toml'
+stdout 'Exit:'
+sin-code execute --command 'printf "#!/bin/sh\necho hi\n" > $WORK/source-plugin/bin/greet && chmod +x $WORK/source-plugin/bin/greet'
+stdout 'Exit:'
+sin-code execute --command 'mkdir -p $WORK/config/sin-code/plugins && cp -r $WORK/source-plugin $WORK/config/sin-code/plugins/hello-plugin'
+stdout 'Exit:'
+sin-code plugin --path $WORK/config/sin-code/plugins list
+stdout 'hello-plugin'
+stdout '1.0.0'
+sin-code plugin --path $WORK/config/sin-code/plugins info hello-plugin
+stdout 'Version:'
+stdout 'Subcommands:'
+stdout 'greet'
+sin-code plugin --path $WORK/config/sin-code/plugins disable hello-plugin
+stdout 'Disabled'
+sin-code plugin --path $WORK/config/sin-code/plugins enable hello-plugin
+stdout 'Enabled'

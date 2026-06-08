@@ -36,6 +36,7 @@ Available Commands:
   orchestrator-agents List available agents (default + user-defined)
   orchestrator-plan   Build a plan from a prompt (no execution)
   orchestrator-run    Run a prompt through the multi-agent orchestrator (Pre-LLM router → planner → parallel agents)
+  plugin              Manage user-installed plugins (subcommands, agents, tools, hooks)
   poc                 Proof-of-Correctness — verify code satisfies its specification
   sbom                Generate SPDX or CycloneDX JSON SBOM for a project
   sckg                Semantic Codebase Knowledge Graphs — build & query code graph
