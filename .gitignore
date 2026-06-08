@@ -1,66 +1,59 @@
-# v0 sandbox internal files
-__v0_runtime_loader.js
+
+__pycache__/
 __v0_devtools.tsx
 __v0_jsx-dev-runtime.ts
+__v0_runtime_loader.js
+.claude/
+.coverage
+.dag-locks/
+.DS_Store
+.env*.local
+.next/
+.pytest_cache/
+.ruff_cache/
+.sin_memory.db
+.sin/
 .snowflake/
+.tdd-locks/
 .v0-trash/
 .vercel/
-
-# Pocock Workflow lock files
-.tdd-locks/
-.dag-locks/
-PRD.md
-
-# Environment variables
-.env*.local
-
-# Common ignores
-node_modules
-.next/
-.DS_Store
-__pycache__/
-*.pyc
-*.egg-info/
-bom.json
-bom.*.json
-*.sbom.json
-.sin_memory.db
+*.bak
+*.bak-pre-v*
 *.brain.db
-sin_goal_mode.db
-.sin/
-
+*.egg-info/
+*.egg.sin/
+*.pyc
+*.sbom.json
+*.test
+/sin-code
+# Backup files (timestamped AGENTS.md backups, pre-version docs)
+# Build artifacts
+# Common ignores
+# Environment variables
+# Local TUI binary (build with: go build -o ./sin-tui ./cmd/sin-tui)
+# Pocock Workflow lock files
 # Standalone subprojects (have own pyproject.toml/go.mod)
+# System / IDE files
+# v0 sandbox internal files
+AGENTS.md.backup-*
+bom.*.json
+bom.json
+CLAUDE.md
+coverage.*.out
+coverage.json
+coverage.map.out
+coverage.out
+dist/
+htmlcov/
+node_modules
+PRD.md
+sin_goal_mode.db
+sin-code
 SIN-Code-Container-Tool/
 SIN-Code-DAST-Tool/
 SIN-Code-IaC-Tool/
 SIN-Code-License-Tool/
 SIN-Code-SCA-Tool/
 SIN-Code-Security-Bundle/
-.pytest_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-*.egg.sin/
-
-# Local TUI binary (build with: go build -o ./sin-tui ./cmd/sin-tui)
-sin-tui
-
-# Build artifacts
-/sin-code
 sin-code.exe
-dist/
-coverage.json
-coverage.out
-*.test
-*.bak
-
-# System / IDE files
-.claude/
-CLAUDE.md
-
-coverage.*.out
-coverage.map.out
-
-# Backup files (timestamped AGENTS.md backups, pre-version docs)
-AGENTS.md.backup-*
-*.bak-pre-v*
+sin-tui

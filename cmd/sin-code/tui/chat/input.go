@@ -205,23 +205,9 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 	return cmd, nil
 }
 
-// handlePaste inspects a pasted payload and dispatches it as an attachment
-// when possible (raw image bytes or an existing file path). Otherwise the
-// payload is inserted as text in the textarea.
-//
-// This works on Bubbletea v1.3.10 by intercepting the bracketed-paste
-// KeyMsg (Type=KeyRunes, Paste=true, Runes=payload) and short-circuiting
-// before the textarea swallows it. When sin-code eventually upgrades to
-// Bubbletea v2, the same logic can be triggered by a public tea.PasteMsg.
-// See docs/bubbletea-v2-migration.md.
-//
-// TODO(st-bvm3): Bubbletea v2 has a native tea.PasteMsg that carries raw
-// bytes (no UTF-8 corruption). When we migrate to v2, this synthetic Paste
-// flag detection in the KeyMsg Update() path (line ~179) should be replaced
-// with `case tea.PasteMsg:`.
-// Track at: docs/issues/st-bvm3-bubbletea-v2-migration.md
-// Plan:      docs/plans/bubbletea-v2-upgrade.md
-// Target:    v3.0.0 — pure migration, no functional change.
+// handlePaste inspects a pasted payload (from tea.PasteMsg) and dispatches
+// it as an attachment when possible (raw image bytes or an existing file
+// path). Otherwise the payload is inserted as text in the textarea.
 func (i *Input) handlePaste(content string) {
 	if i.isImageBytes(content) {
 		name := "pasted-" + imageExt(content)

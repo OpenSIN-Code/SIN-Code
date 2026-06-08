@@ -4,7 +4,7 @@
 |-------------|-------------------------------------------------------------|
 | ID          | st-bvm3                                                     |
 | Title       | Migrate TUI from Bubbletea v1.3.10 → v2.x                   |
-| Status      | open                                                        |
+| Status      | done                                                        |
 | Priority    | P2 (deferrable past v3.0)                                   |
 | Created     | 2026-06-08T13:52:00Z                                        |
 | Reporter    | jeremy (via sin-code v2.4.0 audit)                          |
