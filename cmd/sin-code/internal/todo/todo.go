@@ -189,7 +189,7 @@ var addCmd = &cobra.Command{
 			TodoID: t.ID, Actor: currentActor(), Action: "create",
 			To: t.Title,
 		})
-		fireHooks(EventPostAdd, t, "", t.Title, "")
+		fireHooks(store, EventPostAdd, t, "", t.Title, "")
 		notify(notifications.TypeTodoCreated, t.ID, t.Title,
 			fmt.Sprintf("New %s %s: %s", t.Priority, t.Type, t.Title), currentActor())
 		if todoFormat == "json" {
@@ -487,7 +487,7 @@ var claimCmd = &cobra.Command{
 			TodoID: t.ID, Actor: actor, Action: "claim",
 			From: old, To: actor,
 		})
-		fireHooks(EventPostClaim, t, old, actor, "")
+		fireHooks(store, EventPostClaim, t, old, actor, "")
 		fmt.Printf("Claimed %s by %s\n", t.ID, actor)
 		return nil
 	},
@@ -549,7 +549,7 @@ var completeCmd = &cobra.Command{
 			TodoID: t.ID, Actor: currentActor(), Action: "complete",
 			From: string(old), To: string(t.Status),
 		})
-		fireHooks(EventPostComplete, t, string(old), string(t.Status), "")
+		fireHooks(store, EventPostComplete, t, string(old), string(t.Status), "")
 		fmt.Printf("Completed %s: %s\n", t.ID, t.Title)
 		return nil
 	},
@@ -578,7 +578,7 @@ var cancelCmd = &cobra.Command{
 			TodoID: t.ID, Actor: currentActor(), Action: "cancel",
 			From: string(old), To: string(t.Status),
 		})
-		fireHooks(EventPostCancel, t, string(old), string(t.Status), "")
+		fireHooks(store, EventPostCancel, t, string(old), string(t.Status), "")
 		fmt.Printf("Cancelled %s: %s\n", t.ID, t.Title)
 		return nil
 	},
@@ -641,7 +641,7 @@ var depAddCmd = &cobra.Command{
 			Note: fmt.Sprintf("%s -> %s (%s)", args[0], args[1], dtype),
 		})
 		if child, err := store.Get(args[0]); err == nil && child != nil {
-			fireHooks(EventPostDepAdd, child, args[1], dtype, "")
+			fireHooks(store, EventPostDepAdd, child, args[1], dtype, "")
 		}
 		fmt.Printf("Added %s -> %s (%s)\n", args[0], args[1], dtype)
 		return nil
@@ -1325,7 +1325,7 @@ func getHookConfig() *HookConfig {
 	return hookConfig
 }
 
-func fireHooks(event HookEvent, t *Todo, from, to, note string) {
+func fireHooks(store *Store, event HookEvent, t *Todo, from, to, note string) {
 	hc := getHookConfig()
 	if hc == nil {
 		return
@@ -1344,5 +1344,5 @@ func fireHooks(event HookEvent, t *Todo, from, to, note string) {
 		case "ignore":
 		}
 	}
-	firePluginHooks(event, t, from, to, note)
+	firePluginHooks(store, event, t, from, to, note)
 }

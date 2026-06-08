@@ -1,8 +1,3 @@
-// SPDX-License-Identifier: MIT
-// Purpose: plugin hook wiring — fires the [[hooks]] declared in plugin.toml
-// for the same todo events the built-in HookConfig fires. Plugin hooks run
-// as subprocesses (sh -c) with the same SIN_TODO_* env vars so the plugin
-// can react to todo state changes identically to a user-configured hook.
 package todo
 
 import (
@@ -11,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,17 +26,7 @@ func pluginRegistry() *plugins.Registry {
 	return pluginReg
 }
 
-// firePluginHooks runs every enabled plugin hook registered for the given
-// event, with the same HookContext semantics the built-in hooks use. Errors
-// are logged to stderr but never block the caller — the primary op already
-// succeeded by the time hooks fire.
-//
-// TODO(st-phw1): hook output (stdout) is currently NOT recorded in the audit log.
-// Track at: docs/issues/st-phw1-plugin-hook-wiring.md
-// Plan:      docs/plans/plugin-system-completion.md
-// Target:    v2.5.0 — append stdout/stderr to the audit log entry so users can
-//            debug plugin hooks via `sin-code todo audit <id>`.
-func firePluginHooks(event HookEvent, t *Todo, from, to, note string) {
+func firePluginHooks(store *Store, event HookEvent, t *Todo, from, to, note string) {
 	reg := pluginRegistry()
 	if reg == nil {
 		return
@@ -51,11 +37,33 @@ func firePluginHooks(event HookEvent, t *Todo, from, to, note string) {
 	}
 	ctx := HookContext{Event: event, Todo: t, From: from, To: to, Note: note, Actor: currentActor()}
 	for _, h := range hooks {
-		runPluginHook(h, ctx)
+		stdout, stderr, exitCode, err := runPluginHook(h, ctx)
+		note := strings.TrimSpace(stdout)
+		if note == "" {
+			note = strings.TrimSpace(stderr)
+		}
+		if note == "" {
+			note = fmt.Sprintf("exit=%d", exitCode)
+		}
+		if err != nil {
+			note += " err=" + err.Error()
+		}
+		_ = store.AppendAudit(AuditEntry{
+			TodoID:    t.ID,
+			Actor:     currentActor(),
+			Action:    "plugin_hook:" + h.Event,
+			From:      h.Plugin,
+			To:        note,
+			Timestamp: time.Now(),
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "plugin-hook warning: plugin=%s event=%s cmd=%q err=%v stderr=%s\n",
+				h.Plugin, h.Event, h.Command, err, stderr)
+		}
 	}
 }
 
-func runPluginHook(h plugins.HookDef, ctx HookContext) {
+func runPluginHook(h plugins.HookDef, ctx HookContext) (stdout, stderr string, exitCode int, err error) {
 	timeout := time.Duration(h.Timeout) * time.Second
 	if timeout <= 0 {
 		timeout = 30 * time.Second
@@ -66,13 +74,20 @@ func runPluginHook(h plugins.HookDef, ctx HookContext) {
 	cmd := exec.CommandContext(execCtx, "sh", "-c", h.Command)
 	cmd.Env = buildEnv(ctx)
 
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
 
-	err := cmd.Run()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "plugin-hook warning: plugin=%s event=%s cmd=%q err=%v stderr=%s\n",
-			h.Plugin, h.Event, h.Command, err, stderr.String())
+	runErr := cmd.Run()
+	stdout = outBuf.String()
+	stderr = errBuf.String()
+
+	if runErr != nil {
+		exitCode = -1
+		if cmd.ProcessState != nil {
+			exitCode = cmd.ProcessState.ExitCode()
+		}
+		return stdout, stderr, exitCode, runErr
 	}
+	return stdout, stderr, 0, nil
 }
