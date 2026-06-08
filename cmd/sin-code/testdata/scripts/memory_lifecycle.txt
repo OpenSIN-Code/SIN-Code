@@ -1,0 +1,10 @@
+env HOME=$WORK/home
+mkdir $WORK/home
+sin-code memory --db $WORK/mem.db add 'Always use gopls for Go code' --tags 'go,tooling'
+stdout 'Stored'
+sin-code memory --db $WORK/mem.db list
+stdout 'gopls'
+sin-code memory --db $WORK/mem.db add 'Use cobra for CLI' --tags 'go,cli'
+sin-code memory --db $WORK/mem.db stats
+stdout 'Total:'
+stdout '2'

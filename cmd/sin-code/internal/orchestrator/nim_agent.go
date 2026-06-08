@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/llm"
+	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/memory"
 )
 
 type LLMAgent struct {
@@ -86,6 +87,11 @@ func (a *LLMAgent) Run(ctx context.Context, task *Task, scratch *Scratchpad) (st
 	}
 
 	userPrompt := a.buildUserPrompt(task, priorInputs, priorOutputs)
+
+	if primeCtx, perr := a.primeContext(task); perr == nil && primeCtx != "" {
+		userPrompt += "\n\n## Relevant Project Memory\n" + primeCtx
+	}
+
 	scratch.Write(a.cfg.Name, "inputs", task.Description)
 
 	model := a.cfg.Model
@@ -176,4 +182,17 @@ func (a *LLMAgent) buildUserPrompt(task *Task, priorInputs string, priorOutputs 
 		b.WriteString(strings.Join(priorOutputs, "\n\n"))
 	}
 	return b.String()
+}
+
+func (a *LLMAgent) primeContext(task *Task) (string, error) {
+	store, err := memory.Open("")
+	if err != nil {
+		return "", err
+	}
+	defer store.Close()
+	primeText, err := store.Prime(task.Description, "", 5)
+	if err != nil {
+		return "", err
+	}
+	return primeText, nil
 }

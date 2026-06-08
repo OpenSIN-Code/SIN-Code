@@ -1,0 +1,10 @@
+env HOME=$WORK/home
+mkdir $WORK/home
+sin-code memory --db $WORK/mem.db add 'gopher eats bananas'
+sin-code memory --db $WORK/mem.db add 'gopher likes apples'
+sin-code memory --db $WORK/mem.db list
+stdout 'gopher'
+stdout 'bananas'
+stdout 'apples'
+sin-code memory --db $WORK/mem.db stats
+stdout 'Total:'

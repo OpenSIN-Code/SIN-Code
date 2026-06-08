@@ -28,6 +28,7 @@ Available Commands:
   help                Help about any command
   ibd                 Intent-Based Diffing — compare code changes against stated intent
   map                 Map code architecture with dependency graphs and hot-path analysis
+  memory              Long-term project memory with semantic search
   notifications       Manage sin-code todo notifications
   oracle              Verification Oracle — verify claims with evidence
   orchestrate         Legacy task manager (use 'sin-code todo' for the SOTA issue tracker)
