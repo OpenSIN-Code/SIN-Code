@@ -2,6 +2,32 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **LSP integration dependencies** — `sin-code lsp` now documents its gopls
+  requirement. Install via `brew install gopls` (macOS) or
+  `go install golang.org/x/tools/gopls@latest` (Linux/CI). Without gopls on
+  `$PATH`, Go-language LSP commands degrade gracefully to a "gopls not
+  detected" message (see `sin-code lsp servers`).
+- **Live LSP regression testscript** — `cmd/sin-code/testdata/scripts/lsp_live.txt`
+  exercises symbols / hover / definition / references / format against this
+  repository. Added so the LSP client can be re-validated whenever `client.go`
+  changes.
+
+### Known Issues
+- **LSP framing bug** — `internal/lsp/client.go:Client.Call` reads LSP responses
+  one line at a time with `bufio.ReadString('\n')`, but gopls v0.20+ emits
+  JSON-RPC notifications (e.g. `window/logMessage`, `$/progress`) on the same
+  stdout stream. The header parser only recognises `Content-Length:` lines, so
+  notification lines desync the reader, and subsequent `io.ReadFull` returns a
+  truncated body. Visible as
+  `Error: initialize go: unexpected end of JSON input`
+  on every `sin-code lsp {symbols,hover,definition,references,format}` call.
+  Workaround: pin gopls to v0.16.x or rewrite `Call` to use
+  `bufio.Scanner` with a custom split function that tolerates interleaved
+  notifications. Tracked in follow-up issue (see `docs/lsp-known-issues.md`).
+
 ## [1.1.0] - 2026-06-07
 
 ### Added
