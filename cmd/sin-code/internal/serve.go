@@ -602,6 +602,10 @@ func registerAllMCPTools(server *mcp.Server) {
 func registerPluginMCPTools(server *mcp.Server) {
 	reg := plugins.NewRegistry()
 	_ = reg.LoadFromDir("")
+	registerPluginMCPToolsWithReg(server, reg)
+}
+
+func registerPluginMCPToolsWithReg(server *mcp.Server, reg *plugins.Registry) {
 	for _, pt := range reg.MCPTools() {
 		pt := pt
 		server.AddTool(&mcp.Tool{
@@ -631,13 +635,9 @@ func registerPluginMCPTools(server *mcp.Server) {
 // path is resolved relative to the plugin dir; stdout/stderr are merged
 // and returned as a string. Timeout defaults to 60s.
 func runPluginMCPTool(ctx context.Context, pt plugins.MCPToolDef, args map[string]any) (string, error) {
-	plugin, ok := pluginLookup(pt.Plugin)
-	if !ok {
-		return "", fmt.Errorf("plugin %q not loaded", pt.Plugin)
-	}
 	fullPath := pt.Binary
 	if !filepath.IsAbs(fullPath) {
-		fullPath = filepath.Join(plugin.Path, fullPath)
+		fullPath = filepath.Join(pt.PluginPath, fullPath)
 	}
 	cmdArgs := make([]string, 0, len(pt.Args)+len(args))
 	for _, a := range pt.Args {
@@ -653,19 +653,13 @@ func runPluginMCPTool(ctx context.Context, pt plugins.MCPToolDef, args map[strin
 	execCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	c := exec.CommandContext(execCtx, fullPath, cmdArgs...)
-	c.Dir = plugin.Path
+	c.Dir = pt.PluginPath
 	c.Env = append(os.Environ(), "SIN_PLUGIN="+pt.Plugin, "SIN_PLUGIN_TOOL="+pt.Tool)
 	out, err := c.CombinedOutput()
 	if err != nil {
-		return fmt.Sprintf("%s\nERROR: %v", string(out), err), nil
+		return string(out), fmt.Errorf("plugin tool %q: %w", pt.Name, err)
 	}
 	return string(out), nil
-}
-
-func pluginLookup(name string) (*plugins.Plugin, bool) {
-	reg := plugins.NewRegistry()
-	_ = reg.LoadFromDir("")
-	return reg.Get(name)
 }
 
 func handleDiscover(ctx context.Context, args map[string]any) (string, error) {

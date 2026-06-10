@@ -12,7 +12,7 @@ sin-code execute --command 'printf "name = \"mcp-test-plugin\"\nversion = \"1.0.
 stdout 'Exit:'
 
 # Plugin binary: reads --input arg and outputs reversed string
-sin-code execute --command 'printf "#!/bin/bash\nwhile [[ \$# -gt 0 ]]; do\n  case \$1 in\n    --input)\n      echo -n \"\$2\" | rev\n      shift 2\n      ;;\n    *)\n      shift\n      ;;\n  done\ndone\n" > $WORK/source-plugin/bin/reverse && chmod +x $WORK/source-plugin/bin/reverse'
+sin-code execute --command 'printf "#!/bin/bash\nwhile [[ \$# -gt 0 ]]; do\n  case \$1 in\n    --input)\n      echo -n \"\$2\" | rev\n      shift 2\n      ;;\n    *)\n      shift\n      ;;\n  esac\ndone\n" > $WORK/source-plugin/bin/reverse && chmod +x $WORK/source-plugin/bin/reverse'
 stdout 'Exit:'
 
 # Install plugin

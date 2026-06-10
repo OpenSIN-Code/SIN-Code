@@ -133,6 +133,7 @@ type MCPToolDef struct {
 	Name        string
 	Description string
 	Plugin      string
+	PluginPath  string
 	Tool        string
 	Binary      string
 	Args        []string
@@ -171,6 +172,7 @@ func (r *Registry) MCPTools() []MCPToolDef {
 				Name:        "sin_plugin_" + p.Name + "_" + t.Name,
 				Description: desc,
 				Plugin:      p.Name,
+				PluginPath:  p.Path,
 				Tool:        t.Name,
 				Binary:      t.Binary,
 				Args:        t.Args,
