@@ -4,7 +4,7 @@
 |-------------|-------------------------------------------------------------|
 | ID          | st-ptm2                                                     |
 | Title       | Plugin `[[tools]]` not exposed as MCP tools                 |
-| Status      | open                                                        |
+| Status      | done                                                        |
 | Priority    | P0 (blocks v2.5.0 release)                                  |
 | Created     | 2026-06-08T13:51:00Z                                        |
 | Reporter    | jeremy (via sin-code v2.4.0 audit)                          |
