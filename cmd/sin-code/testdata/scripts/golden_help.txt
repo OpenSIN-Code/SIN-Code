@@ -21,6 +21,7 @@ Available Commands:
   completion          Generate the autocompletion script for the specified shell
   config              View and manage sin-code configuration
   discover            Discover files with relevance scoring and pattern matching
+  edit                Hashline-anchored surgical edits with validation
   efm                 Ephemeral Full-Stack Mocking — spin up disposable test environments
   execute             Execute shell commands safely with secret redaction and timeout
   grasp               Deep code understanding for a single file
@@ -38,6 +39,7 @@ Available Commands:
   orchestrator-run    Run a prompt through the multi-agent orchestrator (Pre-LLM router → planner → parallel agents)
   plugin              Manage user-installed plugins (subcommands, agents, tools, hooks)
   poc                 Proof-of-Correctness — verify code satisfies its specification
+  read                Read files with hashline anchors, outline, and size guards
   sbom                Generate SPDX or CycloneDX JSON SBOM for a project
   sckg                Semantic Codebase Knowledge Graphs — build & query code graph
   scout               Search code with regex, semantic, symbol, and usage search
@@ -47,6 +49,7 @@ Available Commands:
   todo                Issue tracker with dependencies, audit log, and project namespaces
   tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
   webui               Start the sin-code web UI server
+  write               Write files atomically with syntax pre-validation
 
 Flags:
   -h, --help      help for sin-code
