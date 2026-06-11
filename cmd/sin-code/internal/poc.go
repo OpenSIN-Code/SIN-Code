@@ -265,18 +265,55 @@ func extractRequirements(content string) []requirement {
 		return reqs
 	}
 
-	// Extract function/class requirements from markdown or text
-	// Patterns:
-	// - Function: `functionName` or "functionName()" or "functionName(params)"
-	// - Class: "class ClassName" or "Class ClassName"
-	// - Must implement: "must implement X", "requires X", "function X"
+	// Extract function/class requirements from markdown or text.
+	// Patterns (case-insensitive):
+	//   - "function `name`" or "function `name()`" or "function name()"
+	//   - "class `Name`" or "struct `Name`" or "interface `Name`"
+	//   - "must implement X" / "must define X" / "must call X" / "must have X"
+	//   - "The `Hello` function must return ..."  (natural-language ordering)
+	//
+	// We require either:
+	//   1. The identifier is wrapped in backticks/quotes (e.g. `hello`), OR
+	//   2. The matched identifier is not a denylisted common English word.
+	//
+	// This avoids false positives like "The function must return" extracting
+	// "must" as a required symbol. (Fix for st-bug1, Bug 3.)
 
-	re := regexp.MustCompile(`(?i)(?:must\s+(?:implement|have|define|call)|requires?|should\s+(?:have|define|implement)|function|method|class|struct|type|interface)\s+[` + "`" + `"']?([a-zA-Z_][a-zA-Z0-9_]*)[` + "`" + `"']?`)
 	seen := make(map[string]bool)
-	for _, match := range re.FindAllStringSubmatch(content, -1) {
+
+	// Pattern 1: keyword precedes identifier (structured: "function `Hello`")
+	quotedRe := regexp.MustCompile(`(?i)(?:must\s+(?:implement|have|define|call|contain)|requires?|should\s+(?:have|define|implement|contain)|function|method|class|struct|type|interface)\s+[` + "`" + `"']([a-zA-Z_][a-zA-Z0-9_]*)[` + "`" + `"']`)
+	for _, match := range quotedRe.FindAllStringSubmatch(content, -1) {
 		if len(match) > 1 {
 			name := match[1]
-			if !seen[name] && name != "" {
+			if !denylistedRequirementWords[strings.ToLower(name)] && !seen[name] && name != "" {
+				seen[name] = true
+				reqs = append(reqs, requirement{Name: name, Type: "symbol", Description: match[0]})
+			}
+		}
+	}
+
+	// Pattern 2: identifier precedes keyword (natural: "The `Hello` function")
+	// Requires the identifier to look like a real code name (mixed case or
+	// multi-word with underscore/hyphen) — excludes single lowercase words
+	// like "hello" or "the" which are common in prose.
+	preRe := regexp.MustCompile("(?i)[`\"']([a-zA-Z_][a-zA-Z0-9_]*)[`\"']\\s+(?:function|method|class|struct|type|interface|module)")
+	for _, match := range preRe.FindAllStringSubmatch(content, -1) {
+		if len(match) > 1 {
+			name := match[1]
+			if !denylistedRequirementWords[strings.ToLower(name)] && !seen[name] && name != "" && isLikelyCodeName(name) {
+				seen[name] = true
+				reqs = append(reqs, requirement{Name: name, Type: "symbol", Description: match[0]})
+			}
+		}
+	}
+
+	// Pattern 3: bare identifier (e.g. "must implement authenticate") — must NOT be a denylisted word
+	bareRe := regexp.MustCompile(`(?i)\b(?:must\s+(?:implement|have|define|call|contain)|requires?|should\s+(?:have|define|implement|contain))\s+([a-zA-Z_][a-zA-Z0-9_]{2,})\b`)
+	for _, match := range bareRe.FindAllStringSubmatch(content, -1) {
+		if len(match) > 1 {
+			name := match[1]
+			if !denylistedRequirementWords[strings.ToLower(name)] && !seen[name] && name != "" {
 				seen[name] = true
 				reqs = append(reqs, requirement{Name: name, Type: "symbol", Description: match[0]})
 			}
@@ -297,6 +334,47 @@ func extractRequirements(content string) []requirement {
 	}
 
 	return reqs
+}
+
+// denylistedRequirementWords contains common English words that should never
+// be treated as code identifiers, even when the regex captures them. This
+// prevents false positives like "The function must return" extracting
+// "must" as a required symbol. Exposed at package level for testing.
+var denylistedRequirementWords = map[string]bool{
+	"a": true, "an": true, "the": true, "this": true, "that": true,
+	"is": true, "are": true, "was": true, "were": true, "be": true, "been": true, "being": true,
+	"have": true, "has": true, "do": true, "does": true, "did": true,
+	"will": true, "would": true, "should": true, "could": true,
+	"can": true, "cannot": true, "must": true, "may": true, "might": true,
+	"and": true, "or": true, "not": true, "no": true,
+	"return": true, "returns": true, "print": true, "println": true,
+	"with": true, "from": true, "for": true, "to": true, "of": true,
+	"in": true, "on": true, "at": true, "by": true, "as": true,
+	"implement": true, "define": true, "call": true, "use": true, "provide": true,
+	"containing": true, "following": true, "given": true,
+}
+
+// isLikelyCodeName returns true if the name looks like a real code identifier
+// (starts with uppercase, has mixed case, or contains underscore/hyphen).
+// Single lowercase words are likely prose, not code.
+func isLikelyCodeName(name string) bool {
+	if len(name) == 0 {
+		return false
+	}
+	// Has uppercase letter: code name (PascalCase or camelCase)
+	hasUpper := false
+	// Has separator (underscore, hyphen, dot): code name (snake_case, kebab-case, package.path)
+	hasSep := false
+	for _, c := range name {
+		if c >= 'A' && c <= 'Z' {
+			hasUpper = true
+		}
+		if c == '_' || c == '-' || c == '.' {
+			hasSep = true
+		}
+	}
+	// All lowercase short words like "hello", "world" are NOT code names
+	return hasUpper || hasSep
 }
 
 func outputTextPOC(result *pocResult) error {

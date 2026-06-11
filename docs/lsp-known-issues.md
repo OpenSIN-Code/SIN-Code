@@ -7,8 +7,17 @@ the latest release. The LSP client lives in
 
 ## 1. `initialize go: unexpected end of JSON input` on every call
 
-**Status:** Open (regression introduced in the initial LSP commit;
-  discovered via live testing on 2026-06-08 against gopls v0.22.0.)
+**Status:** **FIXED in v2.5.0** (verified 2026-06-11 via `TestE2E/lsp_live`
+  against gopls v0.22.0).
+
+**Resolution**
+
+`readLSPFrame` in `internal/lsp/client.go:433` is a loop that calls
+`readRawLSPFrame` to read one complete LSP frame, parses it, and if
+`resp.ID == nil` (notification), invokes the notification handler and
+continues to the next frame. This correctly handles gopls v0.20+ which
+emits notifications (window/logMessage, $/progress,
+client/registerCapability) before the initialize response.
 
 **Symptom**
 

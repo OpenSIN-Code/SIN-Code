@@ -19,12 +19,16 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25.11"
+      - name: Install gopls (for lsp_live test)
+        run: go install golang.org/x/tools/gopls@latest
       - name: Build
         run: go build ./cmd/sin-code
       - name: Vet
         run: go vet ./cmd/sin-code/... ./cmd/sin-code/internal/...
       - name: Test
         run: go test ./cmd/sin-code/ ./cmd/sin-code/internal/ -count=1 -v 2>&1 | tail -50
+      - name: Test LSP live (build tag, opt-in)
+        run: go test -tags lsp_live ./cmd/sin-code/ -run TestLspLive -count=1 -v 2>&1 | tail -20
 
   benchmark:
     name: benchmark
