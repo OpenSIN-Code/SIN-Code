@@ -42,7 +42,7 @@ async def _tool_delegate(args: dict) -> dict:
         repo=args.get("repo", "."))
     dele = Delegator(plan, max_parallel=int(args.get("parallel", 4)),
                      dry_run=bool(args.get("dry_run", False)))
-    result = dele.run_sync()
+    result = await dele.run()
     return json.loads(result.to_json())
 
 

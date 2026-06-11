@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: MIT
+# Multi-stage build for sin-code-delegate
+#
+# Stage 1: builder — installs the package + extras into a venv
+# Stage 2: runtime — minimal image with just the venv + git
+#
+# Build:    docker build -t sin-code-delegate:0.1.0 .
+# Run MCP:  docker run --rm -i sin-code-delegate:0.1.0 serve
+# Run CLI:  docker run --rm -v $PWD:/repo -w /repo \
+#              sin-code-delegate:0.1.0 doctor --repo .
+
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+COPY src/sin_delegate/ ./sin_delegate/
+COPY pyproject.toml README.md ./
+
+RUN python -m venv /opt/venv \
+    && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
+    && /opt/venv/bin/pip install --no-cache-dir ".[all]" .
+
+FROM python:3.12-slim AS runtime
+
+# git is required for the worktree-based isolation
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the prebuilt venv from the builder
+COPY --from=builder /opt/venv /opt/venv
+
+# Non-root for runtime safety
+RUN useradd --create-home --uid 1000 sin \
+    && mkdir -p /home/sin/.sin-code \
+    && chown -R sin:sin /home/sin
+
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+USER sin
+WORKDIR /home/sin
+
+# Default ledger location — host-mount to persist
+ENV SIN_DELEGATE_LEDGER=/home/sin/.sin-code/delegate/ledger.db
+
+# Default to `serve` so the image is drop-in for MCP clients.
+# Override with: docker run ... sin-code-delegate doctor
+ENTRYPOINT ["sin-delegate"]
+CMD ["serve"]

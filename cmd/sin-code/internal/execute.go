@@ -199,6 +199,8 @@ func redactSecrets(text string) string {
 		{regexp.MustCompile(`(?i)(aws_access_key_id\s*[:=]\s*)["']?[A-Z0-9]{16,}["']?`), `${1}[REDACTED]`},
 		{regexp.MustCompile(`(?i)(aws_secret_access_key\s*[:=]\s*)["']?[A-Za-z0-9/+=]{20,}["']?`), `${1}[REDACTED]`},
 		{regexp.MustCompile(`(?i)(private[_-]?key\s*[:=]\s*)["']?[^\s"']{20,}["']?`), `${1}[REDACTED]`},
+		{regexp.MustCompile(`\b(sk|pk|ghp|gho|pypi|xox[bap])-[A-Za-z0-9_\-]{10,}\b`), `[REDACTED]`},
+		{regexp.MustCompile(`\beyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]+\b`), `[REDACTED]`},
 	}
 
 	for _, p := range patterns {

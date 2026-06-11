@@ -1,0 +1,84 @@
+name: test-delegate
+
+on:
+  push:
+    paths:
+      - 'src/sin_delegate/**'
+      - 'tests/test_delegate.py'
+      - 'tests/test_intelligence_multirepo.py'
+      - 'tests/test_scheduler_properties.py'
+      - 'tests/test_integration_e2e.py'
+      - 'tests/test_multirepo_saga.py'
+      - 'tests/test_mcp_serve.py'
+      - '.github/workflows/test-delegate.yml'
+  pull_request:
+    paths:
+      - 'src/sin_delegate/**'
+      - 'tests/test_delegate.py'
+      - 'tests/test_intelligence_multirepo.py'
+      - 'tests/test_scheduler_properties.py'
+      - 'tests/test_integration_e2e.py'
+      - 'tests/test_multirepo_saga.py'
+      - 'tests/test_mcp_serve.py'
+
+jobs:
+  test:
+    name: test (${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install base deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-asyncio
+          # The package is stdlib-only; expose it on PYTHONPATH
+          echo "PYTHONPATH=$GITHUB_WORKSPACE/src" >> $GITHUB_ENV
+
+      - name: Run delegate tests
+        run: |
+          python -m pytest \
+            tests/test_delegate.py \
+            tests/test_intelligence_multirepo.py \
+            tests/test_scheduler_properties.py \
+            tests/test_integration_e2e.py \
+            tests/test_multirepo_saga.py \
+            tests/test_mcp_serve.py \
+            -v --tb=short
+
+  lint:
+    name: lint (pyflakes + pycodestyle)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install linters
+        run: pip install pyflakes pycodestyle
+      - name: Run linters
+        run: |
+          echo "PYTHONPATH=$GITHUB_WORKSPACE/src" >> $GITHUB_ENV
+          pyflakes src/sin_delegate tests/test_delegate.py \
+                   tests/test_intelligence_multirepo.py \
+                   tests/test_scheduler_properties.py \
+                   tests/test_integration_e2e.py \
+                   tests/test_multirepo_saga.py \
+                   tests/test_mcp_serve.py
+          pycodestyle --max-line-length=100 \
+                      src/sin_delegate/ tests/test_delegate.py \
+                      tests/test_intelligence_multirepo.py \
+                      tests/test_scheduler_properties.py \
+                      tests/test_integration_e2e.py \
+                      tests/test_multirepo_saga.py \
+                      tests/test_mcp_serve.py
