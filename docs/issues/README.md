@@ -13,6 +13,11 @@ This directory contains **active and historical issues** for the sin-code bundle
 | [st-bvm3](st-bvm3-bubbletea-v2-migration.md) | Bubbletea v1.3.10 → v2.x migration | P2 | done | [bubbletea-v2-upgrade](../plans/bubbletea-v2-upgrade.md) | v3.0.0 |
 | [st-gvc4](done/st-gvc4-govulncheck-blocking.md) | Re-enable govulncheck as blocking CI gate | P3 | **done** | [ADR-008](../adr/ADR-008-go-125-deferral.md) (superseded) | Go 1.25 stable |
 | [st-pwt5](done/st-pwt5-plugin-wire-testfix.md) | Fix pre-existing TestE2E/plugin_wire failure | P2 | **done** | (none) | v2.5.0 |
+| [st-lsp1](st-lsp1-lsp-framing-bug.md) | LSP framing bug — `Client.Call` fails on gopls v0.20+ | P1 | open | [lsp-known-issues](../lsp-known-issues.md#1) | v2.5.x |
+| [st-lsp2](st-lsp2-lsp-codocs-missing.md) | Add CoDocs for lsp package (client.go, lsp_cmd.go) | P3 | open | [lsp-known-issues](../lsp-known-issues.md#3) | v2.6.0 |
+| [st-lsp3](st-lsp3-lsp-testdata-not-in-ci.md) | Wire lsp_live.txt testscript into CI behind build tag | P2 | open | [lsp-known-issues](../lsp-known-issues.md#4) | v2.6.0 |
+| [st-cov1](st-cov1-coverage-80-percent.md) | Raise internal/ test coverage from 68.2% to ≥80% | P2 | open | (none) | v2.6.0 |
+| [st-bug1](done/st-bug1-dogfooding-bugs.md) | Dogfooding-discovered bugs (scout/adw/poc/oracle/map) | P1 | **done** (4/5 fixed) | (none) | v2.5.0 |
 
 ## Priority Legend
 

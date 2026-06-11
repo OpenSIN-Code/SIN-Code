@@ -379,12 +379,50 @@ func checkLongFunctionsJS(path, rel, content string) []adwIssue {
 
 func checkTODOs(rel, content string) []adwIssue {
 	var issues []adwIssue
+	// Skip ADW's own source file — the regex patterns, help-text bullets, and
+	// "Check for TODO/FIXME" comments legitimately mention these keywords
+	// but are not actual TODO debt. Same for any file with "adw" in the path
+	// (e.g. adw_test.go which has the same patterns).
+	lower := strings.ToLower(rel)
+	if strings.HasSuffix(lower, "adw.go") || strings.HasSuffix(lower, "adw_test.go") {
+		return nil
+	}
 	re := regexp.MustCompile(`(?i)(TODO|FIXME|XXX|HACK|BUG|OPTIMIZE|REFACTOR)[\s:]*(.{0,100})`)
 	lines := strings.Split(content, "\n")
 	for i, line := range lines {
+		// Skip lines where the keyword appears inside a Go raw-string literal
+		// (backticks) or a regexp.MustCompile pattern — these are tool patterns,
+		// not real TODOs. Heuristic: count backticks; if odd, the line contains
+		// a raw string. Also skip if the line contains a string-literal
+		// assignment to a variable named like a regex pattern.
+		if strings.Count(line, "`")%2 == 1 {
+			continue
+		}
+		if strings.Contains(line, "regexp.MustCompile") || strings.Contains(line, "regexp.Compile") {
+			continue
+		}
+		// Skip help-text bullet lines (e.g. "  - TODO/FIXME comments")
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* ") {
+			continue
+		}
 		matches := re.FindAllStringSubmatch(line, -1)
 		for _, m := range matches {
 			if len(m) > 1 {
+				// Skip if the match is inside a quoted string on the same line
+				// (e.g. a test assertion message). Heuristic: count quotes; if
+				// the keyword is between two double-quotes, it's a string.
+				if strings.Count(line, "\"") >= 2 {
+					idx := strings.Index(strings.ToUpper(line), m[1])
+					if idx >= 0 {
+						before := line[:idx]
+						after := line[idx+len(m[1]):]
+						opens := strings.Count(before, "\"")
+						if opens%2 == 1 && strings.Contains(after, "\"") {
+							continue
+						}
+					}
+				}
 				severity := "low"
 				if strings.Contains(strings.ToUpper(m[1]), "FIXME") || strings.Contains(strings.ToUpper(m[1]), "BUG") {
 					severity = "medium"

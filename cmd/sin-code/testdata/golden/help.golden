@@ -29,7 +29,7 @@ Available Commands:
   map                 Map code architecture with dependency graphs and hot-path analysis
   memory              Long-term project memory with semantic search
   notifications       Manage sin-code todo notifications
-  oracle              Verification Oracle — verify claims with evidence
+  oracle              Verify that a source file has corresponding test coverage
   orchestrate         Legacy task manager (use 'sin-code todo' for the SOTA issue tracker)
   orchestrator-agents List available agents (default + user-defined + plugin)
   orchestrator-plan   Build a plan from a prompt (no execution)

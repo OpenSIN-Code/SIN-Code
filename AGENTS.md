@@ -2,7 +2,7 @@
 
 ## ⚠️ ABSOLUTE REGEL: Niemals opencode-eigene Tools nutzen, wenn unsere SIN-Code Tools verfügbar sind!
 
-**UNSERE 19 SIN-Code Subcommands (13 MCP + 6 CLI-only) sind BESSER als die opencode-eigenen Alternativen.** Jeder Agent MUSS unsere Tools nutzen, niemals die opencode-internen.
+**UNSERE 32 SIN-Code Subcommands (v2.5.0: 13 core MCP + 6 utility CLI + 13 new: read/write/edit/lsp/plugin/index/memory/todo/notifications/orchestrator-run/plan/agents + tui/webui) sind BESSER als die opencode-eigenen Alternativen.** Jeder Agent MUSS unsere Tools nutzen, niemals die opencode-internen.
 
 ### Wann welches Tool?
 
@@ -29,9 +29,9 @@
 
 ### Tool-Verweisung & Skills/MCP
 
-**⚡ UNIFIED BINARY (v1.0.5+):** All 19 sin-code subcommands (13 MCP + 6 CLI-only) live in a single Go binary: `~/.local/bin/sin-code`.
-The opencode.json registers ONE MCP server `sin-code` that exposes all 13 tools via the `serve` subcommand.
-Note: 6 utility subcommands (config, sbom, security, self-update, tui, serve) are CLI-only, not exposed via MCP.
+**⚡ UNIFIED BINARY (v1.0.5+, current v2.5.0):** All 32 sin-code subcommands live in a single Go binary: `~/.local/bin/sin-code`.
+The opencode.json registers ONE MCP server `sin-code` that exposes all 19+ tools via the `serve` subcommand.
+Note: 14 utility subcommands (config, sbom, security, self-update, tui, webui, todo, notifications, index, lsp, plugin, orchestrator-run/plan/agents, memory) are CLI-only, not exposed via MCP.
 
 | Tool (MCP, **preferred — Go**) | Backend | Status | Purpose |
 |------------------------------|---------|--------|---------|
@@ -58,10 +58,19 @@ Note: 6 utility subcommands (config, sbom, security, self-update, tui, serve) ar
 | `sin_tui` ✅ | `sin-code` (Go) | ✅ Native | Interaktives TUI Menu — CLI-only |
 | `sin_sbom` ✅ | `sin-code` (Go) | ✅ Native | SBOM Generation (SPDX/CycloneDX) — CLI-only |
 | — | `sin-code` (Go) | ✅ Native | `self-update` — Update to latest release — CLI-only |
-| — | `sin-code` (Go) | ✅ Native | `serve` — Start MCP server (13 tools) — CLI-only |
+| — | `sin-code` (Go) | ✅ Native | `serve` — Start MCP server (19+ tools) — CLI-only |
+| `sin_read` ✅ | `sin-code` (Go) | ✅ Native | Read files with hashline anchors, outline, size guards — MCP |
+| `sin_write` ✅ | `sin-code` (Go) | ✅ Native | Write files atomically with syntax pre-validation — MCP |
+| `sin_edit` ✅ | `sin-code` (Go) | ✅ Native | Hashline-anchored surgical edits with symbol/anchor modes — MCP |
+| `sin_lsp` ✅ | `sin-code` (Go) | ✅ Native | LSP client (gopls/pyright/tsserver/rust-analyzer) — MCP |
+| `sin_index` ✅ | `sin-code` (Go) | ✅ Native | Persistent incremental code index (build/refresh/status/clear) — MCP |
+| `sin_todo` ✅ | `sin-code` (Go) | ✅ Native | Issue tracker with dependencies, audit log, project namespaces — MCP |
+| `sin_memory` ✅ | `sin-code` (Go) | ✅ Native | Long-term project memory with semantic search — MCP |
+| `sin_notifications` ✅ | `sin-code` (Go) | ✅ Native | Manage todo event notifications — MCP |
+| `sin_plugin` ✅ | `sin-code` (Go) | ✅ Native | Manage user-installed plugins — CLI-only |
 
 
-**Installiert:** `~/.local/bin/sin-code` (1 binary, 19 subcommands: 13 MCP + 6 CLI-only)
+**Installiert:** `~/.local/bin/sin-code` (1 binary, 32 subcommands: 13 core MCP + 19 utility/specialized CLI as of v2.5.0)
 **Repo:** `OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code`
 | `sin-websearch` | `sin-websearch` | `OpenSIN-Code/SIN-Code-Websearch-Skill` | `sin-websearch` | ✅ `~/.config/opencode/skills/sin-websearch` |
 | `sin-scheduler` | `sin-scheduler` | `OpenSIN-Code/SIN-Code-Scheduler-Skill` | `sin-scheduler` | ✅ `~/.config/opencode/skills/sin-scheduler` |

@@ -24,9 +24,11 @@ var (
 
 var OracleCmd = &cobra.Command{
 	Use:   "oracle",
-	Short: "Verification Oracle — verify claims with evidence",
-	Long: `Verify that source code has corresponding test coverage.
-Compares functions/methods in a source file with test cases in a test file.
+	Short: "Verify that a source file has corresponding test coverage",
+	Long: `Compares functions/methods in a source file against test cases in a
+test file and reports which symbols are covered. Despite the legacy
+"claim/evidence" naming, --claim is the source file to verify and
+--evidence is the test file.
 
 Examples:
   sin-code oracle --claim src/main.py --evidence tests/test_main.py

@@ -28,6 +28,67 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   `bufio.Scanner` with a custom split function that tolerates interleaved
   notifications. Tracked in follow-up issue (see `docs/lsp-known-issues.md`).
 
+## [2.5.0] - 2026-06-11
+
+### Added
+- **Persistent Incremental Index (Phase 3)** — gob-persisted trigram + symbol
+  index at `<root>/.sin-code/index.bin`. Auto-builds on first search,
+  stat-based incremental refresh, 8 parallel build workers. New `index`
+  subcommand (build/refresh/status/watch/clear) and MCP `sin_index` tool.
+  Scout CLI now uses indexed search with 25-37× speedup over full scan.
+- **AST tiered structure extraction (Phase 4)** — 3-tier provider (Go go/ast
+  exact, structural fallback, tree-sitter opt-in via `-tags treesitter`).
+  Default build stays zero-dep. Enables `read --mode outline` with engine
+  info, `edit --symbol NAME` for AST-anchored edits, and unified parsing
+  across all consumers.
+- **Phase 4b — grasp/map/SCKG migrated to parseOutline()** — removed 5
+  regex-based per-language extractors in `grasp.go`, replaced with single
+  `parseOutline()` call. SCKG `buildGraph` now uses `parseOutline` for all
+  languages (no more regex for Python/JS). Map entry-point detection uses
+  `isGoEntryPoint()` via AST lookup. Kind normalization helpers
+  (`normalizeGraspKind`, `sckgKind`) maintain backward-compatible labels.
+- **Phase 5 — Benchmark suite + CI gate** — 18 Go benchmarks across all
+  tools with synthetic project trees (`makeTree()`), `benchmark.sh` shell
+  runner with pprof profiling (`PPROF=1` mode), `.github/workflows/go-ci.yml`
+  with median speedup gate (≥3× indexed vs fullscan on CI runners).
+  BenchmarkComparisonTable directly compares fullscan vs indexed sub-bench.
+
+### Changed
+- **Go upgraded to 1.25.11** — was 1.24.3 (ADR-008, st-gvc4). go.mod
+  updated, CI workflows updated, govulncheck switched from warn-only to
+  blocking (Go 1.25 fixed the stdlib false positives that required the
+  carve-out). ADR-008 marked as Superseded.
+- **Coverage corrected** — the 93.6% claim in v1.0.9 was for the cmd/sin-code
+  package only. Full project coverage (including internal/ and all
+  sub-packages: plugins, lsp, memory, todo, notifications, orchestrator,
+  webui, llm, attachments, tui, tui/chat) is 68.2% as of this release.
+  Goal for v2.6.0: raise internal/ coverage to ≥80%.
+
+### Fixed
+- **st-pwt5** — `testdata/scripts/plugin_wire.txt` manifest was using
+  deprecated v2.3.0 minimal format. Updated to current TOML schema
+  (description, provider, timeout, capabilities, populated agents/tools)
+  so the test exercises the modern manifest shape, not the deprecated
+  one. Added descriptive comment at top of the testscript.
+- **CI benchmark gate** — was using integer-only bash arithmetic that crashed
+  on float ns/op values, and used `sort -n | head -1` (minimum) which biased
+  against the indexed path. Now uses float-safe awk with median calculation
+  and a 3× threshold (was 5× — too aggressive for 2-4 core CI runners).
+- **Legacy Python CI** — `ci.yml` was red on every Go commit because the
+  deprecated Python stack still ran ruff + pytest. Added path filters so
+  it only triggers on `**.py` / `pyproject.toml` / etc.
+
+### Closed Issues
+- st-gvc4 (govulncheck blocking) — P3
+- st-pwt5 (plugin_wire test) — P2
+- st-phw1 (plugin hook wiring) — P0 [closed retroactively, fixed in Phase 3/4]
+- st-ptm2 (plugin tools → MCP) — P0 [closed retroactively, fixed in Phase 3/4]
+
+## [2.4.0] - 2026-06-08
+
+LSP framing fix, plugin system, multi-agent orchestrator, TUI chat LLM, NIM
+model aliases. See commit `63b33f5` for the full list of changes.
+
 ## [1.1.0] - 2026-06-07
 
 ### Added

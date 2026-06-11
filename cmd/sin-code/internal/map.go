@@ -152,7 +152,13 @@ func mapArchitecture(root, action string) (*mapResult, error) {
 			}
 		}
 
-		// Check for entry points
+		// Check for entry points (skip test files — they often have func main
+		// for fuzz tests, testdata generators, or E2E test harnesses).
+		lowerRel := strings.ToLower(rel)
+		if strings.Contains(lowerRel, "_test") || strings.Contains(lowerRel, "test_") {
+			files = append(files, fileInfo{rel, lang, filepath.Dir(rel)})
+			return nil
+		}
 		name := strings.ToLower(filepath.Base(path))
 		if lang == "go" {
 			if name == "main.go" || isGoEntryPoint(path, data) {

@@ -29,6 +29,7 @@ var (
 	scoutFormat string
 	scoutMax    int
 	scoutNoRG   bool
+	scoutFile   string
 )
 
 var ScoutCmd = &cobra.Command{
@@ -59,6 +60,11 @@ Examples:
 				return fmt.Errorf("path not found: %w", err)
 			}
 			return fmt.Errorf("path is not a directory: %s", absPath)
+		}
+
+		// If --file is set, search a single file (bypasses directory check).
+		if scoutFile != "" {
+			return searchSingleFile(scoutFile, scoutQuery, scoutType, scoutMax, scoutFormat)
 		}
 
 		results, err := scoutSearchAuto(absPath, scoutQuery, scoutType, scoutMax, scoutNoRG)
@@ -526,4 +532,43 @@ func init() {
 	ScoutCmd.Flags().StringVarP(&scoutFormat, "format", "f", "text", "Output format: text|json")
 	ScoutCmd.Flags().IntVarP(&scoutMax, "max_results", "m", 50, "Max results")
 	ScoutCmd.Flags().BoolVar(&scoutNoRG, "no-rg", false, "Skip ripgrep bridge even if rg is on PATH")
+	ScoutCmd.Flags().StringVar(&scoutFile, "file", "", "Search a single file (bypasses --path; use for scoped searches)")
+}
+
+func searchSingleFile(file, query, searchType string, maxResults int, format string) error {
+	absFile, err := filepath.Abs(file)
+	if err != nil {
+		return fmt.Errorf("invalid file: %w", err)
+	}
+	if info, err := os.Stat(absFile); err != nil || info.IsDir() {
+		if err != nil {
+			return fmt.Errorf("file not found: %w", err)
+		}
+		return fmt.Errorf("--file must be a file, not a directory: %s", absFile)
+	}
+	re, err := compileQuery(query, searchType)
+	if err != nil {
+		return err
+	}
+	results, err := searchFile(absFile, relOf(absFile), filepath.Dir(absFile), re, searchType)
+	if err != nil {
+		return err
+	}
+	if maxResults > 0 && len(results) > maxResults {
+		results = results[:maxResults]
+	}
+	if format == "json" {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(results)
+	}
+	return outputTextScout(results)
+}
+
+func relOf(abs string) string {
+	wd, _ := os.Getwd()
+	if rel, err := filepath.Rel(wd, abs); err == nil {
+		return rel
+	}
+	return abs
 }
