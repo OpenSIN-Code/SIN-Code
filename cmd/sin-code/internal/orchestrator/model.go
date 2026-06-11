@@ -47,6 +47,7 @@ const (
 type Task struct {
 	ID          string     `json:"id"`
 	Type        TaskType   `json:"type"`
+	Title       string     `json:"title,omitempty"`
 	Description string     `json:"description"`
 	AgentName   string     `json:"agent"`
 	DependsOn   []string   `json:"depends_on,omitempty"`
