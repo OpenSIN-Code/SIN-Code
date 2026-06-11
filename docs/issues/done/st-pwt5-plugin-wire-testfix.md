@@ -4,7 +4,7 @@
 |-------------|-------------------------------------------------------------|
 | ID          | st-pwt5                                                     |
 | Title       | Fix pre-existing test failure in plugin_wire testscript     |
-| Status      | open (pre-existing, not blocking v2.4.0)                    |
+| Status      | **done** (resolved 2026-06-11)                                |
 | Priority    | P2 (cleanup, not user-facing)                               |
 | Created     | 2026-06-08T13:54:00Z                                        |
 | Reporter    | jeremy (via sin-code v2.4.0 audit)                          |
@@ -33,13 +33,21 @@ go test ./... -count=1 -run TestE2E/plugin_wire
 
 The test was written for the v2.3.0 plugin manifest format but the manifest evolved before the test was merged. Specifically, `[[agents]]` with `provider`/`model` fields may have been renamed or moved, and the test fixture plugin uses the old shape.
 
-## Acceptance Criteria
+## Resolution
 
-- [ ] Run `go test ./... -run TestE2E/plugin_wire -v` and identify the failing assertion
-- [ ] Either: (a) fix the test fixture to match the current plugin manifest, OR (b) fix the test script to use the correct invocation
-- [ ] `go test ./... -count=1` green
-- [ ] Audit log entry: "TestE2E/plugin_wire: fixed"
-- [ ] Add a comment at the top of `plugin_wire.txt` explaining what it tests
+Resolved on 2026-06-11. The test was actually passing; the issue was that the plugin manifest fixture in `plugin_wire.txt` used the deprecated v2.3.0 minimal format (missing `description`, `provider`, `timeout`, etc.). The backward-compatible parser allowed the old format to pass, but the test was not exercising the modern manifest shape.
+
+Fix: Updated the test manifest to use the current TOML schema (added `description`, `provider`, `timeout` fields, populated `capabilities`, `agents`, `tools` blocks). Added a descriptive comment at the top of `plugin_wire.txt`.
+
+- [x] Run `go test ./... -run TestE2E/plugin_wire -v` → PASS
+- [x] Fix: updated test fixture to match current plugin manifest schema
+- [x] `go test ./... -count=1` green
+- [x] Audit log entry: "TestE2E/plugin_wire: fixed (manifest updated to current schema)"
+- [x] Comment added at top of `plugin_wire.txt` explaining what it tests
+
+## Files Touched
+
+- `testdata/scripts/plugin_wire.txt` — modernized manifest, added comment
 
 ## Files Touched
 
