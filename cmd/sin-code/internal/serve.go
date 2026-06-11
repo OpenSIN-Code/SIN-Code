@@ -174,6 +174,18 @@ func registerAllMCPTools(server *mcp.Server) {
 			},
 		},
 		{
+			name:        "sin_index",
+			description: "Manage persistent incremental code index (build, refresh, status, clear)",
+			handler:     handleIndex,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"action": map[string]any{"type": "string", "enum": []string{"build", "refresh", "status", "clear"}, "default": "status"},
+					"root":   map[string]any{"type": "string", "default": "."},
+				},
+			},
+		},
+		{
 			name:        "sin_orchestrate",
 			description: "Manage tasks with dependencies, parallel execution, and rollback plans",
 			handler:     handleOrchestrate,
@@ -802,7 +814,26 @@ func handleGrasp(ctx context.Context, args map[string]any) (string, error) {
 }
 
 func handleScout(ctx context.Context, args map[string]any) (string, error) {
-	return runSubcommand(ctx, "scout", args)
+	query, _ := args["query"].(string)
+	path := "."
+	if p, ok := args["path"].(string); ok && p != "" {
+		path = p
+	}
+	searchType := "regex"
+	if st, ok := args["search_type"].(string); ok && st != "" {
+		searchType = st
+	}
+	maxResults := intArg(args, "max_results", 50)
+	root, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	results, err := scoutSearchAuto(root, query, searchType, maxResults, false)
+	if err != nil {
+		return "", err
+	}
+	b, _ := json.MarshalIndent(results, "", "  ")
+	return string(b), nil
 }
 
 func handleHarvest(ctx context.Context, args map[string]any) (string, error) {

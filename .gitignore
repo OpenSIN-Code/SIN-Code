@@ -48,7 +48,7 @@ htmlcov/
 node_modules
 PRD.md
 sin_goal_mode.db
-sin-code
+/sin-code
 SIN-Code-Container-Tool/
 SIN-Code-DAST-Tool/
 SIN-Code-IaC-Tool/

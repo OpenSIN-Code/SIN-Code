@@ -24,6 +24,7 @@ Available Commands:
   harvest             Fetch URLs with caching, structure extraction, and change detection
   help                Help about any command
   ibd                 Intent-Based Diffing — compare code changes against stated intent
+  index               Manage persistent incremental code index
   lsp                 LSP (Language Server Protocol) — IDE-grade code intelligence
   map                 Map code architecture with dependency graphs and hot-path analysis
   memory              Long-term project memory with semantic search

@@ -14,7 +14,6 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/notifications"
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/plugins"
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/todo"
 	"github.com/spf13/cobra"
 )
@@ -64,14 +63,11 @@ func init() {
 	rootCmd.AddCommand(internal.EditCmd)
 	rootCmd.AddCommand(internal.LSPCmd)
 	rootCmd.AddCommand(internal.PluginCmd)
+	rootCmd.AddCommand(internal.IndexCmd)
 	rootCmd.AddCommand(internal.OrchestratorRunCmd)
 	rootCmd.AddCommand(internal.OrchestratorAgentsCmd)
 	rootCmd.AddCommand(internal.OrchestratorPlanCmd)
 	rootCmd.AddCommand(tuiCmd)
-
-	pluginReg := plugins.NewRegistry()
-	_ = pluginReg.LoadFromDir("")
-	pluginReg.AddSubcommandsTo(rootCmd)
 	rootCmd.AddCommand(webuiCmd)
 
 	// Pass build-time version to self-update module.

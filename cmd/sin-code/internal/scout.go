@@ -61,7 +61,7 @@ Examples:
 			return fmt.Errorf("path is not a directory: %s", absPath)
 		}
 
-		results, err := searchFiles(absPath, scoutQuery, scoutType, scoutMax, scoutNoRG)
+		results, err := scoutSearchAuto(absPath, scoutQuery, scoutType, scoutMax, scoutNoRG)
 		if err != nil {
 			return err
 		}
