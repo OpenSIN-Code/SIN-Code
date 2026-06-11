@@ -1,0 +1,70 @@
+name: go-ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+concurrency:
+  group: go-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: go test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.3"
+      - name: Build
+        run: go build ./cmd/sin-code
+      - name: Vet
+        run: go vet ./cmd/sin-code/... ./cmd/sin-code/internal/...
+      - name: Test
+        run: go test ./cmd/sin-code/ ./cmd/sin-code/internal/ -count=1 -v 2>&1 | tail -50
+
+  benchmark:
+    name: benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24.3"
+      - name: Run benchmarks
+        run: |
+          go test ./cmd/sin-code/internal/ \
+            -bench='Benchmark' \
+            -benchmem \
+            -count=3 \
+            -timeout=300s \
+            2>&1 | tee benchmark.out
+      - name: Check indexed vs fullscan speedup
+        run: |
+          # Extract median latencies and fail if indexed is not at least 5x faster
+          fullscan=$(grep 'BenchmarkComparisonTable/fullscan' benchmark.out | awk '{print $3}' | sort -n | head -1)
+          indexed=$(grep 'BenchmarkComparisonTable/indexed' benchmark.out | awk '{print $3}' | sort -n | head -1)
+          echo "FullScan: $fullscan ns/op"
+          echo "Indexed:  $indexed ns/op"
+          if [ -z "$fullscan" ] || [ -z "$indexed" ]; then
+            echo "Missing benchmark results"
+            exit 1
+          fi
+          # Compare as integer nanoseconds (strip ns/op suffix)
+          fs=${fullscan%ns/op}
+          idx=${indexed%ns/op}
+          speedup=$((fs / idx))
+          echo "Speedup: ${speedup}x"
+          if [ "$speedup" -lt 5 ]; then
+            echo "ERROR: Indexed search is not at least 5x faster than full scan"
+            exit 1
+          fi
+          echo "PASS: Indexed search is ${speedup}x faster"
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark.out
