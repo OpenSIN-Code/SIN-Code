@@ -418,22 +418,7 @@ func TestMin(t *testing.T) {
 	}
 }
 
-func TestContent(t *testing.T) {
-	dir := t.TempDir()
-	f := filepath.Join(dir, "test.txt")
-	os.WriteFile(f, []byte("hello world"), 0644)
-	got := content(f)
-	if got != "hello world" {
-		t.Errorf("content(%q) = %q, want %q", f, got, "hello world")
-	}
-}
 
-func TestContent_Nonexistent(t *testing.T) {
-	got := content("/nonexistent/file.txt")
-	if got != "" {
-		t.Errorf("expected empty string for nonexistent file, got %q", got)
-	}
-}
 
 func TestMapArchitecture_RustEntryPoint(t *testing.T) {
 	dir := t.TempDir()

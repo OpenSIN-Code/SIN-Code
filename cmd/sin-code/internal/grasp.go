@@ -89,7 +89,7 @@ func analyzeFile(path string, info os.FileInfo) (*graspResult, error) {
 
 	lang := detectLanguage(path)
 	lines, blank, comments, code := countLines(content, lang)
-	structure := extractStructure(content, lang)
+	structure := extractStructure(path, content)
 	deps := extractDependencies(path) // reuses discover.go function
 	exports := extractExports(content, lang)
 
@@ -201,136 +201,44 @@ func countLines(content, lang string) (total, blank, comments, code int) {
 	return
 }
 
-func extractStructure(content, lang string) []structItem {
+func extractStructure(path, content string) []structItem {
+	// Phase 4b: unified AST-based extraction via parseOutline.
+	outline := parseOutline(path, []byte(content))
+	if outline == nil || outline.Engine == "none" {
+		// Fallback to generic regex for unknown languages.
+		return extractGenericStructure(strings.Split(content, "\n"), detectLanguage(path))
+	}
 	var items []structItem
-	lines := strings.Split(content, "\n")
+	var walk func([]SymbolInfo)
+	walk = func(syms []SymbolInfo) {
+		for _, sym := range syms {
+			items = append(items, structItem{Type: normalizeGraspKind(sym.Kind), Name: sym.Name, Line: sym.StartLine})
+			if len(sym.Children) > 0 {
+				walk(sym.Children)
+			}
+		}
+	}
+	walk(outline.Symbols)
+	return items
+}
 
-	switch lang {
-	case "go":
-		items = extractGoStructure(content)
-	case "python":
-		items = extractPythonStructure(lines)
-	case "javascript", "typescript", "tsx", "jsx":
-		items = extractJSStructure(lines)
-	case "rust":
-		items = extractRustStructure(lines)
-	case "java", "kotlin":
-		items = extractJavaStructure(lines)
+func normalizeGraspKind(kind string) string {
+	switch kind {
+	case "func":
+		return "function"
+	case "method":
+		return "function"
+	case "var":
+		return "variable"
+	case "const":
+		return "variable"
 	default:
-		items = extractGenericStructure(lines, lang)
+		return kind
 	}
-
-	return items
-}
-
-func extractGoStructure(content string) []structItem {
-	var items []structItem
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "", content, parser.AllErrors)
-	if err != nil {
-		return extractGenericStructure(strings.Split(content, "\n"), "go")
-	}
-
-	for _, decl := range f.Decls {
-		pos := fset.Position(decl.Pos())
-		switch d := decl.(type) {
-		case *ast.FuncDecl:
-			items = append(items, structItem{Type: "function", Name: d.Name.Name, Line: pos.Line})
-		case *ast.GenDecl:
-			for _, spec := range d.Specs {
-				switch s := spec.(type) {
-				case *ast.TypeSpec:
-					items = append(items, structItem{Type: "type", Name: s.Name.Name, Line: pos.Line})
-				case *ast.ValueSpec:
-					for _, name := range s.Names {
-						items = append(items, structItem{Type: "variable", Name: name.Name, Line: pos.Line})
-					}
-				}
-			}
-		}
-	}
-	return items
-}
-
-func extractPythonStructure(lines []string) []structItem {
-	var items []structItem
-	re := regexp.MustCompile(`^(class|def)\s+([a-zA-Z_][a-zA-Z0-9_]*)`)
-	for i, line := range lines {
-		matches := re.FindStringSubmatch(line)
-		if len(matches) > 2 {
-			typ := "function"
-			if matches[1] == "class" {
-				typ = "class"
-			}
-			items = append(items, structItem{Type: typ, Name: matches[2], Line: i + 1})
-		}
-	}
-	return items
-}
-
-func extractJSStructure(lines []string) []structItem {
-	var items []structItem
-	re := regexp.MustCompile(`^(?:export\s+)?(?:async\s+)?(?:function|class|const|let|var|interface|type)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)`)
-	for i, line := range lines {
-		matches := re.FindStringSubmatch(line)
-		if len(matches) > 1 {
-			typ := "function"
-			if strings.Contains(line, "class") {
-				typ = "class"
-			} else if strings.Contains(line, "interface") {
-				typ = "interface"
-			} else if strings.Contains(line, "type") {
-				typ = "type"
-			} else if strings.Contains(line, "const") || strings.Contains(line, "let") || strings.Contains(line, "var") {
-				typ = "variable"
-			}
-			items = append(items, structItem{Type: typ, Name: matches[1], Line: i + 1})
-		}
-	}
-	return items
-}
-
-func extractRustStructure(lines []string) []structItem {
-	var items []structItem
-	re := regexp.MustCompile(`^(pub\s+)?(?:fn|struct|enum|trait|impl)\s+([a-zA-Z_][a-zA-Z0-9_]*)`)
-	for i, line := range lines {
-		matches := re.FindStringSubmatch(line)
-		if len(matches) > 2 {
-			typ := "function"
-			if strings.Contains(line, "struct") {
-				typ = "struct"
-			} else if strings.Contains(line, "enum") {
-				typ = "enum"
-			} else if strings.Contains(line, "trait") {
-				typ = "trait"
-			}
-			items = append(items, structItem{Type: typ, Name: matches[2], Line: i + 1})
-		}
-	}
-	return items
-}
-
-func extractJavaStructure(lines []string) []structItem {
-	var items []structItem
-	re := regexp.MustCompile(`^(?:public\s+|private\s+|protected\s+|static\s+|final\s+)*(?:class|interface|enum|record|void|int|String|boolean|double|float|long|short|byte|char|Object|List|Map|Set|Optional)\s+([a-zA-Z_][a-zA-Z0-9_]*)`)
-	for i, line := range lines {
-		matches := re.FindStringSubmatch(line)
-		if len(matches) > 1 {
-			typ := "function"
-			if strings.Contains(line, "class") {
-				typ = "class"
-			} else if strings.Contains(line, "interface") {
-				typ = "interface"
-			}
-			items = append(items, structItem{Type: typ, Name: matches[1], Line: i + 1})
-		}
-	}
-	return items
 }
 
 func extractGenericStructure(lines []string, lang string) []structItem {
 	var items []structItem
-	// Simple heuristic: look for function/class patterns
 	re := regexp.MustCompile(`(?:function|def|fn|func|method|class|struct|interface|trait|enum|record|sub|procedure)\s+([a-zA-Z_][a-zA-Z0-9_]*)`)
 	for i, line := range lines {
 		matches := re.FindStringSubmatch(line)

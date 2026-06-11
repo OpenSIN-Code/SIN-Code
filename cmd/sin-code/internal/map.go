@@ -138,8 +138,10 @@ func mapArchitecture(root, action string) (*mapResult, error) {
 		}
 
 		data, err := os.ReadFile(path)
+		var content string
 		if err == nil && len(data) < 1_000_000 {
-			lines := strings.Count(string(data), "\n") + 1
+			content = string(data)
+			lines := strings.Count(content, "\n") + 1
 			totalLines += lines
 			fileDeps := extractDependencies(path)
 			if len(fileDeps) > 0 {
@@ -152,15 +154,17 @@ func mapArchitecture(root, action string) (*mapResult, error) {
 
 		// Check for entry points
 		name := strings.ToLower(filepath.Base(path))
-		if lang == "go" && (name == "main.go" || strings.Contains(content(path), "func main()")) {
-			entryPoints = append(entryPoints, rel)
-		} else if lang == "python" && (name == "__main__.py" || strings.Contains(content(path), `if __name__ == "__main__":`)) {
+		if lang == "go" {
+			if name == "main.go" || isGoEntryPoint(path, data) {
+				entryPoints = append(entryPoints, rel)
+			}
+		} else if lang == "python" && (name == "__main__.py" || strings.Contains(content, `if __name__ == "__main__":`)) {
 			entryPoints = append(entryPoints, rel)
 		} else if (lang == "javascript" || lang == "typescript") && (name == "index.js" || name == "index.ts" || name == "main.js" || name == "main.ts") {
 			entryPoints = append(entryPoints, rel)
 		} else if lang == "rust" && name == "main.rs" {
 			entryPoints = append(entryPoints, rel)
-		} else if lang == "java" && strings.Contains(content(path), "public static void main") {
+		} else if lang == "java" && strings.Contains(content, "public static void main") {
 			entryPoints = append(entryPoints, rel)
 		}
 
@@ -238,9 +242,24 @@ type fileInfo struct {
 	dir  string
 }
 
-func content(path string) string {
-	data, _ := os.ReadFile(path)
-	return string(data)
+func isGoEntryPoint(path string, data []byte) bool {
+	outline := parseOutline(path, data)
+	if outline == nil || outline.Engine == "none" {
+		return false
+	}
+	var walk func([]SymbolInfo) bool
+	walk = func(syms []SymbolInfo) bool {
+		for _, sym := range syms {
+			if sym.Name == "main" && (sym.Kind == "func" || sym.Kind == "function") {
+				return true
+			}
+			if len(sym.Children) > 0 && walk(sym.Children) {
+				return true
+			}
+		}
+		return false
+	}
+	return walk(outline.Symbols)
 }
 
 func outputTextMap(r *mapResult) error {

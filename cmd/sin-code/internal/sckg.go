@@ -7,12 +7,8 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
-	"go/ast"
-	"go/parser"
-	"go/token"
 	"os"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -203,7 +199,6 @@ func buildGraph(root string) (*sckgGraph, error) {
 		if err != nil || len(data) > 2_000_000 {
 			return nil
 		}
-		content := string(data)
 
 		// Extract imports and create edges
 		deps := extractDependencies(path)
@@ -213,69 +208,22 @@ func buildGraph(root string) (*sckgGraph, error) {
 			addEdge(fileID, depID, "imports")
 		}
 
-		// Extract symbols and create edges
-		switch lang {
-		case "go":
-			fset := token.NewFileSet()
-			f, err := parser.ParseFile(fset, path, content, parser.AllErrors)
-			if err != nil {
-				return nil
-			}
-			for _, decl := range f.Decls {
-				pos := fset.Position(decl.Pos())
-				switch d := decl.(type) {
-				case *ast.FuncDecl:
-					funcID := fmt.Sprintf("func:%s:%s", rel, d.Name.Name)
-					addNode(funcID, "function", d.Name.Name, rel, pos.Line, lang)
-					addEdge(fileID, funcID, "contains")
-				case *ast.GenDecl:
-					for _, spec := range d.Specs {
-						if ts, ok := spec.(*ast.TypeSpec); ok {
-							typeID := fmt.Sprintf("type:%s:%s", rel, ts.Name.Name)
-							addNode(typeID, "type", ts.Name.Name, rel, pos.Line, lang)
-							addEdge(fileID, typeID, "contains")
-						}
-					}
-				}
-			}
-		case "python":
-			re := regexp.MustCompile(`^(\s*)(def|class)\s+([a-zA-Z_][a-zA-Z0-9_]*)`)
-			lines := strings.Split(content, "\n")
-			for i, line := range lines {
-				matches := re.FindStringSubmatch(line)
-				if len(matches) > 3 {
-					typ := "function"
-					if matches[2] == "class" {
-						typ = "class"
-					}
-					id := fmt.Sprintf("%s:%s:%s", typ, rel, matches[3])
-					addNode(id, typ, matches[3], rel, i+1, lang)
+		// Extract symbols and create edges via parseOutline (Phase 4b).
+		outline := parseOutline(path, data)
+		if outline != nil && outline.Engine != "none" {
+			var walk func([]SymbolInfo)
+			walk = func(syms []SymbolInfo) {
+				for _, sym := range syms {
+					typ := sckgKind(sym.Kind)
+					id := fmt.Sprintf("%s:%s:%s", typ, rel, sym.Name)
+					addNode(id, typ, sym.Name, rel, sym.StartLine, lang)
 					addEdge(fileID, id, "contains")
-				}
-			}
-		case "javascript", "typescript", "tsx", "jsx":
-			re := regexp.MustCompile(`(?:export\s+)?(?:async\s+)?(?:function|class|const|let|var|interface|type)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)`)
-			lines := strings.Split(content, "\n")
-			for i, line := range lines {
-				matches := re.FindAllStringSubmatch(line, -1)
-				for _, m := range matches {
-					if len(m) > 1 {
-						typ := "function"
-						if strings.Contains(line, "class") {
-							typ = "class"
-						} else if strings.Contains(line, "interface") {
-							typ = "interface"
-						} else if strings.Contains(line, "type") {
-							typ = "type"
-						} else if strings.Contains(line, "const") || strings.Contains(line, "let") || strings.Contains(line, "var") {
-							typ = "variable"
-						}
-						id := fmt.Sprintf("%s:%s:%s", typ, rel, m[1])
-						addNode(id, typ, m[1], rel, i+1, lang)
-						addEdge(fileID, id, "contains")
+					if len(sym.Children) > 0 {
+						walk(sym.Children)
 					}
 				}
 			}
+			walk(outline.Symbols)
 		}
 
 		return nil
@@ -377,6 +325,19 @@ func graphStats(graph *sckgGraph) *sckgStats {
 		EdgeTypes:   edgeTypes,
 		TopImports:  topImports,
 		OrphanNodes: orphans,
+	}
+}
+
+func sckgKind(kind string) string {
+	switch kind {
+	case "func", "method":
+		return "function"
+	case "struct", "type":
+		return "type"
+	case "var", "const":
+		return "variable"
+	default:
+		return kind
 	}
 }
 
