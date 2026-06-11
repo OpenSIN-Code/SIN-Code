@@ -290,3 +290,51 @@ func TestHandleIndexSearch(t *testing.T) {
 		t.Fatalf("expected a.go match, got %+v", results)
 	}
 }
+
+// TestInMemoryIndex_HelperMethods verifies the small helper methods
+// on inMemoryIndex: rootPath, hasFile, allIndexedPaths, clear, remove.
+// (st-cov1)
+func TestInMemoryIndex_HelperMethods(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "x.go"), []byte("package x\n"), 0644)
+
+	idx, err := buildIndex(root)
+	if err != nil {
+		t.Fatalf("buildIndex: %v", err)
+	}
+
+	// rootPath
+	if got := idx.rootPath(); got != root {
+		t.Errorf("rootPath() = %q, want %q", got, root)
+	}
+
+	// hasFile
+	if !idx.hasFile("x.go") {
+		t.Error("expected hasFile('x.go') = true")
+	}
+	if idx.hasFile("nonexistent.go") {
+		t.Error("expected hasFile('nonexistent.go') = false")
+	}
+
+	// allIndexedPaths
+	paths := idx.allIndexedPaths()
+	if len(paths) != 1 || paths[0] != "x.go" {
+		t.Errorf("expected allIndexedPaths() = [x.go], got %v", paths)
+	}
+
+	// remove
+	idx.remove("x.go")
+	if idx.hasFile("x.go") {
+		t.Error("expected x.go to be removed")
+	}
+
+	// clear
+	idx.add(indexEntry{File: "y.go", ModTime: time.Now(), Size: 100, Trigrams: nil, IsBinary: false, Lines: 5})
+	if !idx.hasFile("y.go") {
+		t.Error("expected y.go after add")
+	}
+	idx.clear()
+	if len(idx.allIndexedPaths()) != 0 {
+		t.Errorf("expected empty after clear, got %v", idx.allIndexedPaths())
+	}
+}
