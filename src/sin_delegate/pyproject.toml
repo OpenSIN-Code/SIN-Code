@@ -1,0 +1,51 @@
+# Standalone package manifest for sin-code-delegate.
+#
+# This is NOT the main sin-code-bundle pyproject.toml — that lives at
+# the project root and builds the full Bundle (sin-code, sin-code-bundle).
+# This file is here so that:
+#   - `pip install ./src/sin_delegate` (or its published name) works
+#   - Bundle consumers see the delegate entry-points declared
+#
+# When the package is bundled into sin-code-bundle, the Bundle's
+# [project.entry-points] pulls in this subpackage automatically
+# (via setuptools discovery of `src/sin_delegate/...`).
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sin-code-delegate"
+version = "0.1.0"
+description = "Verification-gated, budget-governed, multi-repo sub-agent delegation for the SIN-Code stack."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [{name = "SIN-Code Contributors"}]
+keywords = ["delegation", "ai-agents", "git", "orchestration", "mcp"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = []
+
+[project.optional-dependencies]
+memory = ["sin-brain>=0.3"]
+mcp = ["mcp>=1.0"]
+all = ["sin-brain>=0.3", "mcp>=1.0"]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.21"]
+
+[project.scripts]
+sin-delegate = "sin_delegate.cli:main"
+
+[project.entry-points."sin_code.subcommands"]
+delegate = "sin_delegate.cli:register"
+
+[project.entry-points."sin_code.mcp_tools"]
+delegate = "sin_delegate.mcp_tools:register"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]

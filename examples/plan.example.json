@@ -1,0 +1,43 @@
+{
+  "goal": "Add OAuth login with GitHub provider",
+  "base_branch": "main",
+  "tasks": [
+    {
+      "key": "schema",
+      "title": "Add oauth_accounts table + migration",
+      "instructions": "Create a migration adding an oauth_accounts table (user_id FK, provider, provider_account_id, unique(provider, provider_account_id)). Update the ORM models.",
+      "files": ["db/", "models/"],
+      "risk": "high",
+      "verify": ["diff", "tests", "architecture"],
+      "max_seconds": 600
+    },
+    {
+      "key": "api",
+      "title": "Implement /auth/github callback route",
+      "instructions": "Implement the OAuth code exchange and session creation. Use the new oauth_accounts table. No secrets in code — read from env.",
+      "deps": ["schema"],
+      "files": ["api/auth/"],
+      "backend": "claude",
+      "model": "claude-sonnet-4-5",
+      "risk": "high"
+    },
+    {
+      "key": "ui",
+      "title": "Add 'Sign in with GitHub' button",
+      "instructions": "Add the login button to the existing login form, matching current styles.",
+      "deps": ["schema"],
+      "files": ["components/auth/"],
+      "risk": "low",
+      "verify": ["diff", "tests"],
+      "max_retries": 1
+    },
+    {
+      "key": "docs",
+      "title": "Document OAuth setup",
+      "instructions": "Update README with required env vars and the OAuth flow diagram in text form.",
+      "deps": ["api", "ui"],
+      "risk": "low",
+      "verify": ["diff"]
+    }
+  ]
+}
