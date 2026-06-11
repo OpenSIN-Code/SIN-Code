@@ -11,7 +11,7 @@ This directory contains **active and historical issues** for the sin-code bundle
 | [st-phw1](st-phw1-plugin-hook-wiring.md) | Plugin hooks → todo event wiring | P0 | open | [plugin-completion](../plans/plugin-system-completion.md) | v2.5.0 |
 | [st-ptm2](st-ptm2-plugin-tools-mcp.md) | Plugin tools → MCP integration | P0 | open | [plugin-completion](../plans/plugin-system-completion.md) | v2.5.0 |
 | [st-bvm3](st-bvm3-bubbletea-v2-migration.md) | Bubbletea v1.3.10 → v2.x migration | P2 | done | [bubbletea-v2-upgrade](../plans/bubbletea-v2-upgrade.md) | v3.0.0 |
-| [st-gvc4](st-gvc4-govulncheck-blocking.md) | Re-enable govulncheck as blocking CI gate | P3 | open (blocked) | [ADR-008](../adr/ADR-008-go-125-deferral.md) | Go 1.25 stable |
+| [st-gvc4](done/st-gvc4-govulncheck-blocking.md) | Re-enable govulncheck as blocking CI gate | P3 | **done** | [ADR-008](../adr/ADR-008-go-125-deferral.md) (superseded) | Go 1.25 stable |
 | [st-pwt5](st-pwt5-plugin-wire-testfix.md) | Fix pre-existing TestE2E/plugin_wire failure | P2 | open | (none) | v2.5.0 |
 
 ## Priority Legend

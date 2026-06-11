@@ -16,38 +16,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.3'
+          go-version: '1.25.11'
       - name: Test
         run: go test -v ./cmd/sin-code/... 2>&1 | tee test-output.txt
       - name: Vet
         run: go vet ./cmd/sin-code/...
       - name: govulncheck
-        # Blocking for non-stdlib CVEs; stdlib CVEs (Go 1.24.3) are expected until Go 1.25.
-        #
-        # TODO(st-gvc4): When Go 1.25 stable ships, this step should be made fully
-        # blocking (remove the `|| true` and the stdlib-CVE carve-out).
-        # Track at: docs/issues/st-gvc4-govulncheck-blocking.md
-        # ADR:      docs/adr/ADR-008-go-125-deferral.md
+        # Blocking — Go 1.25.11 has fixed the stdlib false positives that
+        # required the carve-out in Go 1.24.3. See ADR-008, st-gvc4.
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./cmd/sin-code/... > govulncheck-output.txt 2>&1 || true
-          # Check for non-stdlib vulnerabilities (3rd-party dependencies).
-          # If found, fail the pipeline. Stdlib CVEs are expected and don't block.
-          if grep -q "Found in:" govulncheck-output.txt && ! grep -q "Standard library" govulncheck-output.txt; then
-            echo "❌ CRITICAL: Non-stdlib CVEs detected in dependencies!"
-            cat govulncheck-output.txt
-            exit 1
-          fi
-          if grep -q "Standard library" govulncheck-output.txt; then
-            echo "⚠️  WARNING: Stdlib CVEs detected (Go 1.24.3, will be fixed in Go 1.25). Not blocking."
-          fi
-          echo "✅ govulncheck passed: no non-stdlib CVEs found."
-      - name: Upload govulncheck artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: govulncheck-output
-          path: govulncheck-output.txt
+          govulncheck ./cmd/sin-code/...
+
 
   build:
     name: Build
