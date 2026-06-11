@@ -21,6 +21,18 @@ _ALLOWED_TOOLS = {"sin_search", "sin_read", "sin_edit",
 _MAX_STEPS = 24
 
 
+def _get_default_distiller():
+    """Lazy import to avoid a hard dependency in tests that don't need it."""
+    try:
+        from .distiller import KnowledgeDistiller
+        return KnowledgeDistiller()
+    except Exception:
+        return None
+
+
+_KnowledgeDistiller = None  # type alias for forward ref
+
+
 @dataclass(slots=True)
 class RepoSurvey:
     languages: dict[str, int] = field(default_factory=dict)
@@ -142,9 +154,11 @@ PLAN:
 class PlanSynthesizer:
     def __init__(self, complete: CompleteFn | None = None, *,
                  memory: MemoryBridge | None = None,
+                 distiller: "KnowledgeDistiller | None" = None,
                  critique: bool = True) -> None:
         self.complete = complete
         self.memory = memory or MemoryBridge()
+        self.distiller = distiller or _get_default_distiller()
         self.critique = critique
         self.planner = Planner()
 
@@ -162,11 +176,16 @@ class PlanSynthesizer:
 
         survey = survey_repo(task.repo_root)
 
+        standing = self.distiller.render_constraints()
+        constraints_block = "; ".join(task.constraints) or "none"
+        if standing:
+            constraints_block = f"{constraints_block}\n{standing}"
+
         draft_raw = await self.complete(_DRAFT_PROMPT.format(
             max_steps=_MAX_STEPS,
             survey=survey.to_prompt_block(),
             lessons=lesson_text,
-            constraints="; ".join(task.constraints) or "none",
+            constraints=constraints_block,
             goal=task.goal,
         ))
         specs = self._parse_and_validate(task, draft_raw)

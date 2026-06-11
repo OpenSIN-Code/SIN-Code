@@ -28,6 +28,15 @@ from .telemetry import Telemetry
 from .memory_bridge import MemoryBridge
 from .builtin_tools import register_builtin_tools
 from .loop import AgentLoop
+from .tracing import TraceContext, SpanEmitter, Span, TraceAssembler
+from .distiller import (
+    KnowledgeDistiller, StandingRule, _signature as _rule_signature,
+    _heuristic_rule,
+)
+from .delegate import (
+    DelegationContext, AdaptiveBudgetAllocator, DelegationCache,
+    DelegationSupervisor, make_delegate_tool, validate_result,
+)
 
 __all__ = [
     "AgentTask",
@@ -46,6 +55,18 @@ __all__ = [
     "MemoryBridge",
     "AgentLoop",
     "register_builtin_tools",
+    "TraceContext",
+    "SpanEmitter",
+    "Span",
+    "TraceAssembler",
+    "KnowledgeDistiller",
+    "StandingRule",
+    "DelegationContext",
+    "AdaptiveBudgetAllocator",
+    "DelegationCache",
+    "DelegationSupervisor",
+    "make_delegate_tool",
+    "validate_result",
 ]
 
 __version__ = "1.0.0"

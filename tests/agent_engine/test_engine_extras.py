@@ -192,9 +192,12 @@ def test_policy_dry_run_logs_but_allows(tmp_path):
 # --------------------------------------------------------------- delegation
 
 def test_depth_limit_blocks_fork_bombs():
-    ctx = DelegationContext(max_depth=2, budget_deadline=time.monotonic() + 1000)
-    child = ctx.child()
-    grandchild = child.child()
+    ctx = DelegationContext(max_depth=2, deadline_wall=time.monotonic() + 1000,
+                            min_budget_s=10, safety_margin_s=5)
+    child = DelegationContext(depth=1, max_depth=2,
+                             deadline_wall=time.monotonic() + 1000,
+                             min_budget_s=10, safety_margin_s=5)
+    grandchild = child.child(granted_budget_s=10)
     assert ctx.can_delegate()[0]
     assert child.can_delegate()[0]
     ok, reason = grandchild.can_delegate()
@@ -202,15 +205,19 @@ def test_depth_limit_blocks_fork_bombs():
 
 
 def test_budget_shrinks_per_generation():
-    ctx = DelegationContext(budget_deadline=time.monotonic() + 1000,
-                            budget_fraction=0.5)
-    child = ctx.child()
-    assert child.remaining_s() <= ctx.remaining_s() * 0.5 + 1
+    ctx = DelegationContext(deadline_wall=time.monotonic() + 1000,
+                            safety_margin_s=10, min_budget_s=10)
+    child = ctx.child(granted_budget_s=200)
+    # granted < (parent_remaining - safety_margin) keeps the child bounded
+    assert child.remaining_s() <= ctx.remaining_s()
 
 
 def test_tiny_budget_refuses_delegation():
-    ctx = DelegationContext(budget_deadline=time.monotonic() + 100,
-                            budget_fraction=0.5, min_budget_s=60)
+    # min_budget=60, safety_margin=20, deadline+100 => remaining=100,
+    # 100 - 20 = 80 >= 60, so we need remaining < min+safety = 80.
+    # Use deadline at +50 to get remaining=50, 50-20=30 < 60.
+    ctx = DelegationContext(deadline_wall=time.monotonic() + 50,
+                            safety_margin_s=20, min_budget_s=60)
     ok, reason = ctx.can_delegate()
     assert not ok and "budget" in reason
 

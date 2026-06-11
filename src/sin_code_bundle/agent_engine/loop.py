@@ -76,6 +76,7 @@ class AgentLoop:
             executor.cleanup(task.repo_root)
 
         outcome = "success" if verdict.ok else f"failed:{verdict.kind.value}"
+        elapsed = round(time.monotonic() - t0, 1)
         self.memory.remember_run(
             task_id=task.task_id,
             goal=task.goal,
@@ -83,6 +84,7 @@ class AgentLoop:
             repair_rounds=len(lessons),
             lessons=lessons,
             plan_json=plan.to_json(),
+            elapsed_s=elapsed,
         )
 
         report = {

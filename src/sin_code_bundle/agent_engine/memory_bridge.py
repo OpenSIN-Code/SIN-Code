@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS agent_runs (
     outcome TEXT NOT NULL,
     repair_rounds INTEGER NOT NULL DEFAULT 0,
     lessons TEXT NOT NULL DEFAULT '[]',
-    plan_json TEXT NOT NULL DEFAULT '{}'
+    plan_json TEXT NOT NULL DEFAULT '{}',
+    elapsed_s REAL NOT NULL DEFAULT 0
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS agent_runs_fts USING fts5(
     goal, lessons, content='agent_runs', content_rowid='id'
@@ -44,14 +45,16 @@ class MemoryBridge:
 
     def remember_run(self, *, task_id: str, goal: str, outcome: str,
                     repair_rounds: int, lessons: list[str],
-                    plan_json: str) -> None:
+                    plan_json: str, elapsed_s: float = 0.0) -> None:
         with self._conn() as con:
             con.execute(
                 "INSERT INTO agent_runs "
-                "(ts, task_id, goal, outcome, repair_rounds, lessons, plan_json) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "(ts, task_id, goal, outcome, repair_rounds, lessons, "
+                "plan_json, elapsed_s) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 (time.time(), task_id, goal, outcome, repair_rounds,
-                 json.dumps(lessons, ensure_ascii=False), plan_json),
+                 json.dumps(lessons, ensure_ascii=False), plan_json,
+                 float(elapsed_s)),
             )
 
     def recall_similar(self, goal: str, limit: int = 5) -> list[dict[str, Any]]:
@@ -64,7 +67,8 @@ class MemoryBridge:
             return []
         with self._conn() as con:
             rows = con.execute(
-                "SELECT r.goal, r.outcome, r.repair_rounds, r.lessons "
+                "SELECT r.goal, r.outcome, r.repair_rounds, r.lessons, "
+                "r.elapsed_s "
                 "FROM agent_runs_fts f JOIN agent_runs r ON r.id = f.rowid "
                 "WHERE agent_runs_fts MATCH ? ORDER BY rank LIMIT ?",
                 (terms, limit),
@@ -75,6 +79,7 @@ class MemoryBridge:
                 "outcome": r["outcome"],
                 "repair_rounds": r["repair_rounds"],
                 "lessons": json.loads(r["lessons"]),
+                "elapsed_s": r["elapsed_s"],
             }
             for r in rows
         ]

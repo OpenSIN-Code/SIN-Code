@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -191,3 +192,57 @@ def register_agent_commands(app) -> None:
         typer.echo(json.dumps({"tool": tool, "allowed": allowed,
                                "reason": reason}))
         raise typer.Exit(0 if allowed else 1)
+
+    @agent.command("trace")
+    def trace_cmd(
+        trace_id: str | None = typer.Option(None, "--trace-id"),
+        log: Path | None = typer.Option(None, "--log"),
+        chrome: Path | None = typer.Option(None, "--chrome"),
+    ) -> None:
+        from .tracing import TraceAssembler
+        assembler = TraceAssembler(str(log) if log else None)
+        if chrome is not None:
+            chrome.write_text(assembler.to_chrome_trace(trace_id),
+                              encoding="utf-8")
+            typer.echo(f"chrome trace written to {chrome} "
+                       "(open via chrome://tracing or ui.perfetto.dev)")
+            return
+        roots = assembler.assemble(trace_id)
+        if not roots:
+            typer.echo("no spans found")
+            raise typer.Exit(1)
+        typer.echo(TraceAssembler.render_tree(
+            roots, color=sys.stdout.isatty()))
+
+    @agent.command("distill")
+    def distill_cmd(
+        since_days: float = typer.Option(7.0, "--since-days"),
+        no_llm: bool = typer.Option(False, "--no-llm"),
+    ) -> None:
+        from .distiller import KnowledgeDistiller
+        complete = None
+        llm_cmd = os.environ.get("SIN_LLM_CMD")
+        if llm_cmd and not no_llm:
+            async def complete(prompt: str) -> str:
+                proc = await asyncio.create_subprocess_shell(
+                    llm_cmd, stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE)
+                out_b, _ = await proc.communicate(prompt.encode())
+                return out_b.decode(errors="replace")
+        distiller = KnowledgeDistiller(complete=complete)
+        lessons = distiller.harvest_lessons(since_s=since_days * 86400)
+        report = asyncio.run(distiller.distill(lessons))
+        typer.echo(json.dumps({
+            "harvested_lessons": len(lessons), **report,
+            "active_rules": [r.rule for r in distiller.active_rules()],
+        }, indent=2, ensure_ascii=False))
+
+    @agent.command("rules")
+    def rules_cmd() -> None:
+        from .distiller import KnowledgeDistiller
+        active = KnowledgeDistiller().active_rules()
+        if not active:
+            typer.echo("no active standing rules yet — run `sin agent distill`")
+            return
+        for r in active:
+            typer.echo(f"[{r.score:5.1f}] ({r.evidence_count}x) {r.rule}")
