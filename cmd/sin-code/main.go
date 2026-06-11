@@ -14,6 +14,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/notifications"
+	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/sandbox"
 	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/todo"
 	"github.com/spf13/cobra"
 )
@@ -149,6 +150,17 @@ func checkUpdate() {
 }
 
 func main() {
+	// Sandbox shim: if invoked as the re-exec target (second arg =
+	// "__sandbox_exec"), apply Landlock and exec the real command. The
+	// parent process stays unconfined; only the child runs sandboxed.
+	if len(os.Args) > 2 && os.Args[1] == "__sandbox_exec" {
+		if err := sandbox.ApplyAndExec(); err != nil {
+			fmt.Fprintf(os.Stderr, "sin-code sandbox: %v\n", err)
+			os.Exit(126)
+		}
+		return // unreachable after successful exec
+	}
+
 	// If invoked via a symlink named after a subcommand (e.g. `discover` ->
 	// `sin-code discover`), automatically route to that subcommand.
 	if len(os.Args) > 0 {

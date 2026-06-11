@@ -1,0 +1,75 @@
+# .golangci.yml — SOTA lint gate for SIN-Code-Bundle
+# Requires golangci-lint >= 1.60
+run:
+  timeout: 5m
+  tests: true
+  build-tags:
+    - treesitter
+
+linters:
+  disable-all: true
+  enable:
+    # Correctness
+    - govet
+    - staticcheck
+    - errcheck
+    - gosimple
+    - unused
+    - ineffassign
+    - nilerr
+    - errorlint
+    - copyloopvar
+    # Security
+    - gosec
+    # Robustness
+    - bodyclose
+    - rowserrcheck
+    - sqlclosecheck
+    - contextcheck
+    - noctx
+    # Style / hygiene (low-noise selection)
+    - gofmt
+    - goimports
+    - misspell
+    - unconvert
+    - unparam
+    - prealloc
+    - gocritic
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: false
+  gosec:
+    excludes:
+      - G104 # duplicate of errcheck
+    config:
+      G301: "0750"
+      G302: "0600"
+      G306: "0600"
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+    disabled-checks:
+      - hugeParam
+  goimports:
+    local-prefixes: github.com/OpenSIN-Code/SIN-Code-Bundle
+  misspell:
+    locale: US
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    # Tests may use weaker patterns deliberately (fixtures, temp perms)
+    - path: _test\.go
+      linters:
+        - gosec
+        - noctx
+        - errcheck
+    # Generated / vendored tree-sitter grammars
+    - path: third.party/
+      linters:
+        - all
