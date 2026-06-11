@@ -20,16 +20,19 @@ import (
 
 func runSinCodeCLI(args ...string) (string, error) {
 	bin := os.Getenv("SIN_CODE_BIN")
-	if bin == "" {
+	if bin != "" {
+		// explicit override (tests, custom install layout) — trust it
+	} else if _, err := exec.LookPath("sin-code"); err == nil {
+		bin = "sin-code"
+	} else {
 		bin = os.Args[0]
 	}
-	if _, err := exec.LookPath(bin); err != nil {
-		bin, _ = exec.LookPath("sin-code")
-	}
-	if bin == "" {
-		bin = "sin-code"
-	}
-	out, err := exec.Command(bin, args...).CombinedOutput()
+	// 5-minute upper bound — sub-commands are all internal and should
+	// finish in seconds.  Guards against a buggy/fake script that reads
+	// stdin forever in test contexts.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*60*1_000_000_000)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, bin, args...).CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("%s: %s", err, string(out))
 	}
