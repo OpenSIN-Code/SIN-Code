@@ -77,6 +77,7 @@ func handleEdit(ctx context.Context, args map[string]any) (string, error) {
 		DryRun:     boolArg(args, "dry_run"),
 		Validate:   !boolArg(args, "no_validate"),
 		Drift:      intArg(args, "drift", DefaultDriftWindow),
+		Symbol:     stringArg(args, "symbol", ""),
 	}
 	result, err := applyEdit(absPath, req)
 	if err != nil {

@@ -85,7 +85,7 @@ func TestSearchFiles_Regex(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() {}\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "util.go"), []byte("package util\nfunc Helper() {}\n"), 0644)
 
-	results, err := searchFiles(dir, `func \w+`, "regex", 50)
+	results, err := searchFiles(dir, `func \w+`, "regex", 50, false)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestSearchFiles_RegexNoMatches(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n"), 0644)
 
-	results, err := searchFiles(dir, `class \w+`, "regex", 50)
+	results, err := searchFiles(dir, `class \w+`, "regex", 50, false)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestSearchFiles_RegexNoMatches(t *testing.T) {
 
 func TestSearchFiles_InvalidRegex(t *testing.T) {
 	dir := t.TempDir()
-	_, err := searchFiles(dir, `[invalid`, "regex", 50)
+	_, err := searchFiles(dir, `[invalid`, "regex", 50, false)
 	if err == nil {
 		t.Error("expected error for invalid regex")
 	}
@@ -119,7 +119,7 @@ func TestSearchFiles_Semantic(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "app.py"), []byte("def calculate_total():\n    pass\n"), 0644)
 
-	results, err := searchFiles(dir, "calculate total", "semantic", 50)
+	results, err := searchFiles(dir, "calculate total", "semantic", 50, false)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestSearchFiles_Symbol(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc MyFunc() {}\n"), 0644)
 
-	results, err := searchFiles(dir, "MyFunc", "symbol", 50)
+	results, err := searchFiles(dir, "MyFunc", "symbol", 50, false)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -152,7 +152,7 @@ func MyFunc() {}
 `
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte(content), 0644)
 
-	results, err := searchFiles(dir, "MyFunc", "usage", 50)
+	results, err := searchFiles(dir, "MyFunc", "usage", 50, false)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -163,7 +163,7 @@ func MyFunc() {}
 
 func TestSearchFiles_UnknownSearchType(t *testing.T) {
 	dir := t.TempDir()
-	_, err := searchFiles(dir, "test", "unknown_type", 50)
+	_, err := searchFiles(dir, "test", "unknown_type", 50, false)
 	if err == nil {
 		t.Error("expected error for unknown search type")
 	}
@@ -180,7 +180,7 @@ func TestSearchFiles_MaxResults(t *testing.T) {
 	}
 	os.WriteFile(filepath.Join(dir, "big.go"), []byte(strings.Join(lines, "\n")), 0644)
 
-	results, err := searchFiles(dir, `match`, "regex", 5)
+	results, err := searchFiles(dir, `match`, "regex", 5, false)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestSearchFiles_SkipsDotDirs(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, ".hidden", "secret.go"), []byte("func secretMatch() {}\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "visible.go"), []byte("func visibleMatch() {}\n"), 0644)
 
-	results, err := searchFiles(dir, `Match`, "regex", 50)
+	results, err := searchFiles(dir, `Match`, "regex", 50, false)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestSearchFiles_SkipsCommonDirs(t *testing.T) {
 	}
 	os.WriteFile(filepath.Join(dir, "keep.go"), []byte("func keepMatch() {}\n"), 0644)
 
-	results, err := searchFiles(dir, `Match`, "regex", 50)
+	results, err := searchFiles(dir, `Match`, "regex", 50, true)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestSearchFiles_SkipsLargeFiles(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "huge.go"), []byte(bigContent), 0644)
 	os.WriteFile(filepath.Join(dir, "small.go"), []byte("func matchLine() {}\n"), 0644)
 
-	results, err := searchFiles(dir, `matchLine`, "regex", 50)
+	results, err := searchFiles(dir, `matchLine`, "regex", 50, true)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -251,7 +251,7 @@ func after() {}
 `
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte(content), 0644)
 
-	results, err := searchFiles(dir, `func target`, "regex", 50)
+	results, err := searchFiles(dir, `func target`, "regex", 50, false)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -269,7 +269,7 @@ func TestSearchFiles_RelevanceSorted(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "util.go"), []byte("// ProcessData helper\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "config.yaml"), []byte("ProcessData: true\n"), 0644)
 
-	results, err := searchFiles(dir, `ProcessData`, "regex", 50)
+	results, err := searchFiles(dir, `ProcessData`, "regex", 50, false)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -546,7 +546,7 @@ func TestSearchFiles_MultipleFileTypes(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "app.py"), []byte("def process():\n    pass\n"), 0644)
 	os.WriteFile(filepath.Join(dir, "index.js"), []byte("function process() {}\n"), 0644)
 
-	results, err := searchFiles(dir, `process`, "usage", 50)
+	results, err := searchFiles(dir, `process`, "usage", 50, false)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -586,7 +586,7 @@ func TestSearchFiles_MaxResultsReached(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte("// match1\n// match2\npackage main\nfunc main() {}\n// match3\n"), 0644)
 
-	results, err := searchFiles(dir, `match`, "regex", 2)
+	results, err := searchFiles(dir, `match`, "regex", 2, false)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -597,7 +597,7 @@ func TestSearchFiles_MaxResultsReached(t *testing.T) {
 
 func TestSearchFiles_SemanticInvalid(t *testing.T) {
 	dir := t.TempDir()
-	_, err := searchFiles(dir, "[invalid", "semantic", 50)
+	_, err := searchFiles(dir, "[invalid", "semantic", 50, false)
 	if err == nil {
 		t.Error("expected error for invalid semantic query")
 	}
@@ -605,7 +605,7 @@ func TestSearchFiles_SemanticInvalid(t *testing.T) {
 
 func TestSearchFiles_UsageEscapesQuery(t *testing.T) {
 	dir := t.TempDir()
-	_, err := searchFiles(dir, "[invalid", "usage", 50)
+	_, err := searchFiles(dir, "[invalid", "usage", 50, false)
 	if err != nil {
 		t.Errorf("usage search should escape special chars via QuoteMeta: %v", err)
 	}
@@ -613,7 +613,7 @@ func TestSearchFiles_UsageEscapesQuery(t *testing.T) {
 
 func TestSearchFiles_SymbolEscapesQuery(t *testing.T) {
 	dir := t.TempDir()
-	_, err := searchFiles(dir, "[invalid", "symbol", 50)
+	_, err := searchFiles(dir, "[invalid", "symbol", 50, false)
 	if err != nil {
 		t.Errorf("symbol search should escape special chars via QuoteMeta: %v", err)
 	}
@@ -687,7 +687,7 @@ func TestScoreRelevanceScout_NonCodeFile(t *testing.T) {
 func TestSearchFiles_SemanticSearch(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "app.go"), []byte("package main\nfunc HandleRequest() {}\n"), 0644)
-	results, err := searchFiles(dir, "HandleRequest", "semantic", 10)
+	results, err := searchFiles(dir, "HandleRequest", "semantic", 10, false)
 	if err != nil {
 		t.Fatalf("semantic search failed: %v", err)
 	}
@@ -699,7 +699,7 @@ func TestSearchFiles_SemanticSearch(t *testing.T) {
 func TestSearchFiles_SymbolSearch(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc MyFunc() {}\n"), 0644)
-	results, err := searchFiles(dir, "MyFunc", "symbol", 10)
+	results, err := searchFiles(dir, "MyFunc", "symbol", 10, false)
 	if err != nil {
 		t.Fatalf("symbol search failed: %v", err)
 	}
@@ -709,7 +709,7 @@ func TestSearchFiles_SymbolSearch(t *testing.T) {
 func TestSearchFiles_UsageSearch(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\nfunc main() { MyFunc() }\n"), 0644)
-	results, err := searchFiles(dir, "MyFunc", "usage", 10)
+	results, err := searchFiles(dir, "MyFunc", "usage", 10, false)
 	if err != nil {
 		t.Fatalf("usage search failed: %v", err)
 	}
@@ -720,7 +720,7 @@ func TestSearchFiles_ContextExtraction(t *testing.T) {
 	dir := t.TempDir()
 	content := "package main\nimport \"fmt\"\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n"
 	os.WriteFile(filepath.Join(dir, "app.go"), []byte(content), 0644)
-	results, err := searchFiles(dir, "fmt.Println", "regex", 10)
+	results, err := searchFiles(dir, "fmt.Println", "regex", 10, false)
 	if err != nil {
 		t.Fatalf("regex search failed: %v", err)
 	}
@@ -779,7 +779,7 @@ func TestSearchFiles_MaxResultsLimited(t *testing.T) {
 	for i := 0; i < 20; i++ {
 		os.WriteFile(filepath.Join(dir, fmt.Sprintf("file_%d.go", i)), []byte(fmt.Sprintf("package main\nfunc Func%d() {}\n", i)), 0644)
 	}
-	results, err := searchFiles(dir, "Func", "regex", 5)
+	results, err := searchFiles(dir, "Func", "regex", 5, false)
 	if err != nil {
 		t.Fatalf("searchFiles failed: %v", err)
 	}
@@ -796,7 +796,7 @@ func TestSearchFiles_WalkError(t *testing.T) {
 	os.Chmod(subdir, 0000)
 	defer os.Chmod(subdir, 0755)
 
-	results, err := searchFiles(dir, "main", "regex", 10)
+	results, err := searchFiles(dir, "main", "regex", 10, false)
 	_ = results
 	_ = err
 }
@@ -856,7 +856,7 @@ func TestSearchFiles_PermDeniedSubdir(t *testing.T) {
 	os.Chmod(subdir, 0000)
 	defer os.Chmod(subdir, 0755)
 
-	results, err := searchFiles(dir, "func", "regex", 100)
+	results, err := searchFiles(dir, "func", "regex", 100, false)
 	_ = results
 	_ = err
 }
@@ -877,7 +877,7 @@ func TestScoutCmd_SearchFileError(t *testing.T) {
 func TestSearchFiles_InvalidType(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "app.go"), []byte("package main\n"), 0644)
-	_, err := searchFiles(dir, "test", "bogus_type", 10)
+	_, err := searchFiles(dir, "test", "bogus_type", 10, false)
 	if err == nil {
 		t.Error("expected error for unknown search type")
 	}
@@ -899,7 +899,7 @@ func TestScoutCmd_PathNotFound(t *testing.T) {
 func TestSearchFiles_EmptyQuery(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "app.go"), []byte("package main\nfunc main() {}\n"), 0644)
-	results, err := searchFiles(dir, "", "regex", 10)
+	results, err := searchFiles(dir, "", "regex", 10, false)
 	if err != nil {
 		t.Fatalf("empty query should not error: %v", err)
 	}
@@ -909,7 +909,7 @@ func TestSearchFiles_EmptyQuery(t *testing.T) {
 func TestSearchFiles_SemanticMultiWord(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "handler.go"), []byte("package main\nfunc HandleRequest() {}\nfunc ProcessData() {}\n"), 0644)
-	results, err := searchFiles(dir, "Handle Request", "semantic", 10)
+	results, err := searchFiles(dir, "Handle Request", "semantic", 10, false)
 	if err != nil {
 		t.Fatalf("semantic multi-word search failed: %v", err)
 	}

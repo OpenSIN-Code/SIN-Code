@@ -30,6 +30,7 @@ var (
 	editNoValidate bool
 	editDrift      int
 	editFormat     string
+	editSymbol     string
 )
 
 var EditCmd = &cobra.Command{
@@ -60,6 +61,7 @@ Every edit validates syntax (like 'sin-code write') and applies atomically.
 			OldString: editOldString, NewString: editNewString,
 			ReplaceAll: editReplaceAll, Insert: editInsert, Delete: editDelete,
 			DryRun: editDryRun, Validate: !editNoValidate, Drift: editDrift,
+			Symbol: editSymbol,
 		}
 		result, err := applyEdit(absPath, req)
 		if err != nil {
@@ -95,6 +97,7 @@ func init() {
 	EditCmd.Flags().BoolVar(&editNoValidate, "no-validate", false, "Skip syntax validation of the result")
 	EditCmd.Flags().IntVar(&editDrift, "drift", DefaultDriftWindow, "Anchor drift tolerance in lines")
 	EditCmd.Flags().StringVarP(&editFormat, "format", "f", "text", "Output: text, json")
+	EditCmd.Flags().StringVar(&editSymbol, "symbol", "", "Edit a whole symbol by name (AST-anchored, e.g. \"handleScout\" or \"Server.Start\")")
 }
 
 type editRequest struct {
@@ -109,6 +112,7 @@ type editRequest struct {
 	DryRun     bool
 	Validate   bool
 	Drift      int
+	Symbol     string
 }
 
 type editResult struct {
@@ -123,8 +127,15 @@ type editResult struct {
 func applyEdit(path string, req editRequest) (*editResult, error) {
 	anchorMode := req.Anchor != ""
 	stringMode := req.OldString != ""
-	if anchorMode == stringMode {
-		return nil, fmt.Errorf("exactly one addressing mode required: --anchor LINE:HASH or --old-string")
+	symbolMode := req.Symbol != ""
+	modes := 0
+	for _, m := range []bool{anchorMode, stringMode, symbolMode} {
+		if m {
+			modes++
+		}
+	}
+	if modes != 1 {
+		return nil, fmt.Errorf("exactly one addressing mode required: --anchor LINE:HASH, --old-string, or --symbol NAME")
 	}
 
 	data, err := os.ReadFile(path)
@@ -137,9 +148,12 @@ func applyEdit(path string, req editRequest) (*editResult, error) {
 	res := &editResult{Path: path, DryRun: req.DryRun}
 	var updated []string
 
-	if anchorMode {
+	switch {
+	case symbolMode:
+		updated, err = applySymbolEdit(lines, path, original, req, res)
+	case anchorMode:
 		updated, err = applyAnchorEdit(lines, req, res)
-	} else {
+	default:
 		updated, err = applyStringEdit(lines, original, req, res, &trailingNL)
 	}
 	if err != nil {
@@ -253,6 +267,76 @@ func applyStringEdit(lines []string, original string, req editRequest, res *edit
 	updated, tnl := SplitLines(newContent)
 	*trailingNL = tnl
 	return updated, nil
+}
+
+func applySymbolEdit(lines []string, path, original string, req editRequest, res *editResult) ([]string, error) {
+	outline := parseOutline(path, []byte(original))
+	if outline.Engine == "none" {
+		return nil, fmt.Errorf("no AST engine for %s files — use --anchor or --old-string", outline.Language)
+	}
+	hits := findSymbol(outline, req.Symbol)
+	if len(hits) == 0 {
+		available := make([]string, 0, len(outline.Symbols))
+		for _, s := range outline.Symbols {
+			available = append(available, s.Kind+" "+s.Name)
+		}
+		return nil, fmt.Errorf("symbol %q not found (engine: %s). Top-level symbols: %s",
+			req.Symbol, outline.Engine, strings.Join(available, ", "))
+	}
+	if len(hits) > 1 {
+		var locs []string
+		for _, h := range hits {
+			locs = append(locs, fmt.Sprintf("%s %s (lines %d-%d)", h.Kind, h.Name, h.StartLine, h.EndLine))
+		}
+		return nil, fmt.Errorf("symbol %q is ambiguous: %s — use the qualified name or --anchor",
+			req.Symbol, strings.Join(locs, "; "))
+	}
+	sym := hits[0]
+	startIdx, endIdx := sym.StartLine-1, sym.EndLine-1
+	if startIdx < 0 || endIdx >= len(lines) || startIdx > endIdx {
+		return nil, fmt.Errorf("engine %s returned invalid range %d-%d for %q", outline.Engine, sym.StartLine, sym.EndLine, req.Symbol)
+	}
+
+	newLines, _ := SplitLines(strings.TrimRight(req.NewText, "\n") + "\n")
+	if req.NewText == "" {
+		newLines = []string{}
+	}
+
+	out := make([]string, 0, len(lines)+len(newLines))
+	switch {
+	case req.Delete:
+		res.Operation = fmt.Sprintf("delete %s %s (lines %d-%d, engine %s)", sym.Kind, sym.Name, sym.StartLine, sym.EndLine, outline.Engine)
+		out = append(out, lines[:startIdx]...)
+		out = append(out, lines[endIdx+1:]...)
+	case req.Insert == "before":
+		if len(newLines) == 0 {
+			return nil, fmt.Errorf("--insert requires --new-text")
+		}
+		res.Operation = fmt.Sprintf("insert %d line(s) before %s %s (engine %s)", len(newLines), sym.Kind, sym.Name, outline.Engine)
+		out = append(out, lines[:startIdx]...)
+		out = append(out, newLines...)
+		out = append(out, lines[startIdx:]...)
+	case req.Insert == "after":
+		if len(newLines) == 0 {
+			return nil, fmt.Errorf("--insert requires --new-text")
+		}
+		res.Operation = fmt.Sprintf("insert %d line(s) after %s %s (engine %s)", len(newLines), sym.Kind, sym.Name, outline.Engine)
+		out = append(out, lines[:endIdx+1]...)
+		out = append(out, newLines...)
+		out = append(out, lines[endIdx+1:]...)
+	case req.Insert != "":
+		return nil, fmt.Errorf("invalid --insert %q: want before or after", req.Insert)
+	default:
+		if len(newLines) == 0 {
+			return nil, fmt.Errorf("replace requires --new-text (use --delete to remove the symbol)")
+		}
+		res.Operation = fmt.Sprintf("replace %s %s (lines %d-%d -> %d line(s), engine %s)",
+			sym.Kind, sym.Name, sym.StartLine, sym.EndLine, len(newLines), outline.Engine)
+		out = append(out, lines[:startIdx]...)
+		out = append(out, newLines...)
+		out = append(out, lines[endIdx+1:]...)
+	}
+	return out, nil
 }
 
 func unifiedDiff(path string, before, after []string) string {

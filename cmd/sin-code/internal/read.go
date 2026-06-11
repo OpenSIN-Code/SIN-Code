@@ -152,18 +152,20 @@ func readFile(path, mode string, offset, limit int, maxBytes int64) (*readResult
 }
 
 func buildOutlineResult(res *readResult, content, lang string) *readResult {
-	structure := extractStructure(content, lang)
+	outline := parseOutline(res.Path, []byte(content))
 	exports := extractExports(content, lang)
 	deps := extractDependencies(res.Path)
 
-	outline := map[string]any{
-		"language":    lang,
-		"total_lines": res.TotalLines,
-		"structure":   structure,
-		"exports":     exports,
-		"deps":        deps,
+	outlineMap := map[string]any{
+		"language":     outline.Language,
+		"engine":       outline.Engine,
+		"total_lines":  res.TotalLines,
+		"symbols":      outline.Symbols,
+		"imports":      outline.Imports,
+		"exports":      exports,
+		"dependencies": deps,
 	}
-	b, err := json.MarshalIndent(outline, "", "  ")
+	b, err := json.MarshalIndent(outlineMap, "", "  ")
 	if err != nil {
 		b = []byte(fmt.Sprintf(`{"error":"%v"}`, err))
 	}
