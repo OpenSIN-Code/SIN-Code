@@ -65,7 +65,7 @@ func TestPocExtractRequirements_RejectsCommonWords(t *testing.T) {
 	reqs := extractRequirements(content)
 	for _, r := range reqs {
 		lower := strings.ToLower(r.Name)
-		if denylistedRequirementWords[lower] {
+		if pocStopwords[lower] {
 			t.Errorf("extractRequirements extracted denylisted word %q", r.Name)
 		}
 	}

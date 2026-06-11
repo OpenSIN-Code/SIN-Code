@@ -7,12 +7,28 @@ import (
 	"time"
 )
 
+// stampDirForTest prepares an isolated, cross-platform config environment
+// for update-check tests and stubs the network probe so no real GitHub
+// request is made. It returns the expected stamp dir and stamp file path,
+// derived from os.UserConfigDir() so the tests pass on Linux, macOS, and
+// Windows alike.
 func stampDirForTest(t *testing.T) (string, string) {
 	t.Helper()
 	home := t.TempDir()
 	t.Setenv("HOME", home)
-	configDir := filepath.Join(home, "Library", "Application Support")
-	os.MkdirAll(configDir, 0755)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("SIN_CODE_NO_UPDATE_CHECK", "")
+	t.Setenv("NO_UPDATE_CHECK", "")
+	t.Setenv("SIN_CODE_OFFLINE", "")
+
+	orig := checkUpdateFn
+	checkUpdateFn = func() (string, bool, error) { return "", false, nil }
+	t.Cleanup(func() { checkUpdateFn = orig })
+
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatalf("UserConfigDir: %v", err)
+	}
 	stampDir := filepath.Join(configDir, "sin")
 	stampPath := filepath.Join(stampDir, ".last-update-check")
 	return stampDir, stampPath

@@ -2,6 +2,9 @@
 #
 # Requires: gopls on PATH (go install golang.org/x/tools/gopls@latest  OR  brew install gopls)
 # This test creates a minimal Go project in $WORK and exercises the LSP client.
+# Skipped automatically when gopls is not installed.
+
+[!exec:gopls] skip 'gopls not installed on PATH'
 
 env HOME=$WORK/home
 mkdir $WORK/home

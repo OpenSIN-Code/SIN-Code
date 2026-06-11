@@ -300,7 +300,13 @@ func TestDownloadFile_InvalidPath(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := downloadFile(server.URL, "/nonexistent/dir/file.bin")
+	// Parent "directory" is a regular file: fails with ENOTDIR on every
+	// platform, even in sandboxes/CI where "/" happens to be writable.
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	if werr := os.WriteFile(blocker, []byte("x"), 0644); werr != nil {
+		t.Fatal(werr)
+	}
+	err := downloadFile(server.URL, filepath.Join(blocker, "dir", "file.bin"))
 	if err == nil {
 		t.Error("expected error for invalid destination path")
 	}

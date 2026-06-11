@@ -74,6 +74,23 @@ func init() {
 	internal.SetCurrentVersion(Version)
 }
 
+// checkUpdateFn is the network probe used by checkUpdate. It is a package
+// variable so tests can stub it out and stay fully hermetic (no GitHub calls).
+var checkUpdateFn = internal.CheckUpdateAvailable
+
+// updateCheckDisabled reports whether the background update check is
+// disabled via environment:
+//   - SIN_CODE_NO_UPDATE_CHECK / NO_UPDATE_CHECK: explicit user opt-out
+//   - SIN_CODE_OFFLINE: generic offline switch
+func updateCheckDisabled() bool {
+	for _, key := range []string{"SIN_CODE_NO_UPDATE_CHECK", "NO_UPDATE_CHECK", "SIN_CODE_OFFLINE"} {
+		if os.Getenv(key) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func checkUpdate() {
 	// Only run when invoked with no args or --version/-v.
 	if len(os.Args) > 1 {
@@ -81,6 +98,10 @@ func checkUpdate() {
 		if first != "--version" && first != "-v" {
 			return
 		}
+	}
+
+	if updateCheckDisabled() {
+		return
 	}
 
 	configDir, err := os.UserConfigDir()
@@ -111,7 +132,7 @@ func checkUpdate() {
 	}
 	ch := make(chan result, 1)
 	go func() {
-		v, h, e := internal.CheckUpdateAvailable()
+		v, h, e := checkUpdateFn()
 		ch <- result{v, h, e}
 	}()
 

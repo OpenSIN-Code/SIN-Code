@@ -38,8 +38,15 @@ func TestOpenAndClose(t *testing.T) {
 	}
 }
 
+// A path whose parent "directory" is actually a file fails with ENOTDIR on
+// every platform regardless of user privileges (unlike absolute paths under
+// "/", which are creatable in containers/CI running with a writable root).
 func TestOpenInvalidDir(t *testing.T) {
-	if _, err := Open("/nonexistent-root-zzz/notif.db"); err == nil {
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	if err := os.WriteFile(blocker, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Open(filepath.Join(blocker, "sub", "notif.db")); err == nil {
 		t.Error("expected error for invalid dir")
 	}
 }

@@ -7,6 +7,7 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -341,21 +342,48 @@ func runSecretsGrep(path string, timeoutSec int) (string, int, string, string) {
 }
 
 func runFilePermissions(path string, timeoutSec int) (string, int, string, string) {
-	out, err := runWithTimeout("find", []string{".", "-type", "f", "-perm", "+111"}, path, timeoutSec)
-	if err != nil {
-		return "error", 0, string(out), err.Error()
-	}
-	lines := strings.Split(string(out), "\n")
+	// Pure-Go scan: `find -perm +111` is BSD-only syntax (GNU find rejects
+	// it with an error), and `-perm /111` is GNU-only. Walking the tree
+	// ourselves is portable across Linux, macOS, and Windows and removes
+	// the external dependency entirely.
 	found := 0
-	for _, line := range lines {
-		if strings.TrimSpace(line) != "" {
+	worldWritable := 0
+	err := filepath.WalkDir(path, func(p string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return nil // skip unreadable entries instead of aborting the scan
+		}
+		if d.IsDir() {
+			if d.Name() == ".git" || d.Name() == "node_modules" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		info, ierr := d.Info()
+		if ierr != nil {
+			return nil
+		}
+		mode := info.Mode().Perm()
+		if mode&0o111 != 0 {
 			found++
 		}
+		if mode&0o002 != 0 {
+			worldWritable++
+		}
+		return nil
+	})
+	if err != nil {
+		return "error", 0, "", err.Error()
 	}
+	var parts []string
 	if found > 0 {
-		return "ok", 0, fmt.Sprintf("%d executable files found (review for unexpected permissions)", found), ""
+		parts = append(parts, fmt.Sprintf("%d executable files found (review for unexpected permissions)", found))
+	} else {
+		parts = append(parts, "No executable files found.")
 	}
-	return "ok", 0, "No executable files found.", ""
+	if worldWritable > 0 {
+		parts = append(parts, fmt.Sprintf("%d world-writable files found (consider tightening permissions)", worldWritable))
+	}
+	return "ok", 0, strings.Join(parts, " "), ""
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────

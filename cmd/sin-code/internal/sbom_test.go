@@ -1285,15 +1285,22 @@ func TestSbomCmd_RunE_InvalidOutputPath(t *testing.T) {
 	oldStdout := os.Stdout
 	os.Stdout = nil
 
+	// Use a path whose parent is a file: fails with ENOTDIR on every
+	// platform, even in containers/CI where "/" is writable.
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	if werr := os.WriteFile(blocker, []byte("x"), 0644); werr != nil {
+		os.Stdout = oldStdout
+		t.Fatal(werr)
+	}
 	SbomCmd.Flags().Set("format", "spdx-json")
-	SbomCmd.Flags().Set("output", "/nonexistent/dir/sbom.json")
+	SbomCmd.Flags().Set("output", filepath.Join(blocker, "sub", "sbom.json"))
 
 	err := SbomCmd.RunE(SbomCmd, []string{dir})
 	SbomCmd.Flags().Set("output", "-")
 	os.Stdout = oldStdout
 
 	if err == nil {
-		t.Error("expected error for invalid output path")
+		t.Fatal("expected error for invalid output path")
 	}
 	if !strings.Contains(err.Error(), "cannot create output file") {
 		t.Errorf("expected 'cannot create output file' error, got %q", err.Error())

@@ -188,6 +188,11 @@ func rgSearch(root, query, searchType string, maxResults int) ([]scoutResult, er
 			break
 		}
 	}
+	// Keep parity with goSearch: callers rely on descending-relevance order
+	// regardless of which backend (ripgrep or pure Go) produced the results.
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Relevance > results[j].Relevance
+	})
 	return results, scanner.Err()
 }
 

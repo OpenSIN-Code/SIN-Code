@@ -249,10 +249,23 @@ func (c *Client) Close() error {
 	if c == nil || c.cmd == nil || c.cmd.Process == nil {
 		return nil
 	}
-	_ = c.Notify("shutdown", nil)
+	// Per the LSP spec, "shutdown" is a *request* (it carries an id and must
+	// be acknowledged by the server) followed by the "exit" notification.
+	// Sending shutdown as a notification is a protocol violation that modern
+	// servers (gopls, rust-analyzer) ignore or reject.
+	_ = c.Call("shutdown", nil, nil, 2*time.Second)
 	_ = c.Notify("exit", nil)
 	_ = c.stdin.Close()
-	return c.cmd.Wait()
+	// Never block forever on a server that ignores "exit".
+	done := make(chan error, 1)
+	go func() { done <- c.cmd.Wait() }()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(3 * time.Second):
+		_ = c.cmd.Process.Kill()
+		return <-done
+	}
 }
 
 func (c *Client) DidOpen(doc TextDocumentItem) error {

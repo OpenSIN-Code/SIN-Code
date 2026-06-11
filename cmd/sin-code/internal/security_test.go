@@ -1,14 +1,22 @@
 package internal
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestSecurityCmd_DetectGoProject(t *testing.T) {
-	result := detectProjectType("/Users/jeremy/dev/SIN-Code-Bundle")
+	// Build a synthetic Go project instead of hardcoding a developer's
+	// machine-specific checkout path: the test must pass everywhere.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/m\n\ngo 1.24\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	result := detectProjectType(dir)
 	if result != "go" {
-		t.Errorf("expected 'go' for SIN-Code-Bundle, got %q", result)
+		t.Errorf("expected 'go' for dir with go.mod, got %q", result)
 	}
 }
 
@@ -54,10 +62,15 @@ func TestSecurityCmd_RunGoProject(t *testing.T) {
 }
 
 func TestSecurityCmd_FileExists(t *testing.T) {
-	if !fileExists("/Users/jeremy/dev/SIN-Code-Bundle/go.mod") {
-		t.Error("expected go.mod to exist in SIN-Code-Bundle")
+	dir := t.TempDir()
+	existing := filepath.Join(dir, "go.mod")
+	if err := os.WriteFile(existing, []byte("module m\n"), 0644); err != nil {
+		t.Fatal(err)
 	}
-	if fileExists("/nonexistent/path/file.txt") {
+	if !fileExists(existing) {
+		t.Error("expected freshly created go.mod to exist")
+	}
+	if fileExists(filepath.Join(dir, "missing", "file.txt")) {
 		t.Error("expected nonexistent file to not exist")
 	}
 }

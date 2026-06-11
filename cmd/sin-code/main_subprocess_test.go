@@ -50,7 +50,7 @@ func TestMain_SinCodeNoArgs(t *testing.T) {
 		return
 	}
 	cmd := exec.Command(os.Args[0], "-test.run=TestMain_SinCodeNoArgs")
-	cmd.Env = append(os.Environ(), "TEST_MAIN_NO_ARGS=1", "HOME=/tmp")
+	cmd.Env = append(os.Environ(), "TEST_MAIN_NO_ARGS=1", "HOME=/tmp", "SIN_CODE_NO_UPDATE_CHECK=1")
 	output, err := cmd.CombinedOutput()
 	_ = output
 	_ = err
@@ -82,7 +82,7 @@ func TestMain_SymlinkRouting_SetsArgs(t *testing.T) {
 		return
 	}
 	cmd := exec.Command(os.Args[0], "-test.run=TestMain_SymlinkRouting_SetsArgs")
-	cmd.Env = append(os.Environ(), "TEST_MAIN_SYMLINK_SETS_ARGS=1", "HOME=/tmp")
+	cmd.Env = append(os.Environ(), "TEST_MAIN_SYMLINK_SETS_ARGS=1", "HOME=/tmp", "SIN_CODE_NO_UPDATE_CHECK=1")
 	output, _ := cmd.CombinedOutput()
 	if !strings.Contains(string(output), "hello_from_test") {
 		t.Errorf("expected symlink routing to pass args, got: %s", output)
@@ -177,7 +177,7 @@ func TestMain_RootCmdError(t *testing.T) {
 		return
 	}
 	cmd := exec.Command(os.Args[0], "-test.run=TestMain_RootCmdError")
-	cmd.Env = append(os.Environ(), "TEST_MAIN_ROOTCMD_ERROR=1", "HOME=/tmp")
+	cmd.Env = append(os.Environ(), "TEST_MAIN_ROOTCMD_ERROR=1", "HOME=/tmp", "SIN_CODE_NO_UPDATE_CHECK=1")
 	output, _ := cmd.CombinedOutput()
 	if !strings.Contains(string(output), "sin-code") {
 		t.Errorf("expected error output from root command, got: %s", output)
@@ -193,7 +193,7 @@ func TestMain_ExecuteErrorCallsPrintError(t *testing.T) {
 		return
 	}
 	cmd := exec.Command(os.Args[0], "-test.run=TestMain_ExecuteErrorCallsPrintError")
-	cmd.Env = append(os.Environ(), "TEST_MAIN_EXEC_ERROR=1", "HOME=/tmp")
+	cmd.Env = append(os.Environ(), "TEST_MAIN_EXEC_ERROR=1", "HOME=/tmp", "SIN_CODE_NO_UPDATE_CHECK=1")
 	output, _ := cmd.CombinedOutput()
 	_ = output
 }
