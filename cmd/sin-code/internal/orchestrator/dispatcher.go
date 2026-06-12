@@ -55,6 +55,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, plan *Plan) error {
 		}
 		mu.Unlock()
 		if len(ready) == 0 {
+			mu.Lock()
 			allDone := true
 			for _, t := range tasks {
 				if t.Status == TaskPending || t.Status == TaskRunning {
@@ -62,6 +63,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, plan *Plan) error {
 					break
 				}
 			}
+			mu.Unlock()
 			if allDone {
 				break
 			}
@@ -73,9 +75,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, plan *Plan) error {
 			continue
 		}
 		for _, task := range ready {
+			mu.Lock()
 			task.Status = TaskRunning
 			now := timeNow()
 			task.Started = &now
+			mu.Unlock()
 			wg.Add(1)
 			sem <- struct{}{}
 			go func(t *Task) {
@@ -114,11 +118,11 @@ func (d *Dispatcher) runOne(ctx context.Context, plan *Plan, task *Task, mu *syn
 		agent, _ = d.registry.ForType(task.Type)
 	}
 	if agent == nil {
+		now := timeNow()
+		mu.Lock()
 		task.Status = TaskFailed
 		task.Error = fmt.Sprintf("no agent for type %s", task.Type)
-		now := timeNow()
 		task.Completed = &now
-		mu.Lock()
 		completed[task.ID] = true
 		mu.Unlock()
 		errCh <- fmt.Errorf("no agent for %s", task.Type)
@@ -127,6 +131,7 @@ func (d *Dispatcher) runOne(ctx context.Context, plan *Plan, task *Task, mu *syn
 	d.scratch.Write(task.AgentName, "plan:"+plan.ID, task.Description)
 	out, err := agent.Run(ctx, task, d.scratch)
 	now := timeNow()
+	mu.Lock()
 	task.Completed = &now
 	if err != nil {
 		task.Status = TaskFailed
@@ -137,7 +142,6 @@ func (d *Dispatcher) runOne(ctx context.Context, plan *Plan, task *Task, mu *syn
 		task.TokensUsed = estimateTokens(out)
 		task.Cost = estimateCost(task.TokensUsed, agent.Config().Model)
 	}
-	mu.Lock()
 	completed[task.ID] = true
 	mu.Unlock()
 }
