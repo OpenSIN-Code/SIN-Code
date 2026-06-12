@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: MIT
+# Purpose: keep ECOSYSTEM.md, requirements-ecosystem.txt and
+# internal/mcpclient/registry.go in sync (ECOSYSTEM.md sync rules 2+3).
+name: ecosystem-sync
+
+on:
+  pull_request:
+    paths:
+      - "ECOSYSTEM.md"
+      - "requirements-ecosystem.txt"
+      - "cmd/sin-code/internal/mcpclient/registry.go"
+      - "cmd/sin-code/internal/permission_defaults.go"
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every registry server has an ECOSYSTEM.md row
+        run: |
+          set -e
+          servers=$(grep -oE '"[a-z]+"' cmd/sin-code/internal/mcpclient/registry.go \
+            | tr -d '"' | sort -u | grep -vE '^(stdio|http|python3|main)$')
+          missing=0
+          for s in $servers; do
+            if ! grep -q "\`${s}__\*\`" ECOSYSTEM.md; then
+              echo "::error::server '$s' in registry.go but not in ECOSYSTEM.md"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Every registry server has a permission policy
+        run: |
+          set -e
+          servers=$(grep -oE '"[a-z]+"' cmd/sin-code/internal/mcpclient/registry.go \
+            | tr -d '"' | sort -u | grep -vE '^(stdio|http|python3|main)$')
+          missing=0
+          for s in $servers; do
+            if ! grep -q "${s}__\*" cmd/sin-code/internal/permission_defaults.go; then
+              echo "::error::server '$s' has no rule in permission_defaults.go"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Every ACTIVE repo is pinned in requirements-ecosystem.txt
+        run: |
+          set -e
+          repos=$(grep -E '\| (SIN-|Simone-|coder-)' ECOSYSTEM.md \
+            | grep 'ACTIVE' | awk -F'|' '{print $2}' | tr -d ' ' \
+            | grep -vE '^(SIN-Code|SIN-Code-WebUI-v2)$' || true)
+          missing=0
+          for r in $repos; do
+            if ! grep -q "^${r}==" requirements-ecosystem.txt; then
+              echo "::error::repo '$r' is ACTIVE in ECOSYSTEM.md but missing from requirements-ecosystem.txt"
+              missing=1
+            fi
+          done
+          exit $missing

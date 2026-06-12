@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "websearch": {
+      "transport": "stdio",
+      "command": "python3",
+      "args": ["${HOME}/skills/SIN-Code-Websearch-Skill/mcp_server.py"]
+    },
+    "browser": {
+      "transport": "http",
+      "url": "http://localhost:8931/mcp"
+    },
+    "scheduler": {
+      "disabled": true
+    },
+    "my-custom-server": {
+      "transport": "stdio",
+      "command": "my-mcp-binary",
+      "args": ["--flag"],
+      "env": { "API_KEY": "${MY_API_KEY}" }
+    }
+  }
+}

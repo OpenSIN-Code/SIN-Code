@@ -1,0 +1,11 @@
+# FireworksAI backend profile (migrated from
+# SIN-Code-FireworksAI-OpenCode-Config). API key: $FIREWORKS_API_KEY.
+name = "fireworks"
+description = "FireworksAI backend (qwen3-coder-480b)"
+provider = "fireworks"
+base_url = "https://api.fireworks.ai/inference/v1"
+model = "accounts/fireworks/models/qwen3-coder-480b-a35b-instruct"
+max_tokens = 8192
+temperature = 0.2
+tools_allow = ["sin_read", "sin_write", "sin_edit", "sin_search"]
+tools_deny = []

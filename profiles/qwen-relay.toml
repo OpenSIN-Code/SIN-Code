@@ -1,0 +1,10 @@
+# Local coder-SIN-Qwen relay proxy profile.
+name = "qwen-relay"
+description = "Local coder-SIN-Qwen relay proxy backend"
+provider = "qwen-relay"
+base_url = "http://localhost:8787/v1"
+model = "qwen3-coder"
+max_tokens = 8192
+temperature = 0.2
+tools_allow = ["sin_read", "sin_write", "sin_edit", "sin_search"]
+tools_deny = []

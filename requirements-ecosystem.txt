@@ -1,20 +1,33 @@
-# SIN-Code Ecosystem Packages (installable from GitHub)
-#
-# These ecosystem packages were extracted from SIN-Code-Bundle into
-# standalone repos under OpenSIN-Code/ as part of issue #28.
-# Install with:
-#   pip install -r requirements-ecosystem.txt
-#
-# All packages are installed directly from their respective GitHub repos.
-# Each package has its own README, LICENSE, and pyproject.toml.
+# OpenSIN-Code ecosystem — pinned tool versions consumed by SIN-Code.
+# Keep in sync with ECOSYSTEM.md. Format: <repo>==<git tag or 'main'>
 
-sin-code-adw @ git+https://github.com/OpenSIN-Code/SIN-Code-ADW-Tool.git@main
-sin-code-efsm @ git+https://github.com/OpenSIN-Code/SIN-Code-EFM-Tool.git@main
-sin-code-ibd @ git+https://github.com/OpenSIN-Code/SIN-Code-IBD-Tool.git@main
-sin-code-poc @ git+https://github.com/OpenSIN-Code/SIN-Code-PoC-Tool.git@main
-sin-code-sckg @ git+https://github.com/OpenSIN-Code/SIN-Code-SCKG-Tool.git@main
-sin-code-oracle @ git+https://github.com/OpenSIN-Code/SIN-Code-Oracle-Tool.git@main
+# Verification & analysis (issue #28 six-pack)
+SIN-Code-PoC-Tool==main
+SIN-Code-Oracle-Tool==main
+SIN-Code-SCKG-Tool==main
+SIN-Code-IBD-Tool==main
+SIN-Code-ADW-Tool==main
+SIN-Code-EFM-Tool==main
+SIN-Code-Symfony-Lens==main
 
-# Other ecosystem packages (already standalone, not part of issue #28)
-sin-code-orchestration @ git+https://github.com/OpenSIN-Code/SIN-Code-Orchestration.git@main
-sin-code-review-interface @ git+https://github.com/OpenSIN-Code/SIN-Code-Review-Interface.git@main
+# Core companions
+SIN-Code-Orchestration==main
+SIN-Code-Review-Interface==main
+SIN-Code-WebUI-v2==main
+
+# MCP skill servers (loaded via internal/mcpclient/registry.go)
+SIN-Code-Websearch-Skill==main
+SIN-Code-Scheduler-Skill==main
+SIN-Code-Goal-Mode-Skill==main
+SIN-Code-Grill-Me-Skill==main
+SIN-Code-Marketplace-Skill==main
+SIN-Code-Doc-Coauthoring-Skill==main
+SIN-Code-Context-Bridge-Skill==main
+SIN-Code-Honcho-Rollback-Skill==main
+SIN-Code-Frontend-Design-Skill==main
+SIN-Code-MCP-Server-Builder-Skill==main
+SIN-Browser-Tools==main
+Simone-MCP==main
+
+# LLM backends
+coder-SIN-Qwen==main

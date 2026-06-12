@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: MIT
+// Purpose: default allow/ask/deny rules for the agent loop (issue #47) and
+// the exported bridge so cmd/sin-code (package main) can load agent
+// profiles and seed permission rules from ToolsAllow/ToolsDeny.
+package internal
+
+import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
+)
+
+func DefaultPermissionRules() []permission.Rule {
+	return []permission.Rule{
+		{Tool: "sin_read", Policy: "allow"},
+		{Tool: "sin_write", Policy: "allow"},
+		{Tool: "sin_edit", Policy: "allow"},
+		{Tool: "sckg_*", Policy: "allow"},
+		{Tool: "oracle_*", Policy: "allow"},
+		{Tool: "poc_*", Policy: "allow"},
+		// External MCP servers (qualified "server__tool" names).
+		// Read-only / analysis servers run free; action-capable ask.
+		{Tool: "websearch__*", Policy: "allow"},
+		{Tool: "contextbridge__*", Policy: "allow"},
+		{Tool: "simone__*", Policy: "allow"},
+		{Tool: "symfonylens__*", Policy: "allow"},
+		{Tool: "codocs__*", Policy: "ask"},
+		{Tool: "frontend__*", Policy: "ask"},
+		{Tool: "goalmode__*", Policy: "ask"},
+		{Tool: "grillme__*", Policy: "ask"},
+		{Tool: "marketplace__*", Policy: "ask"},
+		{Tool: "mcpbuilder__*", Policy: "ask"},
+		{Tool: "scheduler__*", Policy: "ask"},
+		{Tool: "browser__*", Policy: "ask"},
+		{Tool: "honcho__*", Policy: "ask"},
+		{Tool: "sin_bash", Policy: "ask"},
+		{Tool: "*", Policy: "ask"},
+	}
+}
+
+func RulesForAgent(cfg orchestrator.AgentConfig) []permission.Rule {
+	rules := make([]permission.Rule, 0, len(cfg.ToolsDeny)+len(cfg.ToolsAllow)+10)
+	for _, t := range cfg.ToolsDeny {
+		rules = append(rules, permission.Rule{Tool: t, Policy: "deny"})
+	}
+	for _, t := range cfg.ToolsAllow {
+		rules = append(rules, permission.Rule{Tool: t, Policy: "allow"})
+	}
+	return append(rules, DefaultPermissionRules()...)
+}
+
+func LoadEffectiveAgent(name string) (orchestrator.AgentConfig, string, error) {
+	return loadEffectiveAgent(name)
+}
