@@ -53,6 +53,7 @@ Available Commands:
   serve               Start an MCP server exposing all 13 sin-code tools
   sessions            Manage persisted agent sessions
   skill               Install and manage ecosystem MCP skills
+  superpowers         Integrate obra/superpowers skills into SIN-Code
   swarm               Race N agent profiles on the same prompt (first verified wins)
   todo                Issue tracker with dependencies, audit log, and project namespaces
   tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
