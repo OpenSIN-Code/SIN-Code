@@ -4,7 +4,7 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** commit `<commit-sha-of-superpowers-commit>` (v3.7.0, 2026-06-12) —
+> **Last verified against main:** commit `62a32e6` (v3.7.0, 2026-06-12) —
 > Superpowers integration release. Tool inventory and repo layout in sections 6 and
 > 10 are sourced from `go test ./...` and `cmd/sin-code/main.go` AddCommand list.
 
