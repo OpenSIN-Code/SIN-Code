@@ -212,20 +212,20 @@ import-path changes first, then the API changes in a follow-up.
 
 ```bash
 $ go test ./cmd/sin-code/tui/chat/... -count=1 -cover
-ok      github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/tui/chat
+ok      github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat
         coverage: 83.2% of statements
 
 $ go test ./cmd/sin-code/... -count=1 -timeout 180s
-ok      github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code                5.161s
-ok      github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal       69.367s
-ok      github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/attachments       0.113s
-ok      github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/llm                0.055s
-ok      github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/notifications     7.419s
-ok      github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/orchestrator      1.251s
-ok      github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/todo              5.205s
-ok      github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/webui             2.389s
-ok      github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/tui                        0.089s
-ok      github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/tui/chat                   1.219s
+ok      github.com/OpenSIN-Code/SIN-Code/cmd/sin-code                5.161s
+ok      github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal       69.367s
+ok      github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/attachments       0.113s
+ok      github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm                0.055s
+ok      github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications     7.419s
+ok      github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator      1.251s
+ok      github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo              5.205s
+ok      github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/webui             2.389s
+ok      github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui                        0.089s
+ok      github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat                   1.219s
 ```
 
 All 10 packages pass; no regression introduced.

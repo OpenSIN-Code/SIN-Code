@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/plugins"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 )
@@ -24,7 +24,7 @@ var (
 	servePort      int
 )
 
-// ServerVersion is set at build time via -ldflags "-X github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal.ServerVersion=..."
+// ServerVersion is set at build time via -ldflags "-X github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal.ServerVersion=..."
 var ServerVersion = "dev"
 
 var ServeCmd = &cobra.Command{

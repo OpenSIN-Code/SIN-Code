@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/lsp"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lsp"
 )
 
 // TestLspParseArgs_PositionArgs verifies that lspParseArgs correctly

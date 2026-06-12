@@ -85,7 +85,7 @@ func harvestURLFetch(url, method string, timeout int, format string) error {
 	if err != nil {
 		return fmt.Errorf("invalid request: %w", err)
 	}
-	req.Header.Set("User-Agent", "sin-code/1.0 (https://github.com/OpenSIN-Code/SIN-Code-Bundle)")
+	req.Header.Set("User-Agent", "sin-code/1.0 (https://github.com/OpenSIN-Code/SIN-Code)")
 	req.Header.Set("Accept", "text/html,application/json,text/plain,*/*")
 
 	resp, err := client.Do(req)

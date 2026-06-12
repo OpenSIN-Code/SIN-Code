@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/notifications"
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/todo"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
 )
 
 func newTestServer(t *testing.T) (*Server, *httptest.Server) {

@@ -6,7 +6,7 @@ package tui
 import (
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/notifications"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
 )
 
 // NotificationSource is the interface used by NotificationMsg to access

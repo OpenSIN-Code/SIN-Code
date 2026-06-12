@@ -12,7 +12,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/internal/tui/theme"
+	"github.com/OpenSIN-Code/SIN-Code/internal/tui/theme"
 )
 
 func TestCommandsHaveUniqueKeys(t *testing.T) {

@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal"
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/notifications"
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/sandbox"
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/todo"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/sandbox"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
 	"github.com/spf13/cobra"
 )
 

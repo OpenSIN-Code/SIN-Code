@@ -477,7 +477,7 @@ execute -command "echo API_KEY=secret123" -format json
 ## Links
 
 - [GitHub](https://github.com/OpenSIN-Code/SIN-Code-Execute-Tool)
-- [SIN-Code-Bundle](https://github.com/OpenSIN-Code/SIN-Code-Bundle)
+- [SIN-Code-Bundle](https://github.com/OpenSIN-Code/SIN-Code)
 - [SIN-Brain](https://github.com/OpenSIN-Code/SIN-Brain)
 
 ## Version

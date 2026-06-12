@@ -7,7 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/tui/chat"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"
 	"charm.land/bubbles/v2/list"
 	"charm.land/lipgloss/v2"
 )

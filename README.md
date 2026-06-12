@@ -42,7 +42,7 @@ with semantically aware, verifiable alternatives.
 ## 🚀 Quickstart (2-5 minutes)
 
 ```bash
-git clone https://github.com/OpenSIN-Code/SIN-Code-Bundle.git
+git clone https://github.com/OpenSIN-Code/SIN-Code.git
 cd SIN-Code-Bundle
 bash install.sh        # Bootstraps 7 Go tools + Python bundle + MCP config + 5 external bridges
 sin status            # Show what's installed
@@ -280,7 +280,7 @@ register cleanly alongside it in any opencode / Claude Code / Cursor config.
 
 | Companion | Tools | Install | Run |
 |---|---|---|---|
-| **[sin-context-bridge](https://github.com/OpenSIN-Code/SIN-Code-Bundle)** | 2 tools — unified context across SCKG + sin-brain + GitNexus + local SQLite | `pip install sin-code-bundle[all]` | `sin-context-bridge serve` |
+| **[sin-context-bridge](https://github.com/OpenSIN-Code/SIN-Code)** | 2 tools — unified context across SCKG + sin-brain + GitNexus + local SQLite | `pip install sin-code-bundle[all]` | `sin-context-bridge serve` |
 | **[sin-honcho-rollback](https://github.com/OpenSIN-Code/sin-honcho-rollback)** | 4 MCP tools + CLI — snapshot, rollback, audit log for sin-brain memory | `pip install sin-honcho-rollback` | `sin-honcho-rollback serve` |
 | **[symfony-lens](https://github.com/OpenSIN-Code/SIN-Code-Symfony-Lens)** | 8 tools — Symfony-specific static analysis (services, routes, entities, Twig, migrations, PHPStan) | `pip install sin-code-symfony-lens` | `python -m symfony_lens.server` |
 
@@ -373,7 +373,7 @@ sin status
 > | `sin-code-adw`  | [SIN-Code-ADW-Tool](https://github.com/OpenSIN-Code/SIN-Code-ADW-Tool)  | Architectural Debt Watchdog |
 > | `sin-code-oracle` | [SIN-Code-Oracle-Tool](https://github.com/OpenSIN-Code/SIN-Code-Oracle-Tool) | Verification Oracle |
 >
-> The Next.js web frontend lives in [SIN-Code-Bundle-Web](https://github.com/OpenSIN-Code/SIN-Code-Bundle-Web).
+> The Next.js web frontend lives in [SIN-Code-Bundle-Web](https://github.com/OpenSIN-Code/SIN-Code-Web).
 
 ---
 

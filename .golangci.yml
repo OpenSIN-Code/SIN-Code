@@ -54,7 +54,7 @@ linters-settings:
     disabled-checks:
       - hugeParam
   goimports:
-    local-prefixes: github.com/OpenSIN-Code/SIN-Code-Bundle
+    local-prefixes: github.com/OpenSIN-Code/SIN-Code
   misspell:
     locale: US
 

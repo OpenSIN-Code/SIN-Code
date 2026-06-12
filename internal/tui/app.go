@@ -19,7 +19,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/internal/tui/theme"
+	"github.com/OpenSIN-Code/SIN-Code/internal/tui/theme"
 )
 
 // AppState — the finite-state machine of the TUI.

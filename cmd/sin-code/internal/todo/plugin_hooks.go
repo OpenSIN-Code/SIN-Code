@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/plugins"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 )
 
 var (

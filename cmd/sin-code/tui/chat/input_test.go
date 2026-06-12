@@ -10,7 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/attachments"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/attachments"
 )
 
 func newTestInput(t *testing.T) *Input {

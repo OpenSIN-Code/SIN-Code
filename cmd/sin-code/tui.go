@@ -7,7 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/tui"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui"
 )
 
 func getSubcommand(name string) *cobra.Command {

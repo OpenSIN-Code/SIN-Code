@@ -11,7 +11,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/internal/tui"
+	"github.com/OpenSIN-Code/SIN-Code/internal/tui"
 )
 
 var version = "0.1.0"

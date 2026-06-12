@@ -91,8 +91,8 @@ sin_code_bundle = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/OpenSIN-Code/SIN-Code-Bundle"
-Issues = "https://github.com/OpenSIN-Code/SIN-Code-Bundle/issues"
+Homepage = "https://github.com/OpenSIN-Code/SIN-Code"
+Issues = "https://github.com/OpenSIN-Code/SIN-Code/issues"
 
 [project.scripts]
 sin = "sin_code_bundle.cli:app"

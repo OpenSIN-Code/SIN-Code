@@ -19,7 +19,7 @@ Instead, use one of these private channels:
 | Channel | Response time | For |
 |---------|--------------|-----|
 | **Email:** `security@opensin.dev` | < 24h ack, < 7d fix | All vulnerabilities |
-| **GitHub Security Advisory:** [Report a vulnerability](https://github.com/OpenSIN-Code/SIN-Code-Bundle/security/advisories/new) | < 24h ack, < 7d fix | Coordinated disclosure |
+| **GitHub Security Advisory:** [Report a vulnerability](https://github.com/OpenSIN-Code/SIN-Code/security/advisories/new) | < 24h ack, < 7d fix | Coordinated disclosure |
 | **Direct contact:** Jeremy (project lead) | < 48h ack | Sensitive disclosures only |
 
 ### What to include in your report

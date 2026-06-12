@@ -10,7 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/tui/chat"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"
 )
 
 func TestViewChatAdded(t *testing.T) {

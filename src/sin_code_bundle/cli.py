@@ -2032,7 +2032,7 @@ def sin_code_run(
     path = _sin_code_tool_path(tool)
     if not path:
         typer.echo(
-            f"[SIN-CODE] Tool '{tool}' not found. Install: go install github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code@latest",
+            f"[SIN-CODE] Tool '{tool}' not found. Install: go install github.com/OpenSIN-Code/SIN-Code/cmd/sin-code@latest",
             err=True,
         )
         raise typer.Exit(code=1)

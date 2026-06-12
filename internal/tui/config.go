@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/internal/tui/theme"
+	"github.com/OpenSIN-Code/SIN-Code/internal/tui/theme"
 )
 
 // ConfigDir is the directory under $HOME holding TUI config. Kept consistent

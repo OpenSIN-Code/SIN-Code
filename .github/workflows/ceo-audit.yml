@@ -1,5 +1,5 @@
 # Purpose: CEO Audit — SOTA repository review (47 gates, 8 axes)
-# Docs: https://github.com/OpenSIN-Code/SIN-Code-Bundle/tree/main/src/sin_code_bundle/skills/ceo-audit
+# Docs: https://github.com/OpenSIN-Code/SIN-Code/tree/main/src/sin_code_bundle/skills/ceo-audit
 #
 # Runs the full CEO Audit on every push and PR. Posts a Markdown
 # comment on the PR with the grade, top 3 risks, and a link to the
@@ -65,7 +65,7 @@ jobs:
         # Once published: pip install "sin-code-bundle[ceo-audit,dev]"
         run: |
           pip install "sin-code-bundle[ceo-audit,dev]" || \
-            pip install "sin-code-bundle[ceo-audit,dev] @ git+https://github.com/OpenSIN-Code/SIN-Code-Bundle.git@v0.4.4"
+            pip install "sin-code-bundle[ceo-audit,dev] @ git+https://github.com/OpenSIN-Code/SIN-Code.git@v0.4.4"
 
       - name: Install ceo-audit skill
         run: |

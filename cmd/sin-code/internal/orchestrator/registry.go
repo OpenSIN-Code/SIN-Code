@@ -11,7 +11,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/llm"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 )
 
 type Registry struct {

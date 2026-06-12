@@ -9,7 +9,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/orchestrator"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 )
 
 func TestSanitizeName(t *testing.T) {

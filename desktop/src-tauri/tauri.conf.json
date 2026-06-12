@@ -102,7 +102,7 @@
     },
     "updater": {
       "active": false,
-      "endpoints": ["https://github.com/OpenSIN-Code/SIN-Code-Bundle/releases/latest/download/latest.json"],
+      "endpoints": ["https://github.com/OpenSIN-Code/SIN-Code/releases/latest/download/latest.json"],
       "dialog": true,
       "pubkey": ""
     }

@@ -5,7 +5,7 @@ Thanks for your interest in improving this part of the SIN-Code stack.
 ## Development setup
 
 ```bash
-git clone https://github.com/OpenSIN-Code/SIN-Code-Bundle.git
+git clone https://github.com/OpenSIN-Code/SIN-Code.git
 cd SIN-Code-Bundle
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
@@ -35,4 +35,4 @@ pip install pytest
 ## Reporting issues
 
 Open an issue at
-https://github.com/OpenSIN-Code/SIN-Code-Bundle/issues with a minimal reproduction.
+https://github.com/OpenSIN-Code/SIN-Code/issues with a minimal reproduction.
