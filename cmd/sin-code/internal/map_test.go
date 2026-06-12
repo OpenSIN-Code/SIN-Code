@@ -64,6 +64,7 @@ func TestMapCmd_ValidDir_TextFormat(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	mapFormat = "text"
@@ -89,6 +90,7 @@ func TestMapCmd_ValidDir_JSONFormat(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	mapFormat = "json"
@@ -641,6 +643,7 @@ func TestMapCmd_JSONOutput(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := MapCmd.RunE(MapCmd, []string{dir})

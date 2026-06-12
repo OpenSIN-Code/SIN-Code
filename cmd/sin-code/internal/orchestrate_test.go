@@ -150,6 +150,7 @@ func TestRunOrchestrate_ListJSONOutput(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := runOrchestrate("list", "", "", "", "json"); err != nil {
@@ -291,6 +292,7 @@ func TestRunOrchestrate_AddTaskText(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runOrchestrate("add", "Text Task", "tag1", "", "text")
@@ -557,6 +559,7 @@ func TestRunOrchestrate_ListJSONv2Output(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runOrchestrate("list", "", "", "", "json")
@@ -584,6 +587,7 @@ func TestRunOrchestrate_StatusJSON(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runOrchestrate("status", "", "", "1", "json")
@@ -640,6 +644,7 @@ func TestRunOrchestrate_ListWithBlockedTask(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runOrchestrate("list", "", "", "", "text")

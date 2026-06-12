@@ -5,6 +5,7 @@
 package internal
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -394,7 +395,16 @@ func commandExists(cmd string) bool {
 }
 
 func runWithTimeout(cmd string, args []string, dir string, timeoutSec int) ([]byte, error) {
-	c := exec.Command(cmd, args...)
+	// Enforce timeoutSec via context — without this the previous implementation
+	// blocked forever in c.CombinedOutput() if the child hung, which caused
+	// the whole test package to time out under -race. SIGKILL on timeout
+	// releases the pipes and any descendants so callers don't deadlock.
+	if timeoutSec <= 0 {
+		timeoutSec = 30
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+	c := exec.CommandContext(ctx, cmd, args...)
 	c.Dir = dir
 	c.Env = os.Environ()
 	return c.CombinedOutput()

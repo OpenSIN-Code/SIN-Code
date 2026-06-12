@@ -969,6 +969,7 @@ func TestSbomCmd_MaxArgs(t *testing.T) {
 func TestSbomCmd_RunE_NoArgs(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := SbomCmd.RunE(SbomCmd, []string{})

@@ -419,6 +419,7 @@ func TestOutputTextIBD(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextIBD(result); err != nil {
@@ -464,6 +465,7 @@ func TestOutputTextIBD_NoChanges(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextIBD(result); err != nil {
@@ -495,6 +497,7 @@ func TestIbdCmd_JSONOutput(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := IbdCmd.RunE(IbdCmd, []string{})
@@ -660,6 +663,7 @@ func TestIbdCmd_TextOutput(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := IbdCmd.RunE(IbdCmd, []string{})

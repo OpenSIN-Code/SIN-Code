@@ -315,6 +315,7 @@ func TestOutputTextSCKGBuild(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextSCKGBuild(graph); err != nil {
@@ -349,6 +350,7 @@ func TestOutputTextSCKGQuery(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextSCKGQuery(result); err != nil {
@@ -380,6 +382,7 @@ func TestOutputTextSCKGStats(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextSCKGStats(stats); err != nil {
@@ -410,6 +413,7 @@ func TestSckgCmd_BuildWithGoFiles(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := SckgCmd.RunE(SckgCmd, []string{dir})
@@ -438,6 +442,7 @@ func TestSckgCmd_ActionBuildJSON(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := SckgCmd.RunE(SckgCmd, []string{dir})
@@ -480,6 +485,7 @@ func TestSckgCmd_ActionQuery(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := SckgCmd.RunE(SckgCmd, []string{dir})
@@ -508,6 +514,7 @@ func TestSckgCmd_ActionStats(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := SckgCmd.RunE(SckgCmd, []string{dir})
@@ -536,6 +543,7 @@ func TestSckgCmd_ActionExport(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := SckgCmd.RunE(SckgCmd, []string{dir})
@@ -751,6 +759,7 @@ func TestOutputTextSCKGStats_NoImports(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextSCKGStats(stats); err != nil {
@@ -778,6 +787,7 @@ func TestOutputTextSCKGStats_WithOrphans(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextSCKGStats(stats); err != nil {
@@ -804,6 +814,7 @@ func TestSckgCmd_ActionQueryJSON(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := SckgCmd.RunE(SckgCmd, []string{dir})
@@ -833,6 +844,7 @@ func TestSckgCmd_ActionStatsJSON(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := SckgCmd.RunE(SckgCmd, []string{dir})

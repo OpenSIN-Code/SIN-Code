@@ -29,6 +29,7 @@ func dockerAvailable() bool {
 func TestRunEFM_ListAction(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("list", "", 0, "text", testRuntime)
@@ -100,6 +101,7 @@ func TestRunEFM_InvalidAction(t *testing.T) {
 func TestRunEFM_StatusNoStack(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("status", "", 0, "text", testRuntime)
@@ -128,6 +130,7 @@ func TestDockerComposeStatus_NonExistentStack(t *testing.T) {
 func TestRunEFM_JSONOutput(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("list", "", 0, "json", testRuntime)
@@ -154,6 +157,7 @@ func TestRunEFM_JSONOutput(t *testing.T) {
 func TestRunEFM_JSONOutput_WithStack(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("up", "nonexistent.yml", 3600, "json", testRuntime)
@@ -189,6 +193,7 @@ func TestRunEFM_JSONOutput_WithStack(t *testing.T) {
 func TestRunEFM_DownWithStack_Error(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("down", "nonexistent.yml", 0, "text", testRuntime)
@@ -213,6 +218,7 @@ func TestRunEFM_DownWithStack_Error(t *testing.T) {
 func TestRunEFM_StatusWithStack_Error(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("status", "nonexistent.yml", 0, "json", testRuntime)
@@ -243,6 +249,7 @@ func TestRunEFM_UpWithStack_DockerError(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("up", stackFile, 3600, "json", testRuntime)
@@ -276,6 +283,7 @@ func TestRunEFM_DownWithStack_DockerError(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("down", stackFile, 0, "json", testRuntime)
@@ -306,6 +314,7 @@ func TestRunEFM_StatusWithStack_DockerError(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("status", stackFile, 0, "json", testRuntime)
@@ -533,6 +542,7 @@ func TestOutputTextEFM(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextEFM(result); err != nil {
@@ -572,6 +582,7 @@ func TestOutputTextEFM_WithStack(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextEFM(result); err != nil {
@@ -599,6 +610,7 @@ func TestOutputTextEFM_WithError(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextEFM(result); err != nil {
@@ -625,6 +637,7 @@ func TestOutputTextEFM_NoServices(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextEFM(result); err != nil {
@@ -654,6 +667,7 @@ func TestOutputTextEFM_ServiceNoImageNoPorts(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextEFM(result); err != nil {
@@ -683,6 +697,7 @@ func TestOutputTextEFM_ServiceEmptyPorts(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextEFM(result); err != nil {
@@ -712,6 +727,7 @@ func TestOutputTextEFM_MultiplePorts(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextEFM(result); err != nil {
@@ -737,6 +753,7 @@ func TestEfmCmd_ListViaRunEFM(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := EfmCmd.RunE(EfmCmd, []string{})
@@ -836,6 +853,7 @@ func TestRunEFM_AllActions_JSON(t *testing.T) {
 		t.Run(action, func(t *testing.T) {
 			oldStdout := os.Stdout
 			r, w, _ := os.Pipe()
+	defer r.Close()
 			os.Stdout = w
 
 			err := runEFM(action, "", 0, "json", testRuntime)
@@ -871,6 +889,7 @@ func TestRunEFM_ListAction_DockerUnavailable(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("list", "", 0, "json", testRuntime)
@@ -962,6 +981,7 @@ func TestRunEFM_UpWithExistingStack_TTLZero(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("up", stackFile, 0, "json", testRuntime)
@@ -1028,6 +1048,7 @@ func TestRunEFM_UpSuccess(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("up", stackFile, 60, "json", testRuntime)
@@ -1066,6 +1087,7 @@ func TestRunEFM_UpSuccess_Text(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("up", stackFile, 60, "text", testRuntime)
@@ -1146,6 +1168,7 @@ func TestRunEFM_StatusWithStack_Success(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err = runEFM("status", stackFile, 0, "json", testRuntime)
@@ -1186,6 +1209,7 @@ func TestRunEFM_DownSuccess(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err = runEFM("down", stackFile, 0, "json", testRuntime)
@@ -1233,6 +1257,7 @@ func TestRunEFM_ListWithDockerRunning(t *testing.T) {
 	}
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("list", "", 0, "json", testRuntime)
@@ -1262,6 +1287,7 @@ func TestRunEFM_StatusNoStackWithDockerRunning(t *testing.T) {
 	}
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("status", "", 0, "json", testRuntime)
@@ -1350,6 +1376,7 @@ func TestRunEFM_UpWithStartedStatus(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("up", stackFile, 60, "json", testRuntime)
@@ -1528,6 +1555,7 @@ func TestEfmCmd_RuntimeFlag_Set(t *testing.T) {
 func TestRunEFM_RuntimeOverrideOrb(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("list", "", 0, "json", "orb")
@@ -1554,6 +1582,7 @@ func TestRunEFM_RuntimeOverrideOrb(t *testing.T) {
 func TestRunEFM_RuntimeOverrideDocker(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("list", "", 0, "json", "docker")
@@ -1580,6 +1609,7 @@ func TestRunEFM_RuntimeOverrideDocker(t *testing.T) {
 func TestRunEFM_RuntimeInTextOutput(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runEFM("list", "", 0, "text", "orb")

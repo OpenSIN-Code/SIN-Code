@@ -365,6 +365,7 @@ func TestDiscoverFiles_NonDir(t *testing.T) {
 func TestOutputJSON(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	results := []fileResult{{RelPath: "test.go", Relevance: 50, Size: 100}}
@@ -389,6 +390,7 @@ func TestOutputJSON(t *testing.T) {
 func TestOutputText(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	results := []fileResult{{RelPath: "test.go", Relevance: 50, Size: 100}}
@@ -504,6 +506,7 @@ func TestDiscoverCmd_JSONOutput(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := DiscoverCmd.RunE(DiscoverCmd, []string{dir})

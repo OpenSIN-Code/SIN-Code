@@ -26,6 +26,7 @@ func TestHarvestURLFetch_Success(t *testing.T) {
 	// Capture stdout
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := harvestURLFetch(server.URL, "GET", 5, "text")
@@ -91,6 +92,7 @@ func TestHarvestURLFetch_Cache(t *testing.T) {
 	// Second fetch should hit cache
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 	err = harvestURLFetch(server.URL, "GET", 5, "text")
 	w.Close()
@@ -111,6 +113,7 @@ func TestHarvestURLFetch_Cache(t *testing.T) {
 func TestHarvestURLFetch_Error(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := harvestURLFetch("http://localhost:1", "GET", 1, "text")
@@ -129,6 +132,7 @@ func TestHarvestURLFetch_Error(t *testing.T) {
 func TestHarvestURLFetch_InvalidURL(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := harvestURLFetch("not-a-valid-url", "GET", 5, "text")
@@ -156,6 +160,7 @@ func TestHarvestURLFetch_PostMethod(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := harvestURLFetch(server.URL, "POST", 5, "text")
@@ -188,6 +193,7 @@ func TestHarvestURLFetch_CacheJSON(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 	err = harvestURLFetch(server.URL, "GET", 5, "json")
 	w.Close()
@@ -205,6 +211,7 @@ func TestHarvestURLFetch_CacheJSON(t *testing.T) {
 func TestHarvestURLFetch_ErrorJSON(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := harvestURLFetch("http://localhost:1", "GET", 1, "json")
@@ -223,6 +230,7 @@ func TestHarvestURLFetch_ErrorJSON(t *testing.T) {
 func TestHarvestURLFetch_InvalidURLJSON(t *testing.T) {
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := harvestURLFetch("not-a-valid-url", "GET", 5, "json")
@@ -255,6 +263,7 @@ func TestHarvestURLFetch_ServerError(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := harvestURLFetch(server.URL, "GET", 5, "json")
