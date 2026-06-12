@@ -138,3 +138,66 @@ func TestDefaultPathCreatesDir(t *testing.T) {
 		t.Fatal("empty default path")
 	}
 }
+
+func TestForkBasic(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := Open(filepath.Join(dir, "s.db"))
+	defer store.Close()
+	src, _ := store.StartOrResume("")
+	_ = src.SaveHistory([]Message{
+		{Role: "user", Content: "u1"},
+		{Role: "assistant", Content: "a1"},
+		{Role: "user", Content: "u2"},
+		{Role: "assistant", Content: "a2"},
+	})
+	forked, err := store.Fork(src.ID, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if forked.ID == src.ID {
+		t.Fatal("fork must produce a new id")
+	}
+	hist := forked.History()
+	if len(hist) != 2 || hist[0].Content != "u1" || hist[1].Content != "a1" {
+		t.Fatalf("fork history wrong: %v", hist)
+	}
+}
+
+func TestForkClampsOvershoot(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := Open(filepath.Join(dir, "s.db"))
+	defer store.Close()
+	src, _ := store.StartOrResume("")
+	_ = src.SaveHistory([]Message{{Role: "user", Content: "u1"}})
+	forked, err := store.Fork(src.ID, 9999)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := forked.History(); len(got) != 1 {
+		t.Fatalf("overshoot must clamp, got %d", len(got))
+	}
+}
+
+func TestForkClampsNegative(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := Open(filepath.Join(dir, "s.db"))
+	defer store.Close()
+	src, _ := store.StartOrResume("")
+	_ = src.SaveHistory([]Message{{Role: "user", Content: "u1"}})
+	forked, err := store.Fork(src.ID, -3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := forked.History(); len(got) != 0 {
+		t.Fatalf("negative turn must clamp to 0, got %d", len(got))
+	}
+}
+
+func TestForkNotFound(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := Open(filepath.Join(dir, "s.db"))
+	defer store.Close()
+	if _, err := store.Fork("does-not-exist", 0); err == nil {
+		t.Fatal("want error for missing source")
+	}
+}
