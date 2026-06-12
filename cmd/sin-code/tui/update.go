@@ -149,11 +149,42 @@ func (m *Model) RunSelected() {
 
 func (m *Model) runTool(name string, args []string) {
 	m.AppendHistory(m.ViewKind.String(), "run:"+name, strings.Join(args, " "), true)
+	// Issue #53: skill-palette entries (websearch, browser, scheduler,
+	// ...) route through the AgentRunner so the TUI actually runs the
+	// loop instead of printing a CLI hint. The TUI's m.OnRun is left
+	// in place as a fallback for subcommands that don't map to a
+	// skill.
+	if isSkillName(name) {
+		skillArgs := strings.Join(args, " ")
+		if skillArgs == "" {
+			skillArgs = "perform the requested action"
+		}
+		cmd := m.runAgentSkillPrompt(name, skillArgs)
+		if cmd != nil {
+			// The update loop will subscribe to AgentRunnerMsg
+			// events; nothing else to do here.
+			_ = cmd
+		}
+	}
 	if m.OnRun != nil {
 		if err := m.OnRun(name, args); err != nil {
 			m.AppendHistory(m.ViewKind.String(), "run:"+name, err.Error(), false)
 		}
 	}
+}
+
+// isSkillName reports whether the given subcommand name maps to a
+// skill the AgentRunner can execute via the live MCP tool surface.
+// Used by runTool to route skill-palette entries through the runner
+// (issue #53) instead of just printing a CLI hint.
+func isSkillName(name string) bool {
+	switch name {
+	case "websearch", "browser", "scheduler", "goal-mode", "grill-me",
+		"doc-coauthoring", "codocs", "marketplace", "brain",
+		"context-bridge":
+		return true
+	}
+	return false
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -226,6 +257,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.handleChatResponse(msg)
 		return m, nil
 
+	case AgentRunnerMsg:
+		m.handleAgentRunnerEvent(msg)
+		// Re-subscribe so the next event also fires. When the runner
+		// is closed (msg.Closed), we drop the subscription.
+		if !msg.Closed && m.AgentRunner != nil {
+			cmds = append(cmds, listenAgentRunnerCmd(m.AgentRunner))
+		}
+		return m, tea.Batch(cmds...)
+
 	case tea.KeyPressMsg:
 		if m.ViewKind == ViewChat {
 			cmd := m.updateChat(msg)
@@ -257,6 +297,12 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c", "q":
 		m.Quitting = true
 		return m, tea.Quit
+	case "y":
+		// Agent ask permission dialog: y = allow.
+		if m.pendingAsk != nil {
+			m.answerPendingAsk(true)
+			return m, nil
+		}
 	case "esc":
 		m.AppendHistory(m.ViewKind.String(), "interrupt", "Esc pressed", true)
 		return m, nil
@@ -363,6 +409,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "n":
+		// Agent ask permission dialog: n = deny.
+		if m.pendingAsk != nil {
+			m.answerPendingAsk(false)
+			return m, nil
+		}
 		if m.NotificationBanner != nil {
 			m.BannerNext()
 		}

@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"
+	agentrunner "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/tui"
 )
 
 type Mode int
@@ -83,6 +84,21 @@ type Model struct {
 	ChatRunner  *chat.Runner
 	Program     teaProgramIface
 	ctxFn       func() context.Context
+
+	// AgentRunner is the v3.3.1 (issue #53) full agentloop embed. When
+	// set, chat submits and skill-palette entries route through it
+	// instead of the simple LLM chat runner. Lazily initialized by
+	// initAgentRunner.
+	AgentRunner *agentrunner.AgentRunner
+	// pendingAsk is the AskReply channel for the most recent agent
+	// ask event, or nil if no ask is pending. The chat view's y/N
+	// keypress handler pops it via answerPendingAsk.
+	pendingAsk chan bool
+
+	// Workspace is the directory the TUI is operating in. The agent
+	// runner uses this to locate the .sin-code/sessions.db. Set by
+	// main() at startup; defaults to "." if empty.
+	Workspace string
 
 	OnRun func(name string, args []string) error
 }
