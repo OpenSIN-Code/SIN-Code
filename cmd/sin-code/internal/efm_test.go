@@ -1495,6 +1495,7 @@ func TestResolveContainerRuntime_OverrideUnknownFallsBack(t *testing.T) {
 }
 
 func TestEfmCmd_RuntimeFlag_Default(t *testing.T) {
+	efmRuntime = "auto"
 	rtFlag, err := EfmCmd.Flags().GetString("runtime")
 	if err != nil {
 		t.Fatalf("failed to get runtime flag: %v", err)

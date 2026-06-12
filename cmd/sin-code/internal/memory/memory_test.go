@@ -452,6 +452,9 @@ func TestMemoryOpenEmptyPath(t *testing.T) {
 }
 
 func TestNIMEmbedderSetup(t *testing.T) {
+	old, oldDim := GetEmbedder()
+	t.Cleanup(func() { SetEmbedder(old, oldDim) })
+
 	t.Setenv("SIN_NIM_API_KEY", "")
 	SetupNIMEmbedder()
 	enabled, _ := GetEmbedder()

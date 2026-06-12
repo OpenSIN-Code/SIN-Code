@@ -27,6 +27,9 @@ func TestScoutCmd_Flags(t *testing.T) {
 
 func TestScoutCmd_DefaultValues(t *testing.T) {
 	scoutPath = "."
+	scoutType = "regex"
+	scoutFormat = "text"
+	scoutMax = 50
 	if scoutPath != "." {
 		t.Errorf("default scoutPath should be ., got %q", scoutPath)
 	}

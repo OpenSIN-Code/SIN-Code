@@ -27,6 +27,10 @@ func TestDiscoverCmd_Flags(t *testing.T) {
 
 func TestDiscoverCmd_DefaultValues(t *testing.T) {
 	cmd := DiscoverCmd
+	discoverPattern = "**/*"
+	discoverSort = "relevance"
+	discoverFormat = "text"
+	discoverLimit = 100
 	if v, _ := cmd.Flags().GetString("pattern"); v != "**/*" {
 		t.Errorf("default pattern should be **/*, got %q", v)
 	}

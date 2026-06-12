@@ -1087,7 +1087,7 @@ func TestHandleEfm_InvalidAction(t *testing.T) {
 }
 
 func TestServeCmd_RunEUnsupportedTransport(t *testing.T) {
-	ServeCmd.Flags().Set("transport", "http")
+	ServeCmd.Flags().Set("transport", "quic")
 	err := ServeCmd.RunE(ServeCmd, []string{})
 	ServeCmd.Flags().Set("transport", "stdio")
 	if err == nil {

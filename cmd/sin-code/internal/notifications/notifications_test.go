@@ -312,6 +312,14 @@ func TestKeyOrderAndSort(t *testing.T) {
 
 func TestTUIBroadcasterChannel(t *testing.T) {
 	ch := TUIBroadcaster()
+drain:
+	for {
+		select {
+		case <-ch:
+		default:
+			break drain
+		}
+	}
 	d := NewDispatcher(tempStore(t))
 	d.Stderr = false
 	d.MacOS = false
