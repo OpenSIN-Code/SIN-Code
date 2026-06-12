@@ -24,6 +24,8 @@
 
 **Self-Extending Agent (v3.6.0):** `sin_bootstrap_skill` writes Python MCP servers from natural-language specs and registers them in `.sin-code/mcp.json`. Defense-in-depth: requires `SIN_ALLOW_BOOTSTRAP=1` for headless use.
 
+**Methodology Skills (v3.7.0):** `sin-code superpowers` integrates obra/superpowers (MIT) — the TDD/debugging/planning workflow library. Skills are pinned to a reviewed upstream SHA, overlaid with SIN-Code tool mappings (sin_bash, sin_preflight, orchestrate, etc.), and served as MCP tools. `sin-code superpowers update` shows the upstream skill diff before applying — review-before-trust, because skill content flows into your agent context.
+
 ## Quick Start
 
 ```bash
@@ -58,6 +60,13 @@ sin-code swarm -p "optimize this" --agents fast,precise,creative
 
 # Bootstrap a new skill (v3.6.0, headless requires SIN_ALLOW_BOOTSTRAP=1)
 SIN_ALLOW_BOOTSTRAP=1 sin-code chat -p "use sin_bootstrap_skill to add a json-fmt tool"
+
+# Methodology skills (v3.7.0)
+sin-code superpowers install   # clone, pin, overlay, register MCP
+sin-code superpowers init      # inject Superpowers prompt into AGENTS.md
+sin-code superpowers update     # show upstream skill diff (review-first)
+sin-code superpowers update --yes   # apply + re-pin
+sin-code superpowers find "debug a failing test"   # auto-match a skill
 ```
 
 ## Architecture
@@ -158,4 +167,4 @@ MIT — see [LICENSE](LICENSE).
 ---
 
 > **Einstein:** "Insanity is doing the same thing and expecting different results."
-> **SIN-Code v3.6.0:** Learns, evolves, never forgets, never asks twice.
+> **SIN-Code v3.7.0:** The agent that learns, evolves, never forgets — and follows world-class methodology.

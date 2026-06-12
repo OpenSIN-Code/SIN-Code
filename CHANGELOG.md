@@ -2,6 +2,32 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [3.7.0] - 2026-06-12
+
+### Added
+- **`sin-code superpowers`** — integration of obra/superpowers (MIT)
+  methodology skills into the SIN-Code agent. Skills (TDD,
+  systematic-debugging, subagent-driven-development, verification-before-
+  completion, writing-plans, brainstorming, requesting-code-review,
+  finishing-a-development-branch, using-git-worktrees) are cloned from
+  upstream, pinned to a reviewed commit SHA (supply-chain lock), overlaid
+  with SIN-Code tool mappings (M6: sin_* tools over naive builtins), and
+  served as MCP tools (`superpowers_list_skills`, `superpowers_find_skill`,
+  `superpowers_use_skill`).
+- **Review-before-trust update flow:** `sin-code superpowers update`
+  shows the upstream skill diff first; applies + re-pins only with
+  `--yes` (skill content flows into agent context — must be reviewed
+  like a dependency bump).
+- **Full YAML frontmatter parser:** handles plain values, quoted strings,
+  folded block scalars (>–), literal block scalars (|–), and indented
+  continuations — all forms used by upstream superpowers.
+- **AGENTS.md auto-injection:** `sin-code superpowers init` adds a
+  Superpowers prompt block (bounded by `<!-- SUPERPOWERS:BEGIN/END -->`)
+  making skill usage a mandatory agent workflow.
+- **Defense-in-depth:** skills are NOT destructive (overlay on top of
+  upstream files), idempotent (re-install = no-op), and pinned (no
+  automatic `git pull` of new content into agent context).
+
 ## [3.6.0] - 2026-06-12
 
 ### Added
