@@ -11,8 +11,6 @@ __v0_runtime_loader.js
 .next/
 .pytest_cache/
 .ruff_cache/
-.sin_memory.db
-.sin/
 .snowflake/
 .tdd-locks/
 .v0-trash/
@@ -57,4 +55,4 @@ SIN-Code-SCA-Tool/
 SIN-Code-Security-Bundle/
 sin-code.exe
 sin-tui
-.sin-code/
+cmd/sin-code/internal/.sin-code/
