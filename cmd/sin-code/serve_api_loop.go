@@ -35,7 +35,7 @@ func newAPILoop(ctx context.Context, sessionID, workspace string) (*agentloop.Lo
 		// chat_mcp.go merges builtin local tools with the
 		// loopbuilder-managed external MCP servers.
 		ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
-			return combinedTool(mgr), combinedSpecs(mgr)
+			return combinedTool(workspace, mgr), combinedSpecs(mgr)
 		},
 	}, memStore)
 }
