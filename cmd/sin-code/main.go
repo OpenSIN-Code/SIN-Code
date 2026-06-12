@@ -70,6 +70,8 @@ func init() {
 	rootCmd.AddCommand(internal.OrchestratorPlanCmd)
 	rootCmd.AddCommand(tuiCmd)
 	rootCmd.AddCommand(webuiCmd)
+	rootCmd.AddCommand(NewChatCmd(), NewSessionsCmd(), NewMCPCmd(),
+		NewGoalCmd(), NewDaemonCmd(), NewSkillCmd()) // v3.4.0 + v3.5.0 autonomy suite
 
 	// Pass build-time version to self-update module.
 	internal.SetCurrentVersion(Version)

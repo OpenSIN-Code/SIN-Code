@@ -18,12 +18,15 @@ Usage:
 
 Available Commands:
   adw                 Architectural Debt Watchdogs — detect god modules, circular deps, etc.
+  chat                Run the SIN-Code agent loop (interactive REPL or headless one-shot)
   completion          Generate the autocompletion script for the specified shell
   config              View and manage sin-code configuration
+  daemon              Run the autonomous worker: lease goals, execute, verify, learn
   discover            Discover files with relevance scoring and pattern matching
   edit                Hashline-anchored surgical edits with validation
   efm                 Ephemeral Full-Stack Mocking — spin up disposable test environments
   execute             Execute shell commands safely with secret redaction and timeout
+  goal                Manage the autonomous goal queue
   grasp               Deep code understanding for a single file
   harvest             Fetch URLs with caching, structure extraction, and change detection
   help                Help about any command
@@ -31,6 +34,7 @@ Available Commands:
   index               Manage persistent incremental code index
   lsp                 LSP (Language Server Protocol) — IDE-grade code intelligence
   map                 Map code architecture with dependency graphs and hot-path analysis
+  mcp                 Inspect and debug external MCP servers
   memory              Long-term project memory with semantic search
   notifications       Manage sin-code todo notifications
   oracle              Verify that a source file has corresponding test coverage
@@ -47,6 +51,8 @@ Available Commands:
   security            Fast security analysis — auto-detects project type and runs available tools
   self-update         Check for and install the latest sin-code release
   serve               Start an MCP server exposing all 13 sin-code tools
+  sessions            Manage persisted agent sessions
+  skill               Install and manage ecosystem MCP skills
   todo                Issue tracker with dependencies, audit log, and project namespaces
   tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
   webui               Start the sin-code web UI server

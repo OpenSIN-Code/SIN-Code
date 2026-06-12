@@ -32,7 +32,7 @@ func builtinSpecs() []agentloopToolSpecAlias {
 	obj := func(props map[string]any, required ...string) map[string]any {
 		return map[string]any{"type": "object", "properties": props, "required": required}
 	}
-	return []agentloopToolSpecAlias{
+	specs := []agentloopToolSpecAlias{
 		{Name: "sin_read", Description: "Read a file (UTF-8, capped at 64KB).",
 			InputSchema: obj(map[string]any{"path": str("file path")}, "path")},
 		{Name: "sin_write", Description: "Atomically write content to a file, creating parent dirs.",
@@ -44,6 +44,7 @@ func builtinSpecs() []agentloopToolSpecAlias {
 		{Name: "sin_search", Description: "Search files for a substring; returns file:line matches.",
 			InputSchema: obj(map[string]any{"pattern": str("substring to search"), "dir": str("directory (default .)")}, "pattern")},
 	}
+	return append(specs, extraSpecs()...)
 }
 
 func builtinTool(ctx context.Context, name string, args map[string]any) (string, error) {
@@ -59,7 +60,7 @@ func builtinTool(ctx context.Context, name string, args map[string]any) (string,
 	case "sin_search":
 		return toolSearch(argStr(args, "pattern"), argStr(args, "dir"))
 	default:
-		return "", fmt.Errorf("unknown tool %q", name)
+		return extraTool(ctx, name, args)
 	}
 }
 

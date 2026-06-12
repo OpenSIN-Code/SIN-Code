@@ -60,12 +60,24 @@ const (
 	TaskComplete  = "task.complete"
 	TaskAbort     = "task.abort"
 	CompactionPre = "compaction.pre"
+
+	// Autonomy lifecycle (daemon mode).
+	GoalEnqueued  = "goal.enqueued"
+	GoalStarted   = "goal.started"
+	GoalVerified  = "goal.verified"
+	GoalExhausted = "goal.exhausted"
+	TriggerFired  = "trigger.fired"
+
+	// Skill lifecycle.
+	SkillInstalled = "skill.installed"
+	SkillFailed    = "skill.failed"
 )
 
 // blockable events: a blocking hook result is honored only for these.
 var blockable = map[string]bool{
 	ToolPre: true, VerifyPre: true, PermissionAsk: true,
 	CommitPre: true, PushPre: true, CompactionPre: true,
+	GoalStarted: true,
 }
 
 type Hook struct {

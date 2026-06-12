@@ -1,454 +1,150 @@
-# 🧠 SIN-Code Bundle
+# SIN-Code
 
-[![Python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![CI](https://img.shields.io/badge/CI-A%2B%20(100%2F100)-brightgreen)](#)
-[![Version](https://img.shields.io/badge/Version-0.8.1-blue)](#)
+> The verification-first, self-improving AI agent for code — learns from mistakes, never repeats a failure, and acts autonomously within hard safety invariants.
 
-**The universal semantic backend for AI coding agents.**
+[![test-gate](https://img.shields.io/badge/test--gate-passing-brightgreen)](#)
+[![ecosystem-sync](https://img.shields.io/badge/ecosystem--sync-passing-brightgreen)](#)
+[![version](https://img.shields.io/badge/version-v3.5.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
 
-One CLI (`sin`) and one unified MCP server (`sin-serve` / `sin serve`) that
-orchestrate **7 Go tools and 5 external bridges** — giving AI agents the
-signals they actually lack: structural knowledge, semantic diffs, correctness
-proofs, ephemeral test environments, debt guardrails, and persistent memory.
+## Features
 
-> **As of v0.9.3 (issue #28) the 6 Python subsystems (SCKG, IBD, PoC, EFM,
-> ADW, Oracle) and the Next.js Web frontend are no longer vendored in this
-> monorepo.** They live in their own standalone OpenSIN-Code repos and are
-> installed separately via `requirements-ecosystem.txt`. The Bundle has
-> shrunk from ~50k LOC to the core glue: CLI + MCP server + VFS resolver +
-> AST editor + sin-brain memory hooks.
+**Verification-First (M1/M3):** Every change passes a PoC/Oracle gate before completion — no unverified code ships.
 
----
+**Closed Learning Loop (v3.4.0):** Failed verifications and tool errors accumulate in a persistent knowledge base. The agent queries this before each run and never repeats a recorded mistake.
 
-## ⚡ Why SIN-Code? (The Anti-Dreck Promise)
+**Bounded Autonomy (v3.5.0):** Goal queue + cron/file triggers + skill-lifecycle manager + autonomous daemon. Three hard safety invariants: no gate → no daemon; headless → ask=deny; budget exhausted → hook summons the human.
 
-Most coding agents operate blind — fragile string replacements, blind bash
-execution, no memory between sessions. SIN-Code replaces native agent tools
-with semantically aware, verifiable alternatives.
+**Self-Extending (v3.4.0+):** `sin_bootstrap_skill` writes Python MCP servers from natural-language specs, tests them, and deploys them on the fly (defense-in-depth: requires `SIN_ALLOW_BOOTSTRAP=1`).
 
-| The Old Way (Dreck) | The SIN-Code Way |
-|---|---|
-| ❌ Fragile `str_replace` (whitespace errors, stale files) | ✅ `sin_edit`: Hashline-anchored, content-hash verified patching (line-shift resilient) |
-| ❌ Blind `read` (dumps 2000 lines of context) | ✅ `sin_read`: Deep structural analysis OR semantic URIs (`sckg://module/auth/neighbors`) — size-safe with summarize mode |
-| ❌ Dangerous `bash` (secret leaks, infinite loops) | ✅ `sin_bash`: Secret-redaction + strict timeouts + structured JSON (safety_check, retry_info) |
-| ❌ Stateless amnesia (forgets user prefs every session) | ✅ `recall_tool`/`remember_tool`: Persistent 4-tier memory (SQLite+FTS5) via [sin-brain](https://github.com/OpenSIN-Code/SIN-Brain) |
-| ❌ Architectural drift (agents spaghetti-fy the code) | ✅ `sin_check_architecture`: Pre-flight ADW rule enforcement — blocks hardcoded secrets, eval/exec, frontend-DB imports |
-| ❌ Sequential exploration (one slow task at a time) | ✅ `sin_create_worktree`: Isolated git worktrees for parallel agent tasks without conflicts |
-| ❌ Static analysis only (no runtime insight) | ✅ `sin_runtime_trace`: DAP debug session attachment (debugpy/dlv/node) |
+**Time-Travel Debugging:** Fork any session at any turn to explore parallel solution paths (`sin-code session fork <id> <turn>`).
 
----
+**Multi-Agent Orchestration:** 31 subcommands, 44+ MCP tools, 12 ecosystem skill servers (websearch, browser automation, goal mode, rollback, …), permission gates (allow/ask/deny), deterministic lifecycle hooks (24 events).
 
-## 🚀 Quickstart (2-5 minutes)
+## Quick Start
 
 ```bash
-git clone https://github.com/OpenSIN-Code/SIN-Code.git
-cd SIN-Code-Bundle
-bash install.sh        # Bootstraps 7 Go tools + Python bundle + MCP config + 5 external bridges
-sin status            # Show what's installed
-sin bootstrap /path/to/your/repo   # Initialize graphs, baselines, ledgers
-sin-serve             # Start the unified MCP server (or: sin serve)
+# Install
+go install github.com/OpenSIN-Code/SIN-Code/cmd/sin-code@latest
+
+# Interactive REPL
+sin-code chat
+
+# Headless one-shot (stable JSON contract)
+sin-code chat -p "refactor auth to use Argon2" --json
+# {"session_id":"...","summary":"...","verified":true,"turns":3}
+
+# Autonomous worker (requires verification command — M3)
+sin-code goal add "run the test suite and fix any failures" --priority 5
+sin-code daemon --verify-cmd "go test ./... -count=1"
+
+# Manage sessions
+sin-code sessions list
+sin-code chat --resume <session-id>
+sin-code session fork <session-id> 8
+
+# Inspect the ecosystem
+sin-code mcp list      # configured MCP servers
+sin-code mcp status    # reachability + tool counts
+sin-code skill status  # installed skill repos
+sin-code knowledge list # accumulated lessons
+
+# Swarm mode (planned for v3.6.0)
+sin-code swarm -p "optimize this" --agents fast,precise,creative
 ```
 
-Pair commands (symmetric to `install.sh`):
+## Architecture
 
-```bash
-bash uninstall.sh     # Remove everything bash install.sh installed
-bash update.sh        # Update in-place without full reinstall
+```
+┌─────────────────────────┐
+│ sin-code chat/swarm/    │  CLI/TUI/WebUI-v2 (Next.js)
+│ daemon/serve            │
+└────────────┬────────────┘
+             │
+             ▼
+┌──────────────────────────────────────┐
+│ agentloop (PLAN→ACT→VERIFY→DONE)    │
+│ • Provider (OpenAI-compatible)       │
+│ • Permission (allow/ask/deny, M4)    │
+│ • Hooks (24 events)                  │
+│ • Verify Gate (PoC/Oracle, M3)       │
+│ • Lessons (closed learning loop)     │
+│ • Sessions (resumable SQLite)        │
+└──────┬──────┬──────┬─────────┬───────┘
+       │      │      │         │
+       ▼      ▼      ▼         ▼
+   ┌────┐  ┌────┐  ┌────┐  ┌──────┐
+   │MCP │  │Loc │  │Ses │  │Goals │  (autonomy)
+   │Srv │  │Tool│  │s   │  │Queue │
+   └────┘  └────┘  └────┘  └──────┘
+     12      6+   SQLite    SQLite
+   skills builtin  (CGo-free) (CGo-free)
 ```
 
-Flags: `--help`, `--dry-run`, `--verbose`, `--force`, `--skip-go`, `--skip-external`, `--with-externals`
+## Hard Mandates (M1–M7)
 
-`--with-externals` upgrades the install from "check only" to actually
-auto-installing the external bridges: GitNexus (npm), MarkItDown (pipx/pip),
-RTK (brew), and Simone-MCP (npm in `~/dev/Simone-MCP`). Without this flag,
-those tools are only verified/registered — the user must run `sin xxx setup`
-manually for each one.
+- **M1:** n8n-CI only — never run build/test on normal GitHub runners
+- **M2:** Single static Go binary, `CGO_ENABLED=0`, `modernc.org/sqlite`
+- **M3:** Verification gate (PoC/Oracle) is sacred; default `verify_mode = poc`
+- **M4:** Permission engine gates all destructive ops; headless ask=deny
+- **M5:** Module path `github.com/OpenSIN-Code/SIN-Code` (since v3.0.0)
+- **M6:** SIN tools over naive built-ins (sin_edit, SCKG, EFM, …)
+- **M7:** `go test -race` race-free; the 2026-06-12 v3.0.0 migration surfaced
+  three real races in `Dispatcher.runOne` and we treat any unguarded
+  shared-field mutation as a merge blocker.
 
-Environment overrides:
-```bash
-SIN_CODE_BIN_DIR=~/custom-bin SIN_CODE_REPOS_DIR=~/my-repos bash install.sh
-SIN_CODE_BIN_DIR=~/custom-bin bash install.sh --with-externals
+## Repository Layout
+
+```
+SIN-Code/
+├── cmd/sin-code/            ← MAIN BINARY (31 subcommands)
+│   ├── main.go
+│   ├── chat_cmd.go          ← chat + -p headless
+│   ├── session_cmd.go       ← sessions list/show/rm/fork
+│   ├── mcp_cmd.go           ← MCP debug (list|status|call)
+│   ├── goal_cmd.go          ← autonomous goal queue
+│   ├── daemon_cmd.go        ← autonomous worker
+│   ├── skill_cmd.go         ← ecosystem skill management
+│   └── internal/            ← 15 packages
+│       ├── agentloop/       ← PLAN→ACT→VERIFY→DONE loop
+│       ├── session/, verify/, permission/  ← C2/C3/C4
+│       ├── mcpclient/       ← C5: external MCP consumption
+│       ├── hooks/           ← C7: 24 lifecycle events
+│       ├── commands/        ← C8: custom slash commands
+│       ├── lessons/         ← v3.4.0: closed learning loop
+│       ├── autonomy/        ← v3.5.0: goal queue + triggers
+│       ├── skillmgr/        ← v3.5.0: install/verify skills
+│       ├── loopbuilder/     ← v3.4.0: shared factory (DRY)
+│       └── llm/, orchestrator/, memory/, lsp/, todo/, ...
+├── ECOSYSTEM.md             ← complete org inventory
+├── AGENTS.md                ← master blueprint
+├── profiles/                ← agent profile TOML files
+├── docs/                    ← HOOKS.md, LEARNING.md, WEBUI.md
+└── .github/workflows/       ← ci + ecosystem-sync + release
 ```
 
-### Publishing to PyPI (one-time setup)
+## Documentation
 
-The `release.yml` workflow uses **PyPI Trusted Publishing** (no API tokens, no
-manual uploads). To enable it for the first time, the maintainer must
-register the publisher once.
+- [AGENTS.md](AGENTS.md) — master blueprint (mandates, roadmap, layout)
+- [ECOSYSTEM.md](ECOSYSTEM.md) — all 24 ACTIVE repos + integration status
+- [docs/HOOKS.md](docs/HOOKS.md) — 24 lifecycle events reference
+- [docs/LEARNING.md](docs/LEARNING.md) — closed learning loop architecture
+- [docs/WEBUI.md](docs/WEBUI.md) — WebUI-v2 backend contract
+- [CHANGELOG.md](CHANGELOG.md) — version history
 
-**Recommended (non-interactive, API token):**
+## Contributing
 
-```bash
-# 1. Generate a PyPI API token at https://pypi.org/manage/account/token/
-#    (scope: "Entire account" works, or scope to a single project)
-# 2. Run:
-export PYPI_API_TOKEN="pypi-..."
-python -m sin_code_bundle.tools.pypi_setup --api-token "$PYPI_API_TOKEN"
-# 3. Check your email, click the magic link PyPI sent
-```
+1. Every new feature lands as a GitHub issue FIRST (reference in commit)
+2. Conventional commits (`feat:`, `fix:`, `docs:`, `test:`)
+3. All tests pass: `go build ./... && go test ./... -race -count=1`
+4. Core packages ≥70% coverage (target ≥85%)
+5. Update ECOSYSTEM.md if adding/removing a repo (CI `ecosystem-sync.yml`
+   enforces registry↔permission_defaults↔ECOSYSTEM agreement)
 
-This is the **1-click** path: no TTY, no prompts, no 2FA dance. It works in
-CI scripts, agents, and headless servers. See
-[`pypi_setup.doc.md`](./src/sin_code_bundle/tools/pypi_setup.doc.md) for
-the full failure-mode table and security notes.
+## License
 
-**Legacy fallback (interactive username + password):**
-
-```bash
-bash tools/setup_pypi_publisher.sh
-# Follow the prompts, check email, click the magic link
-```
-
-Kept for maintainers who do not have a PyPI API token. Does not work in
-CI / non-TTY environments.
-
-After this one-time setup, every `git tag v0.X.Y && git push origin v0.X.Y`
-triggers:
-
-1. Build sdist + wheel
-2. Verify install in a clean venv
-3. Publish to PyPI via Trusted Publisher (tokenless OIDC)
-4. Attach assets to GitHub Release
-
-**Manual fallback:** <https://pypi.org/manage/account/publishing/> — Add pending publisher:
-
-- Project: `sin-code-bundle` (PEP 503 normalised)
-- Owner: `OpenSIN-Code`
-- Repo: `SIN-Code-Bundle`
-- Workflow filename: `release.yml`
-- Environment name: `pypi`
+MIT — see [LICENSE](LICENSE).
 
 ---
 
-## 🛠️ Agent Usage Example
-
-Instead of guessing file structures, agents query the Semantic Codebase
-Knowledge Graph (SCKG) directly via stable URI schemes:
-
-```json
-// Agent tool call
-{
-  "name": "sin_read",
-  "arguments": {
-    "path": "sckg://module/auth-service/dependencies",
-    "summarize": true
-  }
-}
-```
-
-The VFS resolver translates this into a structured JSON response of exact
-module dependencies — saving hundreds of tokens and preventing hallucination.
-
-To disable native opencode tools and force SIN-Code usage, add to
-`~/.config/opencode/opencode.json`:
-
-```json
-{
-  "tools": {
-    "read": false, "write": false, "edit": false, "bash": false,
-    "search": false, "find": false, "grep": false, "glob": false,
-    "list": false, "webfetch": false, "task": false
-  },
-  "mcp": {
-    "sin-code-bundle": {
-      "type": "local",
-      "command": ["sin", "serve"],
-      "enabled": true
-    }
-  }
-}
-```
-
----
-
-## 📦 Unified MCP Tool Inventory (37 Tools)
-
-When `sin-serve` is running, agents get **37 tools**. Native opencode tools
-should be **disabled** to enforce SIN-Code usage.
-
-### Core File Operations (5) — Replace native read/write/edit/bash/search
-
-| Tool | Replaces | What it does | Why better than native |
-|---|---|---|---|
-| `sin_read` | `read` | URI-aware file read with size-safety + summarize mode | Native dumps 10MB+ into context; sin_read truncates + supports `sckg://`, `poc://`, `ibd://`, `adw://`, `efsm://`, `oracle://`, `conflict://` URIs |
-| `sin_write` | `write` | Atomic write + syntax pre-validation (.py/.ts/.js/.go) + auto-backup | Native creates half-written files on crash; sin_write is atomic + compiles before writing |
-| `sin_edit` | `edit` | Hashline-anchored semantic patches (content-hash, not line numbers) | Native edit breaks on reformat/race; sin_edit survives line shifts |
-| `sin_bash` | `bash` | Safe shell exec via Go `execute` binary | Native leaks secrets; sin_bash redacts tokens/keys + enforces timeout |
-| `sin_search` | `search`/`find`/`grep`/`glob` | Scout (Go) + Python-regex fallback | Native has 4 separate tools; sin_search unifies all 4 with semantic mode |
-
-### Virtual Filesystem — URI Schemes (2)
-
-| Tool | What it does |
-|---|---|
-| `sin_vfs_resolve` | Resolve `sckg://`, `poc://`, `ibd://`, `adw://`, `efsm://`, `oracle://`, `conflict://` URIs to structured content |
-| `sin_vfs_schemes` | List all available URI schemes |
-
-### Code Structure — AST + Hashline (2)
-
-| Tool | What it does |
-|---|---|
-| `sin_ast_edit` | Tree-sitter AST-based edit with POC verification (falls back to hashline) |
-| `sin_hashline_validate` | Validate a previously-created hashline patch can still be applied |
-
-### Architectural Enforcement (1)
-
-| Tool | What it does |
-|---|---|
-| `sin_check_architecture` | Pre-flight ADW rule check — blocks hardcoded secrets, eval/exec, frontend-DB imports |
-
-### Consolidation Tools (3) — v0.7.0 — Replace 3-4 separate calls with 1
-
-| Tool | Replaces | What it does |
-|---|---|---|
-| `sin_preflight` | `sin_check_architecture` + `sin_bash("sin codocs check")` + `sin_bash("git status")` + `sin_bash("pytest --collect-only")` | Pre-flight safety gate: policy + docs + git + tests in 1 call. Returns `{allowed, policy_ok, docs_ok, git_clean, tests_status, estimated_risk}` |
-| `sin_symbol_resolve` | `gitnexus_query` + `gitnexus_context` + `gitnexus_impact` + `gitnexus_detect_changes` | Unified code archaeology for a symbol. Fans out to 4 gitnexus primitives + optional sin-context-bridge. Returns unified graph view with `sources_queried` list |
-| `sin_checkpoint` | `rollback_snapshot` + `sin_bash("sin codocs check")` + `sin_bash("git status")` + `sin_search("X", type="usage")` + `sin_bash("pytest --collect-only")` | Pre-refactor checkpoint: recoverable snapshot + state report in 1 call. Idempotent on `name`. Returns `{snapshot_id, docs_broken, git_clean, usages_found, tests_status, tests_collected}` |
-
-### Runtime Debugging — DAP (2)
-
-| Tool | What it does |
-|---|---|
-| `sin_runtime_trace` | Start a DAP debug session for a function (debugpy for Python, dlv for Go, node --inspect for Node) |
-| `sin_stop_trace` | Stop an active DAP session |
-
-### Parallel Task Execution (2)
-
-| Tool | What it does |
-|---|---|
-| `sin_create_worktree` | Create an isolated git worktree for parallel agent tasks |
-| `sin_cleanup_worktree` | Clean up worktree (optionally merge back to main) |
-
-### Subsystem Tools (10) — Require subsystem packages via `pip install -e ".[all]"`
-
-| Tool | Subsystem | What it does |
-|---|---|---|
-| `impact` | sin_code_sckg | Blast-radius impact analysis for a symbol |
-| `semantic_diff` | sin_code_ibd | Semantic intent diff between two files |
-| `semantic_review` | sin_code_ibd | Intent + risk score in one call |
-| `architectural_debt` | sin_code_adw | Current architectural debt score (god modules, circular imports, hot paths without tests) |
-| `verify_tests` | sin_code_oracle | Verify agent-generated code (security/perf/correctness — OWASP Top 10, CWE Top 25) |
-| `prove` | sin_code_poc | Generate and verify proofs of correctness (Hoare-style pre/post-conditions) |
-| `mock_env` | sin_code_efsm | Manage ephemeral full-stack mock environment (Postgres + Redis + API server in 10s) |
-| `orchestrate` | sin_code_orchestration | Submit a task to the multi-agent orchestrator (dependency-graph aware) |
-| `task_status` | sin_code_orchestration | Get status of an orchestrated task |
-| `review` | sin_code_review_interface | SOTA review on a single file (diff + debt + tests + style) |
-
-### Memory Tools (5) — Require `sin-brain` via `pip install -e ".[memory]"`
-
-| Tool | What it does |
-|---|---|
-| `recall_tool` | Search memory tiers (recall/archival/graph) — 4-tier SQLite+FTS5 storage |
-| `remember_tool` | Persist a memory (decision/convention/fix/pitfall/preference) |
-| `forget_tool` | Delete a memory entry by id |
-| `pin_tool` | Pin a memory entry (never evicted) |
-| `link_evidence_tool` | Attach a subsystem verdict to a memory |
-
-### External Bridges (5)
-
-| Tool | Source | What it does |
-|---|---|---|
-| `gitnexus_context` | GitNexus (PolyForm-Noncommercial) | Structural graph context for a symbol |
-| `gitnexus_impact` | GitNexus | Blast-radius impact via graph (auto-indexes) |
-| `gitnexus_ai_context` | GitNexus | Task-scoped, graph-aware context bundle |
-| `markitdown_convert` | MarkItDown (MIT) | Convert PDF/DOCX/PPTX/XLSX/image → Markdown |
-| `codocs_check` | codocs (built-in) | Find broken co-located `.doc.md` references |
-
-**Total: 34 tools** = 5 core + 2 VFS + 2 AST + 1 arch + 2 runtime + 2 worktree + 10 subsystem + 5 memory + 5 external
-
----
-
-## 🔌 Bridged External Tools (Never Vendored)
-
-To keep the bundle MIT-licensed and lightweight, these upstream tools are
-**bridged** (installed and updated independently, never vendored):
-
-| Tool | Purpose | License | Setup |
-|---|---|---|---|
-| **[GitNexus](https://github.com/abhigyanpatwari/GitNexus)** | Upstream code knowledge graph | PolyForm-Noncommercial | `sin gitnexus setup` |
-| **[Simone-MCP](https://github.com/OpenSIN-Code/Simone)** | Advanced code intelligence + LSP | Varies | Auto-detected during `sin bootstrap` |
-| **[MarkItDown](https://github.com/microsoft/markitdown)** | Document → Markdown converter | MIT | `sin markitdown setup` |
-| **[RTK](https://github.com/rtk-ai/rtk)** | Token-saving shell proxy (60-90% reduction) | Apache-2.0 | `sin rtk setup` |
-
----
-
-## 🧩 Companion Skills (Separate MCP Servers)
-
-The Bundle exposes 37 tools via `sin serve`. Several **companion skills** ship
-as *separate* MCP servers — they are not part of the bundle core, but
-register cleanly alongside it in any opencode / Claude Code / Cursor config.
-
-| Companion | Tools | Install | Run |
-|---|---|---|---|
-| **[sin-context-bridge](https://github.com/OpenSIN-Code/SIN-Code)** | 2 tools — unified context across SCKG + sin-brain + GitNexus + local SQLite | `pip install sin-code-bundle[all]` | `sin-context-bridge serve` |
-| **[sin-honcho-rollback](https://github.com/OpenSIN-Code/sin-honcho-rollback)** | 4 MCP tools + CLI — snapshot, rollback, audit log for sin-brain memory | `pip install sin-honcho-rollback` | `sin-honcho-rollback serve` |
-| **[symfony-lens](https://github.com/OpenSIN-Code/SIN-Code-Symfony-Lens)** | 8 tools — Symfony-specific static analysis (services, routes, entities, Twig, migrations, PHPStan) | `pip install sin-code-symfony-lens` | `python -m symfony_lens.server` |
-
-### Wire them into opencode
-
-```jsonc
-{
-  "mcp": {
-    "sin-code-bundle":     { "type": "local", "command": ["sin", "serve"] },
-    "sin-context-bridge":  { "type": "local", "command": ["sin-context-bridge", "serve"] },
-    "sin-honcho-rollback": { "type": "local", "command": ["sin-honcho-rollback", "serve"] },
-    "symfony-lens":        { "type": "local", "command": ["symfony-lens"] }
-  }
-}
-```
-
-All three companions follow the Bundle's graceful-degradation contract: if
-the server isn't running, the consumer falls back to local-only behaviour
-without crashing.
-
----
-
-## 🛡️ Graceful Degradation
-
-Every subsystem is an **optional** dependency. If a subsystem is missing, the
-MCP server detects it and gracefully falls back. The bundle never crashes on
-a missing optional dep.
-
-```bash
-pip install -e ".[all]"     # All 8 Python subsystems + sin-brain + LSP
-pip install -e ".[memory]"  # Just sin-brain (memory tools)
-pip install -e ".[lsp]"     # tree-sitter + 4 parsers (Python <3.14 only)
-pip install -e "."          # Minimal — uses graceful fallbacks
-```
-
-Check what's installed:
-```bash
-sin status
-```
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ sin-serve MCP server (stdio)                                │
-│   19 tools exposed (5 core + 2 VFS + 2 AST + 1 arch +       │
-│   2 runtime + 2 worktree + 5 memory) + 10 OPTIONAL          │
-│   ecosystem tools (SCKG, IBD, PoC, EFM, ADW, Oracle + ... ) │
-│   loaded only when the matching pip pkg is installed.       │
-└─────────────────────────────────────────────────────────────┘
-                          │
-       ┌──────────────────┼──────────────────┐
-       │                  │                  │
-       ▼                  ▼                  ▼
-┌────────────┐   ┌──────────────┐   ┌──────────────────┐
-│ 7 Go tools │   │ 6+2 ECOSYSTEM│   │ 5 External       │
-│ (grasp,    │   │ packages     │   │ bridges          │
-│  scout,    │   │ (sckg, ibd,  │   │ (GitNexus,       │
-│  discover, │   │  poc, efsm,  │   │  Simone-MCP,     │
-│  execute,  │   │  adw, oracle,│   │  MarkItDown,     │
-│  map,      │   │  orchestration│  │  RTK, codocs)    │
-│  harvest,  │   │  review-     │   │                  │
-│  orchestrate)│ │  interface)  │   │                  │
-└────────────┘   └──────────────┘   └──────────────────┘
-                          ▲
-                          │ pip install -r
-                          │   requirements-ecosystem.txt
-                          │
-                  ┌──────────────┐
-                  │ sin-brain    │
-                  │ (SQLite+FTS5 │
-                  │ memory)      │
-                  └──────────────┘
-```
-
-> **Ecosystem packages** (SCKG, IBD, PoC, EFM, ADW, Oracle, Orchestration,
-> Review-Interface) are NOT vendored in this monorepo anymore (issue #28).
-> Install them from their standalone repos via
-> [`requirements-ecosystem.txt`](./requirements-ecosystem.txt). Each is a
-> standard pip-installable package with its own README + LICENSE.
->
-> | Ecosystem pkg | Standalone repo | Description |
-> |---|---|---|
-> | `sin-code-sckg` | [SIN-Code-SCKG-Tool](https://github.com/OpenSIN-Code/SIN-Code-SCKG-Tool) | Semantic Codebase Knowledge Graphs |
-> | `sin-code-ibd`  | [SIN-Code-IBD-Tool](https://github.com/OpenSIN-Code/SIN-Code-IBD-Tool)   | Intent-Based Diffing |
-> | `sin-code-poc`  | [SIN-Code-PoC-Tool](https://github.com/OpenSIN-Code/SIN-Code-PoC-Tool)   | Proof-of-Correctness |
-> | `sin-code-efsm` | [SIN-Code-EFM-Tool](https://github.com/OpenSIN-Code/SIN-Code-EFM-Tool)  | Ephemeral Full-Stack Mocking |
-> | `sin-code-adw`  | [SIN-Code-ADW-Tool](https://github.com/OpenSIN-Code/SIN-Code-ADW-Tool)  | Architectural Debt Watchdog |
-> | `sin-code-oracle` | [SIN-Code-Oracle-Tool](https://github.com/OpenSIN-Code/SIN-Code-Oracle-Tool) | Verification Oracle |
->
-> The Next.js web frontend lives in [SIN-Code-Bundle-Web](https://github.com/OpenSIN-Code/SIN-Code-Web).
-
----
-
-## 🧰 CLI Commands
-
-| Command | Description |
-|---|---|
-| `sin status` | Show which subsystems are installed/available |
-| `sin bootstrap [repo]` | Initialize available subsystems (graph, baselines, ledger) |
-| `sin review <a> <b>` | Semantic review of a change (IBD) |
-| `sin verify <module> <fn>` | Proof-of-correctness for a function (POC) |
-| `sin debt [root]` | Architectural debt overview (ADW) |
-| `sin preflight [root]` | Ensure GitNexus graph context is fresh before agents code |
-| `sin gitnexus setup` | Wire GitNexus MCP into OpenCode / Codex / Hermes |
-| `sin gitnexus index\|status\|doctor\|context\|impact\|ai-context` | GitNexus graph operations |
-| `sin markitdown setup\|doctor\|convert` | Wire/convert via MarkItDown (doc → Markdown) |
-| `sin rtk setup\|doctor\|gain` | Wire RTK token-saving proxy into agents |
-| `sin codocs check [root]` | Validate co-located `.doc.md` references (built-in) |
-| `sin codocs list [root]` | List all CoDocs references and whether they resolve |
-| `sin codocs install-skill` | Install the CoDocs agent skill (Hermes / OpenCode) |
-| `sin sin-code run <tool> [args]` | Run a SIN-Code Go tool (discover, execute, map, grasp, scout, harvest, orchestrate) |
-| `sin sin-code agents-md` | Generate AGENTS.md with SIN-Code Tool Suite rules |
-| `sin serve` | Unified MCP server across available subsystems |
-
----
-
-## 🦫 SIN-Code Go Tools (v2)
-
-The next-generation SIN-Code tools are Go binaries that replace OpenCode's
-built-in tools (auto-installed by `install.sh`):
-
-| Tool | Purpose | Version |
-|---|---|---|
-| `discover` | File discovery with pattern matching, relevance scoring, dependency mapping | v0.2.5 |
-| `execute` | Safe command execution with secret redaction, timeout, error analysis | v0.2.4 |
-| `map` | Architecture analysis with module mapping, entry points, hot paths | v0.2.5 |
-| `grasp` | Single-file deep analysis with structure, dependencies, context | v0.2.4 |
-| `scout` | Code search with regex, semantic, symbol, usage modes | v0.1.5 |
-| `harvest` | URL/API fetching with caching, structure extraction, auth management | v0.1.4 |
-| `orchestrate` | Task management with dependencies, parallel execution, rollback | v0.1.6 |
-
-Install manually:
-```bash
-go install github.com/OpenSIN-Code/SIN-Code-Discover-Tool/cmd/discover@latest
-go install github.com/OpenSIN-Code/SIN-Code-Execute-Tool/cmd/execute@latest
-go install github.com/OpenSIN-Code/SIN-Code-Map-Tool/cmd/map@latest
-go install github.com/OpenSIN-Code/SIN-Code-Grasp-Tool/cmd/grasp@latest
-go install github.com/OpenSIN-Code/SIN-Code-Scout-Tool/cmd/scout@latest
-go install github.com/OpenSIN-Code/SIN-Code-Harvest-Tool/cmd/harvest@latest
-go install github.com/OpenSIN-Code/SIN-Code-Orchestrate-Tool/cmd/orchestrate@latest
-```
-
----
-
-## 📚 Documentation
-
-- [INSTALL.md](./INSTALL.md) — Detailed installation and troubleshooting
-- [CHANGELOG.md](./CHANGELOG.md) — Version history
-- [docs/USAGE.md](./docs/USAGE.md) — Deep dive into CLI + MCP tool usage
-- [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) — Configuration reference
-- [docs/EXTERNAL_TOOLS.md](./docs/EXTERNAL_TOOLS.md) — Full compatibility matrix
-- [docs/GITNEXUS.md](./docs/GITNEXUS.md) — How to wire the mandatory graph context
-- [docs/CODOCS.md](./docs/CODOCS.md) — Co-located `.doc.md` standard
-- [docs/adr/](./docs/adr/) — Architecture Decision Records
-- [CONTRIBUTING.md](./CONTRIBUTING.md) — How to contribute
-
----
-
-## 🤝 License
-
-MIT — see [LICENSE](./LICENSE).
-
-Bridged tools retain their original licenses:
-- GitNexus: PolyForm-Noncommercial
-- MarkItDown: MIT
-- RTK: Apache-2.0
-
-Part of the [SIN-Code](https://github.com/OpenSIN-Code) agent-engineering stack.
+> **Einstein:** "Insanity is doing the same thing and expecting different results."
+> **SIN-Code v3.5.0:** The agent that learns, evolves, and never forgets.

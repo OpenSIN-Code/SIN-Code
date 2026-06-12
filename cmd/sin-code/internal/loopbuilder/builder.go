@@ -26,19 +26,20 @@ import (
 )
 
 type Config struct {
-	Workspace  string
-	SessionID  string
-	AgentName  string
-	Model      string
-	BaseURL    string
-	MaxTurns   int
-	VerifyMode string
-	VerifyCmd  string
-	Yolo       bool
-	Headless   bool
-	AskFunc    agentloop.AskFunc
-	LocalTool  agentloop.LocalToolFunc
-	LocalSpec  []agentloop.ToolSpec
+	Workspace   string
+	SessionID   string
+	AgentName   string
+	Model       string
+	BaseURL     string
+	MaxTurns    int
+	VerifyMode  string
+	VerifyCmd   string
+	Yolo        bool
+	Headless    bool
+	AskFunc     agentloop.AskFunc
+	LocalTool   agentloop.LocalToolFunc
+	LocalSpec   []agentloop.ToolSpec
+	ToolFactory func(*mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec)
 }
 
 // Build constructs a fully wired agentloop.Loop with all mandates applied
@@ -83,10 +84,17 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		return nil, nil, err
 	}
 
+	// Tool wiring: explicit (LocalTool/LocalSpec) wins over factory.
+	var localTool agentloop.LocalToolFunc = cfg.LocalTool
+	var localSpec []agentloop.ToolSpec = cfg.LocalSpec
+	if cfg.ToolFactory != nil && (localTool == nil || localSpec == nil) {
+		localTool, localSpec = cfg.ToolFactory(mcpMgr)
+	}
+
 	loop := &agentloop.Loop{
 		Gate:       gate,
-		LocalTool:  cfg.LocalTool,
-		LocalSpec:  cfg.LocalSpec,
+		LocalTool:  localTool,
+		LocalSpec:  localSpec,
 		Workspace:  cfg.Workspace,
 		MaxTurns:   cfg.MaxTurns,
 		SessionID:  cfg.SessionID,
