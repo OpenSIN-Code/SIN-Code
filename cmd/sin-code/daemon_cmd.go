@@ -126,7 +126,7 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 		VerifyCmd:  verifyCmd,
 		Headless:   true,
 		ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
-			return combinedTool(mgr), combinedSpecs(mgr)
+			return combinedTool(goal.Workspace, mgr), combinedSpecs(mgr)
 		},
 	}, lessonsStore)
 	if err != nil {

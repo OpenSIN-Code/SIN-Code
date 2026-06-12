@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Purpose: builtin local toolset for `sin-code chat` (issue #44). Names
 // match the permission default matrix: sin_read/sin_write/sin_edit allow,
-// sin_bash ask.
+// sin_bash ask. v3.6.0 adds sin_bootstrap_skill (issue #51) so the
+// agent can write/test/register its own MCP skill servers in a
+// workspace; that tool additionally requires `SIN_ALLOW_BOOTSTRAP=1`
+// at runtime to refuse headless self-modification.
 package main
 
 import (
@@ -14,6 +17,7 @@ import (
 	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/meta"
 )
 
 const (
@@ -43,11 +47,16 @@ func builtinSpecs() []agentloopToolSpecAlias {
 			InputSchema: obj(map[string]any{"command": str("shell command")}, "command")},
 		{Name: "sin_search", Description: "Search files for a substring; returns file:line matches.",
 			InputSchema: obj(map[string]any{"pattern": str("substring to search"), "dir": str("directory (default .)")}, "pattern")},
+		{Name: "sin_bootstrap_skill", Description: "Scaffold a new MCP skill server (Python stdio) in .sin-code/skills/<name>/ and register it in mcp.json. Requires the workspace to allow bootstrap (env SIN_ALLOW_BOOTSTRAP=1) and the name to match ^[a-z][a-z0-9_]{0,31}$.",
+			InputSchema: obj(map[string]any{
+				"name": str("skill name, lowercase snake_case, <=32 chars"),
+				"spec": str("free-form description of the skill (currently informational)"),
+			}, "name")},
 	}
 	return append(specs, extraSpecs()...)
 }
 
-func builtinTool(ctx context.Context, name string, args map[string]any) (string, error) {
+func builtinTool(ctx context.Context, workspace, name string, args map[string]any) (string, error) {
 	switch name {
 	case "sin_read":
 		return toolRead(argStr(args, "path"))
@@ -59,9 +68,35 @@ func builtinTool(ctx context.Context, name string, args map[string]any) (string,
 		return toolBash(ctx, argStr(args, "command"))
 	case "sin_search":
 		return toolSearch(argStr(args, "pattern"), argStr(args, "dir"))
+	case "sin_bootstrap_skill":
+		return toolBootstrapSkill(ctx, workspace, args)
 	default:
 		return extraTool(ctx, name, args)
 	}
+}
+
+// toolBootstrapSkill is the chat-side wrapper around
+// meta.BootstrapSkill. It is a self-modifying meta-tool, so it
+// applies two defense-in-depth checks (mandate M4):
+//  1. Environment gate: SIN_ALLOW_BOOTSTRAP must be "1" — without it,
+//     the agent cannot bootstrap from a non-interactive run.
+//  2. The permission_defaults.go rule for sin_bootstrap_skill is
+//     "ask", so the engine still prompts the user (or denies in
+//     headless mode) before this function is ever called.
+func toolBootstrapSkill(ctx context.Context, workspace string, args map[string]any) (string, error) {
+	if os.Getenv("SIN_ALLOW_BOOTSTRAP") != "1" {
+		return "", fmt.Errorf("sin_bootstrap_skill: refused — set SIN_ALLOW_BOOTSTRAP=1 in the environment to permit self-modification")
+	}
+	name := argStr(args, "name")
+	spec := argStr(args, "spec")
+	if err := meta.ValidateName(name); err != nil {
+		return "", err
+	}
+	qualified, err := meta.BootstrapSkill(ctx, workspace, name, spec)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("bootstrap_skill: registered %s -> %s/.sin-code/skills/%s/mcp_server.py", qualified, workspace, name), nil
 }
 
 func argStr(args map[string]any, key string) string {
