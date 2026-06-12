@@ -1,569 +1,388 @@
-# 🛠️ SIN-Code Tool Suite — IMMER UNSERE EIGENEN TOOLS NUTZEN (PRIORITY -10.0 - ABSOLUTE OBERSTE REGEL)
+# AGENTS.md — SIN-Code Master Blueprint
 
-## ⚠️ ABSOLUTE REGEL: Niemals opencode-eigene Tools nutzen, wenn unsere SIN-Code Tools verfügbar sind!
-
-**UNSERE 32 SIN-Code Subcommands (v2.5.0: 13 core MCP + 6 utility CLI + 13 new: read/write/edit/lsp/plugin/index/memory/todo/notifications/orchestrator-run/plan/agents + tui/webui) sind BESSER als die opencode-eigenen Alternativen.** Jeder Agent MUSS unsere Tools nutzen, niemals die opencode-internen.
-
-### Wann welches Tool?
-
-| Aufgabe | SIN-Code Tool (NUTZEN!) | Opencode Alternative (NICHT nutzen!) | Warum unsere besser |
-|---------|------------------------|-----------------------------------|-------------------|
-| **Dateien suchen, Projekt-Struktur erkunden** | `sin-discover` | `opencode` interne Dateisuche | Pattern-Matching, Relevanz-Scoring, Dependency-Map, Gruppierung |
-| **Befehle ausführen, Kommandos laufen lassen** | `sin-execute` | `opencode` interne Shell-Ausführung | Secret-Redaction, Safety-Checks, Timeout-Handling, Error-Analyse |
-| **Architektur analysieren, Module mappen** | `sin-map` | `opencode` interne Code-Analyse | Module-Level, Entry-Points, Hot-Paths, Dependency-Graph, Orphan-Detection |
-| **Einzelne Datei verstehen, Code analysieren** | `sin-grasp` | `opencode` interne Code-Analyse | Struktur, Dependencies, Usage, Context, Related-Files |
-| **Code durchsuchen, Patterns finden** | `sin-scout` | `opencode` interne Suche | Regex, Semantic, Symbol, Usage-Search, Dead-Code-Detection |
-| **URLs abrufen, APIs konsumieren** | `sin-harvest` | `opencode` interne HTTP-Requests | Caching, Struktur-Extraktion, Change-Detection, Auth-Management |
-| **Tasks managen, Planung, Rollback** | `sin-orchestrate` | `opencode` interne Task-Planung | Dependencies, Parallel-Execution, Blocker-Detection, Rollback-Plan |
-
-## ⚠️ DEPRECATION WARNING — `sin-code-bundle` (Python, legacy `sin` CLI)
-
-> ⚠️ **DEPRECATED:** The `sin-code-bundle` MCP server (Python, old `sin` CLI) is DEPRECATED as of v1.1.0.
-> Use `sin-code` (Go binary at `~/.local/bin/sin-code serve`) instead. The Go binary's tools are named
-> `sin_discover`, `sin_execute`, `sin_map`, `sin_grasp`, `sin_scout`, `sin_harvest`, `sin_orchestrate`,
-> `sin_ibd`, `sin_poc`, `sin_sckg`, `sin_adw`, `sin_oracle`, `sin_efm` — NOT `sin-code-bundle_*`.
+> Single source of truth for ALL agents (human or AI) working on this repository.
+> Read this file completely before making any change. If reality and this file
+> diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Reason:** The legacy Python MCP server's tools (`sin-code-bundle_sin_edit`, `sin-code-bundle_sin_search`,
-> etc.) have a longer `sin-code-bundle_` prefix and were winning tool-selection over the newer Go tools.
-> The legacy server is now `enabled: false` in `opencode.json`. Re-enable only for rollback.
-
-### Tool-Verweisung & Skills/MCP
-
-**⚡ UNIFIED BINARY (v1.0.5+, current v2.5.0):** All 32 sin-code subcommands live in a single Go binary: `~/.local/bin/sin-code`.
-The opencode.json registers ONE MCP server `sin-code` that exposes all 19+ tools via the `serve` subcommand.
-Note: 14 utility subcommands (config, sbom, security, self-update, tui, webui, todo, notifications, index, lsp, plugin, orchestrator-run/plan/agents, memory) are CLI-only, not exposed via MCP.
-
-| Tool (MCP, **preferred — Go**) | Backend | Status | Purpose |
-|------------------------------|---------|--------|---------|
-| `sin_discover` ✅ | `sin-code` (Go) | ✅ Native | Dateien suchen, Relevanz-Scoring |
-| `sin_execute` ✅ | `sin-code` (Go) | ✅ Native | Befehle sicher ausführen |
-| `sin_map` ✅ | `sin-code` (Go) | ✅ Native | Architektur analysieren |
-| `sin_grasp` ✅ | `sin-code` (Go) | ✅ Native | Einzelne Datei verstehen |
-| `sin_scout` ✅ | `sin-code` (Go) | ✅ Native | Code durchsuchen |
-| `sin_harvest` ✅ | `sin-code` (Go) | ✅ Native | URLs abrufen |
-| `sin_orchestrate` ✅ | `sin-code` (Go) | ✅ Native | Tasks managen |
-| `sin_ibd` ✅ | `sin-code` (Go) | ✅ Native | Intent-Based Diffing |
-| `sin_poc` ✅ | `sin-code` (Go) | ✅ Native | Proof-of-Correctness |
-| `sin_sckg` ✅ | `sin-code` (Go) | ✅ Native | Semantic Codebase Knowledge Graphs |
-| `sin_adw` ✅ | `sin-code` (Go) | ✅ Native | Architectural Debt Watchdogs |
-| `sin_oracle` ✅ | `sin-code` (Go) | ✅ Native | Verification Oracle |
-| `sin_efm` ✅ | `sin-code` (Go) | ✅ Native | Ephemeral Full-Stack Mocking (auto: OrbStack on macOS, Docker on Linux; `--runtime orb|docker|auto` to override) |
-| `sin-code-bundle_sin_edit` ⚠️ | `sin-code-bundle` (Python, **DEPRECATED**) | ⚠️ Legacy | Hashline-anchored edit only — disabled by default |
-| `sin-code-bundle_sin_read` 🚫 | `sin-code-bundle` (Python, **DEPRECATED**) | 🚫 Do not use | Use `read` URI schemes instead (sckg://, oracle://, etc.) |
-| `sin-code-bundle_sin_write` 🚫 | `sin-code-bundle` (Python, **DEPRECATED**) | 🚫 Do not use | Use `sin_discover` + native editors |
-| `sin-code-bundle_sin_search` 🚫 | `sin-code-bundle` (Python, **DEPRECATED**) | 🚫 Do not use | Use `sin_scout` instead |
-| `sin-code-bundle_sin_bash` 🚫 | `sin-code-bundle` (Python, **DEPRECATED**) | 🚫 Do not use | Use `sin_execute` instead |
-| `sin_security` ✅ | `sin-code` (Go) | ✅ Native | Security-Scan (Go/Python/Node/Generic) — CLI-only |
-| `sin_config` ✅ | `sin-code` (Go) | ✅ Native | Konfiguration verwalten — CLI-only |
-| `sin_tui` ✅ | `sin-code` (Go) | ✅ Native | Interaktives TUI Menu — CLI-only |
-| `sin_sbom` ✅ | `sin-code` (Go) | ✅ Native | SBOM Generation (SPDX/CycloneDX) — CLI-only |
-| — | `sin-code` (Go) | ✅ Native | `self-update` — Update to latest release — CLI-only |
-| — | `sin-code` (Go) | ✅ Native | `serve` — Start MCP server (19+ tools) — CLI-only |
-| `sin_read` ✅ | `sin-code` (Go) | ✅ Native | Read files with hashline anchors, outline, size guards — MCP |
-| `sin_write` ✅ | `sin-code` (Go) | ✅ Native | Write files atomically with syntax pre-validation — MCP |
-| `sin_edit` ✅ | `sin-code` (Go) | ✅ Native | Hashline-anchored surgical edits with symbol/anchor modes — MCP |
-| `sin_lsp` ✅ | `sin-code` (Go) | ✅ Native | LSP client (gopls/pyright/tsserver/rust-analyzer) — MCP |
-| `sin_index` ✅ | `sin-code` (Go) | ✅ Native | Persistent incremental code index (build/refresh/status/clear) — MCP |
-| `sin_todo` ✅ | `sin-code` (Go) | ✅ Native | Issue tracker with dependencies, audit log, project namespaces — MCP |
-| `sin_memory` ✅ | `sin-code` (Go) | ✅ Native | Long-term project memory with semantic search — MCP |
-| `sin_notifications` ✅ | `sin-code` (Go) | ✅ Native | Manage todo event notifications — MCP |
-| `sin_plugin` ✅ | `sin-code` (Go) | ✅ Native | Manage user-installed plugins — CLI-only |
-
-
-**Installiert:** `~/.local/bin/sin-code` (1 binary, 32 subcommands: 13 core MCP + 19 utility/specialized CLI as of v2.5.0)
-**Repo:** `OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code`
-| `sin-websearch` | `sin-websearch` | `OpenSIN-Code/SIN-Code-Websearch-Skill` | `sin-websearch` | ✅ `~/.config/opencode/skills/sin-websearch` |
-| `sin-scheduler` | `sin-scheduler` | `OpenSIN-Code/SIN-Code-Scheduler-Skill` | `sin-scheduler` | ✅ `~/.config/opencode/skills/sin-scheduler` |
-| `sin-marketplace` | `sin-marketplace` | `OpenSIN-Code/SIN-Code-Marketplace-Skill` | `sin-marketplace` | ✅ `~/.config/opencode/skills/sin-marketplace` |
-| `sin-slash` | `sin-slash` | `OpenSIN-Code/SIN-Code-Slash-Skill` | `sin-slash` | ✅ `~/.config/opencode/skills/sin-slash` |
-| `sin-goal-mode` | `sin-goal-mode` | `OpenSIN-Code/SIN-Code-Goal-Mode-Skill` | `sin-goal-mode` | ✅ `~/.config/opencode/skills/sin-goal-mode` |
-
-### Anwendungsbeispiele
-
-**1. Neues Projekt erkunden:**
-```bash
-# NIEMALS opencode-interne Dateisuche nutzen!
-sin-code discover --path /Users/jeremy/dev/NEUES-PROJEKT --pattern "**/*.py" --sort_by relevance --format json
-# Ergebnis: Alle Python-Dateien absteigend nach Relevanz sortiert, mit Dependencies und Related-Files
-```
-
-**2. Befehle sicher ausführen:**
-```bash
-# NIEMALS opencode-interne Shell-Ausführung nutzen!
-sin-code execute --command "npm test" --timeout 60 --format json
-# Ergebnis: Safety-Check, Secret-Redaction, Error-Analyse, Timeout-Handling
-```
-
-**3. Architektur verstehen:**
-```bash
-# NIEMALS opencode-interne Code-Analyse nutzen!
-sin-code map --path /Users/jeremy/dev/PROJEKT --action map --format json
-# Ergebnis: Module, Entry-Points, Hot-Paths, Dependency-Graph, Orphan-Detection, Complexity
-```
-
-**4. Code durchsuchen:**
-```bash
-# NIEMALS opencode-interne Suche nutzen!
-sin-code scout --query "func.*main" --path /Users/jeremy/dev/PROJEKT --search_type regex --format json
-# Ergebnis: Alle Main-Funktionen, mit Usage-Count, Architecture-Info, Context
-```
-
-**5. API/URL abrufen:**
-```bash
-# NIEMALS opencode-interne HTTP-Requests nutzen!
-sin-code harvest --url "https://api.example.com/data" --format json
-# Ergebnis: Status, Body, Headers, Struktur-Extraktion, Caching
-```
-
-**6. Tasks planen & tracken:**
-```bash
-# NIEMALS opencode-interne Task-Planung nutzen!
-sin-code orchestrate --action add --title "Feature implementieren" --tags "urgent" --format json
-# Ergebnis: Task-ID, Dependencies, Parallel-Execution-Plan, Rollback-Plan
-```
-
-**7. SBOM generieren:**
-```bash
-# NIEMALS opencode-interne SBOM-Tools nutzen!
-sin-code sbom --path /Users/jeremy/dev/PROJEKT --format spdx-json --output sbom.json
-# Ergebnis: SPDX- oder CycloneDX-konforme SBOM mit allen Dependencies
-```
-
-### Regeln
-
-- **SOFORTIGER PERMANENTER BAN** bei Nutzung von opencode-internen Tools statt unserer SIN-Code Tools
-- **VOR jedem Coding-Task:** Erst mit `sin-discover` das Projekt erkunden, dann mit `sin-grasp` die relevante Datei verstehen
-- **VOR jedem Refactoring:** Erst mit `sin-map` die Architektur analysieren, dann mit `sin-scout` alle Referenzen finden
-- **VOR jedem Befehl:** Immer `sin-execute` mit Safety-Check und Secret-Redaction nutzen
-- **VOR jedem API-Call:** Immer `sin-harvest` mit Caching und Struktur-Extraktion nutzen
-- **Für jede Planung:** Immer `sin-orchestrate` mit Dependencies und Rollback-Plan nutzen
-
-### Versionen (aktuell)
-
-| Tool | Version | Status |
-|------|---------|--------|
-| sin-discover | v0.2.5-fixes | ✅ Stable |
-| sin-execute | v0.2.4-fixes | ✅ Stable |
-| sin-map | v0.2.5-fixes | ✅ Stable |
-| sin-grasp | v0.2.4-fixes | ✅ Stable |
-| sin-scout | v0.1.5-fixes | ✅ Stable |
-| sin-harvest | v0.1.4-fixes | ✅ Stable |
-| sin-orchestrate | v0.1.6-fixes | ✅ Stable |
+> **Last verified against main:** commit `7962b73` (v3.0.0, 2026-06-12) — after
+> Bundle → SIN-Code rename + module-path migration. Tool inventory and repo
+> layout in sections 6 and 10 are sourced from `go test ./...` and
+> `cmd/sin-code/main.go` AddCommand list.
 
 ---
 
-# 🐳 CONTAINER MANDATE — OrbStack on macOS (PRIORITY -5.0)
+## 1. What this repository IS
 
-**STRICT RULE:** On macOS, ALWAYS use **OrbStack** (`orb`) for container operations. NEVER use `docker` directly.
+**SIN-Code** (formerly `SIN-Code-Bundle`) is the flagship product of the
+OpenSIN-Code organization: a **verification-first coding agent** shipped as a
+single Go binary (`sin-code`), with a Python companion package (`sin` /
+`sin serve`).
 
-- **OrbStack binary:** `orb` (Docker CLI-compatible, located at `/opt/homebrew/bin/orb`)
-- **Docker binary:** `docker` (installed but FLAKY — crashes on Mac, must NOT be used)
-- **Rule:** When writing scripts, MCP tools, CI configs, or any container operations targeting macOS, use `orb` instead of `docker`
-- **Why:** Docker Desktop on Mac is unstable and crashes. OrbStack uses native macOS virtualization and is fully Docker CLI-compatible
-- **Cross-platform:** On Linux CI (GitHub Actions), regular `docker` is fine. The rule only applies to macOS dev environments
-- **How to detect:** Use `uname` to check OS. If Darwin/macOS → use `orb`. If Linux → use `docker`
-- **EFM (Ephemeral Full-Stack Mocking) in sin-code:** Already supports both. On Mac, OrbStack is the default runtime
+It is simultaneously:
 
----
+1. **A coding-agent CLI** (`sin-code chat`, `sin-code -p "..."`) — interactive
+   TUI/REPL and headless one-shot mode, like Claude Code / Codex CLI, but with
+   a mandatory correctness gate (PoC proof or Oracle check) before any task is
+   reported done.
+2. **A unified MCP server** (`sin-code serve` / `sin-serve`) — 44+ semantic
+   tools consumable by ANY agent (Claude Code, Codex, opencode, our own loop,
+   WebUI-v2).
+3. **A multi-agent orchestrator** — DAG dispatcher with critic, adversary,
+   governor, episodic memory, confidence scoring, blame/impact analysis,
+   cartographer.
 
-# 📚 CoDocs Standard — Code Documentation (PRIORITY -9.0)
+**Unique selling point (never compromise this):** every completed task MUST
+pass the verification gate (PoC proof or Oracle check) before the agent
+reports success. No other coding agent in the world enforces this.
 
-Every meaningful code file needs **two documentation layers**:
+## 2. What this repository is NOT
 
-1. **`.doc.md` companion** — the "what and why" overview
-2. **Inline `#` comments** — the "how and why here" detail in the code itself
-
-Both layers must exist. Neither replaces the other.
-
----
-
-## Layer 1: CoDocs (.doc.md companion)
-
-Every code file gets a `.doc.md` companion file in the same directory.
-
-### Naming
-
-```
-router.py         → router.doc.md
-config.yaml       → config.doc.md
-api/types.ts      → api/types.doc.md
-Makefile          → Makefile.doc.md
-```
-
-### Code reference
-
-First line of the code file:
-
-```python
-# Docs: router.doc.md
-```
-
-```ts
-// Docs: types.doc.md
-```
-
-```makefile
-# Docs: Makefile.doc.md
-```
-
-### What belongs in a `.doc.md`
-
-- What does this file do? (1 sentence)
-- Which other files import / touch it? (dependency map)
-- Important config values & limits
-- Why certain decisions were made (e.g. "no async here because X")
-- Usage examples (1-2 lines)
-- Known caveats or footguns
-
-### What does NOT belong in a `.doc.md`
-
-- Implementation details (inline comments handle that)
-- Git history (that's what `git log` is for)
+- NOT a fork of opencode. `OpenSIN-Code/OpenSIN-Code` was an opencode fork and
+  is ARCHIVED (Phase 1, 2026-06-12). Never copy code from it, never reference
+  it as a dependency.
+- NOT related to Code-Swarm. That is a separate product, out of scope.
+- NOT a place to vendor tool implementations that live in their own repos
+  (see ecosystem map, section 5).
+- NOT the WebUI. WebUI-v2 lives in its own repo
+  (`/Users/jeremy/dev/sin-code-web-ui-v2`) and is wired via
+  `sin-code serve` over stdio + `@ai-sdk/mcp`. The WebUI PR cycle is owned by
+  a separate agent — never edit WebUI-v2 from this repo's agent loop.
 
 ---
 
-## Layer 2: SOTA Inline Documentation
+## 3. Hard mandates (violations block merge)
 
-Every code file must also have professional inline `#`/`//`/`#:` comments. This is **not** about "comment every line" — it is about providing **semantic context** that an agent can't infer from the code alone.
+### M1 — CI/CD: n8n delegator ONLY
+NEVER run build/test/lint on normal GitHub Actions runners. This org uses
+n8n + `OpenSIN-AI/sin-github-action` exclusively (webhook secret
+`N8N_CI_WEBHOOK_URL`); all real work executes on the OCI free-tier VM.
+The only permitted `runs-on: ubuntu-latest` job is the ~2s curl delegation
+step itself. Docs: docs.opensin.ai/best-practices/ci-cd-n8n
 
-### SOTA Inline Doc Rules
+### M2 — Single binary
+`sin-code` ships as ONE static Go binary. `CGO_ENABLED=0`. SQLite via
+`modernc.org/sqlite` only. No runtime dependencies beyond the binary itself.
 
-#### 1. File header (mandatory)
+### M3 — Verification gate is sacred
+The agent loop must never report task success while `verify_mode != "off"`
+and the gate has not passed. Default `verify_mode` is `"poc"`.
 
-Every code file starts with:
+### M4 — Permission engine gates everything destructive
+Every tool call goes through the permission engine
+(`allow` / `ask` / `deny`). In headless mode, `ask` resolves to `deny`
+unless `--yolo` is passed.
 
-```
-# Purpose: <what this file does in 1 line>
-# Docs: <companion .doc.md path>
-```
+### M5 — Module path
+`github.com/OpenSIN-Code/SIN-Code` (since v3.0.0). The old path
+`.../SIN-Code-Bundle` must not appear in any new code, config, or doc.
 
-For Python use `"""` module docstrings instead of `#`:
+### M6 — SIN tools over naive built-ins
+The tool router always prefers semantic SIN tools over naive equivalents:
+`sin_edit` over string-replace, SCKG navigation over blind file reads,
+EFM environments over ad-hoc mocks.
 
-```python
-"""Handle user authentication.
-
-Docs: auth.doc.md
-"""
-```
-
-For TypeScript/Rust/etc use doc-comment style:
-
-```ts
-/**
- * Handle user authentication.
- * Docs: auth.doc.md
- */
-```
-
-#### 2. Public API: docstrings (mandatory)
-
-Every public function, method, class, type, and constant needs a docstring:
-
-```python
-def calculate_route(
-    origin: Coordinate,
-    dest: Coordinate,
-    traffic: bool = False,
-) -> Route:
-    """Shortest path between two coordinates.
-
-    Uses A* with Manhattan heuristic. Raises if both coords
-    are identical (avoids zero-length route).
-    """
-    ...
-```
-
-```ts
-/** Shortest path between two coordinates.
- *
- * Uses A* with Manhattan heuristic. Throws if both coords
- * are identical (avoids zero-length route).
- */
-function calculateRoute(
-  origin: Coordinate,
-  dest: Coordinate,
-  traffic: boolean = false,
-): Route { ... }
-```
-
-#### 3. Non-obvious logic: inline context comments
-
-Add a comment when the code does something surprising:
-
-- **Why NOT the obvious approach**: `# not using dict comprehension because ...`
-- **Why this value**: `# 50ms timeout — must be < retry-after of upstream (60ms)`
-- **Why this ordering**: `# flush before close — close may skip unflushed data`
-- **Edge case**: `# handles None because protocol allows null fields`
-- **Performance note**: `# O(n²) but n ≤ 10 in practice`
-- **Security note**: `# sanitize_input() prevents SQL injection here`
-
-#### 4. Section separators (recommended for 100+ line files)
-
-```
-# ── Auth ──────────────────────────────────────
-```
-
-Visually group related blocks. The long line makes sections scannable.
-
-#### 5. Magic values & config keys
-
-Always explain:
-
-```python
-MAX_RETRIES = 3    # upstream SLA guarantees < 2 failures per 1000
-WAIT_SECONDS = 60  # must match upstream rate-limit window
-```
-
-```ts
-const MAX_RETRIES = 3   // upstream SLA guarantees < 2 per 1000
-const WAIT_SECONDS = 60 // must match upstream rate-limit window
-```
-
-#### 6. Tests: describe scenario + expected behavior
-
-```python
-def test_retry_exhaustion():
-    """After 3 retries, route should raise UpstreamError."""
-```
-
-Test names plus docstrings = executable documentation.
-
-#### 7. Deprecation & migration markers
-
-```python
-def old_login():  # DEPRECATED(v2): use authenticate() instead
-```
-
-### When to update inline docs
-
-- **Every change to a function's signature**: update its docstring
-- **Every change to non-obvious logic**: add/update the context comment
-- **Every new module**: file header + section separators
-- **Every new public API**: docstring on add
-
-### When NOT to comment
-
-- `i += 1` — obvious code needs no comment
-- `x = 1` — unless 1 is a meaningful constant
-- Getter/setter boilerplate
-- Standard library calls with obvious semantics
+### M7 — Race-free concurrency
+The orchestrator and any goroutine-using subsystem MUST be verified under
+`go test -race` before merge. The 2026-06-12 v3.0.0 migration surfaced three
+real races in `internal/orchestrator/dispatcher.go`; treat any unguarded
+shared-field mutation as a merge blocker.
 
 ---
 
-## Validation
+## 4. Architecture (target, v3.x)
 
-After changes, verify with the bundle CLI:
+```
+SIN-Code-WebUI-v2 (separate repo, Next.js 16)
+  AI SDK 6 + @ai-sdk/mcp (stdio)
+  │  spawns
+  ▼
+SIN-CODE-CLI (this repo, cmd/sin-code)
+  ├── sin-code chat    ← interactive REPL/TUI
+  ├── sin-code -p ".."  ← headless one-shot (stable JSON contract)
+  ├── sin-code serve   ← unified MCP server (44+ tools)
+  ├── sin-code sessions list|show|rm
+  ├── sin-code tui     ← standalone TUI binary
+  ├── sin-code webui   ← WebUI serve mode
+  └── 30+ subcommands: discover, execute, map, grasp, scout, harvest,
+        orchestrate, ibd, poc, sckg, adw, oracle, efm, security, sbom,
+        config, self-update, plugin, read, write, edit, lsp, index, todo,
+        memory, notifications, serve, …
 
-```bash
-sin codocs check            # exit 1 if any .doc.md reference is broken
-sin codocs check --json     # machine-readable output
-sin codocs list             # list every reference and whether it resolves
+         │
+         ▼
+  ┌──────────────────────────────────────┐
+  │      AGENT LOOP (agentloop)          │
+  │  PLAN → ACT → VERIFY → DONE          │
+  │                                      │
+  │  Permission engine: allow/ask/deny   │
+  │  Hook engine: tool.pre/post/verify.* │
+  │  Verify gate: PoC / Oracle (M3)      │
+  │  Sessions: SQLite, resumable         │
+  │  MCP-Client: external servers        │
+  └──────────────────────────────────────┘
+         │           │           │
+         ▼           ▼           ▼
+  internal/llm   Orchestrator   MCP-Client
+  (OpenAI-       (dag,          (simone, browser,
+   compatible,    dispatcher,    orchestration,
+   NIM, gateway)  critic,        all *-Skill)
+                  adversary,
+                  governor,
+                  episodic)
 ```
 
-For inline docs, use manual review with:
+Agent loop state machine:
 
-```bash
-# Check files that have NO module-level docstring/Purpose line
-python3 -c "
-import ast, sys
-for f in sys.argv[1:]:
-    try:
-        tree = ast.parse(open(f).read())
-        if not (isinstance(tree.body[0], ast.Expr) and hasattr(tree.body[0].value, 'value') and 'Purpose' in tree.body[0].value.s if hasattr(tree.body[0].value, 's') else isinstance(tree.body[0], ast.Expr) and isinstance(tree.body[0].value, ast.Constant)):
-            print(f'MISSING PURPOSE: {f}')
-    except: print(f'PARSE ERROR: {f}')
-"
 ```
-
-## Exceptions
-
-- `docs/` folder — architecture docs, ADRs, setup guides
-- `README.md` — project overview
-- No `.doc.md` for pure config files without logic (`.gitignore`, `.prettierrc`, etc.)
-- No inline docs required for throwaway scripts in `debug/`, `tmp/`, experimental branches
+PLAN ─► ACT (tool calls via router+permissions) ─► model claims done?
+                                                       │
+                                                       ▼
+                                              VERIFY (PoC/Oracle)
+                                                       │ pass
+                                                       ▼
+                                              DONE
+                                              (persist session,
+                                               summary,
+                                               verified=true,
+                                               turns=N)
+                                              ▲ failure
+                                              └─ VERIFICATION FAILED
+                                                 (report fed back
+                                                  as user turn)
+```
 
 ---
 
-## MarkItDown Integration (Microsoft)
+## 5. Ecosystem map (org-level, fixed)
 
-**Converts everything to Markdown** for LLM consumption: PDF, DOCX, PPTX, XLSX,
-Images (OCR), Audio, HTML, CSV/JSON/XML, ZIP, YouTube, EPUB, Outlook MSG.
-
-### Installation
-
-```bash
-pipx install markitdown                          # recommended (CLI + library)
-pip install 'markitdown[pdf, docx, pptx, xlsx]'  # minimal
-pip install 'markitdown[all]'                    # everything
-```
-
-### CLI
-
-```bash
-markitdown file.pdf > file.md                     # stdout
-markitdown file.pdf -o file.md                    # output file
-cat file.pdf | markitdown                         # pipe
-markitdown --use-plugins file.pdf                 # with plugins (OCR)
-markitdown file.pdf --use-cu --cu-endpoint "<e>"  # Azure Content Understanding
-```
-
-### Python API
-
-```python
-from markitdown import MarkItDown
-md = MarkItDown()
-result = md.convert("document.pdf")
-print(result.text_content)
-
-# With LLM vision (image descriptions in PPTX/Images)
-from openai import OpenAI
-md = MarkItDown(llm_client=OpenAI(), llm_model="gpt-4o")
-
-# Security: local files only
-result = md.convert_local("document.pdf")
-```
-
-### CoDocs pipeline
-
-```bash
-for f in docs/*.pdf docs/*.docx docs/*.pptx; do
-    markitdown "$f" -o "${f%.*}.doc.md"
-done
-# then add `# Docs: filename.doc.md` to the matching code file
-```
-
-### Security
-
-- `convert()` runs with the calling process's full file-IO rights. Never pass
-  untrusted input directly.
-- Prefer `convert_local()` / `convert_stream()` for controlled access.
-
-### Reference
-
-https://github.com/microsoft/markitdown | `pipx install markitdown`
+| Layer | Repo | Relationship to this repo |
+|---|---|---|
+| **Agent + Tool plane** | **SIN-Code (this repo)** | The product |
+| Web frontend | `SIN-Code-WebUI-v2` (path: `/Users/jeremy/dev/sin-code-web-ui-v2`) | Spawns `sin-code serve` over stdio; follows our releases |
+| Multi-agent fan-out | `SIN-Code-Orchestration` | Consumed as external MCP server |
+| Semantic tools | `SCKG-Tool`, `IBD-Tool`, `PoC-Tool`, `ADW-Tool`, `EFM-Tool`, `Oracle-Tool` | Backends invoked by our tools |
+| Code intelligence | `Simone-MCP` | External MCP server (AST/LSP) |
+| Browser automation | `SIN-Browser-Tools` | External MCP server (106 tools) |
+| Skills | all `*-Skill` repos (12 total) | External MCP servers |
+| Distribution | `homebrew-sin` | goreleaser pushes formula `sin-code` |
+| Infra | `Infra-SIN-OpenCode-Stack` | Deployment of serve mode |
+| **Archived — never use** | `OpenSIN-Code` (opencode fork), `SIN-Code-Bundle-Web`, 6 long-name duplicates, `coder-SIN-Qwen` | Do not reference |
+| **Out of scope** | `Code-Swarm` | Separate product |
 
 ---
 
-# SIN-Code-Execute-Tool
+## 6. Repository layout (verified `7962b73`)
 
-Safe command execution with timeout, output capture, safety checks, and error analysis.
-
-## Quick Start
-
-```bash
-# Build and install
-go build -o ~/.local/bin/execute ./cmd/execute
-
-# Run a command
-execute -command "echo hello" -format json
-
-# With timeout
-execute -command "sleep 5" -timeout 2 -format json
-
-# Redact secrets
-execute -command "echo API_KEY=secret123" -format json
+```
+SIN-Code/
+├── AGENTS.md                  ← this file (single source of truth)
+├── README.md
+├── CHANGELOG.md
+├── Makefile
+├── go.mod                     ← module github.com/OpenSIN-Code/SIN-Code
+├── .goreleaser.yaml
+├── .github/workflows/
+│   ├── ceo-audit.yml          ← n8n delegation (mandate M1)
+│   └── sin-code-release.yml   ← goreleaser + brew tap
+├── install.sh
+├── Formula/sin-code.rb        ← homebrew formula (goreleaser-managed)
+│
+├── cmd/
+│   ├── sin-code/              ← MAIN BINARY
+│   │   ├── main.go            ← cobra root; registers all 30+ subcommands
+│   │   ├── tui.go             ← TUI entry
+│   │   ├── webui_cmd.go       ← WebUI serve mode
+│   │   ├── internal/          ← 10 packages
+│   │   │   ├── agentloop/     ← PLAN→ACT→VERIFY→DONE loop         [C1, target]
+│   │   │   ├── session/       ← resumable SQLite sessions          [C2, target]
+│   │   │   ├── permission/    ← allow/ask/deny engine              [C4, target]
+│   │   │   ├── verify/        ← mandatory PoC/Oracle gate          [C3, target]
+│   │   │   ├── mcpclient/     ← external MCP server consumption    [C5, target]
+│   │   │   ├── hooks/         ← lifecycle automation engine        [C7, target]
+│   │   │   ├── commands/      ← custom slash commands              [C8, target]
+│   │   │   ├── llm/           ← provider layer (OpenAI-compatible, NIM, gateway)
+│   │   │   ├── orchestrator/  ← dag, dispatcher, critic, adversary, governor,
+│   │   │   │                    episodic, confidence, contract, blame, impact,
+│   │   │   │                    cartographer
+│   │   │   ├── memory/        ← store, search, embed, model
+│   │   │   ├── lsp/           ← LSP client
+│   │   │   ├── notifications/
+│   │   │   ├── todo/          ← SQLite-backed todo store
+│   │   │   ├── plugins/       ← plugin loader
+│   │   │   ├── sandbox/       ← platform-sandbox
+│   │   │   ├── attachments/
+│   │   │   └── webui/         ← embedded webui server
+│   │   └── (target) chat_cmd.go, session_cmd.go
+│   ├── sin-tui/               ← standalone TUI binary
+│   └── SIN-Code-Container-Tool-Go, SIN-Code-SAST-Tool,
+│       SIN-Code-SBOM-Generator, SIN-Code-SBOM-Generator-Go,
+│       SIN-Code-SCA-Tool-Go, SIN-Code-Secrets-Scanner
+│
+├── src/sin_code_bundle/       ← Python companion: `sin` CLI + `sin-serve`
+├── tests/                     ← Go + Python tests
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── AGENT-LOOP.md
+│   ├── MCP-TOOLS.md
+│   └── HOOKS.md               ← PR C7 deliverable
+└── scripts/
+    ├── org-cleanup.sh         ← phase 1 (idempotent)
+    └── promote-to-sin-code.sh ← phase 2 (rename + migration)
 ```
 
-## Features
-
-- **Safety checks**: Blocks dangerous commands (rm -rf /, etc.)
-- **Secret redaction**: Automatically redacts API keys, tokens, passwords
-- **Environment variable redaction**: Redacts USER, HOME, etc.
-- **Timeout handling**: Kills processes after timeout, shows [TIMEOUT]
-- **Error analysis**: Analyzes exit codes and provides suggestions
-- **Persistent history**: Saves execution history to ~/.local/state/sinator/
-- **Signal handling**: Handles SIGKILL, SIGTERM, SIGINT, SIGSEGV
-
-## Links
-
-- [GitHub](https://github.com/OpenSIN-Code/SIN-Code-Execute-Tool)
-- [SIN-Code-Bundle](https://github.com/OpenSIN-Code/SIN-Code)
-- [SIN-Brain](https://github.com/OpenSIN-Code/SIN-Brain)
-
-## Version
-
-v0.2.4-fixes
+Note: target modules (`agentloop/`, `session/`, `permission/`, `verify/`,
+`mcpclient/`, `hooks/`, `commands/`, `chat_cmd.go`, `session_cmd.go`) are part
+of the C1–C8 roadmap (section 8). If a path is missing, it is a TODO —
+create it there, nowhere else.
 
 ---
 
-# SIN-Code-Bundle (LEGACY — superseded by `sin-code` Go binary)
+## 7. Configuration contract
 
-> ⚠️ **DEPRECATED as of v1.1.0.** The Python `sin` CLI / `sin-code-bundle` MCP server is **superseded**
-> by the unified Go binary `sin-code` (`~/.local/bin/sin-code serve`). The Python repo lives on for
-> historical reference and as a fallback for users who cannot install the Go toolchain. Do not start a
-> new project on the Python stack.
+User-level `~/.config/sin-code/config.json`, overridden by project-level
+`./.sin/config.json` (deep-merge, project wins):
 
-The Python implementation that originally unified the SIN-Code agent-engineering stack. The active stack
-is now the **Go binary** documented in the **SIN-Code Tool Suite** section above.
+```json
+{
+  "model": "anthropic/claude-opus-4.6",
+  "provider": "gateway",
+  "api_key_env": "AI_GATEWAY_API_KEY",
+  "max_turns": 80,
+  "verify_mode": "poc",
+  "agent": "default",
+  "mcp_servers": [
+    { "name": "simone",  "transport": "stdio", "command": "simone-mcp" },
+    { "name": "browser", "transport": "stdio", "command": "sin-browser-mcp" },
+    { "name": "orchestration", "transport": "http", "url": "http://localhost:8732/mcp" }
+  ],
+  "permissions": [
+    { "tool": "sin_read",   "policy": "allow" },
+    { "tool": "sin_edit",   "policy": "allow" },
+    { "tool": "sckg_*",     "policy": "allow" },
+    { "tool": "sin_bash",   "policy": "ask"   },
+    { "tool": "browser_*",  "policy": "ask"   },
+    { "tool": "*",          "policy": "ask"   }
+  ],
+  "hooks": [
+    {
+      "event": "tool.post",
+      "matcher": "sin_edit",
+      "type": "command",
+      "command": "gofmt -w $(jq -r '.data.args.path // empty') 2>/dev/null || true"
+    },
+    {
+      "event": "push.pre",
+      "type": "command",
+      "command": "sin-code secrets scan --staged --quiet || { echo 'secret detected — push blocked'; exit 2; }"
+    },
+    {
+      "event": "verify.fail",
+      "type": "webhook",
+      "url": "https://n8n.example.com/webhook/sin-verify-fail"
+    },
+    {
+      "event": "task.complete",
+      "type": "webhook",
+      "url": "https://n8n.example.com/webhook/sin-task-done"
+    },
+    {
+      "event": "adversary.finding",
+      "type": "webhook",
+      "url": "https://n8n.example.com/webhook/sin-security-finding"
+    },
+    {
+      "event": "session.start",
+      "type": "prompt",
+      "text": "Org mandates: n8n CI only, conventional commits, never reduce test coverage."
+    }
+  ]
+}
+```
 
-## Migration
+Session DB: `~/.local/share/sin-code/sessions.db` (SQLite, modernc).
+Headless JSON contract (stable API — never break without major bump):
 
-| Old (Python, deprecated) | New (Go, current) |
-|--------------------------|-------------------|
-| `pip install -e .` (in `SIN-Code-Bundle/`) | `go install` or download release of `sin-code` |
-| `sin status` | `sin-code tui` (or just `sin-code --help`) |
-| `sin bootstrap .` | `sin-code adw` (Architectural Debt Watchdogs) |
-| `sin sin-code run discover --path . ...` | `sin-code discover --path . ...` |
-| `sin serve` (launches the Python MCP) | `sin-code serve` (launches the Go MCP, 13 tools) |
-| `sin sin-code agents-md --output AGENTS.md` | Not needed — the canonical AGENTS.md ships in this repo |
-
-## Why the Go binary won
-
-- **Single binary** — no Python venv to maintain, no pip resolution, no platform issues
-- **13 MCP tools in one server** — replaces the Python MCP's tool sprawl with a clean, discoverable set
-- **No tool-shadowing** — Go tools have short, consistent names (`sin_discover`, `sin_execute`, …) that
-  do not collide with the deprecated `sin-code-bundle_*` prefix
-- **Atomic, AST-verified writes** — `sin-code-bundle_sin_edit` survives line shifts; for everything else
-  the Go binary uses standard `read`/`write` URI schemes (`sckg://`, `oracle://`, etc.)
-
-<!-- gitnexus:start -->
-# GitNexus — Code Intelligence
-
-This project is indexed by GitNexus as **SIN-Code-Bundle** (9997 symbols, 17832 relationships, 273 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
-
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
-
-## Always Do
-
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
-- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
-
-## Never Do
-
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
-- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Resources
-
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/SIN-Code-Bundle/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/SIN-Code-Bundle/clusters` | All functional areas |
-| `gitnexus://repo/SIN-Code-Bundle/processes` | All execution flows |
-| `gitnexus://repo/SIN-Code-Bundle/process/{name}` | Step-by-step execution trace |
-
-## CLI
-
-| Task | Read this skill file |
-|------|---------------------|
-| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
-| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
-| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
-| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
-| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
-| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-
-<!-- gitnexus:end -->
+```json
+{ "session_id": "…", "summary": "…", "verified": true, "turns": 12 }
+```
 
 ---
 
-## Documentation
+## 8. Roadmap (C-gaps) — work strictly in this order
 
-- [CHANGELOG.md](CHANGELOG.md) — version history and release notes
-- [docs/](/docs) — architectural documentation and design decisions
-- CoDocs companion files (`.doc.md`) exist alongside every significant code file
+| ID | Gap | Definition of done |
+|----|-----|--------------------|
+| C1 | `sin-code chat` + `-p` headless entry | TUI/REPL session starts; `-p "..." --json` returns the JSON contract; reuses internal/llm + orchestrator, NO parallel new loop |
+| C2 | Resumable sessions | `--resume <id>` continues with full history; `sin-code sessions list/show/rm` work; stored in sessions.db |
+| C3 | Verification gate | Loop refuses "done" until PoC/Oracle passes; failure report fed back as user turn; `verify_mode` in AgentConfig, default `poc` |
+| C4 | `ask` permission state | Interactive prompt in TUI; headless: ask⇒deny unless `--yolo`; covered by tests |
+| C5 | MCP client manager | External servers from config are connected, their tools merged into the router with `server__tool` namespacing |
+| C6 | WebUI-v2 alignment | session_id passthrough + VerifiedBadge in WebUI-v2; package.json name fixed (**separate repo PR** by WebUI's local agent) |
+| C7 | Hook engine | `internal/hooks` per docs/HOOKS.md; wired into agentloop (tool.pre/post, verify.*, task.complete), permission (permission.ask), and git commands (commit/push.pre); blocking via exit 2; config key `hooks`; ≥80% test coverage |
+| C8 | Custom slash commands | `.sin/commands/*.md` + `~/.config/sin-code/commands/*.md`; frontmatter (description/agent/verify_mode); `/help` in REPL; tests |
+
+Release plan: C1–C5 ⇒ tag `v3.1.0`. C7–C8 ⇒ tag `v3.2.0`. C6 ⇒ separate
+WebUI-v2 PR. Each C-gap = one PR, each PR includes tests.
+
+---
+
+## 9. Development workflow
+
+- Go 1.23+. Before EVERY commit: `make lint test` (golangci-lint,
+  `go test ./... -race -cover`).
+- Conventional commits (`feat:`, `fix:`, `docs:`, `feat!:` for breaking).
+- Releases: tag push `vX.Y.Z` ⇒ goreleaser builds linux/darwin/windows ×
+  amd64/arm64 and updates `homebrew-sin` formula.
+- Never reduce test count or coverage. New loop code targets ≥80% coverage.
+- Python side (`src/sin_code_bundle`): ruff + pytest, same PR discipline.
+- Docs: every behavioral change updates docs/ + CHANGELOG.md in the same PR.
+
+---
+
+## 10. Naming and stability rules
+
+- Binary: `sin-code`. Brew formula: `sin-code`. MCP server name: `sin`.
+- The 44+ MCP tool names below are a public API — renaming any is a
+  breaking change (major bump + deprecation alias for one minor cycle).
+
+### MCP tool inventory (verified `7962b73`)
+
+```
+sin_read, sin_write, sin_edit
+sin_execute, sin_discover, sin_grasp, sin_map, sin_scout, sin_harvest
+sin_orchestrate, sin_ibd, sin_poc, sin_sckg, sin_adw, sin_oracle, sin_efm
+sin_lsp_servers
+sin_index
+sin_memory_add, sin_memory_list, sin_memory_search, sin_memory_stats,
+sin_memory_prime
+sin_todo_add, sin_todo_list, sin_todo_search, sin_todo_show, sin_todo_stats,
+sin_todo_complete, sin_todo_claim, sin_todo_dep_add, sin_todo_deps,
+sin_todo_ready, sin_todo_blocked, sin_todo_prime
+sin_notifications_list, sin_notifications_mark_read, sin_notifications_stats
+sin_orchestrator_run, sin_orchestrator_agents, sin_orchestrator_plan
+sin_agent_doctor, sin_agent_set, sin_agent_show
+```
+
+### CLI subcommands (verified `cmd/sin-code/main.go`)
+
+`discover, execute, map, grasp, scout, harvest, orchestrate, ibd, poc, sckg,
+adw, oracle, efm, serve, security, sbom, config, self-update, tui, webui,
+read, write, edit, lsp, plugin, index, memory, todo, notifications,
+orchestrator_run, orchestrator_agents, orchestrator_plan`
+
+### String "SIN-Code-Bundle" usage
+
+The string "SIN-Code-Bundle" may only appear in CHANGELOG history and
+migration notes — never in code, config, or new docs (mandate M5).
+
+---
+
+## 11. For external AI agents (Claude Code, Codex, etc.) working here
+
+1. Read sections 3 (mandates) and 8 (roadmap) before any edit.
+2. Use the repo's own tools on itself when available (`sin-code serve`
+   dogfooding).
+3. One C-gap or one issue per PR. No drive-by refactors.
+4. If you cannot satisfy a mandate, STOP and report — do not work around it.
+5. WebUI-v2 is OUT OF SCOPE for this repo's agent loop. Edits to
+   `/Users/jeremy/dev/sin-code-web-ui-v2` belong to that repo's local agent.
