@@ -53,7 +53,11 @@ type chatSubmitMsg struct {
 // is shown immediately; the background goroutine dispatches a
 // chat.ChatResponseMsg back into the Update loop via *tea.Program.Send
 // (or, when no program is set, blocks synchronously — used by tests).
-func handleChatSubmit(m *Model, submit chat.SubmitMsg) {
+//
+// Returns a tea.Cmd that subscribes to the AgentRunner's event stream
+// (issue #53) so the user sees the full agentloop progress in chat
+// history. Returns nil when no agent runner is available.
+func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	entry := submit.Text
 	if len(submit.Attachments) > 0 {
 		entry += "\n[attachments:"
@@ -74,7 +78,18 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) {
 		if len(m.ChatHistory) > 500 {
 			m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
 		}
-		return
+	}
+
+	// Issue #53: also kick off the full agentloop in parallel. The
+	// agent runner emits AgentRunnerMsg events that the update loop
+	// folds back into ChatHistory, so the user sees the agent's tool
+	// calls, asks, and final summary alongside the LLM chat reply.
+	// Falls back to nil (no-op) when the runner cannot be constructed
+	// (e.g. workspace not writable).
+	agentCmd := m.submitAgentPrompt(submit.Text)
+
+	if m.ChatRunner == nil {
+		return agentCmd
 	}
 
 	// Show "thinking..." placeholder right away so the user sees feedback.
@@ -103,6 +118,7 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) {
 		// see the assistant entry in history after the next Update.
 		applyChatResponseMsg(m, msg, thinkingIdx)
 	}()
+	return nil
 }
 
 // applyChatResponseMsg replaces the "thinking..." placeholder at idx with
@@ -131,8 +147,16 @@ func (m *Model) updateChat(msg tea.Msg) tea.Cmd {
 	}
 	cmd, submit := m.ChatInput.Update(msg)
 	if submit != nil {
-		handleChatSubmit(m, *submit)
+		agentCmd := handleChatSubmit(m, *submit)
 		m.ChatInput.Clear()
+		// Combine the input's tea.Cmd with the agent-runner
+		// subscription so both fire on the next tick. The agent
+		// subscription re-arms itself in update.go's AgentRunnerMsg
+		// handler.
+		if agentCmd != nil {
+			return tea.Batch(cmd, agentCmd)
+		}
+		return cmd
 	}
 	return cmd
 }
