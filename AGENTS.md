@@ -4,8 +4,8 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** commit `c06cf18` (v3.5.0, 2026-06-12) —
-> Bounded Autonomy release. Tool inventory and repo layout in sections 6 and
+> **Last verified against main:** commit `a52e5ea` (v3.6.0, 2026-06-12) —
+> Self-extension & Swarm release. Tool inventory and repo layout in sections 6 and
 > 10 are sourced from `go test ./...` and `cmd/sin-code/main.go` AddCommand list.
 
 ---
@@ -261,7 +261,7 @@ Headless JSON contract (stable API — never break without major bump):
 
 ---
 
-## 8. Roadmap (versions 3.0.0 – 3.5.0)
+## 8. Roadmap (versions 3.0.0 – 3.6.0)
 
 | Version | Status | Contents |
 |---|---|---|
@@ -270,7 +270,8 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.2.0 | ✅ SHIPPED | C7 hooks (24 events) + C8 slash commands |
 | v3.4.0 | ✅ SHIPPED | Einstein Layer: closed learning loop, loopbuilder, MCP wiring, ECOSYSTEM.md |
 | v3.5.0 | ✅ SHIPPED | Bounded Autonomy: goal queue, triggers, skillmgr, daemon |
-| v3.6.0 | ⏳ NEXT | Swarm-Modus auf loopbuilder, Bootstrap-Skill, TUI-Embedding, Serve-API |
+| v3.6.0 | ✅ SHIPPED | Swarm mode, bootstrap-skill (self-extending), TUI v3.3.1 embed, WebUI-v2 HTTP API |
+| v3.7.0 | ⏳ NEXT | TBD — candidates: race-flake fixes, golden_help.txt regeneration, sin config init/show/validate |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.

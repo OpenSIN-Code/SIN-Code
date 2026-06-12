@@ -20,6 +20,10 @@
 
 **Multi-Agent Orchestration:** 31 subcommands, 44+ MCP tools, 12 ecosystem skill servers (websearch, browser automation, goal mode, rollback, …), permission gates (allow/ask/deny), deterministic lifecycle hooks (24 events).
 
+**Swarm Mode (v3.6.0):** N agent profiles race on the same prompt with diverse strategies (different models, temperatures, tool sets); first verified solution wins. Three hard safety invariants: no gate → no daemon; headless → ask=deny; budget exhausted → hook summons the human.
+
+**Self-Extending Agent (v3.6.0):** `sin_bootstrap_skill` writes Python MCP servers from natural-language specs and registers them in `.sin-code/mcp.json`. Defense-in-depth: requires `SIN_ALLOW_BOOTSTRAP=1` for headless use.
+
 ## Quick Start
 
 ```bash
@@ -48,8 +52,12 @@ sin-code mcp status    # reachability + tool counts
 sin-code skill status  # installed skill repos
 sin-code knowledge list # accumulated lessons
 
-# Swarm mode (planned for v3.6.0)
+# Swarm mode (v3.6.0)
 sin-code swarm -p "optimize this" --agents fast,precise,creative
+# First verified wins, others are cancelled
+
+# Bootstrap a new skill (v3.6.0, headless requires SIN_ALLOW_BOOTSTRAP=1)
+SIN_ALLOW_BOOTSTRAP=1 sin-code chat -p "use sin_bootstrap_skill to add a json-fmt tool"
 ```
 
 ## Architecture
@@ -104,7 +112,8 @@ SIN-Code/
 │   ├── goal_cmd.go          ← autonomous goal queue
 │   ├── daemon_cmd.go        ← autonomous worker
 │   ├── skill_cmd.go         ← ecosystem skill management
-│   └── internal/            ← 15 packages
+│   ├── swarm_cmd.go         ← v3.6.0: N-profile race, first verified wins
+│   └── internal/            ← 17 packages
 │       ├── agentloop/       ← PLAN→ACT→VERIFY→DONE loop
 │       ├── session/, verify/, permission/  ← C2/C3/C4
 │       ├── mcpclient/       ← C5: external MCP consumption
@@ -114,6 +123,8 @@ SIN-Code/
 │       ├── autonomy/        ← v3.5.0: goal queue + triggers
 │       ├── skillmgr/        ← v3.5.0: install/verify skills
 │       ├── loopbuilder/     ← v3.4.0: shared factory (DRY)
+│       ├── apiweb/          ← v3.6.0: WebUI-v2 HTTP API (sessions/knowledge/chat-SSE)
+│       ├── meta/            ← v3.6.0: sin_bootstrap_skill (self-extending)
 │       └── llm/, orchestrator/, memory/, lsp/, todo/, ...
 ├── ECOSYSTEM.md             ← complete org inventory
 ├── AGENTS.md                ← master blueprint
@@ -147,4 +158,4 @@ MIT — see [LICENSE](LICENSE).
 ---
 
 > **Einstein:** "Insanity is doing the same thing and expecting different results."
-> **SIN-Code v3.5.0:** The agent that learns, evolves, and never forgets.
+> **SIN-Code v3.6.0:** Learns, evolves, never forgets, never asks twice.

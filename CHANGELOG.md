@@ -2,6 +2,68 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [3.6.0] - 2026-06-12
+
+### Added
+- **Swarm mode** — `sin-code swarm -p <prompt> --agents <n1,n2,n3>`. N agent
+  profiles race the same prompt headless; first verified solution wins.
+  Per-agent isolated sessions. Cancellation via parent context.
+  Mandate M4 holds (headless ask->deny).
+- **Self-extending agent** — `sin_bootstrap_skill` tool. Agent writes
+  Python MCP servers from natural-language specs, smoke-tests them,
+  and registers in `.sin-code/mcp.json`. Defense-in-depth: permission
+  policy "ask" + env gate `SIN_ALLOW_BOOTSTRAP=1` for headless use.
+- **TUI v3.3.1** — `internal/tui/agent_runner.go` (84.6% cov). TUI embeds
+  the real agent loop. Skill palette entries execute live instead of
+  printing CLI hints. Permission asks render as TUI dialogs (y/N) over
+  the AskReply channel.
+- **WebUI-v2 backend API** — `internal/apiweb/api.go` (81.5% cov). 6
+  HTTP endpoints (sessions CRUD, fork, knowledge, chat-with-SSE) with
+  bearer-token auth via `SIN_API_TOKEN` and localhost-only fallback.
+  Mounted by `sin-code serve --transport=http`. Chat endpoint streams
+  progress as SSE events, final frame is the stable JSON contract
+  `{session_id, summary, verified, turns}`.
+
+## [3.5.0] - 2026-06-12
+
+### Added
+- `internal/lessons` — persistent knowledge base (SQLite, modernc);
+  failed verifications and tool errors accumulate with occurrence
+  counts. `lessons.Briefing` injects top repeated lessons before the
+  first turn (singletons are noise, repetition is signal).
+- `internal/loopbuilder` — shared factory eliminates duplication of
+  provider/permission/hooks/gate/mcp/lessons setup across chat/swarm/
+  serve (DRY refactor).
+- agentloop.Loop gained `Lessons` field; on verify.fail / tool.error
+  the lesson is recorded. On Run() start, the briefing is injected
+  before the first turn.
+- `internal/mcpclient` — `server__tool` namespacing, LoadConfigs with
+  mcp.json discovery (merge defaults + user + workspace), registry of
+  13 ecosystem servers (12 skills + Symfony-Lens).
+- `sin-code mcp list|status|call` — live MCP debugging.
+- Chat command suite (chat_cmd.go, chat_mcp.go, chat_tools.go):
+  interactive REPL + headless one-shot with stable JSON contract.
+- `sin-code sessions list|show|rm` — persistent resumable sessions
+  over `~/.local/share/sin-code/sessions.db` (modernc, foreign_keys=ON).
+- Ecosystem consolidation: ECOSYSTEM.md (24 ACTIVE repos + sync rules),
+  requirements-ecosystem.txt (8→24 entries), profiles/*.toml
+  (fireworks, qwen-relay), docs/HOOKS.md, docs/WEBUI.md,
+  docs/mcp.json.example.
+- .github/workflows/ecosystem-sync.yml — CI gate preventing drift
+  between registry.go, permission_defaults.go, ECOSYSTEM.md,
+  requirements-ecosystem.txt.
+- Goal-queue + autonomy: persistent SQLite queue, atomic leases,
+  cron + file-watch triggers, skill-lifecycle manager.
+- 7 new hook events: goal.enqueued/started/verified/exhausted,
+  trigger.fired, skill.installed/failed.
+- `sin-code daemon --verify-cmd` — autonomous worker (M3+M4 enforced).
+- `sin-code goal add|list` and `sin-code skill install|status`.
+
+## [3.4.0] - 2026-06-12
+
+### Added
+- Einstein Layer — the agent that learns from mistakes.
+
 ## [Unreleased]
 
 ### Added
