@@ -83,6 +83,7 @@ var GlobalVar = 42
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	graspFormat = "text"
@@ -121,6 +122,7 @@ func Hello() {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	graspFormat = "json"

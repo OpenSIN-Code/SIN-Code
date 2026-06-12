@@ -352,6 +352,7 @@ func TestOutputTextADW(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextADW(result); err != nil {
@@ -390,6 +391,7 @@ func TestOutputTextADW_NoIssues(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextADW(result); err != nil {
@@ -489,6 +491,7 @@ func TestOutputTextADW_LowSeverity(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextADW(result); err != nil {
@@ -521,6 +524,7 @@ func TestOutputTextADW_MetricDisplay(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextADW(result); err != nil {

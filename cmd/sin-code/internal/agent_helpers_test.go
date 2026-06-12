@@ -334,6 +334,7 @@ func TestRunDoctorOfflineValid(t *testing.T) {
 func TestPrintDoctor(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 	printDoctor([]DoctorReport{
 		{Agent: "good", OK: true, Info: map[string]interface{}{"provider": "nim"}},

@@ -176,6 +176,7 @@ func TestConfig_List(t *testing.T) {
 	var buf bytes.Buffer
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 	err := configListCmd.RunE(configListCmd, []string{})
 	w.Close()
@@ -210,6 +211,7 @@ func TestConfig_Path(t *testing.T) {
 	var buf bytes.Buffer
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 	err := configPathCmd.RunE(configPathCmd, []string{})
 	w.Close()
@@ -233,6 +235,7 @@ func TestConfig_Init(t *testing.T) {
 	var buf bytes.Buffer
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 	err := configInitCmd.RunE(configInitCmd, []string{})
 	w.Close()
@@ -546,6 +549,7 @@ func TestConfig_SetConfigValueOutput(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 	err := setConfigValue("theme", "dark")
 	w.Close()

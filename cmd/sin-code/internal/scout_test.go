@@ -432,6 +432,7 @@ func TestScoutCmd_RegexJSONFormat(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	scoutQuery = `func \w+`
@@ -465,6 +466,7 @@ func TestScoutCmd_SemanticJSONFormat(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	scoutQuery = "calculate"
@@ -492,6 +494,7 @@ func TestScoutCmd_SymbolJSONFormat(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	scoutQuery = "MyFunc"
@@ -519,6 +522,7 @@ func TestScoutCmd_UsageJSONFormat(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	scoutQuery = "Helper"
@@ -760,6 +764,7 @@ func TestScoutCmd_TextOutput(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := ScoutCmd.RunE(ScoutCmd, []string{})
@@ -933,6 +938,7 @@ func TestScoutCmd_JSONOutput(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := ScoutCmd.RunE(ScoutCmd, []string{})

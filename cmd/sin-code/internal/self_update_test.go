@@ -543,6 +543,7 @@ func TestPrintVersionInfo(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := printVersionInfo()
@@ -576,6 +577,7 @@ func TestPrintVersionInfo_APIError(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := printVersionInfo()
@@ -609,6 +611,7 @@ func TestPrintVersionInfo_UpdateAvailable(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := printVersionInfo()
@@ -663,6 +666,7 @@ func TestSelfUpdateCmd_VersionFlag(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	SelfUpdateCmd.SetArgs([]string{"--version"})
@@ -695,6 +699,7 @@ func TestSelfUpdateCmd_DryRunFlag(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	SelfUpdateCmd.SetArgs([]string{"--dry-run"})

@@ -421,6 +421,7 @@ func TestRedactSecrets_ColonSyntax(t *testing.T) {
 func TestRunCommand_Timeout(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("sleep 10", 1, "text", false)
@@ -443,6 +444,7 @@ func TestRunCommand_Timeout(t *testing.T) {
 func TestRunCommand_ZeroTimeout(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("echo no_timeout", 0, "text", false)
@@ -465,6 +467,7 @@ func TestRunCommand_ZeroTimeout(t *testing.T) {
 func TestRunCommand_JSONFormat(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("echo json_test", 5, "json", false)
@@ -501,6 +504,7 @@ func TestRunCommand_JSONFormat(t *testing.T) {
 func TestRunCommand_JSONFormatWithExitCode(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	_ = runCommand("exit 42", 5, "json", false)
@@ -527,6 +531,7 @@ func TestRunCommand_JSONFormatWithExitCode(t *testing.T) {
 func TestRunCommand_TextFormat(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("echo text_format_test", 5, "text", false)
@@ -574,6 +579,7 @@ func TestRunCommand_StreamModeWithError(t *testing.T) {
 func TestRunCommand_RedactedOutput(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("echo 'api_key=abcdef1234567890xyz'", 5, "json", false)
@@ -604,6 +610,7 @@ func TestRunCommand_RedactedOutput(t *testing.T) {
 func TestRunCommand_StderrCapture(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("echo stderr_test >&2", 5, "json", false)
@@ -631,6 +638,7 @@ func TestRunCommand_StderrCapture(t *testing.T) {
 func TestRunCommand_NonZeroExit(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	_ = runCommand("exit 7", 5, "json", false)
@@ -657,6 +665,7 @@ func TestRunCommand_NonZeroExit(t *testing.T) {
 func TestRunCommand_TimeoutJSON(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	_ = runCommand("sleep 10", 1, "json", false)
@@ -683,6 +692,7 @@ func TestRunCommand_TimeoutJSON(t *testing.T) {
 func TestRunCommand_DurationRecorded(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("echo duration_test", 5, "json", false)
@@ -717,6 +727,7 @@ func TestRunCommand_DurationRecorded(t *testing.T) {
 func TestRunCommand_TextFormatNoStdout(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("true", 5, "text", false)
@@ -739,6 +750,7 @@ func TestRunCommand_TextFormatNoStdout(t *testing.T) {
 func TestRunCommand_TextFormatNoStderr(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("echo hello", 5, "text", false)
@@ -779,6 +791,7 @@ func TestExecuteCmd_JSONOutput(t *testing.T) {
 
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := ExecuteCmd.RunE(ExecuteCmd, []string{})
@@ -801,6 +814,7 @@ func TestExecuteCmd_JSONOutput(t *testing.T) {
 func TestRunCommand_ShortTimeout(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	_ = runCommand("sleep 5", 1, "json", false)
@@ -824,6 +838,7 @@ func TestRunCommand_ShortTimeout(t *testing.T) {
 func TestRunCommand_ExecTimeoutNoExitError(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	_ = runCommand("sleep 999", 1, "json", false)
@@ -857,6 +872,7 @@ func TestRunCommand_StreamWithTimeout(t *testing.T) {
 func TestRunCommand_CommandWithLargeOutput(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("seq 1 1000", 5, "json", false)
@@ -884,6 +900,7 @@ func TestRunCommand_CommandWithLargeOutput(t *testing.T) {
 func TestRunCommand_TextFormatWithError(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("false", 5, "text", false)
@@ -906,6 +923,7 @@ func TestRunCommand_TextFormatWithError(t *testing.T) {
 func TestRunCommand_RedactedFalseWhenNoSecrets(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("echo clean_output", 5, "json", false)
@@ -933,6 +951,7 @@ func TestRunCommand_RedactedFalseWhenNoSecrets(t *testing.T) {
 func TestRunCommand_TextFormatWithStderr(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := runCommand("echo err >&2 && echo out", 5, "text", false)

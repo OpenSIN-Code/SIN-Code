@@ -308,6 +308,7 @@ func TestOutputTextOracle(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextOracle(result); err != nil {
@@ -345,6 +346,7 @@ func TestOutputTextOracle_FullCoverage(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextOracle(result); err != nil {
@@ -396,6 +398,7 @@ func TestVerifyCoverage_JSONOutput(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	err := OracleCmd.RunE(OracleCmd, []string{})
@@ -447,6 +450,7 @@ func TestOutputTextOracle_WithTestsWithoutSource(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
+	defer r.Close()
 	os.Stdout = w
 
 	if err := outputTextOracle(result); err != nil {
