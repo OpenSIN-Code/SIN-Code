@@ -181,3 +181,60 @@ func (s *Store) Delete(id string) error {
 	_, err := s.db.Exec(`DELETE FROM sessions WHERE id = ?`, id)
 	return err
 }
+
+// Fork creates a new session whose history is the first `turn` messages
+// of the source session identified by `src`. If turn is negative or
+// exceeds the source history length, it is clamped. The source session
+// must exist. Returns the new *Session (already persisted) and an error
+// if the source is not found. Mandate C2; called by the WebUI v2 fork
+// endpoint (issue #52).
+func (s *Store) Fork(src string, turn int) (*Session, error) {
+	rows, err := s.db.Query(
+		`SELECT payload FROM messages WHERE session_id = ? ORDER BY idx`, src)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var history []Message
+	for rows.Next() {
+		var payload string
+		if err := rows.Scan(&payload); err != nil {
+			return nil, err
+		}
+		var m Message
+		if err := json.Unmarshal([]byte(payload), &m); err != nil {
+			return nil, err
+		}
+		history = append(history, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var exists int
+	if err := s.db.QueryRow(
+		`SELECT COUNT(1) FROM sessions WHERE id = ?`, src).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if exists == 0 {
+		return nil, fmt.Errorf("session %q not found", src)
+	}
+	if turn < 0 {
+		turn = 0
+	}
+	if turn > len(history) {
+		turn = len(history)
+	}
+	forked := history[:turn]
+
+	child := &Session{ID: newID(), store: s, history: forked}
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := s.db.Exec(
+		`INSERT INTO sessions (id, created_at, updated_at) VALUES (?, ?, ?)`,
+		child.ID, now, now); err != nil {
+		return nil, err
+	}
+	if err := child.SaveHistory(forked); err != nil {
+		return nil, err
+	}
+	return child, nil
+}

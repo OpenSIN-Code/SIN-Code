@@ -47,10 +47,15 @@ type Loop struct {
 	SessionID  string
 	Completion func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error)
 
-	Hooks   *hooks.Engine
-	Perm    *permission.Engine
-	Ask     AskFunc
-	Lessons  *lessons.Store
+	Hooks  *hooks.Engine
+	Perm   *permission.Engine
+	Ask    AskFunc
+	Lessons *lessons.Store
+
+	// RunOverride, if set, replaces the default Run. Used by the
+	// WebUI v2 chat API (issue #52) so tests can swap in a
+	// deterministic result without wiring a real LLM.
+	RunOverride func(ctx context.Context, sess *session.Session, prompt string) (*Result, error)
 }
 
 type Result struct {
@@ -124,6 +129,9 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 }
 
 func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*Result, error) {
+	if l.RunOverride != nil {
+		return l.RunOverride(ctx, sess, prompt)
+	}
 	if l.Completion == nil {
 		return nil, fmt.Errorf("agentloop: Completion func not wired")
 	}
