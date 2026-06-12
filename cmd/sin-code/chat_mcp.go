@@ -33,11 +33,11 @@ func combinedSpecs(mgr *mcpclient.Manager) []agentloop.ToolSpec {
 	return specs
 }
 
-func combinedTool(mgr *mcpclient.Manager) agentloop.LocalToolFunc {
+func combinedTool(workspace string, mgr *mcpclient.Manager) agentloop.LocalToolFunc {
 	return func(ctx context.Context, name string, args map[string]any) (string, error) {
 		if strings.Contains(name, "__") {
 			return mgr.Call(ctx, name, args)
 		}
-		return builtinTool(ctx, name, args)
+		return builtinTool(ctx, workspace, name, args)
 	}
 }

@@ -142,7 +142,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 
 	loop := &agentloop.Loop{
 		Gate:       gate,
-		LocalTool:  combinedTool(mcpMgr),
+		LocalTool:  combinedTool(workspace, mcpMgr),
 		LocalSpec:  combinedSpecs(mcpMgr),
 		Workspace:  workspace,
 		MaxTurns:   opts.maxTurns,
