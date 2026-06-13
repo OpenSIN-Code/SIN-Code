@@ -4,7 +4,7 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** commit `62a32e6` (v3.7.0, 2026-06-12) —
+> **Last verified against main:** commit pending (v3.8.0, 2026-06-13) —
 > Superpowers integration release. Tool inventory and repo layout in sections 6 and
 > 10 are sourced from `go test ./...` and `cmd/sin-code/main.go` AddCommand list.
 
@@ -76,6 +76,15 @@ Every tool call goes through the permission engine
 unless `--yolo` is passed. **The daemon is always headless** — it cannot
 self-escalate permissions.
 
+**v3.8.0 stack layer additions** (default policies, see
+`cmd/sin-code/internal/permission_defaults.go`):
+
+| Tool pattern | Policy | Layer | Reason |
+|---|---|---|---|
+| `vane__*` | allow | research (Bridged-External) | read-only citations, sandboxed |
+| `superpowers__*` | allow | methodology (obra) | already local, just registered |
+| `dox__*` | allow | context (agent0ai) | protocol check, read-only |
+
 ### M5 — Module path
 `github.com/OpenSIN-Code/SIN-Code` (since v3.0.0). The old path
 `.../SIN-Code-Bundle` must not appear in any new code, config, or doc.
@@ -110,7 +119,7 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code serve         ← unified MCP server (44+ tools)
   ├─ sin-code tui           ← standalone TUI binary
   ├─ sin-code webui         ← WebUI serve mode
-  └─ 30+ subcommands
+  └─ 35 subcommands
 
          │
          ▼
@@ -201,7 +210,7 @@ SIN-Code/
 │   └── mcp.json.example
 │
 ├── cmd/
-│   ├── sin-code/              ← MAIN BINARY (31 subcommands)
+│   ├── sin-code/              ← MAIN BINARY (35 subcommands — v3.8.0)
 │   │   ├── main.go            ← cobra root; AddCommand for all subcommands
 │   │   ├── tui.go, webui_cmd.go
 │   │   ├── chat_cmd.go        ← v3.4.0: chat + -p headless
@@ -213,8 +222,11 @@ SIN-Code/
 │   │   ├── goal_cmd.go        ← v3.5.0: goal add|list
 │   │   ├── daemon_cmd.go      ← v3.5.0: autonomous worker
 │   │   ├── skill_cmd.go       ← v3.5.0: skill install|status
+│   │   ├── superpowers_cmd.go   ← v3.7.0: obra/superpowers integration
+│   │   ├── vane_cmd.go          ← v3.8.0: Vane HTTP-bridge subcommand (NewVaneCmd)
+│   │   ├── stack_cmd.go         ← v3.8.0: unified install/doctor coordinator (NewStackCmd)
 │   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
-│   │   └── internal/          ← 15 packages
+│   │   └── internal/          ← 17 packages (v3.8.0)
 │   │       ├── agentloop/     ← PLAN→ACT→VERIFY→DONE loop
 │   │       ├── session/       ← SQLite-backed resumable sessions
 │   │       ├── permission/    ← allow/ask/deny engine
@@ -226,6 +238,8 @@ SIN-Code/
 │   │       ├── autonomy/      ← v3.5.0: goal queue + triggers
 │   │       ├── skillmgr/      ← v3.5.0: install/verify skills
 │   │       ├── loopbuilder/   ← v3.4.0: shared factory (DRY)
+│   │       ├── vane/          ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (internal/vane)
+│   │       ├── stack/         ← v3.8.0: unified install/doctor across 3 layers
 │   │       ├── llm/           ← provider layer
 │   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
 │   │       ├── memory/        ← (existing) store/search/embed
@@ -272,7 +286,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.5.0 | ✅ SHIPPED | Bounded Autonomy: goal queue, triggers, skillmgr, daemon |
 | v3.6.0 | ✅ SHIPPED | Swarm mode, bootstrap-skill (self-extending), TUI v3.3.1 embed, WebUI-v2 HTTP API |
 | v3.7.0 | ✅ SHIPPED | `sin-code superpowers` — obra/superpowers integration with supply-chain pinning + review-before-trust updates |
-| v3.8.0 | ⏳ NEXT | TBD — candidates: race-flake fixes, golden-help regeneration, sin config init/show/validate, agentloop auto-skill-match hook |
+| v3.8.0 | ✅ SHIPPED | Vane HTTP-bridge (`vane__*` research), Stack consolidation (`stack install/doctor` across superpowers+dox+vane), 33 → 35 subcommands, Bridged-External + stdio MCP architecture, 47/47 ecosystem-sync gates green |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -307,13 +321,14 @@ updates `homebrew-sin` formula, and ships to GitHub Releases.
 ```
 Core:      discover, execute, map, grasp, scout, harvest, orchestrate,
            ibd, poc, sckg, adw, oracle, efm
-Agents:    chat, sessions, mcp, goal, daemon, skill
+Agents:    chat, sessions, mcp, goal, daemon, skill, superpowers,
+           vane, stack
 Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
            orchestrator_agents, orchestrator_plan
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
            config, self-update
-```
+``` (v3.8.0: 35 subcommands, up from 33 in v3.7.0)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 

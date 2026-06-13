@@ -71,7 +71,9 @@ func init() {
 	rootCmd.AddCommand(tuiCmd)
 	rootCmd.AddCommand(webuiCmd)
 	rootCmd.AddCommand(NewChatCmd(), NewSessionsCmd(), NewMCPCmd(),
-		NewGoalCmd(), NewDaemonCmd(), NewSkillCmd(), NewSwarmCmd(), NewSuperpowersCmd(), NewDoxCmd()) // v3.4.0 + v3.5.0 autonomy suite + v3.6.0 swarm + v3.7.0 superpowers + v3.7.0 dox
+		NewGoalCmd(), NewDaemonCmd(), NewSkillCmd(), NewSwarmCmd(), NewSuperpowersCmd(), NewDoxCmd(),
+		NewVaneCmd(), NewStackCmd(), // v3.4.0 + v3.5.0 autonomy suite + v3.6.0 swarm + v3.7.0 superpowers + v3.7.0 dox + v3.8.0 vane + v3.8.0 stack
+	)
 
 	// Pass build-time version to self-update module.
 	internal.SetCurrentVersion(Version)

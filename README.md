@@ -4,7 +4,7 @@
 
 [![test-gate](https://img.shields.io/badge/test--gate-passing-brightgreen)](#)
 [![ecosystem-sync](https://img.shields.io/badge/ecosystem--sync-passing-brightgreen)](#)
-[![version](https://img.shields.io/badge/version-v3.5.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
+[![version](https://img.shields.io/badge/version-v3.8.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
 
 ## Features
 
@@ -97,6 +97,54 @@ sin-code superpowers find "debug a failing test"   # auto-match a skill
    skills builtin  (CGo-free) (CGo-free)
 ```
 
+
+## Methodology Stack (v3.8.0)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  LAYER 1 — Context      dox (agent0ai/dox)         MIT      │
+│  LAYER 2 — Methodology  superpowers (obra)         MIT      │
+│  LAYER 3 — Research     vane (ItzCrazyKns)         MIT      │
+│  LAYER 4 — Tools        sin-code (this repo)       MIT      │
+│                                                             │
+│  COORDINATOR:  sin-code stack install|doctor               │
+│                (idempotent, --json, per-layer degrade)      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+Install/doctor flow:
+
+```bash
+# One-shot: install every methodology-stack layer
+sin-code stack install
+
+# Per-layer health report
+sin-code stack doctor --json
+# {"superpowers":{"installed":true,"pinned":"abc1234"},
+#  "dox":       {"installed":true,"version":"1.2.3"},
+#  "vane":      {"reachable":true,"engine":"vane-0.4.0"}}
+
+# Or interact with each layer directly
+sin-code superpowers install           # methodology (obra)
+sin-code dox check                     # protocol conformance (agent0ai)
+sin-code vane install                  # citation-backed research (ItzCrazyKns)
+sin-code vane search "tradeoffs of LRU vs 2-tier cooldown"
+```
+
+### Bridged External Tools (Never Vendored)
+
+| Tool | Upstream | Bridge | License | Status |
+|---|---|---|---|---|
+| Vane | ItzCrazyKns/Vane | HTTP (internal/vane) | MIT | ACTIVE |
+| Websearch | SIN-Code-Websearch-Skill | MCP `websearch__*` | MIT | ACTIVE |
+| Symfony-Lens | sin-code-symfony-lens | MCP `symfonylens__*` | MIT | ACTIVE |
+
+**Bridged-External** means: SIN-Code never vendors the upstream code; it
+spawns a subprocess or speaks the upstream protocol directly. If the
+upstream is unreachable, the layer degrades gracefully (e.g. vane →
+websearch fallback) instead of crashing the agent.
+
+
 ## Hard Mandates (M1–M7)
 
 - **M1:** n8n-CI only — never run build/test on normal GitHub runners
@@ -113,7 +161,7 @@ sin-code superpowers find "debug a failing test"   # auto-match a skill
 
 ```
 SIN-Code/
-├── cmd/sin-code/            ← MAIN BINARY (31 subcommands)
+├── cmd/sin-code/            ← MAIN BINARY (35 subcommands)
 │   ├── main.go
 │   ├── chat_cmd.go          ← chat + -p headless
 │   ├── session_cmd.go       ← sessions list/show/rm/fork
@@ -122,7 +170,10 @@ SIN-Code/
 │   ├── daemon_cmd.go        ← autonomous worker
 │   ├── skill_cmd.go         ← ecosystem skill management
 │   ├── swarm_cmd.go         ← v3.6.0: N-profile race, first verified wins
-│   └── internal/            ← 17 packages
+│   ├── superpowers_cmd.go   ← v3.7.0: obra/superpowers integration
+│   ├── vane_cmd.go          ← v3.8.0: Vane HTTP-bridge subcommand
+│   ├── stack_cmd.go         ← v3.8.0: unified install/doctor across 3 layers
+│   └── internal/            ← 20 packages
 │       ├── agentloop/       ← PLAN→ACT→VERIFY→DONE loop
 │       ├── session/, verify/, permission/  ← C2/C3/C4
 │       ├── mcpclient/       ← C5: external MCP consumption
@@ -134,6 +185,9 @@ SIN-Code/
 │       ├── loopbuilder/     ← v3.4.0: shared factory (DRY)
 │       ├── apiweb/          ← v3.6.0: WebUI-v2 HTTP API (sessions/knowledge/chat-SSE)
 │       ├── meta/            ← v3.6.0: sin_bootstrap_skill (self-extending)
+│       ├── dox/             ← v3.8.0: agent0ai/dox protocol checker
+│       ├── vane/            ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (Bridged-External)
+│       ├── stack/           ← v3.8.0: unified install/doctor coordinator
 │       └── llm/, orchestrator/, memory/, lsp/, todo/, ...
 ├── ECOSYSTEM.md             ← complete org inventory
 ├── AGENTS.md                ← master blueprint
@@ -167,4 +221,4 @@ MIT — see [LICENSE](LICENSE).
 ---
 
 > **Einstein:** "Insanity is doing the same thing and expecting different results."
-> **SIN-Code v3.7.0:** The agent that learns, evolves, never forgets — and follows world-class methodology.
+> **SIN-Code v3.8.0:** The agent that learns, evolves, never forgets — and follows world-class methodology.

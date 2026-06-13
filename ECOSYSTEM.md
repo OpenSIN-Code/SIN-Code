@@ -30,6 +30,7 @@
 | Repo | Server name / tool prefix | Default policy | Status |
 |---|---|---|---|
 | SIN-Code-Websearch-Skill | `websearch__*` | allow | ACTIVE |
+| vane (bridged, never vendored) | `vane__*` | allow | ACTIVE |
 | SIN-Code-Context-Bridge-Skill | `contextbridge__*` | allow | ACTIVE |
 | Simone-MCP | `simone__*` | allow | ACTIVE |
 | SIN-Code-Scheduler-Skill | `scheduler__*` | ask | ACTIVE |
@@ -56,6 +57,19 @@
 | SIN-Code-Slash-Skill | `internal/commands` (C8, in-tree since v3.2.0) | ARCHIVE |
 | SIN-Code-Security-Bundle | in-tree SAST/SBOM/SCA/Secrets tools | ARCHIVE |
 | SIN-Code-Bundle-Web | SIN-Code-WebUI-v2 | ARCHIVED |
+
+## Methodology Stack (v3.8.0)
+
+| Layer | Upstream | License | Tool | Status |
+|---|---|---|---|---|
+| Context (AGENTS.md) | agent0ai/dox | MIT | `dox__*` | ACTIVE |
+| Methodology | obra/superpowers | MIT | `superpowers__*` | ACTIVE |
+| Research (cited sources) | ItzCrazyKns/Vane | MIT | `vane__*` | ACTIVE |
+| Tools | (this repo) | MIT | `sin_*` | ACTIVE |
+
+| Helper | What it does | License | Command | Status |
+|---|---|---|---|---|
+| sin-code stack | Unified install/doctor across 3 layers | MIT | `sin-code stack install` | ACTIVE |
 
 ## Sync rules
 
