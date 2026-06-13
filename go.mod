@@ -19,6 +19,7 @@ require (
 	github.com/rogpeppe/go-internal v1.15.0
 	github.com/spf13/cobra v1.10.2
 	go.etcd.io/bbolt v1.4.3
+	golang.org/x/mod v0.33.0
 	golang.org/x/sys v0.45.0
 	modernc.org/sqlite v1.52.0
 )
