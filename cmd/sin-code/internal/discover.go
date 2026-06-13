@@ -35,6 +35,7 @@ and dependency analysis. Pure Go implementation — no external binary needed.
 Example:
   sin-code discover . --pattern "**/*.go" --sort_by relevance --format json`,
 	Args: cobra.ArbitraryArgs,
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := "."
 		if len(args) > 0 {
@@ -343,6 +344,7 @@ func outputText(results []fileResult) error {
 }
 
 func init() {
+	RegisterVersionCmd(DiscoverCmd)
 	DiscoverCmd.Flags().StringVarP(&discoverPattern, "pattern", "p", "**/*", "File pattern (glob)")
 	DiscoverCmd.Flags().StringVarP(&discoverSort, "sort_by", "s", "relevance", "Sort by: relevance|name|size|mtime")
 	DiscoverCmd.Flags().StringVarP(&discoverFormat, "format", "f", "text", "Output format: text|json")

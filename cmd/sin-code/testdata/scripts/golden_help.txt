@@ -23,9 +23,11 @@ Available Commands:
   config              View and manage sin-code configuration
   daemon              Run the autonomous worker: lease goals, execute, verify, learn
   discover            Discover files with relevance scoring and pattern matching
+  dox                 Self-maintaining AGENTS.md hierarchy (agent0ai/dox protocol)
   edit                Hashline-anchored surgical edits with validation
   efm                 Ephemeral Full-Stack Mocking — spin up disposable test environments
   execute             Execute shell commands safely with secret redaction and timeout
+  gh                  Bridge to the GitHub CLI (gh) with a 3-tier verb-allowlist policy
   goal                Manage the autonomous goal queue
   grasp               Deep code understanding for a single file
   harvest             Fetch URLs with caching, structure extraction, and change detection
@@ -53,10 +55,12 @@ Available Commands:
   serve               Start an MCP server exposing all 13 sin-code tools
   sessions            Manage persisted agent sessions
   skill               Install and manage ecosystem MCP skills
+  stack               Manage the DOX + Superpowers + Vane methodology stack
   superpowers         Integrate obra/superpowers skills into SIN-Code
   swarm               Race N agent profiles on the same prompt (first verified wins)
   todo                Issue tracker with dependencies, audit log, and project namespaces
   tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
+  vane                Bridge to a self-hosted Vane answering engine (citation-backed research)
   webui               Start the sin-code web UI server
   write               Write files atomically with syntax pre-validation
 

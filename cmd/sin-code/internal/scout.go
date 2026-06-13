@@ -47,6 +47,7 @@ Examples:
   sin-code scout --query "func.*main" --path . --search_type regex --format json
   sin-code scout --query "handleError" --path . --search_type usage
   sin-code scout --query "class.*Factory" --search_type symbol --no-rg`,
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if scoutQuery == "" {
 			return fmt.Errorf("--query is required")
@@ -530,6 +531,7 @@ func outputTextScout(results []scoutResult) error {
 }
 
 func init() {
+	RegisterVersionCmd(ScoutCmd)
 	ScoutCmd.Flags().StringVarP(&scoutQuery, "query", "q", "", "Search query (regex or semantic)")
 	_ = ScoutCmd.MarkFlagRequired("query")
 	ScoutCmd.Flags().StringVarP(&scoutPath, "path", "p", ".", "Path to search")

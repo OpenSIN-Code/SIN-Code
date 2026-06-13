@@ -44,6 +44,7 @@ Example:
   sin-code orchestrate --action add --title "Implement feature X" --tags "urgent,backend"
   sin-code orchestrate --action list --format json
   sin-code orchestrate --action complete --id 1`,
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runOrchestrate(orchAction, orchTitle, orchTags, orchID, orchFormat)
 	},
@@ -256,6 +257,7 @@ func splitTags(s string) []string {
 }
 
 func init() {
+	RegisterVersionCmd(OrchestrateCmd)
 	OrchestrateCmd.Flags().StringVarP(&orchAction, "action", "a", "list", "Action: add|remove|list|status|complete")
 	OrchestrateCmd.Flags().StringVarP(&orchTitle, "title", "t", "", "Task title")
 	OrchestrateCmd.Flags().StringVarP(&orchTags, "tags", "", "", "Comma-separated tags")

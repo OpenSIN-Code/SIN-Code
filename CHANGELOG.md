@@ -2,6 +2,26 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **`--version` flag on 13 Go-tool subcommands** (#38). Previously
+  only `sin-code --version` worked; per-subcommand invocation
+  (`sin-code discover --version`, etc.) errored with `unknown flag`.
+  Each of discover, execute, map, grasp, scout, harvest, orchestrate,
+  ibd, poc, sckg, adw, oracle, efm now prints `<name> <version> (commit <sha>, built
+  <date>)` and exits 0. Side-effect: fixed a longstanding ldflag
+  injection bug in `.goreleaser.yaml` (lowercase `main.version` did
+  nothing) and `install.sh` (no version injection at all) — production
+  builds now report the real tag instead of `dev`.
+
+### chore
+- **#61** — `.gitignore`: ignore `cmd/sin-code/tui/.sin-code/` runtime
+  artifacts produced by the TUI's session/lessons store; add CoDocs
+  companion `.gitignore.doc.md`; add regression test
+  `tests/test_gitignore_tui_sin_code.py`. No code paths changed. No
+  version bump.
+
 ## [v3.9.0] - 2026-06-13
 ### Added
 - **GitHub CLI bridge** (`internal/ghbridge/`): bridged external (NEVER vendored) for the official `gh` CLI. 3-tier verb policy enforced in code: read-only (allow) | mutating (ask) | forbidden (hard-blocked). 3 MCP tools: `gh_query` (allow), `gh_execute` (ask), `gh_health` (allow). Enables the SIN-Code contributing workflow "issue first" to be executed by the agent itself.

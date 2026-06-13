@@ -44,6 +44,7 @@ Examples:
   sin-code adw ./src --strict
   sin-code adw . --format json`,
 	Args: cobra.ArbitraryArgs,
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := "."
 		if len(args) > 0 {
@@ -571,6 +572,7 @@ func outputTextADW(r *adwResult) error {
 }
 
 func init() {
+	RegisterVersionCmd(AdwCmd)
 	AdwCmd.Flags().StringVarP(&adwFormat, "format", "f", "text", "Output format: text|json")
 	AdwCmd.Flags().BoolVarP(&adwStrict, "strict", "s", false, "Treat warnings as errors (exit 1 if critical/high issues)")
 }

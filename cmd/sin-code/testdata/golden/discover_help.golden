@@ -13,3 +13,4 @@ Flags:
   -l, --limit int        Max results (default 100)
   -p, --pattern string   File pattern (glob) (default "**/*")
   -s, --sort_by string   Sort by: relevance|name|size|mtime (default "relevance")
+  -v, --version          version for discover

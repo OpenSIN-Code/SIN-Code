@@ -32,6 +32,7 @@ auth management. Pure Go implementation with local disk cache.
 
 Example:
   sin-code harvest --url https://api.example.com/data --format json`,
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if harvestURL == "" {
 			return fmt.Errorf("--url is required")
@@ -143,6 +144,7 @@ func harvestURLFetch(url, method string, timeout int, format string) error {
 }
 
 func init() {
+	RegisterVersionCmd(HarvestCmd)
 	HarvestCmd.Flags().StringVarP(&harvestURL, "url", "u", "", "URL to fetch")
 	_ = HarvestCmd.MarkFlagRequired("url")
 	HarvestCmd.Flags().StringVarP(&harvestMethod, "method", "m", "GET", "HTTP method")

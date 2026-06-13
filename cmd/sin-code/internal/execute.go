@@ -32,6 +32,7 @@ handling, and error analysis. Pure Go implementation — no external binary need
 
 Example:
   sin-code execute --command "ls -la" --timeout 10 --format json`,
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if execCommand == "" {
 			return fmt.Errorf("--command is required")
@@ -232,6 +233,7 @@ func analyzeError(exitCode int, command string) string {
 }
 
 func init() {
+	RegisterVersionCmd(ExecuteCmd)
 	ExecuteCmd.Flags().StringVarP(&execCommand, "command", "c", "", "Command to execute")
 	_ = ExecuteCmd.MarkFlagRequired("command")
 	ExecuteCmd.Flags().IntVarP(&execTimeout, "timeout", "t", 60, "Timeout in seconds (0 = no timeout)")

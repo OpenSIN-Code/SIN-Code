@@ -32,6 +32,7 @@ usage, and related context. Pure Go implementation.
 Example:
   sin-code grasp cmd/sin-code/main.go --format json`,
 	Args: cobra.ExactArgs(1),
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		absPath, err := filepath.Abs(args[0])
 		if err != nil {
@@ -327,5 +328,6 @@ func outputTextGrasp(r *graspResult) error {
 }
 
 func init() {
+	RegisterVersionCmd(GraspCmd)
 	GraspCmd.Flags().StringVarP(&graspFormat, "format", "f", "text", "Output format: text|json")
 }

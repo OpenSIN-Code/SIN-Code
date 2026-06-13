@@ -369,7 +369,18 @@ build_one_tool() {
   mkdir -p "$BIN_DIR"
   (
     cd "$repo"
-    run go build -trimpath -ldflags='-s -w' -o "$out" "./cmd/$binary"
+    # Derive a semantic version. Order of preference:
+    #   1. SIN_CODE_VERSION env var (CI override)
+    #   2. `git describe --tags --always --dirty=-modified` (goreleaser-compatible)
+    #   3. "dev" (no git, no env)
+    SIN_CODE_VERSION="${SIN_CODE_VERSION:-$(git describe --tags --always --dirty=-modified 2>/dev/null || echo dev)}"
+    SIN_CODE_COMMIT="${SIN_CODE_COMMIT:-$(git rev-parse --short HEAD 2>/dev/null || echo unknown)}"
+    SIN_CODE_DATE="${SIN_CODE_DATE:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+    SIN_CODE_LDFLAGS="-s -w \
+      -X github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal.Version=${SIN_CODE_VERSION} \
+      -X github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal.commit=${SIN_CODE_COMMIT} \
+      -X github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal.date=${SIN_CODE_DATE}"
+    run go build -trimpath -ldflags="${SIN_CODE_LDFLAGS}" -o "$out" "./cmd/$binary"
   )
   ok "$binary installed at $out"
 }
