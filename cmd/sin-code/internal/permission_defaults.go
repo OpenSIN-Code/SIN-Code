@@ -41,6 +41,8 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "gh_health", Policy: "allow"},  // v3.9.0: binary presence + auth check
 		{Tool: "gh_execute", Policy: "ask"},    // v3.9.0: mutating (issue create, pr merge, ...)
 		{Tool: "sin_bash", Policy: "ask"},
+		{Tool: "sin_sbom_generate", Policy: "allow"},
+		{Tool: "sin_security_scan", Policy: "allow"},
 		{Tool: "*", Policy: "ask"},
 	}
 }

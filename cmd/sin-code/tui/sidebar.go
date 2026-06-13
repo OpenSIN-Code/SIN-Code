@@ -57,7 +57,7 @@ func DefaultToolSubItems() []ToolSubItem {
 		{Name: "oracle", Description: "Verification oracle", Runnable: false},
 		{Name: "efm", Description: "Ephemeral full-stack mocking", Runnable: false},
 		{Name: "serve", Description: "Start MCP server (stdio)", Runnable: true},
-		{Name: "security", Description: "Security scan (Go/Python/Node)", Runnable: false},
+		{Name: "security", Description: "Security scan (Go/Python/Node)", Runnable: true},
 		{Name: "sbom", Description: "SBOM generation (SPDX/CycloneDX)", Runnable: false},
 		{Name: "config", Description: "Configuration management", Runnable: false},
 		{Name: "self-update", Description: "Update to latest release", Runnable: false},

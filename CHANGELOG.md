@@ -1,5 +1,22 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **MCP tools for in-tree security + sbom** (#36): `sin_security_scan` and
+  `sin_sbom_generate` are now exposed via `sin-code serve`, wrapping the
+  existing in-tree `security` and `sbom` CLI subcommands. Both tools are
+  read-only and do not mutate the scanned tree. Permission defaults set to
+  `allow`.
+  - `sin_security_scan` — runs govulncheck, gosec, go vet, bandit, safety,
+    npm audit, secrets grep, and file-permission walker.
+  - `sin_sbom_generate` — generates SPDX 2.3 JSON or CycloneDX 1.5 JSON.
+  - Timeout ceiling 3600s enforced at the MCP layer (per-tool timeout still handled
+    by `runWithTimeout` in security.go).
+  - Path-escape guard on `sin_sbom_generate` output parameter rejects writes
+    outside the scan root.
+  - TUI sidebar `security` entry now marked `Runnable: true`.
+
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
 ## [v3.10.0] - 2026-06-13

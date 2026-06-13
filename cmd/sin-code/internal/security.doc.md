@@ -45,3 +45,15 @@ sin-code security . --tools govulncheck,gosec
 - **Secrets grep is basic:** Uses simple regexes. It is NOT a replacement for `truffleHog` or `git-secrets`.
 - **Exit codes:** Without `--strict`, the command returns `0` even if issues are found. CI pipelines should use `--strict` to fail on issues.
 - **Timeout is per-tool:** A slow `npm audit` on a large monorepo can exceed the 300s default. Increase with `--timeout`.
+## MCP exposure (v3.11.0, issue #36)
+
+`sin_security_scan` is exposed via `sin-code serve` since v3.11.0. Same arguments
+as the CLI flags (`--type`, `--tools`, `--format`, `--timeout`, `--strict`);
+output is JSON by default (CLI default is `text`). Race-clean, bounded by
+`--timeout` (max 3600s at the MCP layer; per-tool timeout is still enforced by
+`runWithTimeout` in security.go). The `strict` flag is accepted by the MCP
+handler but does NOT propagate as an MCP error — the caller inspects the JSON
+`Summary.Issues` field instead.
+
+Permission default: `allow` (read-only — never mutates the scanned tree).
+

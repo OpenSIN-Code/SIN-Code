@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Purpose: serve — start an MCP (Model Context Protocol) server that exposes
-// all 13 sin-code subcommands as MCP tools. This replaces the 7 separate
+// all 15 sin-code subcommands as MCP tools. This replaces the single MCP server
 // MCP server registrations in opencode.json with a single one.
 package internal
 
@@ -31,28 +31,28 @@ var ServerVersion = "dev"
 
 var ServeCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Start an MCP server exposing all 13 sin-code tools",
-	Long: `Start a Model Context Protocol (MCP) server that exposes all 13 sin-code
+	Short: "Start an MCP server exposing all 15 sin-code tools",
+	Long: `Start a Model Context Protocol (MCP) server that exposes all 15 sin-code
 subcommands as MCP tools. This allows opencode (and any MCP-compatible client)
 to use sin-code as a single registered MCP server instead of registering 13
 separate binaries.
 
-Note: security, sbom, config, self-update, and tui are CLI-only subcommands
-and are NOT exposed as MCP tools. The MCP server only exposes the 13 core
-analysis tools listed below.
+	Note: config, self-update, and tui are CLI-only subcommands
+	and are NOT exposed as MCP tools. The MCP server exposes 15 analysis tools listed below.
+
 
 Example opencode.json entry:
 
   "sin-code": {
     "command": ["/Users/jeremy/.local/bin/sin-code", "serve"],
-    "description": "SIN-Code unified toolchain (13 MCP tools)",
+		"description": "SIN-Code unified toolchain (15 MCP tools)",
     "enabled": true,
     "type": "local"
   }
 
 Then use sin_discover, sin_execute, sin_map, sin_grasp, sin_scout, sin_harvest,
-sin_orchestrate, sin_ibd, sin_poc, sin_sckg, sin_adw, sin_oracle, sin_efm as
-MCP tools.`,
+sin_orchestrate, sin_ibd, sin_poc, sin_sckg, sin_adw, sin_oracle, sin_efm,
+sin_security_scan, sin_sbom_generate as MCP tools.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -287,6 +287,37 @@ func registerAllMCPTools(server *mcp.Server) {
 					"ttl":    map[string]any{"type": "integer", "default": 3600},
 					"format": map[string]any{"type": "string", "enum": []string{"text", "json"}, "default": "json"},
 				},
+			},
+		},
+		{
+			name:        "sin_security_scan",
+			description: "Run the in-tree security subcommand on a project path. Auto-detects Go / Python / Node / generic and runs govulncheck, gosec, go vet, bandit, safety, npm audit, secrets grep, and a file-permission walker. Returns a SecurityResult JSON.",
+			handler:     handleSecurity,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"path":    map[string]any{"type": "string", "description": "Project root to scan (default: .)"},
+					"type":    map[string]any{"type": "string", "enum": []string{"auto", "go", "python", "node", "generic"}, "default": "auto"},
+					"tools":   map[string]any{"type": "string", "description": "Comma-separated tool whitelist (e.g. govulncheck,gosec)"},
+					"format":  map[string]any{"type": "string", "enum": []string{"text", "json"}, "default": "json"},
+					"timeout": map[string]any{"type": "integer", "default": 300, "description": "Per-tool timeout in seconds (max 3600)"},
+					"strict":  map[string]any{"type": "boolean", "default": false, "description": "Reserved; not propagated as MCP error"},
+				},
+				"required": []string{"path"},
+			},
+		},
+		{
+			name:        "sin_sbom_generate",
+			description: "Generate a Software Bill of Materials (SPDX 2.3 JSON or CycloneDX 1.5 JSON) for a project. Auto-detects Go / Python / Node / generic.",
+			handler:     handleSbom,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"path":   map[string]any{"type": "string", "description": "Project root to scan (default: .)"},
+					"format": map[string]any{"type": "string", "enum": []string{"spdx-json", "cyclonedx-json"}, "default": "spdx-json"},
+					"output": map[string]any{"type": "string", "description": "Write to this file path (must be inside <path>). Omit or '-' to return inline."},
+				},
+				"required": []string{"path"},
 			},
 		},
 		{
@@ -941,6 +972,133 @@ func handleOracle(ctx context.Context, args map[string]any) (string, error) {
 func handleEfm(ctx context.Context, args map[string]any) (string, error) {
 	return runSubcommand(ctx, "efm", args)
 }
+
+// handleSecurity dispatches sin_security_scan MCP calls to the existing
+// CLI subcommand. Mirrors cmd/sin-code/internal/security.go SecurityCmd
+// flags: --type, --tools, --format, --timeout, --strict. The path is a
+// required positional argument. Timeout is clamped to 3600s (1h) max.
+func handleSecurity(ctx context.Context, args map[string]any) (string, error) {
+	path := stringArg(args, "path", ".")
+	projType := stringArg(args, "type", "auto")
+	toolFilter := stringArg(args, "tools", "")
+	format := stringArg(args, "format", "json")
+	timeout := intArg(args, "timeout", 300)
+	strict := boolArg(args, "strict")
+
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("security: resolve path: %w", err)
+	}
+	if projType == "" || projType == "auto" {
+		projType = detectProjectType(abs)
+	}
+
+	// Hard ceiling: 1 hour regardless of what the caller asks for.
+	// Without this cap a misbehaving client could pin a goroutine for
+	// 24h via --timeout, which mirrors the per-tool timeout already
+	// enforced by runWithTimeout in security.go.
+	if timeout <= 0 || timeout > 3600 {
+		timeout = 3600
+	}
+
+	result := runSecurityScan(abs, projType, toolFilter, timeout)
+	result.Strict = strict
+
+	if format == "json" {
+		out, mErr := json.MarshalIndent(result, "", "  ")
+		if mErr != nil {
+			return "", mErr
+		}
+		return string(out), nil
+	}
+	return formatSecurityResultText(result), nil
+}
+
+// handleSbom dispatches sin_sbom_generate MCP calls to the existing
+// CLI subcommand. Mirrors cmd/sin-code/internal/sbom.go SbomCmd flags:
+// --format, --output. The path is a required positional argument.
+// Output paths that escape the scan root are rejected to prevent the
+// MCP layer from being a write-anywhere primitive.
+func handleSbom(ctx context.Context, args map[string]any) (string, error) {
+	path := stringArg(args, "path", ".")
+	format := stringArg(args, "format", "spdx-json")
+	output := stringArg(args, "output", "")
+
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("sbom: resolve path: %w", err)
+	}
+
+	projType := detectProjectType(abs)
+	doc, err := generateSBOM(abs, projType, format)
+	if err != nil {
+		return "", fmt.Errorf("sbom generation failed: %w", err)
+	}
+
+	if output == "" || output == "-" {
+		out, mErr := json.MarshalIndent(doc, "", "  ")
+		if mErr != nil {
+			return "", mErr
+		}
+		return string(out), nil
+	}
+
+	// File-output path: refuse if outside the worktree to prevent
+	// the MCP layer from being a write-anywhere primitive.
+	absOut, _ := filepath.Abs(output)
+	if !strings.HasPrefix(absOut, abs+string(filepath.Separator)) &&
+		absOut != abs {
+		return "", fmt.Errorf("sbom: output path %q escapes scan root %q", absOut, abs)
+	}
+	f, ferr := os.Create(absOut)
+	if ferr != nil {
+		return "", fmt.Errorf("sbom: create output: %w", ferr)
+	}
+	defer f.Close()
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(doc); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("wrote SBOM to %s", absOut), nil
+}
+
+// formatSecurityResultText returns a human-readable string for a
+// SecurityResult, mirroring printSecurityResult in security.go but
+// writing to a string instead of stdout.
+func formatSecurityResultText(r SecurityResult) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "🔒 Security Scan Summary — %s project at %s\n", r.ProjectType, r.Path)
+	fmt.Fprintf(&b, "   Duration: %s\n\n", r.Duration)
+
+	for _, t := range r.Tools {
+		switch t.Status {
+		case "ok":
+			fmt.Fprintf(&b, "   ✅ %-20s  %s  (no issues)\n", t.Name, t.Duration)
+		case "issues":
+			fmt.Fprintf(&b, "   ⚠️  %-20s  %s  (%d issues)\n", t.Name, t.Duration, t.Issues)
+		case "error":
+			fmt.Fprintf(&b, "   ❌ %-20s  %s  ERROR: %s\n", t.Name, t.Duration, t.Error)
+		case "not_found":
+			fmt.Fprintf(&b, "   ⏭️  %-20s  not installed\n", t.Name)
+		case "skipped":
+			fmt.Fprintf(&b, "   ⏭️  %-20s  skipped\n", t.Name)
+		}
+	}
+
+	fmt.Fprintf(&b, "\n   Tools run: %d  |  Issues: %d  |  Errors: %d  |  Not found: %d  |  Skipped: %d\n",
+		r.Summary.ToolsRun, r.Summary.Issues, r.Summary.Errors, r.Summary.NotFound, r.Summary.Skipped)
+
+	if r.Strict && r.Summary.Issues > 0 {
+		fmt.Fprintf(&b, "\n   ⚠️  Strict mode: %d issues found — exiting with error\n", r.Summary.Issues)
+	} else if r.Summary.Issues > 0 {
+		fmt.Fprintf(&b, "\n   ⚠️  %d issues found — review recommended\n", r.Summary.Issues)
+	} else {
+		fmt.Fprintf(&b, "\n   ✅ No security issues detected\n")
+	}
+	return b.String()
+}
+
 
 func runSubcommand(ctx context.Context, name string, args map[string]any) (string, error) {
 	cmdArgs := []string{name}
