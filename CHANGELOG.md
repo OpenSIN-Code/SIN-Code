@@ -2,6 +2,27 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [v3.17.0] - 2026-06-13
+
+### Added
+- **Structured logging** (`internal/logger/`): JSON output with log levels
+  (DEBUG/INFO/WARN/ERROR), dynamic stderr for testability.
+- **Health check endpoints** in WebUI: `/health`, `/live`, `/ready`, `/info`
+  with custom checks for templates and todo_db.
+
+### Fixed
+- **MCP server warnings deduplicated** (#66): each server name warned about
+  at most once per process lifetime.
+- **TUI test flake** (#64): `SkipMCP` flag in loopbuilder/tui configs —
+  tests skip MCP connections (48s → 3.3s).
+- **Python 3.14 test fix** (#65): marketplace update tests mock `Updater`
+  class to avoid real `git pull` calls.
+
+## [v3.16.1] - 2026-06-13
+
+### Fixed
+- Mock git pull in marketplace update tests for Python 3.14 compatibility.
+
 ## [v3.16.0] - 2026-06-13
 
 ### Added
