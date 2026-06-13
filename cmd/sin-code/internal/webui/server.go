@@ -7,6 +7,8 @@ package webui
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -538,6 +540,11 @@ func efmMetaDir() string {
 		return filepath.Join(os.TempDir(), "sin-code-efm")
 	}
 	return filepath.Join(cfg, "sin-code", "efm")
+}
+
+func efmMetaKey(stackPath string) string {
+	h := sha256.Sum256([]byte(stackPath))
+	return hex.EncodeToString(h[:]) + ".meta"
 }
 
 func detectContainerRuntime() string {

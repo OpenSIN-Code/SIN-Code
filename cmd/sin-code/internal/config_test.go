@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-// Purpose: Unit tests for config.go (expanded: roundtrip, list, path, init, multi-value).
+// Purpose: Unit tests for config.go (expanded: roundtrip, list, path, init, multi-value,
+// new config subsystem: show, validate, deep merge, atomic writes, masking, namespaced keys).
+// Docs: config.doc.md
 package internal
 
 import (
@@ -25,6 +27,12 @@ func TestConfig_DefaultConfig(t *testing.T) {
 	}
 	if !cfg.MCPServerEnabled {
 		t.Error("expected MCP server enabled by default")
+	}
+	if cfg.LLMMaxTokens != 8192 {
+		t.Errorf("expected llm.max_tokens 8192, got %d", cfg.LLMMaxTokens)
+	}
+	if cfg.AgentVerifyMode != "poc" {
+		t.Errorf("expected agent.verify_mode 'poc', got %q", cfg.AgentVerifyMode)
 	}
 }
 
@@ -202,6 +210,9 @@ func TestConfig_List(t *testing.T) {
 	if !contains(output, "mcp_server_enabled") {
 		t.Error("expected output to contain 'mcp_server_enabled'")
 	}
+	if !contains(output, "llm.base_url") {
+		t.Error("expected output to contain 'llm.base_url'")
+	}
 }
 
 func TestConfig_Path(t *testing.T) {
@@ -261,6 +272,12 @@ func TestConfig_Init(t *testing.T) {
 	}
 	if !contains(content, "mcp_server_enabled = true") {
 		t.Error("expected default config to contain 'mcp_server_enabled = true'")
+	}
+	if !contains(content, "llm.base_url") {
+		t.Error("expected default config to contain 'llm.base_url'")
+	}
+	if !contains(content, "agent.verify_mode") {
+		t.Error("expected default config to contain 'agent.verify_mode'")
 	}
 }
 
@@ -563,5 +580,490 @@ func TestConfig_SetConfigValueOutput(t *testing.T) {
 	out := buf.String()
 	if !contains(out, "Set theme") {
 		t.Errorf("expected output to mention 'Set theme', got %q", out)
+	}
+}
+
+func TestConfig_MaskSecret(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"", ""},
+		{"short", "***"},
+		{"my-super-secret-key", "my-s...-key"},
+		{"12345678", "***"},
+		{"123456789", "1234...6789"},
+	}
+	for _, c := range cases {
+		got := maskSecret(c.in)
+		if got != c.want {
+			t.Errorf("maskSecret(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestConfig_SetGetNewKeys(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveConfig(defaultConfig()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := setConfigValue("llm.api_key", "sk-1234567890abcdef"); err != nil {
+		t.Fatalf("set llm.api_key: %v", err)
+	}
+	val, err := getConfigValue("llm.api_key")
+	if err != nil {
+		t.Fatalf("get llm.api_key: %v", err)
+	}
+	if val != "sk-1...cdef" {
+		t.Errorf("expected masked api key, got %q", val)
+	}
+
+	if err := setConfigValue("permissions.tools_allow", "sin_*,sckg_*"); err != nil {
+		t.Fatalf("set tools_allow: %v", err)
+	}
+	val, err = getConfigValue("permissions.tools_allow")
+	if err != nil {
+		t.Fatalf("get tools_allow: %v", err)
+	}
+	if val != "sin_*,sckg_*" {
+		t.Errorf("expected tools_allow list, got %q", val)
+	}
+
+	if err := setConfigValue("agent.max_turns", "120"); err != nil {
+		t.Fatalf("set agent.max_turns: %v", err)
+	}
+	val, err = getConfigValue("agent.max_turns")
+	if err != nil {
+		t.Fatalf("get agent.max_turns: %v", err)
+	}
+	if val != "120" {
+		t.Errorf("expected '120', got %q", val)
+	}
+}
+
+func TestConfig_ValidateValid(t *testing.T) {
+	issues := validateConfig(defaultConfig())
+	if len(issues) != 0 {
+		t.Errorf("expected valid default config, got issues: %v", issues)
+	}
+}
+
+func TestConfig_ValidateInvalid(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Theme = "blue"
+	cfg.DefaultTimeout = -1
+	cfg.DefaultFormat = "yaml"
+	cfg.LLMMaxTokens = 0
+	cfg.LLMTemperature = 3.0
+	cfg.AgentVerifyMode = "fast"
+	cfg.AgentMaxTurns = -5
+
+	issues := validateConfig(cfg)
+	if len(issues) == 0 {
+		t.Fatal("expected validation issues")
+	}
+	want := []string{
+		"theme", "default_timeout", "default_format", "llm.max_tokens",
+		"llm.temperature", "agent.verify_mode", "agent.max_turns",
+	}
+	for _, w := range want {
+		found := false
+		for _, iss := range issues {
+			if contains(iss, w) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected issue containing %q, got %v", w, issues)
+		}
+	}
+}
+
+func TestConfig_DeepMergeProjectOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	user := `theme = "dark"
+agent.verify_mode = "poc"
+llm.max_tokens = 4096
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "sin-code.toml"), []byte(user), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	projDir := filepath.Join(tmpDir, "project")
+	if err := os.MkdirAll(filepath.Join(projDir, ".sin-code"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	proj := `theme = "light"
+agent.max_turns = 50
+`
+	if err := os.WriteFile(filepath.Join(projDir, ".sin-code", "config.toml"), []byte(proj), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Change into project directory so project config path resolves.
+	oldWd, _ := os.Getwd()
+	os.Chdir(projDir)
+	defer os.Chdir(oldWd)
+
+	cfg, err := loadMergedConfig()
+	if err != nil {
+		t.Fatalf("loadMergedConfig: %v", err)
+	}
+	if cfg.Theme != "light" {
+		t.Errorf("expected project theme override 'light', got %q", cfg.Theme)
+	}
+	if cfg.AgentVerifyMode != "poc" {
+		t.Errorf("expected user verify_mode 'poc' to remain, got %q", cfg.AgentVerifyMode)
+	}
+	if cfg.LLMMaxTokens != 4096 {
+		t.Errorf("expected user llm.max_tokens 4096 to remain, got %d", cfg.LLMMaxTokens)
+	}
+	if cfg.AgentMaxTurns != 50 {
+		t.Errorf("expected project agent.max_turns 50, got %d", cfg.AgentMaxTurns)
+	}
+}
+
+func TestConfig_DeepMergeProjectDoesNotUnsetBool(t *testing.T) {
+	// Project config that does not mention mcp_server_enabled should not
+	// disable the user default.
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	user := `theme = "dark"
+mcp_server_enabled = true
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "sin-code.toml"), []byte(user), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	projDir := filepath.Join(tmpDir, "project")
+	if err := os.MkdirAll(filepath.Join(projDir, ".sin-code"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	proj := `theme = "light"
+`
+	if err := os.WriteFile(filepath.Join(projDir, ".sin-code", "config.toml"), []byte(proj), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldWd, _ := os.Getwd()
+	os.Chdir(projDir)
+	defer os.Chdir(oldWd)
+
+	cfg, err := loadMergedConfig()
+	if err != nil {
+		t.Fatalf("loadMergedConfig: %v", err)
+	}
+	if !cfg.MCPServerEnabled {
+		t.Error("expected mcp_server_enabled to remain true when not mentioned in project config")
+	}
+	if cfg.Theme != "light" {
+		t.Errorf("expected project theme override, got %q", cfg.Theme)
+	}
+}
+
+func TestConfig_AtomicWrite(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveConfig(defaultConfig()); err != nil {
+		t.Fatalf("saveConfig: %v", err)
+	}
+	cfgPath := filepath.Join(cfgDir, "sin-code.toml")
+	info, err := os.Stat(cfgPath)
+	if err != nil {
+		t.Fatalf("stat config: %v", err)
+	}
+	if info.Size() == 0 {
+		t.Error("expected non-empty config file after atomic save")
+	}
+	// No tmp files should remain.
+	matches, err := filepath.Glob(filepath.Join(cfgDir, "sin-code.toml.tmp*"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 0 {
+		t.Errorf("expected no leftover tmp files, got %v", matches)
+	}
+}
+
+func TestConfig_ShowMasked(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := defaultConfig()
+	cfg.LLMAPIKey = "sk-abcdef1234567890"
+	if err := saveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	defer r.Close()
+	os.Stdout = w
+	err := configShowCmd.RunE(configShowCmd, []string{})
+	w.Close()
+	io.Copy(&buf, r)
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("configShowCmd: %v", err)
+	}
+	out := buf.String()
+	if contains(out, cfg.LLMAPIKey) {
+		t.Errorf("expected api key to be masked, got %q", out)
+	}
+	if !contains(out, "sk-a...7890") {
+		t.Errorf("expected masked api key in output, got %q", out)
+	}
+}
+
+func TestConfig_ShowPlain(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := defaultConfig()
+	cfg.LLMAPIKey = "sk-abcdef1234567890"
+	if err := saveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	defer r.Close()
+	os.Stdout = w
+	configShowCmd.Flags().Set("plain", "true")
+	err := configShowCmd.RunE(configShowCmd, []string{})
+	configShowCmd.Flags().Set("plain", "false")
+	w.Close()
+	io.Copy(&buf, r)
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("configShowCmd: %v", err)
+	}
+	out := buf.String()
+	if !contains(out, cfg.LLMAPIKey) {
+		t.Errorf("expected plain api key in output, got %q", out)
+	}
+}
+
+func TestConfig_ShowJSON(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveConfig(defaultConfig()); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	defer r.Close()
+	os.Stdout = w
+	configShowCmd.Flags().Set("json", "true")
+	err := configShowCmd.RunE(configShowCmd, []string{})
+	configShowCmd.Flags().Set("json", "false")
+	w.Close()
+	io.Copy(&buf, r)
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("configShowCmd: %v", err)
+	}
+	out := buf.String()
+	if !contains(out, "\"theme\"") {
+		t.Errorf("expected JSON theme key, got %q", out)
+	}
+	if !contains(out, "\"llm\"") {
+		t.Errorf("expected JSON llm section, got %q", out)
+	}
+}
+
+func TestConfig_ShowTOML(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveConfig(defaultConfig()); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	defer r.Close()
+	os.Stdout = w
+	configShowCmd.Flags().Set("toml", "true")
+	err := configShowCmd.RunE(configShowCmd, []string{})
+	configShowCmd.Flags().Set("toml", "false")
+	w.Close()
+	io.Copy(&buf, r)
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("configShowCmd: %v", err)
+	}
+	out := buf.String()
+	if !contains(out, "llm.base_url") {
+		t.Errorf("expected TOML llm.base_url, got %q", out)
+	}
+}
+
+func TestConfig_ValidateCommand(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveConfig(defaultConfig()); err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	defer r.Close()
+	os.Stdout = w
+	err := configValidateCmd.RunE(configValidateCmd, []string{})
+	w.Close()
+	io.Copy(&buf, r)
+	os.Stdout = old
+
+	if err != nil {
+		t.Fatalf("configValidateCmd: %v", err)
+	}
+	if !contains(buf.String(), "Configuration is valid") {
+		t.Errorf("expected valid message, got %q", buf.String())
+	}
+}
+
+func TestConfig_ValidateCommandInvalid(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	cfg := defaultConfig()
+	cfg.Theme = "invalid"
+	if err := saveConfig(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	err := configValidateCmd.RunE(configValidateCmd, []string{})
+	if err == nil {
+		t.Fatal("expected validation error for invalid theme")
+	}
+}
+
+func TestConfig_ExpandedRoundtrip(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	content := `theme = "light"
+default_timeout = 120
+default_format = "text"
+mcp_server_enabled = false
+llm.base_url = "https://example.com/v1"
+llm.api_key = "secret-key"
+llm.model = "gpt-4"
+llm.max_tokens = 4096
+llm.temperature = 0.5
+agent.verify_mode = "oracle"
+agent.max_turns = 100
+agent.headless = true
+agent.yolo = true
+permissions.tools_allow = "sin_*,sckg_*"
+permissions.tools_deny = "dangerous_*"
+paths.mcp_config = "./mcp.json"
+paths.skills_dir = "./skills"
+`
+	if err := os.WriteFile(filepath.Join(cfgDir, "sin-code.toml"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+	if cfg.Theme != "light" {
+		t.Errorf("expected theme light, got %q", cfg.Theme)
+	}
+	if cfg.DefaultTimeout != 120 {
+		t.Errorf("expected timeout 120, got %d", cfg.DefaultTimeout)
+	}
+	if cfg.LLMBaseURL != "https://example.com/v1" {
+		t.Errorf("expected llm base url, got %q", cfg.LLMBaseURL)
+	}
+	if cfg.LLMAPIKey != "secret-key" {
+		t.Errorf("expected api key, got %q", cfg.LLMAPIKey)
+	}
+	if cfg.LLMModel != "gpt-4" {
+		t.Errorf("expected model, got %q", cfg.LLMModel)
+	}
+	if cfg.LLMMaxTokens != 4096 {
+		t.Errorf("expected max tokens 4096, got %d", cfg.LLMMaxTokens)
+	}
+	if cfg.LLMTemperature != 0.5 {
+		t.Errorf("expected temperature 0.5, got %v", cfg.LLMTemperature)
+	}
+	if cfg.AgentVerifyMode != "oracle" {
+		t.Errorf("expected verify oracle, got %q", cfg.AgentVerifyMode)
+	}
+	if cfg.AgentMaxTurns != 100 {
+		t.Errorf("expected max turns 100, got %d", cfg.AgentMaxTurns)
+	}
+	if !cfg.AgentHeadless {
+		t.Error("expected headless true")
+	}
+	if !cfg.AgentYolo {
+		t.Error("expected yolo true")
+	}
+	if len(cfg.ToolsAllow) != 2 || cfg.ToolsAllow[0] != "sin_*" {
+		t.Errorf("expected tools allow, got %v", cfg.ToolsAllow)
+	}
+	if len(cfg.ToolsDeny) != 1 || cfg.ToolsDeny[0] != "dangerous_*" {
+		t.Errorf("expected tools deny, got %v", cfg.ToolsDeny)
+	}
+	if cfg.PathsMCPConfig != "./mcp.json" {
+		t.Errorf("expected mcp config path, got %q", cfg.PathsMCPConfig)
+	}
+	if cfg.PathsSkillsDir != "./skills" {
+		t.Errorf("expected skills dir, got %q", cfg.PathsSkillsDir)
 	}
 }

@@ -4,8 +4,8 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** commit pending (v3.13.0, 2026-06-13) —
-> GitHub bridge release. Tool inventory and repo layout in sections 6 and
+> **Last verified against main:** v3.14.0 in progress (2026-06-13) —
+> unified config subsystem (#34). Tool inventory and repo layout in sections 6 and
 > 10 are sourced from `go test ./...` and `cmd/sin-code/main.go` AddCommand list.
 
 ---
@@ -271,14 +271,19 @@ SIN-Code/
 
 ## 7. Configuration contract
 
-User-level `~/.config/sin-code/config.json`, overridden by project-level
-`./.sin/config.json` (deep-merge, project wins). See section 7 in the
-**previous** version of AGENTS.md for the full JSON schema, or read
-`docs/mcp.json.example` for the MCP-specific shape.
+User-level `~/.config/sin/sin-code.toml`, overridden by project-level
+`./.sin-code/config.toml` (deep-merge, project wins). The TOML-like file uses
+flat namespaced keys (e.g. `llm.base_url`, `permissions.tools_allow`) because
+the parser is dependency-free (M2). Manage it with `sin-code config`:
+`init`, `show`, `validate`, `get`, `set`, `list`, `path`. Secrets are masked
+in `show` unless `--plain` is passed. See `cmd/sin-code/internal/config.go`
+and `config.doc.md` for the full schema and validation rules.
 
 Session DB: `~/.local/share/sin-code/sessions.db` (SQLite, modernc).
 Lessons DB: `~/.local/share/sin-code/lessons.db` (SQLite, modernc).
 Goal Queue DB: `~/.local/share/sin-code/goals.db` (SQLite, modernc).
+Ledger DB: `~/.local/share/sin-code/ledger.db` (SQLite, modernc), overridable
+via `SIN_CODE_LEDGER`.
 
 Headless JSON contract (stable API — never break without major bump):
 
@@ -305,6 +310,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.11.0 | ✅ SHIPPED | `sin update` e2e self-update (#33), security + sbom MCP tools (#36), 36 → 36 subcommands |
 | v3.12.0 | ✅ SHIPPED | Tool catalog hub (`internal/hub/`, `hub_cmd.go`), `sin-code hub list/search/info`, 36 → 37 subcommands, closes #35 |
 | v3.13.0 | ✅ SHIPPED | Semantic Session Ledger (`internal/ledger/`, `internal/summary/`), `sin-code ledger list/show`, `sin-code summary`, deterministic auto-summaries with verification evidence, 37 → 39 subcommands, closes #43 |
+| v3.14.0 | 🔄 IN PROGRESS | Unified config subsystem (#34): `sin-code config init/show/validate`, expanded TOML schema, user + project deep merge, atomic writes, secret masking, 39 subcommands |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.

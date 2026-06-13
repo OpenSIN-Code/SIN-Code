@@ -3,11 +3,16 @@ cmp stdout help.golden
 
 -- help.golden --
 sin-code is the unified Go binary for the SIN-Code tool suite.
-It consolidates 19 subcommands (13 core tools + 6 utility commands) into a single cobra-based CLI:
+It consolidates 39+ subcommands into a single cobra-based CLI:
 
   Core analysis:    discover, execute, map, grasp, scout, harvest, orchestrate
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
-  Utility commands: security, sbom, config, self-update, tui, serve
+  Utility commands: security, sbom, config, self-update, tui, serve, update
+  Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, superpowers,
+                    vane, stack, gh, hub, ledger, summary
+  Other:            completion, read, write, edit, lsp, plugin, index,
+                    orchestrator-run, orchestrator-agents, orchestrator-plan,
+                    todo, notifications, memory
 
 Each subcommand is also a thin pass-through to the standalone tool repos
 for backwards compatibility — the standalone binaries are still maintained
@@ -32,8 +37,10 @@ Available Commands:
   grasp               Deep code understanding for a single file
   harvest             Fetch URLs with caching, structure extraction, and change detection
   help                Help about any command
+  hub                 Tool catalog and landing page for sin-code
   ibd                 Intent-Based Diffing — compare code changes against stated intent
   index               Manage persistent incremental code index
+  ledger              Query the semantic session ledger
   lsp                 LSP (Language Server Protocol) — IDE-grade code intelligence
   map                 Map code architecture with dependency graphs and hot-path analysis
   mcp                 Inspect and debug external MCP servers
@@ -52,14 +59,16 @@ Available Commands:
   scout               Search code with regex, semantic, symbol, and usage search
   security            Fast security analysis — auto-detects project type and runs available tools
   self-update         Check for and install the latest sin-code release
-  serve               Start an MCP server exposing all 13 sin-code tools
+  serve               Start an MCP server exposing all 15 sin-code tools
   sessions            Manage persisted agent sessions
   skill               Install and manage ecosystem MCP skills
   stack               Manage the DOX + Superpowers + Vane methodology stack
+  summary             Build a deterministic summary from the session ledger
   superpowers         Integrate obra/superpowers skills into SIN-Code
   swarm               Race N agent profiles on the same prompt (first verified wins)
   todo                Issue tracker with dependencies, audit log, and project namespaces
   tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
+  update              Update SIN-Code stack (Python packages, Go binaries, skills)
   vane                Bridge to a self-hosted Vane answering engine (citation-backed research)
   webui               Start the sin-code web UI server
   write               Write files atomically with syntax pre-validation

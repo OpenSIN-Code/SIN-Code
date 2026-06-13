@@ -470,7 +470,7 @@ func TestDiscoverEfmStacksWithMeta(t *testing.T) {
 		t.Fatal(err)
 	}
 	meta := `{"stack":"/tmp/docker-compose.yml","started":"` + time.Now().Format(time.RFC3339) + `","expires":"` + time.Now().Add(time.Hour).Format(time.RFC3339) + `","runtime":"docker"}`
-	if err := os.WriteFile(filepath.Join(metaDir, "docker-compose.yml.meta"), []byte(meta), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(metaDir, efmMetaKey("/tmp/docker-compose.yml")), []byte(meta), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	stacks, _, err := discoverEfmStacks()

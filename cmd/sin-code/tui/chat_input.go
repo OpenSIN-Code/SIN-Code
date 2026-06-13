@@ -106,26 +106,24 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	prompt := submit.Text
 
 	prog := m.Program
+	if prog == nil {
+		// No program wired up (e.g. test path): run synchronously so the
+		// caller sees the final history immediately and the model is never
+		// mutated by a background goroutine.
+		text, err := runner.Run(m.ctx(), prompt, historySnapshot)
+		applyChatResponseMsg(m, chat.ChatResponseMsg{Text: text, Error: err}, thinkingIdx)
+		return nil
+	}
 	go func() {
 		text, err := runner.Run(m.ctx(), prompt, historySnapshot)
-		msg := chat.ChatResponseMsg{Text: text, Error: err}
-		if prog != nil {
-			prog.Send(msg)
-			return
-		}
-		// No program wired up (e.g. test path): apply synchronously via
-		// a tea.Cmd the next Update tick can pick up. The caller will
-		// see the assistant entry in history after the next Update.
-		applyChatResponseMsg(m, msg, thinkingIdx)
+		prog.Send(chat.ChatResponseMsg{Text: text, Error: err})
 	}()
 	return nil
 }
 
 // applyChatResponseMsg replaces the "thinking..." placeholder at idx with
-// the real assistant text (or error). Used by the synchronous fallback
-// path; the async path mutates m.ChatHistory directly from the goroutine
-// only when there's no *tea.Program, in which case the model is single-
-// threaded and there's no race.
+// the real assistant text (or error). Used by the synchronous fallback path
+// when no *tea.Program is wired up.
 func applyChatResponseMsg(m *Model, msg chat.ChatResponseMsg, idx int) {
 	if idx < 0 || idx >= len(m.ChatHistory) {
 		return
