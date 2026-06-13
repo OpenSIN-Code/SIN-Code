@@ -356,3 +356,17 @@ Utility:   read, write, edit, lsp, plugin, index, security, sbom,
 4. If you cannot satisfy a mandate, STOP and report — do not work around it.
 5. WebUI-v2 is OUT OF SCOPE for this repo's agent loop. Edits to
    `/Users/jeremy/dev/sin-code-web-ui-v2` belong to that repo's local agent.
+
+### 11.1 Known runtime DB locations
+
+The Go binary writes SQLite DBs to two distinct on-disk locations:
+
+| Purpose          | Path (relative to `os.Getwd()`)                    | Module                             | Issue  |
+| ---------------- | -------------------------------------------------- | ---------------------------------- | ------ |
+| Lessons log      | `cmd/sin-code/tui/.sin-code/lessons.db`            | `internal/lessons/store.go`        | #62    |
+| Session store    | `cmd/sin-code/tui/.sin-code/sessions.db`           | `internal/session/store.go`        | #62    |
+| Code index       | `cmd/sin-code/internal/.sin-code/index.bin`        | `internal/index_store.go`          | c06cf18 |
+
+These are ignored by `.gitignore` (lines 64–65). Do not `git add` them
+under any circumstances; the proper fix is to migrate to
+`os.UserConfigDir()` (tracked as issue #62).

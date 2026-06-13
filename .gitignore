@@ -1,3 +1,4 @@
+# Docs: .gitignore.doc.md
 
 __pycache__/
 __v0_devtools.tsx
@@ -55,4 +56,10 @@ SIN-Code-SCA-Tool/
 SIN-Code-Security-Bundle/
 sin-code.exe
 sin-tui
+# Runtime SQLite / index artifacts produced by the Go binary at runtime.
+# These live under cmd/ (not under ~/.local/share/sin-code/) because the
+# store open() uses a relative path joined against os.Getwd(). Follow-up
+# issue #62 will move them to os.UserConfigDir(); until then we keep them
+# out of the index.
 cmd/sin-code/internal/.sin-code/
+cmd/sin-code/tui/.sin-code/
