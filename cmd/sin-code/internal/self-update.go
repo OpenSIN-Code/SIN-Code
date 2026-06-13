@@ -72,7 +72,7 @@ type GitHubRelease struct {
 // Since we can't import main package, we'll use a placeholder that gets overridden.
 var currentVersion = "dev"
 
-var githubAPIURL = "https://api.github.com/repos/OpenSIN-Code/SIN-Code-Bundle/releases/latest"
+var githubAPIURL = "https://api.github.com/repos/OpenSIN-Code/SIN-Code/releases/latest"
 
 func SetCurrentVersion(v string) {
 	currentVersion = v

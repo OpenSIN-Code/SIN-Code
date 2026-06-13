@@ -718,3 +718,207 @@ func TestSelfUpdateCmd_DryRunFlag(t *testing.T) {
 		t.Errorf("output missing 'Dry run mode', got:\n%s", s)
 	}
 }
+
+func TestUpdateCmd_Structure(t *testing.T) {
+	if UpdateCmd.Use != "update" {
+		t.Errorf("Use = %q, want %q", UpdateCmd.Use, "update")
+	}
+	if UpdateCmd.RunE == nil {
+		t.Error("RunE should not be nil")
+	}
+
+	flags := []string{
+		"python-only", "go-only", "skills-only",
+		"check", "dry-run", "force", "rollback", "skip-doctor",
+		"state-root", "keep-snapshots",
+	}
+	for _, flagName := range flags {
+		if UpdateCmd.Flags().Lookup(flagName) == nil {
+			t.Errorf("missing --%s flag", flagName)
+		}
+	}
+
+	// Verify default values
+	if f := UpdateCmd.Flags().Lookup("keep-snapshots"); f != nil {
+		if f.DefValue != "10" {
+			t.Errorf("keep-snapshots default = %q, want %q", f.DefValue, "10")
+		}
+	}
+}
+
+func TestUpdateCmd_MutuallyExclusiveFlags(t *testing.T) {
+	_, err := parseUpdateFlags(UpdateCmd)
+	if err != nil {
+		t.Errorf("default flags should not error: %v", err)
+	}
+
+	// Reset flags
+	UpdateCmd.Flags().Set("python-only", "false")
+	UpdateCmd.Flags().Set("go-only", "false")
+	UpdateCmd.Flags().Set("skills-only", "false")
+
+	UpdateCmd.Flags().Set("python-only", "true")
+	UpdateCmd.Flags().Set("go-only", "true")
+	_, err = parseUpdateFlags(UpdateCmd)
+	if err == nil {
+		t.Error("expected error when python-only and go-only are both set")
+	}
+	UpdateCmd.Flags().Set("python-only", "false")
+	UpdateCmd.Flags().Set("go-only", "false")
+
+	UpdateCmd.Flags().Set("python-only", "true")
+	UpdateCmd.Flags().Set("skills-only", "true")
+	_, err = parseUpdateFlags(UpdateCmd)
+	if err == nil {
+		t.Error("expected error when python-only and skills-only are both set")
+	}
+	UpdateCmd.Flags().Set("python-only", "false")
+	UpdateCmd.Flags().Set("skills-only", "false")
+
+	UpdateCmd.Flags().Set("go-only", "true")
+	UpdateCmd.Flags().Set("skills-only", "true")
+	_, err = parseUpdateFlags(UpdateCmd)
+	if err == nil {
+		t.Error("expected error when go-only and skills-only are both set")
+	}
+	UpdateCmd.Flags().Set("go-only", "false")
+	UpdateCmd.Flags().Set("skills-only", "false")
+}
+
+func TestParseUpdateFlags_All(t *testing.T) {
+	UpdateCmd.Flags().Set("python-only", "false")
+	UpdateCmd.Flags().Set("go-only", "false")
+	UpdateCmd.Flags().Set("skills-only", "false")
+	UpdateCmd.Flags().Set("check", "false")
+	UpdateCmd.Flags().Set("dry-run", "false")
+	UpdateCmd.Flags().Set("force", "false")
+	UpdateCmd.Flags().Set("rollback", "false")
+	UpdateCmd.Flags().Set("skip-doctor", "false")
+	UpdateCmd.Flags().Set("state-root", "")
+	UpdateCmd.Flags().Set("keep-snapshots", "10")
+
+	opts, err := parseUpdateFlags(UpdateCmd)
+	if err != nil {
+		t.Fatalf("parseUpdateFlags failed: %v", err)
+	}
+	if opts.PythonOnly || opts.GoOnly || opts.SkillsOnly {
+		t.Error("all phase-only flags should be false by default")
+	}
+	if opts.CheckOnly || opts.DryRun || opts.Force || opts.Rollback || opts.SkipDoctor {
+		t.Error("all action flags should be false by default")
+	}
+	if opts.KeepSnapshots != 10 {
+		t.Errorf("KeepSnapshots = %d, want 10", opts.KeepSnapshots)
+	}
+
+	// Test python-only
+	UpdateCmd.Flags().Set("python-only", "true")
+	opts, err = parseUpdateFlags(UpdateCmd)
+	if err != nil {
+		t.Fatalf("parseUpdateFlags with python-only failed: %v", err)
+	}
+	if !opts.PythonOnly {
+		t.Error("PythonOnly should be true")
+	}
+	UpdateCmd.Flags().Set("python-only", "false")
+
+	// Test custom state-root
+	UpdateCmd.Flags().Set("state-root", "/custom/state")
+	opts, err = parseUpdateFlags(UpdateCmd)
+	if err != nil {
+		t.Fatalf("parseUpdateFlags with state-root failed: %v", err)
+	}
+	if opts.StateRoot != "/custom/state" {
+		t.Errorf("StateRoot = %q, want /custom/state", opts.StateRoot)
+	}
+	UpdateCmd.Flags().Set("state-root", "")
+
+	// Test keep-snapshots
+	UpdateCmd.Flags().Set("keep-snapshots", "5")
+	opts, err = parseUpdateFlags(UpdateCmd)
+	if err != nil {
+		t.Fatalf("parseUpdateFlags with keep-snapshots=5 failed: %v", err)
+	}
+	if opts.KeepSnapshots != 5 {
+		t.Errorf("KeepSnapshots = %d, want 5", opts.KeepSnapshots)
+	}
+	UpdateCmd.Flags().Set("keep-snapshots", "10")
+}
+
+func TestSelfUpdateCmd_AliasBackcompat(t *testing.T) {
+	// SelfUpdateCmd should still exist as legacy alias
+	if SelfUpdateCmd.Use != "self-update" {
+		t.Errorf("SelfUpdateCmd.Use = %q, want 'self-update'", SelfUpdateCmd.Use)
+	}
+	if SelfUpdateCmd.RunE == nil {
+		t.Error("SelfUpdateCmd.RunE should not be nil")
+	}
+}
+
+func TestUpdateCmd_RunUpdate_Rollback(t *testing.T) {
+	// Reset flags first
+	UpdateCmd.Flags().Set("rollback", "true")
+	UpdateCmd.Flags().Set("python-only", "false")
+	UpdateCmd.Flags().Set("go-only", "false")
+	UpdateCmd.Flags().Set("skills-only", "false")
+	UpdateCmd.Flags().Set("check", "false")
+	UpdateCmd.Flags().Set("dry-run", "false")
+	UpdateCmd.Flags().Set("force", "false")
+	UpdateCmd.Flags().Set("skip-doctor", "true")
+	UpdateCmd.Flags().Set("state-root", t.TempDir())
+	UpdateCmd.Flags().Set("keep-snapshots", "10")
+
+	err := UpdateCmd.Execute()
+	if err != nil {
+		t.Fatalf("UpdateCmd --rollback should not fail on empty state: %v", err)
+	}
+	// Reset flags
+	UpdateCmd.Flags().Set("rollback", "false")
+}
+
+func TestUpdateCmd_RunUpdate_DryRun(t *testing.T) {
+	UpdateCmd.Flags().Set("rollback", "false")
+	UpdateCmd.Flags().Set("python-only", "false")
+	UpdateCmd.Flags().Set("go-only", "false")
+	UpdateCmd.Flags().Set("skills-only", "false")
+	UpdateCmd.Flags().Set("check", "false")
+	UpdateCmd.Flags().Set("dry-run", "true")
+	UpdateCmd.Flags().Set("force", "false")
+	UpdateCmd.Flags().Set("skip-doctor", "true")
+	UpdateCmd.Flags().Set("state-root", "")
+	UpdateCmd.Flags().Set("keep-snapshots", "10")
+
+	err := UpdateCmd.Execute()
+	if err != nil {
+		t.Fatalf("UpdateCmd --dry-run failed: %v", err)
+	}
+	UpdateCmd.Flags().Set("dry-run", "false")
+}
+
+func TestUpdateCmd_RunUpdate_Check(t *testing.T) {
+	UpdateCmd.Flags().Set("rollback", "false")
+	UpdateCmd.Flags().Set("python-only", "false")
+	UpdateCmd.Flags().Set("go-only", "false")
+	UpdateCmd.Flags().Set("skills-only", "false")
+	UpdateCmd.Flags().Set("check", "true")
+	UpdateCmd.Flags().Set("dry-run", "false")
+	UpdateCmd.Flags().Set("force", "false")
+	UpdateCmd.Flags().Set("skip-doctor", "true")
+	UpdateCmd.Flags().Set("state-root", "")
+	UpdateCmd.Flags().Set("keep-snapshots", "10")
+
+	err := UpdateCmd.Execute()
+	if err != nil {
+		t.Fatalf("UpdateCmd --check failed: %v", err)
+	}
+	UpdateCmd.Flags().Set("check", "false")
+}
+
+func TestRunCheck_Offline(t *testing.T) {
+	t.Setenv("SIN_CODE_OFFLINE", "1")
+	ctx := t.Context()
+	err := runCheck(ctx, UpdateOptions{CheckOnly: true})
+	if err != nil {
+		t.Fatalf("runCheck offline should not error: %v", err)
+	}
+}
