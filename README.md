@@ -18,7 +18,7 @@
 
 **Time-Travel Debugging:** Fork any session at any turn to explore parallel solution paths (`sin-code session fork <id> <turn>`).
 
-**Multi-Agent Orchestration:** 37 subcommands, 44+ MCP tools, 12 ecosystem skill servers (websearch, browser automation, goal mode, rollback, …), permission gates (allow/ask/deny), deterministic lifecycle hooks (24 events).
+**Multi-Agent Orchestration:** 39 subcommands, 44+ MCP tools, 12 ecosystem skill servers (websearch, browser automation, goal mode, rollback, …), permission gates (allow/ask/deny), deterministic lifecycle hooks (24 events).
 
 **Swarm Mode (v3.6.0):** N agent profiles race on the same prompt with diverse strategies (different models, temperatures, tool sets); first verified solution wins. Three hard safety invariants: no gate → no daemon; headless → ask=deny; budget exhausted → hook summons the human.
 
@@ -213,7 +213,7 @@ git commit -m "feat(gh-bridge): honor X-RateLimit-Reset (#128)"
 
 ```
 SIN-Code/
-├── cmd/sin-code/            ← MAIN BINARY (37 subcommands)
+├── cmd/sin-code/            ← MAIN BINARY (39 subcommands)
 │   ├── main.go
 │   ├── chat_cmd.go          ← chat + -p headless
 │   ├── session_cmd.go       ← sessions list/show/rm/fork

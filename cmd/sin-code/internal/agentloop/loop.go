@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
@@ -52,6 +53,11 @@ type Loop struct {
 	Ask    AskFunc
 	Lessons *lessons.Store
 
+	// Ledger records every prompt, tool call, and verification result for
+	// auditability and auto-summaries (issue #43). Optional — loop works
+	// without it for backward compatibility.
+	Ledger *ledger.Store
+
 	// RunOverride, if set, replaces the default Run. Used by the
 	// WebUI v2 chat API (issue #52) so tests can swap in a
 	// deterministic result without wiring a real LLM.
@@ -66,6 +72,18 @@ type Result struct {
 }
 
 func (l *Loop) tools() []ToolSpec { return l.LocalSpec }
+
+func (l *Loop) record(ctx context.Context, typ ledger.EntryType, data map[string]any, summary string) {
+	if l.Ledger == nil || l.SessionID == "" {
+		return
+	}
+	_, _ = l.Ledger.Record(ctx, ledger.Entry{
+		SessionID: l.SessionID,
+		Type:      typ,
+		Data:      data,
+		Summary:   summary,
+	})
+}
 
 func (l *Loop) fire(ctx context.Context, event, name string, data map[string]any) hooks.Result {
 	if l.Hooks == nil {
@@ -113,6 +131,7 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 	res, err := l.LocalTool(ctx, tc.Name, tc.Args)
 	if err != nil {
 		l.fire(ctx, hooks.ToolError, tc.Name, map[string]any{"error": err.Error()})
+		l.record(ctx, ledger.TypeToolError, map[string]any{"tool": tc.Name}, "tool error: "+tc.Name)
 		if l.Lessons != nil {
 			_ = l.Lessons.Record(ctx, lessons.Entry{
 				Type:      lessons.TypeToolError,
@@ -125,6 +144,7 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 	}
 	post := l.fire(ctx, hooks.ToolPost, tc.Name, map[string]any{"output_bytes": len(res)})
 	injects = append(injects, post.PromptInjects...)
+	l.record(ctx, ledger.TypeToolCall, map[string]any{"tool": tc.Name}, "tool call: "+tc.Name)
 	return res, injects
 }
 
@@ -138,6 +158,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	if l.SessionID == "" {
 		l.SessionID = sess.ID
 	}
+	l.record(ctx, ledger.TypeUserPrompt, map[string]any{"content": prompt}, "user prompt")
 	msgs := sess.History()
 	msgs = append(msgs, session.Message{Role: "user", Content: prompt})
 
@@ -195,6 +216,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				vf := l.fire(ctx, hooks.VerifyFail, "", map[string]any{
 					"mode": string(res.Mode), "report": res.Report,
 				})
+				l.record(ctx, ledger.TypeVerifyFail, map[string]any{"mode": string(res.Mode)}, "verification failed ("+string(res.Mode)+")")
 				pendingInjects = append(pendingInjects, vf.PromptInjects...)
 				if l.Lessons != nil {
 					_ = l.Lessons.Record(ctx, lessons.Entry{
@@ -216,6 +238,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			l.fire(ctx, hooks.VerifyPass, "", map[string]any{
 				"mode": string(res.Mode), "report": res.Report,
 			})
+			l.record(ctx, ledger.TypeVerifyPass, map[string]any{"mode": string(res.Mode)}, "verification passed ("+string(res.Mode)+")")
 			if err := sess.SaveHistory(msgs); err != nil {
 				return nil, err
 			}
@@ -226,6 +249,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			l.fire(ctx, hooks.TaskComplete, "", map[string]any{
 				"summary": result.Summary, "turns": result.Turns, "verified": result.Verified,
 			})
+			l.record(ctx, ledger.TypeTaskComplete, map[string]any{"summary": result.Summary, "turns": result.Turns, "verified": result.Verified}, "task complete: "+result.Summary)
 			return result, nil
 		}
 
@@ -241,5 +265,6 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 		}
 	}
 	l.fire(ctx, hooks.TaskAbort, "", map[string]any{"reason": "max turns exceeded"})
+	l.record(ctx, ledger.TypeTaskAbort, map[string]any{"reason": "max turns exceeded"}, "task aborted: max turns exceeded")
 	return nil, fmt.Errorf("max turns (%d) exceeded without verified completion", maxTurns)
 }

@@ -2,6 +2,25 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [v3.13.0] - 2026-06-13
+
+### Added
+- **Semantic Session Ledger (#43)**: append-only SQLite store of agent-loop
+  events (prompts, tool calls, verification results, completions). New
+  internal packages `ledger` and `summary` (CGo-free via `modernc.org/sqlite`).
+- **Ledger integration in agent loop**: `loopbuilder.Build` opens the ledger
+  and every `Run` records user prompts, tool calls/errors, verification
+  pass/fail, and task completion/abortion.
+- **New subcommands**:
+  - `sin-code ledger list` — list recent sessions with ledger entries.
+  - `sin-code ledger show <session-id>` — show ledger entries for a session.
+  - `sin-code summary <session-id>` — deterministic markdown summary from
+    the ledger.
+  - `sin-code summary <session-id> --evidence` — compact one-line evidence
+    string suitable for Oracle-style verification.
+- Auto-summaries are deterministic and LLM-free: they report verification
+  status, tool-call turns, tools used, and the task-completion one-liner.
+
 ## [v3.12.0] - 2026-06-13
 
 ### Added
