@@ -4,8 +4,8 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** commit pending (v3.8.0, 2026-06-13) —
-> Superpowers integration release. Tool inventory and repo layout in sections 6 and
+> **Last verified against main:** commit pending (v3.9.0, 2026-06-13) —
+> GitHub bridge release. Tool inventory and repo layout in sections 6 and
 > 10 are sourced from `go test ./...` and `cmd/sin-code/main.go` AddCommand list.
 
 ---
@@ -76,7 +76,7 @@ Every tool call goes through the permission engine
 unless `--yolo` is passed. **The daemon is always headless** — it cannot
 self-escalate permissions.
 
-**v3.8.0 stack layer additions** (default policies, see
+**v3.9.0 bridge additions** (default policies, see
 `cmd/sin-code/internal/permission_defaults.go`):
 
 | Tool pattern | Policy | Layer | Reason |
@@ -84,6 +84,9 @@ self-escalate permissions.
 | `vane__*` | allow | research (Bridged-External) | read-only citations, sandboxed |
 | `superpowers__*` | allow | methodology (obra) | already local, just registered |
 | `dox__*` | allow | context (agent0ai) | protocol check, read-only |
+| `gh_query` | allow | contributing (Bridged-External) | read-only: issue/pr/release/workflow-run/repo |
+| `gh_health` | allow | contributing (Bridged-External) | PATH + auth probe, no side effects |
+| `gh_execute` | ask | contributing (Bridged-External) | mutating ops require human confirmation (M4) |
 
 ### M5 — Module path
 `github.com/OpenSIN-Code/SIN-Code` (since v3.0.0). The old path
@@ -119,7 +122,8 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code serve         ← unified MCP server (44+ tools)
   ├─ sin-code tui           ← standalone TUI binary
   ├─ sin-code webui         ← WebUI serve mode
-  └─ 35 subcommands
+  ├─ sin-code gh            ← v3.9.0: GitHub bridge (3-tier policy)
+  └─ 36 subcommands
 
          │
          ▼
@@ -210,7 +214,7 @@ SIN-Code/
 │   └── mcp.json.example
 │
 ├── cmd/
-│   ├── sin-code/              ← MAIN BINARY (35 subcommands — v3.8.0)
+│   ├── sin-code/              ← MAIN BINARY (36 subcommands — v3.9.0)
 │   │   ├── main.go            ← cobra root; AddCommand for all subcommands
 │   │   ├── tui.go, webui_cmd.go
 │   │   ├── chat_cmd.go        ← v3.4.0: chat + -p headless
@@ -275,7 +279,7 @@ Headless JSON contract (stable API — never break without major bump):
 
 ---
 
-## 8. Roadmap (versions 3.0.0 – 3.7.0)
+## 8. Roadmap (versions 3.0.0 – 3.9.0)
 
 | Version | Status | Contents |
 |---|---|---|
@@ -287,6 +291,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.6.0 | ✅ SHIPPED | Swarm mode, bootstrap-skill (self-extending), TUI v3.3.1 embed, WebUI-v2 HTTP API |
 | v3.7.0 | ✅ SHIPPED | `sin-code superpowers` — obra/superpowers integration with supply-chain pinning + review-before-trust updates |
 | v3.8.0 | ✅ SHIPPED | Vane HTTP-bridge (`vane__*` research), Stack consolidation (`stack install/doctor` across superpowers+dox+vane), 33 → 35 subcommands, Bridged-External + stdio MCP architecture, 47/47 ecosystem-sync gates green |
+| v3.9.0 | ✅ SHIPPED | GitHub bridge (`internal/ghbridge/`, 3-tier policy: allow/ask/forbidden), `gh` subcommand (setup/doctor/run/surface/serve), 3 MCP tools (`gh_query` allow, `gh_health` allow, `gh_execute` ask), 35 → 36 subcommands, issue-first contributing workflow now agent-executable |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -322,13 +327,13 @@ updates `homebrew-sin` formula, and ships to GitHub Releases.
 Core:      discover, execute, map, grasp, scout, harvest, orchestrate,
            ibd, poc, sckg, adw, oracle, efm
 Agents:    chat, sessions, mcp, goal, daemon, skill, superpowers,
-           vane, stack
+           vane, stack, gh
 Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
            orchestrator_agents, orchestrator_plan
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
            config, self-update
-``` (v3.8.0: 35 subcommands, up from 33 in v3.7.0)
+``` (v3.9.0: 36 subcommands, up from 35 in v3.8.0)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 

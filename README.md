@@ -4,7 +4,7 @@
 
 [![test-gate](https://img.shields.io/badge/test--gate-passing-brightgreen)](#)
 [![ecosystem-sync](https://img.shields.io/badge/ecosystem--sync-passing-brightgreen)](#)
-[![version](https://img.shields.io/badge/version-v3.8.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
+[![version](https://img.shields.io/badge/version-v3.9.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
 
 ## Features
 
@@ -18,7 +18,7 @@
 
 **Time-Travel Debugging:** Fork any session at any turn to explore parallel solution paths (`sin-code session fork <id> <turn>`).
 
-**Multi-Agent Orchestration:** 31 subcommands, 44+ MCP tools, 12 ecosystem skill servers (websearch, browser automation, goal mode, rollback, …), permission gates (allow/ask/deny), deterministic lifecycle hooks (24 events).
+**Multi-Agent Orchestration:** 36 subcommands, 44+ MCP tools, 12 ecosystem skill servers (websearch, browser automation, goal mode, rollback, …), permission gates (allow/ask/deny), deterministic lifecycle hooks (24 events).
 
 **Swarm Mode (v3.6.0):** N agent profiles race on the same prompt with diverse strategies (different models, temperatures, tool sets); first verified solution wins. Three hard safety invariants: no gate → no daemon; headless → ask=deny; budget exhausted → hook summons the human.
 
@@ -145,7 +145,59 @@ upstream is unreachable, the layer degrades gracefully (e.g. vane →
 websearch fallback) instead of crashing the agent.
 
 
+## GitHub Bridge (v3.9.0)
+
+The agent can now talk to GitHub itself — issue-first contributing, fully automated.
+SIN-Code never vendors the `gh` CLI; it bridges the official binary via a 3-tier policy
+enforced in code (`internal/ghbridge/`).
+
+```
+   Agent loop
+       │  gh_query  (allow)  ← read-only: issue/pr/release/workflow-run/repo
+       │  gh_health (allow)  ← PATH + auth probe
+       │  gh_execute (ask)   ← mutating: issue create/comment/close, pr open/merge, workflow run
+       ▼
+  internal/ghbridge/  ──→  exec.Command("gh", ...)  ──→  real GitHub
+   ├─ Classify()        3-tier policy:  allow | ask | forbidden
+   ├─ runner.go         fail-closed subprocess wrapper
+   └─ surface.go        capability discovery (doctor, surface)
+
+  FORBIDDEN (hard-blocked, never reach runner):
+    gh api, gh auth, gh secret, gh config, gh alias, gh extension,
+    gh codespace, gh fork, gh sync, gh archive/unarchive/transfer,
+    gh ssh-key, gh gpg-key
+```
+
+Install + doctor:
+
+```bash
+# One-time setup (idempotent)
+sin-code gh setup
+
+# Verify the bridge (PATH + auth)
+sin-code gh doctor
+# {"gh_path":"/opt/homebrew/bin/gh","gh_version":"2.62.0","auth_ok":true}
+
+# Discover the active surface (verbs grouped by tier)
+sin-code gh surface
+# {"allow":["issue view","issue list","pr view",...],"ask":["issue create",...],"forbidden":["api",...]}
+```
+
+Workflow example — issue-first contributing, end-to-end:
+
+```bash
+# 1. Agent checks if a similar issue exists (gh_query, allow)
+sin-code gh query issue list --search "gh bridge policy" --json
+
+# 2. Agent drafts + opens a new issue (gh_execute, ask → human confirms)
+sin-code gh execute issue create   --title "gh bridge: add rate-limit awareness"   --body "When a run hits the 5000/h REST cap, surface the reset time."   --label "enhancement,gh-bridge"
+
+# 3. Note the issue number, then implement + reference it in the commit
+git commit -m "feat(gh-bridge): honor X-RateLimit-Reset (#128)"
+```
+
 ## Hard Mandates (M1–M7)
+
 
 - **M1:** n8n-CI only — never run build/test on normal GitHub runners
 - **M2:** Single static Go binary, `CGO_ENABLED=0`, `modernc.org/sqlite`
@@ -161,7 +213,7 @@ websearch fallback) instead of crashing the agent.
 
 ```
 SIN-Code/
-├── cmd/sin-code/            ← MAIN BINARY (35 subcommands)
+├── cmd/sin-code/            ← MAIN BINARY (36 subcommands)
 │   ├── main.go
 │   ├── chat_cmd.go          ← chat + -p headless
 │   ├── session_cmd.go       ← sessions list/show/rm/fork
@@ -207,7 +259,7 @@ SIN-Code/
 
 ## Contributing
 
-1. Every new feature lands as a GitHub issue FIRST (reference in commit)
+1. Every new feature lands as a GitHub issue FIRST — since v3.9.0 the agent can do this itself via `gh_execute issue create` (tier: ask → human confirms). Reference the issue number in the commit message (`feat: ... (#N)`).
 2. Conventional commits (`feat:`, `fix:`, `docs:`, `test:`)
 3. All tests pass: `go build ./... && go test ./... -race -count=1`
 4. Core packages ≥70% coverage (target ≥85%)
