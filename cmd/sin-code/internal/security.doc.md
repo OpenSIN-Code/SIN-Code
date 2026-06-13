@@ -6,7 +6,7 @@ Runs a fast, targeted security analysis tailored to the project type detected at
 
 - **Auto-detects project type** by looking for `go.mod`, `package.json`, `requirements.txt`, `pyproject.toml`, `setup.py`, or `Pipfile`.
 - **Runs available security tools** for that type:
-  - **Go:** `govulncheck`, `gosec`, `go vet`
+  - **Go:** `govulncheck`, `gosec`, `go vet`, `grype` (Go-native SCA, issue #41)
   - **Python:** `bandit`, `safety`
   - **Node.js:** `npm audit`
   - **Generic:** `secrets grep` (high-entropy strings), file-permission checks

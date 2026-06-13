@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/security/sca"
 	"github.com/spf13/cobra"
 )
 
@@ -145,6 +146,7 @@ func runSecurityScan(path, projType, toolFilter string, timeoutSec int) Security
 			{name: "govulncheck", run: runGovulncheck},
 			{name: "gosec", run: runGosec},
 			{name: "go vet", run: runGoVet},
+			{name: "grype", run: runGrypeSCA},
 		}
 	case "python":
 		tools = []toolRunner{
@@ -265,6 +267,28 @@ func runGoVet(path string, timeoutSec int) (string, int, string, string) {
 		return "error", 0, string(out), err.Error()
 	}
 	return "ok", 0, string(out), ""
+}
+
+func runGrypeSCA(path string, timeoutSec int) (string, int, string, string) {
+	if !commandExists("grype") {
+		return "not_found", 0, "", "grype not found in PATH; install with: https://github.com/anchore/grype"
+	}
+	scanner := sca.New()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+	result, err := scanner.Scan(ctx, path)
+	if err != nil {
+		return "error", 0, "", err.Error()
+	}
+	jsonOut, jerr := json.MarshalIndent(result, "", "  ")
+	if jerr != nil {
+		return "error", 0, "", jerr.Error()
+	}
+	issues := result.Summary["total"]
+	if issues > 0 {
+		return "issues", issues, string(jsonOut), ""
+	}
+	return "ok", 0, string(jsonOut), ""
 }
 
 func runBandit(path string, timeoutSec int) (string, int, string, string) {
