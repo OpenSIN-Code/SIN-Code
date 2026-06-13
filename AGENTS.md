@@ -4,7 +4,7 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** commit pending (v3.9.0, 2026-06-13) —
+> **Last verified against main:** commit pending (v3.12.0, 2026-06-13) —
 > GitHub bridge release. Tool inventory and repo layout in sections 6 and
 > 10 are sourced from `go test ./...` and `cmd/sin-code/main.go` AddCommand list.
 
@@ -123,7 +123,8 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code tui           ← standalone TUI binary
   ├─ sin-code webui         ← WebUI serve mode
   ├─ sin-code gh            ← v3.9.0: GitHub bridge (3-tier policy)
-  └─ 36 subcommands
+  ├─ sin-code hub           ← v3.12.0: tool catalog hub
+  └─ 37 subcommands
 
          │
          ▼
@@ -214,7 +215,7 @@ SIN-Code/
 │   └── mcp.json.example
 │
 ├── cmd/
-│   ├── sin-code/              ← MAIN BINARY (36 subcommands — v3.9.0)
+│   ├── sin-code/              ← MAIN BINARY (37 subcommands — v3.12.0)
 │   │   ├── main.go            ← cobra root; AddCommand for all subcommands
 │   │   ├── tui.go, webui_cmd.go
 │   │   ├── chat_cmd.go        ← v3.4.0: chat + -p headless
@@ -229,6 +230,7 @@ SIN-Code/
 │   │   ├── superpowers_cmd.go   ← v3.7.0: obra/superpowers integration
 │   │   ├── vane_cmd.go          ← v3.8.0: Vane HTTP-bridge subcommand (NewVaneCmd)
 │   │   ├── stack_cmd.go         ← v3.8.0: unified install/doctor coordinator (NewStackCmd)
+│   │   ├── hub_cmd.go           ← v3.12.0: tool catalog hub subcommand
 │   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
 │   │   └── internal/          ← 17 packages (v3.8.0)
 │   │       ├── agentloop/     ← PLAN→ACT→VERIFY→DONE loop
@@ -244,6 +246,7 @@ SIN-Code/
 │   │       ├── loopbuilder/   ← v3.4.0: shared factory (DRY)
 │   │       ├── vane/          ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (internal/vane)
 │   │       ├── stack/         ← v3.8.0: unified install/doctor across 3 layers
+│   │       ├── hub/           ← v3.12.0: static tool catalog
 │   │       ├── llm/           ← provider layer
 │   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
 │   │       ├── memory/        ← (existing) store/search/embed
@@ -292,6 +295,9 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.7.0 | ✅ SHIPPED | `sin-code superpowers` — obra/superpowers integration with supply-chain pinning + review-before-trust updates |
 | v3.8.0 | ✅ SHIPPED | Vane HTTP-bridge (`vane__*` research), Stack consolidation (`stack install/doctor` across superpowers+dox+vane), 33 → 35 subcommands, Bridged-External + stdio MCP architecture, 47/47 ecosystem-sync gates green |
 | v3.9.0 | ✅ SHIPPED | GitHub bridge (`internal/ghbridge/`, 3-tier policy: allow/ask/forbidden), `gh` subcommand (setup/doctor/run/surface/serve), 3 MCP tools (`gh_query` allow, `gh_health` allow, `gh_execute` ask), 35 → 36 subcommands, issue-first contributing workflow now agent-executable |
+| v3.10.0 | ✅ SHIPPED | `--version` flag fix (#38), `.gitignore` for TUI runtime DB (#61), AGENTS.md rollout to 6 ecosystem repos (#40) |
+| v3.11.0 | ✅ SHIPPED | `sin update` e2e self-update (#33), security + sbom MCP tools (#36), 36 → 36 subcommands |
+| v3.12.0 | ✅ SHIPPED | Tool catalog hub (`internal/hub/`, `hub_cmd.go`), `sin-code hub list/search/info`, 36 → 37 subcommands, closes #35 |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -332,8 +338,8 @@ Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
            orchestrator_agents, orchestrator_plan, update
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
-           config, self-update
-``` (v3.9.0: 36 subcommands, up from 35 in v3.8.0)
+           config, self-update, hub
+``` (v3.12.0: 37 subcommands, up from 36 in v3.9.0)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 
