@@ -2,7 +2,7 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
-## [Unreleased]
+## [v3.10.0] - 2026-06-13
 
 ### Fixed
 - **`--version` flag on 13 Go-tool subcommands** (#38). Previously
@@ -19,8 +19,9 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 - **#61** — `.gitignore`: ignore `cmd/sin-code/tui/.sin-code/` runtime
   artifacts produced by the TUI's session/lessons store; add CoDocs
   companion `.gitignore.doc.md`; add regression test
-  `tests/test_gitignore_tui_sin_code.py`. No code paths changed. No
-  version bump.
+  `tests/test_gitignore_tui_sin_code.py`. No code paths changed.
+- **#40** — Cross-repo: standardized AGENTS.md to SIN-Code 8-section template
+  in 6 ecosystem tool repos (SCKG, IBD, PoC, ADW, Oracle, EFM).
 
 ## [v3.9.0] - 2026-06-13
 ### Added
@@ -155,6 +156,13 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   exercises symbols / hover / definition / references / format against this
   repository. Added so the LSP client can be re-validated whenever `client.go`
   changes.
+
+### chore
+- **#61** — `.gitignore`: ignore `cmd/sin-code/tui/.sin-code/` runtime
+  artifacts produced by the TUI's session/lessons store; add CoDocs
+  companion `.gitignore.doc.md`; add regression test
+  `tests/test_gitignore_tui_sin_code.py`. No code paths changed. No
+  version bump.
 
 ### Known Issues
 - **LSP framing bug** — `internal/lsp/client.go:Client.Call` reads LSP responses
