@@ -2,6 +2,20 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [v3.12.0] - 2026-06-13
+
+### Added
+- **Tool catalog hub (#35)**: new `sin-code hub` subcommand with `list`,
+  `search`, and `info` subcommands. Static, categorized catalog of all 37
+  subcommands plus key MCP surfaces. Read-only, no runtime dependencies.
+  - `sin-code hub` prints full categorized catalog.
+  - `sin-code hub list` prints flat list of all tools.
+  - `sin-code hub search <keyword>` searches by name, short, or description.
+  - `sin-code hub info <tool>` prints detailed description and example.
+  - New internal package `cmd/sin-code/internal/hub/` with `hub.go`,
+    `hub_test.go`, and `hub.doc.md`.
+  - New CLI binding `cmd/sin-code/hub_cmd.go`.
+
 ## [v3.11.0] - 2026-06-13
 
 ### Added
