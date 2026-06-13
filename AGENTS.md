@@ -310,7 +310,8 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.11.0 | ✅ SHIPPED | `sin update` e2e self-update (#33), security + sbom MCP tools (#36), 36 → 36 subcommands |
 | v3.12.0 | ✅ SHIPPED | Tool catalog hub (`internal/hub/`, `hub_cmd.go`), `sin-code hub list/search/info`, 36 → 37 subcommands, closes #35 |
 | v3.13.0 | ✅ SHIPPED | Semantic Session Ledger (`internal/ledger/`, `internal/summary/`), `sin-code ledger list/show`, `sin-code summary`, deterministic auto-summaries with verification evidence, 37 → 39 subcommands, closes #43 |
-| v3.14.0 | 🔄 IN PROGRESS | Unified config subsystem (#34): `sin-code config init/show/validate`, expanded TOML schema, user + project deep merge, atomic writes, secret masking, 39 subcommands |
+| v3.14.0 | ✅ SHIPPED | Unified config subsystem (#34): `sin-code config init/show/validate`, expanded TOML schema, user + project deep merge, atomic writes, secret masking, 39 subcommands |
+| v3.15.0 | 🔄 IN PROGRESS | Go-native SCA Phase 1 (#41), race-flake hardening (#59) |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.

@@ -2,6 +2,19 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [v3.15.0] - 2026-06-13
+
+### Added
+- **Go-native SCA Phase 1 (#41)**: new `cmd/sin-code/internal/security/sca/`
+  package that parses `go.mod` natively and calls `grype` JSON output via
+  subprocess. Wired into `sin security` for Go projects with 91.5% test
+  coverage.
+
+### Fixed
+- **Race-flake hardening (#59)**: `TestDoctorVaneDownIsNotFatal` is now
+  hermetic — it forces an unreachable Vane URL instead of depending on the
+  local environment. `go test ./... -race -count=3` passes on one run.
+
 ## [v3.14.0] - 2026-06-13
 
 ### Added
