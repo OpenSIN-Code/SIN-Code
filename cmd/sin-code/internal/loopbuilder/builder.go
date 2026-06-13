@@ -17,6 +17,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
@@ -91,6 +92,11 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		localTool, localSpec = cfg.ToolFactory(mcpMgr)
 	}
 
+	ledgerStore, err := ledger.Open(ledger.DefaultPath())
+	if err != nil {
+		ledgerStore = nil // ledger is optional; do not fail the loop if it cannot open
+	}
+
 	loop := &agentloop.Loop{
 		Gate:       gate,
 		LocalTool:  localTool,
@@ -103,10 +109,14 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		Perm:       perm,
 		Ask:        cfg.AskFunc,
 		Lessons:    memStore,
+		Ledger:     ledgerStore,
 	}
 
 	cleanup := func() error {
 		mcpMgr.Close()
+		if ledgerStore != nil {
+			_ = ledgerStore.Close()
+		}
 		return nil
 	}
 	return loop, cleanup, nil
