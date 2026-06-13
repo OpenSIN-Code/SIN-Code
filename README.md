@@ -4,7 +4,62 @@
 
 [![test-gate](https://img.shields.io/badge/test--gate-passing-brightgreen)](#)
 [![ecosystem-sync](https://img.shields.io/badge/ecosystem--sync-passing-brightgreen)](#)
-[![version](https://img.shields.io/badge/version-v3.9.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
+[![version](https://img.shields.io/badge/version-v3.15.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
+
+## Status
+
+- **Version**: [v3.15.0](https://github.com/OpenSIN-Code/SIN-Code/releases/tag/v3.15.0)
+- **Maturity**: Production
+- **Language**: Go (single static binary) + Python companion package
+- **Tests**: 200+ tests across Go and Python; `go test ./... -race -count=1` is the gate
+- **CI**: ✅ Passing (n8n-delegated, see `.github/workflows/`)
+
+## Installation
+
+```bash
+# Go binary (recommended)
+go install github.com/OpenSIN-Code/SIN-Code/cmd/sin-code@latest
+
+# Or build from source
+git clone https://github.com/OpenSIN-Code/SIN-Code.git
+cd SIN-Code
+go build -o ~/.local/bin/sin-code ./cmd/sin-code
+
+# Python companion package (optional, for `sin` legacy CLI and `sin serve`)
+pip install -e .
+```
+
+## Usage
+
+```bash
+sin-code --help
+sin-code chat                              # interactive REPL
+sin-code chat -p "refactor auth to use Argon2" --json   # headless one-shot
+sin-code goal add "run the test suite and fix any failures" --priority 5
+sin-code daemon --verify-cmd "go test ./... -count=1"
+sin-code sessions list
+sin-code chat --resume <session-id>
+sin-code mcp list
+sin-code skill status
+sin-code stack doctor --json
+```
+
+See the **Quick Start** section below for more detailed examples, including
+swarm mode, skill bootstrapping, and methodology skills.
+
+## MCP Integration
+
+- **MCP Server**: Go — `sin-code serve` (main binary, 44+ tools); Python legacy — `src/sin_code_bundle/mcp_server.py`
+- **Tools**: 39 subcommands, 12 ecosystem skill servers, and external MCP servers (websearch, browser, symfony-lens, etc.)
+- **Register**: Add `sin-code serve` to your MCP client config (see `docs/mcp.json.example`), or register the legacy Python server via `sin mcp register sin-serve src/sin_code_bundle/mcp_server.py`
+
+## Development
+
+- **CoDocs**: 210+ `.doc.md` companions — every meaningful code file has one
+- **AGENTS.md**: ✅ Present — read it before any change; it is the single source of truth for all agents
+- **Tests**: `go build ./... && go test ./... -race -count=1` for Go; `pytest tests/` for Python
+- **Lint**: `golangci-lint run` (Go) and `ruff check .` (Python)
+- **Compliance**: This repository follows the OpenSIN-Code CoDocs/AGENTS.md standard
 
 ## Features
 
@@ -25,6 +80,8 @@
 **Self-Extending Agent (v3.6.0):** `sin_bootstrap_skill` writes Python MCP servers from natural-language specs and registers them in `.sin-code/mcp.json`. Defense-in-depth: requires `SIN_ALLOW_BOOTSTRAP=1` for headless use.
 
 **Methodology Skills (v3.7.0):** `sin-code superpowers` integrates obra/superpowers (MIT) — the TDD/debugging/planning workflow library. Skills are pinned to a reviewed upstream SHA, overlaid with SIN-Code tool mappings (sin_bash, sin_preflight, orchestrate, etc.), and served as MCP tools. `sin-code superpowers update` shows the upstream skill diff before applying — review-before-trust, because skill content flows into your agent context.
+
+**Go-Native SCA (v3.15.0):** `sin security` now uses a native Go SCA client for Go projects, parsing `go.mod` and invoking `grype` JSON output directly.
 
 ## Quick Start
 
