@@ -2,6 +2,23 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [v3.9.0] - 2026-06-13
+### Added
+- **GitHub CLI bridge** (`internal/ghbridge/`): bridged external (NEVER vendored) for the official `gh` CLI. 3-tier verb policy enforced in code: read-only (allow) | mutating (ask) | forbidden (hard-blocked). 3 MCP tools: `gh_query` (allow), `gh_execute` (ask), `gh_health` (allow). Enables the SIN-Code contributing workflow "issue first" to be executed by the agent itself.
+- New subcommand: `gh` (setup/doctor/run/surface/serve). 35 → 36.
+- Permission-Defaults: `gh_query`/`gh_health` → allow, `gh_execute` → ask.
+### Security
+- Defense in depth: `gh_query` re-validates with `Classify` and rejects mutations even if caller picked wrong tool.
+- Fail-closed: unknown verbs/groups → `TierForbidden`, never reach runner.
+- `gh api`, `gh auth`, `gh secret`, `gh config`, `gh alias`, `gh extension`, `gh codespace`, `gh fork`, `gh sync`, `gh archive/unarchive/transfer`, `gh ssh-key`, `gh gpg-key` are hard-blocked.
+### Mandate Compliance
+- M1 n8n-CI only ✓
+- M2 CGo-free, stdlib-only ✓
+- M3 Verification-Gate passed: build OK, vet OK, race OK
+- M4 3-tier policy matches permission engine ✓
+- M5 Module path correct ✓
+- M7 Race-clean ✓
+
 ## [v3.8.0] - 2026-06-13
 
 ### Added

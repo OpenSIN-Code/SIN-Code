@@ -42,6 +42,7 @@
 | SIN-Code-Frontend-Design-Skill | `frontend__*` | ask | ACTIVE |
 | SIN-Code-MCP-Server-Builder-Skill | `mcpbuilder__*` | ask | ACTIVE |
 | SIN-Browser-Tools | `browser__*` (106 tools) | ask | ACTIVE |
+| GitHub CLI (gh) | `gh_query`, `gh_health`, `gh_execute` | allow / allow / ask (M4) | ACTIVE |
 
 ## LLM Backends
 

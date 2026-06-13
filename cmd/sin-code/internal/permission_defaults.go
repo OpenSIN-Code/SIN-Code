@@ -37,6 +37,9 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "vane__*", Policy: "allow"},      // citation-backed research
 		{Tool: "superpowers__*", Policy: "allow"}, // already local, just register
 		{Tool: "dox__*", Policy: "allow"},        // protocol check
+		{Tool: "gh_query", Policy: "allow"},   // v3.9.0: read-only by code-level cross-check
+		{Tool: "gh_health", Policy: "allow"},  // v3.9.0: binary presence + auth check
+		{Tool: "gh_execute", Policy: "ask"},    // v3.9.0: mutating (issue create, pr merge, ...)
 		{Tool: "sin_bash", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},
 	}
