@@ -27,6 +27,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/health"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
@@ -45,6 +46,7 @@ type Server struct {
 	httpServer  *http.Server
 	ln          net.Listener
 	addr_       string
+	health      *health.Checker
 }
 
 type Config struct {
@@ -100,8 +102,10 @@ func NewServer(cfg Config) (*Server, error) {
 		todoDB:      cfg.TodoDB,
 		notifDB:     cfg.NotifDB,
 		openBrowser: cfg.OpenBrowser,
+		health:      health.NewChecker("webui"),
 	}
 	s.routes()
+	s.setupHealthChecks()
 	return s, nil
 }
 
@@ -132,6 +136,41 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /api/todos.json", s.handleTodosJSON)
 
 	s.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(s.staticFS))))
+
+	// Health check endpoints
+	s.mux.Handle("GET /health", s.health.Handler())
+	s.mux.Handle("GET /live", health.LivenessHandler())
+	s.mux.Handle("GET /ready", health.ReadinessHandler(s.health))
+	s.mux.Handle("GET /info", health.InfoHandler(s.health.Version()))
+}
+
+func (s *Server) setupHealthChecks() {
+	// Add custom health checks for webui
+	s.health.RegisterCheck("templates", func(ctx context.Context) health.Check {
+		if s.templates == nil {
+			return health.Check{
+				Status:  health.StatusUnhealthy,
+				Message: "templates not loaded",
+			}
+		}
+		return health.Check{
+			Status:  health.StatusHealthy,
+			Message: "templates loaded",
+		}
+	})
+
+	s.health.RegisterCheck("todo_db", func(ctx context.Context) health.Check {
+		if s.todoDB == "" {
+			return health.Check{
+				Status:  health.StatusDegraded,
+				Message: "todo database not configured",
+			}
+		}
+		return health.Check{
+			Status:  health.StatusHealthy,
+			Message: "todo database configured",
+		}
+	})
 }
 
 func loadTemplates() (*template.Template, error) {
