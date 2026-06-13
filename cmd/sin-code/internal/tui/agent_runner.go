@@ -88,6 +88,7 @@ type Config struct {
 	AutoApprove bool
 	AskTimeout  time.Duration
 	ToolFactory func(*mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec)
+	SkipMCP     bool
 }
 
 // AgentRunner owns one configured loop + session.
@@ -169,6 +170,7 @@ func NewAgentRunner(ctx context.Context, cfg Config) (*AgentRunner, error) {
 		Yolo:        cfg.Yolo,
 		Headless:    cfg.Headless,
 		ToolFactory: cfg.ToolFactory,
+		SkipMCP:     cfg.SkipMCP,
 	}, memStore)
 	if err != nil {
 		_ = store.Close()

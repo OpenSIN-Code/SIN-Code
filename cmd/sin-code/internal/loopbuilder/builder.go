@@ -41,6 +41,7 @@ type Config struct {
 	LocalTool   agentloop.LocalToolFunc
 	LocalSpec   []agentloop.ToolSpec
 	ToolFactory func(*mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec)
+	SkipMCP     bool
 }
 
 // Build constructs a fully wired agentloop.Loop with all mandates applied
@@ -81,8 +82,10 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	gate := verify.NewGate(mode, runner, runner)
 
 	mcpMgr := mcpclient.NewManager(mcpclient.LoadConfigs(cfg.Workspace))
-	if err := mcpMgr.ConnectAll(ctx); err != nil {
-		return nil, nil, err
+	if !cfg.SkipMCP {
+		if err := mcpMgr.ConnectAll(ctx); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// Tool wiring: explicit (LocalTool/LocalSpec) wins over factory.

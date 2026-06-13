@@ -29,6 +29,7 @@ func newTestRunner(t *testing.T, cfg Config) *AgentRunner {
 	if cfg.AskTimeout == 0 {
 		cfg.AskTimeout = -1
 	}
+	cfg.SkipMCP = true
 	r, err := NewAgentRunner(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("NewAgentRunner: %v", err)
