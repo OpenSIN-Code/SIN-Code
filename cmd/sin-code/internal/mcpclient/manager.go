@@ -15,6 +15,12 @@ import (
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+var (
+	warningOnce sync.Once
+	warnedServers = make(map[string]bool)
+	warnedMu sync.Mutex
+)
+
 type ServerConfig struct {
 	Name      string            `json:"name"`
 	Transport string            `json:"transport"`
@@ -45,11 +51,19 @@ func NewManager(configs []ServerConfig) *Manager {
 
 // ConnectAll connects to every configured server. A single failing server is
 // logged and skipped — external tools are additive, never fatal.
+// Warnings are deduplicated: each server name is warned about at most once.
 func (m *Manager) ConnectAll(ctx context.Context) error {
 	client := sdk.NewClient(&sdk.Implementation{Name: "sin-code", Version: "3.1.0"}, nil)
 	for _, cfg := range m.configs {
 		if err := m.connect(ctx, client, cfg); err != nil {
-			fmt.Fprintf(os.Stderr, "warn: mcp server %q unavailable: %v\n", cfg.Name, err)
+			warnedMu.Lock()
+			if !warnedServers[cfg.Name] {
+				warnedServers[cfg.Name] = true
+				warnedMu.Unlock()
+				fmt.Fprintf(os.Stderr, "warn: mcp server %q unavailable: %v\n", cfg.Name, err)
+			} else {
+				warnedMu.Unlock()
+			}
 		}
 	}
 	return nil
