@@ -89,12 +89,38 @@ class TestCliRemove:
 # ── Update ────────────────────────────────────────────────────────────────────
 class TestCliUpdate:
     def test_update_all(self) -> None:
-        result = runner.invoke(app, ["update"])
-        assert result.exit_code == 0
+        import sin_code_bundle.tools.marketplace.updater
+        old_updater = sin_code_bundle.tools.marketplace.legacy_cli.Updater
+        class MockUpdater:
+            def __init__(self, *a, **kw):
+                pass
+            def update_all(self):
+                return [{"slug": "test-skill", "success": True, "behind": False, "message": "ok"}]
+            def update(self, name):
+                return {"name": name, "status": "up-to-date"}
+        sin_code_bundle.tools.marketplace.legacy_cli.Updater = MockUpdater
+        try:
+            result = runner.invoke(app, ["update"])
+            assert result.exit_code == 0
+        finally:
+            sin_code_bundle.tools.marketplace.legacy_cli.Updater = old_updater
 
     def test_update_specific(self) -> None:
-        result = runner.invoke(app, ["update", "test-skill"])
-        assert result.exit_code == 0
+        import sin_code_bundle.tools.marketplace.updater
+        old_updater = sin_code_bundle.tools.marketplace.legacy_cli.Updater
+        class MockUpdater:
+            def __init__(self, *a, **kw):
+                pass
+            def update_all(self):
+                return [{"name": "test-skill", "status": "up-to-date"}]
+            def update(self, name):
+                return {"name": name, "status": "up-to-date"}
+        sin_code_bundle.tools.marketplace.legacy_cli.Updater = MockUpdater
+        try:
+            result = runner.invoke(app, ["update", "test-skill"])
+            assert result.exit_code == 0
+        finally:
+            sin_code_bundle.tools.marketplace.legacy_cli.Updater = old_updater
 
 
 # ── Sync ───────────────────────────────────────────────────────────────────────
