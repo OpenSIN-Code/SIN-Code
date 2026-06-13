@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/logger"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
@@ -60,7 +61,10 @@ func (m *Manager) ConnectAll(ctx context.Context) error {
 			if !warnedServers[cfg.Name] {
 				warnedServers[cfg.Name] = true
 				warnedMu.Unlock()
-				fmt.Fprintf(os.Stderr, "warn: mcp server %q unavailable: %v\n", cfg.Name, err)
+				logger.Warn("mcp server unavailable", map[string]any{
+					"server": cfg.Name,
+					"error":  err.Error(),
+				})
 			} else {
 				warnedMu.Unlock()
 			}
