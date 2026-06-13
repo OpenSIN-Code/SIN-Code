@@ -1,57 +1,88 @@
-# `config.doc.md` — Configuration Management Subcommand
+# `config.go` — Unified Configuration Management
 
-Manages sin-code configuration files stored in `~/.config/sin/`.
+## What this file does
 
-## What it does
-
-- **Reads, writes, and lists** configuration values for the sin-code CLI and TUI.
-- **Initializes default config files** with sensible defaults.
-- **Validates values** on write (e.g., theme must be `dark` or `light`, format must be `text` or `json`).
+Implements `sin-code config`, the user-facing configuration subsystem for the
+unified `sin-code` binary. It supports user-level defaults
+(`~/.config/sin/sin-code.toml`), project-level overrides
+(`./.sin-code/config.toml`), deep merge, atomic writes, secret masking, and
+validation.
 
 ## Files that import / touch it
 
-- `cmd/sin-code/main.go` — registers `ConfigCmd` and its subcommands into the root cobra command
-- `cmd/sin-code/tui.go` — may read `theme` and `default_timeout` from the config file to customize TUI behavior
-- `cmd/sin-code/internal/config_test.go` — unit tests for load/save/get/set logic
+- `cmd/sin-code/main.go` — registers `ConfigCmd` as a root subcommand.
+- `cmd/sin-code/internal/config_test.go` — unit tests for all config logic.
+- `cmd/sin-code/internal/loopbuilder/builder.go` *(future)* — may read
+  merged config when constructing the agent loop.
 
 ## Important config values & limits
 
-| Key | Default | Valid values | Description |
+| Key | Type | Default | Valid values |
 |---|---|---|---|
-| `theme` | `dark` | `dark`, `light` | TUI color theme |
-| `default_timeout` | `60` | any positive integer | Default timeout for long-running commands (seconds) |
-| `default_format` | `json` | `text`, `json` | Default output format for subcommands |
-| `mcp_server_enabled` | `true` | `true`, `false` | Whether `serve` starts the MCP server by default |
+| `theme` | string | `dark` | `dark`, `light` |
+| `default_timeout` | int | `60` | > 0 |
+| `default_format` | string | `json` | `text`, `json` |
+| `mcp_server_enabled` | bool | `true` | `true`, `false` |
+| `llm.base_url` | string | `https://integrate.api.nvidia.com/v1` | any URL |
+| `llm.api_key` | string | `""` | any string (masked in `show`) |
+| `llm.model` | string | `""` | any string |
+| `llm.max_tokens` | int | `8192` | > 0 |
+| `llm.temperature` | float | `0.0` | `[0.0, 2.0]` |
+| `agent.verify_mode` | string | `poc` | `off`, `poc`, `oracle` |
+| `agent.max_turns` | int | `80` | > 0 |
+| `agent.headless` | bool | `false` | `true`, `false` |
+| `agent.yolo` | bool | `false` | `true`, `false` |
+| `permissions.tools_allow` | []string | `[]` | comma-separated globs |
+| `permissions.tools_deny` | []string | `[]` | comma-separated globs |
+| `paths.mcp_config` | string | `~/.sin-code/mcp.json` | any path |
+| `paths.skills_dir` | string | `""` | any path |
 
-## Config file location
+## Why certain decisions were made
 
-```
-~/.config/sin/sin-code.toml
-```
+- **Flat namespaced keys instead of TOML sections**: The parser is intentionally
+  dependency-free (M2 — single static binary). Using `llm.base_url` keeps the
+  file human-readable while avoiding a full TOML parser.
+- **Deep merge with raw key maps**: Only keys actually present in a file override
+  the parent level. This prevents zero-value booleans from silently disabling
+  user defaults when a project config only changes an unrelated key.
+- **Atomic writes via temp file + rename**: Readers never see a half-written
+  config file during concurrent save operations.
+- **Secret masking in `show`**: `llm.api_key` is the only secret today; it is
+  masked as `sk-1...cdef` unless `--plain` is passed. This prevents accidental
+  leakage in terminal logs.
+- **Project config path**: `./.sin-code/config.toml` mirrors the user's
+  `~/.config/sin/sin-code.toml` directory structure and is easy to add to
+  `.gitignore`.
 
 ## Usage examples
 
 ```bash
-# Initialize default config files
+# Create default config files
 sin-code config init
 
-# Get a single value
-sin-code config get theme
-
-# Set a value (validated on write)
+# Set a value (validates the value and saves atomically)
 sin-code config set theme light
-sin-code config set default_timeout 120
+sin-code config set llm.api_key sk-...
 
-# List all current values
-sin-code config list
+# Show merged config, masking secrets
+sin-code config show
 
-# Show the config directory path
-sin-code config path
+# Show with TOML or JSON output
+sin-code config show --toml
+sin-code config show --json --plain
+
+# Validate merged config
+sin-code config validate
 ```
 
-## Known caveats / footguns
+## Known caveats or footguns
 
-- **TOML-like parsing:** The config parser is a simple line-based `key = value` parser. It does NOT support nested TOML tables, arrays, or complex types. Stick to flat scalar values.
-- **Missing config file:** If the file doesn't exist, `loadConfig` returns the default values silently. Use `config init` to create the file explicitly.
-- **No automatic reload:** If you edit `sin-code.toml` manually while the TUI is running, changes won't be picked up until the next `sin-code` invocation.
-- **Theme validation:** Setting an invalid theme string will error. Only `dark` and `light` are accepted.
+- The manual parser does **not** support TOML section headers (`[llm]`). Keys
+  must be written flat (`llm.base_url = ...`).
+- `config set` only writes to the user config file. Project-level values must
+  be edited manually or by tooling that creates `./.sin-code/config.toml`.
+- Empty string values are not distinguishable from "not set" for string fields
+  during merge. Use a sentinel value or explicit override if that matters.
+- The config file path is `~/.config/sin/sin-code.toml`, **not**
+  `~/.config/sin-code/config.json` (which appears in older AGENTS.md drafts).
+  This is preserved for backwards compatibility with the existing tests.

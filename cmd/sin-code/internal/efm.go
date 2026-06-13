@@ -5,6 +5,8 @@ package internal
 
 import (
 	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -278,6 +280,14 @@ func resolveComposeRuntime(rt string) string {
 	return rt
 }
 
+// metadataKey returns a deterministic, path-safe filename for a stack's
+// metadata file. Using a hash of the absolute path prevents collisions when
+// two stacks share the same basename in different directories.
+func metadataKey(absPath string) string {
+	h := sha256.Sum256([]byte(absPath))
+	return hex.EncodeToString(h[:]) + ".meta"
+}
+
 func dockerComposeUp(stack string, ttl int, rt string) error {
 	absPath, err := filepath.Abs(stack)
 	if err != nil {
@@ -295,7 +305,7 @@ func dockerComposeUp(stack string, ttl int, rt string) error {
 	if ttl > 0 {
 		metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
 		_ = os.MkdirAll(metadataDir, 0755)
-		metadataFile := filepath.Join(metadataDir, filepath.Base(absPath)+".meta")
+		metadataFile := filepath.Join(metadataDir, metadataKey(absPath))
 		meta := map[string]string{
 			"stack":   absPath,
 			"started": time.Now().Format(time.RFC3339),
@@ -325,7 +335,7 @@ func dockerComposeDown(stack string, rt string) error {
 	}
 
 	metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
-	metadataFile := filepath.Join(metadataDir, filepath.Base(absPath)+".meta")
+	metadataFile := filepath.Join(metadataDir, metadataKey(absPath))
 	_ = os.Remove(metadataFile)
 
 	return nil

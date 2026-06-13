@@ -16,11 +16,15 @@ import (
 const testRuntime = "auto"
 
 func dockerAvailable() bool {
-	_, err := exec.LookPath("docker")
-	if err != nil {
+	// Use the same runtime detection as the production code so tests on
+	// macOS correctly see OrbStack (orb) instead of only looking for docker.
+	rt := detectContainerRuntime()
+	if _, err := exec.LookPath(rt); err != nil {
 		return false
 	}
-	cmd := exec.Command("docker", "info")
+	// "version" works for both docker and orb ("info" requires an argument
+	// for orb, so it fails even when the daemon is up).
+	cmd := exec.Command(rt, "version")
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	return cmd.Run() == nil
@@ -406,7 +410,7 @@ func TestDockerComposeUp_TTLMetadata(t *testing.T) {
 	err := dockerComposeUp(stackFile, 3600, testRuntime)
 	if err != nil {
 		metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
-		metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
+		metadataFile := filepath.Join(metadataDir, metadataKey(stackFile))
 		data, readErr := os.ReadFile(metadataFile)
 		if readErr == nil {
 			var meta map[string]string
@@ -434,7 +438,7 @@ func TestDockerComposeUp_NoTTL(t *testing.T) {
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
 
 	metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
-	metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
+	metadataFile := filepath.Join(metadataDir, metadataKey(stackFile))
 	_ = os.Remove(metadataFile)
 
 	err := dockerComposeUp(stackFile, 0, testRuntime)
@@ -460,7 +464,7 @@ func TestDockerComposeDown_RemovesMetadata(t *testing.T) {
 
 	metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
 	_ = os.MkdirAll(metadataDir, 0755)
-	metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
+	metadataFile := filepath.Join(metadataDir, metadataKey(stackFile))
 	meta := map[string]string{
 		"stack":   stackFile,
 		"started": "2026-06-07T12:00:00Z",
@@ -1015,7 +1019,7 @@ func TestDockerComposeUp_SuccessWithTTL(t *testing.T) {
 
 	metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
 	_ = os.MkdirAll(metadataDir, 0755)
-	metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
+	metadataFile := filepath.Join(metadataDir, metadataKey(stackFile))
 	_ = os.Remove(metadataFile)
 
 	err := dockerComposeUp(stackFile, 60, testRuntime)

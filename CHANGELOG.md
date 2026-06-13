@@ -2,6 +2,33 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [v3.14.0] - 2026-06-13
+
+### Added
+- **Unified config subsystem (#34)**: `sin-code config` now supports
+  `init`, `show`, `validate`, `get`, `set`, `list`, and `path`.
+  - User config: `~/.config/sin/sin-code.toml` (defaults).
+  - Project config: `./.sin-code/config.toml` (overrides user).
+  - Expanded schema: `theme`, `default_timeout`, `default_format`,
+    `mcp_server_enabled`, `llm.*`, `agent.*`, `permissions.tools_allow`,
+    `permissions.tools_deny`, and `paths.*`.
+  - Deep merge: project-level keys override user-level keys; unset keys in
+    project config do not zero out user defaults (uses raw key maps).
+  - Atomic writes: temp file + rename so readers never see a half-written
+    config.
+  - Secret masking: `llm.api_key` is masked in `show`/`show --json` unless
+    `--plain` is passed.
+  - Validation: `sin-code config validate` checks enum values, ranges, and
+    positive integers.
+- **New tests** in `config_test.go`: show/validate, deep merge, atomic
+  writes, secret masking, namespaced keys, expanded roundtrip.
+- **CoDocs companion**: `cmd/sin-code/internal/config.doc.md`.
+
+### Fixed
+- Updated `cmd/sin-code/testdata/scripts/golden_help.txt` to include
+  `hub`, `ledger`, `summary`, `update` and the corrected `serve` tool count
+  (15), removing pre-existing help-golden drift from v3.12.0/v3.13.0.
+
 ## [v3.13.0] - 2026-06-13
 
 ### Added
