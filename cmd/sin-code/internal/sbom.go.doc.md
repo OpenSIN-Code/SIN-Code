@@ -31,3 +31,15 @@ sin-code sbom ./my-project --format cyclonedx-json --output sbom.json
 - Go fallback to `go.mod` parsing may miss indirect dependencies
 - Generic SBOM only lists directories, not files
 - License fields default to `NOASSERTION` for all packages
+## MCP exposure (v3.11.0, issue #36)
+
+`sin_sbom_generate` is exposed via `sin-code serve` since v3.11.0. Same arguments
+as the CLI flags (`--format`, `--output`); output is inline JSON by default (omit
+`output` or set to `-`). The `output` parameter is path-escape-guarded — any path
+outside the scan root is rejected with an error to prevent the MCP layer from
+being a write-anywhere primitive.
+
+Permission default: `allow` (read-only by default — SBOM generation reads source
+files but does not mutate them; the output sandbox is the belt-and-suspenders
+defense, not the primary control).
+
