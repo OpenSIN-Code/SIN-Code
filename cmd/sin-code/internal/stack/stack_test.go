@@ -14,6 +14,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/dox"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/superpowers"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/vane"
 )
 
 // ── Test helpers ───────────────────────────────────────────────────────
@@ -146,6 +147,11 @@ func TestDoctorReportsMissingLayers(t *testing.T) {
 // because superpowers is not seeded, but vane.health MUST be OK.
 func TestDoctorVaneDownIsNotFatal(t *testing.T) {
 	setupTestHome(t)
+	// Force the vane config to an unreachable URL so the test is
+	// hermetic regardless of whether a real Vane instance is running.
+	if err := vane.SaveConfig(vane.Config{BaseURL: "http://127.0.0.1:1", TimeoutSeconds: 1}); err != nil {
+		t.Fatalf("save vane config: %v", err)
+	}
 	rep := Doctor(t.TempDir())
 	var health *Component
 	for i := range rep.Components {
