@@ -33,6 +33,10 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "browser__*", Policy: "ask"},
 		{Tool: "honcho__*", Policy: "ask"},
 		{Tool: "sin_bootstrap_skill", Policy: "ask"}, // v3.6.0: self-extending meta-tool (issue #51)
+		// v3.8.0: stack layer integrations (Bridged-External + stdio MCP).
+		{Tool: "vane__*", Policy: "allow"},      // citation-backed research
+		{Tool: "superpowers__*", Policy: "allow"}, // already local, just register
+		{Tool: "dox__*", Policy: "allow"},        // protocol check
 		{Tool: "sin_bash", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},
 	}

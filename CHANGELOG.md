@@ -2,6 +2,22 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [v3.8.0] - 2026-06-13
+
+### Added
+- **Vane bridge** (`internal/vane/`): HTTP-Bridge zur ItzCrazyKns/Vane (MIT) self-hosted AI-answering-engine mit zitierten Quellen. stdlib-only, stdio MCP server (2 tools: `vane_research`, `vane_health`), graceful degradation → websearch fallback. Closes #62.
+- **Stack consolidation** (`internal/stack/`): unified `sin-code stack install|doctor` über superpowers + dox + vane. Idempotent, --json output, graceful degradation pro layer. Closes #62.
+- New subcommands: `vane` (setup/doctor/search/config/serve), `stack` (install/doctor). 33 → 35.
+- New MCP servers in `.sin-code/mcp.json`: `vane` (2 tools), plus pre-existing `superpowers` (3 tools) and `dox` (0 tools, protocol-block based).
+
+### Mandate Compliance
+- M1 n8n-CI only ✓
+- M2 CGo-free, stdlib-only ✓
+- M3 Verification-Gate: PoC + Oracle (commit-time) ✓
+- M4 Permission-Defaults updated, ecosystem-sync green ✓
+- M5 Module path correct ✓
+- M7 Race-clean (tested with -race -count=1) ✓
+
 ## [3.7.0] - 2026-06-12
 
 ### Added
