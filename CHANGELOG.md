@@ -1,5 +1,43 @@
 # Changelog
 
+
+
+## [Unreleased]
+
+
+### Changed — `self-update` GitHub API URL (Issue #33)
+- Fixed `githubAPIURL` to point to `OpenSIN-Code/SIN-Code` (was pointing to archived `SIN-Code-Bundle` repo).
+
+### Added — `sin update` (Issue #33)
+- **Top-level `sin update` command** for full-stack self-update (Python + Go + Skills).
+  Replaces 15+ manual steps with a single 60-second command.
+- Flags: `--python-only`, `--go-only`, `--skills-only`, `--check`, `--dry-run`, `--force`,
+  `--rollback`, `--skip-doctor`, `--state-root`, `--keep-snapshots`.
+- **Snapshot-based rollback**: every update creates a manifest in
+  `~/.local/state/sin-code/updates/<ts>/manifest.json`; `sin update --rollback`
+  restores the most recent snapshot.
+- Post-update `sin-code doctor` runs automatically (non-fatal).
+- `sin-code self-update` remains as a legacy alias for back-compat.
+- New files: `update_manifest.go`, `update_backup.go`, `update_phases.go`,
+  `update_rollback.go`, `update_cmd.go` with companion `.doc.md` files.
+- Testdata fakes for pipx and go toolchain emulation in tests.
+- CI workflow `sin-update-e2e.yml` (n8n delegator, Mandate M1).
+### Added
+- **MCP tools for in-tree security + sbom** (#36): `sin_security_scan` and
+  `sin_sbom_generate` are now exposed via `sin-code serve`, wrapping the
+  existing in-tree `security` and `sbom` CLI subcommands. Both tools are
+  read-only and do not mutate the scanned tree. Permission defaults set to
+  `allow`.
+  - `sin_security_scan` — runs govulncheck, gosec, go vet, bandit, safety,
+    npm audit, secrets grep, and file-permission walker.
+  - `sin_sbom_generate` — generates SPDX 2.3 JSON or CycloneDX 1.5 JSON.
+  - Timeout ceiling 3600s enforced at the MCP layer (per-tool timeout still handled
+    by `runWithTimeout` in security.go).
+  - Path-escape guard on `sin_sbom_generate` output parameter rejects writes
+    outside the scan root.
+  - TUI sidebar `security` entry now marked `Runnable: true`.
+
+
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
 ## [v3.10.0] - 2026-06-13
@@ -24,7 +62,6 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   in 6 ecosystem tool repos (SCKG, IBD, PoC, ADW, Oracle, EFM).
 
 ## [v3.9.0] - 2026-06-13
-### Added
 - **GitHub CLI bridge** (`internal/ghbridge/`): bridged external (NEVER vendored) for the official `gh` CLI. 3-tier verb policy enforced in code: read-only (allow) | mutating (ask) | forbidden (hard-blocked). 3 MCP tools: `gh_query` (allow), `gh_execute` (ask), `gh_health` (allow). Enables the SIN-Code contributing workflow "issue first" to be executed by the agent itself.
 - New subcommand: `gh` (setup/doctor/run/surface/serve). 35 → 36.
 - Permission-Defaults: `gh_query`/`gh_health` → allow, `gh_execute` → ask.
@@ -42,7 +79,6 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [v3.8.0] - 2026-06-13
 
-### Added
 - **Vane bridge** (`internal/vane/`): HTTP-Bridge zur ItzCrazyKns/Vane (MIT) self-hosted AI-answering-engine mit zitierten Quellen. stdlib-only, stdio MCP server (2 tools: `vane_research`, `vane_health`), graceful degradation → websearch fallback. Closes #62.
 - **Stack consolidation** (`internal/stack/`): unified `sin-code stack install|doctor` über superpowers + dox + vane. Idempotent, --json output, graceful degradation pro layer. Closes #62.
 - New subcommands: `vane` (setup/doctor/search/config/serve), `stack` (install/doctor). 33 → 35.
@@ -58,7 +94,6 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [3.7.0] - 2026-06-12
 
-### Added
 - **`sin-code superpowers`** — integration of obra/superpowers (MIT)
   methodology skills into the SIN-Code agent. Skills (TDD,
   systematic-debugging, subagent-driven-development, verification-before-
@@ -84,7 +119,6 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [3.6.0] - 2026-06-12
 
-### Added
 - **Swarm mode** — `sin-code swarm -p <prompt> --agents <n1,n2,n3>`. N agent
   profiles race the same prompt headless; first verified solution wins.
   Per-agent isolated sessions. Cancellation via parent context.
@@ -106,7 +140,6 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [3.5.0] - 2026-06-12
 
-### Added
 - `internal/lessons` — persistent knowledge base (SQLite, modernc);
   failed verifications and tool errors accumulate with occurrence
   counts. `lessons.Briefing` injects top repeated lessons before the
@@ -141,12 +174,10 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [3.4.0] - 2026-06-12
 
-### Added
 - Einstein Layer — the agent that learns from mistakes.
 
 ## [Unreleased]
 
-### Added
 - **LSP integration dependencies** — `sin-code lsp` now documents its gopls
   requirement. Install via `brew install gopls` (macOS) or
   `go install golang.org/x/tools/gopls@latest` (Linux/CI). Without gopls on
@@ -179,7 +210,6 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [2.5.0] - 2026-06-11
 
-### Added
 - **Persistent Incremental Index (Phase 3)** — gob-persisted trigram + symbol
   index at `<root>/.sin-code/index.bin`. Auto-builds on first search,
   stat-based incremental refresh, 8 parallel build workers. New `index`
@@ -240,7 +270,6 @@ model aliases. See commit `63b33f5` for the full list of changes.
 
 ## [1.1.0] - 2026-06-07
 
-### Added
 - **TUI 2.0** — complete rewrite of `sin-code tui` as a multi-pane command center
   - Session tab bar (top, up to 6 sessions)
   - Collapsible left sidebar (Ctrl+B) with 5 views + 19 subcommands
@@ -263,7 +292,6 @@ model aliases. See commit `63b33f5` for the full list of changes.
 
 ## [1.0.9] - 2026-06-07
 
-### Added
 - 448 new tests bringing coverage from 82.7% to 93.6%
 - serve_handlers_test.go: all 13 MCP handleXxx functions + runSubcommand (1136 lines)
 - execute_extended_test.go: 55+ tests for runCommand, checkSafety, redactSecrets, signal handling
@@ -280,7 +308,6 @@ model aliases. See commit `63b33f5` for the full list of changes.
 
 ## [1.0.8] - 2026-06-07
 
-### Added
 - 84 new tests bringing coverage from 73.6% to 82.7%
 - self_update_test.go: 30 tests with httptest mocks for GitHub API, tar.gz/zip extraction, downloadFile
 - security_extended_test.go: 28 tests for tool runners (govulncheck, gosec, bandit, safety, npm audit, secrets-grep, file-permissions)
@@ -295,7 +322,6 @@ model aliases. See commit `63b33f5` for the full list of changes.
 
 ## [1.0.7] - 2026-06-07
 
-### Added
 - 200+ new tests (unit + E2E + MCP integration)
 - 7 new dedicated test files (ibd, poc, sckg, efm, grasp, map, scout)
 - testscript E2E framework (9 CLI tests)
@@ -308,7 +334,6 @@ model aliases. See commit `63b33f5` for the full list of changes.
 
 ## [1.0.4] - 2026-06-07
 
-### Added
 - `security` subcommand — auto-detects project type (Go/Python/Node/Generic) and runs available security tools
 - `config` subcommand — manages sin-code configuration (get, set, list, path, init)
 - `self-update` subcommand — checks GitHub releases and installs latest binary with backup/restore
@@ -330,7 +355,6 @@ model aliases. See commit `63b33f5` for the full list of changes.
 
 ## [1.0.3] - 2026-06-07
 
-### Added
 - `tui` subcommand — interactive Bubbletea menu for all subcommands with fallback
 
 ### Fixed
@@ -338,7 +362,6 @@ model aliases. See commit `63b33f5` for the full list of changes.
 
 ## [1.0.2] - 2026-06-07
 
-### Added
 - 13 core tools in unified Go binary: discover, execute, map, grasp, scout, harvest, orchestrate, ibd, poc, sckg, adw, oracle, efm
 - MCP server mode (`serve`) exposing all 13 tools via JSON-RPC 2.0 stdio
 - Symlink backwards compatibility (`discover`, `execute`, etc. → `sin-code`)
@@ -347,6 +370,5 @@ model aliases. See commit `63b33f5` for the full list of changes.
 
 ## [1.0.0] - 2026-06-04
 
-### Added
 - Initial release of 7 standalone Python tools (discover, execute, map, grasp, scout, harvest, orchestrate)
 - CEOAudit grade A+ (100.0/100)

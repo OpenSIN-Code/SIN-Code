@@ -330,7 +330,7 @@ Agents:    chat, sessions, mcp, goal, daemon, skill, superpowers,
            vane, stack, gh
 Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
-           orchestrator_agents, orchestrator_plan
+           orchestrator_agents, orchestrator_plan, update
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
            config, self-update
 ``` (v3.9.0: 36 subcommands, up from 35 in v3.8.0)
