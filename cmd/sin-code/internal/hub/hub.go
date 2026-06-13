@@ -95,7 +95,6 @@ func DefaultCatalog() []Category {
 			Description: "External bridges and helper commands",
 			Tools: []Tool{
 				{Name: "gh", Short: "GitHub CLI bridge", Description: "3-tier verb policy bridge to the official gh CLI.", Example: "sin-code gh run issue list --state open"},
-				{Name: "mcp", Short: "MCP manager", Description: "List, register, and inspect MCP servers.", Example: "sin-code mcp status"},
 				{Name: "config", Short: "Configuration", Description: "View and manage sin-code configuration.", Example: "sin-code config --help"},
 				{Name: "self-update", Short: "Self update", Description: "Update the sin-code binary to the latest release.", Example: "sin-code self-update"},
 				{Name: "update", Short: "Full-stack update", Description: "Update Go binary, scripts, and skills with rollback.", Example: "sin-code update --check"},
