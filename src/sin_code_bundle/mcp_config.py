@@ -29,8 +29,8 @@ DEFAULT_ENV: dict[str, str] = {}
 
 SUPPORTED_CLIENTS = ("opencode", "codex", "hermes")
 
-# All 15 individual SIN-Code tools (BR-3 / Issue #16).
-# First 7 are Go binaries, remaining 8 are Python modules with MCP servers.
+# All 16 individual SIN-Code tools (BR-3 / Issue #16 + issue #37).
+# First 7 are Go binaries, remaining 9 are Python modules with MCP servers.
 FULL_TOOLS: list[tuple[str, list[str]]] = [
     ("sin-discover", ["~/.local/bin/discover", "--mcp"]),
     ("sin-execute", ["~/.local/bin/execute", "--mcp"]),
@@ -48,6 +48,7 @@ FULL_TOOLS: list[tuple[str, list[str]]] = [
     ("sin-orchestration", ["python", "-m", "sin_code_orchestration.mcp_server"]),
     ("sin-review-interface", ["python", "-m", "sin_code_review_interface.mcp_server"]),
     ("sin-brain", ["python", "-m", "sin_brain.mcp_server"]),
+    ("sin-forge", ["sin-forge"]),
 ]
 
 
@@ -140,7 +141,7 @@ def generate_hermes(env: dict[str, str] | None = None) -> str:
 
 
 def generate_full_opencode(env: dict[str, str] | None = None) -> str:
-    """Full OpenCode config with all 15 individual SIN-Code tools (BR-3)."""
+    """Full OpenCode config with all 16 individual SIN-Code tools (BR-3)."""
     env = DEFAULT_ENV if env is None else env
     mcp: dict[str, Any] = {}
     for name, cmd in FULL_TOOLS:
@@ -154,7 +155,7 @@ def generate_full_opencode(env: dict[str, str] | None = None) -> str:
 
 
 def generate_full_codex(env: dict[str, str] | None = None) -> str:
-    """Full Codex TOML config with all 15 individual SIN-Code tools (BR-3)."""
+    """Full Codex TOML config with all 16 individual SIN-Code tools (BR-3)."""
     env = DEFAULT_ENV if env is None else env
     blocks: list[str] = []
     for name, cmd in FULL_TOOLS:
@@ -173,7 +174,7 @@ def generate_full_codex(env: dict[str, str] | None = None) -> str:
 
 
 def generate_full_hermes(env: dict[str, str] | None = None) -> str:
-    """Full Hermes YAML config with all 15 individual SIN-Code tools (BR-3)."""
+    """Full Hermes YAML config with all 16 individual SIN-Code tools (BR-3)."""
     env = DEFAULT_ENV if env is None else env
     servers: dict[str, Any] = {}
     for name, cmd in FULL_TOOLS:
@@ -254,7 +255,7 @@ def merge_into_file(client: str, path: Path, env: dict[str, str] | None = None) 
 
 
 def merge_full_into_file(client: str, path: Path, env: dict[str, str] | None = None) -> str:
-    """Fuegt alle 15 SIN-Code MCP-Server in eine bestehende Config-Datei ein (BR-3).
+    """Fuegt alle 16 SIN-Code MCP-Server in eine bestehende Config-Datei ein (BR-3).
 
     Gibt eine kurze Statusmeldung zurueck. Bestehende fremde Eintraege bleiben
     erhalten; vorhandene ``sin-*``-Eintraege werden ersetzt.
@@ -376,7 +377,7 @@ def _merge_yaml_full(path: Path, env: dict[str, str] | None) -> str:
 
 
 def _merge_codex_toml_full(path: Path, env: dict[str, str] | None) -> str:
-    """Merge fuer TOML mit allen 15 SIN-Code Tools.
+    """Merge fuer TOML mit allen 16 SIN-Code Tools.
 
     Strategie: vorhandene ``[mcp_servers.sin]`` und ``[mcp_servers.sin-*]``
     Bloecke entfernen und frisch generierte Bloecke anhaengen.

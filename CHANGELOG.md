@@ -2,6 +2,15 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [v3.16.0] - 2026-06-13
+
+### Added
+- **Forge integration (#37)**: `sin forge` top-level command (thin wrapper
+  around the `forge` binary from SIN-Code-Forge-Tool). `sin status` now
+  detects both the `forge` binary and the `sin-forge` MCP server.
+  `mcp_config` full mode registers `sin-forge` as the 16th individual tool.
+  ECOSYSTEM.md lists SIN-Code-Forge-Tool as ACTIVE.
+
 ## [v3.15.0] - 2026-06-13
 
 ### Added

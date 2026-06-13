@@ -8,6 +8,7 @@ SIN-Code-SCKG-Tool==main
 SIN-Code-IBD-Tool==main
 SIN-Code-ADW-Tool==main
 SIN-Code-EFM-Tool==main
+SIN-Code-Forge-Tool==main
 SIN-Code-Symfony-Lens==main
 
 # Core companions

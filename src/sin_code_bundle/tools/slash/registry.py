@@ -12,6 +12,8 @@ Manages user-defined slash commands with CRUD operations. Each command has:
 - updated_at: Timestamp
 """
 
+from __future__ import annotations
+
 import json
 import sqlite3
 from dataclasses import dataclass, asdict

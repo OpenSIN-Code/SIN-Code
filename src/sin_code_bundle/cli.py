@@ -341,6 +341,11 @@ def status():
     if mem_env.available:
         report["sin-brain:db"] = mem_env.db_path or "(default)"
         report["sin-brain:tiers"] = mem_env.tiers
+
+    # SIN-Code-Forge-Tool (issue #37): Go binary + pip-installed MCP server.
+    report["Forge (code generation, external)"] = shutil.which("forge") is not None
+    report["sin-forge (MCP server, external)"] = shutil.which("sin-forge") is not None
+
     typer.echo(json.dumps(report, indent=2))
 
 
@@ -960,7 +965,7 @@ def codocs_install_skill(
 @app.command(name="mcp-config")
 def mcp_config(
     client: str = typer.Argument(..., help="Target CLI: opencode | codex | hermes"),
-    full: bool = typer.Option(False, "--full", help="Generate config for all 15 individual tools"),
+    full: bool = typer.Option(False, "--full", help="Generate config for all 16 individual tools"),
     write: bool = typer.Option(
         False, "--write", help="Merge into the client's config file instead of stdout."
     ),
@@ -2681,6 +2686,7 @@ _NEW_TOOL_BINARIES = {
     "adw": ("SIN-Code-Architectural-Debt-Watchdogs", "adw"),
     "oracle": ("SIN-Code-Verification-Oracle", "oracle"),
     "efm": ("SIN-Code-EFM-Tool", "efm"),
+    "forge": ("SIN-Code-Forge-Tool", "forge"),
 }
 
 
@@ -2755,6 +2761,12 @@ def oracle():
 def efm():
     """Ephemeral Full-Stack Mocking (EFM) — thin wrapper around the `efm` binary."""
     _forward_to_binary("efm", _NEW_TOOL_BINARIES["efm"][0])
+
+
+@app.command()
+def forge():
+    """SIN-Code Forge — intelligent code generation & editing (thin wrapper around the `forge` binary)."""
+    _forward_to_binary("forge", _NEW_TOOL_BINARIES["forge"][0])
 
 
 @app.command()

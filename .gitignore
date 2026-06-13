@@ -63,3 +63,4 @@ sin-tui
 # out of the index.
 cmd/sin-code/internal/.sin-code/
 cmd/sin-code/tui/.sin-code/
+.venv-forge-test/

@@ -23,7 +23,7 @@
 | SIN-Code-IBD-Tool | `ibd_*` | CLI subprocess | ACTIVE |
 | SIN-Code-ADW-Tool | `adw_*` | CLI subprocess | ACTIVE |
 | SIN-Code-EFM-Tool | `efm_*` | CLI subprocess | ACTIVE |
-| SIN-Code-EFM-Tool | `efm_*` | CLI subprocess | ACTIVE |
+| SIN-Code-Forge-Tool | `forge_*` | CLI subprocess + MCP server | ACTIVE |
 | SIN-Code-Symfony-Lens | `symfonylens__*` | MCP server (registry.go) | ACTIVE |
 | SIN-Code (security) | `sin_security_scan` (v3.11.0) | MCP tool (serve.go) | ACTIVE |
 | SIN-Code (sbom) | `sin_sbom_generate` (v3.11.0) | MCP tool (serve.go) | ACTIVE |
