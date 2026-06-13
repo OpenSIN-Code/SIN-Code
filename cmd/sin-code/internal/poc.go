@@ -37,6 +37,7 @@ Pure Go implementation. Checks:
 Examples:
   sin-code poc --spec spec.md --code src/main.py
   sin-code poc --spec requirements.json --code src/`,
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := pocCode
 		if target == "" {
@@ -400,6 +401,7 @@ func outputTextPOC(result *pocResult) error {
 }
 
 func init() {
+	RegisterVersionCmd(PocCmd)
 	PocCmd.Flags().StringVarP(&pocSpec, "spec", "s", "", "Specification file (markdown, text, json)")
 	PocCmd.Flags().StringVarP(&pocCode, "code", "c", "", "Code file or directory to verify")
 	PocCmd.Flags().StringVarP(&pocFormat, "format", "f", "text", "Output format: text|json")

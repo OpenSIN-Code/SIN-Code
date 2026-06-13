@@ -2,4 +2,4 @@ sin-code --version
 cmp stdout version.golden
 
 -- version.golden --
-sin-code version dev
+sin-code dev (commit unknown, built unknown)

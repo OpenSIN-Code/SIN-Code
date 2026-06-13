@@ -32,6 +32,7 @@ Examples:
   sin-code ibd --before old.py --after new.py --intent "add retry logic"
   sin-code ibd --before v1.0 --after HEAD --intent "refactor authentication"
   sin-code ibd file.go --from main --to feature-branch --intent "add error handling"`,
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var beforePath, afterPath string
 
@@ -409,6 +410,7 @@ func outputTextIBD(result *ibdResult) error {
 }
 
 func init() {
+	RegisterVersionCmd(IbdCmd)
 	IbdCmd.Flags().StringVarP(&ibdBefore, "before", "b", "", "Before version (file, ref, or commit)")
 	IbdCmd.Flags().StringVarP(&ibdAfter, "after", "a", "", "After version (file, ref, or commit)")
 	IbdCmd.Flags().StringVarP(&ibdIntent, "intent", "i", "", "Stated intent of the change")

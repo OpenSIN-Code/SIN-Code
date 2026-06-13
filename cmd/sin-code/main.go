@@ -19,7 +19,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var Version = "dev" // Set at build time via -ldflags "-X main.Version=..."
+var Version = internal.Version // Re-export from internal/version.go; set at build time via -ldflags
 
 var rootCmd = &cobra.Command{
 	Use:   "sin-code",
@@ -76,7 +76,10 @@ func init() {
 	)
 
 	// Pass build-time version to self-update module.
-	internal.SetCurrentVersion(Version)
+	internal.SetCurrentVersion(internal.Version)
+
+	// Root --version uses the same template as per-subcommand --version.
+	internal.RegisterVersionCmd(rootCmd)
 }
 
 // checkUpdateFn is the network probe used by checkUpdate. It is a package

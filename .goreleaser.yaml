@@ -14,11 +14,17 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
+    # Build-time version injection. ALL three variables live in
+    # cmd/sin-code/internal/version.go. main.go re-exports
+    # internal.Version as main.Version for the root cobra command.
+    # Do NOT split this across main.* and internal.* — Go's linker is
+    # case-sensitive and a typo (e.g. main.version vs main.Version)
+    # silently does nothing. Verified under go build 1.22+ and 1.23+.
     ldflags:
       - -s -w
-      - -X main.version={{ .Version }}
-      - -X main.commit={{ .ShortCommit }}
-      - -X main.date={{ .CommitDate }}
+      - -X github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal.Version={{ .Version }}
+      - -X github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal.commit={{ .ShortCommit }}
+      - -X github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal.date={{ .CommitDate }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:

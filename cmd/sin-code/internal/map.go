@@ -28,6 +28,7 @@ and module-level analysis. Pure Go implementation.
 Example:
   sin-code map . --action map --format json`,
 	Args: cobra.ArbitraryArgs,
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := "."
 		if len(args) > 0 {
@@ -318,6 +319,7 @@ func min(a, b int) int {
 }
 
 func init() {
+	RegisterVersionCmd(MapCmd)
 	MapCmd.Flags().StringVarP(&mapAction, "action", "a", "map", "Action: map|summary|graph|hotpaths")
 	MapCmd.Flags().StringVarP(&mapFormat, "format", "f", "text", "Output format: text|json")
 }

@@ -47,6 +47,7 @@ Examples:
   sin-code efm --action down --stack docker-compose.yml
   sin-code efm --action status
   sin-code efm --action list --runtime orb`,
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return runEFM(efmAction, efmStack, efmTTL, efmFormat, efmRuntime)
 	},
@@ -463,6 +464,7 @@ func outputTextEFM(r efmResult) error {
 }
 
 func init() {
+	RegisterVersionCmd(EfmCmd)
 	EfmCmd.Flags().StringVarP(&efmAction, "action", "a", "list", "Action: up|down|list|status")
 	EfmCmd.Flags().StringVarP(&efmStack, "stack", "s", "", "Stack definition (docker-compose.yml, k8s manifest, etc.)")
 	EfmCmd.Flags().IntVarP(&efmTTL, "ttl", "t", 3600, "Time-to-live in seconds (0 = no auto-cleanup)")

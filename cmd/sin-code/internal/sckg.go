@@ -39,6 +39,7 @@ Examples:
   sin-code sckg . --action stats
   sin-code sckg . --action export --format json`,
 	Args: cobra.ArbitraryArgs,
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := "."
 		if len(args) > 0 {
@@ -413,6 +414,7 @@ func outputTextSCKGStats(stats *sckgStats) error {
 }
 
 func init() {
+	RegisterVersionCmd(SckgCmd)
 	SckgCmd.Flags().StringVarP(&sckgAction, "action", "a", "build", "Action: build|query|stats|export")
 	SckgCmd.Flags().StringVarP(&sckgQuery, "query", "q", "", "Query (for action=query)")
 	SckgCmd.Flags().StringVarP(&sckgFormat, "format", "f", "text", "Output format: text|json")

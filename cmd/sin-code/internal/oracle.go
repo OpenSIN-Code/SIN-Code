@@ -33,6 +33,7 @@ test file and reports which symbols are covered. Despite the legacy
 Examples:
   sin-code oracle --claim src/main.py --evidence tests/test_main.py
   sin-code oracle --claim cmd/sin-code/main.go --evidence cmd/sin-code/main_test.go`,
+	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if oracleClaim == "" {
 			return fmt.Errorf("--claim (source file) is required")
@@ -351,6 +352,7 @@ func outputTextOracle(r *oracleResult) error {
 }
 
 func init() {
+	RegisterVersionCmd(OracleCmd)
 	OracleCmd.Flags().StringVarP(&oracleClaim, "claim", "c", "", "Source file to check coverage for")
 	OracleCmd.Flags().StringVarP(&oracleEvidence, "evidence", "e", "", "Test file to compare against")
 	OracleCmd.Flags().StringVarP(&oracleFormat, "format", "f", "text", "Output format: text|json")
