@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+
+### Changed — `self-update` GitHub API URL (Issue #33)
+- Fixed `githubAPIURL` to point to `OpenSIN-Code/SIN-Code` (was pointing to archived `SIN-Code-Bundle` repo).
+
+### Added — `sin update` (Issue #33)
+- **Top-level `sin update` command** for full-stack self-update (Python + Go + Skills).
+  Replaces 15+ manual steps with a single 60-second command.
+- Flags: `--python-only`, `--go-only`, `--skills-only`, `--check`, `--dry-run`, `--force`,
+  `--rollback`, `--skip-doctor`, `--state-root`, `--keep-snapshots`.
+- **Snapshot-based rollback**: every update creates a manifest in
+  `~/.local/state/sin-code/updates/<ts>/manifest.json`; `sin update --rollback`
+  restores the most recent snapshot.
+- Post-update `sin-code doctor` runs automatically (non-fatal).
+- `sin-code self-update` remains as a legacy alias for back-compat.
+- New files: `update_manifest.go`, `update_backup.go`, `update_phases.go`,
+  `update_rollback.go`, `update_cmd.go` with companion `.doc.md` files.
+- Testdata fakes for pipx and go toolchain emulation in tests.
+- CI workflow `sin-update-e2e.yml` (n8n delegator, Mandate M1).
 ### Added
 - **MCP tools for in-tree security + sbom** (#36): `sin_security_scan` and
   `sin_sbom_generate` are now exposed via `sin-code serve`, wrapping the

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Purpose: fake-go for update tests.
+# Docs: testdata/fake_go/go.doc.md
+set -e
+case "$1" in
+  version) echo "go version go1.25.11 fake/test" ;;
+  build)
+    out=""
+    prev=""
+    for arg in "$@"; do
+      if [[ "$prev" == "-o" ]]; then out="$arg"; fi
+      prev="$arg"
+    done
+    if [[ "${FAKE_GO_FAIL:-0}" == "1" ]]; then exit 1; fi
+    if [[ -n "$out" ]]; then
+      mkdir -p "$(dirname "$out")"
+      cat > "$out" <<'EOSCRIPT'
+#!/usr/bin/env bash
+if [[ "$1" == "--version" ]]; then
+  echo "v1.2.0-3-g4c5a78d"
+fi
+EOSCRIPT
+      chmod +x "$out"
+    fi
+    ;;
+  *) echo "fake-go: unknown cmd $*" >&2; exit 2 ;;
+esac

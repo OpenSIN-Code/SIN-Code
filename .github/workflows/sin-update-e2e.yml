@@ -1,0 +1,38 @@
+# Purpose: E2E test for `sin update` — runs in CI via n8n delegator (Mandate M1).
+# Docs: .github/workflows/sin-update-e2e.yml.doc.md
+name: sin-update-e2e
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cmd/sin-code/internal/update*.go'
+      - 'cmd/sin-code/internal/self-update.go'
+      - 'cmd/sin-code/internal/update_*.doc.md'
+      - '.github/workflows/sin-update-e2e.yml'
+  pull_request:
+    paths:
+      - 'cmd/sin-code/internal/update*.go'
+      - 'cmd/sin-code/internal/self-update.go'
+  workflow_dispatch:
+
+jobs:
+  delegate:
+    name: Delegate E2E to n8n
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger n8n webhook
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
+        run: |
+          if [[ -z "$N8N_CI_WEBHOOK_URL" ]]; then
+            echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
+            exit 1
+          fi
+          curl -fsS -X POST             -H "Content-Type: application/json"             -d '{"workflow":"sin-update-e2e","ref":"${{ github.ref }}","sha":"${{ github.sha }}","repo":"${{ github.repository }}","actor":"${{ github.actor }}"}'             "$N8N_CI_WEBHOOK_URL"
+      - name: Echo local pre-checks
+        run: |
+          go version
+          go vet ./cmd/sin-code/...
+          echo "Heavy work delegated to n8n."

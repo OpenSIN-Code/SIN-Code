@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Purpose: fake-pipx for update tests.
+# Docs: testdata/fake_pipx/pipx.doc.md
+set -e
+case "$1" in
+  list)
+    cat <<'JSON'
+{"venvs":{"sin-code-bundle":{"metadata":{"main_package":{"package_version":"1.2.0"}}}}}
+JSON
+    ;;
+  upgrade)
+    pkg="$2"
+    if [[ "${FAKE_PIPX_FAIL:-0}" == "1" ]]; then exit 1; fi
+    if [[ "${FAKE_PIPX_DRY_RUN:-0}" == "1" ]]; then
+      echo "would upgrade $pkg"
+    else
+      echo "[fake-pipx] upgrading $pkg" >&2
+    fi
+    ;;
+  *) echo "fake-pipx: unknown cmd $*" >&2; exit 2 ;;
+esac

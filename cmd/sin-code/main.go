@@ -56,6 +56,7 @@ func init() {
 	rootCmd.AddCommand(internal.SbomCmd)
 	rootCmd.AddCommand(internal.ConfigCmd)
 	rootCmd.AddCommand(internal.SelfUpdateCmd)
+	rootCmd.AddCommand(internal.UpdateCmd)
 	rootCmd.AddCommand(todo.TodoCmd)
 	rootCmd.AddCommand(notifications.NotificationsCmd)
 	rootCmd.AddCommand(internal.MemoryCmd)
