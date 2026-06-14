@@ -83,6 +83,7 @@ func init() {
 		NewLedgerCmd(), NewSummaryCmd(), NewAutodevCmd(), // v3.4.0 + v3.5.0 + v3.6.0 + v3.7.0 + v3.8.0 + v3.9.0 + v3.12.0 + v3.13.0 + autodev-bridge (Python MIT v0.4.0, stdio MCP via autodev-mcp)
 		NewEvalCmd(), NewTraceCmd(), // v3.18.0: Eval + Observability System (issue #75)
 		NewSpecCmd(), // v3.20.0: Spec Layer (issue #122)
+		NewRTKCmd(), // v3.21.0: RTK Integration (issue #123)
 	)
 
 	// Pass build-time version to self-update module.
