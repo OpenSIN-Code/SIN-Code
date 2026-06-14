@@ -16,5 +16,6 @@ Python CI for the `sin-code-bundle` package still shipped in this repo.
 
 ## Caveats
 
-- Several tests create temporary git commits, so the workflow configures a global git identity before running pytest.
+- Several tests create temporary git commits, so the workflow configures a global git identity and sets `init.defaultBranch` to `main` before running pytest.
+- Some Python tests exercise the standalone `execute` and `scout` Go binaries, so the workflow installs them from the upstream repos before running pytest.
 - The optional extras install uses `|| echo ...` so the workflow continues even if optional dependencies fail.
