@@ -10,8 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
 )
 
 // NewLedgerCmd builds the `ledger` cobra subcommand.

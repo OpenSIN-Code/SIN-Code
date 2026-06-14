@@ -9,9 +9,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/summary"
-	"github.com/spf13/cobra"
 )
 
 // NewSummaryCmd builds the `summary` cobra subcommand.

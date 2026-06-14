@@ -58,8 +58,8 @@ func TestNewJudge_DefaultsApplied(t *testing.T) {
 type chatWire struct {
 	ID      string `json:"id"`
 	Choices []struct {
-		Index        int `json:"index"`
-		Message      struct {
+		Index   int `json:"index"`
+		Message struct {
 			Role    string `json:"role"`
 			Content string `json:"content"`
 		} `json:"message"`
@@ -74,8 +74,8 @@ func serveChat(t *testing.T, content string) *httptest.Server {
 	t.Helper()
 	w := chatWire{ID: "x"}
 	w.Choices = append(w.Choices, struct {
-		Index        int `json:"index"`
-		Message      struct {
+		Index   int `json:"index"`
+		Message struct {
 			Role    string `json:"role"`
 			Content string `json:"content"`
 		} `json:"message"`

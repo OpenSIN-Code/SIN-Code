@@ -11,8 +11,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/dox"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/dox"
 )
 
 // NewDoxCmd builds the `dox` cobra subcommand. Pattern matches

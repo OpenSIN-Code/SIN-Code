@@ -21,7 +21,7 @@ import (
 // Landlock filesystem access rights (ABI v5+).
 // See https://www.kernel.org/doc/html/latest/userspace-api/landlock.html#filesystem-flags
 const (
-	accessFSExecute  = 1 << iota
+	accessFSExecute = 1 << iota
 	accessFSWriteFile
 	accessFSReadFile
 	accessFSReadDir
@@ -51,8 +51,12 @@ type rule struct {
 	path   string
 }
 
-func roDirs(p string) rule { return rule{access: accessFSReadFile | accessFSReadDir | accessFSRefer, path: p} }
-func rwDirs(p string) rule { return rule{access: accessFSReadFile | accessFSReadDir | accessFSWriteFile | accessFSRemoveFile | accessFSRemoveDir | accessFSMakeDir | accessFSMakeReg | accessFSMakeSym | accessFSRefer, path: p} }
+func roDirs(p string) rule {
+	return rule{access: accessFSReadFile | accessFSReadDir | accessFSRefer, path: p}
+}
+func rwDirs(p string) rule {
+	return rule{access: accessFSReadFile | accessFSReadDir | accessFSWriteFile | accessFSRemoveFile | accessFSRemoveDir | accessFSMakeDir | accessFSMakeReg | accessFSMakeSym | accessFSRefer, path: p}
+}
 
 // applyRules applies a list of filesystem rules to the current process using
 // Linux Landlock. Each rule is applied independently so that a single

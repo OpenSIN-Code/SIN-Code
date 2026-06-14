@@ -153,14 +153,14 @@ func rgSearch(root, query, searchType string, maxResults int) ([]scoutResult, er
 			continue
 		}
 		var matchData struct {
-			Path        struct{ Text string } `json:"path"`
-			Lines       struct{ Text string } `json:"lines"`
-			LineNumber  int                   `json:"line_number"`
-			AbsoluteOffset int                `json:"absolute_offset"`
-			Submatches  []struct {
-				Match   struct{ Text string } `json:"match"`
-				Start   int    `json:"start"`
-				End     int    `json:"end"`
+			Path           struct{ Text string } `json:"path"`
+			Lines          struct{ Text string } `json:"lines"`
+			LineNumber     int                   `json:"line_number"`
+			AbsoluteOffset int                   `json:"absolute_offset"`
+			Submatches     []struct {
+				Match struct{ Text string } `json:"match"`
+				Start int                   `json:"start"`
+				End   int                   `json:"end"`
 			} `json:"submatches"`
 		}
 		if err := json.Unmarshal(raw.Data, &matchData); err != nil {
@@ -461,9 +461,9 @@ func isBinaryFile(path string) bool {
 }
 
 var (
-	rgOnce     sync.Once
-	rgChecked  bool
-	rgOnPath   bool
+	rgOnce    sync.Once
+	rgChecked bool
+	rgOnPath  bool
 )
 
 func getContext(lines []string, center, radius int) []string {

@@ -11,8 +11,8 @@ type scriptAgent struct {
 	reply string
 }
 
-func (s *scriptAgent) Name() string                 { return s.name }
-func (s *scriptAgent) Config() AgentConfig          { return AgentConfig{Name: s.name, Type: TaskCode} }
+func (s *scriptAgent) Name() string        { return s.name }
+func (s *scriptAgent) Config() AgentConfig { return AgentConfig{Name: s.name, Type: TaskCode} }
 func (s *scriptAgent) Run(ctx context.Context, _ *Task, _ *Scratchpad) (string, error) {
 	return s.reply, nil
 }

@@ -17,18 +17,18 @@ import (
 const ManifestFile = "plugin.toml"
 
 type Plugin struct {
-	Name        string           `toml:"name"`
-	Version     string           `toml:"version"`
-	Description string           `toml:"description"`
-	Author      string           `toml:"author"`
-	Homepage    string           `toml:"homepage"`
-	License     string           `toml:"license"`
-	MinSinCode  string           `toml:"min_sin_code"`
-	Capabilities []string        `toml:"capabilities"`
-	Subcommands []PluginSubcmd   `toml:"subcommand"`
-	Agents      []PluginAgent    `toml:"agents"`
-	Tools       []PluginTool     `toml:"tools"`
-	Hooks       []PluginHook     `toml:"hooks"`
+	Name         string         `toml:"name"`
+	Version      string         `toml:"version"`
+	Description  string         `toml:"description"`
+	Author       string         `toml:"author"`
+	Homepage     string         `toml:"homepage"`
+	License      string         `toml:"license"`
+	MinSinCode   string         `toml:"min_sin_code"`
+	Capabilities []string       `toml:"capabilities"`
+	Subcommands  []PluginSubcmd `toml:"subcommand"`
+	Agents       []PluginAgent  `toml:"agents"`
+	Tools        []PluginTool   `toml:"tools"`
+	Hooks        []PluginHook   `toml:"hooks"`
 
 	Enabled bool   `toml:"-"`
 	Path    string `toml:"-"`
@@ -43,19 +43,19 @@ type PluginSubcmd struct {
 }
 
 type PluginAgent struct {
-	Name        string `toml:"name"`
-	Type        string `toml:"type"`
-	Model       string `toml:"model"`
-	System      string `toml:"system_file"`
-	Provider    string `toml:"provider"`
+	Name     string `toml:"name"`
+	Type     string `toml:"type"`
+	Model    string `toml:"model"`
+	System   string `toml:"system_file"`
+	Provider string `toml:"provider"`
 }
 
 type PluginTool struct {
-	Name        string `toml:"name"`
-	Description string `toml:"description"`
-	Binary      string `toml:"binary"`
+	Name        string   `toml:"name"`
+	Description string   `toml:"description"`
+	Binary      string   `toml:"binary"`
 	Args        []string `toml:"args"`
-	Timeout     int    `toml:"timeout"`
+	Timeout     int      `toml:"timeout"`
 }
 
 type PluginHook struct {

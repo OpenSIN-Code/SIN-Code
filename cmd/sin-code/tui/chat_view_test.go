@@ -110,7 +110,11 @@ func TestHandleChatSubmit(t *testing.T) {
 	// the in-band "no API key" assistant entry synchronously.
 	prev, had := os.LookupEnv("SIN_NIM_API_KEY")
 	os.Unsetenv("SIN_NIM_API_KEY")
-	t.Cleanup(func() { if had { os.Setenv("SIN_NIM_API_KEY", prev) } })
+	t.Cleanup(func() {
+		if had {
+			os.Setenv("SIN_NIM_API_KEY", prev)
+		}
+	})
 
 	m := NewModel()
 	m.initChatInput()
@@ -127,7 +131,11 @@ func TestHandleChatSubmit(t *testing.T) {
 func TestHandleChatSubmitWithAttachments(t *testing.T) {
 	prev, had := os.LookupEnv("SIN_NIM_API_KEY")
 	os.Unsetenv("SIN_NIM_API_KEY")
-	t.Cleanup(func() { if had { os.Setenv("SIN_NIM_API_KEY", prev) } })
+	t.Cleanup(func() {
+		if had {
+			os.Setenv("SIN_NIM_API_KEY", prev)
+		}
+	})
 
 	m := NewModel()
 	m.initChatInput()
@@ -148,7 +156,11 @@ func TestHandleChatSubmitWithAttachments(t *testing.T) {
 func TestChatHistoryTrimmedAt500(t *testing.T) {
 	prev, had := os.LookupEnv("SIN_NIM_API_KEY")
 	os.Unsetenv("SIN_NIM_API_KEY")
-	t.Cleanup(func() { if had { os.Setenv("SIN_NIM_API_KEY", prev) } })
+	t.Cleanup(func() {
+		if had {
+			os.Setenv("SIN_NIM_API_KEY", prev)
+		}
+	})
 
 	m := NewModel()
 	m.initChatInput()
@@ -163,7 +175,11 @@ func TestChatHistoryTrimmedAt500(t *testing.T) {
 func TestHandleChatSubmitNoKeyWritesAssistantEntry(t *testing.T) {
 	prev, had := os.LookupEnv("SIN_NIM_API_KEY")
 	os.Unsetenv("SIN_NIM_API_KEY")
-	t.Cleanup(func() { if had { os.Setenv("SIN_NIM_API_KEY", prev) } })
+	t.Cleanup(func() {
+		if had {
+			os.Setenv("SIN_NIM_API_KEY", prev)
+		}
+	})
 
 	m := NewModel()
 	m.initChatInput()

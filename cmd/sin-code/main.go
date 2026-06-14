@@ -12,11 +12,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/sandbox"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
-	"github.com/spf13/cobra"
 )
 
 var Version = internal.Version // Re-export from internal/version.go; set at build time via -ldflags

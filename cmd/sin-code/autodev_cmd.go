@@ -15,8 +15,9 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autodev"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autodev"
 )
 
 // NewAutodevCmd builds the `autodev` cobra subcommand. Pattern matches

@@ -11,8 +11,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
 )
 
 var (
@@ -23,9 +24,9 @@ var (
 )
 
 var TodoCmd = &cobra.Command{
-	Use:   "todo",
-	Short: "Issue tracker with dependencies, audit log, and project namespaces",
-	Long: "todo is the SIN-Code issue tracker, matching the UX of `bd` and opencode's todo system. Backed by bbolt for durability, append-only audit log for history, and project namespaces for multi-repo work.\n\nCommon workflows:\n  sin-code todo add --title \"...\" --priority P0 --type feature\n  sin-code todo ready\n  sin-code todo dep add st-1234 st-5678 --type blocks\n  sin-code todo compact --older-than 30d",
+	Use:          "todo",
+	Short:        "Issue tracker with dependencies, audit log, and project namespaces",
+	Long:         "todo is the SIN-Code issue tracker, matching the UX of `bd` and opencode's todo system. Backed by bbolt for durability, append-only audit log for history, and project namespaces for multi-repo work.\n\nCommon workflows:\n  sin-code todo add --title \"...\" --priority P0 --type feature\n  sin-code todo ready\n  sin-code todo dep add st-1234 st-5678 --type blocks\n  sin-code todo compact --older-than 30d",
 	SilenceUsage: true,
 }
 
@@ -297,10 +298,10 @@ var showCmd = &cobra.Command{
 		rev, _ := store.GetReverseDeps(t.ID)
 		if todoFormat == "json" {
 			return printJSON(map[string]interface{}{
-				"todo":     t,
-				"deps":     deps,
-				"deps_of":  rev,
-				"audit":    audit,
+				"todo":    t,
+				"deps":    deps,
+				"deps_of": rev,
+				"audit":   audit,
 			})
 		}
 		fmt.Printf("ID:        %s\n", t.ID)
@@ -1311,7 +1312,7 @@ func notify(nt notifications.Type, todoID, title, message, actor string) {
 }
 
 var hookConfigOnce sync.Once
-var hookConfig     *HookConfig
+var hookConfig *HookConfig
 
 func getHookConfig() *HookConfig {
 	hookConfigOnce.Do(func() {

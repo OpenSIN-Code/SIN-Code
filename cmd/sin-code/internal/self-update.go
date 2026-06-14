@@ -56,11 +56,11 @@ func init() {
 // ─── Data structures ───────────────────────────────────────────────────────
 
 type GitHubRelease struct {
-	TagName    string `json:"tag_name"`
-	Name       string `json:"name"`
-	Published  string `json:"published_at"`
-	Body       string `json:"body"`
-	Assets     []struct {
+	TagName   string `json:"tag_name"`
+	Name      string `json:"name"`
+	Published string `json:"published_at"`
+	Body      string `json:"body"`
+	Assets    []struct {
 		Name string `json:"name"`
 		Size int    `json:"size"`
 		URL  string `json:"browser_download_url"`

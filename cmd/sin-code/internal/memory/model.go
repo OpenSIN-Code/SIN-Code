@@ -25,20 +25,20 @@ type Memory struct {
 }
 
 type Link struct {
-	From     string    `json:"from"`
-	To       string    `json:"to"`
-	Rel      string    `json:"rel"`
-	Created  time.Time `json:"created"`
+	From    string    `json:"from"`
+	To      string    `json:"to"`
+	Rel     string    `json:"rel"`
+	Created time.Time `json:"created"`
 }
 
 type LinkType string
 
 const (
-	LinkReferences LinkType = "references"
-	LinkSupports   LinkType = "supports"
+	LinkReferences  LinkType = "references"
+	LinkSupports    LinkType = "supports"
 	LinkContradicts LinkType = "contradicts"
-	LinkExtends    LinkType = "extends"
-	LinkCauses     LinkType = "causes"
+	LinkExtends     LinkType = "extends"
+	LinkCauses      LinkType = "causes"
 )
 
 var ValidLinkTypes = []LinkType{LinkReferences, LinkSupports, LinkContradicts, LinkExtends, LinkCauses}

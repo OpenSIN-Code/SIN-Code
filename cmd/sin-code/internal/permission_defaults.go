@@ -32,20 +32,19 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "scheduler__*", Policy: "ask"},
 		{Tool: "browser__*", Policy: "ask"},
 		{Tool: "honcho__*", Policy: "ask"},
-		{Tool: "share__*", Policy: "ask"},   // v3.17.0: SIN-Code-Share-Skill (registry.go)
-		{Tool: "skills__*", Policy: "ask"},  // v3.17.0: SIN-Code-Skills-Skill (registry.go)
+		{Tool: "share__*", Policy: "ask"},            // v3.17.0: SIN-Code-Share-Skill (registry.go)
+		{Tool: "skills__*", Policy: "ask"},           // v3.17.0: SIN-Code-Skills-Skill (registry.go)
 		{Tool: "sin_bootstrap_skill", Policy: "ask"}, // v3.6.0: self-extending meta-tool (issue #51)
 		// v3.8.0: stack layer integrations (Bridged-External + stdio MCP).
-		{Tool: "vane__*", Policy: "allow"},      // citation-backed research
+		{Tool: "vane__*", Policy: "allow"},        // citation-backed research
 		{Tool: "superpowers__*", Policy: "allow"}, // already local, just register
-		{Tool: "dox__*", Policy: "allow"},        // protocol check
-		{Tool: "gh_query", Policy: "allow"},   // v3.9.0: read-only by code-level cross-check
-		{Tool: "gh_health", Policy: "allow"},  // v3.9.0: binary presence + auth check
-		{Tool: "gh_execute", Policy: "ask"},    // v3.9.0: mutating (issue create, pr merge, ...)
+		{Tool: "dox__*", Policy: "allow"},         // protocol check
+		{Tool: "gh_query", Policy: "allow"},       // v3.9.0: read-only by code-level cross-check
+		{Tool: "gh_health", Policy: "allow"},      // v3.9.0: binary presence + auth check
+		{Tool: "gh_execute", Policy: "ask"},       // v3.9.0: mutating (issue create, pr merge, ...)
 		{Tool: "sin_bash", Policy: "ask"},
 		{Tool: "sin_sbom_generate", Policy: "allow"},
 		{Tool: "sin_security_scan", Policy: "allow"},
-
 
 		// v3.16.0: autodev-cli bridge (Bridged-External + autodev-mcp stdio MCP).
 		// Qualified name = server-name + "__" + tool-name (registry.go "autodev" + autodev-mcp tools).
@@ -61,7 +60,7 @@ func DefaultPermissionRules() []permission.Rule {
 		// not call them as MCP functions; the policy below covers
 		// any future agent-loop surface that exposes them as tools.
 		{Tool: "eval__list", Policy: "allow"},
-		{Tool: "eval__run", Policy: "ask"},   // may invoke real verification + LLM
+		{Tool: "eval__run", Policy: "ask"}, // may invoke real verification + LLM
 		{Tool: "trace__doctor", Policy: "allow"},
 		// Backstop catch-all (mirrors sin_bash default at line 44 for unmatched prefixes).
 		{Tool: "autodev__*", Policy: "ask"},

@@ -196,20 +196,20 @@ type pageData struct {
 	Result *orchestrator.Result
 	Error  string
 
-	Todos  []*todo.Todo
-	Total  int
-	Open   int
-	Done   int
-	Added  *todo.Todo
+	Todos []*todo.Todo
+	Total int
+	Open  int
+	Done  int
+	Added *todo.Todo
 
-	Todo          *todo.Todo
-	Deps          []todo.Dependency
-	Audit         []*todo.AuditEntry
+	Todo  *todo.Todo
+	Deps  []todo.Dependency
+	Audit []*todo.AuditEntry
 
 	Notifications []*notifications.Notification
 	Unread        int
 
-	Stacks []efmStack
+	Stacks  []efmStack
 	Runtime string
 }
 
@@ -248,10 +248,10 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleOrchestratorPage(w http.ResponseWriter, r *http.Request) {
 	agents := defaultAgentConfigs()
 	s.render(w, "orchestrator.html", pageData{
-		Title:       "Orchestrator",
-		Active:      "orchestrator",
-		Agents:      agents,
-		Prompt:      r.URL.Query().Get("prompt"),
+		Title:  "Orchestrator",
+		Active: "orchestrator",
+		Agents: agents,
+		Prompt: r.URL.Query().Get("prompt"),
 	})
 }
 

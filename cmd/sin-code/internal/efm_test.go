@@ -606,10 +606,10 @@ func TestOutputTextEFM_WithStack(t *testing.T) {
 
 func TestOutputTextEFM_WithError(t *testing.T) {
 	result := efmResult{
-		Action:  "up",
-		Stack:   "docker-compose.yml",
-		Status:  "error",
-		Error:   "docker not available",
+		Action: "up",
+		Stack:  "docker-compose.yml",
+		Status: "error",
+		Error:  "docker not available",
 	}
 
 	oldStdout := os.Stdout
@@ -857,7 +857,7 @@ func TestRunEFM_AllActions_JSON(t *testing.T) {
 		t.Run(action, func(t *testing.T) {
 			oldStdout := os.Stdout
 			r, w, _ := os.Pipe()
-	defer r.Close()
+			defer r.Close()
 			os.Stdout = w
 
 			err := runEFM(action, "", 0, "json", testRuntime)

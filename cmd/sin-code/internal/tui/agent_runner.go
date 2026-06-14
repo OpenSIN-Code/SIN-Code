@@ -34,7 +34,7 @@ import (
 type EventKind int
 
 const (
-	EventTurn   EventKind = iota + 1
+	EventTurn EventKind = iota + 1
 	EventTool
 	EventVerify
 	EventDone
@@ -114,8 +114,8 @@ var ErrBusy = errors.New("agentrunner: prompt already in flight")
 var ErrClosed = errors.New("agentrunner: closed")
 
 const (
-	askBuffer          = 1
-	defaultAskTimeout  = 30 * time.Second
+	askBuffer         = 1
+	defaultAskTimeout = 30 * time.Second
 )
 
 // NewAgentRunner builds a runner with a fully wired loop, opens the

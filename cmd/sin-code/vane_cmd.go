@@ -13,8 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/vane"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/vane"
 )
 
 // NewVaneCmd builds the `vane` cobra subcommand. Pattern matches

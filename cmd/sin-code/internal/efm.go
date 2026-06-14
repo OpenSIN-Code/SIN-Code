@@ -56,20 +56,20 @@ Examples:
 }
 
 type efmResult struct {
-	Action    string        `json:"action"`
-	Stack     string        `json:"stack,omitempty"`
-	Status    string        `json:"status"`
-	Services  []efmService  `json:"services,omitempty"`
-	Error     string        `json:"error,omitempty"`
-	Duration  string        `json:"duration,omitempty"`
-	Runtime   string        `json:"runtime,omitempty"`
+	Action   string       `json:"action"`
+	Stack    string       `json:"stack,omitempty"`
+	Status   string       `json:"status"`
+	Services []efmService `json:"services,omitempty"`
+	Error    string       `json:"error,omitempty"`
+	Duration string       `json:"duration,omitempty"`
+	Runtime  string       `json:"runtime,omitempty"`
 }
 
 type efmService struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
+	Name   string   `json:"name"`
+	Status string   `json:"status"`
 	Ports  []string `json:"ports,omitempty"`
-	Image  string `json:"image,omitempty"`
+	Image  string   `json:"image,omitempty"`
 }
 
 func runEFM(action, stack string, ttl int, format string, runtimeOverride string) error {

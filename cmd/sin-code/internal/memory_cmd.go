@@ -14,17 +14,17 @@ import (
 )
 
 var (
-	memDBPath  string
-	memInsight string
-	memProject string
-	memTags    string
-	memActor   string
-	memLimit   int
-	memTopK    int
-	memDepth   int
+	memDBPath   string
+	memInsight  string
+	memProject  string
+	memTags     string
+	memActor    string
+	memLimit    int
+	memTopK     int
+	memDepth    int
 	memForgetID string
 	memForget   bool
-	memFormat  string
+	memFormat   string
 )
 
 var MemoryCmd = &cobra.Command{
@@ -335,9 +335,9 @@ var memStatsCmd = &cobra.Command{
 		enabled, dim := store.EmbeddingStatus()
 		if memFormat == "json" {
 			out := map[string]interface{}{
-				"stats":         stats,
-				"embedder":      enabled,
-				"embed_dim":     dim,
+				"stats":     stats,
+				"embedder":  enabled,
+				"embed_dim": dim,
 			}
 			return json.NewEncoder(os.Stdout).Encode(out)
 		}

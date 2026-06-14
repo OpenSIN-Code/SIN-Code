@@ -17,12 +17,12 @@ func NewAggregator(scratch *Scratchpad) *Aggregator {
 }
 
 type Result struct {
-	Plan       *Plan
-	Sections   map[string]string
-	TotalTasks int
-	OKTasks    int
+	Plan        *Plan
+	Sections    map[string]string
+	TotalTasks  int
+	OKTasks     int
 	FailedTasks int
-	Summary    string
+	Summary     string
 }
 
 func (a *Aggregator) Aggregate(plan *Plan) *Result {

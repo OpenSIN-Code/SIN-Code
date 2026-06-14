@@ -51,15 +51,15 @@ type InitializeResult struct {
 }
 
 type ServerCapabilities struct {
-	TextDocumentSync         any  `json:"textDocumentSync,omitempty"`
-	HoverProvider            any  `json:"hoverProvider,omitempty"`
-	DefinitionProvider       any  `json:"definitionProvider,omitempty"`
-	ReferencesProvider       any  `json:"referencesProvider,omitempty"`
-	RenameProvider           any  `json:"renameProvider,omitempty"`
+	TextDocumentSync           any `json:"textDocumentSync,omitempty"`
+	HoverProvider              any `json:"hoverProvider,omitempty"`
+	DefinitionProvider         any `json:"definitionProvider,omitempty"`
+	ReferencesProvider         any `json:"referencesProvider,omitempty"`
+	RenameProvider             any `json:"renameProvider,omitempty"`
 	DocumentFormattingProvider any `json:"documentFormattingProvider,omitempty"`
-	DocumentSymbolProvider   any  `json:"documentSymbolProvider,omitempty"`
-	CodeActionProvider       any  `json:"codeActionProvider,omitempty"`
-	CompletionProvider       any  `json:"completionProvider,omitempty"`
+	DocumentSymbolProvider     any `json:"documentSymbolProvider,omitempty"`
+	CodeActionProvider         any `json:"codeActionProvider,omitempty"`
+	CompletionProvider         any `json:"completionProvider,omitempty"`
 }
 
 type Location struct {
@@ -78,7 +78,7 @@ type Position struct {
 }
 
 type LocationLink struct {
-	OriginSelectionRange *Range  `json:"originSelectionRange,omitempty"`
+	OriginSelectionRange *Range `json:"originSelectionRange,omitempty"`
 	TargetURI            string `json:"targetUri"`
 	TargetRange          Range  `json:"targetRange"`
 	TargetSelectionRange Range  `json:"targetSelectionRange"`
@@ -90,7 +90,7 @@ type TextDocumentIdentifier struct {
 
 type TextDocumentPositionParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`
-	Position     Position              `json:"position"`
+	Position     Position               `json:"position"`
 }
 
 type TextDocumentItem struct {
@@ -128,11 +128,11 @@ type DocumentSymbol struct {
 }
 
 type SymbolInformation struct {
-	Name          string `json:"name"`
-	Kind          int    `json:"kind"`
-	Deprecated    *bool  `json:"deprecated,omitempty"`
+	Name          string   `json:"name"`
+	Kind          int      `json:"kind"`
+	Deprecated    *bool    `json:"deprecated,omitempty"`
 	Location      Location `json:"location"`
-	ContainerName string `json:"containerName,omitempty"`
+	ContainerName string   `json:"containerName,omitempty"`
 }
 
 type Diagnostic struct {
@@ -159,8 +159,8 @@ type WorkspaceEdit struct {
 
 type RenameParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`
-	Position     Position              `json:"position"`
-	NewName      string                `json:"newName"`
+	Position     Position               `json:"position"`
+	NewName      string                 `json:"newName"`
 }
 
 type Response struct {
@@ -233,7 +233,7 @@ func (c *Client) initialize() error {
 	return c.Notify("initialized", map[string]any{})
 }
 
-func (c *Client) Lang() string { return c.lang }
+func (c *Client) Lang() string    { return c.lang }
 func (c *Client) RootURI() string { return c.rootURI }
 
 // SetNotificationHandler registers a callback for server-to-client
@@ -274,7 +274,7 @@ func (c *Client) DidOpen(doc TextDocumentItem) error {
 
 func (c *Client) DidChange(uri string, version int, changes []TextDocumentContentChangeEvent) error {
 	return c.Notify("textDocument/didChange", map[string]any{
-		"textDocument": VersionedTextDocumentIdentifier{URI: uri, Version: version},
+		"textDocument":   VersionedTextDocumentIdentifier{URI: uri, Version: version},
 		"contentChanges": changes,
 	})
 }
@@ -312,7 +312,7 @@ func (c *Client) References(uri string, pos Position, includeDecl bool) ([]Locat
 	var raw []json.RawMessage
 	params := struct {
 		TextDocument TextDocumentIdentifier `json:"textDocument"`
-		Position     Position              `json:"position"`
+		Position     Position               `json:"position"`
 		Context      struct {
 			IncludeDeclaration bool `json:"includeDeclaration"`
 		} `json:"context"`

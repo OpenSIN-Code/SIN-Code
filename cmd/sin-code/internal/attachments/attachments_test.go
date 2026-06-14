@@ -81,13 +81,13 @@ func TestIsLikelyText(t *testing.T) {
 
 func TestExtFor(t *testing.T) {
 	cases := map[string]string{
-		"image/png":     ".png",
-		"image/jpeg":    ".jpg",
-		"image/gif":     ".gif",
-		"image/webp":    ".webp",
+		"image/png":       ".png",
+		"image/jpeg":      ".jpg",
+		"image/gif":       ".gif",
+		"image/webp":      ".webp",
 		"application/pdf": ".pdf",
 		"application/zip": ".zip",
-		"text/plain":    ".txt",
+		"text/plain":      ".txt",
 	}
 	for mime, want := range cases {
 		got := extFor(mime, "x")
@@ -221,12 +221,12 @@ func TestAttachmentMarkerPDF(t *testing.T) {
 
 func TestAttachmentIsImage(t *testing.T) {
 	cases := map[string]bool{
-		"image/png":      true,
-		"image/jpeg":     true,
-		"image/gif":      true,
-		"image/webp":     true,
+		"image/png":       true,
+		"image/jpeg":      true,
+		"image/gif":       true,
+		"image/webp":      true,
 		"application/pdf": false,
-		"text/plain":     false,
+		"text/plain":      false,
 	}
 	for mime, want := range cases {
 		a := &Attachment{MIME: mime}

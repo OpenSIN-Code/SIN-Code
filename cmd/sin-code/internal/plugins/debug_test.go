@@ -29,7 +29,7 @@ func TestDebugLoadFromConfigDir(t *testing.T) {
 	for _, tool := range tools {
 		t.Logf("  %s: %s", tool.Name, tool.Description)
 	}
-	
+
 	t.Logf("Loaded plugins: %d", len(reg.plugins))
 	for name, p := range reg.plugins {
 		t.Logf("Plugin: %s, Enabled: %v, Path: %s, Tools: %d", name, p.Enabled, p.Path, len(p.Tools))

@@ -8,17 +8,17 @@ import (
 var AgentNames = []string{"Build", "Audit", "Stats"}
 
 type Footer struct {
-	view       ViewKind
-	Selection  string
-	AgentIndex int
-	Tokens     int
-	TokensPct  float64
-	Cost       string
-	Width      int
-	ShowHints  bool
-	HintKeys   []HintPair
-	Loading    bool
-	Spinner    Spinner
+	view        ViewKind
+	Selection   string
+	AgentIndex  int
+	Tokens      int
+	TokensPct   float64
+	Cost        string
+	Width       int
+	ShowHints   bool
+	HintKeys    []HintPair
+	Loading     bool
+	Spinner     Spinner
 	TodoOpen    int
 	TodoBlocked int
 	TodoOverdue int

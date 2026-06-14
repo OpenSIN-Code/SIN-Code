@@ -148,7 +148,6 @@ func TestPhaseResult_Struct(t *testing.T) {
 	}
 }
 
-
 func setFakePath(t *testing.T) {
 	t.Helper()
 	wd, err := os.Getwd()
@@ -362,7 +361,7 @@ func TestListGsdFamily_Success(t *testing.T) {
 	saved := execPipx
 	execPipx = func(ctx context.Context, args ...string) *exec.Cmd {
 		// Return JSON with one sin-gsd-test package
-		return exec.CommandContext(ctx, "echo", `{"venvs":{"sin-gsd-test":{"metadata":{}}}}`) 
+		return exec.CommandContext(ctx, "echo", `{"venvs":{"sin-gsd-test":{"metadata":{}}}}`)
 	}
 	defer func() { execPipx = saved }()
 

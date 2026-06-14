@@ -156,10 +156,10 @@ func main() {}
 `
 	syms := extractGoSymbols("main.go", content)
 	expected := map[string]bool{
-		"Add":         true,
-		"main":        true,
+		"Add":          true,
+		"main":         true,
 		"(Point).Move": true,
-		"Point":       true,
+		"Point":        true,
 	}
 	if len(syms) < 4 {
 		t.Fatalf("expected at least 4 symbols, got %d: %v", len(syms), syms)
@@ -296,14 +296,14 @@ func TestNormalizeSourceName(t *testing.T) {
 
 func TestOutputTextOracle(t *testing.T) {
 	result := &oracleResult{
-		Claim:         "main.go",
-		Evidence:      "main_test.go",
-		Coverage:      50.0,
-		ClaimSymbols:  []symbolInfo{{Name: "Add", Type: "function", Line: 1}, {Name: "Sub", Type: "function", Line: 2}},
-		Covered:       []symbolInfo{{Name: "Add", Type: "function", Line: 1, Covered: true}},
-		Uncovered:     []symbolInfo{{Name: "Sub", Type: "function", Line: 2}},
-		TestSymbols:   []symbolInfo{{Name: "TestAdd", Type: "function", Line: 1}},
-		Summary:       "Coverage: 50.0% (1/2 functions covered)",
+		Claim:        "main.go",
+		Evidence:     "main_test.go",
+		Coverage:     50.0,
+		ClaimSymbols: []symbolInfo{{Name: "Add", Type: "function", Line: 1}, {Name: "Sub", Type: "function", Line: 2}},
+		Covered:      []symbolInfo{{Name: "Add", Type: "function", Line: 1, Covered: true}},
+		Uncovered:    []symbolInfo{{Name: "Sub", Type: "function", Line: 2}},
+		TestSymbols:  []symbolInfo{{Name: "TestAdd", Type: "function", Line: 1}},
+		Summary:      "Coverage: 50.0% (1/2 functions covered)",
 	}
 
 	oldStdout := os.Stdout
@@ -334,14 +334,14 @@ func TestOutputTextOracle(t *testing.T) {
 
 func TestOutputTextOracle_FullCoverage(t *testing.T) {
 	result := &oracleResult{
-		Claim:         "main.go",
-		Evidence:      "main_test.go",
-		Coverage:      100.0,
-		ClaimSymbols:  []symbolInfo{{Name: "Add", Type: "function", Line: 1}},
-		Covered:       []symbolInfo{{Name: "Add", Type: "function", Line: 1, Covered: true}},
-		Uncovered:     []symbolInfo{},
-		TestSymbols:   []symbolInfo{{Name: "TestAdd", Type: "function", Line: 1}},
-		Summary:       "Coverage: 100.0% (1/1 functions covered)",
+		Claim:        "main.go",
+		Evidence:     "main_test.go",
+		Coverage:     100.0,
+		ClaimSymbols: []symbolInfo{{Name: "Add", Type: "function", Line: 1}},
+		Covered:      []symbolInfo{{Name: "Add", Type: "function", Line: 1, Covered: true}},
+		Uncovered:    []symbolInfo{},
+		TestSymbols:  []symbolInfo{{Name: "TestAdd", Type: "function", Line: 1}},
+		Summary:      "Coverage: 100.0% (1/1 functions covered)",
 	}
 
 	oldStdout := os.Stdout

@@ -71,7 +71,6 @@ func mockVane(t *testing.T, status int, answer string, sources []Source) *httpte
 	}))
 }
 
-
 // newListener opens a TCP listener on the requested address and returns
 // it. The caller is expected to Close() it and use Addr().String() as
 // an unbound target for tests that need a "guaranteed-unreachable"
@@ -79,8 +78,6 @@ func mockVane(t *testing.T, status int, answer string, sources []Source) *httpte
 func newListener(addr string) (net.Listener, error) {
 	return net.Listen("tcp", addr)
 }
-
-
 
 // safeBuffer is a goroutine-safe wrapper around bytes.Buffer. The
 // stdlib bytes.Buffer is NOT safe for concurrent Write+Read, and our
@@ -114,7 +111,6 @@ func (s *safeBuffer) String() string {
 	defer s.mu.Unlock()
 	return s.buf.String()
 }
-
 
 // ── Config ────────────────────────────────────────────────────────────
 
@@ -433,7 +429,6 @@ func TestRegisterMCPMergesIntoExistingConfig(t *testing.T) {
 
 // ── MCP server (stdio) ────────────────────────────────────────────────
 
-
 // TestServeEndToEnd exercises the full stdio loop in a hermetic fashion:
 // one goroutine runs Server.Serve on a pipe, the main goroutine writes
 // requests and reads responses. All assertions on the wire format.
@@ -542,7 +537,7 @@ func TestServeEndToEnd(t *testing.T) {
 	resp = writeReq(t, "tools/call", 3, map[string]any{
 		"name": "vane_research",
 		"arguments": map[string]any{
-			"query":     "what is vane?",
+			"query":      "what is vane?",
 			"focus_mode": "webSearch",
 		},
 	})

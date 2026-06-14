@@ -196,9 +196,9 @@ func (s *Server) toolList() []toolSpec {
 			Name:        "superpowers_use_skill",
 			Description: "Load the full SKILL.md body for the named skill (post-overlay).",
 			InputSchema: map[string]any{
-				"type":     "object",
+				"type":       "object",
 				"properties": map[string]any{"name": map[string]string{"type": "string"}},
-				"required": []string{"name"},
+				"required":   []string{"name"},
 			},
 		},
 	}
@@ -240,10 +240,10 @@ func RegisterMCP(mcpPath string) (string, error) {
 // ── JSON-RPC plumbing ─────────────────────────────────────────────────
 
 type jsonRPCRequest struct {
-	JSONRPC string          `json:"jsonrpc"`
+	JSONRPC string           `json:"jsonrpc"`
 	ID      *json.RawMessage `json:"id,omitempty"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
+	Method  string           `json:"method"`
+	Params  json.RawMessage  `json:"params,omitempty"`
 }
 
 type jsonRPCResponse struct {

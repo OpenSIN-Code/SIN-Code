@@ -74,9 +74,15 @@ func parseUpdateFlags(cmd *cobra.Command) (UpdateOptions, error) {
 	ks, _ := cmd.Flags().GetInt("keep-snapshots")
 
 	count := 0
-	if py { count++ }
-	if goOnly { count++ }
-	if sk { count++ }
+	if py {
+		count++
+	}
+	if goOnly {
+		count++
+	}
+	if sk {
+		count++
+	}
 	if count > 1 {
 		return UpdateOptions{}, fmt.Errorf("--python-only, --go-only, --skills-only are mutually exclusive")
 	}
@@ -126,12 +132,16 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 
 	if runPy {
 		r, err := RunPythonPhase(ctx, opts)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		results = append(results, r)
 	}
 	if runGo {
 		r, err := RunGoPhase(ctx, opts)
-		if err != nil { return err }
+		if err != nil {
+			return err
+		}
 		results = append(results, r)
 	}
 

@@ -118,7 +118,7 @@ func (a *LLMAgent) Run(ctx context.Context, task *Task, scratch *Scratchpad) (st
 	}
 
 	req := llm.ChatRequest{
-		Model:       model,
+		Model: model,
 		Messages: []llm.Message{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},

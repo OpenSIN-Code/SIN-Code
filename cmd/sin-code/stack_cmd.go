@@ -10,8 +10,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/stack"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/stack"
 )
 
 // NewStackCmd builds the `stack` cobra subcommand. Pattern matches

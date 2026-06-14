@@ -12,14 +12,15 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/logger"
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/logger"
 )
 
 var (
-	warningOnce sync.Once
+	warningOnce   sync.Once
 	warnedServers = make(map[string]bool)
-	warnedMu sync.Mutex
+	warnedMu      sync.Mutex
 )
 
 type ServerConfig struct {

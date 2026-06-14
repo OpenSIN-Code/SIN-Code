@@ -20,7 +20,7 @@ var (
 
 var (
 	versionCmds []*cobra.Command
-	versionMu    sync.Mutex
+	versionMu   sync.Mutex
 )
 
 // RegisterVersionCmd registers a cobra command whose Version field should

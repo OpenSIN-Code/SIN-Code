@@ -18,12 +18,12 @@ import (
 )
 
 var (
-	lspLang     string
-	lspRoot     string
-	lspFile     string
-	lspLine     int
-	lspCol      int
-	lspNewName  string
+	lspLang    string
+	lspRoot    string
+	lspFile    string
+	lspLine    int
+	lspCol     int
+	lspNewName string
 )
 
 var LSPCmd = &cobra.Command{
@@ -93,7 +93,6 @@ var lspServersCmd = &cobra.Command{
 		return nil
 	},
 }
-
 
 var lspDefinitionCmd = &cobra.Command{
 	Use:   "definition <file> <line> <col>",

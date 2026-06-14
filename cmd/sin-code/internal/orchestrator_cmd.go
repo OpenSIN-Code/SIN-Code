@@ -18,14 +18,14 @@ import (
 )
 
 var (
-	orch2Prompt       string
-	orch2Format       string
-	orch2Timeout      time.Duration
-	orch2MaxParallel  int
-	orch2AgentsDir    string
-	orch2PlanOnly     bool
-	orch2ShowScratch  bool
-	orch2NoPlugins    bool
+	orch2Prompt      string
+	orch2Format      string
+	orch2Timeout     time.Duration
+	orch2MaxParallel int
+	orch2AgentsDir   string
+	orch2PlanOnly    bool
+	orch2ShowScratch bool
+	orch2NoPlugins   bool
 )
 
 var OrchestratorRunCmd = &cobra.Command{
@@ -82,11 +82,11 @@ var OrchestratorAgentsCmd = &cobra.Command{
 			out := make([]map[string]any, 0, len(all))
 			for _, c := range all {
 				entry := map[string]any{
-					"name":         c.Name,
-					"type":         c.Type,
-					"model":        c.Model,
-					"tools_allow":  c.ToolsAllow,
-					"description":  c.Description,
+					"name":        c.Name,
+					"type":        c.Type,
+					"model":       c.Model,
+					"tools_allow": c.ToolsAllow,
+					"description": c.Description,
 				}
 				if src, ok := pluginAgent[c.Name]; ok {
 					entry["source"] = "plugin"

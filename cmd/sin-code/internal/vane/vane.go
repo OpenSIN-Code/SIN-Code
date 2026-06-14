@@ -35,20 +35,20 @@ const DefaultBaseURL = "http://localhost:3000"
 // /api/search endpoint. Exposed as a package-level map so the cobra
 // command and the MCP tool spec can render the same enum without drift.
 var FocusModes = map[string]string{
-	"webSearch":         "General web search — default for most questions.",
-	"academicSearch":    "Scholarly / arXiv / PubMed-style sources.",
-	"writingAssistant":  "Long-form generation with citation injection.",
+	"webSearch":          "General web search — default for most questions.",
+	"academicSearch":     "Scholarly / arXiv / PubMed-style sources.",
+	"writingAssistant":   "Long-form generation with citation injection.",
 	"wolframAlphaSearch": "Symbolic math via Wolfram Alpha fallback.",
-	"youtubeSearch":     "YouTube transcript + video metadata retrieval.",
-	"redditSearch":      "Reddit thread + comment retrieval.",
+	"youtubeSearch":      "YouTube transcript + video metadata retrieval.",
+	"redditSearch":       "Reddit thread + comment retrieval.",
 }
 
 // Optimizations is the model-quality knob: speed vs. balanced vs. quality.
 // Mirrors Vane's own UI to keep the API contract obvious.
 var Optimizations = map[string]string{
-	"speed":     "Lowest latency, fewer sources.",
-	"balanced":  "Default — quality and latency trade-off.",
-	"quality":   "Most thorough retrieval + larger context window.",
+	"speed":    "Lowest latency, fewer sources.",
+	"balanced": "Default — quality and latency trade-off.",
+	"quality":  "Most thorough retrieval + larger context window.",
 }
 
 // Home resolves $SIN_CODE_HOME (preferred) or falls back to the legacy
@@ -177,13 +177,13 @@ type Answer struct {
 // callers cannot accidentally leak internal field names through the
 // public API surface.
 type searchRequest struct {
-	QueryOptimizationMode string `json:"optimization_mode"`
-	FocusMode             string `json:"focus_mode"`
-	Query                 string `json:"query"`
-	ChatModelProviderID   string `json:"chat_model_provider"`
-	ChatModel             string `json:"chat_model"`
+	QueryOptimizationMode  string `json:"optimization_mode"`
+	FocusMode              string `json:"focus_mode"`
+	Query                  string `json:"query"`
+	ChatModelProviderID    string `json:"chat_model_provider"`
+	ChatModel              string `json:"chat_model"`
 	EmbeddingModelProvider string `json:"embedding_model_provider"`
-	EmbeddingModel        string `json:"embedding_model"`
+	EmbeddingModel         string `json:"embedding_model"`
 }
 
 // searchResponse is Vane's actual payload. We accept both `message` and
@@ -263,13 +263,13 @@ func (c *Client) Search(ctx context.Context, query, focusMode, optimization stri
 		optimization = "balanced"
 	}
 	body := searchRequest{
-		QueryOptimizationMode:   optimization,
-		FocusMode:               focusMode,
-		Query:                   q,
-		ChatModelProviderID:     c.cfg.ChatProvider,
-		ChatModel:               c.cfg.ChatModel,
-		EmbeddingModelProvider:  c.cfg.EmbedProvider,
-		EmbeddingModel:          c.cfg.EmbedModel,
+		QueryOptimizationMode:  optimization,
+		FocusMode:              focusMode,
+		Query:                  q,
+		ChatModelProviderID:    c.cfg.ChatProvider,
+		ChatModel:              c.cfg.ChatModel,
+		EmbeddingModelProvider: c.cfg.EmbedProvider,
+		EmbeddingModel:         c.cfg.EmbedModel,
 	}
 	raw, err := json.Marshal(body)
 	if err != nil {

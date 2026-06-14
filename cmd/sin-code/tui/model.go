@@ -7,8 +7,8 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/lipgloss/v2"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"
 	agentrunner "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/tui"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"
 )
 
 type Mode int
@@ -47,14 +47,14 @@ type teaProgramIface interface {
 // optional — when nil, the chat submit path falls back to synchronous
 // behavior (used by tests and headless invocations).
 type Model struct {
-	Width      int
-	Height     int
-	ThemeIdx   int
-	ViewKind   ViewKind
-	Mode       Mode
-	Quitting   bool
-	Ready      bool
-	Loading    bool
+	Width    int
+	Height   int
+	ThemeIdx int
+	ViewKind ViewKind
+	Mode     Mode
+	Quitting bool
+	Ready    bool
+	Loading  bool
 
 	Tabs       Tabs
 	Sidebar    Sidebar

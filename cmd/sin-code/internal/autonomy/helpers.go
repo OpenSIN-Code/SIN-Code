@@ -10,6 +10,6 @@ import (
 	"hash"
 )
 
-func sha256Sum() hash.Hash { return sha256.New() }
-func hexEncodeToString(h hash.Hash) string { return hex.EncodeToString(h.Sum(nil)) }
+func sha256Sum() hash.Hash                   { return sha256.New() }
+func hexEncodeToString(h hash.Hash) string   { return hex.EncodeToString(h.Sum(nil)) }
 func jsonUnmarshal(data []byte, v any) error { return json.Unmarshal(data, v) }

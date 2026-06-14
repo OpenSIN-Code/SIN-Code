@@ -13,8 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ghbridge"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ghbridge"
 )
 
 // NewGhCmd builds the `gh` cobra subcommand. Pattern matches

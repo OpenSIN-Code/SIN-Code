@@ -11,11 +11,11 @@
 // fires pre-registered user Hooks by event-name + matcher and returns
 // hooks.Result. We honor that real API:
 //
-//   1. WrapEngine returns a thin proxy whose Fire() calls the original
-//      then emits one span per event using the canonical event names
-//      declared in hooks.go (SessionStart, ToolPre, VerifyPass, ...).
-//   2. RecordHook emits a span from any caller that holds a hook.Payload
-//      (useful for eval datasets / unit tests that don't need the wrap).
+//  1. WrapEngine returns a thin proxy whose Fire() calls the original
+//     then emits one span per event using the canonical event names
+//     declared in hooks.go (SessionStart, ToolPre, VerifyPass, ...).
+//  2. RecordHook emits a span from any caller that holds a hook.Payload
+//     (useful for eval datasets / unit tests that don't need the wrap).
 //
 // The wrapped span carries the session_id, workspace, event name, and a
 // redacted Data JSON for at most 2 KiB to keep OTel happy (provider.go
@@ -31,10 +31,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	oteltrace "go.opentelemetry.io/otel/trace"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 )
 
 // maxHookDataBytes bounds the JSON-encoded Data payload attached as a
@@ -97,7 +98,7 @@ func (hl *HookListener) RecordHook(ctx context.Context, p hooks.Payload) (contex
 // EngineWrapper is a Fire-time span emitter that delegates to the
 // original *hooks.Engine. Returned by HookListener.WrapEngine.
 type EngineWrapper struct {
-	engine  *hooks.Engine
+	engine   *hooks.Engine
 	listener *HookListener
 }
 

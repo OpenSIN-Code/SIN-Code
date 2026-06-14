@@ -16,16 +16,16 @@ import (
 )
 
 const (
-	bucketTodos  = "todos"
-	bucketDeps   = "deps"
-	bucketAudit  = "audit"
-	bucketMems   = "memories"
-	bucketMeta   = "meta"
-	bucketIdxSt  = "idx_status"
-	bucketIdxPr  = "idx_priority"
-	bucketIdxAs  = "idx_assignee"
-	bucketIdxPj  = "idx_project"
-	bucketIdxTg  = "idx_tag"
+	bucketTodos = "todos"
+	bucketDeps  = "deps"
+	bucketAudit = "audit"
+	bucketMems  = "memories"
+	bucketMeta  = "meta"
+	bucketIdxSt = "idx_status"
+	bucketIdxPr = "idx_priority"
+	bucketIdxAs = "idx_assignee"
+	bucketIdxPj = "idx_project"
+	bucketIdxTg = "idx_tag"
 )
 
 var (

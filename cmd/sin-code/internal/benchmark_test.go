@@ -317,5 +317,3 @@ func BenchmarkComparisonTable(b *testing.B) {
 		}
 	})
 }
-
-

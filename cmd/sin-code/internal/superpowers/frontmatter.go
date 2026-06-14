@@ -110,7 +110,7 @@ func parseBlock(block string, out map[string]string) {
 		}
 		// Detect block scalars.
 		head := strings.TrimRight(val, " \t")
-		if strings.HasSuffix(head, ">") || strings.HasSuffix(head, ">-" ) ||
+		if strings.HasSuffix(head, ">") || strings.HasSuffix(head, ">-") ||
 			strings.HasSuffix(head, "+") || strings.HasSuffix(head, "+-") {
 			// Folded scalar.
 			chomp := head[len(head)-1]

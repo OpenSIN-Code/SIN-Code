@@ -48,9 +48,9 @@ type Loop struct {
 	SessionID  string
 	Completion func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error)
 
-	Hooks  *hooks.Engine
-	Perm   *permission.Engine
-	Ask    AskFunc
+	Hooks   *hooks.Engine
+	Perm    *permission.Engine
+	Ask     AskFunc
 	Lessons *lessons.Store
 
 	// Ledger records every prompt, tool call, and verification result for

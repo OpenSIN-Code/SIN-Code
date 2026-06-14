@@ -11,8 +11,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 )
 
 type Registry struct {

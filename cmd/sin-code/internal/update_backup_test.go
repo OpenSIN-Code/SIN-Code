@@ -91,7 +91,7 @@ func TestBackupManager_Prune(t *testing.T) {
 	td := t.TempDir()
 	bm := &BackupManager{StateRoot: td}
 
-	stamps := []string{"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15"}
+	stamps := []string{"01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15"}
 	for _, ts := range stamps {
 		stamp := ts
 		bm.Now = func() string { return stamp }

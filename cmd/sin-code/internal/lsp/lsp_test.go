@@ -25,13 +25,13 @@ func TestDefaultServers(t *testing.T) {
 
 func TestLanguageForFile(t *testing.T) {
 	cases := map[string]string{
-		"main.go":            "go",
-		"foo/bar.py":         "python",
-		"component.tsx":      "typescript",
-		"index.js":           "javascript",
-		"lib.rs":             "rust",
-		"README.md":          "",
-		"unknown.xyz":        "",
+		"main.go":       "go",
+		"foo/bar.py":    "python",
+		"component.tsx": "typescript",
+		"index.js":      "javascript",
+		"lib.rs":        "rust",
+		"README.md":     "",
+		"unknown.xyz":   "",
 	}
 	for file, want := range cases {
 		if got := LanguageForFile(file); got != want {

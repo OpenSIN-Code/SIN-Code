@@ -49,10 +49,10 @@ func TestPlanningPriorRenders(t *testing.T) {
 	}
 	p := PlanningPrior(eps)
 	for _, want := range []string{"SUCCEEDED", "FAILED", "fix bug", "refactor"} {
-	if !strings.Contains(p, want) {
-		t.Errorf("PlanningPrior missing %q:\n%s", want, p)
+		if !strings.Contains(p, want) {
+			t.Errorf("PlanningPrior missing %q:\n%s", want, p)
+		}
 	}
-}
 }
 
 func TestEpisodeStoreInMemoryRoundTrip(t *testing.T) {

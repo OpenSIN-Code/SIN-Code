@@ -37,10 +37,10 @@ func SendTUI(n *Notification) {
 
 // Dispatcher delivers a notification through all enabled channels.
 type Dispatcher struct {
-	Store     *Store
+	Store      *Store
 	WebhookURL string
-	Stderr    bool
-	MacOS     bool
+	Stderr     bool
+	MacOS      bool
 	HTTPClient *http.Client
 }
 

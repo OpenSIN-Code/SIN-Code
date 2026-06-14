@@ -420,8 +420,6 @@ func TestMin(t *testing.T) {
 	}
 }
 
-
-
 func TestMapArchitecture_RustEntryPoint(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "main.rs"), []byte("fn main() {}\n"), 0644)
@@ -618,8 +616,6 @@ func TestMapArchitecture_HotPathDetection(t *testing.T) {
 	_ = result.HotPaths
 }
 
-
-
 func TestMapArchitecture_TestFileCount(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "main.go"), []byte("package main\n"), 0644)
@@ -669,8 +665,8 @@ func TestOutputTextMap_WithOrphans(t *testing.T) {
 			Languages: map[string]int{"go": 3},
 		},
 		EntryPoints: []string{"main.go"},
-		HotPaths:   []hotPath{{Path: "utils.go", Imports: 5}},
-		Orphans:    []string{"orphan1.go", "orphan2.go"},
+		HotPaths:    []hotPath{{Path: "utils.go", Imports: 5}},
+		Orphans:     []string{"orphan1.go", "orphan2.go"},
 	}
 
 	old := os.Stdout

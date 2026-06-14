@@ -19,11 +19,11 @@ const (
 )
 
 type HealthResponse struct {
-	Status    Status            `json:"status"`
-	Version   string            `json:"version"`
-	Uptime    string            `json:"uptime"`
-	Timestamp string            `json:"timestamp"`
-	Checks    map[string]Check  `json:"checks"`
+	Status    Status           `json:"status"`
+	Version   string           `json:"version"`
+	Uptime    string           `json:"uptime"`
+	Timestamp string           `json:"timestamp"`
+	Checks    map[string]Check `json:"checks"`
 }
 
 type Check struct {

@@ -57,20 +57,20 @@ Examples:
 }
 
 type oracleResult struct {
-	Claim         string          `json:"claim"`
-	Evidence      string          `json:"evidence"`
-	ClaimSymbols  []symbolInfo    `json:"claim_symbols"`
-	TestSymbols   []symbolInfo    `json:"test_symbols"`
-	Coverage      float64         `json:"coverage"`
-	Covered       []symbolInfo    `json:"covered"`
-	Uncovered     []symbolInfo    `json:"uncovered"`
+	Claim              string       `json:"claim"`
+	Evidence           string       `json:"evidence"`
+	ClaimSymbols       []symbolInfo `json:"claim_symbols"`
+	TestSymbols        []symbolInfo `json:"test_symbols"`
+	Coverage           float64      `json:"coverage"`
+	Covered            []symbolInfo `json:"covered"`
+	Uncovered          []symbolInfo `json:"uncovered"`
 	TestsWithoutSource []symbolInfo `json:"tests_without_source,omitempty"`
-	Summary       string          `json:"summary"`
+	Summary            string       `json:"summary"`
 }
 
 type symbolInfo struct {
 	Name    string `json:"name"`
-	Type    string `json:"type"`    // function, method, class
+	Type    string `json:"type"` // function, method, class
 	Line    int    `json:"line"`
 	Covered bool   `json:"covered,omitempty"`
 }

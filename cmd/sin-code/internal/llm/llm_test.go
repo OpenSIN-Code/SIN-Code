@@ -119,18 +119,18 @@ func TestExtractText(t *testing.T) {
 
 func TestResolveModelAliases(t *testing.T) {
 	cases := map[string]string{
-		"haiku":                 NIMHaikuModel,
-		"kimi":                  NIMKimiModel,
-		"qwen":                  NIMQwenModel,
-		"nemotron":              NIMNemotronModel,
-		"gpt-oss":               NIMGptOssModel,
-		"llama-70b":             NIMDefaultModel,
-		"llama-3.3-70b":         NIMDefaultModel,
-		"llama-8b":              "meta/llama-3.1-8b-instruct",
-		"default":               NIMDefaultModel,
-		"meta/llama-3.1-70b":    "meta/llama-3.1-70b",
-		"anthropic/claude-3-7":  "anthropic/claude-3-7",
-		"":                      "",
+		"haiku":                NIMHaikuModel,
+		"kimi":                 NIMKimiModel,
+		"qwen":                 NIMQwenModel,
+		"nemotron":             NIMNemotronModel,
+		"gpt-oss":              NIMGptOssModel,
+		"llama-70b":            NIMDefaultModel,
+		"llama-3.3-70b":        NIMDefaultModel,
+		"llama-8b":             "meta/llama-3.1-8b-instruct",
+		"default":              NIMDefaultModel,
+		"meta/llama-3.1-70b":   "meta/llama-3.1-70b",
+		"anthropic/claude-3-7": "anthropic/claude-3-7",
+		"":                     "",
 	}
 	for in, want := range cases {
 		if got := ResolveModel(in); got != want {

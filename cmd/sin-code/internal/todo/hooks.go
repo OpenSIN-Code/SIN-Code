@@ -172,12 +172,12 @@ func (c *HookConfig) save() error {
 }
 
 type HookContext struct {
-	Event  HookEvent
-	Todo   *Todo
-	From   string
-	To     string
-	Note   string
-	Actor  string
+	Event HookEvent
+	Todo  *Todo
+	From  string
+	To    string
+	Note  string
+	Actor string
 }
 
 type HookResult struct {

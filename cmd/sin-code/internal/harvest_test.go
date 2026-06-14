@@ -13,7 +13,6 @@ import (
 	"testing"
 )
 
-
 func TestHarvestURLFetch_Success(t *testing.T) {
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
