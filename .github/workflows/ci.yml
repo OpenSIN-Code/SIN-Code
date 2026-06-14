@@ -50,6 +50,10 @@ jobs:
         python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.11"
+          cache: true
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
@@ -61,11 +65,28 @@ jobs:
           git config --global user.name "SIN CI"
           git config --global init.defaultBranch main
 
-      - name: Install SIN-Code Go tools for tests
+      - name: Build and install local sin-code + tool wrappers
         run: |
-          go install github.com/OpenSIN-Code/SIN-Code-Execute-Tool/cmd/execute@latest
-          go install github.com/OpenSIN-Code/SIN-Code-Scout-Tool/cmd/scout@latest
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          go build -o ~/.local/bin/sin-code ./cmd/sin-code
+          mkdir -p ~/.local/bin
+          cat > ~/.local/bin/execute <<'EOF'
+          #!/bin/sh
+          exec sin-code execute "$@"
+          EOF
+          cat > ~/.local/bin/scout <<'EOF'
+          #!/bin/bash
+          args=()
+          while [ $# -gt 0 ]; do
+            case "$1" in
+              --type) args+=("--search_type"); shift;;
+              --json) args+=("--format" "json"); shift;;
+              *) args+=("$1"); shift;;
+            esac
+          done
+          exec sin-code scout "${args[@]}"
+          EOF
+          chmod +x ~/.local/bin/execute ~/.local/bin/scout
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Run test suite
         run: pytest -q
