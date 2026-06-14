@@ -52,6 +52,19 @@ linters:
         - hugeParam
     misspell:
       locale: US
+  exclusions:
+    generated: strict
+    rules:
+      # Tests may use weaker patterns deliberately (fixtures, temp perms)
+      - path: _test\.go
+        linters:
+          - gosec
+          - noctx
+          - errcheck
+      # Generated / vendored tree-sitter grammars
+      - path: third.party/
+        linters:
+          - all
 
 formatters:
   enable:
@@ -59,20 +72,9 @@ formatters:
     - goimports
   settings:
     goimports:
-      local-prefixes: github.com/OpenSIN-Code/SIN-Code
+      local-prefixes:
+        - github.com/OpenSIN-Code/SIN-Code
 
 issues:
-  exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-rules:
-    # Tests may use weaker patterns deliberately (fixtures, temp perms)
-    - path: _test\.go
-      linters:
-        - gosec
-        - noctx
-        - errcheck
-    # Generated / vendored tree-sitter grammars
-    - path: third.party/
-      linters:
-        - all
