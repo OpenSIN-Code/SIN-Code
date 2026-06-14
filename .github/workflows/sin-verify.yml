@@ -1,3 +1,6 @@
+# Purpose: verify the Python sin-code-bundle package on PRs by installing the
+# local source and running pytest + the audit-chain integrity check.
+# Docs: .github/workflows/sin-verify.yml.doc.md
 name: sin-verify
 
 on:
@@ -16,7 +19,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install SIN-Code Bundle
-        run: pip install "sin-code-bundle[dev]"
+        run: pip install -e ".[dev]"
 
       - name: Run test suite
         run: pytest -q
