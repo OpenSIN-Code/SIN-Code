@@ -42,9 +42,14 @@ func NewSimpleExecutor(config *RTKConfig) (*SimpleExecutor, error) {
 
 	// Try to detect binary
 	if config.DetectBinary {
-		info, err := executor.detectBinary()
-		if err == nil {
-			executor.binaryInfo = info
+		result, err := executor.detectBinary()
+		if err == nil && result.Found {
+			executor.binaryInfo = &RTKBinaryInfo{
+				Path:     result.Path,
+				Version:  result.Version,
+				Detected: true,
+				LastSeen: time.Now(),
+			}
 		}
 	}
 
@@ -158,12 +163,23 @@ func (e *SimpleExecutor) Execute(ctx context.Context, tool *RTKTool) (*RTKResult
 }
 
 // Detect finds the RTK binary
-func (e *SimpleExecutor) Detect(ctx context.Context) (*RTKBinaryInfo, error) {
-	if e.binaryInfo != nil && time.Since(e.binaryInfo.LastSeen) < 5*time.Minute {
-		return e.binaryInfo, nil
+func (e *SimpleExecutor) Detect(ctx context.Context) (*RTKDetectionResult, error) {
+	result, err := e.detectBinary()
+	if err != nil {
+		return result, err
 	}
 
-	return e.detectBinary()
+	// Cache binary info for subsequent command execution
+	if result.Found {
+		e.binaryInfo = &RTKBinaryInfo{
+			Path:     result.Path,
+			Version:  result.Version,
+			Detected: true,
+			LastSeen: time.Now(),
+		}
+	}
+
+	return result, nil
 }
 
 func (e *SimpleExecutor) detectBinary() (*RTKDetectionResult, error) {

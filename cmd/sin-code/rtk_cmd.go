@@ -3,8 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -47,6 +48,7 @@ Examples:
 
 	// Subcommands
 	rtkCmd.AddCommand(
+		newRTKInstallCmd(),
 		newRTKDetectCmd(&binaryPath, &configDir),
 		newRTKRunCmd(&binaryPath, &configDir),
 		newRTKConfigCmd(&binaryPath, &configDir),
@@ -291,9 +293,84 @@ func newRTKInitCmd(binaryPath *string, configDir *string) *cobra.Command {
 	}
 }
 
-// Stub for GetConfigFile - assuming ConfigManager has this method
-// If not, we need to add it
-var (
-	_ = log.Printf
-	_ = os.Exit
-)
+// newRTKInstallCmd installs the official rtk binary from https://github.com/rtk-ai/rtk
+func newRTKInstallCmd() *cobra.Command {
+	var method string
+
+	installCmd := &cobra.Command{
+		Use:   "install",
+		Short: "Install the official RTK binary",
+		Long: `Install the official RTK binary from https://github.com/rtk-ai/rtk
+
+RTK is a CLI proxy that reduces LLM token consumption by 60-90% on common
+dev commands. SIN-Code wraps this binary; this command fetches it for you.
+
+Methods:
+  script  (default) curl -fsSL .../install.sh | sh   -> installs to ~/.local/bin
+  brew              brew install rtk
+  cargo             cargo install --git https://github.com/rtk-ai/rtk
+
+Examples:
+  sin-code rtk install
+  sin-code rtk install --method brew
+  sin-code rtk install --method cargo`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+
+			// Skip if already present
+			if path, err := exec.LookPath("rtk"); err == nil {
+				fmt.Printf("RTK already installed at: %s\n", path)
+				out, _ := exec.CommandContext(ctx, path, "--version").Output()
+				if v := strings.TrimSpace(string(out)); v != "" {
+					fmt.Printf("Version: %s\n", v)
+				}
+				return nil
+			}
+
+			var install *exec.Cmd
+			switch method {
+			case "brew":
+				fmt.Println("Installing RTK via Homebrew...")
+				install = exec.CommandContext(ctx, "brew", "install", "rtk")
+			case "cargo":
+				fmt.Println("Installing RTK via Cargo...")
+				install = exec.CommandContext(ctx, "cargo", "install", "--git", "https://github.com/rtk-ai/rtk")
+			case "script", "":
+				fmt.Println("Installing RTK via official install script...")
+				const script = "curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh"
+				install = exec.CommandContext(ctx, "sh", "-c", script)
+			default:
+				return fmt.Errorf("unknown install method %q (use: script, brew, cargo)", method)
+			}
+
+			install.Stdout = os.Stdout
+			install.Stderr = os.Stderr
+			install.Stdin = os.Stdin
+			if err := install.Run(); err != nil {
+				return fmt.Errorf("RTK installation failed: %w", err)
+			}
+
+			// Verify
+			path, err := exec.LookPath("rtk")
+			if err != nil {
+				fmt.Println("\nRTK installed, but not found on PATH yet.")
+				fmt.Println("Add it to your PATH, e.g.:")
+				fmt.Println(`  export PATH="$HOME/.local/bin:$PATH"`)
+				fmt.Println("Then run: sin-code rtk status")
+				return nil
+			}
+
+			fmt.Printf("\nRTK installed successfully at: %s\n", path)
+			out, _ := exec.CommandContext(ctx, path, "--version").Output()
+			if v := strings.TrimSpace(string(out)); v != "" {
+				fmt.Printf("Version: %s\n", v)
+			}
+			fmt.Println("Run 'sin-code rtk status' to verify the integration.")
+			return nil
+		},
+	}
+
+	installCmd.Flags().StringVar(&method, "method", "script", "Install method: script, brew, or cargo")
+	return installCmd
+}

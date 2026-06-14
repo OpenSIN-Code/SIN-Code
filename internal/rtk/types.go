@@ -138,7 +138,7 @@ type RTKContext struct {
 // RTKExecutor handles RTK tool execution
 type RTKExecutor interface {
 	Execute(ctx context.Context, tool *RTKTool) (*RTKResult, error)
-	Detect(ctx context.Context) (*RTKBinaryInfo, error)
+	Detect(ctx context.Context) (*RTKDetectionResult, error)
 	GetConfig() *RTKConfig
 	SetConfig(config *RTKConfig) error
 	GetMetrics() *RTKMetrics
