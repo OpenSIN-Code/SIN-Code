@@ -134,6 +134,57 @@ sin-code headroom test
 - **Stats show zero**: Run compression with `sin-code headroom test`
 - **Learning not working**: Ensure `HEADROOM_LEARN=true` and headroom is installed
 
+## Proxy Mode
+
+Proxy mode runs a local HTTP reverse proxy that transparently compresses
+OpenAI-compatible chat-completion request bodies before forwarding them
+upstream. Point your client's base URL at the proxy and leave everything
+else unchanged.
+
+```bash
+# Start a proxy on :8088 that forwards to the OpenAI API
+sin-code headroom proxy --listen :8088 --upstream https://api.openai.com
+```
+
+- Only `POST` requests to `*/chat/completions` (and `/responses`) are rewritten.
+- Each message's string `content` is compressed individually; all other JSON
+  fields are preserved untouched.
+- If compression fails for any reason, the original body is forwarded so the
+  request never breaks.
+- `GET /__headroom/stats` on the proxy returns live compression counters.
+
+## MCP Mode
+
+MCP mode talks to a long-running `headroom mcp` server over JSON-RPC 2.0 on
+stdio instead of spawning a new CLI process per request. This is faster for
+high-volume usage and keeps model/cache state warm.
+
+```bash
+export HEADROOM_MODE=mcp
+sin-code headroom enable
+```
+
+If the MCP server cannot be started, the compressor automatically falls back
+to CLI mode so behavior degrades gracefully.
+
+## Lessons Store
+
+When `HEADROOM_LEARN=true`, failed sessions are recorded as structured
+"lessons" in a local JSON store (default: `~/.sin-code/headroom_lessons.json`).
+Lessons capture a category, a pattern excerpt, a recommendation, and a weight,
+and are deduplicated/merged by `category+pattern`.
+
+```bash
+# Show the most relevant recorded lessons
+sin-code headroom lessons list
+
+# Clear all recorded lessons
+sin-code headroom lessons clear
+```
+
+Lessons are persisted on every `headroom learn`/failure event and can be fed
+back into the compression backend to improve future runs.
+
 ## References
 
 - Headroom Documentation: https://github.com/lgrammel/headroom
