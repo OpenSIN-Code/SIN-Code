@@ -23,6 +23,8 @@ var (
 	graspFormat string
 )
 
+var graspAbsPath = filepath.Abs
+
 var GraspCmd = &cobra.Command{
 	Use:   "grasp [path]",
 	Short: "Deep code understanding for a single file",
@@ -34,7 +36,7 @@ Example:
 	Args:    cobra.ExactArgs(1),
 	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		absPath, err := filepath.Abs(args[0])
+		absPath, err := graspAbsPath(args[0])
 		if err != nil {
 			return fmt.Errorf("invalid path: %w", err)
 		}

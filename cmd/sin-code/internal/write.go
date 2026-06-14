@@ -29,6 +29,8 @@ var (
 	writeStdinReader = io.Reader(os.Stdin)
 )
 
+var writeAbsPath = filepath.Abs
+
 var WriteCmd = &cobra.Command{
 	Use:   "write [path]",
 	Short: "Write files atomically with syntax pre-validation",
@@ -47,7 +49,7 @@ Examples:
   sin-code write docs/new/file.md --stdin --mkdir < notes.md`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		absPath, err := filepath.Abs(args[0])
+		absPath, err := writeAbsPath(args[0])
 		if err != nil {
 			return fmt.Errorf("invalid path: %w", err)
 		}
