@@ -1,0 +1,51 @@
+# CI/CD Workflow Template für Skill-Validierung
+#
+# HINWEIS: Diese Datei muss MANUELL nach .github/workflows/test-skills.yml
+# kopiert werden. Die v0 GitHub App hat keine `workflows`-Berechtigung und
+# kann Workflow-Dateien nicht automatisch pushen.
+#
+# Kopieren mit:
+#   mkdir -p .github/workflows
+#   cp docs/ci/test-skills.yml.template .github/workflows/test-skills.yml
+#   git add .github/workflows/test-skills.yml
+#   git commit -m "ci: add skill validation workflow"
+#   git push
+
+name: Test Skills
+
+on:
+  push:
+    paths:
+      - 'pkg/skills/**'
+      - 'cmd/sin/**'
+      - 'skills/**'
+      - 'chains/**'
+      - 'test/skills_test.go'
+  pull_request:
+    paths:
+      - 'pkg/skills/**'
+      - 'cmd/sin/**'
+      - 'skills/**'
+      - 'chains/**'
+      - 'test/skills_test.go'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - name: Download dependencies
+        run: go mod download
+      - name: Build skills engine
+        run: go build ./pkg/skills/... ./cmd/sin/...
+      - name: Run skill tests
+        run: go test ./test/... -run Skill -v
+      - name: Validate built-in skills
+        run: |
+          for skill in skills/builtin/*/SKILL.md; do
+            echo "Validating $skill"
+            test -f "$skill" || exit 1
+          done

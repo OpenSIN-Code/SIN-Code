@@ -24,6 +24,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
+	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
 )
 
 type Config struct {
@@ -115,11 +116,19 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		Ledger:     ledgerStore,
 	}
 
+	// Headroom context compression (issue #118): opt-in via HEADROOM_ENABLED.
+	// When disabled or unavailable the hook is a no-op and is not wired.
+	headroomHook := agentloop.NewHeadroomHook(headroom.LoadConfigFromEnv())
+	if headroomHook.Enabled() {
+		loop.CompressMessages = headroomHook.CompressMessages
+	}
+
 	cleanup := func() error {
 		mcpMgr.Close()
 		if ledgerStore != nil {
 			_ = ledgerStore.Close()
 		}
+		_ = headroomHook.Close()
 		return nil
 	}
 	return loop, cleanup, nil

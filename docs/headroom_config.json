@@ -1,0 +1,10 @@
+{
+  "enabled": true,
+  "mode": "cli",
+  "proxy_url": "http://localhost:8787/v1",
+  "compression_level": "normal",
+  "learn_from_failures": true,
+  "stats_enabled": true,
+  "timeout": "30s",
+  "cache_enabled": true
+}

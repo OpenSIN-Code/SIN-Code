@@ -1,0 +1,14 @@
+.PHONY: skill-validate-all skill-convert-codocs skill-install-deps
+
+skill-validate-all:
+	@echo "Validating all skills..."
+	@for f in $$(find skills -name "SKILL.md"); do \
+		go run cmd/sin/main.go skill validate $$f || true; \
+	done
+
+skill-convert-codocs:
+	@echo "Converting CoDocs to skills..."
+	@echo "TODO: Implement conversion"
+
+skill-install-deps:
+	@echo "Skill infrastructure ready"
