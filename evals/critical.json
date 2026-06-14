@@ -1,0 +1,157 @@
+{
+  "name": "SIN-Code Critical Path Tests",
+  "version": "1.0.0",
+  "description": "Golden dataset for critical SIN-Code agent workflows including planning, tool execution, verification, and lesson application",
+  "test_cases": [
+    {
+      "id": "plan_basic",
+      "prompt": "Create a simple Go program that prints 'Hello, World!'",
+      "constraints": {
+        "max_turns": 5,
+        "require_verify": true,
+        "timeout_seconds": 300
+      },
+      "expected": {
+        "contains_keywords": ["Hello, World", "fmt.Println", "package main"],
+        "min_quality": 0.8,
+        "custom_criteria": "Output must be valid, runnable Go code"
+      },
+      "verify_cmd": "go run /tmp/hello.go",
+      "metadata": {
+        "category": "basic_coding",
+        "priority": "critical"
+      }
+    },
+    {
+      "id": "tool_integration",
+      "prompt": "Use the file creation tool to create a test file with specific content",
+      "constraints": {
+        "must_use_tools": ["file_create"],
+        "max_turns": 3,
+        "require_verify": false,
+        "timeout_seconds": 120
+      },
+      "expected": {
+        "contains_keywords": ["file", "created", "success"],
+        "min_quality": 0.7
+      },
+      "metadata": {
+        "category": "tool_usage",
+        "priority": "high"
+      }
+    },
+    {
+      "id": "constraint_enforcement",
+      "prompt": "Write a Python script but do NOT use any external libraries",
+      "constraints": {
+        "forbidden_tools": ["pip_install"],
+        "max_tokens": 2000,
+        "require_verify": true,
+        "timeout_seconds": 180
+      },
+      "expected": {
+        "avoids_keywords": ["import requests", "import pandas", "pip"],
+        "contains_keywords": ["import sys", "import os"],
+        "min_quality": 0.75
+      },
+      "verify_cmd": "python3 -m py_compile /tmp/script.py",
+      "metadata": {
+        "category": "constraint_handling",
+        "priority": "high"
+      }
+    },
+    {
+      "id": "error_recovery",
+      "prompt": "Fix this broken Python code: 'def hello(\\nprint('Hello')' and explain what was wrong",
+      "constraints": {
+        "max_turns": 4,
+        "require_verify": true,
+        "timeout_seconds": 150
+      },
+      "expected": {
+        "contains_keywords": ["missing colon", "indentation", "syntax"],
+        "min_quality": 0.8,
+        "custom_criteria": "Must correctly identify and fix the syntax error"
+      },
+      "verify_cmd": "python3 -m py_compile /tmp/fixed.py",
+      "metadata": {
+        "category": "error_handling",
+        "priority": "high"
+      }
+    },
+    {
+      "id": "memory_persistence",
+      "prompt": "You previously learned that our codebase uses Cobra for CLI. Apply that knowledge to suggest the best CLI framework for a new tool.",
+      "constraints": {
+        "max_turns": 3,
+        "require_verify": false,
+        "timeout_seconds": 120
+      },
+      "expected": {
+        "contains_keywords": ["Cobra", "previous", "learned", "knowledge"],
+        "min_quality": 0.75,
+        "custom_criteria": "Must demonstrate use of persistent memory/lessons"
+      },
+      "metadata": {
+        "category": "lesson_application",
+        "priority": "medium"
+      }
+    },
+    {
+      "id": "verification_gate",
+      "prompt": "Create a shell script that lists all Go files and verify it works correctly",
+      "constraints": {
+        "max_turns": 4,
+        "require_verify": true,
+        "timeout_seconds": 180
+      },
+      "expected": {
+        "contains_keywords": ["find", ".go", "bash", "script"],
+        "min_quality": 0.8,
+        "custom_criteria": "Script must be executable and work without errors"
+      },
+      "verify_cmd": "bash /tmp/list_go_files.sh | head -5",
+      "metadata": {
+        "category": "verification",
+        "priority": "critical"
+      }
+    },
+    {
+      "id": "multi_step_workflow",
+      "prompt": "Create a complete workflow: 1) Generate a JSON config file 2) Write a Go program that reads it 3) Verify the program runs",
+      "constraints": {
+        "max_turns": 8,
+        "require_verify": true,
+        "timeout_seconds": 300
+      },
+      "expected": {
+        "contains_keywords": ["json", "config", "Go", "workflow"],
+        "min_quality": 0.85,
+        "custom_criteria": "All three workflow steps must be completed and verified"
+      },
+      "verify_cmd": "go run /tmp/config_reader.go && cat /tmp/config.json",
+      "metadata": {
+        "category": "complex_workflow",
+        "priority": "critical"
+      }
+    },
+    {
+      "id": "reasoning_quality",
+      "prompt": "Explain the best practices for error handling in Go. Then apply them to improve this error-prone code snippet.",
+      "constraints": {
+        "max_turns": 5,
+        "require_verify": false,
+        "timeout_seconds": 200
+      },
+      "expected": {
+        "contains_keywords": ["error", "defer", "panic", "recover", "best practice"],
+        "min_quality": 0.8,
+        "custom_criteria": "Must demonstrate deep understanding of Go error handling"
+      },
+      "metadata": {
+        "category": "reasoning",
+        "priority": "medium"
+      }
+    }
+  ]
+}
