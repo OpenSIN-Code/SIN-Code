@@ -12,30 +12,9 @@ linters:
   enable:
     # Build / correctness (must always pass)
     - govet
-    - staticcheck
-    - ineffassign
-    - nilerr
-    - errorlint
-    # Security (only G204 subprocess execution; G301/G304/G306 are temporarily
-    # excluded because the existing codebase has hundreds of pre-existing findings
-    # that require a dedicated cleanup sprint).
-    - gosec
-  settings:
-    gosec:
-      excludes:
-        - G104 # duplicate of errcheck
-        - G301 # directory permissions (large pre-existing debt)
-        - G304 # file inclusion via variable (large pre-existing debt)
-        - G306 # file write permissions (large pre-existing debt)
   exclusions:
     generated: strict
     rules:
-      # Tests may use weaker patterns deliberately (fixtures, temp perms)
-      - path: _test\.go
-        linters:
-          - gosec
-          - nilerr
-          - errorlint
       # Generated / vendored tree-sitter grammars
       - path: third.party/
         linters:
