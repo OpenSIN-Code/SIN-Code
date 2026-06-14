@@ -289,7 +289,7 @@ func TestHarvestURLFetch_ServerError(t *testing.T) {
 type errBody struct{}
 
 func (errBody) Read(_ []byte) (int, error) { return 0, fmt.Errorf("simulated body read error") }
-func (errBody) Close() error                 { return nil }
+func (errBody) Close() error               { return nil }
 
 func TestHarvestURLFetch_ReadBodyError(t *testing.T) {
 	oldClient := harvestHTTPClient

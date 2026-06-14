@@ -204,6 +204,18 @@ func TestServeCmd_RunEStdio(t *testing.T) {
 	_ = ServeCmd.RunE(ServeCmd, []string{})
 }
 
+func TestServeCmd_RunENilContext(t *testing.T) {
+	oldTransport, _ := ServeCmd.Flags().GetString("transport")
+	ServeCmd.Flags().Set("transport", "stdio")
+	defer ServeCmd.Flags().Set("transport", oldTransport)
+
+	oldCtx := ServeCmd.Context()
+	ServeCmd.SetContext(nil)
+	defer ServeCmd.SetContext(oldCtx)
+
+	_ = ServeCmd.RunE(ServeCmd, []string{})
+}
+
 func TestServeCmd_RunEHttp(t *testing.T) {
 	oldTransport, _ := ServeCmd.Flags().GetString("transport")
 	ServeCmd.Flags().Set("transport", "http")

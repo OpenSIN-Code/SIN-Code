@@ -1254,14 +1254,14 @@ func TestIndexRefreshCmd_RefreshIndexError_stcov2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := saveIndex(idx); err != nil {
-		t.Fatal(err)
-	}
+	origIdx := globalFileIndex
+	globalFileIndex = idx
+	defer func() { globalFileIndex = origIdx }()
 	orig := refreshIndexOverride
-	refreshIndexOverride = func(idx *inMemoryIndex) (*inMemoryIndex, int, int, error) { return nil, 0, 0, errors.New("refresh error") }
+	refreshIndexOverride = func(idx *inMemoryIndex) (*inMemoryIndex, int, int, error) {
+		return nil, 0, 0, errors.New("refresh error")
+	}
 	defer func() { refreshIndexOverride = orig }()
-	globalFileIndex = nil
-	defer func() { globalFileIndex = nil }()
 	_ = indexRefreshCmd.RunE(indexRefreshCmd, []string{dir})
 }
 
@@ -1271,14 +1271,12 @@ func TestIndexRefreshCmd_SaveIndexError_stcov2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := saveIndex(idx); err != nil {
-		t.Fatal(err)
-	}
+	origIdx := globalFileIndex
+	globalFileIndex = idx
+	defer func() { globalFileIndex = origIdx }()
 	orig := saveIndexCreate
 	saveIndexCreate = func(name string) (*os.File, error) { return nil, errors.New("create error") }
 	defer func() { saveIndexCreate = orig }()
-	globalFileIndex = nil
-	defer func() { globalFileIndex = nil }()
 	_ = indexRefreshCmd.RunE(indexRefreshCmd, []string{dir})
 }
 
@@ -1298,17 +1296,20 @@ func TestIndexWatchCmd_RefreshIndexError_stcov2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := saveIndex(idx); err != nil {
-		t.Fatal(err)
-	}
+	origIdx := globalFileIndex
+	globalFileIndex = idx
+	defer func() { globalFileIndex = origIdx }()
 	origMax := indexWatchMaxIterations
 	indexWatchMaxIterations = 1
 	defer func() { indexWatchMaxIterations = origMax }()
+	origInterval := indexWatchInterval
+	indexWatchInterval = 0
+	defer func() { indexWatchInterval = origInterval }()
 	orig := refreshIndexOverride
-	refreshIndexOverride = func(idx *inMemoryIndex) (*inMemoryIndex, int, int, error) { return nil, 0, 0, errors.New("refresh error") }
+	refreshIndexOverride = func(idx *inMemoryIndex) (*inMemoryIndex, int, int, error) {
+		return nil, 0, 0, errors.New("refresh error")
+	}
 	defer func() { refreshIndexOverride = orig }()
-	globalFileIndex = nil
-	defer func() { globalFileIndex = nil }()
 	_ = indexWatchCmd.RunE(indexWatchCmd, []string{dir})
 }
 
@@ -1318,17 +1319,18 @@ func TestIndexWatchCmd_SaveIndexError_stcov2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := saveIndex(idx); err != nil {
-		t.Fatal(err)
-	}
+	origIdx := globalFileIndex
+	globalFileIndex = idx
+	defer func() { globalFileIndex = origIdx }()
 	origMax := indexWatchMaxIterations
 	indexWatchMaxIterations = 1
 	defer func() { indexWatchMaxIterations = origMax }()
+	origInterval := indexWatchInterval
+	indexWatchInterval = 0
+	defer func() { indexWatchInterval = origInterval }()
 	orig := saveIndexCreate
 	saveIndexCreate = func(name string) (*os.File, error) { return nil, errors.New("create error") }
 	defer func() { saveIndexCreate = orig }()
-	globalFileIndex = nil
-	defer func() { globalFileIndex = nil }()
 	_ = indexWatchCmd.RunE(indexWatchCmd, []string{dir})
 }
 
@@ -1359,6 +1361,142 @@ func TestMemoryCmd_OpenStoreError_stcov2(t *testing.T) {
 	_ = memStatsCmd.RunE(memStatsCmd, nil)
 }
 
+func TestMemoryCmd_AddError_stcov2(t *testing.T) {
+	orig := memAddFn
+	memAddFn = func(s *memory.Store, m *memory.Memory) error { return errors.New("add error") }
+	defer func() { memAddFn = orig }()
+	_ = memAddCmd.RunE(memAddCmd, []string{"insight"})
+}
+
+func TestMemoryCmd_ListError_stcov2(t *testing.T) {
+	orig := memListFn
+	memListFn = func(s *memory.Store, f memory.ListFilter) ([]*memory.Memory, error) {
+		return nil, errors.New("list error")
+	}
+	defer func() { memListFn = orig }()
+	_ = memListCmd.RunE(memListCmd, nil)
+}
+
+func TestMemoryCmd_ShowError_stcov2(t *testing.T) {
+	orig := memGetFn
+	memGetFn = func(s *memory.Store, id string) (*memory.Memory, error) { return nil, errors.New("get error") }
+	defer func() { memGetFn = orig }()
+	_ = memShowCmd.RunE(memShowCmd, []string{"id"})
+}
+
+func TestMemoryCmd_ShowFull_stcov2(t *testing.T) {
+	orig := memGetFn
+	memGetFn = func(s *memory.Store, id string) (*memory.Memory, error) {
+		return &memory.Memory{ID: "id", Insight: "insight", Project: "p", Tags: []string{"t"}, Actor: "a", Created: time.Now(), Updated: time.Now()}, nil
+	}
+	defer func() { memGetFn = orig }()
+	final := captureStdout(t)
+	_ = memShowCmd.RunE(memShowCmd, []string{"id"})
+	out := final()
+	if !strings.Contains(out, "p") || !strings.Contains(out, "t") || !strings.Contains(out, "a") {
+		t.Errorf("expected project/tags/actor in output, got %q", out)
+	}
+}
+
+func TestMemoryCmd_ShowJSON_stcov2(t *testing.T) {
+	orig := memGetFn
+	memGetFn = func(s *memory.Store, id string) (*memory.Memory, error) {
+		return &memory.Memory{ID: "id", Insight: "insight", Created: time.Now(), Updated: time.Now()}, nil
+	}
+	defer func() { memGetFn = orig }()
+	origFmt := memFormat
+	memFormat = "json"
+	defer func() { memFormat = origFmt }()
+	final := captureStdout(t)
+	_ = memShowCmd.RunE(memShowCmd, []string{"id"})
+	out := final()
+	if !strings.Contains(out, "\"id\":") {
+		t.Errorf("expected JSON output, got %q", out)
+	}
+}
+
+func TestMemoryCmd_SearchError_stcov2(t *testing.T) {
+	orig := memSearchFn
+	memSearchFn = func(s *memory.Store, q, project string, k int) ([]memory.ScoredMemory, error) {
+		return nil, errors.New("search error")
+	}
+	defer func() { memSearchFn = orig }()
+	_ = memSearchCmd.RunE(memSearchCmd, []string{"query"})
+}
+
+func TestMemoryCmd_SearchEmpty_stcov2(t *testing.T) {
+	orig := memSearchFn
+	memSearchFn = func(s *memory.Store, q, project string, k int) ([]memory.ScoredMemory, error) { return nil, nil }
+	defer func() { memSearchFn = orig }()
+	final := captureStdout(t)
+	_ = memSearchCmd.RunE(memSearchCmd, []string{"query"})
+	out := final()
+	if !strings.Contains(out, "no results") {
+		t.Errorf("expected no results, got %q", out)
+	}
+}
+
+func TestMemoryCmd_SearchJSON_stcov2(t *testing.T) {
+	orig := memSearchFn
+	memSearchFn = func(s *memory.Store, q, project string, k int) ([]memory.ScoredMemory, error) {
+		return []memory.ScoredMemory{{Memory: &memory.Memory{ID: "id", Insight: "insight"}, Score: 1.0}}, nil
+	}
+	defer func() { memSearchFn = orig }()
+	origFmt := memFormat
+	memFormat = "json"
+	defer func() { memFormat = origFmt }()
+	final := captureStdout(t)
+	_ = memSearchCmd.RunE(memSearchCmd, []string{"query"})
+	out := final()
+	if !strings.Contains(out, "\"id\":") {
+		t.Errorf("expected JSON output, got %q", out)
+	}
+}
+
+func TestMemoryCmd_AddLinkError_stcov2(t *testing.T) {
+	orig := memAddLinkFn
+	memAddLinkFn = func(s *memory.Store, l memory.Link) error { return errors.New("add link error") }
+	defer func() { memAddLinkFn = orig }()
+	_ = memLinkCmd.RunE(memLinkCmd, []string{"a", "b"})
+}
+
+func TestMemoryCmd_RemoveLinkError_stcov2(t *testing.T) {
+	orig := memRemoveLinkFn
+	memRemoveLinkFn = func(s *memory.Store, from, to string) error { return errors.New("remove link error") }
+	defer func() { memRemoveLinkFn = orig }()
+	_ = memUnlinkCmd.RunE(memUnlinkCmd, []string{"a", "b"})
+}
+
+func TestMemoryCmd_GraphError_stcov2(t *testing.T) {
+	orig := memGraphFn
+	memGraphFn = func(s *memory.Store, id string, depth int) (map[string][]memory.Link, error) {
+		return nil, errors.New("graph error")
+	}
+	defer func() { memGraphFn = orig }()
+	_ = memGraphCmd.RunE(memGraphCmd, []string{"id"})
+}
+
+func TestMemoryCmd_PrimeError_stcov2(t *testing.T) {
+	orig := memPrimeFn
+	memPrimeFn = func(s *memory.Store, q, project string, k int) (string, error) { return "", errors.New("prime error") }
+	defer func() { memPrimeFn = orig }()
+	_ = memPrimeCmd.RunE(memPrimeCmd, []string{"query"})
+}
+
+func TestMemoryCmd_ForgetError_stcov2(t *testing.T) {
+	orig := memDeleteFn
+	memDeleteFn = func(s *memory.Store, id string, hard bool) error { return errors.New("delete error") }
+	defer func() { memDeleteFn = orig }()
+	_ = memForgetCmd.RunE(memForgetCmd, []string{"id"})
+}
+
+func TestMemoryCmd_StatsError_stcov2(t *testing.T) {
+	orig := memStatsFn
+	memStatsFn = func(s *memory.Store) (map[string]int, error) { return nil, errors.New("stats error") }
+	defer func() { memStatsFn = orig }()
+	_ = memStatsCmd.RunE(memStatsCmd, nil)
+}
+
 func TestPluginListCmd_NoDir_stcov2(t *testing.T) {
 	orig := pluginPath
 	pluginPath = "/nonexistent"
@@ -1379,6 +1517,145 @@ func TestPluginCmd_LoadPluginError_stcov2(t *testing.T) {
 	_ = pluginUninstallCmd.RunE(pluginUninstallCmd, []string{"x"})
 	_ = pluginEnableCmd.RunE(pluginEnableCmd, []string{"x"})
 	_ = pluginDisableCmd.RunE(pluginDisableCmd, []string{"x"})
+}
+
+func TestPluginListCmd_ReadDirError_stcov2(t *testing.T) {
+	orig := pluginReadDir
+	pluginReadDir = func(name string) ([]os.DirEntry, error) { return nil, errors.New("read dir error") }
+	defer func() { pluginReadDir = orig }()
+	origPath := pluginPath
+	pluginPath = "/somepath"
+	defer func() { pluginPath = origPath }()
+	_ = pluginListCmd.RunE(pluginListCmd, nil)
+}
+
+func TestPluginInstallCmd_LoadError_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	pluginDir := filepath.Join(dir, "plugin")
+	os.MkdirAll(pluginDir, 0755)
+	os.WriteFile(filepath.Join(pluginDir, plugins.ManifestFile), []byte("invalid toml"), 0644)
+	_ = pluginInstallCmd.RunE(pluginInstallCmd, []string{pluginDir})
+}
+
+func TestPluginInstallCmd_AlreadyInstalled_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	pluginDir := filepath.Join(dir, "plugin")
+	os.MkdirAll(pluginDir, 0755)
+	os.WriteFile(filepath.Join(pluginDir, plugins.ManifestFile), []byte("name = \"x\"\nversion = \"1.0.0\"\n"), 0644)
+	pluginDirPath := filepath.Join(dir, "plugins")
+	os.MkdirAll(filepath.Join(pluginDirPath, "x"), 0755)
+	origPath := pluginPath
+	pluginPath = pluginDirPath
+	defer func() { pluginPath = origPath }()
+	_ = pluginInstallCmd.RunE(pluginInstallCmd, []string{pluginDir})
+}
+
+func TestPluginInstallCmd_CopyDirError_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	pluginDir := filepath.Join(dir, "plugin")
+	os.MkdirAll(pluginDir, 0755)
+	os.WriteFile(filepath.Join(pluginDir, plugins.ManifestFile), []byte("name = \"x\"\nversion = \"1.0.0\"\n"), 0644)
+	origPath := pluginPath
+	pluginPath = filepath.Join(dir, "plugins")
+	defer func() { pluginPath = origPath }()
+	orig := copyDirFn
+	copyDirFn = func(src, dst string) error { return errors.New("copy error") }
+	defer func() { copyDirFn = orig }()
+	_ = pluginInstallCmd.RunE(pluginInstallCmd, []string{pluginDir})
+}
+
+func TestPluginUninstallCmd_RemoveError_stcov2(t *testing.T) {
+	orig := pluginRemove
+	pluginRemove = func(path string) error { return errors.New("remove error") }
+	defer func() { pluginRemove = orig }()
+	origLoad := loadPluginFn
+	loadPluginFn = func(name string) (*plugins.Plugin, error) {
+		return &plugins.Plugin{Name: "x", Path: "/x", Version: "1.0.0"}, nil
+	}
+	defer func() { loadPluginFn = origLoad }()
+	_ = pluginUninstallCmd.RunE(pluginUninstallCmd, []string{"x"})
+}
+
+func TestPluginEnableCmd_EnableError_stcov2(t *testing.T) {
+	orig := pluginEnable
+	pluginEnable = func(p *plugins.Plugin) error { return errors.New("enable error") }
+	defer func() { pluginEnable = orig }()
+	origLoad := loadPluginFn
+	loadPluginFn = func(name string) (*plugins.Plugin, error) {
+		return &plugins.Plugin{Name: "x", Path: "/x", Version: "1.0.0"}, nil
+	}
+	defer func() { loadPluginFn = origLoad }()
+	_ = pluginEnableCmd.RunE(pluginEnableCmd, []string{"x"})
+}
+
+func TestPluginDisableCmd_DisableError_stcov2(t *testing.T) {
+	orig := pluginDisable
+	pluginDisable = func(p *plugins.Plugin) error { return errors.New("disable error") }
+	defer func() { pluginDisable = orig }()
+	origLoad := loadPluginFn
+	loadPluginFn = func(name string) (*plugins.Plugin, error) {
+		return &plugins.Plugin{Name: "x", Path: "/x", Version: "1.0.0"}, nil
+	}
+	defer func() { loadPluginFn = origLoad }()
+	_ = pluginDisableCmd.RunE(pluginDisableCmd, []string{"x"})
+}
+
+func TestPluginListCmd_ValidPlugin_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	pluginDir := filepath.Join(dir, "plugins")
+	os.MkdirAll(filepath.Join(pluginDir, "x"), 0755)
+	os.WriteFile(filepath.Join(pluginDir, "x", plugins.ManifestFile), []byte("name = \"x\"\nversion = \"1.0.0\"\n"), 0644)
+	origPath := pluginPath
+	pluginPath = pluginDir
+	defer func() { pluginPath = origPath }()
+	final := captureStdout(t)
+	_ = pluginListCmd.RunE(pluginListCmd, nil)
+	out := final()
+	if !strings.Contains(out, "x") {
+		t.Errorf("expected x in output, got %q", out)
+	}
+}
+
+func TestPluginListCmd_DisabledPlugin_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	pluginDir := filepath.Join(dir, "plugins")
+	os.MkdirAll(filepath.Join(pluginDir, "x"), 0755)
+	os.WriteFile(filepath.Join(pluginDir, "x", plugins.ManifestFile), []byte("name = \"x\"\nversion = \"1.0.0\"\n"), 0644)
+	os.WriteFile(filepath.Join(pluginDir, "x", ".disabled"), []byte{}, 0644)
+	origPath := pluginPath
+	pluginPath = pluginDir
+	defer func() { pluginPath = origPath }()
+	final := captureStdout(t)
+	_ = pluginListCmd.RunE(pluginListCmd, nil)
+	out := final()
+	if !strings.Contains(out, "disabled") {
+		t.Errorf("expected disabled in output, got %q", out)
+	}
+}
+
+func TestPluginListCmd_NonDirEntry_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	pluginDir := filepath.Join(dir, "plugins")
+	os.MkdirAll(pluginDir, 0755)
+	os.WriteFile(filepath.Join(pluginDir, "file.txt"), []byte("x"), 0644)
+	origPath := pluginPath
+	pluginPath = pluginDir
+	defer func() { pluginPath = origPath }()
+	_ = pluginListCmd.RunE(pluginListCmd, nil)
+}
+
+func TestPluginInstallCmd_MkdirAllError_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	pluginDir := filepath.Join(dir, "plugin")
+	os.MkdirAll(pluginDir, 0755)
+	os.WriteFile(filepath.Join(pluginDir, plugins.ManifestFile), []byte("name = \"x\"\nversion = \"1.0.0\"\n"), 0644)
+	origPath := pluginPath
+	pluginPath = filepath.Join(dir, "plugins")
+	defer func() { pluginPath = origPath }()
+	orig := pluginMkdirAll
+	pluginMkdirAll = func(path string, perm os.FileMode) error { return errors.New("mkdir error") }
+	defer func() { pluginMkdirAll = orig }()
+	_ = pluginInstallCmd.RunE(pluginInstallCmd, []string{pluginDir})
 }
 
 func TestHarvestURLFetch_BodyReadError_stcov2(t *testing.T) {

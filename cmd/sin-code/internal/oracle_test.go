@@ -430,6 +430,38 @@ func TestVerifyCoverage_JSONOutput(t *testing.T) {
 	}
 }
 
+func TestVerifyCoverage_TextOutput(t *testing.T) {
+	dir := t.TempDir()
+	claim := filepath.Join(dir, "main.go")
+	evidence := filepath.Join(dir, "main_test.go")
+
+	os.WriteFile(claim, []byte("package main\nfunc Add(a, b int) int { return a + b }\n"), 0644)
+	os.WriteFile(evidence, []byte("package main\nimport \"testing\"\nfunc TestAdd(t *testing.T) {}\n"), 0644)
+
+	oracleClaim = claim
+	oracleEvidence = evidence
+	oracleFormat = "text"
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	defer r.Close()
+	os.Stdout = w
+
+	err := OracleCmd.RunE(OracleCmd, []string{})
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("OracleCmd.RunE failed: %v", err)
+	}
+	var buf bytes.Buffer
+	buf.ReadFrom(r)
+	out := buf.String()
+	if !strings.Contains(out, "Coverage:") {
+		t.Errorf("expected text output with Coverage:, got %q", out)
+	}
+}
+
 func TestVerifyCoverage_MissingClaimFlag(t *testing.T) {
 	oracleClaim = ""
 	oracleEvidence = "something"

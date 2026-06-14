@@ -497,6 +497,78 @@ func TestLspRun_DefinitionWithFakeGopls(t *testing.T) {
 	}
 }
 
+func TestLspRun_DefinitionError(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "gopls")
+	script := `#!/usr/bin/env python3
+import sys, json
+
+def send(obj):
+    s = json.dumps(obj, separators=(',', ':'))
+    sys.stdout.write("Content-Length: " + str(len(s)) + "\r\n\r\n" + s)
+    sys.stdout.flush()
+
+while True:
+    headers = {}
+    while True:
+        line = sys.stdin.readline()
+        if not line:
+            sys.exit(0)
+        line = line.strip()
+        if not line:
+            break
+        if ':' in line:
+            k, v = line.split(':', 1)
+            headers[k.strip()] = v.strip()
+    n = int(headers.get('Content-Length', 0))
+    if n == 0:
+        continue
+    body = sys.stdin.read(n)
+    try:
+        msg = json.loads(body)
+    except Exception:
+        continue
+    if msg.get('id') is None:
+        continue
+    method = msg.get('method', '')
+    rid = msg['id']
+    if method == 'initialize':
+        send({"jsonrpc":"2.0","id":rid,"result":{"capabilities":{
+            "definitionProvider":True
+        }}})
+    elif method == 'textDocument/definition':
+        send({"jsonrpc":"2.0","id":rid,"error":{"code":-32600,"message":"definition error"}})
+    elif method == 'shutdown':
+        send({"jsonrpc":"2.0","id":rid,"result":None})
+    else:
+        send({"jsonrpc":"2.0","id":rid,"result":None})
+`
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir+":"+os.Getenv("PATH"))
+
+	oldFile, oldLang, oldRoot, oldLine, oldCol := lspFile, lspLang, lspRoot, lspLine, lspCol
+	oldFormat := orch2Format
+	defer func() {
+		lspFile, lspLang, lspRoot, lspLine, lspCol, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldFormat
+	}()
+
+	root := t.TempDir()
+	lspRoot = root
+	lspFile = filepath.Join(root, "main.go")
+	lspLang = "go"
+	lspLine = 1
+	lspCol = 1
+	orch2Format = "text"
+	os.WriteFile(lspFile, []byte("package main\n"), 0o644)
+
+	cmd := lspDefinitionCmd
+	if err := cmd.RunE(cmd, []string{"main.go", "1", "1"}); err == nil {
+		t.Fatal("expected error from definition command")
+	}
+}
+
 func TestLspRun_FormatWithFakeGopls(t *testing.T) {
 	installFakeGopls(t)
 
