@@ -18,3 +18,5 @@ Pull-request verification workflow for the Python `sin-code-bundle` package stil
 
 - This package is the legacy Python bundle; the active runtime is the Go `sin-code` binary. The workflow is kept for regression coverage of the Python helpers.
 - Installing from PyPI (`pip install sin-code-bundle[dev]`) would test the released package, not the PR. The workflow intentionally uses `-e ".[dev]"` to test the checked-out source.
+- Some Python tests exercise the standalone `execute` and `scout` Go binaries, so the workflow installs them from the upstream repos before running pytest.
+- Several tests create temporary git commits, so the workflow configures a global git identity and sets `init.defaultBranch` to `main` before running pytest.

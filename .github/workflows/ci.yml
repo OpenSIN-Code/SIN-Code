@@ -59,6 +59,14 @@ jobs:
         run: |
           git config --global user.email "ci@opensin-code.local"
           git config --global user.name "SIN CI"
+          git config --global init.defaultBranch main
+
+      - name: Install SIN-Code Go tools for tests
+        run: |
+          go install github.com/OpenSIN-Code/SIN-Code-Execute-Tool/cmd/execute@latest
+          go install github.com/OpenSIN-Code/SIN-Code-Scout-Tool/cmd/scout@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
       - name: Run test suite
         run: pytest -q
       - name: Install optional extras and re-run
