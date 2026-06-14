@@ -53,6 +53,12 @@ type Loop struct {
 	Ask     AskFunc
 	Lessons *lessons.Store
 
+	// CompressMessages, if set, is invoked on the message history before
+	// every model request to reduce token usage (e.g. via Headroom). It
+	// returns a possibly-rewritten history; on error or nil result the
+	// original history is used so compression never breaks a run.
+	CompressMessages func(ctx context.Context, msgs []session.Message) ([]session.Message, error)
+
 	// Ledger records every prompt, tool call, and verification result for
 	// auditability and auto-summaries (issue #43). Optional — loop works
 	// without it for backward compatibility.
@@ -191,7 +197,13 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			})
 			pendingInjects = nil
 		}
-		resp, err := l.Completion(ctx, msgs, tools)
+		reqMsgs := msgs
+		if l.CompressMessages != nil {
+			if compressed, cerr := l.CompressMessages(ctx, msgs); cerr == nil && compressed != nil {
+				reqMsgs = compressed
+			}
+		}
+		resp, err := l.Completion(ctx, reqMsgs, tools)
 		if err != nil {
 			return nil, fmt.Errorf("turn %d: %w", turn, err)
 		}
