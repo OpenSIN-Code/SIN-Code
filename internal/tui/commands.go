@@ -29,13 +29,13 @@ type Command struct {
 
 // Group constants.
 const (
-	GroupCode    = "Code"
-	GroupGo      = "Go Tools"
-	GroupPython  = "Python Tools"
+	GroupCode     = "Code"
+	GroupGo       = "Go Tools"
+	GroupPython   = "Python Tools"
 	GroupSecurity = "Security"
-	GroupSkills  = "Skills"
-	GroupMCP     = "MCP & Serve"
-	GroupSystem  = "System"
+	GroupSkills   = "Skills"
+	GroupMCP      = "MCP & Serve"
+	GroupSystem   = "System"
 )
 
 // Commands is the full menu catalog. Order within a group = display order.
