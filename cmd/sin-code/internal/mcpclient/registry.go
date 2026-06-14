@@ -14,7 +14,7 @@ import (
 // tool-name prefixes ("websearch__search", "browser__navigate", ...), which
 // the permission matrix gates via the "mcp" policy class.
 func DefaultServers() []ServerConfig {
-	skillsDir := os.Getenv("SIN_SKILLS_DIR")
+	skillsDir := skillsDirOrDefault()
 	py := func(repo string) ServerConfig {
 		name := shortName(repo)
 		cfg := ServerConfig{Name: name, Transport: "stdio"}
@@ -84,4 +84,15 @@ func shortName(repo string) string {
 		return s
 	}
 	return repo
+}
+
+// skillsDirOrDefault returns the configured SIN_SKILLS_DIR or the default
+// local share location used by skillmgr. This keeps the registry in sync
+// with where skillmgr actually installs skills.
+func skillsDirOrDefault() string {
+	if d := os.Getenv("SIN_SKILLS_DIR"); d != "" {
+		return d
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local", "share", "sin-code", "skills")
 }
