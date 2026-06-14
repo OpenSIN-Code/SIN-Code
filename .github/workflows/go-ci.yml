@@ -1,3 +1,5 @@
+# Purpose: Go CI for the sin-code binary: build, vet, tests, and benchmarks.
+# Docs: .github/workflows/go-ci.yml.doc.md
 name: go-ci
 
 on:
@@ -40,7 +42,9 @@ jobs:
           go-version: "1.25.11"
       - name: Run benchmarks
         run: |
+          set -euo pipefail
           go test ./cmd/sin-code/internal/ \
+            -run='^$' \
             -bench='Benchmark' \
             -benchmem \
             -count=3 \
@@ -48,6 +52,7 @@ jobs:
             2>&1 | tee benchmark.out
       - name: Check indexed vs fullscan speedup
         run: |
+          set -euo pipefail
           # Extract median latencies and fail if indexed is not at least 3x faster.
           # CI runners have 2-4 cores and slower I/O; the 5x+ target is verified
           # locally via benchmark.sh. We use float-safe awk and median, not min.
