@@ -24,6 +24,13 @@ var (
 	execStream  bool
 )
 
+var (
+	execIsWindows       = func() bool { return runtime.GOOS == "windows" }
+	execNewContext      = func(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) { return context.WithTimeout(ctx, timeout) }
+	execTimeoutDuration = func(timeout int) time.Duration { return time.Duration(timeout) * time.Second }
+	execRunCommand      = func(c *exec.Cmd) error { return c.Run() }
+)
+
 var ExecuteCmd = &cobra.Command{
 	Use:   "execute",
 	Short: "Execute shell commands safely with secret redaction and timeout",
@@ -59,7 +66,7 @@ func runCommand(command string, timeout int, format string, stream bool) error {
 
 	// Use shell to execute the command
 	var shell, shellArg string
-	if runtime.GOOS == "windows" {
+	if execIsWindows() {
 		shell, shellArg = "cmd", "/c"
 	} else {
 		shell, shellArg = "/bin/sh", "-c"
@@ -68,7 +75,7 @@ func runCommand(command string, timeout int, format string, stream bool) error {
 	ctx := context.Background()
 	if timeout > 0 {
 		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
+		ctx, cancel = execNewContext(ctx, execTimeoutDuration(timeout))
 		defer cancel()
 	}
 
@@ -84,7 +91,7 @@ func runCommand(command string, timeout int, format string, stream bool) error {
 		c.Stderr = &stderr
 	}
 
-	err := c.Run()
+	err := execRunCommand(c)
 	duration := time.Since(start)
 
 	// Collect output

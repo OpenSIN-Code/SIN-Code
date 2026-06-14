@@ -42,6 +42,13 @@ var (
 	harvestTimeout int
 )
 
+var harvestHTTPClient = func(timeout int) *http.Client {
+	return &http.Client{
+		Timeout:   time.Duration(timeout) * time.Second,
+		Transport: circuitbreaker.RoundTripper(http.DefaultTransport, harvestBreaker),
+	}
+}
+
 var HarvestCmd = &cobra.Command{
 	Use:   "harvest",
 	Short: "Fetch URLs with caching, structure extraction, and change detection",
@@ -99,10 +106,7 @@ func harvestURLFetch(url, method string, timeout int, format string) error {
 		}
 	}
 
-	client := &http.Client{
-		Timeout:   time.Duration(timeout) * time.Second,
-		Transport: circuitbreaker.RoundTripper(http.DefaultTransport, harvestBreaker),
-	}
+	client := harvestHTTPClient(timeout)
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return fmt.Errorf("invalid request: %w", err)

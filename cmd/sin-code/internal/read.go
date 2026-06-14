@@ -16,6 +16,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var buildOutlineMarshal = func(v any) ([]byte, error) { return json.MarshalIndent(v, "", "  ") }
+
 var (
 	readMode     string
 	readOffset   int
@@ -23,6 +25,8 @@ var (
 	readMaxBytes int64
 	readFormat   string
 )
+
+var readAbsPath = filepath.Abs
 
 const readDefaultLimit = 2000
 const readDefaultMaxBytes int64 = 1 << 20
@@ -44,7 +48,7 @@ Examples:
   sin-code read pkg/x.go --format json`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		absPath, err := filepath.Abs(args[0])
+		absPath, err := readAbsPath(args[0])
 		if err != nil {
 			return fmt.Errorf("invalid path: %w", err)
 		}
@@ -165,7 +169,7 @@ func buildOutlineResult(res *readResult, content, lang string) *readResult {
 		"exports":      exports,
 		"dependencies": deps,
 	}
-	b, err := json.MarshalIndent(outlineMap, "", "  ")
+	b, err := buildOutlineMarshal(outlineMap)
 	if err != nil {
 		b = []byte(fmt.Sprintf(`{"error":"%v"}`, err))
 	}

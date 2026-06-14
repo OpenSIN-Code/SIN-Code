@@ -19,6 +19,13 @@ func init() { registerProvider(goASTProvider{}, false) }
 
 func (goASTProvider) languages() []string { return []string{"go"} }
 
+func sigOf(lines []string, start int) string {
+	if start-1 >= 0 && start-1 < len(lines) {
+		return strings.TrimSpace(lines[start-1])
+	}
+	return ""
+}
+
 func (goASTProvider) parse(path string, src []byte) (*FileOutline, error) {
 	out := &FileOutline{Engine: "go/ast"}
 	if len(src) == 0 {
@@ -30,12 +37,6 @@ func (goASTProvider) parse(path string, src []byte) (*FileOutline, error) {
 		return nil, err
 	}
 	lines := strings.Split(string(src), "\n")
-	sigOf := func(start int) string {
-		if start-1 >= 0 && start-1 < len(lines) {
-			return strings.TrimSpace(lines[start-1])
-		}
-		return ""
-	}
 	lineRange := func(n ast.Node) (int, int) {
 		return fset.Position(n.Pos()).Line, fset.Position(n.End()).Line
 	}
@@ -48,7 +49,7 @@ func (goASTProvider) parse(path string, src []byte) (*FileOutline, error) {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
 			start, end := lineRange(d)
-			sym := SymbolInfo{Kind: "func", Name: d.Name.Name, StartLine: start, EndLine: end, Signature: sigOf(start)}
+			sym := SymbolInfo{Kind: "func", Name: d.Name.Name, StartLine: start, EndLine: end, Signature: sigOf(lines, start)}
 			if d.Recv != nil && len(d.Recv.List) > 0 {
 				sym.Kind = "method"
 				sym.Name = recvTypeName(d.Recv.List[0].Type) + "." + d.Name.Name
@@ -59,7 +60,7 @@ func (goASTProvider) parse(path string, src []byte) (*FileOutline, error) {
 				switch s := spec.(type) {
 				case *ast.TypeSpec:
 					start, end := lineRange(s)
-					sym := SymbolInfo{Name: s.Name.Name, StartLine: start, EndLine: end, Signature: sigOf(start)}
+					sym := SymbolInfo{Name: s.Name.Name, StartLine: start, EndLine: end, Signature: sigOf(lines, start)}
 					switch t := s.Type.(type) {
 					case *ast.StructType:
 						sym.Kind = "struct"
@@ -68,7 +69,7 @@ func (goASTProvider) parse(path string, src []byte) (*FileOutline, error) {
 								fs, fe := lineRange(f)
 								for _, n := range f.Names {
 									sym.Children = append(sym.Children, SymbolInfo{
-										Kind: "field", Name: n.Name, StartLine: fs, EndLine: fe, Signature: sigOf(fs),
+										Kind: "field", Name: n.Name, StartLine: fs, EndLine: fe, Signature: sigOf(lines, fs),
 									})
 								}
 							}
@@ -80,7 +81,7 @@ func (goASTProvider) parse(path string, src []byte) (*FileOutline, error) {
 								ms, me := lineRange(m)
 								for _, n := range m.Names {
 									sym.Children = append(sym.Children, SymbolInfo{
-										Kind: "method", Name: n.Name, StartLine: ms, EndLine: me, Signature: sigOf(ms),
+										Kind: "method", Name: n.Name, StartLine: ms, EndLine: me, Signature: sigOf(lines, ms),
 									})
 								}
 							}
@@ -100,7 +101,7 @@ func (goASTProvider) parse(path string, src []byte) (*FileOutline, error) {
 							continue
 						}
 						out.Symbols = append(out.Symbols, SymbolInfo{
-							Kind: kind, Name: n.Name, StartLine: start, EndLine: end, Signature: sigOf(start),
+							Kind: kind, Name: n.Name, StartLine: start, EndLine: end, Signature: sigOf(lines, start),
 						})
 					}
 				}
