@@ -12,7 +12,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/orchestrator"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 )
 
 func TestOrchestratorJoinIDs(t *testing.T) {

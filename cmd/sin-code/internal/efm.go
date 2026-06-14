@@ -27,6 +27,8 @@ var (
 	efmRuntime string
 	// efmGOOS allows tests to override runtime.GOOS for platform-specific branches.
 	efmGOOS = runtime.GOOS
+	// efmFilepathAbs is a test hook for filepath.Abs in EFM compose helpers.
+	efmFilepathAbs = filepath.Abs
 )
 
 var EfmCmd = &cobra.Command{
@@ -175,10 +177,13 @@ func detectContainerRuntime() string {
 	return "docker"
 }
 
+// efmDetectRuntime is a test hook for detectContainerRuntime in containerCommand.
+var efmDetectRuntime = detectContainerRuntime
+
 func containerCommand(rt string, args ...string) *exec.Cmd {
 	bin := rt
 	if bin == "" {
-		bin = detectContainerRuntime()
+		bin = efmDetectRuntime()
 	}
 	if bin == "" {
 		bin = "docker"
@@ -288,7 +293,7 @@ func metadataKey(absPath string) string {
 }
 
 func dockerComposeUp(stack string, ttl int, rt string) error {
-	absPath, err := filepath.Abs(stack)
+	absPath, err := efmFilepathAbs(stack)
 	if err != nil {
 		return err
 	}
@@ -320,7 +325,7 @@ func dockerComposeUp(stack string, ttl int, rt string) error {
 }
 
 func dockerComposeDown(stack string, rt string) error {
-	absPath, err := filepath.Abs(stack)
+	absPath, err := efmFilepathAbs(stack)
 	if err != nil {
 		return err
 	}
@@ -341,7 +346,7 @@ func dockerComposeDown(stack string, rt string) error {
 }
 
 func dockerComposeStatus(stack string, rt string) (string, error) {
-	absPath, err := filepath.Abs(stack)
+	absPath, err := efmFilepathAbs(stack)
 	if err != nil {
 		return "", err
 	}

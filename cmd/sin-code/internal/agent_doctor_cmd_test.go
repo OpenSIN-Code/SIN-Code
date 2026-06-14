@@ -13,7 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/orchestrator"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 )
 
 func captureAgentCmd(t *testing.T, cmd *cobra.Command, args []string) (string, error) {

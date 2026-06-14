@@ -18,6 +18,11 @@ Creates, lists, prunes update snapshots in the state directory.
 - `runRollback()` in update_rollback.go calls `Latest()` to find restore target.
 - `runUpdate()` calls `Prune()` after successful update.
 
+## Test hooks
+- `osUserHomeDir` wraps `os.UserHomeDir()` so `NewBackupManager` error paths
+  can be exercised without changing `$HOME`.
+- `BackupManager.Now` is injected by tests to control snapshot ordering.
+
 ## Known caveats
 - **Timestamps must be sortable**: `defaultNow()` returns Unix epoch seconds.
   Tests inject `Now` to control ordering.

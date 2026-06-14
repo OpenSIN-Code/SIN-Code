@@ -47,6 +47,17 @@ func TestPrintError(t *testing.T) {
 	}
 }
 
+func TestPrintError_Direct(t *testing.T) {
+	var exitCode int
+	old := osExit
+	osExit = func(code int) { exitCode = code }
+	defer func() { osExit = old }()
+	PrintError(fmt.Errorf("boom"))
+	if exitCode != 1 {
+		t.Errorf("expected exit code 1, got %d", exitCode)
+	}
+}
+
 func TestLookupStandalone_FoundInHome(t *testing.T) {
 	tmpDir := t.TempDir()
 	binDir := filepath.Join(tmpDir, ".local", "bin")

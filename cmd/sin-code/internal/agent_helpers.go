@@ -56,6 +56,9 @@ func mergeAgentConfig(base, override orchestrator.AgentConfig) orchestrator.Agen
 	return base
 }
 
+// osUserConfigDir is a test hook for the os.UserConfigDir error path.
+var osUserConfigDir = os.UserConfigDir
+
 func agentDir(name string) (string, error) {
 	if name == "" || name != sanitizeName(name) {
 		return "", fmt.Errorf("invalid agent name: %q", name)
@@ -66,7 +69,7 @@ func agentDir(name string) (string, error) {
 	}
 	if cfg == "" {
 		var err error
-		cfg, err = os.UserConfigDir()
+		cfg, err = osUserConfigDir()
 		if err != nil {
 			return "", err
 		}

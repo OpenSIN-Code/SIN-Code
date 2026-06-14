@@ -53,6 +53,11 @@ func init() {
 	SelfUpdateCmd.Flags().BoolP("version", "v", false, "Show current version and platform info")
 }
 
+// Test hooks.
+var runtimeGOOS = runtime.GOOS
+var osCreateFn = os.Create
+var ioCopyFn = io.Copy
+
 // ─── Data structures ───────────────────────────────────────────────────────
 
 type GitHubRelease struct {
@@ -155,7 +160,7 @@ func runSelfUpdateWithDeps(deps *selfUpdateDeps, dryRun bool) error {
 
 	// Find the correct asset for this platform.
 	assetName := fmt.Sprintf("sin-code-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH)
-	if runtime.GOOS == "windows" {
+	if runtimeGOOS == "windows" {
 		assetName = fmt.Sprintf("sin-code-%s-%s.zip", runtime.GOOS, runtime.GOARCH)
 	}
 
@@ -297,12 +302,12 @@ func extractTarGz(archivePath, destDir string) (string, error) {
 		}
 		if header.Typeflag == tar.TypeReg && strings.HasPrefix(header.Name, "sin-code") {
 			path := filepath.Join(destDir, header.Name)
-			out, err := os.Create(path)
+			out, err := osCreateFn(path)
 			if err != nil {
 				return "", err
 			}
 			defer out.Close()
-			if _, err := io.Copy(out, tr); err != nil {
+			if _, err := ioCopyFn(out, tr); err != nil {
 				return "", err
 			}
 			return path, nil
@@ -321,7 +326,7 @@ func extractZip(archivePath, destDir string) (string, error) {
 	for _, f := range r.File {
 		if strings.HasPrefix(f.Name, "sin-code") {
 			path := filepath.Join(destDir, f.Name)
-			out, err := os.Create(path)
+			out, err := osCreateFn(path)
 			if err != nil {
 				return "", err
 			}
@@ -333,7 +338,7 @@ func extractZip(archivePath, destDir string) (string, error) {
 			}
 			defer rc.Close()
 
-			if _, err := io.Copy(out, rc); err != nil {
+			if _, err := ioCopyFn(out, rc); err != nil {
 				return "", err
 			}
 			return path, nil

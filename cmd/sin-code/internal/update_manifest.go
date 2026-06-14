@@ -28,6 +28,7 @@ type UpdateSnapshot struct {
 	SkillsDirs   map[string]string `json:"skills_dirs"`
 }
 
+
 func SnapshotDir(stateRoot, ts string) string {
 	return filepath.Join(stateRoot, "updates", ts)
 }
@@ -36,7 +37,7 @@ func (m *UpdateManifest) Write(dir string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(m, "", "  ")
+	data, err := jsonMarshalIndent(m, "", "  ")
 	if err != nil {
 		return err
 	}

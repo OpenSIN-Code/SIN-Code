@@ -1061,3 +1061,81 @@ func TestRunSelfUpdateWithDeps_BackupFailure(t *testing.T) {
 	}
 }
 
+func TestRunSelfUpdateWithDeps_WindowsAsset(t *testing.T) {
+	SetCurrentVersion("v1.0.0")
+	defer SetCurrentVersion("dev")
+
+	savedGOOS := runtimeGOOS
+	runtimeGOOS = "windows"
+	defer func() { runtimeGOOS = savedGOOS }()
+
+	deps := &selfUpdateDeps{
+		fetchLatest: func() (*GitHubRelease, error) {
+			return &GitHubRelease{
+				TagName:   "v2.0.0",
+				Published: "2024-07-01T00:00:00Z",
+				Assets: []struct {
+					Name string `json:"name"`
+					Size int    `json:"size"`
+					URL  string `json:"browser_download_url"`
+				}{{
+					Name: "sin-code-windows-amd64.zip",
+					URL:  "https://example.com/binary.zip",
+				}},
+			}, nil
+		},
+		currentBinary: func() (string, error) { return "", os.ErrNotExist },
+	}
+
+	err := runSelfUpdateWithDeps(deps, false)
+	if err == nil {
+		t.Fatal("expected error (currentBinary fails)")
+	}
+}
+
+func TestExtractTarGz_FileCreateError(t *testing.T) {
+	files := map[string]string{"sin-code": "content"}
+	archivePath := createTarGz(t, files)
+	destDir := t.TempDir()
+	os.Chmod(destDir, 0000)
+	defer os.Chmod(destDir, 0755)
+	_, err := extractTarGz(archivePath, destDir)
+	if err == nil {
+		t.Error("expected error when dest dir is not writable")
+	}
+}
+
+func TestExtractTarGz_CopyError(t *testing.T) {
+	files := map[string]string{"sin-code": "content"}
+	archivePath := createTarGz(t, files)
+	destDir := t.TempDir()
+
+	savedCopy := ioCopyFn
+	ioCopyFn = func(dst io.Writer, src io.Reader) (int64, error) {
+		return 0, os.ErrInvalid
+	}
+	defer func() { ioCopyFn = savedCopy }()
+
+	_, err := extractTarGz(archivePath, destDir)
+	if err == nil {
+		t.Error("expected error when copy fails")
+	}
+}
+
+func TestExtractZip_CopyError(t *testing.T) {
+	files := map[string]string{"sin-code": "content"}
+	archivePath := createZip(t, files)
+	destDir := t.TempDir()
+
+	savedCopy := ioCopyFn
+	ioCopyFn = func(dst io.Writer, src io.Reader) (int64, error) {
+		return 0, os.ErrInvalid
+	}
+	defer func() { ioCopyFn = savedCopy }()
+
+	_, err := extractZip(archivePath, destDir)
+	if err == nil {
+		t.Error("expected error when copy fails")
+	}
+}
+

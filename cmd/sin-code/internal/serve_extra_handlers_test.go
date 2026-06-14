@@ -11,9 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/memory"
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/notifications"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
 )
 
 // makeFakeSinCode writes a tiny shell script that echoes a given JSON line.

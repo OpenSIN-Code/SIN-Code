@@ -15,9 +15,9 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/orchestrator"
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/plugins"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 )
 
 func TestVerifyCorrectness_Directory(t *testing.T) {
@@ -625,7 +625,7 @@ func TestMergeAgentConfig(t *testing.T) {
 	}
 }
 
-func TestPluginDir_Default(t *testing.T) {
+func TestPluginDir_DefaultStCov(t *testing.T) {
 	old := pluginPath
 	pluginPath = ""
 	defer func() { pluginPath = old }()

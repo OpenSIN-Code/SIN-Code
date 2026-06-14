@@ -5,6 +5,7 @@ package internal
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -92,7 +93,7 @@ func TestEFM_UpWithFakeDocker(t *testing.T) {
 	}
 
 	metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
-	metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
+	metadataFile := filepath.Join(metadataDir, metadataKey(stackFile))
 	data, err := os.ReadFile(metadataFile)
 	if err != nil {
 		t.Fatalf("expected metadata file to be written: %v", err)
@@ -145,7 +146,7 @@ func TestEFM_DownWithFakeDocker(t *testing.T) {
 	}
 
 	metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
-	metadataFile := filepath.Join(metadataDir, filepath.Base(stackFile)+".meta")
+	metadataFile := filepath.Join(metadataDir, metadataKey(stackFile))
 	if err := os.MkdirAll(metadataDir, 0o755); err != nil {
 		t.Fatalf("mkdir metadata dir: %v", err)
 	}
@@ -560,5 +561,183 @@ func TestEFM_ResolveComposeRuntime(t *testing.T) {
 	}
 	if got := resolveComposeRuntime(""); got != "orb" && got != "docker" {
 		t.Errorf("resolveComposeRuntime() = %q, want orb or docker", got)
+	}
+}
+
+func TestEFM_UpMissingStack(t *testing.T) {
+	if err := runEFM("up", "", 0, "text", "docker"); err == nil {
+		t.Fatal("expected error for up without stack")
+	}
+}
+
+func TestEFM_DownMissingStack(t *testing.T) {
+	if err := runEFM("down", "", 0, "text", "docker"); err == nil {
+		t.Fatal("expected error for down without stack")
+	}
+}
+
+func TestEFM_StatusWithoutStack(t *testing.T) {
+	binDir := t.TempDir()
+	makeFakeContainerScript(t, filepath.Join(binDir, "docker"),
+		`printf 'web\trunning\t80/tcp\tnginx\n'`)
+	t.Setenv("PATH", binDir)
+
+	get := captureStdout(t)
+	if err := runEFM("status", "", 0, "text", "docker"); err != nil {
+		t.Fatalf("runEFM status without stack failed: %v", err)
+	}
+	out := get()
+	if !strings.Contains(out, "EFM: status") {
+		t.Errorf("expected status output, got %q", out)
+	}
+}
+
+func TestEFM_StatusWithoutStack_Error(t *testing.T) {
+	binDir := t.TempDir()
+	makeFakeContainerScript(t, filepath.Join(binDir, "docker"), `exit 1`)
+	makeFakeContainerScript(t, filepath.Join(binDir, "orb"), `exit 1`)
+	makeFakeContainerScript(t, filepath.Join(binDir, "docker-compose"), `exit 1`)
+	makeFakeContainerScript(t, filepath.Join(binDir, "orb-compose"), `exit 1`)
+	t.Setenv("PATH", binDir)
+
+	get := captureStdout(t)
+	if err := runEFM("status", "", 0, "json", "docker"); err != nil {
+		t.Fatalf("runEFM status without stack should not return error, got: %v", err)
+	}
+	out := get()
+	var result efmResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("expected valid JSON: %v", err)
+	}
+	if result.Status != "error" {
+		t.Errorf("expected status='error', got %q", result.Status)
+	}
+}
+
+func TestEFM_UnknownAction(t *testing.T) {
+	if err := runEFM("unknown", "", 0, "text", "docker"); err == nil {
+		t.Fatal("expected error for unknown action")
+	}
+}
+
+func TestEFM_DetectContainerRuntime_DarwinNoBinary(t *testing.T) {
+	oldGOOS := efmGOOS
+	defer func() { efmGOOS = oldGOOS }()
+	efmGOOS = "darwin"
+	t.Setenv("PATH", "")
+	if got := detectContainerRuntime(); got != "docker" {
+		t.Errorf("detectContainerRuntime on darwin with no binaries = %q, want docker", got)
+	}
+}
+
+func TestEFM_ContainerCommand_EmptyFallback(t *testing.T) {
+	old := efmDetectRuntime
+	efmDetectRuntime = func() string { return "" }
+	defer func() { efmDetectRuntime = old }()
+
+	cmd := containerCommand("", "ps")
+	if cmd.Args[0] != "docker" {
+		t.Errorf("expected fallback to docker, got %q", cmd.Args[0])
+	}
+}
+
+func TestEFM_DockerComposeUp_FileNotFound(t *testing.T) {
+	if err := dockerComposeUp("/nonexistent/path/stack.yml", 0, "docker"); err == nil {
+		t.Fatal("expected error for missing stack file")
+	}
+}
+
+func TestEFM_DockerComposeDown_FileNotFound(t *testing.T) {
+	if err := dockerComposeDown("/nonexistent/path/stack.yml", "docker"); err == nil {
+		t.Fatal("expected error for missing stack file")
+	}
+}
+
+func TestEFM_DockerComposeStatus_FileNotFound(t *testing.T) {
+	if _, err := dockerComposeStatus("/nonexistent/path/stack.yml", "docker"); err == nil {
+		t.Fatal("expected error for missing stack file")
+	}
+}
+
+func TestEFM_DockerComposeUp_AbsError(t *testing.T) {
+	old := efmFilepathAbs
+	efmFilepathAbs = func(path string) (string, error) { return "", fmt.Errorf("forced abs error") }
+	defer func() { efmFilepathAbs = old }()
+
+	if err := dockerComposeUp("x.yml", 0, "docker"); err == nil {
+		t.Fatal("expected error for abs failure")
+	}
+}
+
+func TestEFM_DockerComposeDown_AbsError(t *testing.T) {
+	old := efmFilepathAbs
+	efmFilepathAbs = func(path string) (string, error) { return "", fmt.Errorf("forced abs error") }
+	defer func() { efmFilepathAbs = old }()
+
+	if err := dockerComposeDown("x.yml", "docker"); err == nil {
+		t.Fatal("expected error for abs failure")
+	}
+}
+
+func TestEFM_DockerComposeStatus_AbsError(t *testing.T) {
+	old := efmFilepathAbs
+	efmFilepathAbs = func(path string) (string, error) { return "", fmt.Errorf("forced abs error") }
+	defer func() { efmFilepathAbs = old }()
+
+	if _, err := dockerComposeStatus("x.yml", "docker"); err == nil {
+		t.Fatal("expected error for abs failure")
+	}
+}
+
+func TestEFM_RunComposeCapture_NoRuntime(t *testing.T) {
+	t.Setenv("PATH", "")
+	_, err := runComposeCapture("docker", []string{"-f", "x.yml", "ps"})
+	if err == nil {
+		t.Fatal("expected error when no runtime is found")
+	}
+	if !strings.Contains(err.Error(), "no container runtime binary found") {
+		t.Errorf("expected 'no container runtime binary found', got %q", err.Error())
+	}
+}
+
+func TestEFM_ListDockerContainers_NoRuntime(t *testing.T) {
+	t.Setenv("PATH", "")
+	_, err := listDockerContainers("docker")
+	if err == nil {
+		t.Fatal("expected error when no runtime is found")
+	}
+}
+
+func TestEFM_ListDockerContainers_LookpathSkip(t *testing.T) {
+	binDir := t.TempDir()
+	// Only docker-compose is present, not docker/orb.
+	makeFakeContainerScript(t, filepath.Join(binDir, "docker-compose"),
+		`printf 'web\trunning\t80/tcp\tnginx\n'`)
+	t.Setenv("PATH", binDir)
+
+	_, err := listDockerContainers("docker")
+	if err != nil {
+		t.Fatalf("expected docker-compose to be tried: %v", err)
+	}
+}
+
+func TestEFM_FilterServices(t *testing.T) {
+	services := []efmService{
+		{Name: "stack_web", Status: "running"},
+		{Name: "stack_db", Status: "exited"},
+		{Name: "other_app", Status: "running"},
+	}
+	filtered := filterServices(services, "stack")
+	if len(filtered) != 2 {
+		t.Errorf("expected 2 filtered services, got %d", len(filtered))
+	}
+}
+
+func TestEFM_OutputTextEFM_Error(t *testing.T) {
+	get := captureStdout(t)
+	outputTextEFM(efmResult{Action: "up", Status: "error", Error: "boom"})
+	out := get()
+	if !strings.Contains(out, "boom") {
+		t.Errorf("expected error text in output, got %q", out)
 	}
 }

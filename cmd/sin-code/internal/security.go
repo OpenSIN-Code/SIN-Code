@@ -281,7 +281,7 @@ func runGrypeSCA(path string, timeoutSec int) (string, int, string, string) {
 	if err != nil {
 		return "error", 0, "", err.Error()
 	}
-	jsonOut, jerr := json.MarshalIndent(result, "", "  ")
+	jsonOut, jerr := jsonMarshalIndent(result, "", "  ")
 	if jerr != nil {
 		return "error", 0, "", jerr.Error()
 	}

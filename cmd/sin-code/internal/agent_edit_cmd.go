@@ -4,6 +4,7 @@ package internal
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -124,6 +125,15 @@ temperature = 0.0
 `, name)
 }
 
+// tomlEncoder abstracts toml.NewEncoder so the Encode error path can be
+// exercised in tests without relying on a full filesystem failure.
+type tomlEncoder interface {
+	Encode(v interface{}) error
+}
+
+// tomlNewEncoder is a test hook defaulting to the real toml.NewEncoder.
+var tomlNewEncoder = func(w io.Writer) tomlEncoder { return toml.NewEncoder(w) }
+
 func applyAgentEdits(name string, kvPairs []string) error {
 	dir, err := agentDir(name)
 	if err != nil {
@@ -156,7 +166,7 @@ func applyAgentEdits(name string, kvPairs []string) error {
 		return err
 	}
 	defer f.Close()
-	if err := toml.NewEncoder(f).Encode(&cfg); err != nil {
+	if err := tomlNewEncoder(f).Encode(&cfg); err != nil {
 		return err
 	}
 	fmt.Printf("Updated %s\n", cfgPath)

@@ -37,6 +37,12 @@ m.Write(snapshotDir)
 loaded, _ := ReadManifest(snapshotDir)
 ```
 
+## Test hooks
+
+- `jsonMarshalIndent` is a package-level variable defaulting to
+  `json.MarshalIndent`. It exists only to exercise the (normally unreachable)
+  JSON marshal error branch in `Write`.
+
 ## Known caveats
 
 - **No atomic write**: If disk is full mid-write, the manifest is partially written.

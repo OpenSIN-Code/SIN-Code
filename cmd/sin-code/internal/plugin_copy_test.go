@@ -35,6 +35,22 @@ func TestCopyDir_BasicTree(t *testing.T) {
 	}
 }
 
+func TestCopyDir_RelError(t *testing.T) {
+	src := t.TempDir()
+	dst := t.TempDir()
+
+	oldRel := relFn
+	relFn = func(base, target string) (string, error) {
+		return "", os.ErrInvalid
+	}
+	defer func() { relFn = oldRel }()
+
+	err := copyDir(src, dst)
+	if err == nil {
+		t.Fatal("expected error from filepath.Rel")
+	}
+}
+
 func TestCopyDir_EmptySrc(t *testing.T) {
 	src := t.TempDir()
 	dst := t.TempDir()

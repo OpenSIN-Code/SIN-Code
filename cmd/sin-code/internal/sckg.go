@@ -20,6 +20,8 @@ var (
 	sckgAction string
 	sckgQuery  string
 	sckgFormat string
+	sckgAbs    = filepath.Abs    // test hook for filepath.Abs errors
+	sckgWalk   = filepath.Walk   // test hook for filepath.Walk errors
 )
 
 var SckgCmd = &cobra.Command{
@@ -45,7 +47,7 @@ Examples:
 		if len(args) > 0 {
 			path = args[0]
 		}
-		absPath, err := filepath.Abs(path)
+		absPath, err := sckgAbs(path)
 		if err != nil {
 			return fmt.Errorf("invalid path: %w", err)
 		}
@@ -176,7 +178,7 @@ func buildGraph(root string) (*sckgGraph, error) {
 		edges = append(edges, sckgEdge{Source: source, Target: target, Type: typ})
 	}
 
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := sckgWalk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			if info != nil && info.IsDir() {
 				base := filepath.Base(path)

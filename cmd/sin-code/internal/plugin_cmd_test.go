@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/plugins"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 )
 
 func capturePluginCmd(t *testing.T, cmd *cobra.Command, args []string) (string, error) {
@@ -41,6 +41,16 @@ func makePluginDir(t *testing.T, name string, enabled bool) string {
 		os.WriteFile(filepath.Join(subDir, ".disabled"), []byte{}, 0o644)
 	}
 	return dir
+}
+
+func TestPluginDir_EmptyPath(t *testing.T) {
+	oldPath := pluginPath
+	defer func() { pluginPath = oldPath }()
+	pluginPath = ""
+	dir := pluginDir()
+	if dir == "" {
+		t.Error("expected non-empty default plugin dir")
+	}
 }
 
 func TestPluginList(t *testing.T) {

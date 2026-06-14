@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -1349,17 +1351,289 @@ func TestSearchSingleFile_MaxResultsTruncation(t *testing.T) {
 
 func TestGoSearch_WalkError(t *testing.T) {
 	dir := t.TempDir()
-	// Create a subdirectory that will cause a walk error
 	sub := filepath.Join(dir, "sub")
 	os.MkdirAll(sub, 0755)
 	os.WriteFile(filepath.Join(sub, "f.go"), []byte("package main\nfunc F() {}\n"), 0644)
 	os.Chmod(sub, 0000)
 	defer os.Chmod(sub, 0755)
-
-	// Force goSearch with noRG=true - walk error should be silently skipped
 	results, err := searchFiles(dir, "func", "regex", 100, true)
 	_ = results
 	_ = err
+}
+
+func TestGoSearch_InvalidRegex(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "app.go"), []byte("package main\n"), 0644)
+	_, err := searchFiles(dir, "[invalid", "regex", 10, true)
+	if err == nil {
+		t.Error("expected error for invalid regex in goSearch")
+	}
+}
+
+func TestGoSearch_SingleWorker(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "app.go"), []byte("func main() {}\n"), 0644)
+	oldNumCPU := numCPU
+	numCPU = func() int { return 1 }
+	defer func() { numCPU = oldNumCPU }()
+	results, err := searchFiles(dir, "main", "regex", 10, true)
+	if err != nil {
+		t.Fatalf("searchFiles failed: %v", err)
+	}
+	if len(results) == 0 {
+		t.Error("expected at least 1 result with single worker")
+	}
+}
+
+func TestGoSearch_WorkerError(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "app.go"), []byte("func main() {}\n"), 0644)
+	oldSearchFn := searchFileFn
+	searchFileFn = func(path, rel, root string, re *regexp.Regexp, searchType string) ([]scoutResult, error) {
+		return nil, fmt.Errorf("simulated search error")
+	}
+	defer func() { searchFileFn = oldSearchFn }()
+	results, err := searchFiles(dir, "func", "regex", 10, true)
+	if err != nil {
+		t.Fatalf("searchFiles should not propagate worker errors: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 results when all workers error, got %d", len(results))
+	}
+}
+
+func TestGoSearch_SkipsDotDirs(t *testing.T) {
+	dir := t.TempDir()
+	os.Mkdir(filepath.Join(dir, ".git"), 0755)
+	os.WriteFile(filepath.Join(dir, ".git", "hooks.go"), []byte("func hookMatch() {}\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "visible.go"), []byte("func visibleMatch() {}\n"), 0644)
+	results, err := searchFiles(dir, "Match", "regex", 50, true)
+	if err != nil {
+		t.Fatalf("searchFiles failed: %v", err)
+	}
+	for _, r := range results {
+		if strings.Contains(r.File, ".git") {
+			t.Errorf("should skip .git directory, found %q", r.File)
+		}
+	}
+}
+
+func TestGoSearch_GitignoreDirMatch(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("logs/\n"), 0644)
+	os.MkdirAll(filepath.Join(dir, "logs"), 0755)
+	os.WriteFile(filepath.Join(dir, "logs", "output.go"), []byte("func logged() {}\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "main.go"), []byte("func main() {}\n"), 0644)
+	results, err := searchFiles(dir, "func", "regex", 50, true)
+	if err != nil {
+		t.Fatalf("searchFiles failed: %v", err)
+	}
+	for _, r := range results {
+		if strings.Contains(r.File, "logs/output.go") {
+			t.Errorf("expected logs/ directory to be skipped by gitignore, got %q", r.File)
+		}
+	}
+}
+
+func TestSearchSingleFile_AbsError(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "app.go")
+	os.WriteFile(f, []byte("package main\nfunc main() {}\n"), 0644)
+	oldAbs := filepathAbsFn
+	filepathAbsFn = func(path string) (string, error) {
+		return "", fmt.Errorf("simulated abs error")
+	}
+	defer func() { filepathAbsFn = oldAbs }()
+	err := searchSingleFile(f, "main", "regex", 10, "text")
+	if err == nil {
+		t.Error("expected error when filepath.Abs fails")
+	}
+}
+
+func TestSearchSingleFile_SearchFileError(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "app.go")
+	os.WriteFile(f, []byte("package main\n"), 0644)
+	oldSearchFn := searchFileFn
+	searchFileFn = func(path, rel, root string, re *regexp.Regexp, searchType string) ([]scoutResult, error) {
+		return nil, fmt.Errorf("simulated error")
+	}
+	defer func() { searchFileFn = oldSearchFn }()
+	err := searchSingleFile(f, "main", "regex", 10, "text")
+	if err == nil {
+		t.Error("expected error when searchFileFn returns error")
+	}
+}
+
+func TestGoSearch_BinaryFileWalk(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "binary.bin"), []byte("hello\x00world"), 0644)
+	os.WriteFile(filepath.Join(dir, "text.go"), []byte("func binaryMatch() {}\n"), 0644)
+	results, err := searchFiles(dir, "binary", "regex", 10, true)
+	if err != nil {
+		t.Fatalf("searchFiles failed: %v", err)
+	}
+	for _, r := range results {
+		if strings.Contains(r.File, "binary.bin") {
+			t.Errorf("expected binary.bin to be skipped, got result in %s", r.File)
+		}
+	}
+}
+
+func TestGoSearch_GitignoreMatch(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("*.secret\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "data.secret"), []byte("func secret() {}\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "data.go"), []byte("func public() {}\n"), 0644)
+	results, err := searchFiles(dir, "func", "regex", 10, true)
+	if err != nil {
+		t.Fatalf("searchFiles failed: %v", err)
+	}
+	for _, r := range results {
+		if strings.Contains(r.File, "data.secret") {
+			t.Errorf("expected data.secret to be ignored by .gitignore, got result in %s", r.File)
+		}
+	}
+}
+
+func TestGitignoreGlobToRegex_QuestionMark(t *testing.T) {
+	re := gitignoreGlobToRegex("file?.txt")
+	if re == nil {
+		t.Fatal("expected non-nil regex")
+	}
+	if !re.MatchString("file1.txt") {
+		t.Error("? should match single char")
+	}
+	if re.MatchString("file12.txt") {
+		t.Error("? should not match multiple chars")
+	}
+}
+
+func TestGitignoreGlobToRegex_Slash(t *testing.T) {
+	re := gitignoreGlobToRegex("dir/file.txt")
+	if re == nil {
+		t.Fatal("expected non-nil regex")
+	}
+	if !re.MatchString("dir/file.txt") {
+		t.Error("/ should match literal slash")
+	}
+}
+
+func TestIsBinaryFile_ReadErrorNZero(t *testing.T) {
+	oldFn := openFileFn
+	r, w, _ := os.Pipe()
+	w.Close()
+	openFileFn = func(name string) (*os.File, error) { return r, nil }
+	defer func() { openFileFn = oldFn }()
+	if !isBinaryFile("/dev/null") {
+		t.Error("expected true when Read returns error with n==0")
+	}
+}
+
+func TestScoreRelevanceScout_BelowZero(t *testing.T) {
+	scoreScoutModifier = func(s float64) float64 { return -50.0 }
+	defer func() { scoreScoutModifier = nil }()
+	score := scoreRelevanceScout("test.go", "// comment")
+	if score != 0 {
+		t.Errorf("expected clamped to 0, got %f", score)
+	}
+}
+
+func TestScoreRelevanceScout_Above100(t *testing.T) {
+	scoreScoutModifier = func(s float64) float64 { return 999.0 }
+	defer func() { scoreScoutModifier = nil }()
+	score := scoreRelevanceScout("test.go", "func Hello()")
+	if score != 100 {
+		t.Errorf("expected clamped to 100, got %f", score)
+	}
+}
+
+func TestRgSearch_GeneralError(t *testing.T) {
+	rgCommandFn = func(name string, args ...string) *exec.Cmd {
+		return exec.Command("sh", "-c", "kill -9 $$; exit 2")
+	}
+	defer func() { rgCommandFn = nil }()
+	_, err := rgSearch(t.TempDir(), "test", "regex", 10)
+	if err == nil {
+		t.Error("expected error from rg general failure")
+	}
+}
+
+func TestRgSearch_ExitCode1(t *testing.T) {
+	rgCommandFn = func(name string, args ...string) *exec.Cmd {
+		return exec.Command("sh", "-c", "exit 1")
+	}
+	defer func() { rgCommandFn = nil }()
+	results, err := rgSearch(t.TempDir(), "nonexistent_xyz", "regex", 10)
+	if err != nil {
+		t.Fatalf("exit 1 should not be error: %v", err)
+	}
+	if results != nil {
+		t.Error("expected nil results")
+	}
+}
+
+func TestRgSearch_ExitErrorWithStderr(t *testing.T) {
+	rgCommandFn = func(name string, args ...string) *exec.Cmd {
+		return exec.Command("sh", "-c", `echo "bad pattern" >&2; exit 2`)
+	}
+	defer func() { rgCommandFn = nil }()
+	_, err := rgSearch(t.TempDir(), "[invalid", "regex", 10)
+	if err == nil {
+		t.Error("expected error for exit with stderr")
+	}
+}
+
+func TestRgSearch_BadJSON(t *testing.T) {
+	rgCommandFn = func(name string, args ...string) *exec.Cmd {
+		return exec.Command("sh", "-c", "echo 'not json'")
+	}
+	defer func() { rgCommandFn = nil }()
+	results, err := rgSearch(t.TempDir(), "test", "regex", 10)
+	if err != nil {
+		t.Fatalf("should handle bad JSON: %v", err)
+	}
+	_ = results
+}
+
+func TestRgSearch_UsageType(t *testing.T) {
+	rgCommandFn = func(name string, args ...string) *exec.Cmd {
+		return exec.Command("sh", "-c", `echo '{"type":"match","data":{"path":{"text":"a.go"},"lines":{"text":"func Hello()"},"line_number":1,"submatches":[{"match":{"text":"Hello"},"start":5,"end":10}]}}'`)
+	}
+	defer func() { rgCommandFn = nil }()
+	results, err := rgSearch(t.TempDir(), "Hello", "usage", 10)
+	if err != nil {
+		t.Fatalf("rgSearch usage failed: %v", err)
+	}
+	if len(results) == 0 {
+		t.Error("expected results for usage search")
+	}
+}
+
+func TestRgSearch_SkipsNonMatch(t *testing.T) {
+	rgCommandFn = func(name string, args ...string) *exec.Cmd {
+		return exec.Command("sh", "-c", `echo '{"type":"begin","data":{}}'`)
+	}
+	defer func() { rgCommandFn = nil }()
+	results, err := rgSearch(t.TempDir(), "test", "regex", 10)
+	if err != nil {
+		t.Fatalf("rgSearch failed: %v", err)
+	}
+	if len(results) != 0 {
+		t.Error("expected no results for non-match type")
+	}
+}
+
+func TestRgSearch_BadMatchData(t *testing.T) {
+	rgCommandFn = func(name string, args ...string) *exec.Cmd {
+		return exec.Command("sh", "-c", `echo '{"type":"match","data":"not an object"}'`)
+	}
+	defer func() { rgCommandFn = nil }()
+	results, err := rgSearch(t.TempDir(), "test", "regex", 10)
+	if err != nil {
+		t.Fatalf("should handle bad match data: %v", err)
+	}
+	_ = results
 }
 
 

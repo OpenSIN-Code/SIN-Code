@@ -19,7 +19,7 @@ type BackupManager struct {
 func NewBackupManager() (*BackupManager, error) {
 	root := os.Getenv("SIN_CODE_STATE_ROOT")
 	if root == "" {
-		home, err := os.UserHomeDir()
+		home, err := osUserHomeDir()
 		if err != nil {
 			return nil, fmt.Errorf("cannot determine home dir: %w", err)
 		}

@@ -29,6 +29,15 @@ Executes the three update phases: Python (pipx), Go (rebuild), Skills (pipx).
 - `--go-only` → only Go phase runs.
 - `--skills-only` → skills phase = Python phase.
 
+## Test hooks
+- `execPipx`, `execGo`, and `execGit` are package-level variables so tests can
+  inject fake commands without touching real tools.
+- `osUserHomeDir` wraps `os.UserHomeDir()` for error-path testing.
+- `osExecutable` (defined in `serve.go`) is used by `runDoctorNonFatal` so
+  the doctor command can be mocked.
+- `runCheckPythonPhase` and `runCheckGoPhase` are hooks for `runCheck` error
+  paths (the phase functions normally never return errors).
+
 ## Known caveats
 - **pipx CLI surface is the only contract** — no Go SDK exists for pipx.
 - **Go build from source** requires repos checked out at `$SIN_CODE_REPOS_DIR`.

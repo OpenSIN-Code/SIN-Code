@@ -14,7 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/lsp"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lsp"
 )
 
 var (
@@ -25,8 +25,8 @@ var (
 	lspCol      int
 	lspNewName  string
 
-	// osGetwd and filepathAbs are test hooks for lspSetup error paths.
-	osGetwd     = os.Getwd
+	// filepathAbs is a test hook for lspSetup error paths.
+	// osGetwd is defined in serve.go as a shared package hook.
 	filepathAbs = filepath.Abs
 )
 

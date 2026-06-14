@@ -78,8 +78,9 @@ func TestRunSinCodeCLI_ResolveBinaryError(t *testing.T) {
 	defer func() { osExecutable = old }()
 
 	os.Unsetenv("SIN_CODE_BIN")
+	oldPath := os.Getenv("PATH")
 	os.Setenv("PATH", "/dev/null")
-	defer os.Setenv("PATH", os.Getenv("PATH"))
+	defer os.Setenv("PATH", oldPath)
 
 	_, err := runSinCodeCLI("todo", "list")
 	if err == nil {
@@ -98,8 +99,9 @@ func TestRunSubcommandRaw_ResolveBinaryError(t *testing.T) {
 	defer func() { osExecutable = old }()
 
 	os.Unsetenv("SIN_CODE_BIN")
+	oldPath := os.Getenv("PATH")
 	os.Setenv("PATH", "/dev/null")
-	defer os.Setenv("PATH", os.Getenv("PATH"))
+	defer os.Setenv("PATH", oldPath)
 
 	_, err := runSubcommandRaw(context.Background(), []string{"discover", "."})
 	if err == nil {

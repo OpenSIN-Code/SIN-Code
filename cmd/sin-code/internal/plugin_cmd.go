@@ -16,6 +16,8 @@ import (
 var (
 	pluginPath    string
 	pluginNameArg string
+	walkFn        = filepath.Walk
+	relFn         = filepath.Rel
 )
 
 var PluginCmd = &cobra.Command{
@@ -248,11 +250,11 @@ func loadPlugin(name string) (*plugins.Plugin, error) {
 }
 
 func copyDir(src, dst string) error {
-	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+	return walkFn(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, err := filepath.Rel(src, path)
+		rel, err := relFn(src, path)
 		if err != nil {
 			return err
 		}

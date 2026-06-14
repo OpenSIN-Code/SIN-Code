@@ -11,7 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/OpenSIN-Code/SIN-Code-Bundle/cmd/sin-code/internal/memory"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
 )
 
 func TestTruncate(t *testing.T) {

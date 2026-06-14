@@ -5,6 +5,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -133,6 +134,22 @@ func TestHandleRead_Directory(t *testing.T) {
 	}
 }
 
+func TestHandleRead_IntArgTypes(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "test.go")
+	os.WriteFile(p, []byte("package main\n\nfunc Hello() {}\n"), 0o644)
+
+	_, err := handleRead(context.Background(), map[string]any{
+		"path":      p,
+		"offset":    float64(1),
+		"limit":     int(10),
+		"max_bytes": float64(1024),
+	})
+	if err != nil {
+		t.Fatalf("handleRead with int args failed: %v", err)
+	}
+}
+
 func TestHandleEdit_EditFails(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "test.go")
@@ -156,5 +173,35 @@ func TestHandleWrite_ParentDirMissing(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected error when parent directory is missing")
+	}
+}
+
+func TestHandleRead_AbsError(t *testing.T) {
+	old := filepathAbsFn
+	filepathAbsFn = func(path string) (string, error) { return "", errors.New("abs failed") }
+	defer func() { filepathAbsFn = old }()
+	_, err := handleRead(context.Background(), map[string]any{"path": "x.go"})
+	if err == nil {
+		t.Fatal("expected error from filepath.Abs")
+	}
+}
+
+func TestHandleWrite_AbsError(t *testing.T) {
+	old := filepathAbsFn
+	filepathAbsFn = func(path string) (string, error) { return "", errors.New("abs failed") }
+	defer func() { filepathAbsFn = old }()
+	_, err := handleWrite(context.Background(), map[string]any{"path": "x.go", "content": "hi"})
+	if err == nil {
+		t.Fatal("expected error from filepath.Abs")
+	}
+}
+
+func TestHandleEdit_AbsError(t *testing.T) {
+	old := filepathAbsFn
+	filepathAbsFn = func(path string) (string, error) { return "", errors.New("abs failed") }
+	defer func() { filepathAbsFn = old }()
+	_, err := handleEdit(context.Background(), map[string]any{"path": "x.go"})
+	if err == nil {
+		t.Fatal("expected error from filepath.Abs")
 	}
 }
