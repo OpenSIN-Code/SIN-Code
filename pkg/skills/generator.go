@@ -3,6 +3,7 @@ package skills
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -26,8 +27,12 @@ The skill must have:
 
 Return ONLY the SKILL.md content.`
 	userPrompt := fmt.Sprintf("Create a skill that does: %s", prompt)
-	
-	// For now, return a template. In real implementation, call agent.Generate()
+
+	// For now, return a template. In real implementation, call
+	// agent.Generate(ctx, systemPrompt, userPrompt). The prompts are
+	// retained so the wiring is ready once the agent backend is attached.
+	_ = systemPrompt
+	_ = userPrompt
 	response := generateSkillTemplate(prompt)
 	
 	// Basic validation
@@ -39,7 +44,6 @@ Return ONLY the SKILL.md content.`
 
 // SaveGeneratedSkill writes the generated skill to disk and registers it.
 func (g *SkillGenerator) SaveGeneratedSkill(content, outputDir string) (string, error) {
-	import "os"
 	// Extract name from first line
 	lines := strings.Split(content, "\n")
 	if len(lines) == 0 || !strings.HasPrefix(lines[0], "# ") {

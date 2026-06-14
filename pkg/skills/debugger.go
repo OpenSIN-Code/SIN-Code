@@ -27,7 +27,7 @@ func NewDebugger(runner *Runner, skill *Skill) *Debugger {
 
 func (d *Debugger) Run(ctx context.Context, opts RunOptions) error {
 	fmt.Printf("\n🔍 Debugging skill '%s' (%d steps)\n", d.skill.Name, len(d.skill.Steps))
-	fmt.Println("Commands: s (step), c (continue), b <N> (breakpoint), p (print state), q (quit)\n")
+	fmt.Print("Commands: s (step), c (continue), b <N> (breakpoint), p (print state), q (quit)\n\n")
 
 	state := make(map[string]interface{})
 	opts.AutoConfirm = true // In debug mode, we control manually.

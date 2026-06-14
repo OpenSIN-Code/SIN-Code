@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"path/filepath"
 )
 
 const DefaultRegistryURL = "https://registry.sin-code.dev"

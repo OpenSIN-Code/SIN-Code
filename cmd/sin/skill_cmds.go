@@ -34,7 +34,10 @@ func init() {
 		Short: "Manage and run agent skills",
 		Long:  "Install, list, remove, and execute SKILL.md workflows.",
 	}
-	
+
+	// Persistent flag so every subcommand can point at a custom skills dir.
+	skillCmd.PersistentFlags().StringVar(&skillsDir, "skills-dir", skillsDir, "Directory containing installed skills")
+
 	// List skills
 	listCmd := &cobra.Command{
 		Use:   "list",
