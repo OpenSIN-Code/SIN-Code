@@ -29,14 +29,14 @@ type SkillMonitor struct {
 }
 
 type SkillMetrics struct {
-	Name           string
-	TotalRuns      int
-	SuccessCount   int
-	FailureCount   int
-	AvgDuration    time.Duration
-	LastRun        time.Time
-	StepsExecuted  map[string]int // step index -> count
-	ToolCallCount  map[string]int // tool name -> count
+	Name          string
+	TotalRuns     int
+	SuccessCount  int
+	FailureCount  int
+	AvgDuration   time.Duration
+	LastRun       time.Time
+	StepsExecuted map[string]int // step index -> count
+	ToolCallCount map[string]int // tool name -> count
 }
 
 func NewSkillMonitor(logDir string) (*SkillMonitor, error) {

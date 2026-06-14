@@ -10,8 +10,8 @@ import (
 type SkillVersion struct {
 	Name    string `json:"name"`
 	Version string `json:"version"`
-	URL     string `json:"url"`     // git repo or tarball
-	Hash    string `json:"hash"`    // git commit hash
+	URL     string `json:"url"`  // git repo or tarball
+	Hash    string `json:"hash"` // git commit hash
 }
 
 type SkillManifest struct {

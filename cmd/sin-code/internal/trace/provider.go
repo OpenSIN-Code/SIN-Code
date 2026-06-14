@@ -41,9 +41,9 @@ const defaultShutdownTimeout = 5 * time.Second
 
 // Test hooks for error paths.
 var (
-	stdouttraceNew    = stdouttrace.New
-	otlptracehttpNew  = otlptracehttp.New
-	resourceNew       = resource.New
+	stdouttraceNew   = stdouttrace.New
+	otlptracehttpNew = otlptracehttp.New
+	resourceNew      = resource.New
 )
 
 // ProviderConfig configures InitProvider.

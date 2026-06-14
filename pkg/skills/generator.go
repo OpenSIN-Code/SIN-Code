@@ -34,7 +34,7 @@ Return ONLY the SKILL.md content.`
 	_ = systemPrompt
 	_ = userPrompt
 	response := generateSkillTemplate(prompt)
-	
+
 	// Basic validation
 	if !strings.Contains(response, "# ") || !strings.Contains(response, "## Steps") {
 		return "", fmt.Errorf("generated skill is malformed")

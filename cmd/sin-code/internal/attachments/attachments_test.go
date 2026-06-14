@@ -391,11 +391,11 @@ func TestGetInfoError(t *testing.T) {
 
 type infoErrEntry string
 
-func (e infoErrEntry) Name() string                { return string(e) }
-func (e infoErrEntry) IsDir() bool                 { return false }
-func (e infoErrEntry) Type() os.FileMode           { return 0 }
-func (e infoErrEntry) Info() (os.FileInfo, error)  { return nil, fmt.Errorf("info error") }
-func (e infoErrEntry) String() string              { return string(e) }
+func (e infoErrEntry) Name() string               { return string(e) }
+func (e infoErrEntry) IsDir() bool                { return false }
+func (e infoErrEntry) Type() os.FileMode          { return 0 }
+func (e infoErrEntry) Info() (os.FileInfo, error) { return nil, fmt.Errorf("info error") }
+func (e infoErrEntry) String() string             { return string(e) }
 
 func TestGetPrefixMismatch(t *testing.T) {
 	dir := t.TempDir()

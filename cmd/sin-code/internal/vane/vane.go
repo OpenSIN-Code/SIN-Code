@@ -23,6 +23,23 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/circuitbreaker"
 )
 
+// testHook variables allow tests to inject failure without heavy
+// refactoring. They are package-level vars (not build-tagged) so the
+// production binary pays only the indirection cost.
+var (
+	osUserHomeDirFn     = os.UserHomeDir
+	osExecutableFn      = os.Executable
+	jsonMarshalFn       = json.Marshal
+	jsonMarshalIndentFn = json.MarshalIndent
+	ioCopyNFn           = io.CopyN
+	ioReadAllFn         = io.ReadAll
+	osMkdirAllFn        = os.MkdirAll
+	osCreateTempFn      = os.CreateTemp
+	writeJSONCopyFn     = io.Copy
+	writeJSONWriteFn    = func(w io.Writer, p []byte) (int, error) { return w.Write(p) }
+	writeJSONCloseFn    = func(c io.Closer) error { return c.Close() }
+)
+
 // ── Public configuration constants ─────────────────────────────────────
 
 // ServerName is the MCP server name registered in mcp.json. Used by
@@ -62,7 +79,7 @@ func Home() string {
 		return v
 	}
 	// Use os.UserHomeDir for cross-platform safety (macOS/Linux/Windows).
-	if h, err := os.UserHomeDir(); err == nil {
+	if h, err := osUserHomeDirFn(); err == nil {
 		return filepath.Join(h, ".local", "share", "sin-code")
 	}
 	// Last resort: cwd-relative fallback so the function is total.

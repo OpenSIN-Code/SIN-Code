@@ -7,14 +7,14 @@ import (
 
 // Config holds Headroom integration configuration
 type Config struct {
-	Enabled          bool          `json:"enabled"`           // HEADROOM_ENABLED
-	Mode             Mode          `json:"mode"`              // proxy, mcp, cli
-	ProxyURL         string        `json:"proxy_url"`         // HEADROOM_PROXY_URL (default: http://localhost:8787/v1)
-	CompressionLevel string        `json:"compression_level"` // light, normal, aggressive
-	LearnFromFailures bool         `json:"learn_from_failures"` // HEADROOM_LEARN
-	StatsEnabled     bool          `json:"stats_enabled"`     // HEADROOM_STATS
-	Timeout          time.Duration `json:"timeout"`           // HEADROOM_TIMEOUT (default: 30s)
-	CacheEnabled     bool          `json:"cache_enabled"`     // HEADROOM_CACHE
+	Enabled           bool          `json:"enabled"`             // HEADROOM_ENABLED
+	Mode              Mode          `json:"mode"`                // proxy, mcp, cli
+	ProxyURL          string        `json:"proxy_url"`           // HEADROOM_PROXY_URL (default: http://localhost:8787/v1)
+	CompressionLevel  string        `json:"compression_level"`   // light, normal, aggressive
+	LearnFromFailures bool          `json:"learn_from_failures"` // HEADROOM_LEARN
+	StatsEnabled      bool          `json:"stats_enabled"`       // HEADROOM_STATS
+	Timeout           time.Duration `json:"timeout"`             // HEADROOM_TIMEOUT (default: 30s)
+	CacheEnabled      bool          `json:"cache_enabled"`       // HEADROOM_CACHE
 }
 
 // Mode defines how SIN-Code talks to Headroom
@@ -40,13 +40,13 @@ type CompressionResult struct {
 
 // Stats provides headroom performance metrics
 type Stats struct {
-	TotalRequests        int       `json:"total_requests"`
-	TotalCompressed      int       `json:"total_compressed"`
-	TotalOriginalTokens  int64     `json:"total_original_tokens"`
-	TotalCompressedTokens int64    `json:"total_compressed_tokens"`
-	AverageSavings       float64   `json:"average_savings_percent"`
-	CacheHitRate         float64   `json:"cache_hit_rate"`
-	LastLearnTime        time.Time `json:"last_learn_time,omitempty"`
+	TotalRequests         int       `json:"total_requests"`
+	TotalCompressed       int       `json:"total_compressed"`
+	TotalOriginalTokens   int64     `json:"total_original_tokens"`
+	TotalCompressedTokens int64     `json:"total_compressed_tokens"`
+	AverageSavings        float64   `json:"average_savings_percent"`
+	CacheHitRate          float64   `json:"cache_hit_rate"`
+	LastLearnTime         time.Time `json:"last_learn_time,omitempty"`
 }
 
 // DefaultConfig returns sensible defaults
@@ -65,12 +65,12 @@ func DefaultConfig() Config {
 
 // Constants for environment variables
 const (
-	EnvEnabled            = "HEADROOM_ENABLED"
-	EnvMode               = "HEADROOM_MODE"
-	EnvProxyURL           = "HEADROOM_PROXY_URL"
-	EnvCompressionLevel   = "HEADROOM_COMPRESSION_LEVEL"
-	EnvLearnFromFailures  = "HEADROOM_LEARN"
-	EnvStatsEnabled       = "HEADROOM_STATS"
-	EnvTimeout            = "HEADROOM_TIMEOUT"
-	EnvCacheEnabled       = "HEADROOM_CACHE"
+	EnvEnabled           = "HEADROOM_ENABLED"
+	EnvMode              = "HEADROOM_MODE"
+	EnvProxyURL          = "HEADROOM_PROXY_URL"
+	EnvCompressionLevel  = "HEADROOM_COMPRESSION_LEVEL"
+	EnvLearnFromFailures = "HEADROOM_LEARN"
+	EnvStatsEnabled      = "HEADROOM_STATS"
+	EnvTimeout           = "HEADROOM_TIMEOUT"
+	EnvCacheEnabled      = "HEADROOM_CACHE"
 )
