@@ -67,8 +67,7 @@ func runEval(cmd *cobra.Command, args []string) error {
 	runner := dataset.NewRunner(config)
 
 	// Run evaluation
-	results, err := runner.Run(ctx, ds)
-	if err != nil {
+	if err := runner.Run(ctx, ds); err != nil {
 		return fmt.Errorf("evaluation failed: %w", err)
 	}
 
@@ -85,12 +84,7 @@ func runEval(cmd *cobra.Command, args []string) error {
 	fmt.Printf("\nResults saved to: %s\n", evalOutputPath)
 
 	// Calculate and display metrics
-	metricsResults := make([]interface{}, len(results))
-	for i, r := range results {
-		metricsResults[i] = r
-	}
-
-	report := eval.CalculateMetrics(ds.Name, metricsResults)
+	report := eval.CalculateMetrics(ds.Name, runner.Results())
 	report.PrintSummary()
 
 	// Save metrics report
