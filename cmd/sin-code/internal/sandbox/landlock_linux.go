@@ -1,140 +1,138 @@
 // SPDX-License-Identifier: MIT
 //go:build linux
 
-// Minimal Landlock wrapper. We avoid pulling github.com/landlock-lsm/go-landlock
-// as a hard dependency because Landlock is a kernel-level feature only
-// available on Linux >= 5.13. The wrapper is intentionally tiny: it
-// builds the ruleset inline and calls the syscall. Falls back gracefully
-// (returns an error) on kernels or filesystems that don't support it.
-
+// Purpose: Linux Landlock sandbox implementation.
+// Docs: cmd/sin-code/internal/sandbox/landlock_linux.go.doc.md
+//
+// This file uses raw Linux syscalls. It is intentionally self-contained and
+// does not pull github.com/landlock-lsm/go-landlock as a dependency.
+// Landlock is best-effort: on kernels < 5.13 or unsupported filesystems the
+// syscalls return ENOSYS/EINVAL and the caller degrades to running without
+// sandboxing.
 package sandbox
 
 import (
 	"fmt"
-	"os"
-	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
 )
 
-// syscall numbers (avoid hard dependency on go-landlock).
-// See include/uapi/linux/landlock.h.
+// Landlock filesystem access rights (ABI v5+).
+// See https://www.kernel.org/doc/html/latest/userspace-api/landlock.html#filesystem-flags
 const (
-	landlockCreateRuleset = 444
-	landlockAddRule        = 445
-	landlockRestrictSelf   = 446
-
-	landlockRulePathRead  = 1
-	landlockRulePathWrite = 2
-
-	// Net rules (kernel >= 6.7).
-	landlockCreateNetRuleset  = 463
-	landlockAddNetRule         = 464
-	landlockRestrictSelfNet    = 465
-	landlockNetBindTCP         = 0
-	landlockNetConnectTCP      = 1
+	accessFSExecute  = 1 << iota
+	accessFSWriteFile
+	accessFSReadFile
+	accessFSReadDir
+	accessFSRemoveDir
+	accessFSRemoveFile
+	accessFSMakeChar
+	accessFSMakeDir
+	accessFSMakeReg
+	accessFSMakeSock
+	accessFSMakeFifo
+	accessFSMakeBlock
+	accessFSMakeSym
+	accessFSRefer
+	accessFSTruncate
+	accessFSIoctlDev
 )
 
-// rule is a single Landlock rule: "allow access X on path Y".
+// Landlock network access rights (ABI v4+).
+const (
+	accessNetBindTCP = 1 << iota
+	accessNetConnectTCP
+)
+
+// rule is a single Landlock filesystem rule: "allow access X on path Y".
 type rule struct {
-	accessFS uint64
-	path     string
+	access uint64
+	path   string
 }
 
-func roDirs(p string) rule { return rule{accessFS: landlockRulePathRead, path: p} }
-func rwDirs(p string) rule { return rule{accessFS: landlockRulePathRead | landlockRulePathWrite, path: p} }
+func roDirs(p string) rule { return rule{access: accessFSReadFile | accessFSReadDir | accessFSRefer, path: p} }
+func rwDirs(p string) rule { return rule{access: accessFSReadFile | accessFSReadDir | accessFSWriteFile | accessFSRemoveFile | accessFSRemoveDir | accessFSMakeDir | accessFSMakeReg | accessFSMakeSym | accessFSRefer, path: p} }
 
-// applyRules applies filesystem rules to the current process.
+// applyRules applies a list of filesystem rules to the current process using
+// Linux Landlock. Each rule is applied independently so that a single
+// unsupported path does not abort the whole policy.
 func applyRules(rules []rule) error {
 	if len(rules) == 0 {
-		// No rules: still need a ruleset that denies everything
-		// (or, conversely, allows everything) — but an empty ruleset
-		// is treated as "deny all" by Landlock. Use a no-op syscall
-		// on /dev/null to make the semantics explicit: read-only
-		// access to /dev/null.
-		rules = []rule{{accessFS: landlockRulePathRead, path: "/dev/null"}}
+		// No rules: still create an empty ruleset that denies everything by default.
+		// Use a read-only /dev/null rule to make the semantics explicit.
+		rules = []rule{{access: accessFSReadFile | accessFSReadDir, path: "/dev/null"}}
+	}
+
+	// Compute the union of all handled access rights.
+	var handled uint64
+	for _, r := range rules {
+		handled |= r.access
+	}
+
+	attr := unix.LandlockRulesetAttr{
+		Access_fs: handled,
 	}
 	fd, _, errno := unix.Syscall(
-		syscall.SYS_LANDLOCK_CREATE_RULESET,
-		0, // attr: NULL = default (subset of calling thread)
-		0, // size
+		unix.SYS_LANDLOCK_CREATE_RULESET,
+		uintptr(unsafe.Pointer(&attr)),
+		unsafe.Sizeof(attr),
+		0,
 	)
 	if errno != 0 {
 		return fmt.Errorf("landlock_create_ruleset: %v", errno)
 	}
+
 	for _, r := range rules {
-		// Build struct landlock_path_beneath_attr:
-		//   { allowed_access = u64; parent_fd = s32 }
-		attr := struct {
-			allowedAccess uint64
-			parentFD      int32
-		}{
-			allowedAccess: r.accessFS,
-			parentFD:      -1, // dirfd
-		}
-		fd2, _, errno := unix.Syscall6(
-			syscall.SYS_FACCESSAT,
-			0, uintptr(unsafe.Pointer(&attr)), 0, 0, 0, 0,
-		)
-		_ = fd2
-		// Fallback: best-effort — if we can't resolve the path we skip it.
-		if errno != 0 {
+		parentFD, err := unix.Open(r.path, unix.O_PATH|unix.O_CLOEXEC, 0)
+		if err != nil {
+			// Best-effort: skip paths that cannot be opened.
 			continue
 		}
-		_, _, errno = unix.Syscall(
-			syscall.SYS_LANDLOCK_ADD_RULE,
-			fd, uintptr(landlockAddRule),
-			uintptr(unsafe.Pointer(&attr)),
+		pathAttr := unix.LandlockPathBeneathAttr{
+			Allowed_access: r.access,
+			Parent_fd:      int32(parentFD),
+		}
+		_, _, errno = unix.Syscall6(
+			unix.SYS_LANDLOCK_ADD_RULE,
+			fd,
+			uintptr(unix.LANDLOCK_RULE_PATH_BENEATH),
+			uintptr(unsafe.Pointer(&pathAttr)),
+			0, 0, 0,
 		)
+		_ = unix.Close(parentFD)
 		if errno != 0 {
 			// Rule not supported by this kernel/FS — skip, do not fail.
 			continue
 		}
 	}
-	_, _, errno = unix.Syscall(syscall.SYS_LANDLOCK_RESTRICT_SELF, fd, 0, 0)
+
+	_, _, errno = unix.Syscall(unix.SYS_LANDLOCK_RESTRICT_SELF, fd, 0, 0)
 	if errno != 0 {
 		return fmt.Errorf("landlock_restrict_self: %v", errno)
 	}
-	_ = os.Stdout // keep imports honest
-	_ = landlockCreateRuleset
-	_ = landlockRestrictSelf
-	_ = landlockAddRule
 	return nil
 }
 
-// applyNetRules applies the no-tcp-bind / no-tcp-connect rules.
-// Available on kernel >= 6.7; older kernels return ENOPROTOOPT.
+// applyNetRules applies a no-TCP policy by creating a network ruleset that
+// handles bind/connect but adds no allow rules. Restricting the process with
+// such a ruleset denies all TCP bind/connect operations (kernel >= 6.2).
 func applyNetRules() error {
+	attr := unix.LandlockRulesetAttr{
+		Access_net: accessNetBindTCP | accessNetConnectTCP,
+	}
 	fd, _, errno := unix.Syscall(
-		syscall.SYS_LANDLOCK_CREATE_RULESET,
-		0x0001| // LANDLOCK_CREATE_RULESET_VERSION
-			(0 << 0) | // no kernel-version arg struct
-			0, 0,
+		unix.SYS_LANDLOCK_CREATE_RULESET,
+		uintptr(unsafe.Pointer(&attr)),
+		unsafe.Sizeof(attr),
+		0,
 	)
 	if errno != 0 {
 		return fmt.Errorf("net_ruleset: %v", errno)
 	}
-	// Add empty TCP ruleset (no bind, no connect).
-	if _, _, errno := unix.Syscall(
-		syscall.SYS_LANDLOCK_ADD_RULE,
-		fd, uintptr(landlockAddNetRule),
-		uintptr(landlockNetBindTCP),
-	); errno != 0 {
-		return fmt.Errorf("net add rule: %v", errno)
-	}
-	if _, _, errno := unix.Syscall(
-		syscall.SYS_LANDLOCK_ADD_RULE,
-		fd, uintptr(landlockAddNetRule),
-		uintptr(landlockNetConnectTCP),
-	); errno != 0 {
-		return fmt.Errorf("net add rule: %v", errno)
-	}
-	if _, _, errno := unix.Syscall(syscall.SYS_LANDLOCK_RESTRICT_SELF, fd, 0, 0); errno != 0 {
+	_, _, errno = unix.Syscall(unix.SYS_LANDLOCK_RESTRICT_SELF, fd, 0, 0)
+	if errno != 0 {
 		return fmt.Errorf("net restrict: %v", errno)
 	}
-	_ = landlockCreateNetRuleset
-	_ = landlockAddNetRule
-	_ = landlockRestrictSelfNet
 	return nil
 }

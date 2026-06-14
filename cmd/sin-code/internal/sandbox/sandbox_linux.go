@@ -4,6 +4,7 @@
 package sandbox
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -60,16 +61,6 @@ func ApplyAndExec() error {
 
 func applyLandlock(ro, rw []string, netAllowed bool) error {
 	return applyLandlockImpl(ro, rw, netAllowed)
-}
-
-func existing(paths []string) []string {
-	out := paths[:0]
-	for _, p := range paths {
-		if _, err := os.Stat(p); err == nil {
-			out = append(out, p)
-		}
-	}
-	return out
 }
 
 func joinPaths(ps []string) string { return strings.Join(ps, "\x00") }

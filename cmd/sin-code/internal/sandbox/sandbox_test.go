@@ -65,7 +65,7 @@ func TestCommand_NonLinuxReturnsDegraded(t *testing.T) {
 func TestExisting_FiltersMissingPaths(t *testing.T) {
 	tmp := t.TempDir()
 	present := filepath.Join(tmp, "present")
-	if err := os.MkdirAll(present, 0755); err != nil {
+	if err := os.MkdirAll(present, 0750); err != nil {
 		t.Fatal(err)
 	}
 	missing := filepath.Join(tmp, "missing")
