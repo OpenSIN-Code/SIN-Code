@@ -62,7 +62,7 @@ func runEval(cmd *cobra.Command, args []string) error {
 	// Create runner
 	config := dataset.RunnerConfig{
 		HeadlessMode:   evalHeadlessMode,
-		TimeoutPerCase: durationFromSeconds(evalTimeoutPerCase),
+		TimeoutPerCase: time.Duration(evalTimeoutPerCase) * time.Second,
 	}
 	runner := dataset.NewRunner(config)
 
