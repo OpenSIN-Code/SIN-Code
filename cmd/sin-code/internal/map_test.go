@@ -778,3 +778,45 @@ func TestMapArchitecture_LargeFileSkip(t *testing.T) {
 	}
 	_ = result.Summary
 }
+
+func TestMapCmd_InvalidPath_Cli(t *testing.T) {
+	mapFormat = "text"
+	mapAction = "map"
+	if err := MapCmd.RunE(MapCmd, []string{"\x00invalid"}); err == nil {
+		t.Fatal("expected error for invalid path")
+	}
+}
+
+func TestMapArchitecture_HotPathsTruncated(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "shared.go"), []byte("package main\nfunc Shared() {}\n"), 0644)
+	for i := 0; i < 25; i++ {
+		os.WriteFile(filepath.Join(dir, fmt.Sprintf("f%d.go", i)), []byte(fmt.Sprintf("package main\nimport _ \"pkg%d\"\nfunc F%d() {}\n", i, i)), 0644)
+	}
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	if len(result.HotPaths) > 20 {
+		t.Errorf("expected hot paths capped at 20, got %d", len(result.HotPaths))
+	}
+}
+
+func TestMapArchitecture_ModulesSorted(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, "a"), 0755)
+	os.MkdirAll(filepath.Join(dir, "b"), 0755)
+	os.WriteFile(filepath.Join(dir, "a", "a.go"), []byte("package a\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "b", "b1.go"), []byte("package b\n"), 0644)
+	os.WriteFile(filepath.Join(dir, "b", "b2.go"), []byte("package b\n"), 0644)
+	result, err := mapArchitecture(dir, "map")
+	if err != nil {
+		t.Fatalf("mapArchitecture failed: %v", err)
+	}
+	if len(result.Modules) < 2 {
+		t.Fatalf("expected modules, got %d", len(result.Modules))
+	}
+	if result.Modules[0].Files < result.Modules[1].Files {
+		t.Errorf("modules not sorted by file count: %v", result.Modules)
+	}
+}

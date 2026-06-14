@@ -32,6 +32,7 @@ var (
 	editFormat     string
 	editSymbol     string
 	editGetwd      = os.Getwd
+	editWriteFile  = writeFileAtomic
 )
 
 var EditCmd = &cobra.Command{
@@ -174,7 +175,7 @@ func applyEdit(path string, req editRequest) (*editResult, error) {
 	if req.DryRun {
 		return res, nil
 	}
-	if _, err := writeFileAtomic(path, newContent, writeOpts{validate: false}); err != nil {
+	if _, err := editWriteFile(path, newContent, writeOpts{validate: false}); err != nil {
 		return nil, err
 	}
 	return res, nil
