@@ -44,7 +44,9 @@ type listItem struct {
 
 func (l listItem) Title() string       { return l.cmd.Title }
 func (l listItem) Description() string { return l.cmd.Description }
-func (l listItem) FilterValue() string { return l.cmd.Key + " " + l.cmd.Title + " " + l.cmd.Description }
+func (l listItem) FilterValue() string {
+	return l.cmd.Key + " " + l.cmd.Title + " " + l.cmd.Description
+}
 
 // toastClearMsg is fired by a tea.Tick when a toast should disappear.
 // The token guards against rapid successive toasts clearing each other —
