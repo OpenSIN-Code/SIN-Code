@@ -6,6 +6,8 @@
 package tui
 
 import (
+	"context"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/attachments"
@@ -118,12 +120,12 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		// No program wired up (e.g. test path): run synchronously so the
 		// caller sees the final history immediately and the model is never
 		// mutated by a background goroutine.
-		text, err := runner.Run(m.ctx(), prompt, historySnapshot)
+		text, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
 		applyChatResponseMsg(m, chat.ChatResponseMsg{Text: text, Error: err}, thinkingIdx)
 		return nil
 	}
 	go func() {
-		text, err := runner.Run(m.ctx(), prompt, historySnapshot)
+		text, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
 		prog.Send(chat.ChatResponseMsg{Text: text, Error: err})
 	}()
 	return nil

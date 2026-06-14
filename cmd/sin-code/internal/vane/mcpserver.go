@@ -364,8 +364,15 @@ func marshalText(v any) []toolContent {
 // Serve is a convenience wrapper: build a default Server and run Serve
 // until stdin closes or ctx is cancelled. Used by the `sin-code vane
 // serve` cobra command (owned by a different subagent).
+// serveStdin and serveStdout are test hooks so the public Serve wrapper
+// can be exercised without touching the real process stdio.
+var (
+	serveStdin  = os.Stdin
+	serveStdout = os.Stdout
+)
+
 func Serve(ctx context.Context) error {
-	return NewServer("").Serve(ctx)
+	return NewServerWithIO(serveStdin, serveStdout, os.Stderr, "").Serve(ctx)
 }
 
 // formatIntBytes is a tiny helper used by Health replies — declared

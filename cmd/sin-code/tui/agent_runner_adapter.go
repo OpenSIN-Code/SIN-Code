@@ -37,7 +37,7 @@ var newAgentRunnerHook = func(ctx context.Context, cfg agentrunner.Config) (*age
 }
 
 // submitAgentRunnerHook is a test seam for AgentRunner submission.
-var submitAgentRunnerHook = func(r *agentrunner.AgentRunner, ctx context.Context, prompt string) (string, error) {
+var submitAgentRunnerHook = func(r *agentrunner.AgentRunner, ctx context.Context, prompt string) (<-chan struct{}, error) {
 	return r.Submit(ctx, prompt)
 }
 

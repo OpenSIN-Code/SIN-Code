@@ -30,6 +30,16 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
 
+var (
+	// test hooks (overridable in tests to exercise error paths without
+	// heavy refactoring or heavy external dependencies).
+	osGetwd            = os.Getwd
+	sessionOpen        = session.Open
+	storeStartOrResume = func(s *session.Store, id string) (*session.Session, error) { return s.StartOrResume(id) }
+	loopbuilderBuild   = loopbuilder.Build
+	storeClose         = func(s *session.Store) error { return s.Close() }
+)
+
 // EventKind enumerates the discrete signals the runner emits.
 type EventKind int
 
@@ -122,7 +132,7 @@ const (
 // session store, and starts a new resumable session.
 func NewAgentRunner(ctx context.Context, cfg Config) (*AgentRunner, error) {
 	if cfg.Workspace == "" {
-		wd, err := os.Getwd()
+		wd, err := osGetwd()
 		if err != nil {
 			return nil, fmt.Errorf("agentrunner: resolve workspace: %w", err)
 		}
@@ -138,7 +148,7 @@ func NewAgentRunner(ctx context.Context, cfg Config) (*AgentRunner, error) {
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
 		return nil, fmt.Errorf("agentrunner: mkdir sessions: %w", err)
 	}
-	store, err := session.Open(dbPath)
+	store, err := sessionOpen(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("agentrunner: open sessions: %w", err)
 	}

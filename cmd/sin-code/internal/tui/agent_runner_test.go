@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/loopbuilder"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
 
@@ -609,5 +611,192 @@ func TestTruncate(t *testing.T) {
 		if got != c.want {
 			t.Errorf("truncate(%q, %d) = %q, want %q", c.in, c.n, got, c.want)
 		}
+	}
+}
+
+// ── Construction error paths ───────────────────────────────────────
+
+func TestNewAgentRunnerWorkspaceEmpty(t *testing.T) {
+	tmp := t.TempDir()
+	orig := osGetwd
+	osGetwd = func() (string, error) { return tmp, nil }
+	t.Cleanup(func() { osGetwd = orig })
+	r, err := NewAgentRunner(context.Background(), Config{Workspace: "", SkipMCP: true})
+	if err != nil {
+		t.Fatalf("NewAgentRunner: %v", err)
+	}
+	if r.SessionID() == "" {
+		t.Error("SessionID empty after default workspace fallback")
+	}
+	_ = r.Close()
+}
+
+func TestNewAgentRunnerWorkspaceGetwdError(t *testing.T) {
+	orig := osGetwd
+	osGetwd = func() (string, error) { return "", errors.New("getwd failed") }
+	t.Cleanup(func() { osGetwd = orig })
+	_, err := NewAgentRunner(context.Background(), Config{Workspace: "", SkipMCP: true})
+	if err == nil || !strings.Contains(err.Error(), "resolve workspace") {
+		t.Errorf("err = %v, want 'resolve workspace'", err)
+	}
+}
+
+func TestNewAgentRunnerSessionOpenError(t *testing.T) {
+	orig := sessionOpen
+	sessionOpen = func(path string) (*session.Store, error) { return nil, errors.New("open failed") }
+	t.Cleanup(func() { sessionOpen = orig })
+	_, err := NewAgentRunner(context.Background(), Config{Workspace: t.TempDir(), SkipMCP: true})
+	if err == nil || !strings.Contains(err.Error(), "open sessions") {
+		t.Errorf("err = %v, want 'open sessions'", err)
+	}
+}
+
+func TestNewAgentRunnerStartOrResumeError(t *testing.T) {
+	orig := storeStartOrResume
+	storeStartOrResume = func(s *session.Store, id string) (*session.Session, error) { return nil, errors.New("sor failed") }
+	t.Cleanup(func() { storeStartOrResume = orig })
+	_, err := NewAgentRunner(context.Background(), Config{Workspace: t.TempDir(), SkipMCP: true})
+	if err == nil || !strings.Contains(err.Error(), "start session") {
+		t.Errorf("err = %v, want 'start session'", err)
+	}
+}
+
+func TestNewAgentRunnerLoopBuilderError(t *testing.T) {
+	orig := loopbuilderBuild
+	loopbuilderBuild = func(ctx context.Context, cfg loopbuilder.Config, memStore *lessons.Store) (*agentloop.Loop, func() error, error) {
+		return nil, nil, errors.New("build failed")
+	}
+	t.Cleanup(func() { loopbuilderBuild = orig })
+	_, err := NewAgentRunner(context.Background(), Config{Workspace: t.TempDir(), SkipMCP: true})
+	if err == nil || !strings.Contains(err.Error(), "build loop") {
+		t.Errorf("err = %v, want 'build loop'", err)
+	}
+}
+
+// ── Ask edge cases ─────────────────────────────────────────────────
+
+func TestBridgeAskClosedFirstSelect(t *testing.T) {
+	r := &AgentRunner{cfg: Config{AskTimeout: -1}, Events: make(chan AgentEvent), closed: make(chan struct{})}
+	close(r.closed)
+	if got := r.bridgeAsk(agentloop.ToolCall{Name: "x"}); got != false {
+		t.Errorf("bridgeAsk = %v, want false", got)
+	}
+}
+
+func TestBridgeAskReplyViaChannel(t *testing.T) {
+	r := &AgentRunner{cfg: Config{AskTimeout: 100 * time.Millisecond}, Events: make(chan AgentEvent, 1), closed: make(chan struct{})}
+	done := make(chan bool, 1)
+	go func() { done <- r.bridgeAsk(agentloop.ToolCall{Name: "x"}) }()
+	time.Sleep(20 * time.Millisecond)
+	r.askMu.Lock()
+	ch := r.askReply
+	r.askMu.Unlock()
+	if ch == nil {
+		t.Fatal("askReply not set")
+	}
+	ch <- true
+	select {
+	case got := <-done:
+		if !got {
+			t.Errorf("bridgeAsk = %v, want true", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("bridgeAsk did not return")
+	}
+}
+
+func TestBridgeAskClosedSecondSelect(t *testing.T) {
+	r := &AgentRunner{cfg: Config{AskTimeout: 10 * time.Second}, Events: make(chan AgentEvent, 1), closed: make(chan struct{})}
+	done := make(chan bool, 1)
+	go func() { done <- r.bridgeAsk(agentloop.ToolCall{Name: "x"}) }()
+	time.Sleep(20 * time.Millisecond)
+	close(r.closed)
+	select {
+	case got := <-done:
+		if got {
+			t.Errorf("bridgeAsk = %v, want false", got)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("bridgeAsk did not return")
+	}
+}
+
+func TestAnswerAskDefaultWhenBlocked(t *testing.T) {
+	r := &AgentRunner{askReply: make(chan bool)} // unbuffered, no receiver
+	r.AnswerAsk(true)                             // should hit default case, not block
+}
+
+func TestSubmitSyncAfterCloseReturnsErrClosed(t *testing.T) {
+	r := newTestRunner(t, Config{Workspace: t.TempDir()})
+	if err := r.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	_, err := r.SubmitSync(context.Background(), "x")
+	if !errors.Is(err, ErrClosed) {
+		t.Errorf("SubmitSync err = %v, want ErrClosed", err)
+	}
+}
+
+// ── Emit edge cases ────────────────────────────────────────────────
+
+func TestEmitClosedAndContextDone(t *testing.T) {
+	t.Run("closed", func(t *testing.T) {
+		r := &AgentRunner{Events: make(chan AgentEvent), closed: make(chan struct{})}
+		close(r.closed)
+		r.emit(context.Background(), EventTurn, "detail", "", "", nil)
+	})
+	t.Run("ctx done", func(t *testing.T) {
+		r := &AgentRunner{Events: make(chan AgentEvent)} // unbuffered, no receiver
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		r.emit(ctx, EventTurn, "detail", "", "", nil)
+	})
+}
+
+// ── Nil-safe helpers ───────────────────────────────────────────────
+
+func TestSessionIDNil(t *testing.T) {
+	r := &AgentRunner{}
+	if got := r.SessionID(); got != "" {
+		t.Errorf("SessionID() = %q, want empty", got)
+	}
+}
+
+func TestSetCompletionNilLoop(t *testing.T) {
+	r := &AgentRunner{}
+	r.SetCompletion(func(ctx context.Context, history []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error) {
+		return nil, nil
+	})
+}
+
+func TestEmitSessionHistoryNilSession(t *testing.T) {
+	r := &AgentRunner{}
+	r.emitSessionHistory(context.Background())
+}
+
+// ── Close error propagation ────────────────────────────────────────
+
+func TestCloseCleanupError(t *testing.T) {
+	r, err := NewAgentRunner(context.Background(), Config{Workspace: t.TempDir(), SkipMCP: true})
+	if err != nil {
+		t.Fatalf("NewAgentRunner: %v", err)
+	}
+	r.cleanup = func() error { return errors.New("cleanup failed") }
+	if err := r.Close(); err == nil || !strings.Contains(err.Error(), "cleanup failed") {
+		t.Errorf("Close err = %v, want 'cleanup failed'", err)
+	}
+}
+
+func TestCloseStoreCloseError(t *testing.T) {
+	orig := storeClose
+	defer func() { storeClose = orig }()
+	storeClose = func(s *session.Store) error { return errors.New("store close failed") }
+	r, err := NewAgentRunner(context.Background(), Config{Workspace: t.TempDir(), SkipMCP: true})
+	if err != nil {
+		t.Fatalf("NewAgentRunner: %v", err)
+	}
+	r.cleanup = nil // ensure firstErr is available for the store error
+	if err := r.Close(); err == nil || !strings.Contains(err.Error(), "store close failed") {
+		t.Errorf("Close err = %v, want 'store close failed'", err)
 	}
 }

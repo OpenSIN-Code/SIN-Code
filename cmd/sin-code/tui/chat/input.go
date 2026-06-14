@@ -15,6 +15,9 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/attachments"
 )
 
+// osUserHomeDirHook is a test seam for os.UserHomeDir.
+var osUserHomeDirHook = os.UserHomeDir
+
 type Input struct {
 	textarea    textarea.Model
 	attachments []*attachments.Attachment

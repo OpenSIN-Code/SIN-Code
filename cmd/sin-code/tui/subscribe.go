@@ -19,12 +19,15 @@ type NotificationSource interface {
 	GetType() string
 }
 
+// tuiBroadcasterHook is a test seam for the notifications broadcaster.
+var tuiBroadcasterHook = func() <-chan *notifications.Notification { return notifications.TUIBroadcaster() }
+
 // ListenForNotifications returns a tea.Cmd that blocks on the notifications
 // broadcaster channel and emits a NotificationMsg when one arrives.
 // Re-subscribe from Update after each NotificationMsg to keep listening.
 func ListenForNotifications() tea.Cmd {
 	return func() tea.Msg {
-		n, ok := <-notifications.TUIBroadcaster()
+		n, ok := <-tuiBroadcasterHook()
 		if !ok || n == nil {
 			return nil
 		}
