@@ -127,6 +127,15 @@ func mapArchitecture(root, action string) (*mapResult, error) {
 		lang := detectLanguage(path)
 		languages[lang]++
 
+		// Track per-module file counts and languages.
+		dir := filepath.Dir(rel)
+		if m, ok := modules[dir]; ok && dir != "." && dir != "" {
+			m.Files++
+			if !sliceContains(m.Languages, lang) {
+				m.Languages = append(m.Languages, lang)
+			}
+		}
+
 		if strings.Contains(strings.ToLower(rel), "_test") || strings.Contains(strings.ToLower(rel), "test_") || strings.Contains(strings.ToLower(rel), ".spec.") || strings.Contains(strings.ToLower(rel), ".test.") {
 			testFiles++
 		}
@@ -322,6 +331,15 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func sliceContains(haystack []string, needle string) bool {
+	for _, s := range haystack {
+		if s == needle {
+			return true
+		}
+	}
+	return false
 }
 
 func init() {
