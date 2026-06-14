@@ -125,8 +125,9 @@ func verifyEntrypoint(ctx context.Context, dir string) (bool, string) {
 		return true, "node entrypoint (package.json)"
 	}
 	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-		// Go-native skill: verify it compiles.
-		cmd := exec.CommandContext(ctx, "go", "build", "./cmd/sin-websearch")
+		// Go-native skill: build the binary into the repo root so the MCP
+		// registry can use the full path (SIN_SKILLS_DIR/<repo>/<binary>).
+		cmd := exec.CommandContext(ctx, "go", "build", "-o", "sin-websearch", "./cmd/sin-websearch")
 		cmd.Dir = dir
 		if _, err := cmd.CombinedOutput(); err != nil {
 			return false, fmt.Sprintf("go entrypoint exists but build failed: %v", err)

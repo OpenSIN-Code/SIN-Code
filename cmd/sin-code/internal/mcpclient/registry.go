@@ -26,9 +26,28 @@ func DefaultServers() []ServerConfig {
 		}
 		return cfg
 	}
+	// goNative returns a ServerConfig for a Go-native skill. It prefers the
+	// binary built inside SIN_SKILLS_DIR/<repo>/sin-websearch so that skillmgr
+	// can install and run the skill without requiring the user to put the binary
+	// on PATH. Falls back to the binary name on PATH if no local checkout exists.
+	goNative := func(repo, binary string, args ...string) ServerConfig {
+		name := shortName(repo)
+		cfg := ServerConfig{Name: name, Transport: "stdio", Args: args}
+		if skillsDir != "" {
+			localBin := filepath.Join(skillsDir, repo, binary)
+			if _, err := os.Stat(localBin); err == nil {
+				cfg.Command = localBin
+			} else {
+				cfg.Command = binary
+			}
+		} else {
+			cfg.Command = binary
+		}
+		return cfg
+	}
 	return []ServerConfig{
 		// web_search_bundle is the Go-native successor to SIN-Code-Websearch-Skill.
-		{Name: "websearch", Transport: "stdio", Command: "sin-websearch", Args: []string{"serve"}},
+		goNative("web_search_bundle", "sin-websearch", "serve"),
 		py("SIN-Code-Scheduler-Skill"),
 		py("SIN-Code-Goal-Mode-Skill"),
 		py("SIN-Code-Grill-Me-Skill"),
