@@ -103,9 +103,9 @@ func TestDescribe(t *testing.T) {
 
 func TestHumanBytes(t *testing.T) {
 	cases := map[int64]string{
-		512:                  "512B",
-		1024:                 "1.0KiB",
-		2 * 1024 * 1024:      "2.0MiB",
+		512:                    "512B",
+		1024:                   "1.0KiB",
+		2 * 1024 * 1024:        "2.0MiB",
 		3 * 1024 * 1024 * 1024: "3.0GiB",
 	}
 	for in, want := range cases {

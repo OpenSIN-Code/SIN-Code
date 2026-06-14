@@ -29,12 +29,12 @@ var ErrNotInstalled = errors.New("codegraph not found in PATH or standard locati
 
 // Node is a single symbol in the code graph (function, type, module, ...).
 type Node struct {
-	ID    string `json:"id"`
-	Kind  string `json:"kind"` // function|type|method|module|variable|...
-	Name  string `json:"name"`
-	File  string `json:"file"`
-	Line  int    `json:"line"`
-	Lang  string `json:"lang"`
+	ID   string `json:"id"`
+	Kind string `json:"kind"` // function|type|method|module|variable|...
+	Name string `json:"name"`
+	File string `json:"file"`
+	Line int    `json:"line"`
+	Lang string `json:"lang"`
 }
 
 // Edge is a directed relationship between two nodes (calls, imports, ...).

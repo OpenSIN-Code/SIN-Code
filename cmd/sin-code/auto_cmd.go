@@ -12,13 +12,14 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autopilot"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/loopbuilder"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
-	"github.com/spf13/cobra"
 )
 
 func init() { rootCmd.AddCommand(newAutoCmd()) }

@@ -12,9 +12,9 @@ import (
 
 // Measurement is a single metric reading from one experiment.
 type Measurement struct {
-	Value  float64 // parsed metric value
-	Found  bool    // whether the regex matched
-	Raw    string  // the raw captured substring
+	Value float64 // parsed metric value
+	Found bool    // whether the regex matched
+	Raw   string  // the raw captured substring
 }
 
 // ExtractMetric runs the program's extract regex over verify output.
