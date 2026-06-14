@@ -22,6 +22,10 @@ var (
 	orchTags   string
 	orchID     string
 	orchFormat string
+
+	// jsonMarshalIndent is swapped out in tests to exercise the
+	// unreachable JSON-marshal error path without touching real state files.
+	jsonMarshalIndent = json.MarshalIndent
 )
 
 var OrchestrateCmd = &cobra.Command{
@@ -99,7 +103,7 @@ func loadState() (*orchestrateState, error) {
 
 func saveState(state *orchestrateState) error {
 	path := getStateFile()
-	data, err := json.MarshalIndent(state, "", "  ")
+	data, err := jsonMarshalIndent(state, "", "  ")
 	if err != nil {
 		return err
 	}

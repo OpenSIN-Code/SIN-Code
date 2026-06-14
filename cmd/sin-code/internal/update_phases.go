@@ -61,6 +61,10 @@ var execGit = func(ctx context.Context, args ...string) *exec.Cmd {
 	return exec.CommandContext(ctx, "git", args...)
 }
 
+// osUserHomeDir is a test hook for the home directory lookup used by
+// homeDirOrEmpty and NewBackupManager.
+var osUserHomeDir = os.UserHomeDir
+
 func RunPythonPhase(ctx context.Context, opts UpdateOptions) (*PhaseResult, error) {
 	res := &PhaseResult{Name: "python"}
 	if opts.CheckOnly || opts.DryRun {
@@ -202,7 +206,7 @@ func verifyBinaryVersion(ctx context.Context, binaryPath, expectedVersion string
 }
 
 func homeDirOrEmpty() string {
-	home, err := os.UserHomeDir()
+	home, err := osUserHomeDir()
 	if err != nil {
 		return ""
 	}
@@ -218,7 +222,7 @@ func binDirPath() string {
 }
 
 func runDoctorNonFatal(ctx context.Context) error {
-	exe, err := os.Executable()
+	exe, err := osExecutable()
 	if err != nil {
 		return err
 	}
@@ -239,6 +243,11 @@ func printPhaseSummary(results []*PhaseResult) {
 	}
 }
 
+// runCheckPythonPhase and runCheckGoPhase are test hooks for the error
+// paths inside runCheck (the phase functions normally never return an error).
+var runCheckPythonPhase = RunPythonPhase
+var runCheckGoPhase = RunGoPhase
+
 func runCheck(ctx context.Context, opts UpdateOptions) error {
 	fmt.Println("-- Update Check --")
 	fmt.Println()
@@ -249,13 +258,13 @@ func runCheck(ctx context.Context, opts UpdateOptions) error {
 		return nil
 	}
 
-	res, err := RunPythonPhase(ctx, opts)
+	res, err := runCheckPythonPhase(ctx, opts)
 	if err != nil {
 		return err
 	}
 	printPhaseSummary([]*PhaseResult{res})
 
-	goRes, err := RunGoPhase(ctx, opts)
+	goRes, err := runCheckGoPhase(ctx, opts)
 	if err != nil {
 		return err
 	}

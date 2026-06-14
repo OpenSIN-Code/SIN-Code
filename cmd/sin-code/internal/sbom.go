@@ -393,11 +393,18 @@ func collectPythonDeps(path string) ([]dependency, error) {
 	if data, err := os.ReadFile(filepath.Join(path, "requirements.txt")); err == nil {
 		parsed := parseRequirementsTxt(string(data))
 		deps = append(deps, parsed...)
+	} else if !os.IsNotExist(err) {
+		return nil, err
 	}
 
-	if data, err := os.ReadFile(filepath.Join(path, "pyproject.toml")); err == nil && len(deps) == 0 {
-		parsed := parsePyprojectToml(string(data))
-		deps = append(deps, parsed...)
+	if len(deps) == 0 {
+		// #nosec G304 — path is a validated project directory, filename is constant.
+		if data, err := os.ReadFile(filepath.Join(filepath.Clean(path), "pyproject.toml")); err == nil {
+			parsed := parsePyprojectToml(string(data))
+			deps = append(deps, parsed...)
+		} else if !os.IsNotExist(err) {
+			return nil, err
+		}
 	}
 
 	return deps, nil

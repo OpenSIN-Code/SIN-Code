@@ -25,6 +25,10 @@ var (
 	efmTTL     int
 	efmFormat  string
 	efmRuntime string
+	// efmGOOS allows tests to override runtime.GOOS for platform-specific branches.
+	efmGOOS = runtime.GOOS
+	// efmFilepathAbs is a test hook for filepath.Abs in EFM compose helpers.
+	efmFilepathAbs = filepath.Abs
 )
 
 var EfmCmd = &cobra.Command{
@@ -158,7 +162,7 @@ func resolveContainerRuntime(override string) string {
 }
 
 func detectContainerRuntime() string {
-	if runtime.GOOS == "darwin" {
+	if efmGOOS == "darwin" {
 		if _, err := exec.LookPath("orb"); err == nil {
 			return "orb"
 		}
@@ -173,10 +177,13 @@ func detectContainerRuntime() string {
 	return "docker"
 }
 
+// efmDetectRuntime is a test hook for detectContainerRuntime in containerCommand.
+var efmDetectRuntime = detectContainerRuntime
+
 func containerCommand(rt string, args ...string) *exec.Cmd {
 	bin := rt
 	if bin == "" {
-		bin = detectContainerRuntime()
+		bin = efmDetectRuntime()
 	}
 	if bin == "" {
 		bin = "docker"
@@ -210,14 +217,11 @@ func listDockerContainers(rt string) ([]efmService, error) {
 		}
 		lastErr = err
 	}
-	if out == nil {
+	if usedRt == "" {
 		if lastErr != nil {
 			return nil, fmt.Errorf("no container runtime responded (tried %v): %w", cands, lastErr)
 		}
 		return nil, fmt.Errorf("no container runtime binary found (tried %v)", cands)
-	}
-	if usedRt != "" {
-		_ = usedRt
 	}
 
 	var services []efmService
@@ -289,7 +293,7 @@ func metadataKey(absPath string) string {
 }
 
 func dockerComposeUp(stack string, ttl int, rt string) error {
-	absPath, err := filepath.Abs(stack)
+	absPath, err := efmFilepathAbs(stack)
 	if err != nil {
 		return err
 	}
@@ -321,7 +325,7 @@ func dockerComposeUp(stack string, ttl int, rt string) error {
 }
 
 func dockerComposeDown(stack string, rt string) error {
-	absPath, err := filepath.Abs(stack)
+	absPath, err := efmFilepathAbs(stack)
 	if err != nil {
 		return err
 	}
@@ -342,7 +346,7 @@ func dockerComposeDown(stack string, rt string) error {
 }
 
 func dockerComposeStatus(stack string, rt string) (string, error) {
-	absPath, err := filepath.Abs(stack)
+	absPath, err := efmFilepathAbs(stack)
 	if err != nil {
 		return "", err
 	}

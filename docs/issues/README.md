@@ -16,7 +16,7 @@ This directory contains **active and historical issues** for the sin-code bundle
 | [st-lsp1](done/st-lsp1-lsp-framing-bug.md) | LSP framing bug — `Client.Call` fails on gopls v0.20+ | P1 | **done** (was already fixed) | [lsp-known-issues](../lsp-known-issues.md#1) | v2.5.0 |
 | [st-lsp2](done/st-lsp2-lsp-codocs-missing.md) | Add CoDocs for lsp package (client.go, lsp_cmd.go) | P3 | **done** | [lsp-known-issues](../lsp-known-issues.md#3) | v2.5.0 |
 | [st-lsp3](done/st-lsp3-lsp-testdata-not-in-ci.md) | Wire lsp_live.txt testscript into CI behind build tag | P2 | **done** | [lsp-known-issues](../lsp-known-issues.md#4) | v2.5.0 |
-| [st-cov1](st-cov1-coverage-80-percent.md) | Raise internal/ test coverage from 68.2% to ≥80% | P2 | open | (none) | v2.6.0 |
+| [st-cov1](done/st-cov1-coverage-80-percent.md) | Raise internal/ test coverage to ≥80% | P2 | **done** | (none) | v2.6.0 |
 | [st-bug1](done/st-bug1-dogfooding-bugs.md) | Dogfooding-discovered bugs (scout/adw/poc/oracle/map) | P1 | **done** (4/5 fixed) | (none) | v2.5.0 |
 
 ## Priority Legend

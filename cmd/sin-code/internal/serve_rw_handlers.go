@@ -9,7 +9,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 )
 
 func handleRead(ctx context.Context, args map[string]any) (string, error) {
@@ -17,7 +16,7 @@ func handleRead(ctx context.Context, args map[string]any) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path is required")
 	}
-	absPath, err := filepath.Abs(path)
+	absPath, err := filepathAbsFn(path)
 	if err != nil {
 		return "", err
 	}
@@ -40,7 +39,7 @@ func handleWrite(ctx context.Context, args map[string]any) (string, error) {
 	if path == "" || !hasContent {
 		return "", fmt.Errorf("path and content are required")
 	}
-	absPath, err := filepath.Abs(path)
+	absPath, err := filepathAbsFn(path)
 	if err != nil {
 		return "", err
 	}
@@ -61,7 +60,7 @@ func handleEdit(ctx context.Context, args map[string]any) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("path is required")
 	}
-	absPath, err := filepath.Abs(path)
+	absPath, err := filepathAbsFn(path)
 	if err != nil {
 		return "", err
 	}

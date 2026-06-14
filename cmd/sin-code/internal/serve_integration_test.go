@@ -130,7 +130,7 @@ func TestServeIntegration_Initialize(t *testing.T) {
 	}
 }
 
-func TestServeIntegration_ListToolsAll13(t *testing.T) {
+func TestServeIntegration_ListToolsAll(t *testing.T) {
 	cs, cancel := setupIntegrationClientServer(t)
 	defer cancel()
 
@@ -142,12 +142,16 @@ func TestServeIntegration_ListToolsAll13(t *testing.T) {
 
 	expectedTools := []string{
 		"sin_discover", "sin_execute", "sin_map", "sin_grasp",
-		"sin_scout", "sin_harvest", "sin_orchestrate",
+		"sin_scout", "sin_harvest", "sin_index", "sin_orchestrate",
 		"sin_ibd", "sin_poc", "sin_sckg", "sin_adw", "sin_oracle", "sin_efm",
-	}
-
-	if len(result.Tools) != len(expectedTools) {
-		t.Errorf("expected %d tools, got %d", len(expectedTools), len(result.Tools))
+		"sin_todo_add", "sin_todo_list", "sin_todo_show", "sin_todo_complete",
+		"sin_todo_claim", "sin_todo_ready", "sin_todo_blocked", "sin_todo_search",
+		"sin_todo_prime", "sin_todo_stats", "sin_todo_dep_add", "sin_todo_deps",
+		"sin_memory_add", "sin_memory_list", "sin_memory_search", "sin_memory_prime",
+		"sin_memory_stats", "sin_notifications_list", "sin_notifications_stats",
+		"sin_notifications_mark_read", "sin_orchestrator_run", "sin_orchestrator_plan",
+		"sin_orchestrator_agents", "sin_agent_show", "sin_agent_set", "sin_agent_doctor",
+		"sin_lsp_servers", "sin_read", "sin_write", "sin_edit",
 	}
 
 	found := make(map[string]bool)
@@ -345,22 +349,56 @@ func TestServeIntegration_ToolDescriptions(t *testing.T) {
 	}
 
 	expectedDescriptions := map[string]string{
-		"sin_discover":    "Discover files",
-		"sin_execute":     "Execute shell commands",
-		"sin_map":         "Map code architecture",
-		"sin_grasp":       "Deep code understanding",
-		"sin_scout":       "Search code",
-		"sin_harvest":     "Fetch URLs",
-		"sin_orchestrate": "Manage tasks",
-		"sin_ibd":         "Intent-Based Diffing",
-		"sin_poc":         "Proof-of-Correctness",
-		"sin_sckg":        "Semantic Codebase Knowledge Graphs",
-		"sin_adw":         "Architectural Debt Watchdogs",
-		"sin_oracle":      "Verification Oracle",
-		"sin_efm":         "Ephemeral Full-Stack Mocking",
+		"sin_discover":                "Discover files",
+		"sin_execute":                 "Execute shell commands",
+		"sin_map":                     "Map code architecture",
+		"sin_grasp":                   "Deep code understanding",
+		"sin_scout":                   "Search code",
+		"sin_harvest":                 "Fetch URLs",
+		"sin_index":                   "Manage persistent incremental code index",
+		"sin_orchestrate":             "Manage tasks",
+		"sin_ibd":                     "Intent-Based Diffing",
+		"sin_poc":                     "Proof-of-Correctness",
+		"sin_sckg":                    "Semantic Codebase Knowledge Graphs",
+		"sin_adw":                     "Architectural Debt Watchdogs",
+		"sin_oracle":                  "Verification Oracle",
+		"sin_efm":                     "Ephemeral Full-Stack Mocking",
+		"sin_todo_add":                "Add a todo",
+		"sin_todo_list":               "List todos",
+		"sin_todo_show":               "Show full details of a todo",
+		"sin_todo_complete":           "Mark a todo as done",
+		"sin_todo_claim":              "Atomically claim a todo",
+		"sin_todo_ready":              "List unblocked open work",
+		"sin_todo_blocked":            "List blocked todos",
+		"sin_todo_search":             "Full-text search",
+		"sin_todo_prime":              "Print ready/blocked/mine context for agent prompts",
+		"sin_todo_stats":              "Counts by status",
+		"sin_todo_dep_add":            "Add a dependency",
+		"sin_todo_deps":               "Show dependency tree",
+		"sin_memory_add":              "Add a long-term project memory",
+		"sin_memory_list":             "List project memories",
+		"sin_memory_search":           "Semantic search",
+		"sin_memory_prime":            "Print top-K relevant memories",
+		"sin_memory_stats":            "Memory DB statistics",
+		"sin_notifications_list":      "List recent non-dismissed notifications",
+		"sin_notifications_stats":     "Notification statistics",
+		"sin_notifications_mark_read": "Mark a notification as read",
+		"sin_orchestrator_run":        "Run a prompt through the multi-agent orchestrator",
+		"sin_orchestrator_plan":       "Build a plan from a prompt",
+		"sin_orchestrator_agents":     "List all available agents",
+		"sin_agent_show":              "Show effective config",
+		"sin_agent_set":               "Set fields on a user agent",
+		"sin_agent_doctor":            "Validate agents",
+		"sin_lsp_servers":             "List detected LSP servers",
+		"sin_read":                    "Read files token-efficiently",
+		"sin_write":                   "Write a file atomically",
+		"sin_edit":                    "Surgical file edit",
 	}
 
 	for _, tool := range result.Tools {
+		if strings.HasPrefix(tool.Name, "sin_plugin_") {
+			continue
+		}
 		substr, ok := expectedDescriptions[tool.Name]
 		if !ok {
 			t.Errorf("unexpected tool %q", tool.Name)

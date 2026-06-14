@@ -20,9 +20,12 @@ import (
 )
 
 var (
-	adwPath   string
-	adwFormat string
-	adwStrict bool
+	adwPath         string
+	adwFormat       string
+	adwStrict       bool
+	adwAbs          = filepath.Abs  // test hook for filepath.Abs errors
+	adwWalk         = filepath.Walk // test hook for filepath.Walk errors
+	adwInitialScore = 100           // test hook for the score > 100 cap
 )
 
 var AdwCmd = &cobra.Command{
@@ -50,7 +53,7 @@ Examples:
 		if len(args) > 0 {
 			path = args[0]
 		}
-		absPath, err := filepath.Abs(path)
+		absPath, err := adwAbs(path)
 		if err != nil {
 			return fmt.Errorf("invalid path: %w", err)
 		}
@@ -106,7 +109,7 @@ func scanDebt(root string, strict bool) *adwResult {
 	reverseDeps := make(map[string][]string) // import -> list of files importing it
 
 	// First pass: collect all files and their imports
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := adwWalk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			if info != nil && info.IsDir() {
 				base := filepath.Base(path)
@@ -223,7 +226,7 @@ func scanDebt(root string, strict bool) *adwResult {
 		}
 	}
 
-	score := 100 - critical*20 - high*10 - medium*5 - low*2
+	score := adwInitialScore - critical*20 - high*10 - medium*5 - low*2
 	if score < 0 {
 		score = 0
 	}

@@ -377,6 +377,20 @@ func TestExtractSymbols_JavaDispatch(t *testing.T) {
 	}
 }
 
+func TestExtractSymbols_PythonDispatch(t *testing.T) {
+	syms := extractSymbols("main.py", "def hello(): pass\nclass Foo: pass\n", "python")
+	if len(syms) < 1 {
+		t.Errorf("expected at least 1 python symbol, got %d", len(syms))
+	}
+}
+
+func TestExtractSymbols_JavascriptDispatch(t *testing.T) {
+	syms := extractSymbols("main.js", "function hello() {}\nconst x = 1;\n", "javascript")
+	if len(syms) < 1 {
+		t.Errorf("expected at least 1 javascript symbol, got %d", len(syms))
+	}
+}
+
 func TestExtractSymbols_GenericDispatch(t *testing.T) {
 	syms := extractSymbols("main.cob", "function myFunc()\n", "cobol")
 	if len(syms) < 1 {

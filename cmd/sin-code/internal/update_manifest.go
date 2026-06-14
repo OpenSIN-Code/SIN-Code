@@ -36,7 +36,7 @@ func (m *UpdateManifest) Write(dir string) error {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(m, "", "  ")
+	data, err := jsonMarshalIndent(m, "", "  ")
 	if err != nil {
 		return err
 	}

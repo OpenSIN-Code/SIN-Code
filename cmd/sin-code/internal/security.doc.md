@@ -41,6 +41,8 @@ sin-code security . --tools govulncheck,gosec
 ## Known caveats / footguns
 
 - **Tool availability:** If a tool is not installed, it is marked `not_found` and skipped. No automatic installation is attempted.
+- **File-permission scan root:** If the scan root itself is unreadable (e.g., missing directory), `runFilePermissions` returns an error instead of silently reporting zero files. Unreadable individual entries inside a readable root are still skipped.
+- **File-permission scan testability:** The unexported `dirEntryInfo` hook lets tests simulate `fs.DirEntry.Info()` failures deterministically.
 - **Issue counting is heuristic:** For some tools (e.g., `go vet`), we count lines in output; this may not perfectly match the tool's native issue count.
 - **Secrets grep is basic:** Uses simple regexes. It is NOT a replacement for `truffleHog` or `git-secrets`.
 - **Exit codes:** Without `--strict`, the command returns `0` even if issues are found. CI pipelines should use `--strict` to fail on issues.

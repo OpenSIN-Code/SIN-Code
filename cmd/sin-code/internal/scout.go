@@ -30,7 +30,20 @@ var (
 	scoutMax    int
 	scoutNoRG   bool
 	scoutFile   string
+
+	// numCPU is a test hook for the worker-pool sizing used by goSearch.
+	numCPU = runtime.NumCPU
+
+	// openFileFn is a test hook for isBinaryFile error paths.
+	openFileFn = os.Open
+
+	// scoreScoutModifier is a test hook for adjusting scout relevance scores.
+	scoreScoutModifier func(score float64) float64
 )
+
+// searchFileFn is the searchFile implementation used by searchWithIndex.
+// It is a variable so tests can inject per-candidate errors.
+var searchFileFn = searchFile
 
 var ScoutCmd = &cobra.Command{
 	Use:   "scout",
@@ -124,7 +137,12 @@ func rgSearch(root, query, searchType string, maxResults int) ([]scoutResult, er
 	}
 	args = append(args, query, ".")
 
-	cmd := exec.Command("rg", args...)
+	var cmd *exec.Cmd
+	if rgCommandFn != nil {
+		cmd = rgCommandFn("rg", args...)
+	} else {
+		cmd = exec.Command("rg", args...)
+	}
 	cmd.Dir = root
 	out, err := cmd.Output()
 	if err != nil {
@@ -204,7 +222,7 @@ func goSearch(root, query, searchType string, maxResults int) ([]scoutResult, er
 	}
 
 	ignorePatterns := loadGitignore(root)
-	numWorkers := runtime.NumCPU()
+	numWorkers := numCPU()
 	if numWorkers < 2 {
 		numWorkers = 2
 	}
@@ -221,7 +239,7 @@ func goSearch(root, query, searchType string, maxResults int) ([]scoutResult, er
 			defer wg.Done()
 			localResults := make([]scoutResult, 0, 256)
 			for j := range jobs {
-				m, err := searchFile(j.path, j.rel, root, re, searchType)
+				m, err := searchFileFn(j.path, j.rel, root, re, searchType)
 				if err != nil {
 					matches <- match{err: err}
 					continue
@@ -292,9 +310,6 @@ sortResults:
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Relevance > results[j].Relevance
 	})
-	if maxResults > 0 && len(results) > maxResults {
-		results = results[:maxResults]
-	}
 	return results, nil
 }
 
@@ -447,7 +462,7 @@ func matchesPattern(name string, p gitignorePattern) bool {
 }
 
 func isBinaryFile(path string) bool {
-	f, err := os.Open(path)
+	f, err := openFileFn(path)
 	if err != nil {
 		return true
 	}
@@ -464,6 +479,9 @@ var (
 	rgOnce    sync.Once
 	rgChecked bool
 	rgOnPath  bool
+
+	// rgCommandFn is a test hook so rgSearch's error paths are reachable.
+	rgCommandFn func(name string, args ...string) *exec.Cmd
 )
 
 func getContext(lines []string, center, radius int) []string {
@@ -506,6 +524,9 @@ func scoreRelevanceScout(relPath, line string) float64 {
 	if strings.Contains(strings.ToLower(relPath), "_test") || strings.Contains(strings.ToLower(relPath), "test_") {
 		score -= 5
 	}
+	if scoreScoutModifier != nil {
+		score = scoreScoutModifier(score)
+	}
 	if score < 0 {
 		score = 0
 	}
@@ -543,7 +564,7 @@ func init() {
 }
 
 func searchSingleFile(file, query, searchType string, maxResults int, format string) error {
-	absFile, err := filepath.Abs(file)
+	absFile, err := filepathAbsFn(file)
 	if err != nil {
 		return fmt.Errorf("invalid file: %w", err)
 	}
@@ -557,7 +578,7 @@ func searchSingleFile(file, query, searchType string, maxResults int, format str
 	if err != nil {
 		return err
 	}
-	results, err := searchFile(absFile, relOf(absFile), filepath.Dir(absFile), re, searchType)
+	results, err := searchFileFn(absFile, relOf(absFile), filepath.Dir(absFile), re, searchType)
 	if err != nil {
 		return err
 	}
@@ -572,9 +593,13 @@ func searchSingleFile(file, query, searchType string, maxResults int, format str
 	return outputTextScout(results)
 }
 
+// relOfFunc is a test hook for filepath.Rel so the error fallback can be
+// exercised on platforms where Rel never fails (e.g. Unix).
+var relOfFunc = filepath.Rel
+
 func relOf(abs string) string {
 	wd, _ := os.Getwd()
-	if rel, err := filepath.Rel(wd, abs); err == nil {
+	if rel, err := relOfFunc(wd, abs); err == nil {
 		return rel
 	}
 	return abs

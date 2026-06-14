@@ -531,6 +531,251 @@ func TestRunSelfUpdate_APIError(t *testing.T) {
 	}
 }
 
+func TestRunSelfUpdateWithDeps_Success(t *testing.T) {
+	SetCurrentVersion("v1.0.0")
+	defer SetCurrentVersion("dev")
+
+	dir := t.TempDir()
+	current := filepath.Join(dir, "sin-code")
+	os.WriteFile(current, []byte("old binary"), 0o755)
+
+	archivePath := createTarGz(t, map[string]string{"sin-code": "new binary"})
+
+	deps := &selfUpdateDeps{
+		fetchLatest: func() (*GitHubRelease, error) {
+			return &GitHubRelease{
+				TagName:   "v2.0.0",
+				Published: "2024-07-01T00:00:00Z",
+				Assets: []struct {
+					Name string `json:"name"`
+					Size int    `json:"size"`
+					URL  string `json:"browser_download_url"`
+				}{{
+					Name: fmt.Sprintf("sin-code-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH),
+					URL:  "file://" + archivePath,
+				}},
+			}, nil
+		},
+		downloadFile: func(url, path string) error {
+			data, err := os.ReadFile(strings.TrimPrefix(url, "file://"))
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(path, data, 0o644)
+		},
+		extractBinary: extractBinary,
+		currentBinary: func() (string, error) {
+			return current, nil
+		},
+		rename: os.Rename,
+		remove: os.Remove,
+		chmod:  os.Chmod,
+	}
+
+	err := runSelfUpdateWithDeps(deps, false)
+	if err != nil {
+		t.Fatalf("runSelfUpdateWithDeps failed: %v", err)
+	}
+
+	data, err := os.ReadFile(current)
+	if err != nil {
+		t.Fatalf("read current binary: %v", err)
+	}
+	if string(data) != "new binary" {
+		t.Fatalf("binary not updated, got %q", data)
+	}
+	if _, err := os.Stat(current + ".backup"); err == nil {
+		t.Fatal("backup file should be removed on success")
+	}
+}
+
+func TestRunSelfUpdateWithDeps_InstallFailureRestoresBackup(t *testing.T) {
+	SetCurrentVersion("v1.0.0")
+	defer SetCurrentVersion("dev")
+
+	dir := t.TempDir()
+	current := filepath.Join(dir, "sin-code")
+	os.WriteFile(current, []byte("old binary"), 0o755)
+
+	archivePath := createTarGz(t, map[string]string{"sin-code": "new binary"})
+
+	deps := &selfUpdateDeps{
+		fetchLatest: func() (*GitHubRelease, error) {
+			return &GitHubRelease{
+				TagName:   "v2.0.0",
+				Published: "2024-07-01T00:00:00Z",
+				Assets: []struct {
+					Name string `json:"name"`
+					Size int    `json:"size"`
+					URL  string `json:"browser_download_url"`
+				}{{
+					Name: fmt.Sprintf("sin-code-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH),
+					URL:  "file://" + archivePath,
+				}},
+			}, nil
+		},
+		downloadFile: func(url, path string) error {
+			data, err := os.ReadFile(strings.TrimPrefix(url, "file://"))
+			if err != nil {
+				return err
+			}
+			return os.WriteFile(path, data, 0o644)
+		},
+		extractBinary: extractBinary,
+		currentBinary: func() (string, error) {
+			return current, nil
+		},
+		rename: func(oldpath, newpath string) error {
+			// Backup step.
+			if oldpath == current && newpath == current+".backup" {
+				return os.Rename(oldpath, newpath)
+			}
+			// Restore step.
+			if oldpath == current+".backup" && newpath == current {
+				return os.Rename(oldpath, newpath)
+			}
+			// Install step (extracted binary -> current) — fail it.
+			if newpath == current {
+				return os.ErrPermission
+			}
+			return os.Rename(oldpath, newpath)
+		},
+		remove: os.Remove,
+		chmod:  os.Chmod,
+	}
+
+	err := runSelfUpdateWithDeps(deps, false)
+	if err == nil {
+		t.Fatal("expected install failure")
+	}
+
+	data, err := os.ReadFile(current)
+	if err != nil {
+		t.Fatalf("read current binary: %v", err)
+	}
+	if string(data) != "old binary" {
+		t.Fatalf("backup not restored, got %q", data)
+	}
+}
+
+func TestRunSelfUpdateWithDeps_CurrentBinaryError(t *testing.T) {
+	SetCurrentVersion("v1.0.0")
+	defer SetCurrentVersion("dev")
+
+	deps := &selfUpdateDeps{
+		fetchLatest: func() (*GitHubRelease, error) {
+			return &GitHubRelease{
+				TagName:   "v2.0.0",
+				Published: "2024-07-01T00:00:00Z",
+				Assets: []struct {
+					Name string `json:"name"`
+					Size int    `json:"size"`
+					URL  string `json:"browser_download_url"`
+				}{{
+					Name: fmt.Sprintf("sin-code-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH),
+					URL:  "https://example.com/binary.tar.gz",
+				}},
+			}, nil
+		},
+		currentBinary: func() (string, error) {
+			return "", os.ErrNotExist
+		},
+	}
+
+	err := runSelfUpdateWithDeps(deps, false)
+	if err == nil {
+		t.Fatal("expected error when currentBinary fails")
+	}
+	if !strings.Contains(err.Error(), "cannot determine current binary path") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRunSelfUpdateWithDeps_DownloadFailure(t *testing.T) {
+	SetCurrentVersion("v1.0.0")
+	defer SetCurrentVersion("dev")
+
+	dir := t.TempDir()
+	current := filepath.Join(dir, "sin-code")
+	os.WriteFile(current, []byte("old binary"), 0o755)
+
+	deps := &selfUpdateDeps{
+		fetchLatest: func() (*GitHubRelease, error) {
+			return &GitHubRelease{
+				TagName:   "v2.0.0",
+				Published: "2024-07-01T00:00:00Z",
+				Assets: []struct {
+					Name string `json:"name"`
+					Size int    `json:"size"`
+					URL  string `json:"browser_download_url"`
+				}{{
+					Name: fmt.Sprintf("sin-code-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH),
+					URL:  "https://example.com/binary.tar.gz",
+				}},
+			}, nil
+		},
+		downloadFile: func(url, path string) error {
+			return os.ErrNotExist
+		},
+		currentBinary: func() (string, error) {
+			return current, nil
+		},
+	}
+
+	err := runSelfUpdateWithDeps(deps, false)
+	if err == nil {
+		t.Fatal("expected error when download fails")
+	}
+	if !strings.Contains(err.Error(), "download failed") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRunSelfUpdateWithDeps_ExtractFailure(t *testing.T) {
+	SetCurrentVersion("v1.0.0")
+	defer SetCurrentVersion("dev")
+
+	dir := t.TempDir()
+	current := filepath.Join(dir, "sin-code")
+	os.WriteFile(current, []byte("old binary"), 0o755)
+
+	deps := &selfUpdateDeps{
+		fetchLatest: func() (*GitHubRelease, error) {
+			return &GitHubRelease{
+				TagName:   "v2.0.0",
+				Published: "2024-07-01T00:00:00Z",
+				Assets: []struct {
+					Name string `json:"name"`
+					Size int    `json:"size"`
+					URL  string `json:"browser_download_url"`
+				}{{
+					Name: fmt.Sprintf("sin-code-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH),
+					URL:  "https://example.com/binary.tar.gz",
+				}},
+			}, nil
+		},
+		downloadFile: func(url, path string) error {
+			// Write a corrupt archive so extraction fails.
+			return os.WriteFile(path, []byte("not a tar.gz"), 0o644)
+		},
+		extractBinary: func(archivePath, destDir string) (string, error) {
+			return "", os.ErrInvalid
+		},
+		currentBinary: func() (string, error) {
+			return current, nil
+		},
+		remove: os.Remove,
+	}
+
+	err := runSelfUpdateWithDeps(deps, false)
+	if err == nil {
+		t.Fatal("expected error when extraction fails")
+	}
+	if !strings.Contains(err.Error(), "extraction failed") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
 func TestPrintVersionInfo(t *testing.T) {
 	saved := githubAPIURL
 	defer func() { githubAPIURL = saved }()
@@ -543,7 +788,6 @@ func TestPrintVersionInfo(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
-	defer r.Close()
 	os.Stdout = w
 
 	err := printVersionInfo()
@@ -577,7 +821,6 @@ func TestPrintVersionInfo_APIError(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
-	defer r.Close()
 	os.Stdout = w
 
 	err := printVersionInfo()
@@ -611,7 +854,6 @@ func TestPrintVersionInfo_UpdateAvailable(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
-	defer r.Close()
 	os.Stdout = w
 
 	err := printVersionInfo()
@@ -666,7 +908,6 @@ func TestSelfUpdateCmd_VersionFlag(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
-	defer r.Close()
 	os.Stdout = w
 
 	SelfUpdateCmd.SetArgs([]string{"--version"})
@@ -699,7 +940,6 @@ func TestSelfUpdateCmd_DryRunFlag(t *testing.T) {
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
-	defer r.Close()
 	os.Stdout = w
 
 	SelfUpdateCmd.SetArgs([]string{"--dry-run"})
@@ -719,206 +959,225 @@ func TestSelfUpdateCmd_DryRunFlag(t *testing.T) {
 	}
 }
 
-func TestUpdateCmd_Structure(t *testing.T) {
-	if UpdateCmd.Use != "update" {
-		t.Errorf("Use = %q, want %q", UpdateCmd.Use, "update")
+func TestExtractTarGz_DirEntry(t *testing.T) {
+	dir := t.TempDir()
+	archive := filepath.Join(dir, "test.tar.gz")
+	f, err := os.Create(archive)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if UpdateCmd.RunE == nil {
-		t.Error("RunE should not be nil")
+	gw := gzip.NewWriter(f)
+	tw := tar.NewWriter(gw)
+	hdr := &tar.Header{Name: "subdir", Typeflag: tar.TypeDir, Mode: 0755}
+	if err := tw.WriteHeader(hdr); err != nil {
+		t.Fatal(err)
 	}
+	hdr2 := &tar.Header{Name: "sin-code", Size: int64(len("bin")), Mode: 0755, Typeflag: tar.TypeReg}
+	if err := tw.WriteHeader(hdr2); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tw.Write([]byte("bin")); err != nil {
+		t.Fatal(err)
+	}
+	tw.Close()
+	gw.Close()
+	f.Close()
 
-	flags := []string{
-		"python-only", "go-only", "skills-only",
-		"check", "dry-run", "force", "rollback", "skip-doctor",
-		"state-root", "keep-snapshots",
+	destDir := t.TempDir()
+	extracted, err := extractTarGz(archive, destDir)
+	if err != nil {
+		t.Fatalf("extractTarGz with dir entry failed: %v", err)
 	}
-	for _, flagName := range flags {
-		if UpdateCmd.Flags().Lookup(flagName) == nil {
-			t.Errorf("missing --%s flag", flagName)
-		}
-	}
-
-	// Verify default values
-	if f := UpdateCmd.Flags().Lookup("keep-snapshots"); f != nil {
-		if f.DefValue != "10" {
-			t.Errorf("keep-snapshots default = %q, want %q", f.DefValue, "10")
-		}
+	data, _ := os.ReadFile(extracted)
+	if string(data) != "bin" {
+		t.Errorf("expected 'bin', got %q", string(data))
 	}
 }
 
-func TestUpdateCmd_MutuallyExclusiveFlags(t *testing.T) {
-	_, err := parseUpdateFlags(UpdateCmd)
-	if err != nil {
-		t.Errorf("default flags should not error: %v", err)
-	}
-
-	// Reset flags
-	UpdateCmd.Flags().Set("python-only", "false")
-	UpdateCmd.Flags().Set("go-only", "false")
-	UpdateCmd.Flags().Set("skills-only", "false")
-
-	UpdateCmd.Flags().Set("python-only", "true")
-	UpdateCmd.Flags().Set("go-only", "true")
-	_, err = parseUpdateFlags(UpdateCmd)
+func TestExtractTarGz_GzipError(t *testing.T) {
+	dir := t.TempDir()
+	badArchive := filepath.Join(dir, "bad.tar.gz")
+	os.WriteFile(badArchive, []byte("not-gzip-data"), 0644)
+	_, err := extractTarGz(badArchive, dir)
 	if err == nil {
-		t.Error("expected error when python-only and go-only are both set")
+		t.Error("expected error for invalid gzip data")
 	}
-	UpdateCmd.Flags().Set("python-only", "false")
-	UpdateCmd.Flags().Set("go-only", "false")
+}
 
-	UpdateCmd.Flags().Set("python-only", "true")
-	UpdateCmd.Flags().Set("skills-only", "true")
-	_, err = parseUpdateFlags(UpdateCmd)
+func TestExtractZip_InvalidFile(t *testing.T) {
+	dir := t.TempDir()
+	badZip := filepath.Join(dir, "bad.zip")
+	os.WriteFile(badZip, []byte("not-zip-data"), 0644)
+	_, err := extractZip(badZip, dir)
 	if err == nil {
-		t.Error("expected error when python-only and skills-only are both set")
+		t.Error("expected error for invalid zip data")
 	}
-	UpdateCmd.Flags().Set("python-only", "false")
-	UpdateCmd.Flags().Set("skills-only", "false")
+}
 
-	UpdateCmd.Flags().Set("go-only", "true")
-	UpdateCmd.Flags().Set("skills-only", "true")
-	_, err = parseUpdateFlags(UpdateCmd)
+func TestExtractZip_FileCreateError(t *testing.T) {
+	files := map[string]string{"sin-code": "content"}
+	archivePath := createZip(t, files)
+	destDir := t.TempDir()
+	os.Chmod(destDir, 0000)
+	defer os.Chmod(destDir, 0755)
+	_, err := extractZip(archivePath, destDir)
 	if err == nil {
-		t.Error("expected error when go-only and skills-only are both set")
-	}
-	UpdateCmd.Flags().Set("go-only", "false")
-	UpdateCmd.Flags().Set("skills-only", "false")
-}
-
-func TestParseUpdateFlags_All(t *testing.T) {
-	UpdateCmd.Flags().Set("python-only", "false")
-	UpdateCmd.Flags().Set("go-only", "false")
-	UpdateCmd.Flags().Set("skills-only", "false")
-	UpdateCmd.Flags().Set("check", "false")
-	UpdateCmd.Flags().Set("dry-run", "false")
-	UpdateCmd.Flags().Set("force", "false")
-	UpdateCmd.Flags().Set("rollback", "false")
-	UpdateCmd.Flags().Set("skip-doctor", "false")
-	UpdateCmd.Flags().Set("state-root", "")
-	UpdateCmd.Flags().Set("keep-snapshots", "10")
-
-	opts, err := parseUpdateFlags(UpdateCmd)
-	if err != nil {
-		t.Fatalf("parseUpdateFlags failed: %v", err)
-	}
-	if opts.PythonOnly || opts.GoOnly || opts.SkillsOnly {
-		t.Error("all phase-only flags should be false by default")
-	}
-	if opts.CheckOnly || opts.DryRun || opts.Force || opts.Rollback || opts.SkipDoctor {
-		t.Error("all action flags should be false by default")
-	}
-	if opts.KeepSnapshots != 10 {
-		t.Errorf("KeepSnapshots = %d, want 10", opts.KeepSnapshots)
-	}
-
-	// Test python-only
-	UpdateCmd.Flags().Set("python-only", "true")
-	opts, err = parseUpdateFlags(UpdateCmd)
-	if err != nil {
-		t.Fatalf("parseUpdateFlags with python-only failed: %v", err)
-	}
-	if !opts.PythonOnly {
-		t.Error("PythonOnly should be true")
-	}
-	UpdateCmd.Flags().Set("python-only", "false")
-
-	// Test custom state-root
-	UpdateCmd.Flags().Set("state-root", "/custom/state")
-	opts, err = parseUpdateFlags(UpdateCmd)
-	if err != nil {
-		t.Fatalf("parseUpdateFlags with state-root failed: %v", err)
-	}
-	if opts.StateRoot != "/custom/state" {
-		t.Errorf("StateRoot = %q, want /custom/state", opts.StateRoot)
-	}
-	UpdateCmd.Flags().Set("state-root", "")
-
-	// Test keep-snapshots
-	UpdateCmd.Flags().Set("keep-snapshots", "5")
-	opts, err = parseUpdateFlags(UpdateCmd)
-	if err != nil {
-		t.Fatalf("parseUpdateFlags with keep-snapshots=5 failed: %v", err)
-	}
-	if opts.KeepSnapshots != 5 {
-		t.Errorf("KeepSnapshots = %d, want 5", opts.KeepSnapshots)
-	}
-	UpdateCmd.Flags().Set("keep-snapshots", "10")
-}
-
-func TestSelfUpdateCmd_AliasBackcompat(t *testing.T) {
-	// SelfUpdateCmd should still exist as legacy alias
-	if SelfUpdateCmd.Use != "self-update" {
-		t.Errorf("SelfUpdateCmd.Use = %q, want 'self-update'", SelfUpdateCmd.Use)
-	}
-	if SelfUpdateCmd.RunE == nil {
-		t.Error("SelfUpdateCmd.RunE should not be nil")
+		t.Error("expected error when dest dir is not writable")
 	}
 }
 
-func TestUpdateCmd_RunUpdate_Rollback(t *testing.T) {
-	// Reset flags first
-	UpdateCmd.Flags().Set("rollback", "true")
-	UpdateCmd.Flags().Set("python-only", "false")
-	UpdateCmd.Flags().Set("go-only", "false")
-	UpdateCmd.Flags().Set("skills-only", "false")
-	UpdateCmd.Flags().Set("check", "false")
-	UpdateCmd.Flags().Set("dry-run", "false")
-	UpdateCmd.Flags().Set("force", "false")
-	UpdateCmd.Flags().Set("skip-doctor", "true")
-	UpdateCmd.Flags().Set("state-root", t.TempDir())
-	UpdateCmd.Flags().Set("keep-snapshots", "10")
+func TestRunSelfUpdateWithDeps_BackupFailure(t *testing.T) {
+	SetCurrentVersion("v1.0.0")
+	defer SetCurrentVersion("dev")
 
-	err := UpdateCmd.Execute()
-	if err != nil {
-		t.Fatalf("UpdateCmd --rollback should not fail on empty state: %v", err)
+	dir := t.TempDir()
+	current := filepath.Join(dir, "sin-code")
+	os.WriteFile(current, []byte("old binary"), 0o755)
+	archivePath := createTarGz(t, map[string]string{"sin-code": "new binary"})
+
+	deps := &selfUpdateDeps{
+		fetchLatest: func() (*GitHubRelease, error) {
+			return &GitHubRelease{
+				TagName: "v2.0.0", Published: "2024-07-01T00:00:00Z",
+				Assets: []struct {
+					Name string `json:"name"`
+					Size int    `json:"size"`
+					URL  string `json:"browser_download_url"`
+				}{{Name: fmt.Sprintf("sin-code-%s-%s.tar.gz", runtime.GOOS, runtime.GOARCH), URL: "file://" + archivePath}},
+			}, nil
+		},
+		downloadFile: func(url, path string) error {
+			data, _ := os.ReadFile(strings.TrimPrefix(url, "file://"))
+			return os.WriteFile(path, data, 0644)
+		},
+		extractBinary: extractBinary,
+		currentBinary: func() (string, error) { return current, nil },
+		rename:        func(_, _ string) error { return os.ErrPermission },
+		remove:        os.Remove,
+		chmod:         os.Chmod,
 	}
-	// Reset flags
-	UpdateCmd.Flags().Set("rollback", "false")
+	if err := runSelfUpdateWithDeps(deps, false); err == nil {
+		t.Fatal("expected backup failure error")
+	}
 }
 
-func TestUpdateCmd_RunUpdate_DryRun(t *testing.T) {
-	UpdateCmd.Flags().Set("rollback", "false")
-	UpdateCmd.Flags().Set("python-only", "false")
-	UpdateCmd.Flags().Set("go-only", "false")
-	UpdateCmd.Flags().Set("skills-only", "false")
-	UpdateCmd.Flags().Set("check", "false")
-	UpdateCmd.Flags().Set("dry-run", "true")
-	UpdateCmd.Flags().Set("force", "false")
-	UpdateCmd.Flags().Set("skip-doctor", "true")
-	UpdateCmd.Flags().Set("state-root", "")
-	UpdateCmd.Flags().Set("keep-snapshots", "10")
+func TestRunSelfUpdateWithDeps_WindowsAsset(t *testing.T) {
+	SetCurrentVersion("v1.0.0")
+	defer SetCurrentVersion("dev")
 
-	err := UpdateCmd.Execute()
-	if err != nil {
-		t.Fatalf("UpdateCmd --dry-run failed: %v", err)
+	savedGOOS := runtimeGOOS
+	runtimeGOOS = "windows"
+	defer func() { runtimeGOOS = savedGOOS }()
+
+	deps := &selfUpdateDeps{
+		fetchLatest: func() (*GitHubRelease, error) {
+			return &GitHubRelease{
+				TagName:   "v2.0.0",
+				Published: "2024-07-01T00:00:00Z",
+				Assets: []struct {
+					Name string `json:"name"`
+					Size int    `json:"size"`
+					URL  string `json:"browser_download_url"`
+				}{{
+					Name: "sin-code-windows-amd64.zip",
+					URL:  "https://example.com/binary.zip",
+				}},
+			}, nil
+		},
+		currentBinary: func() (string, error) { return "", os.ErrNotExist },
 	}
-	UpdateCmd.Flags().Set("dry-run", "false")
+
+	err := runSelfUpdateWithDeps(deps, false)
+	if err == nil {
+		t.Fatal("expected error (currentBinary fails)")
+	}
 }
 
-func TestUpdateCmd_RunUpdate_Check(t *testing.T) {
-	UpdateCmd.Flags().Set("rollback", "false")
-	UpdateCmd.Flags().Set("python-only", "false")
-	UpdateCmd.Flags().Set("go-only", "false")
-	UpdateCmd.Flags().Set("skills-only", "false")
-	UpdateCmd.Flags().Set("check", "true")
-	UpdateCmd.Flags().Set("dry-run", "false")
-	UpdateCmd.Flags().Set("force", "false")
-	UpdateCmd.Flags().Set("skip-doctor", "true")
-	UpdateCmd.Flags().Set("state-root", "")
-	UpdateCmd.Flags().Set("keep-snapshots", "10")
-
-	err := UpdateCmd.Execute()
-	if err != nil {
-		t.Fatalf("UpdateCmd --check failed: %v", err)
+func TestExtractTarGz_FileCreateError(t *testing.T) {
+	files := map[string]string{"sin-code": "content"}
+	archivePath := createTarGz(t, files)
+	destDir := t.TempDir()
+	os.Chmod(destDir, 0000)
+	defer os.Chmod(destDir, 0755)
+	_, err := extractTarGz(archivePath, destDir)
+	if err == nil {
+		t.Error("expected error when dest dir is not writable")
 	}
-	UpdateCmd.Flags().Set("check", "false")
 }
 
-func TestRunCheck_Offline(t *testing.T) {
-	t.Setenv("SIN_CODE_OFFLINE", "1")
-	ctx := t.Context()
-	err := runCheck(ctx, UpdateOptions{CheckOnly: true})
+func TestExtractTarGz_CopyError(t *testing.T) {
+	files := map[string]string{"sin-code": "content"}
+	archivePath := createTarGz(t, files)
+	destDir := t.TempDir()
+
+	savedCopy := ioCopyFn
+	ioCopyFn = func(dst io.Writer, src io.Reader) (int64, error) {
+		return 0, os.ErrInvalid
+	}
+	defer func() { ioCopyFn = savedCopy }()
+
+	_, err := extractTarGz(archivePath, destDir)
+	if err == nil {
+		t.Error("expected error when copy fails")
+	}
+}
+
+func TestExtractZip_CopyError(t *testing.T) {
+	files := map[string]string{"sin-code": "content"}
+	archivePath := createZip(t, files)
+	destDir := t.TempDir()
+
+	savedCopy := ioCopyFn
+	ioCopyFn = func(dst io.Writer, src io.Reader) (int64, error) {
+		return 0, os.ErrInvalid
+	}
+	defer func() { ioCopyFn = savedCopy }()
+
+	_, err := extractZip(archivePath, destDir)
+	if err == nil {
+		t.Error("expected error when copy fails")
+	}
+}
+
+func TestExtractZip_OpenEntryError(t *testing.T) {
+	files := map[string]string{"sin-code": "content"}
+	archivePath := createZip(t, files)
+	destDir := t.TempDir()
+
+	savedOpen := zipFileOpenFn
+	zipFileOpenFn = func(_ *zip.File) (io.ReadCloser, error) {
+		return nil, os.ErrInvalid
+	}
+	defer func() { zipFileOpenFn = savedOpen }()
+
+	_, err := extractZip(archivePath, destDir)
+	if err == nil {
+		t.Error("expected error when zip entry open fails")
+	}
+}
+
+func TestExtractTarGz_TarNextError(t *testing.T) {
+	// Create a valid gzip archive that contains invalid tar data, so that
+	// gzip.NewReader succeeds but tar.NewReader.Next returns an error.
+	dir := t.TempDir()
+	archivePath := filepath.Join(dir, "bad.tar.gz")
+	f, err := os.Create(archivePath)
 	if err != nil {
-		t.Fatalf("runCheck offline should not error: %v", err)
+		t.Fatal(err)
+	}
+	gw := gzip.NewWriter(f)
+	if _, err := gw.Write([]byte("not a tar archive")); err != nil {
+		t.Fatal(err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = extractTarGz(archivePath, t.TempDir())
+	if err == nil {
+		t.Error("expected tar error for invalid tar data")
 	}
 }

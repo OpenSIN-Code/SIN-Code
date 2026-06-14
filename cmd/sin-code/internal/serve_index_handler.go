@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// filepathAbsFn is a test hook so error paths for filepath.Abs can be exercised.
+var filepathAbsFn = filepath.Abs
+
 func handleIndex(ctx context.Context, args map[string]any) (string, error) {
 	action, _ := args["action"].(string)
 	if action == "" {
@@ -20,7 +23,7 @@ func handleIndex(ctx context.Context, args map[string]any) (string, error) {
 	if root == "" {
 		root = "."
 	}
-	root, err := filepath.Abs(root)
+	root, err := filepathAbsFn(root)
 	if err != nil {
 		return "", fmt.Errorf("invalid root: %w", err)
 	}
@@ -92,7 +95,7 @@ func handleIndexSearch(ctx context.Context, args map[string]any) (string, error)
 	if root == "" {
 		root = "."
 	}
-	root, err := filepath.Abs(root)
+	root, err := filepathAbsFn(root)
 	if err != nil {
 		return "", fmt.Errorf("invalid root: %w", err)
 	}

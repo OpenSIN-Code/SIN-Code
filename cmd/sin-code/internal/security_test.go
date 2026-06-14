@@ -51,12 +51,27 @@ func TestSecurityCmd_ParseToolFilterEmpty(t *testing.T) {
 }
 
 func TestSecurityCmd_RunGoProject(t *testing.T) {
-	// Run security scan on the current project (Go)
-	SecurityCmd.SetArgs([]string{".", "--type", "go", "--tools", "go vet"})
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+
+	oldArgs := SecurityCmd.Args
+	defer func() { SecurityCmd.Args = oldArgs }()
+	resetSecurityCmdFlags(t)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/m\n"), 0644)
+
+	binDir := t.TempDir()
+	makeFakeSecurityTool(t, filepath.Join(binDir, "go"), "# fake go vet\n", 0)
+	os.Setenv("PATH", binDir)
+
+	SecurityCmd.SetArgs([]string{dir})
+	SecurityCmd.Flags().Set("type", "go")
+	SecurityCmd.Flags().Set("tools", "go vet")
 	SecurityCmd.SetOut(new(strings.Builder))
 	SecurityCmd.SetErr(new(strings.Builder))
-	err := SecurityCmd.Execute()
-	if err != nil {
+	_ = captureStdout(t)
+	if err := SecurityCmd.Execute(); err != nil {
 		t.Fatalf("security command failed: %v", err)
 	}
 }

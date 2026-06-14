@@ -124,6 +124,31 @@ func TestCheckTODOs(t *testing.T) {
 	}
 }
 
+func TestCheckTODOs_SkipsAdwTestFile(t *testing.T) {
+	issues := checkTODOs("internal/adw_test.go", "// TODO: should be ignored\n")
+	if len(issues) != 0 {
+		t.Errorf("expected 0 issues for adw_test.go, got %d", len(issues))
+	}
+}
+
+func TestCheckTODOs_SkipsQuotedString(t *testing.T) {
+	content := `package main
+var msg = "TODO: not a real todo"
+`
+	issues := checkTODOs("main.go", content)
+	if len(issues) != 0 {
+		t.Errorf("expected 0 issues for quoted string, got %d", len(issues))
+	}
+}
+
+func TestCheckTODOs_SkipsRawString(t *testing.T) {
+	content := "package main\nvar hint = `TODO: inside\ncontinues\n"
+	issues := checkTODOs("main.go", content)
+	if len(issues) != 0 {
+		t.Errorf("expected 0 issues for raw string start, got %d", len(issues))
+	}
+}
+
 func TestFindCircularDeps(t *testing.T) {
 	imports := map[string][]string{
 		"a.go": {"b.go"},

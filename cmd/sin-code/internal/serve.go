@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Purpose: serve — start an MCP (Model Context Protocol) server that exposes
-// all 15 sin-code subcommands as MCP tools. This replaces the single MCP server
+// all sin-code subcommands as MCP tools.
 // MCP server registrations in opencode.json with a single one.
+// Docs: serve.doc.md
 package internal
 
 import (
@@ -30,6 +31,15 @@ var (
 // ServerVersion is set at build time via -ldflags "-X github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal.ServerVersion=..."
 var ServerVersion = "dev"
 
+var (
+	pathAbs               = filepath.Abs
+	osGetwd               = os.Getwd
+	securityMarshalIndent = json.MarshalIndent
+	sbomMarshalIndent     = json.MarshalIndent
+	sbomEncode            = func(enc *json.Encoder, v any) error { return enc.Encode(v) }
+	httpServerHook        func(*http.Server)
+)
+
 var ServeCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start an MCP server exposing all 15 sin-code tools",
@@ -55,7 +65,11 @@ Then use sin_discover, sin_execute, sin_map, sin_grasp, sin_scout, sin_harvest,
 sin_orchestrate, sin_ibd, sin_poc, sin_sckg, sin_adw, sin_oracle, sin_efm,
 sin_security_scan, sin_sbom_generate as MCP tools.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		ctx, cancel := context.WithCancel(context.Background())
+		parent := cmd.Context()
+		if parent == nil {
+			parent = context.Background()
+		}
+		ctx, cancel := context.WithCancel(parent)
 		defer cancel()
 
 		server := mcp.NewServer(&mcp.Implementation{
@@ -861,7 +875,7 @@ func handleScout(ctx context.Context, args map[string]any) (string, error) {
 		searchType = st
 	}
 	maxResults := intArg(args, "max_results", 50)
-	root, err := filepath.Abs(path)
+	root, err := pathAbs(path)
 	if err != nil {
 		return "", err
 	}
@@ -986,7 +1000,7 @@ func handleSecurity(ctx context.Context, args map[string]any) (string, error) {
 	timeout := intArg(args, "timeout", 300)
 	strict := boolArg(args, "strict")
 
-	abs, err := filepath.Abs(path)
+	abs, err := pathAbs(path)
 	if err != nil {
 		return "", fmt.Errorf("security: resolve path: %w", err)
 	}
@@ -1006,7 +1020,7 @@ func handleSecurity(ctx context.Context, args map[string]any) (string, error) {
 	result.Strict = strict
 
 	if format == "json" {
-		out, mErr := json.MarshalIndent(result, "", "  ")
+		out, mErr := securityMarshalIndent(result, "", "  ")
 		if mErr != nil {
 			return "", mErr
 		}
@@ -1025,7 +1039,7 @@ func handleSbom(ctx context.Context, args map[string]any) (string, error) {
 	format := stringArg(args, "format", "spdx-json")
 	output := stringArg(args, "output", "")
 
-	abs, err := filepath.Abs(path)
+	abs, err := pathAbs(path)
 	if err != nil {
 		return "", fmt.Errorf("sbom: resolve path: %w", err)
 	}
@@ -1037,7 +1051,7 @@ func handleSbom(ctx context.Context, args map[string]any) (string, error) {
 	}
 
 	if output == "" || output == "-" {
-		out, mErr := json.MarshalIndent(doc, "", "  ")
+		out, mErr := sbomMarshalIndent(doc, "", "  ")
 		if mErr != nil {
 			return "", mErr
 		}
@@ -1058,7 +1072,7 @@ func handleSbom(ctx context.Context, args map[string]any) (string, error) {
 	defer f.Close()
 	enc := json.NewEncoder(f)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(doc); err != nil {
+	if err := sbomEncode(enc, doc); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("wrote SBOM to %s", absOut), nil
@@ -1122,8 +1136,23 @@ func runSubcommand(ctx context.Context, name string, args map[string]any) (strin
 	return runSubcommandRaw(ctx, cmdArgs)
 }
 
+// osExecutable is a test hook for the fallback path in resolveBinary.
+var osExecutable = os.Executable
+
+// resolveBinary picks the sin-code binary to use for subcommand dispatch.
+// Order: SIN_CODE_BIN env, sin-code on PATH, os.Executable().
+func resolveBinary() (string, error) {
+	if bin := os.Getenv("SIN_CODE_BIN"); bin != "" {
+		return bin, nil
+	}
+	if bin, err := exec.LookPath("sin-code"); err == nil {
+		return bin, nil
+	}
+	return osExecutable()
+}
+
 func runSubcommandRaw(ctx context.Context, cmdArgs []string) (string, error) {
-	selfPath, err := os.Executable()
+	selfPath, err := resolveBinary()
 	if err != nil {
 		return "", fmt.Errorf("cannot find self: %w", err)
 	}
@@ -1166,7 +1195,7 @@ func RegisterHTTPLoopFactory(factory apiweb.NewLoopFunc) error {
 // MCP transport; the HTTP listener is for the WebUI frontend only.
 // Auth: bearer token via SIN_API_TOKEN, or loopback-only when unset.
 func runHTTPTransport(ctx context.Context, _ *mcp.Server) error {
-	workspace, err := os.Getwd()
+	workspace, err := osGetwd()
 	if err != nil {
 		return err
 	}
@@ -1174,12 +1203,12 @@ func runHTTPTransport(ctx context.Context, _ *mcp.Server) error {
 	api.NewLoop = httpLoopFactory
 	mux := http.NewServeMux()
 	api.Routes(mux)
-	mux.HandleFunc("GET /api/v1/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"status":"ok","transport":"http"}`)
-	})
+	mux.HandleFunc("GET /api/v1/health", serveHealthHandler)
 	addr := fmt.Sprintf(":%d", servePort)
 	srv := &http.Server{Addr: addr, Handler: mux}
+	if httpServerHook != nil {
+		httpServerHook(srv)
+	}
 	errc := make(chan error, 1)
 	go func() { errc <- srv.ListenAndServe() }()
 	fmt.Fprintf(os.Stderr, "sin-code serve: HTTP API listening on %s (token=%q)\n", addr, api.Token)
@@ -1194,4 +1223,9 @@ func runHTTPTransport(ctx context.Context, _ *mcp.Server) error {
 		}
 		return err
 	}
+}
+
+func serveHealthHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	fmt.Fprintf(w, `{"status":"ok","transport":"http"}`)
 }

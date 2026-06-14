@@ -20,12 +20,13 @@ import (
 )
 
 var (
-	writeContent    string
-	writeStdin      bool
-	writeNoValidate bool
-	writeBackup     bool
-	writeMkdir      bool
-	writeFormat     string
+	writeContent     string
+	writeStdin       bool
+	writeNoValidate  bool
+	writeBackup      bool
+	writeMkdir       bool
+	writeFormat      string
+	writeStdinReader = io.Reader(os.Stdin)
 )
 
 var WriteCmd = &cobra.Command{
@@ -52,7 +53,7 @@ Examples:
 		}
 		content := writeContent
 		if writeStdin {
-			data, err := io.ReadAll(os.Stdin)
+			data, err := io.ReadAll(writeStdinReader)
 			if err != nil {
 				return fmt.Errorf("reading stdin: %w", err)
 			}
@@ -101,7 +102,47 @@ type writeResult struct {
 	BackupPath string `json:"backup_path,omitempty"`
 }
 
+// writeHooks abstracts the file-system operations in writeFileAtomic so
+// every error branch can be exercised without depending on real disk faults.
+// Production uses the default hooks; tests override individual functions.
+type writeHooks struct {
+	createTemp func(dir, pattern string) (*os.File, error)
+	writeAll   func(w io.Writer, data []byte) (int, error)
+	syncFile   func(f *os.File) error
+	closeFile  func(f *os.File) error
+	chmod      func(name string, mode os.FileMode) error
+	rename     func(oldpath, newpath string) error
+	remove     func(name string) error
+	readFile   func(name string) ([]byte, error)
+	writeFile  func(name string, data []byte, perm os.FileMode) error
+	mkdirAll   func(path string, perm os.FileMode) error
+	stat       func(name string) (os.FileInfo, error)
+}
+
+var defaultWriteHooks = writeHooks{
+	createTemp: os.CreateTemp,
+	writeAll:   func(w io.Writer, data []byte) (int, error) { return w.Write(data) },
+	syncFile:   func(f *os.File) error { return f.Sync() },
+	closeFile:  func(f *os.File) error { return f.Close() },
+	chmod:      os.Chmod,
+	rename:     os.Rename,
+	remove:     os.Remove,
+	readFile:   os.ReadFile,
+	writeFile:  os.WriteFile,
+	mkdirAll:   os.MkdirAll,
+	stat:       os.Stat,
+}
+
+// writeHooksCurrent is the active hook set. It is reset after each test by
+// TestMain, but tests can override individual fields directly.
+var writeHooksCurrent = defaultWriteHooks
+
 func writeFileAtomic(path, content string, opts writeOpts) (*writeResult, error) {
+	hooks := writeHooksCurrent
+	return writeFileAtomicWithHooks(path, content, opts, hooks)
+}
+
+func writeFileAtomicWithHooks(path, content string, opts writeOpts, hooks writeHooks) (*writeResult, error) {
 	if opts.validate {
 		if err := validateSyntax(path, content); err != nil {
 			return nil, fmt.Errorf("validation failed, nothing written: %w", err)
@@ -110,59 +151,59 @@ func writeFileAtomic(path, content string, opts writeOpts) (*writeResult, error)
 
 	dir := filepath.Dir(path)
 	if opts.mkdir {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+		if err := hooks.mkdirAll(dir, 0755); err != nil {
 			return nil, fmt.Errorf("creating parent directories: %w", err)
 		}
 	}
-	if _, err := os.Stat(dir); err != nil {
+	if _, err := hooks.stat(dir); err != nil {
 		return nil, fmt.Errorf("parent directory missing: %s (use --mkdir)", dir)
 	}
 
 	res := &writeResult{Path: path, Bytes: len(content), Validated: opts.validate}
 
-	prevInfo, statErr := os.Stat(path)
+	prevInfo, statErr := hooks.stat(path)
 	res.Created = statErr != nil
 	mode := os.FileMode(0644)
 	if statErr == nil {
 		mode = prevInfo.Mode().Perm()
 		if opts.backup {
 			bak := path + ".bak"
-			prev, err := os.ReadFile(path)
+			prev, err := hooks.readFile(path)
 			if err != nil {
 				return nil, fmt.Errorf("reading previous content for backup: %w", err)
 			}
-			if err := os.WriteFile(bak, prev, mode); err != nil {
+			if err := hooks.writeFile(bak, prev, mode); err != nil {
 				return nil, fmt.Errorf("writing backup: %w", err)
 			}
 			res.BackupPath = bak
 		}
 	}
 
-	tmp, err := os.CreateTemp(dir, ".sin-write-*")
+	tmp, err := hooks.createTemp(dir, ".sin-write-*")
 	if err != nil {
 		return nil, fmt.Errorf("creating temp file: %w", err)
 	}
 	tmpName := tmp.Name()
-	cleanup := func() { tmp.Close(); os.Remove(tmpName) }
+	cleanup := func() { _ = hooks.closeFile(tmp); _ = hooks.remove(tmpName) }
 
-	if _, err := tmp.WriteString(content); err != nil {
+	if _, err := hooks.writeAll(tmp, []byte(content)); err != nil {
 		cleanup()
 		return nil, fmt.Errorf("writing temp file: %w", err)
 	}
-	if err := tmp.Sync(); err != nil {
+	if err := hooks.syncFile(tmp); err != nil {
 		cleanup()
 		return nil, fmt.Errorf("fsync: %w", err)
 	}
-	if err := tmp.Close(); err != nil {
-		os.Remove(tmpName)
+	if err := hooks.closeFile(tmp); err != nil {
+		_ = hooks.remove(tmpName)
 		return nil, fmt.Errorf("closing temp file: %w", err)
 	}
-	if err := os.Chmod(tmpName, mode); err != nil {
-		os.Remove(tmpName)
+	if err := hooks.chmod(tmpName, mode); err != nil {
+		_ = hooks.remove(tmpName)
 		return nil, fmt.Errorf("chmod: %w", err)
 	}
-	if err := os.Rename(tmpName, path); err != nil {
-		os.Remove(tmpName)
+	if err := hooks.rename(tmpName, path); err != nil {
+		_ = hooks.remove(tmpName)
 		return nil, fmt.Errorf("atomic rename: %w", err)
 	}
 

@@ -67,6 +67,49 @@ func TestMergeAgentConfigOverride(t *testing.T) {
 	}
 }
 
+func TestMergeAgentConfigAllFields(t *testing.T) {
+	base := orchestrator.AgentConfig{Name: "x", Model: "m1", MaxTokens: 1000}
+	override := orchestrator.AgentConfig{
+		Description:   "desc",
+		Type:          "type",
+		Provider:      "p",
+		BaseURL:       "http://x",
+		Model:         "m2",
+		MaxTokens:     2000,
+		Temperature:   0.5,
+		SystemFile:    "sys",
+		MaxContext:    4000,
+		ToolsAllow:    []string{"a"},
+		ToolsDeny:     []string{"b"},
+		MemoryNS:      "ns",
+		RetentionDays: 7,
+	}
+	merged := mergeAgentConfig(base, override)
+	if merged.Description != "desc" || merged.Type != "type" || merged.Provider != "p" ||
+		merged.BaseURL != "http://x" || merged.Model != "m2" || merged.MaxTokens != 2000 ||
+		merged.Temperature != 0.5 || merged.SystemFile != "sys" || merged.MaxContext != 4000 ||
+		merged.MemoryNS != "ns" || merged.RetentionDays != 7 {
+		t.Errorf("unexpected merge result: %+v", merged)
+	}
+	if len(merged.ToolsAllow) != 1 || merged.ToolsAllow[0] != "a" {
+		t.Errorf("tools_allow: %v", merged.ToolsAllow)
+	}
+	if len(merged.ToolsDeny) != 1 || merged.ToolsDeny[0] != "b" {
+		t.Errorf("tools_deny: %v", merged.ToolsDeny)
+	}
+	if merged.Name != "x" {
+		t.Errorf("name overwritten: %s", merged.Name)
+	}
+}
+
+func TestMergeAgentConfigEmptyOverride(t *testing.T) {
+	base := orchestrator.AgentConfig{Name: "x", Model: "m1", MaxTokens: 1000}
+	merged := mergeAgentConfig(base, orchestrator.AgentConfig{})
+	if merged.Name != "x" || merged.Model != "m1" || merged.MaxTokens != 1000 {
+		t.Errorf("base should be unchanged: %+v", merged)
+	}
+}
+
 func TestLoadEffectiveAgentDefault(t *testing.T) {
 	tmp := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", tmp)
@@ -240,6 +283,19 @@ func TestApplyAgentEditsInvalidMaxTokens(t *testing.T) {
 	}
 }
 
+func TestApplyAgentEdits_DecodeError(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmp)
+	dir := filepath.Join(tmp, "sin-code", "agents", "decode-agent")
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, "agent.toml"), []byte("not valid toml = = ="), 0o644)
+
+	err := applyAgentEdits("decode-agent", []string{"model=gpt-4o"})
+	if err == nil {
+		t.Error("expected error for invalid toml")
+	}
+}
+
 func TestSetAgentField(t *testing.T) {
 	cfg := &orchestrator.AgentConfig{}
 	if err := setAgentField(cfg, "name", "foo"); err != nil {
@@ -276,6 +332,41 @@ func TestBuildAgentSeedForNew(t *testing.T) {
 	seed := buildAgentSeed("nonexistent-zzz")
 	if seed == "" {
 		t.Error("empty seed for new agent")
+	}
+}
+
+func TestLoadEffectiveAgent_InvalidName(t *testing.T) {
+	_, _, err := loadEffectiveAgent("invalid/name")
+	if err == nil {
+		t.Fatal("expected error for invalid agent name")
+	}
+}
+
+func TestLoadEffectiveAgent_DecodeError(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SIN_CODE_CONFIG_DIR", dir)
+	agentDirPath := filepath.Join(dir, "sin-code", "agents", "coder")
+	if err := os.MkdirAll(agentDirPath, 0o755); err != nil {
+		t.Fatalf("mkdir agent dir: %v", err)
+	}
+	cfgPath := filepath.Join(agentDirPath, "agent.toml")
+	if err := os.WriteFile(cfgPath, []byte("not valid toml = ["), 0o644); err != nil {
+		t.Fatalf("write invalid toml: %v", err)
+	}
+
+	_, _, err := loadEffectiveAgent("coder")
+	if err == nil {
+		t.Fatal("expected error for invalid toml")
+	}
+}
+
+func TestLoadEffectiveAgent_NotFound(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SIN_CODE_CONFIG_DIR", dir)
+
+	_, _, err := loadEffectiveAgent("nonexistent-agent-xyz")
+	if err == nil {
+		t.Fatal("expected error for agent not found")
 	}
 }
 
@@ -359,5 +450,70 @@ func TestStringInList(t *testing.T) {
 	}
 	if stringInList([]string{"a", "b"}, "z") {
 		t.Error("should not find z")
+	}
+}
+
+func TestLoadAllEffectiveAgents_WithUserOverride(t *testing.T) {
+	// On macOS, os.UserConfigDir resolves to $HOME/Library/Application Support.
+	// We set HOME to a temp dir so user agents are loaded from there.
+	oldHome := os.Getenv("HOME")
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+	defer func() { os.Setenv("HOME", oldHome) }()
+
+	agentsDir := filepath.Join(tmpHome, "Library", "Application Support", "sin-code", "agents")
+	os.MkdirAll(filepath.Join(agentsDir, "coder"), 0o755)
+	os.WriteFile(filepath.Join(agentsDir, "coder", "agent.toml"), []byte("model = \"custom\"\n"), 0o644)
+
+	agents, err := loadAllEffectiveAgents()
+	if err != nil {
+		t.Fatalf("loadAllEffectiveAgents failed: %v", err)
+	}
+	found := false
+	for _, a := range agents {
+		if a.Name == "coder" && a.Model == "custom" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected coder with custom model in agents, got %v", agents)
+	}
+}
+
+func TestLoadEffectiveAgent_UserOverride(t *testing.T) {
+	old := os.Getenv("SIN_CODE_CONFIG_DIR")
+	os.Setenv("SIN_CODE_CONFIG_DIR", t.TempDir())
+	defer func() { os.Setenv("SIN_CODE_CONFIG_DIR", old) }()
+
+	dir, _ := agentDir("coder")
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, "agent.toml"), []byte("model = \"override\"\n"), 0o644)
+
+	cfg, source, err := loadEffectiveAgent("coder")
+	if err != nil {
+		t.Fatalf("loadEffectiveAgent failed: %v", err)
+	}
+	if cfg.Model != "override" {
+		t.Errorf("expected model override, got %q", cfg.Model)
+	}
+	if source != "user (overrides default)" {
+		t.Errorf("expected user override source, got %q", source)
+	}
+}
+
+func TestLoadEffectiveAgent_Default(t *testing.T) {
+	old := os.Getenv("SIN_CODE_CONFIG_DIR")
+	os.Setenv("SIN_CODE_CONFIG_DIR", t.TempDir())
+	defer func() { os.Setenv("SIN_CODE_CONFIG_DIR", old) }()
+
+	cfg, source, err := loadEffectiveAgent("coder")
+	if err != nil {
+		t.Fatalf("loadEffectiveAgent failed: %v", err)
+	}
+	if cfg.Name != "coder" {
+		t.Errorf("expected coder, got %q", cfg.Name)
+	}
+	if source != "default" {
+		t.Errorf("expected default source, got %q", source)
 	}
 }

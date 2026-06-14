@@ -2,13 +2,13 @@
 // Purpose: MCP tool handlers for the v2.0+ subcommands (todo, memory,
 // notifications, orchestrator-*, agent-*, lsp). Each handler dispatches
 // to the corresponding cobra subcommand and returns stdout.
+// Docs: serve_extra_handlers.doc.md
 package internal
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 
@@ -18,14 +18,16 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
 )
 
+// package-level hooks so tests can inject errors without touching the filesystem.
+var (
+	memoryOpenFunc        = memory.Open
+	notificationsOpenFunc = notifications.Open
+)
+
 func runSinCodeCLI(args ...string) (string, error) {
-	bin := os.Getenv("SIN_CODE_BIN")
-	if bin != "" {
-		// explicit override (tests, custom install layout) — trust it
-	} else if _, err := exec.LookPath("sin-code"); err == nil {
-		bin = "sin-code"
-	} else {
-		bin = os.Args[0]
+	bin, err := resolveBinary()
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve sin-code binary: %w", err)
 	}
 	// 5-minute upper bound — sub-commands are all internal and should
 	// finish in seconds.  Guards against a buggy/fake script that reads
@@ -211,7 +213,7 @@ func handleMemoryPrime(ctx context.Context, args map[string]any) (string, error)
 }
 
 func handleMemoryStats(ctx context.Context, args map[string]any) (string, error) {
-	store, err := memory.Open("")
+	store, err := memoryOpenFunc("")
 	if err != nil {
 		return "", err
 	}
@@ -231,7 +233,7 @@ func handleMemoryStats(ctx context.Context, args map[string]any) (string, error)
 }
 
 func handleNotificationsList(ctx context.Context, args map[string]any) (string, error) {
-	store, err := notifications.Open("")
+	store, err := notificationsOpenFunc("")
 	if err != nil {
 		return "", err
 	}
@@ -249,7 +251,7 @@ func handleNotificationsList(ctx context.Context, args map[string]any) (string, 
 }
 
 func handleNotificationsStats(ctx context.Context, args map[string]any) (string, error) {
-	store, err := notifications.Open("")
+	store, err := notificationsOpenFunc("")
 	if err != nil {
 		return "", err
 	}
@@ -267,7 +269,7 @@ func handleNotificationsMarkRead(ctx context.Context, args map[string]any) (stri
 	if id == "" {
 		return "", fmt.Errorf("id is required")
 	}
-	store, err := notifications.Open("")
+	store, err := notificationsOpenFunc("")
 	if err != nil {
 		return "", err
 	}

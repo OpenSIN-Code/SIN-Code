@@ -98,3 +98,15 @@ func TestUpdateManifest_JSONContent(t *testing.T) {
 		t.Errorf("success default should be false")
 	}
 }
+
+func TestUpdateManifest_WriteMkdirError(t *testing.T) {
+	td := t.TempDir()
+	blocker := filepath.Join(td, "updates")
+	if err := os.WriteFile(blocker, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m := NewManifest("v1.0.0")
+	if err := m.Write(blocker); err == nil {
+		t.Fatal("expected error when dir is a file")
+	}
+}

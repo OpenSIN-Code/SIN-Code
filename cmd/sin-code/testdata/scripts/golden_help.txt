@@ -23,6 +23,7 @@ Usage:
 
 Available Commands:
   adw                 Architectural Debt Watchdogs — detect god modules, circular deps, etc.
+  autodev             Bridge to OpenSIN-Code/autodev-cli (Python autoresearch loop, never vendored)
   chat                Run the SIN-Code agent loop (interactive REPL or headless one-shot)
   completion          Generate the autocompletion script for the specified shell
   config              View and manage sin-code configuration
@@ -31,6 +32,7 @@ Available Commands:
   dox                 Self-maintaining AGENTS.md hierarchy (agent0ai/dox protocol)
   edit                Hashline-anchored surgical edits with validation
   efm                 Ephemeral Full-Stack Mocking — spin up disposable test environments
+  eval                Run Golden Dataset evaluation suites
   execute             Execute shell commands safely with secret redaction and timeout
   gh                  Bridge to the GitHub CLI (gh) with a 3-tier verb-allowlist policy
   goal                Manage the autonomous goal queue
@@ -67,6 +69,7 @@ Available Commands:
   superpowers         Integrate obra/superpowers skills into SIN-Code
   swarm               Race N agent profiles on the same prompt (first verified wins)
   todo                Issue tracker with dependencies, audit log, and project namespaces
+  trace               Configure + verify OpenTelemetry tracer setup
   tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
   update              Update SIN-Code stack (Python packages, Go binaries, skills)
   vane                Bridge to a self-hosted Vane answering engine (citation-backed research)

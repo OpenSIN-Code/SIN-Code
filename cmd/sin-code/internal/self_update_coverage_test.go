@@ -1,0 +1,58 @@
+// SPDX-License-Identifier: MIT
+// Purpose: Coverage driver for self-update tests under the filtered run regex.
+package internal
+
+import "testing"
+
+// TestSelfUpdateCoverage runs all self-update unit tests so they are exercised
+// by -run "TestSelfUpdate" without renaming the existing test functions.
+func TestSelfUpdateCoverage(t *testing.T) {
+	TestSetCurrentVersion(t)
+	TestFormatDate(t)
+	TestExtractTarGz(t)
+	TestExtractTarGz_NoBinary(t)
+	TestExtractTarGz_InvalidPath(t)
+	TestExtractZip(t)
+	TestExtractZip_NoBinary(t)
+	TestExtractZip_InvalidPath(t)
+	TestExtractBinary_TarGz(t)
+	TestExtractBinary_Zip(t)
+	TestDownloadFile(t)
+	TestDownloadFile_HTTPError(t)
+	TestDownloadFile_InvalidURL(t)
+	TestDownloadFile_InvalidPath(t)
+	TestFetchLatestRelease(t)
+	TestFetchLatestRelease_HTTPError(t)
+	TestFetchLatestRelease_InvalidJSON(t)
+	TestFetchLatestRelease_ConnectionError(t)
+	TestFetchLatestRelease_WithAssets(t)
+	TestCheckUpdateAvailable_UpdateAvailable(t)
+	TestCheckUpdateAvailable_UpToDate(t)
+	TestCheckUpdateAvailable_APIError(t)
+	TestRunSelfUpdate_AlreadyLatest(t)
+	TestRunSelfUpdate_DryRun(t)
+	TestRunSelfUpdate_NoAssetForPlatform(t)
+	TestRunSelfUpdate_APIError(t)
+	TestRunSelfUpdateWithDeps_Success(t)
+	TestRunSelfUpdateWithDeps_InstallFailureRestoresBackup(t)
+	TestRunSelfUpdateWithDeps_CurrentBinaryError(t)
+	TestRunSelfUpdateWithDeps_DownloadFailure(t)
+	TestRunSelfUpdateWithDeps_ExtractFailure(t)
+	TestPrintVersionInfo(t)
+	TestPrintVersionInfo_APIError(t)
+	TestPrintVersionInfo_UpdateAvailable(t)
+	TestSelfUpdateCmd_Structure(t)
+	TestSelfUpdateCmd_VersionFlag(t)
+	TestSelfUpdateCmd_DryRunFlag(t)
+	TestExtractTarGz_DirEntry(t)
+	TestExtractTarGz_GzipError(t)
+	TestExtractZip_InvalidFile(t)
+	TestExtractZip_FileCreateError(t)
+	TestRunSelfUpdateWithDeps_BackupFailure(t)
+	TestRunSelfUpdateWithDeps_WindowsAsset(t)
+	TestExtractTarGz_FileCreateError(t)
+	TestExtractTarGz_CopyError(t)
+	TestExtractZip_CopyError(t)
+	TestExtractZip_OpenEntryError(t)
+	TestExtractTarGz_TarNextError(t)
+}

@@ -31,6 +31,7 @@ var (
 	editDrift      int
 	editFormat     string
 	editSymbol     string
+	editGetwd      = os.Getwd
 )
 
 var EditCmd = &cobra.Command{
@@ -52,10 +53,11 @@ Every edit validates syntax (like 'sin-code write') and applies atomically.
 --dry-run prints a unified diff without touching the file.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		absPath, err := filepath.Abs(args[0])
+		wd, err := editGetwd()
 		if err != nil {
 			return fmt.Errorf("invalid path: %w", err)
 		}
+		absPath := filepath.Join(wd, args[0])
 		req := editRequest{
 			Anchor: editAnchor, EndAnchor: editEndAnchor, NewText: editNewText,
 			OldString: editOldString, NewString: editNewString,

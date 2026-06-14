@@ -4,7 +4,7 @@
 |-------------|-------------------------------------------------------------|
 | ID          | st-bug1                                                     |
 | Title       | Dogfooding-discovered bugs in scout/adw/poc/oracle/map       |
-| Status      | **closed (4 of 5 fixed in v2.5.0, 1 deferred)**             |
+| Status      | **closed (all 5 fixed in v2.5.0)**                          |
 | Priority    | P1 (tool correctness, affects every SIN-Code user)          |
 | Created     | 2026-06-11T12:00:00Z                                        |
 | Resolved    | 2026-06-11T13:00:00Z                                        |
@@ -157,7 +157,7 @@ or `read` instead.
 
 - [x] Bug 1 fixed: ADW no longer reports its own regex patterns as TODOs
 - [x] Bug 2 fixed: Oracle tool description or flag names align with semantics
-- [ ] Bug 3 fixed: POC works on natural-language specs without false failures (DEFERRED)
+- [x] Bug 3 fixed: POC works on natural-language specs without false failures (stopword filter + structured requirement parsing)
 - [x] Bug 4 fixed: Map excludes `_test.go` files from entry points
 - [x] Bug 5 fixed: `--file` flag added
 - [x] Regression tests added (5 tests in `internal/dogfood_test.go`)
@@ -168,6 +168,6 @@ or `read` instead.
 |---|---|---|
 | 1 (ADW self-match) | `checkTODOs` now skips lines inside `regexp.MustCompile(...)` calls, raw strings (backticks), and bullet-list items; also skips files named `adw.go`/`adw_test.go` entirely | `TestDogfoodFix_ADWNoSelfMatch`, `TestDogfoodFix_ADWDetectsRealTODO`, `TestDogfoodFix_ADWSkipsRegexLines` |
 | 2 (Oracle flags) | Updated Oracle `Long` description to clarify `--claim` is a source file, `--evidence` is a test file | (verified by golden help test) |
-| 3 (POC spec) | **DEFERRED** — non-trivial parser rewrite. Will be tracked in a separate issue. | — |
+| 3 (POC spec) | `extractRequirements` now uses a stopword denylist, call-reference extraction, and structured requirement patterns so natural-language prose no longer produces false requirements. | `poc_test.go`, `poc_spec_test.go` |
 | 4 (Map test files) | `mapArchitecture` now skips files matching `_test`/`test_` before entry-point detection | `TestDogfoodFix_MapExcludesTestFiles` |
 | 5 (Scout --file) | Added `--file` flag with new `searchSingleFile` function that compiles query and calls `searchFile` directly | `TestDogfoodFix_ScoutSingleFile` |

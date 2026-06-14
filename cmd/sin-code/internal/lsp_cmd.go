@@ -24,6 +24,10 @@ var (
 	lspLine    int
 	lspCol     int
 	lspNewName string
+
+	// filepathAbs is a test hook for lspSetup error paths.
+	// osGetwd is defined in serve.go as a shared package hook.
+	filepathAbs = filepath.Abs
 )
 
 var LSPCmd = &cobra.Command{
@@ -185,7 +189,7 @@ var lspDiagnosticsCmd = &cobra.Command{
 }
 
 func lspRun(cmd *cobra.Command, args []string, fn func(c *lsp.Client, uri string, line, col int) (any, error)) error {
-	if err := lspParseArgs(args, true); err != nil {
+	if err := lspParseArgsFn(args, true); err != nil {
 		return err
 	}
 	if lspNewName != "" && cmd.Name() != "rename" {
@@ -222,7 +226,7 @@ func lspRun(cmd *cobra.Command, args []string, fn func(c *lsp.Client, uri string
 }
 
 func lspRunSimple(cmd *cobra.Command, args []string, fn func(c *lsp.Client, uri string) (any, error)) error {
-	if err := lspParseArgs(args, false); err != nil {
+	if err := lspParseArgsFn(args, false); err != nil {
 		return err
 	}
 	mgr, rootURI, fileURI, err := lspSetup(cmd, lspFile, false)
@@ -278,16 +282,20 @@ func lspParseArgs(args []string, withPos bool) error {
 	return nil
 }
 
+// lspParseArgsFn is the callable used by lspRun/lspRunSimple. It defaults to
+// lspParseArgs and is overridable in tests to exercise argument-error paths.
+var lspParseArgsFn = lspParseArgs
+
 func lspSetup(cmd *cobra.Command, fileFlag string, withPos bool) (*lsp.Manager, string, string, error) {
 	root := lspRoot
 	if root == "" {
 		var err error
-		root, err = os.Getwd()
+		root, err = osGetwd()
 		if err != nil {
 			return nil, "", "", err
 		}
 	}
-	rootAbs, err := filepath.Abs(root)
+	rootAbs, err := filepathAbs(root)
 	if err != nil {
 		return nil, "", "", err
 	}

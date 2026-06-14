@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Purpose: sin update — top-level subcommand for the full update flow.
-// Docs: self-update.doc.md
+// Docs: update_cmd.doc.md
 // Issue #33.
 package internal
 
@@ -60,6 +60,16 @@ type UpdateOptions struct {
 	StateRoot     string
 	KeepSnapshots int
 }
+
+// phaseRunners and pruneSnapshotsFn are test hooks for the update flow.
+// They are variables (not direct calls) so error paths in runUpdate can be
+// exercised without invoking real pipx/go or touching the filesystem.
+var (
+	runPythonPhaseFn    = RunPythonPhase
+	runGoPhaseFn        = RunGoPhase
+	runDoctorNonFatalFn = runDoctorNonFatal
+	pruneSnapshotsFn    = func(bm *BackupManager, keep int) error { return bm.Prune(keep) }
+)
 
 func parseUpdateFlags(cmd *cobra.Command) (UpdateOptions, error) {
 	py, _ := cmd.Flags().GetBool("python-only")
@@ -131,14 +141,14 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	runGo := !opts.PythonOnly && !opts.SkillsOnly
 
 	if runPy {
-		r, err := RunPythonPhase(ctx, opts)
+		r, err := runPythonPhaseFn(ctx, opts)
 		if err != nil {
 			return err
 		}
 		results = append(results, r)
 	}
 	if runGo {
-		r, err := RunGoPhase(ctx, opts)
+		r, err := runGoPhaseFn(ctx, opts)
 		if err != nil {
 			return err
 		}
@@ -151,12 +161,12 @@ func runUpdate(cmd *cobra.Command, args []string) error {
 	manifest.Write(snapshotDir)
 
 	if !opts.SkipDoctor {
-		if err := runDoctorNonFatal(ctx); err != nil {
+		if err := runDoctorNonFatalFn(ctx); err != nil {
 			fmt.Fprintf(os.Stderr, "[warn] doctor: %v\n", err)
 		}
 	}
 
-	if err := bm.Prune(opts.KeepSnapshots); err != nil {
+	if err := pruneSnapshotsFn(bm, opts.KeepSnapshots); err != nil {
 		fmt.Fprintf(os.Stderr, "[warn] prune snapshots: %v\n", err)
 	}
 	return nil

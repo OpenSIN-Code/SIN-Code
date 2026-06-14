@@ -291,6 +291,222 @@ func TestHandleIndexSearch(t *testing.T) {
 	}
 }
 
+func TestHandleIndexRefresh_NoExisting(t *testing.T) {
+	root := t.TempDir()
+	if _, err := handleIndex(context.Background(), map[string]any{
+		"action": "refresh",
+		"root":   root,
+	}); err == nil {
+		t.Fatal("expected error for refresh without existing index")
+	}
+}
+
+func TestHandleIndexRefresh_Existing(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "x.go"), []byte("package x\n"), 0644)
+	idx, _ := buildIndex(root)
+	saveIndex(idx)
+	setFileIndex(idx)
+
+	res, err := handleIndex(context.Background(), map[string]any{
+		"action": "refresh",
+		"root":   root,
+	})
+	if err != nil {
+		t.Fatalf("handleIndex refresh: %v", err)
+	}
+	var m map[string]any
+	json.Unmarshal([]byte(res), &m)
+	if _, ok := m["total"]; !ok {
+		t.Errorf("expected total in response, got %v", m)
+	}
+}
+
+func TestHandleIndexStatus_Existing(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "x.go"), []byte("package x\n"), 0644)
+	idx, _ := buildIndex(root)
+	saveIndex(idx)
+	setFileIndex(idx)
+
+	res, err := handleIndex(context.Background(), map[string]any{
+		"action": "status",
+		"root":   root,
+	})
+	if err != nil {
+		t.Fatalf("handleIndex status existing: %v", err)
+	}
+	var m map[string]any
+	json.Unmarshal([]byte(res), &m)
+	if !m["exists"].(bool) {
+		t.Errorf("expected exists=true, got %v", m)
+	}
+}
+
+func TestHandleIndex_InvalidAction(t *testing.T) {
+	root := t.TempDir()
+	if _, err := handleIndex(context.Background(), map[string]any{
+		"action": "bad",
+		"root":   root,
+	}); err == nil {
+		t.Fatal("expected error for invalid action")
+	}
+}
+
+func TestHandleIndexSearch_WithExistingIndex(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "a.go"), []byte("package main\n\nfunc hello() {}\n"), 0644)
+	idx, _ := buildIndex(root)
+	saveIndex(idx)
+
+	res, err := handleIndexSearch(context.Background(), map[string]any{
+		"query":       "hello",
+		"root":        root,
+		"search_type": "regex",
+	})
+	if err != nil {
+		t.Fatalf("handleIndexSearch existing: %v", err)
+	}
+	var results []scoutResult
+	json.Unmarshal([]byte(res), &results)
+	if len(results) == 0 {
+		t.Fatal("expected results with existing index")
+	}
+}
+
+func TestHandleIndexSearch_EmptyQuery(t *testing.T) {
+	root := t.TempDir()
+	if _, err := handleIndexSearch(context.Background(), map[string]any{
+		"root": root,
+	}); err == nil {
+		t.Fatal("expected error for empty query")
+	}
+}
+
+func TestHandleIndexSearch_Symbol(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "a.go"), []byte("package main\n\nfunc hello() {}\n"), 0644)
+
+	res, err := handleIndexSearch(context.Background(), map[string]any{
+		"query":       "hello",
+		"root":        root,
+		"search_type": "symbol",
+	})
+	if err != nil {
+		t.Fatalf("handleIndexSearch symbol: %v", err)
+	}
+	var results []scoutResult
+	json.Unmarshal([]byte(res), &results)
+	if len(results) == 0 {
+		t.Fatal("expected symbol results")
+	}
+}
+
+func TestHandleIndexSearch_Usage(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "a.go"), []byte("package main\n\nfunc hello() {}\nfunc call() { hello() }\n"), 0644)
+
+	res, err := handleIndexSearch(context.Background(), map[string]any{
+		"query":       "hello",
+		"root":        root,
+		"search_type": "usage",
+		"max_results": float64(10),
+	})
+	if err != nil {
+		t.Fatalf("handleIndexSearch usage: %v", err)
+	}
+	var results []scoutResult
+	json.Unmarshal([]byte(res), &results)
+	if len(results) == 0 {
+		t.Fatal("expected usage results")
+	}
+}
+
+func TestHandleIndexSearch_Semantic(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "a.go"), []byte("package main\n\nfunc hello() {}\n"), 0644)
+
+	res, err := handleIndexSearch(context.Background(), map[string]any{
+		"query":       "hello",
+		"root":        root,
+		"search_type": "semantic",
+	})
+	if err != nil {
+		t.Fatalf("handleIndexSearch semantic: %v", err)
+	}
+	var results []scoutResult
+	json.Unmarshal([]byte(res), &results)
+	if len(results) == 0 {
+		t.Fatal("expected semantic results")
+	}
+}
+
+func TestHandleIndexSearch_InvalidRoot(t *testing.T) {
+	if _, err := handleIndexSearch(context.Background(), map[string]any{
+		"query": "hello",
+		"root":  "/dev/null/nonexistent-dir-xyz/abc",
+	}); err == nil {
+		t.Fatal("expected error for invalid root")
+	}
+}
+
+func TestHandleIndexSearch_MaxResults(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "a.go"), []byte("package main\n\nfunc hello() {}\n"), 0644)
+
+	res, err := handleIndexSearch(context.Background(), map[string]any{
+		"query":       "hello",
+		"root":        root,
+		"max_results": float64(0),
+	})
+	if err != nil {
+		t.Fatalf("handleIndexSearch max_results: %v", err)
+	}
+	var results []scoutResult
+	json.Unmarshal([]byte(res), &results)
+	if len(results) == 0 {
+		t.Fatal("expected results with max_results=0")
+	}
+}
+
+func TestHandleIndex_DefaultAction(t *testing.T) {
+	root := t.TempDir()
+	res, err := handleIndex(context.Background(), map[string]any{
+		"root": root,
+	})
+	if err != nil {
+		t.Fatalf("handleIndex default action: %v", err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(res), &m); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if m["exists"].(bool) {
+		t.Fatal("expected no index for default status action")
+	}
+}
+
+func TestHandleIndexSearch_RefreshExistingInMemory(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "a.go"), []byte("package main\n\nfunc hello() {}\n"), 0644)
+	idx, _ := buildIndex(root)
+	setFileIndex(idx)
+
+	res, err := handleIndexSearch(context.Background(), map[string]any{
+		"query":       "hello",
+		"root":        root,
+		"search_type": "regex",
+	})
+	if err != nil {
+		t.Fatalf("handleIndexSearch refresh in-memory: %v", err)
+	}
+	var results []scoutResult
+	json.Unmarshal([]byte(res), &results)
+	if len(results) == 0 {
+		t.Fatal("expected results with in-memory index refresh")
+	}
+}
+
 // TestInMemoryIndex_HelperMethods verifies the small helper methods
 // on inMemoryIndex: rootPath, hasFile, allIndexedPaths, clear, remove.
 // (st-cov1)
@@ -336,5 +552,130 @@ func TestInMemoryIndex_HelperMethods(t *testing.T) {
 	idx.clear()
 	if len(idx.allIndexedPaths()) != 0 {
 		t.Errorf("expected empty after clear, got %v", idx.allIndexedPaths())
+	}
+}
+
+func TestIndexBuildCmd_Default(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "x.go"), []byte("package x\n"), 0644)
+	oldWd, _ := os.Getwd()
+	os.Chdir(root)
+	defer os.Chdir(oldWd)
+	if err := indexBuildCmd.RunE(indexBuildCmd, nil); err != nil {
+		t.Fatalf("indexBuildCmd default: %v", err)
+	}
+}
+
+func TestIndexBuildCmd_Root(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "x.go"), []byte("package x\n"), 0644)
+	if err := indexBuildCmd.RunE(indexBuildCmd, []string{root}); err != nil {
+		t.Fatalf("indexBuildCmd root: %v", err)
+	}
+}
+
+func TestIndexRefreshCmd_NoExisting(t *testing.T) {
+	root := t.TempDir()
+	getOut := captureStdout(t)
+	indexRefreshCmd.RunE(indexRefreshCmd, []string{root})
+	buf := getOut()
+	if !strings.Contains(buf, "No existing index") {
+		t.Fatalf("expected no existing index message, got %q", buf)
+	}
+}
+
+func TestIndexRefreshCmd_Existing(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "x.go"), []byte("package x\n"), 0644)
+	idx, _ := buildIndex(root)
+	saveIndex(idx)
+	setFileIndex(idx)
+	if err := indexRefreshCmd.RunE(indexRefreshCmd, []string{root}); err != nil {
+		t.Fatalf("indexRefreshCmd existing: %v", err)
+	}
+}
+
+func TestIndexStatusCmd_NoExisting(t *testing.T) {
+	root := t.TempDir()
+	getOut := captureStdout(t)
+	indexStatusCmd.RunE(indexStatusCmd, []string{root})
+	buf := getOut()
+	if !strings.Contains(buf, "No index found") {
+		t.Fatalf("expected no index found, got %q", buf)
+	}
+}
+
+func TestIndexStatusCmd_Existing(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "x.go"), []byte("package x\n"), 0644)
+	idx, _ := buildIndex(root)
+	saveIndex(idx)
+	setFileIndex(idx)
+	getOut := captureStdout(t)
+	if err := indexStatusCmd.RunE(indexStatusCmd, []string{root}); err != nil {
+		t.Fatalf("indexStatusCmd existing: %v", err)
+	}
+	buf := getOut()
+	if !strings.Contains(buf, "Index:") {
+		t.Fatalf("expected index status, got %q", buf)
+	}
+}
+
+func TestIndexWatchCmd_BuildNewIndex(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "x.go"), []byte("package x\n"), 0644)
+	oldInterval := indexWatchInterval
+	oldMax := indexWatchMaxIterations
+	indexWatchInterval = 0
+	indexWatchMaxIterations = 1
+	defer func() {
+		indexWatchInterval = oldInterval
+		indexWatchMaxIterations = oldMax
+	}()
+	if err := indexWatchCmd.RunE(indexWatchCmd, []string{root}); err != nil {
+		t.Fatalf("indexWatchCmd build: %v", err)
+	}
+}
+
+func TestIndexWatchCmd_RefreshExisting(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "x.go"), []byte("package x\n"), 0644)
+	idx, _ := buildIndex(root)
+	saveIndex(idx)
+	oldInterval := indexWatchInterval
+	oldMax := indexWatchMaxIterations
+	indexWatchInterval = 0
+	indexWatchMaxIterations = 1
+	defer func() {
+		indexWatchInterval = oldInterval
+		indexWatchMaxIterations = oldMax
+	}()
+	if err := indexWatchCmd.RunE(indexWatchCmd, []string{root}); err != nil {
+		t.Fatalf("indexWatchCmd refresh: %v", err)
+	}
+}
+
+func TestIndexClearCmd_Success(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "x.go"), []byte("package x\n"), 0644)
+	idx, _ := buildIndex(root)
+	saveIndex(idx)
+	if err := indexClearCmd.RunE(indexClearCmd, []string{root}); err != nil {
+		t.Fatalf("indexClearCmd: %v", err)
+	}
+}
+
+func TestIndexClearCmd_RemoveError(t *testing.T) {
+	root := t.TempDir()
+	os.WriteFile(filepath.Join(root, "x.go"), []byte("package x\n"), 0644)
+	idx, _ := buildIndex(root)
+	saveIndex(idx)
+	p := indexPath(root)
+	os.Remove(p)
+	os.Mkdir(p, 0755)
+	os.WriteFile(filepath.Join(p, "block"), []byte("x"), 0644)
+	defer os.RemoveAll(p)
+	if err := indexClearCmd.RunE(indexClearCmd, []string{root}); err == nil {
+		t.Fatal("expected error when index path is a non-empty directory")
 	}
 }

@@ -10,10 +10,13 @@ import (
 	"path/filepath"
 )
 
+// osExit is a test hook so PrintError can be tested without killing the process.
+var osExit = os.Exit
+
 // PrintError prints an error to stderr in a consistent format and exits with code 1.
 func PrintError(err error) {
 	fmt.Fprintf(os.Stderr, "sin-code: %v\n", err)
-	os.Exit(1)
+	osExit(1)
 }
 
 // lookupStandalone finds a standalone SIN-Code tool binary in common locations.
@@ -21,7 +24,7 @@ func PrintError(err error) {
 // Skips files that are copies of the current executable (prevents recursion
 // when standalone binaries have been replaced with copies of sin-code).
 func lookupStandalone(name string) (string, error) {
-	selfPath, selfErr := os.Executable()
+	selfPath, selfErr := osExecutable()
 	if selfErr != nil {
 		selfPath = ""
 	}

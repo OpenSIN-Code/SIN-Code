@@ -19,7 +19,17 @@ var (
 	pocSpec   string
 	pocCode   string
 	pocFormat string
+	pocWalk   = filepath.Walk // test hook for filepath.Walk errors
+	// pocExtractRequirementsCodeBlock is a test hook for the recursive code-block
+	// extraction step. It defaults to the real extractRequirements implementation.
+	pocExtractRequirementsCodeBlock func(content string) []requirement
 )
+
+func init() {
+	pocExtractRequirementsCodeBlock = func(content string) []requirement {
+		return extractRequirements(content)
+	}
+}
 
 var PocCmd = &cobra.Command{
 	Use:   "poc",
@@ -101,7 +111,7 @@ func verifyCorrectness(specPath, codePath string) (*pocResult, error) {
 		return nil, fmt.Errorf("cannot read code path: %w", err)
 	}
 	if info.IsDir() {
-		err := filepath.Walk(codePath, func(path string, info os.FileInfo, err error) error {
+		err := pocWalk(codePath, func(path string, info os.FileInfo, err error) error {
 			if err != nil || info.IsDir() {
 				return nil
 			}
@@ -339,7 +349,7 @@ func extractRequirements(content string) []requirement {
 	codeRe := regexp.MustCompile("```[a-z]*\n([^`]+)\n```")
 	for _, block := range codeRe.FindAllStringSubmatch(content, -1) {
 		if len(block) > 1 {
-			for _, req := range extractRequirements(block[1]) {
+			for _, req := range pocExtractRequirementsCodeBlock(block[1]) {
 				if !seen[req.Name] {
 					seen[req.Name] = true
 					reqs = append(reqs, req)
