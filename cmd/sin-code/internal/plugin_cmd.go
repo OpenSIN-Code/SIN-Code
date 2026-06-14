@@ -18,6 +18,8 @@ var (
 	pluginNameArg string
 	walkFn        = filepath.Walk
 	relFn         = filepath.Rel
+
+	loadPluginFn = loadPlugin
 )
 
 var PluginCmd = &cobra.Command{
@@ -99,7 +101,7 @@ var pluginInfoCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pluginNameArg = args[0]
-		p, err := loadPlugin(pluginNameArg)
+		p, err := loadPluginFn(pluginNameArg)
 		if err != nil {
 			return err
 		}
@@ -189,7 +191,7 @@ var pluginUninstallCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pluginNameArg = args[0]
-		p, err := loadPlugin(pluginNameArg)
+		p, err := loadPluginFn(pluginNameArg)
 		if err != nil {
 			return err
 		}
@@ -207,7 +209,7 @@ var pluginEnableCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pluginNameArg = args[0]
-		p, err := loadPlugin(pluginNameArg)
+		p, err := loadPluginFn(pluginNameArg)
 		if err != nil {
 			return err
 		}
@@ -225,7 +227,7 @@ var pluginDisableCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		pluginNameArg = args[0]
-		p, err := loadPlugin(pluginNameArg)
+		p, err := loadPluginFn(pluginNameArg)
 		if err != nil {
 			return err
 		}

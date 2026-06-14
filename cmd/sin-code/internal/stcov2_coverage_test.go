@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lsp"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 )
 
 type stcov2ErrorReader struct{}
@@ -1107,6 +1109,33 @@ func TestLspServersCmd_NoServers_stcov2(t *testing.T) {
 	if !strings.Contains(out, "no LSP servers") {
 		t.Errorf("expected no servers message, got %q", out)
 	}
+}
+
+func TestIndexCmd_AbsPathError_stcov2(t *testing.T) {
+	orig := indexAbsPath
+	indexAbsPath = func(path string) (string, error) { return "", errors.New("abs error") }
+	defer func() { indexAbsPath = orig }()
+	_ = indexBuildCmd.RunE(indexBuildCmd, []string{"."})
+	_ = indexRefreshCmd.RunE(indexRefreshCmd, []string{"."})
+	_ = indexStatusCmd.RunE(indexStatusCmd, []string{"."})
+	_ = indexWatchCmd.RunE(indexWatchCmd, []string{"."})
+	_ = indexClearCmd.RunE(indexClearCmd, []string{"."})
+}
+
+func TestMemoryCmd_OpenStoreError_stcov2(t *testing.T) {
+	orig := openMemoryStoreFn
+	openMemoryStoreFn = func() (*memory.Store, error) { return nil, errors.New("store error") }
+	defer func() { openMemoryStoreFn = orig }()
+	_ = memAddCmd.RunE(memAddCmd, []string{"insight"})
+	_ = memListCmd.RunE(memListCmd, nil)
+	_ = memShowCmd.RunE(memShowCmd, []string{"id"})
+	_ = memSearchCmd.RunE(memSearchCmd, []string{"query"})
+	_ = memLinkCmd.RunE(memLinkCmd, []string{"a", "b"})
+	_ = memUnlinkCmd.RunE(memUnlinkCmd, []string{"a", "b"})
+	_ = memGraphCmd.RunE(memGraphCmd, []string{"id"})
+	_ = memPrimeCmd.RunE(memPrimeCmd, []string{"query"})
+	_ = memForgetCmd.RunE(memForgetCmd, []string{"id"})
+	_ = memStatsCmd.RunE(memStatsCmd, nil)
 }
 
 func TestHarvestURLFetch_BodyReadError_stcov2(t *testing.T) {

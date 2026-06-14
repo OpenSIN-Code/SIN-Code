@@ -11,6 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var indexAbsPath = filepath.Abs
+
 var IndexCmd = &cobra.Command{
 	Use:   "index",
 	Short: "Manage persistent incremental code index",
@@ -36,7 +38,7 @@ var indexBuildCmd = &cobra.Command{
 		if len(args) > 0 {
 			root = args[0]
 		}
-		root, err := filepath.Abs(root)
+		root, err := indexAbsPath(root)
 		if err != nil {
 			return err
 		}
@@ -62,7 +64,7 @@ var indexRefreshCmd = &cobra.Command{
 		if len(args) > 0 {
 			root = args[0]
 		}
-		root, err := filepath.Abs(root)
+		root, err := indexAbsPath(root)
 		if err != nil {
 			return err
 		}
@@ -96,7 +98,7 @@ var indexStatusCmd = &cobra.Command{
 		if len(args) > 0 {
 			root = args[0]
 		}
-		root, err := filepath.Abs(root)
+		root, err := indexAbsPath(root)
 		if err != nil {
 			return err
 		}
@@ -131,7 +133,7 @@ var indexWatchCmd = &cobra.Command{
 		if len(args) > 0 {
 			root = args[0]
 		}
-		root, err := filepath.Abs(root)
+		root, err := indexAbsPath(root)
 		if err != nil {
 			return err
 		}
@@ -172,7 +174,7 @@ var indexClearCmd = &cobra.Command{
 		if len(args) > 0 {
 			root = args[0]
 		}
-		root, err := filepath.Abs(root)
+		root, err := indexAbsPath(root)
 		if err != nil {
 			return err
 		}
