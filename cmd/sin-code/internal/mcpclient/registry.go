@@ -27,7 +27,8 @@ func DefaultServers() []ServerConfig {
 		return cfg
 	}
 	return []ServerConfig{
-		py("SIN-Code-Websearch-Skill"),
+		// web_search_bundle is the Go-native successor to SIN-Code-Websearch-Skill.
+		{Name: "websearch", Transport: "stdio", Command: "sin-websearch", Args: []string{"serve"}},
 		py("SIN-Code-Scheduler-Skill"),
 		py("SIN-Code-Goal-Mode-Skill"),
 		py("SIN-Code-Grill-Me-Skill"),
@@ -45,6 +46,7 @@ func DefaultServers() []ServerConfig {
 
 func shortName(repo string) string {
 	m := map[string]string{
+		"web_search_bundle":                 "websearch",
 		"SIN-Code-Websearch-Skill":          "websearch",
 		"SIN-Code-Scheduler-Skill":          "scheduler",
 		"SIN-Code-Goal-Mode-Skill":          "goalmode",

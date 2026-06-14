@@ -193,7 +193,7 @@ sin-code vane search "tradeoffs of LRU vs 2-tier cooldown"
 | Tool | Upstream | Bridge | License | Status |
 |---|---|---|---|---|
 | Vane | ItzCrazyKns/Vane | HTTP (internal/vane) | MIT | ACTIVE |
-| Websearch | SIN-Code-Websearch-Skill | MCP `websearch__*` | MIT | ACTIVE |
+| Websearch | [OpenSIN-Code/web_search_bundle](https://github.com/OpenSIN-Code/web_search_bundle) | MCP `websearch__*` | MIT | ACTIVE |
 | Symfony-Lens | sin-code-symfony-lens | MCP `symfonylens__*` | MIT | ACTIVE |
 
 **Bridged-External** means: SIN-Code never vendors the upstream code; it

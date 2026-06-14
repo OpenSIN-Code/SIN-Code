@@ -17,7 +17,7 @@ SIN-Code-Review-Interface==main
 SIN-Code-WebUI-v2==main
 
 # MCP skill servers (loaded via internal/mcpclient/registry.go)
-SIN-Code-Websearch-Skill==main
+web_search_bundle==main
 SIN-Code-Scheduler-Skill==main
 SIN-Code-Goal-Mode-Skill==main
 SIN-Code-Grill-Me-Skill==main

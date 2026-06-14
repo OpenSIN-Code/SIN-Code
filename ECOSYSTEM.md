@@ -32,7 +32,7 @@
 
 | Repo | Server name / tool prefix | Default policy | Status |
 |---|---|---|---|
-| SIN-Code-Websearch-Skill | `websearch__*` | allow | ACTIVE |
+| web_search_bundle | `websearch__*` | allow | ACTIVE |
 | vane (bridged, never vendored) | `vane__*` | allow | ACTIVE |
 | SIN-Code-Context-Bridge-Skill | `contextbridge__*` | allow | ACTIVE |
 | Simone-MCP | `simone__*` | allow | ACTIVE |
