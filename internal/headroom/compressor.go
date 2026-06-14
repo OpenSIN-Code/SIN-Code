@@ -13,8 +13,21 @@ type Compressor struct {
 	config   Config
 	mode     Mode
 	cliCli   *CLIClient
+	mcpCli   *MCPClient
+	lessons  *LessonStore
 	enabled  bool
 	stats    atomic.Value // stores *Stats
+}
+
+// SetLessonStore attaches a lesson store so that LearnFromFailure persists
+// structured lessons in addition to forwarding to the headroom backend.
+func (c *Compressor) SetLessonStore(store *LessonStore) {
+	c.lessons = store
+}
+
+// Lessons returns the attached lesson store (may be nil).
+func (c *Compressor) Lessons() *LessonStore {
+	return c.lessons
 }
 
 // NewCompressor creates a compressor based on config.
@@ -37,9 +50,12 @@ func (c *Compressor) Start(ctx context.Context) error {
 
 	switch c.mode {
 	case ModeMCP:
-		// MCP mode would require MCP SDK; for now, fallback to CLI
-		c.mode = ModeCLI
-		return c.startCLI(ctx)
+		if err := c.startMCP(ctx); err != nil {
+			// Fall back to CLI if the MCP server cannot be started.
+			c.mode = ModeCLI
+			return c.startCLI(ctx)
+		}
+		return nil
 	case ModeCLI:
 		return c.startCLI(ctx)
 	case ModeProxy:
@@ -48,6 +64,15 @@ func (c *Compressor) Start(ctx context.Context) error {
 	default:
 		return fmt.Errorf("unknown headroom mode: %s", c.mode)
 	}
+}
+
+func (c *Compressor) startMCP(ctx context.Context) error {
+	c.mcpCli = NewMCPClient(c.config)
+	if err := c.mcpCli.Start(ctx); err != nil {
+		c.mcpCli = nil
+		return fmt.Errorf("headroom MCP start failed: %w", err)
+	}
+	return nil
 }
 
 func (c *Compressor) startCLI(ctx context.Context) error {
@@ -69,6 +94,11 @@ func (c *Compressor) CompressContent(ctx context.Context, content string) (strin
 	var err error
 
 	switch c.mode {
+	case ModeMCP:
+		if c.mcpCli == nil {
+			return content, nil, fmt.Errorf("MCP client not initialized")
+		}
+		result, err = c.mcpCli.Compress(ctx, content)
 	case ModeCLI:
 		if c.cliCli == nil {
 			return content, nil, fmt.Errorf("CLI client not initialized")
@@ -95,17 +125,44 @@ func (c *Compressor) CompressContent(ctx context.Context, content string) (strin
 	return result.CompressedContent, result, nil
 }
 
-// LearnFromFailure sends a failed session log to headroom learn.
+// LearnFromFailure sends a failed session log to headroom learn and, when a
+// lesson store is attached, records a structured lesson for future runs.
 func (c *Compressor) LearnFromFailure(ctx context.Context, sessionLog string) error {
 	if !c.enabled || !c.config.LearnFromFailures {
 		return nil
 	}
+
+	// Persist a structured lesson locally regardless of backend availability.
+	if c.lessons != nil && sessionLog != "" {
+		c.lessons.Record("failure", truncatePattern(sessionLog), "session failed; preserve related context", 0.8)
+		if err := c.lessons.Save(); err != nil {
+			return fmt.Errorf("saving lesson: %w", err)
+		}
+	}
+
 	switch c.mode {
+	case ModeMCP:
+		if c.mcpCli != nil {
+			return c.mcpCli.Learn(ctx, sessionLog)
+		}
+		return nil
 	case ModeCLI:
-		return c.cliCli.Learn(ctx, sessionLog)
+		if c.cliCli != nil {
+			return c.cliCli.Learn(ctx, sessionLog)
+		}
+		return nil
 	default:
 		return nil
 	}
+}
+
+// truncatePattern keeps lesson patterns compact so the store stays small.
+func truncatePattern(s string) string {
+	const max = 280
+	if len(s) <= max {
+		return s
+	}
+	return s[:max]
 }
 
 // GetStats returns current headroom statistics.
@@ -134,5 +191,8 @@ func (c *Compressor) updateStats(res *CompressionResult) {
 
 // Close cleans up resources.
 func (c *Compressor) Close() error {
+	if c.mcpCli != nil {
+		return c.mcpCli.Close()
+	}
 	return nil
 }
