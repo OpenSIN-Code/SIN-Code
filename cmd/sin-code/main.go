@@ -79,7 +79,7 @@ func init() {
 	rootCmd.AddCommand(NewChatCmd(), NewSessionsCmd(), NewMCPCmd(),
 		NewGoalCmd(), NewDaemonCmd(), NewSkillCmd(), NewSwarmCmd(), NewSuperpowersCmd(), NewDoxCmd(),
 		NewVaneCmd(), NewStackCmd(), NewGhCmd(), NewHubCmd(),
-		NewLedgerCmd(), NewSummaryCmd(), // v3.4.0 + v3.5.0 autonomy suite + v3.6.0 swarm + v3.7.0 superpowers + v3.7.0 dox + v3.8.0 vane + v3.8.0 stack + v3.9.0 gh + v3.12.0 hub + v3.13.0 ledger/summary
+		NewLedgerCmd(), NewSummaryCmd(), NewAutodevCmd(), // v3.4.0 + v3.5.0 + v3.6.0 + v3.7.0 + v3.8.0 + v3.9.0 + v3.12.0 + v3.13.0 + autodev-bridge (Python MIT v0.4.0, stdio MCP via autodev-mcp)
 	)
 
 	// Pass build-time version to self-update module.

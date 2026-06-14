@@ -40,6 +40,9 @@ func DefaultServers() []ServerConfig {
 		py("SIN-Browser-Tools"),
 		py("Simone-MCP"),
 		py("SIN-Code-Symfony-Lens"),
+
+		// External MCP server (Python stdio) — autodev-cli v0.4.0 (Bridged-External, never vendored)
+		{Name: "autodev", Transport: "stdio", Command: "autodev-mcp"},
 	}
 }
 

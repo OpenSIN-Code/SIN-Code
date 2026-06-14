@@ -29,6 +29,7 @@ SIN-Code-Frontend-Design-Skill==main
 SIN-Code-MCP-Server-Builder-Skill==main
 SIN-Browser-Tools==main
 Simone-MCP==main
+OpenSIN-Code/autodev-cli @ git+https://github.com/OpenSIN-Code/autodev-cli@v0.4.0
 
 # LLM backends
 coder-SIN-Qwen==main

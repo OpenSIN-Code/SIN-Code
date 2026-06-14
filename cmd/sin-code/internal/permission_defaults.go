@@ -43,6 +43,19 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "sin_bash", Policy: "ask"},
 		{Tool: "sin_sbom_generate", Policy: "allow"},
 		{Tool: "sin_security_scan", Policy: "allow"},
+
+
+		// v3.16.0: autodev-cli bridge (Bridged-External + autodev-mcp stdio MCP).
+		// Qualified name = server-name + "__" + tool-name (registry.go "autodev" + autodev-mcp tools).
+		// Split mirrors the gh precedent at lines 40-42: read-only -> allow, mutating -> ask (M4).
+		{Tool: "autodev__status", Policy: "allow"},
+		{Tool: "autodev__lessons", Policy: "allow"},
+		{Tool: "autodev__init", Policy: "ask"},
+		{Tool: "autodev__run_experiment", Policy: "ask"},
+		{Tool: "autodev__swarm", Policy: "ask"},
+		{Tool: "autodev__session_log", Policy: "ask"},
+		// Backstop catch-all (mirrors sin_bash default at line 44 for unmatched prefixes).
+		{Tool: "autodev__*", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},
 	}
 }

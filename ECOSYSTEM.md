@@ -47,6 +47,7 @@
 | SIN-Browser-Tools | `browser__*` (106 tools) | ask | ACTIVE |
 | GitHub CLI (gh) | `gh_query`, `gh_health`, `gh_execute` | allow / allow / ask (M4) | ACTIVE |
 
+| [OpenSIN-Code/autodev-cli](https://github.com/OpenSIN-Code/autodev-cli) | `autodev__*` (e.g. `autodev_status`, `autodev_lessons`, `autodev_init`, `autodev_run_experiment`, `autodev_swarm`, `autodev_session_log`) | allow (read-only) + ask (mutating) — split M4 policy |
 ## LLM Backends
 
 | Repo | Integration | Status |
