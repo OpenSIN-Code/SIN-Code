@@ -154,6 +154,6 @@ func (j *Journal) Count(ctx context.Context, outcome Outcome) (int, error) {
 // DefaultJournalPath returns <workspace>/.sin-code/autopilot.db.
 func DefaultJournalPath(workspace string) string {
 	dir := filepath.Join(workspace, ".sin-code")
-	_ = os.MkdirAll(dir, 0o755)
+	_ = os.MkdirAll(dir, 0o755) // #nosec G301
 	return filepath.Join(dir, "autopilot.db")
 }

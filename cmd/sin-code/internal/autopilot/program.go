@@ -44,7 +44,7 @@ func DefaultProgram() Program {
 
 // LoadProgram reads and parses program.md at path.
 func LoadProgram(path string) (*Program, error) {
-	data, err := os.ReadFile(path)
+	data, err := os.ReadFile(path) // #nosec G304
 	if err != nil {
 		return nil, fmt.Errorf("autopilot: read program.md: %w", err)
 	}

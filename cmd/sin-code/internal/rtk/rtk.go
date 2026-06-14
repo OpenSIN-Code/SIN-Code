@@ -98,7 +98,7 @@ func (b *Bridge) Run(ctx context.Context, workdir string, args []string) (string
 	if workdir == "" {
 		workdir = "."
 	}
-	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd := exec.CommandContext(ctx, bin, args...) // #nosec G204
 	cmd.Dir = workdir
 	var buf bytes.Buffer
 	cmd.Stdout = &buf

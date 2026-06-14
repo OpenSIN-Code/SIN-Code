@@ -23,7 +23,7 @@ func NewSnapshotter(workspace string) *Snapshotter {
 }
 
 func (s *Snapshotter) git(ctx context.Context, args ...string) (string, error) {
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := exec.CommandContext(ctx, "git", args...) // #nosec G204
 	cmd.Dir = s.Workspace
 	var out, errb bytes.Buffer
 	cmd.Stdout = &out

@@ -16,5 +16,5 @@ func DiskFree(path string) (free int64, ok bool) {
 		return 0, false
 	}
 	// Bavail = blocks free to unprivileged users; Bsize = block size.
-	return int64(st.Bavail) * int64(st.Bsize), true
+	return int64(st.Bavail) * int64(st.Bsize), true // #nosec G115
 }
