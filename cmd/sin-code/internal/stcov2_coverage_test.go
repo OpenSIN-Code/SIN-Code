@@ -4,15 +4,27 @@ package internal
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
+
+type stcov2ErrorReader struct{}
+
+func (stcov2ErrorReader) Read(p []byte) (int, error) { return 0, errors.New("read body error") }
+
+type stcov2RoundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f stcov2RoundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }
 
 func TestValidateSyntax_Markdown_stcov2(t *testing.T) {
 	if err := validateSyntax("readme.md", "# Hello"); err != nil {
@@ -855,5 +867,177 @@ func TestMapArchitecture_ModulesSorted_stcov2(t *testing.T) {
 	}
 	if result.Modules[0].Files < result.Modules[1].Files {
 		t.Errorf("modules not sorted by file count: %v", result.Modules)
+	}
+}
+
+func TestEvaluateIntent_ScoreFloorBranch_stcov2(t *testing.T) {
+	_, score := evaluateIntent("add remove", nil, nil, nil, nil)
+	if score != 0 {
+		t.Errorf("expected score floored to 0, got %d", score)
+	}
+}
+
+func TestDiscoverCmd_AbsPathError_stcov2(t *testing.T) {
+	orig := discoverAbsPath
+	discoverAbsPath = func(path string) (string, error) { return "", errors.New("abs error") }
+	defer func() { discoverAbsPath = orig }()
+	cmd := DiscoverCmd
+	cmd.SetArgs([]string{".", "--format", "json"})
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "abs error") {
+		t.Fatalf("expected abs error, got %v", err)
+	}
+}
+
+func TestDiscoverFiles_WalkError_stcov2(t *testing.T) {
+	orig := discoverWalk
+	discoverWalk = func(root string, fn filepath.WalkFunc) error { return errors.New("walk error") }
+	defer func() { discoverWalk = orig }()
+	if _, err := discoverFiles(".", "*", 100); err == nil || !strings.Contains(err.Error(), "walk error") {
+		t.Fatalf("expected walk error, got %v", err)
+	}
+}
+
+func TestMapCmd_AbsPathError_stcov2(t *testing.T) {
+	orig := mapAbsPath
+	mapAbsPath = func(path string) (string, error) { return "", errors.New("abs error") }
+	defer func() { mapAbsPath = orig }()
+	cmd := MapCmd
+	cmd.SetArgs([]string{".", "--format", "json"})
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "abs error") {
+		t.Fatalf("expected abs error, got %v", err)
+	}
+}
+
+func TestMapArchitecture_WalkError_stcov2(t *testing.T) {
+	orig := mapWalk
+	mapWalk = func(root string, fn filepath.WalkFunc) error { return errors.New("walk error") }
+	defer func() { mapWalk = orig }()
+	if _, err := mapArchitecture(".", "map"); err == nil || !strings.Contains(err.Error(), "walk error") {
+		t.Fatalf("expected walk error, got %v", err)
+	}
+}
+
+func TestReadCmd_AbsPathError_stcov2(t *testing.T) {
+	orig := readAbsPath
+	readAbsPath = func(path string) (string, error) { return "", errors.New("abs error") }
+	defer func() { readAbsPath = orig }()
+	cmd := ReadCmd
+	cmd.SetArgs([]string{"foo.txt"})
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "abs error") {
+		t.Fatalf("expected abs error, got %v", err)
+	}
+}
+
+func TestRunCommand_WindowsShell_stcov2(t *testing.T) {
+	orig := execIsWindows
+	execIsWindows = func() bool { return true }
+	defer func() { execIsWindows = orig }()
+	origRun := execRunCommand
+	execRunCommand = func(c *exec.Cmd) error {
+		if c.Path != "cmd" {
+			t.Errorf("expected cmd on windows, got %s", c.Path)
+		}
+		return nil
+	}
+	defer func() { execRunCommand = origRun }()
+	if err := runCommand("echo hi", 0, "json", false); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRunCommand_TimeoutNonExitError_stcov2(t *testing.T) {
+	origTimeout := execTimeoutDuration
+	execTimeoutDuration = func(timeout int) time.Duration { return time.Nanosecond }
+	defer func() { execTimeoutDuration = origTimeout }()
+	origNewContext := execNewContext
+	execNewContext = func(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+		return context.WithTimeout(ctx, timeout)
+	}
+	defer func() { execNewContext = origNewContext }()
+	origRun := execRunCommand
+	execRunCommand = func(c *exec.Cmd) error {
+		time.Sleep(2 * time.Millisecond)
+		return context.DeadlineExceeded
+	}
+	defer func() { execRunCommand = origRun }()
+	if err := runCommand("echo hi", 1, "json", false); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+}
+
+func TestRunCommand_StreamError_stcov2(t *testing.T) {
+	origRun := execRunCommand
+	execRunCommand = func(c *exec.Cmd) error { return errors.New("boom") }
+	defer func() { execRunCommand = origRun }()
+	if err := runCommand("echo hi", 0, "json", true); err != nil {
+		t.Fatalf("expected nil in stream mode, got %v", err)
+	}
+}
+
+func TestHarvestURLFetch_BodyReadError_stcov2(t *testing.T) {
+	orig := harvestHTTPClient
+	harvestHTTPClient = func(timeout int) *http.Client {
+		return &http.Client{
+			Transport: stcov2RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: 200,
+					Status:     "200 OK",
+					Body:       io.NopCloser(stcov2ErrorReader{}),
+					Header:     http.Header{},
+				}, nil
+			}),
+		}
+	}
+	defer func() { harvestHTTPClient = orig }()
+	if err := harvestURLFetch("http://example.com", "GET", 30, "json"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestBuildOutlineResult_MarshalError_stcov2(t *testing.T) {
+	orig := buildOutlineMarshal
+	buildOutlineMarshal = func(v any) ([]byte, error) { return nil, errors.New("marshal error") }
+	defer func() { buildOutlineMarshal = orig }()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.go")
+	os.WriteFile(path, []byte("package x\n"), 0644)
+	res, err := readFile(path, "outline", 1, 2000, 1<<20)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(res.Content, "marshal error") {
+		t.Errorf("expected marshal error in content, got %q", res.Content)
+	}
+}
+
+func TestSigOf_OutOfRange_stcov2(t *testing.T) {
+	lines := []string{"line1", "line2"}
+	if got := sigOf(lines, 0); got != "" {
+		t.Errorf("expected empty for start 0, got %q", got)
+	}
+	if got := sigOf(lines, 3); got != "" {
+		t.Errorf("expected empty for start 3, got %q", got)
+	}
+}
+
+func TestIsGoEntryPoint_ChildrenRecursion_stcov2(t *testing.T) {
+	orig := isGoEntryPointParseOutline
+	isGoEntryPointParseOutline = func(path string, data []byte) *FileOutline {
+		return &FileOutline{
+			Engine: "go/ast",
+			Symbols: []SymbolInfo{
+				{
+					Name: "Outer",
+					Kind: "struct",
+					Children: []SymbolInfo{
+						{Name: "main", Kind: "func"},
+					},
+				},
+			},
+		}
+	}
+	defer func() { isGoEntryPointParseOutline = orig }()
+	if !isGoEntryPoint("x.go", []byte("package main")) {
+		t.Fatal("expected isGoEntryPoint to find main in children")
 	}
 }

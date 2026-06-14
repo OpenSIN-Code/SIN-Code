@@ -26,6 +26,11 @@ var (
 	discoverLimit   int
 )
 
+var (
+	discoverAbsPath = filepath.Abs
+	discoverWalk    = filepath.Walk
+)
+
 var DiscoverCmd = &cobra.Command{
 	Use:   "discover [path]",
 	Short: "Discover files with relevance scoring and pattern matching",
@@ -41,7 +46,7 @@ Example:
 		if len(args) > 0 {
 			path = args[0]
 		}
-		absPath, err := filepath.Abs(path)
+		absPath, err := discoverAbsPath(path)
 		if err != nil {
 			return fmt.Errorf("invalid path: %w", err)
 		}
@@ -86,7 +91,7 @@ func discoverFiles(root, pattern string, limit int) ([]fileResult, error) {
 
 	var results []fileResult
 	walked := 0
-	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err = discoverWalk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // skip errors
 		}

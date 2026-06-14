@@ -252,7 +252,7 @@ func evaluateIntent(intent string, added, removed, modified []symbolInfo, diff [
 		if len(added) > 0 {
 			score += 30
 		} else {
-			score -= 20
+			score -= 40
 		}
 	}
 
@@ -260,7 +260,7 @@ func evaluateIntent(intent string, added, removed, modified []symbolInfo, diff [
 		if len(removed) > 0 {
 			score += 30
 		} else {
-			score -= 20
+			score -= 40
 		}
 	}
 

@@ -19,6 +19,11 @@ var (
 	mapFormat string
 )
 
+var (
+	mapAbsPath = filepath.Abs
+	mapWalk    = filepath.Walk
+)
+
 var MapCmd = &cobra.Command{
 	Use:   "map [path]",
 	Short: "Map code architecture with dependency graphs and hot-path analysis",
@@ -34,7 +39,7 @@ Example:
 		if len(args) > 0 {
 			path = args[0]
 		}
-		absPath, err := filepath.Abs(path)
+		absPath, err := mapAbsPath(path)
 		if err != nil {
 			return fmt.Errorf("invalid path: %w", err)
 		}
@@ -107,7 +112,7 @@ func mapArchitecture(root, action string) (*mapResult, error) {
 	configFiles := 0
 	docs := 0
 
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	err := mapWalk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			if info != nil && info.IsDir() {
 				base := filepath.Base(path)
@@ -258,8 +263,10 @@ type fileInfo struct {
 	dir  string
 }
 
+var isGoEntryPointParseOutline = parseOutline
+
 func isGoEntryPoint(path string, data []byte) bool {
-	outline := parseOutline(path, data)
+	outline := isGoEntryPointParseOutline(path, data)
 	if outline == nil || outline.Engine == "none" {
 		return false
 	}
