@@ -193,6 +193,7 @@ func TestInitProvider_OTLP(t *testing.T) {
 		return nil, nil
 	}
 	defer func() { otlptracehttpNew = orig }()
+	t.Setenv("OTEL_EXPORTER_OTLP_HEADERS", "K=V")
 	_, err := InitProvider(context.Background(), &ProviderConfig{Exporter: ExporterOTLP, OTLPInsecure: true})
 	if err != nil {
 		t.Fatal(err)
