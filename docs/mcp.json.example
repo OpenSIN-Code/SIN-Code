@@ -2,8 +2,8 @@
   "mcpServers": {
     "websearch": {
       "transport": "stdio",
-      "command": "python3",
-      "args": ["${HOME}/skills/SIN-Code-Websearch-Skill/mcp_server.py"]
+      "command": "sin-websearch",
+      "args": ["serve"]
     },
     "browser": {
       "transport": "http",
