@@ -1,0 +1,27 @@
+{
+  "name": "sin-full-lifecycle",
+  "description": "Complete software delivery pipeline using SIN skills",
+  "steps": [
+    {
+      "skillName": "spec",
+      "on_failure": "abort",
+      "max_retries": 1,
+      "variables": {}
+    },
+    {
+      "skillName": "plan",
+      "on_failure": "abort",
+      "max_retries": 1,
+      "variables": {}
+    },
+    {
+      "skillName": "build",
+      "on_failure": "retry",
+      "max_retries": 3,
+      "variables": {}
+    }
+  ],
+  "on_success": "stop",
+  "on_failure": "abort",
+  "max_loops": 1
+}

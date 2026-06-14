@@ -1,0 +1,11 @@
+skills:
+  registry_path: "~/.sin/skills"
+  auto_upgrade: true
+  default_timeout_seconds: 300
+  allowed_skill_sources:
+    - "github.com/addyosmani/agent-skills"
+    - "github.com/OpenSIN-Code/sin-skills"
+  chain_default_max_loops: 3
+  logging:
+    level: info
+    file: "~/.sin/logs/skills.log"
