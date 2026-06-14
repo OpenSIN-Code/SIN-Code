@@ -4,7 +4,7 @@ Checks GitHub releases for a newer version of sin-code and installs it with auto
 
 ## What it does
 
-- **Queries the GitHub Releases API** for the latest version of `OpenSIN-Code/SIN-Code-Bundle`.
+- **Queries the GitHub Releases API** for the latest version of `OpenSIN-Code/SIN-Code`.
 - **Auto-detects platform** (`runtime.GOOS` + `runtime.GOARCH`) to select the correct asset.
 - **Downloads and extracts** the correct archive (`.tar.gz` for macOS/Linux, `.zip` for Windows).
 - **Backups the current binary** before replacement and restores it if the update fails.

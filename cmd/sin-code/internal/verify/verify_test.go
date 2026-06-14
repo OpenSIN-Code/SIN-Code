@@ -4,6 +4,8 @@ package verify
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -65,5 +67,18 @@ func TestSetModeOverride(t *testing.T) {
 	g.SetMode("garbage")
 	if g.Mode() != ModeOff {
 		t.Fatal("setmode must ignore invalid values")
+	}
+}
+
+func TestRunnerError(t *testing.T) {
+	g := NewGate("poc", func(ctx context.Context, ws string) (bool, string, error) {
+		return false, "", fmt.Errorf("simulated verifier failure")
+	}, nil)
+	res := g.Run(context.Background(), "/tmp")
+	if res.Passed {
+		t.Fatal("runner error must fail")
+	}
+	if !strings.Contains(res.Report, "simulated verifier failure") {
+		t.Fatalf("expected error report, got %q", res.Report)
 	}
 }

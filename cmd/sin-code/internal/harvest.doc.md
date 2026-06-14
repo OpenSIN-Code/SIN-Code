@@ -32,7 +32,7 @@ Fetches URLs with a local disk cache, structure extraction, change detection, an
 
 ```bash
 # Fetch an API endpoint with JSON output
-sin-code harvest --url https://api.github.com/repos/OpenSIN-Code/SIN-Code-Bundle --format json
+sin-code harvest --url https://api.github.com/repos/OpenSIN-Code/SIN-Code --format json
 
 # Check cache hit (run twice within 5 minutes)
 sin-code harvest --url https://example.com

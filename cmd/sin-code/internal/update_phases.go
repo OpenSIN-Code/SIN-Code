@@ -16,7 +16,6 @@ import (
 )
 
 var AllPythonPackages = []string{
-	"sin-code-bundle",
 	"sin-codocs", "sin-websearch", "sin-scheduler", "sin-goal-mode",
 	"sin-frontend-design", "sin-doc-coauthoring", "sin-slash", "sin-grill-me",
 	"sin-marketplace", "sin-mcp-server-builder", "sin-honcho-rollback",

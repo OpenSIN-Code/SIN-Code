@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -82,7 +83,14 @@ class WorktreeManager:
         wt_path = self.repo / ".sin-worktrees" / plan_id / task_id
         wt_path.parent.mkdir(parents=True, exist_ok=True)
         if wt_path.exists():
-            return Worktree(self.repo, wt_path, branch, self.base_branch)
+            # Crash recovery: a stale path left by an interrupted run must
+            # not be mistaken for a valid worktree. If .git is missing or not
+            # a file, remove the debris and recreate from base_branch.
+            if not (wt_path / ".git").is_file():
+                shutil.rmtree(wt_path, ignore_errors=True)
+                _git(self.repo, "branch", "-D", branch, check=False)
+            else:
+                return Worktree(self.repo, wt_path, branch, self.base_branch)
         _git(self.repo, "branch", "-f", branch, self.base_branch)
         _git(self.repo, "worktree", "add", str(wt_path), branch)
         return Worktree(self.repo, wt_path, branch, self.base_branch)

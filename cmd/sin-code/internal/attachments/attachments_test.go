@@ -5,10 +5,13 @@ package attachments
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDetectMIMEPNG(t *testing.T) {
@@ -242,5 +245,225 @@ func TestStorePrune(t *testing.T) {
 	_, err := s.Prune()
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestNewStoreDefaultDirError(t *testing.T) {
+	orig := osUserConfigDir
+	osUserConfigDir = func() (string, error) { return "", fmt.Errorf("no config dir") }
+	defer func() { osUserConfigDir = orig }()
+	if _, err := NewStore(); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestNewStoreMkdirAllError(t *testing.T) {
+	orig := osMkdirAll
+	osMkdirAll = func(string, os.FileMode) error { return fmt.Errorf("mkdir failed") }
+	defer func() { osMkdirAll = orig }()
+	if _, err := NewStoreAt(t.TempDir()); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestNewStoreMkdirAllError2(t *testing.T) {
+	origDir := osUserConfigDir
+	origMkdir := osMkdirAll
+	osUserConfigDir = func() (string, error) { return t.TempDir(), nil }
+	osMkdirAll = func(string, os.FileMode) error { return fmt.Errorf("mkdir failed") }
+	defer func() {
+		osUserConfigDir = origDir
+		osMkdirAll = origMkdir
+	}()
+	if _, err := NewStore(); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestNewStoreSuccess(t *testing.T) {
+	origDir := osUserConfigDir
+	origMkdir := osMkdirAll
+	osUserConfigDir = func() (string, error) { return t.TempDir(), nil }
+	osMkdirAll = origMkdir
+	defer func() {
+		osUserConfigDir = origDir
+		osMkdirAll = origMkdir
+	}()
+	s, err := NewStore()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.BaseDir() == "" {
+		t.Fatal("expected base dir")
+	}
+}
+
+func TestAttachTooLarge(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "big.txt")
+	_ = os.WriteFile(path, []byte("x"), 0o644)
+	s, _ := NewStoreAt(dir)
+	_, err := s.AttachReader(bytes.NewReader([]byte("x")), "big.txt", MaxSize+1)
+	if err != ErrTooLarge {
+		t.Fatalf("expected ErrTooLarge, got %v", err)
+	}
+}
+
+func TestAttachFileTooLarge(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "big.txt")
+	_ = os.WriteFile(path, bytes.Repeat([]byte("a"), MaxSize+1), 0o644)
+	s, _ := NewStoreAt(dir)
+	_, err := s.Attach(path)
+	if err != ErrTooLarge {
+		t.Fatalf("expected ErrTooLarge, got %v", err)
+	}
+}
+
+func TestAttachOpenError(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStoreAt(dir)
+	orig := osOpen
+	osOpen = func(string) (*os.File, error) { return nil, fmt.Errorf("open error") }
+	defer func() { osOpen = orig }()
+	path := filepath.Join(dir, "x.txt")
+	_ = os.WriteFile(path, []byte("x"), 0o644)
+	if _, err := s.Attach(path); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestAttachReaderReadAllError(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStoreAt(dir)
+	orig := osReadAllHook
+	osReadAllHook = func(io.Reader) ([]byte, error) { return nil, fmt.Errorf("read error") }
+	defer func() { osReadAllHook = orig }()
+	if _, err := s.AttachReader(bytes.NewReader([]byte("x")), "x.txt", 1); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestAttachReaderMkdirAllError(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStoreAt(dir)
+	orig := osMkdirAll
+	osMkdirAll = func(string, os.FileMode) error { return fmt.Errorf("mkdir error") }
+	defer func() { osMkdirAll = orig }()
+	if _, err := s.AttachReader(bytes.NewReader([]byte("x")), "x.txt", 1); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestAttachReaderWriteFileError(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStoreAt(dir)
+	orig := osWriteFileHook
+	osWriteFileHook = func(string, []byte, os.FileMode) error { return fmt.Errorf("write error") }
+	defer func() { osWriteFileHook = orig }()
+	if _, err := s.AttachReader(bytes.NewReader([]byte("x")), "x.txt", 1); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestGetNotFound(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStoreAt(dir)
+	if _, err := s.Get("aabbccdd"); err != ErrNotFound {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestGetInfoError(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStoreAt(dir)
+	hash := "aa" + strings.Repeat("0", 62)
+	orig := osReadDir
+	osReadDir = func(string) ([]os.DirEntry, error) {
+		return []os.DirEntry{infoErrEntry(hash + "_link")}, nil
+	}
+	defer func() { osReadDir = orig }()
+	_, err := s.Get(hash)
+	if err != ErrNotFound {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+type infoErrEntry string
+
+func (e infoErrEntry) Name() string                { return string(e) }
+func (e infoErrEntry) IsDir() bool                 { return false }
+func (e infoErrEntry) Type() os.FileMode           { return 0 }
+func (e infoErrEntry) Info() (os.FileInfo, error)  { return nil, fmt.Errorf("info error") }
+func (e infoErrEntry) String() string              { return string(e) }
+
+func TestGetPrefixMismatch(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStoreAt(dir)
+	targetDir := filepath.Join(dir, "aa")
+	_ = os.MkdirAll(targetDir, 0o755)
+	_ = os.WriteFile(filepath.Join(targetDir, "bb_"), []byte("x"), 0o644)
+	if _, err := s.Get("aa"); err != ErrNotFound {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestPruneExpired(t *testing.T) {
+	dir := t.TempDir()
+	s, _ := NewStoreAt(dir)
+	copyPath := filepath.Join(s.BaseDir(), "aa", "old.txt")
+	_ = os.MkdirAll(filepath.Dir(copyPath), 0o755)
+	_ = os.WriteFile(copyPath, []byte("old"), 0o644)
+	oldTime := time.Now().UTC().Add(-DefaultExpiry - time.Hour)
+	_ = os.Chtimes(copyPath, oldTime, oldTime)
+	n, err := s.Prune()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("expected 1 pruned, got %d", n)
+	}
+}
+
+func TestDetectMIMEUnknownWithExt(t *testing.T) {
+	if got := detectMIME([]byte{0xFF, 0xFE, 0, 0}, "x.bin"); got != "application/octet-stream" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestDetectMIMEUnknownNoExt(t *testing.T) {
+	if got := detectMIME([]byte{0xFF, 0xFE, 0, 0}, ""); got != "application/octet-stream" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestExtForTextFromName(t *testing.T) {
+	if got := extFor("text/plain", "data.md"); got != ".md" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestExtForUnknown(t *testing.T) {
+	if got := extFor("application/x-custom", "data.bin"); got != ".bin" {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestIsLikelyTextLong(t *testing.T) {
+	if !isLikelyText(bytes.Repeat([]byte("a"), 9000)) {
+		t.Error("long ascii should be text")
+	}
+}
+
+func TestIsLikelyTextControlChar(t *testing.T) {
+	if isLikelyText([]byte{0x01}) {
+		t.Error("control char should be binary")
+	}
+}
+
+func TestAttachmentMarkerDefault(t *testing.T) {
+	a := &Attachment{Name: "x", MIME: "application/x", Hash: "h", Size: 1}
+	if got := a.Marker(); !strings.Contains(got, "file:") {
+		t.Errorf("got %q", got)
 	}
 }

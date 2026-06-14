@@ -31,7 +31,14 @@ def apply_resolutions(plan: Plan, ledger: Ledger | None = None) -> dict:
     aborted = False
 
     for res in broker.pending_resolutions(plan.id):
-        action = ActionType(res["action"])
+        try:
+            action = ActionType(res["action"])
+        except ValueError:
+            # Corrupt resolution entry: skip it rather than crashing the
+            # resume path. A synthetic event lets operators investigate.
+            ledger.emit(plan.id, res.get("task_id", "*"),
+                        "ledger:corrupt_resolution", {"res": res})
+            continue
         task_id = res["task_id"]
         eid = res["escalation_id"]
 

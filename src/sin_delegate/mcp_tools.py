@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-"""MCP tool surface — registers 4 tools on the unified sin-serve server.
+"""MCP tool surface — registers 6 tools on the unified sin-serve server.
 
 register(add_tool) follows the SIN-Code Bundle plugin contract.
 """
@@ -7,13 +7,12 @@ register(add_tool) follows the SIN-Code Bundle plugin contract.
 from __future__ import annotations
 
 import json
-from typing import Any, Callable
+from typing import Callable
 
 from .engine import Delegator
 from .escalation import EscalationBroker
 from .ledger import Ledger
 from .planfile import plan_from_dict
-
 
 _PLAN_SCHEMA = {
     "type": "object",
@@ -29,48 +28,81 @@ _PLAN_SCHEMA = {
 
 
 async def _tool_delegate(args: dict) -> dict:
-    data = json.loads(args["plan"]) if isinstance(args["plan"], str) \
-        else args["plan"]
-    if isinstance(data, dict) and "tasks" in data:
-        specs = data["tasks"]
-    else:
-        specs = data
-    plan = plan_from_dict(
-        {"goal": data.get("goal", "mcp-task"),
-         "base_branch": data.get("base_branch", "main"),
-         "tasks": specs},
-        repo=args.get("repo", "."))
-    dele = Delegator(plan, max_parallel=int(args.get("parallel", 4)),
+    plan_arg = args.get("plan")
+    if not plan_arg:
+        return {"error": "missing required field 'plan'"}
+    try:
+        data = json.loads(plan_arg) if isinstance(plan_arg, str) else plan_arg
+    except json.JSONDecodeError as e:
+        return {"error": f"plan is not valid JSON: {e}"}
+    if not isinstance(data, dict) or "tasks" not in data:
+        return {"error": "plan must be an object with a 'tasks' list"}
+    try:
+        parallel = int(args.get("parallel", 4))
+    except (TypeError, ValueError) as e:
+        return {"error": f"'parallel' must be an integer: {e}"}
+    try:
+        plan = plan_from_dict(
+            {"goal": data.get("goal", "mcp-task"),
+             "base_branch": data.get("base_branch", "main"),
+             "tasks": data["tasks"]},
+            repo=args.get("repo", "."))
+    except Exception as e:
+        return {"error": f"invalid plan: {type(e).__name__}: {e}"}
+    dele = Delegator(plan, max_parallel=parallel,
                      dry_run=bool(args.get("dry_run", False)))
     result = await dele.run()
     return json.loads(result.to_json())
 
 
+def _plan_id(args: dict) -> str | dict:
+    pid = args.get("plan_id")
+    if not pid:
+        return {"error": "missing required field 'plan_id'"}
+    return pid
+
+
 async def _tool_status(args: dict) -> dict:
-    states = Ledger().task_states(args["plan_id"])
-    return {"plan_id": args["plan_id"],
+    pid = _plan_id(args)
+    if isinstance(pid, dict):
+        return pid
+    states = Ledger().task_states(pid)
+    return {"plan_id": pid,
             "states": {k: v.value for k, v in states.items()}}
 
 
 async def _tool_history(args: dict) -> dict:
-    return {"plan_id": args["plan_id"],
-            "events": Ledger().history(args["plan_id"])}
+    pid = _plan_id(args)
+    if isinstance(pid, dict):
+        return pid
+    return {"plan_id": pid, "events": Ledger().history(pid)}
 
 
 async def _tool_cancel(args: dict) -> dict:
-    Ledger().emit(args["plan_id"], "*", "cancel:requested")
-    return {"plan_id": args["plan_id"], "cancelled": True}
+    pid = _plan_id(args)
+    if isinstance(pid, dict):
+        return pid
+    Ledger().emit(pid, "*", "cancel:requested")
+    return {"plan_id": pid, "cancelled": True}
 
 
 async def _tool_escalations(args: dict) -> dict:
-    return {"plan_id": args["plan_id"],
-            "escalations": EscalationBroker().open_escalations(
-                args["plan_id"])}
+    pid = _plan_id(args)
+    if isinstance(pid, dict):
+        return pid
+    return {"plan_id": pid,
+            "escalations": EscalationBroker().open_escalations(pid)}
 
 
 async def _tool_resolve(args: dict) -> dict:
+    pid = _plan_id(args)
+    if isinstance(pid, dict):
+        return pid
+    for field in ("escalation_id", "option_id"):
+        if not args.get(field):
+            return {"error": f"missing required field '{field}'"}
     return EscalationBroker().resolve(
-        args["plan_id"], args["escalation_id"], args["option_id"],
+        pid, args["escalation_id"], args["option_id"],
         user_input=args.get("input", ""), decided_by="parent_agent")
 
 

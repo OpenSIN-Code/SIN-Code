@@ -77,8 +77,9 @@ func TestUpdateAllPythonPackages_NotEmpty(t *testing.T) {
 	if len(AllPythonPackages) == 0 {
 		t.Error("AllPythonPackages should not be empty")
 	}
-	if AllPythonPackages[0] != "sin-code-bundle" {
-		t.Errorf("first package should be sin-code-bundle, got %s", AllPythonPackages[0])
+	// sin-code-bundle was removed in the ecosystem-cleanup.
+	if AllPythonPackages[0] == "sin-code-bundle" {
+		t.Errorf("sin-code-bundle must not be in AllPythonPackages, got it at index 0")
 	}
 }
 
@@ -185,8 +186,8 @@ func TestUpdateRunPythonPhase_WithFakePipx(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunPythonPhase with fake pipx failed: %v", err)
 	}
-	if res.Updated < 20 {
-		t.Errorf("expected at least 20 updated, got %d", res.Updated)
+	if res.Updated < 19 {
+		t.Errorf("expected at least 19 updated, got %d", res.Updated)
 	}
 	if res.Failed > 0 {
 		t.Errorf("unexpected failures: %v", res.Errors)
@@ -226,8 +227,8 @@ func TestUpdateRunPythonPhase_GsdFamily(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunPythonPhase failed: %v", err)
 	}
-	if res.Updated < 22 {
-		t.Errorf("expected at least 22 updated, got %d", res.Updated)
+	if res.Updated < 21 {
+		t.Errorf("expected at least 21 updated, got %d", res.Updated)
 	}
 }
 
