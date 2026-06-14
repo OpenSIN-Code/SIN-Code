@@ -541,6 +541,18 @@ func TestHandleScout_DefaultPath(t *testing.T) {
 	_ = result
 }
 
+func TestHandleScout_InvalidRoot(t *testing.T) {
+	setupServeTest(t)
+	f := filepath.Join(t.TempDir(), "notadir")
+	os.WriteFile(f, []byte("x"), 0o644)
+	_, err := handleScout(context.Background(), map[string]any{
+		"query": "x", "path": f, "search_type": "regex",
+	})
+	if err == nil {
+		t.Fatal("expected error when scout root is a file")
+	}
+}
+
 func TestHandleHarvest_HTTPServer(t *testing.T) {
 	setupServeTest(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -610,6 +622,17 @@ func TestHandleHarvest_InvalidURL(t *testing.T) {
 	if !strings.Contains(result, "ERROR") {
 		t.Errorf("expected ERROR in output for invalid URL, got: %s", result)
 	}
+}
+
+func TestRunSubcommand_BoolAndIntArgs(t *testing.T) {
+	setupServeTest(t)
+	_, err := runSubcommand(context.Background(), "harvest", map[string]any{
+		"url":     "http://localhost:1",
+		"timeout": float64(5),
+		"follow":  true,
+		"retries": 3,
+	})
+	_ = err
 }
 
 func TestHandleOrchestrate_List(t *testing.T) {
@@ -1118,6 +1141,19 @@ func TestHandlePoc_IntTypeArg(t *testing.T) {
 	result, err := handlePoc(ctx, map[string]any{
 		"code":  t.TempDir(),
 		"limit": int(42),
+	})
+	_ = result
+	_ = err
+}
+
+func TestHandlePoc_BoolAndFloat64Args(t *testing.T) {
+	setupServeTest(t)
+	ctx := context.Background()
+	result, err := handlePoc(ctx, map[string]any{
+		"code":     t.TempDir(),
+		"verbose":  true,
+		"ratio":    3.14,
+		"disabled": false,
 	})
 	_ = result
 	_ = err

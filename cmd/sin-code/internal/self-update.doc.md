@@ -15,6 +15,7 @@ Checks GitHub releases for a newer version of sin-code and installs it with auto
 
 - `cmd/sin-code/main.go` — registers `SelfUpdateCmd` and calls `internal.SetCurrentVersion(Version)` at init time; also calls `internal.CheckUpdateAvailable()` during daily update check
 - `cmd/sin-code/main.go` — `main.Version` is passed via `-ldflags` at build time and injected into `self-update` via `SetCurrentVersion`
+- `internal/self_update_test.go` — tests `runSelfUpdateWithDeps` with fake `selfUpdateDeps` to cover download/extract/backup/install paths without touching the real binary
 
 ## Important config values & limits
 
@@ -38,6 +39,15 @@ sin-code self-update --version
 # Build-time version injection (in CI/release pipeline)
 go build -ldflags "-X main.Version=1.0.4" -o sin-code ./cmd/sin-code
 ```
+
+## Internal architecture
+
+- `runSelfUpdate(dryRun)` is the public entry point. It delegates immediately to
+  `runSelfUpdateWithDeps(defaultSelfUpdateDeps(), dryRun)`.
+- `selfUpdateDeps` is a struct of all external dependencies (GitHub fetch, download,
+  extract, current binary path, rename/remove/chmod). This makes the install/backup/
+  restore logic unit-testable without replacing the real binary or hitting the
+  real network.
 
 ## Known caveats / footguns
 

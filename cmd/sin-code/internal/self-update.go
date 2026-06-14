@@ -100,12 +100,41 @@ func printVersionInfo() error {
 	return nil
 }
 
+// selfUpdateDeps abstracts all external dependencies of runSelfUpdate so
+// the install/backup/restore logic can be unit-tested without touching the
+// real binary or the network.
+type selfUpdateDeps struct {
+	fetchLatest   func() (*GitHubRelease, error)
+	downloadFile  func(url, path string) error
+	extractBinary func(archivePath, destDir string) (string, error)
+	currentBinary func() (string, error)
+	rename        func(oldpath, newpath string) error
+	remove        func(name string) error
+	chmod         func(name string, mode os.FileMode) error
+}
+
+func defaultSelfUpdateDeps() *selfUpdateDeps {
+	return &selfUpdateDeps{
+		fetchLatest:   fetchLatestRelease,
+		downloadFile:  downloadFile,
+		extractBinary: extractBinary,
+		currentBinary: os.Executable,
+		rename:        os.Rename,
+		remove:        os.Remove,
+		chmod:         os.Chmod,
+	}
+}
+
 func runSelfUpdate(dryRun bool) error {
+	return runSelfUpdateWithDeps(defaultSelfUpdateDeps(), dryRun)
+}
+
+func runSelfUpdateWithDeps(deps *selfUpdateDeps, dryRun bool) error {
 	fmt.Printf("🔍 Checking for updates...\n")
 	fmt.Printf("   Current version: %s\n", currentVersion)
 	fmt.Printf("   Platform: %s/%s\n\n", runtime.GOOS, runtime.GOARCH)
 
-	latest, err := fetchLatestRelease()
+	latest, err := deps.fetchLatest()
 	if err != nil {
 		return fmt.Errorf("failed to check for updates: %w", err)
 	}
@@ -145,7 +174,7 @@ func runSelfUpdate(dryRun bool) error {
 	fmt.Printf("   Downloading: %s\n", assetName)
 
 	// Download the archive.
-	binaryPath, err := os.Executable()
+	binaryPath, err := deps.currentBinary()
 	if err != nil {
 		return fmt.Errorf("cannot determine current binary path: %w", err)
 	}
@@ -154,39 +183,39 @@ func runSelfUpdate(dryRun bool) error {
 	tmpDir := os.TempDir()
 	archivePath := filepath.Join(tmpDir, assetName)
 
-	if err := downloadFile(assetURL, archivePath); err != nil {
+	if err := deps.downloadFile(assetURL, archivePath); err != nil {
 		return fmt.Errorf("download failed: %w", err)
 	}
-	defer os.Remove(archivePath)
+	defer deps.remove(archivePath)
 
 	fmt.Printf("   Extracting binary...\n")
 
 	// Extract binary from archive.
-	extractedBinary, err := extractBinary(archivePath, tmpDir)
+	extractedBinary, err := deps.extractBinary(archivePath, tmpDir)
 	if err != nil {
 		return fmt.Errorf("extraction failed: %w", err)
 	}
-	defer os.Remove(extractedBinary)
+	defer deps.remove(extractedBinary)
 
 	// Backup current binary.
-	if err := os.Rename(binaryPath, backupPath); err != nil {
+	if err := deps.rename(binaryPath, backupPath); err != nil {
 		return fmt.Errorf("backup failed: %w", err)
 	}
 
 	// Install new binary.
-	if err := os.Rename(extractedBinary, binaryPath); err != nil {
+	if err := deps.rename(extractedBinary, binaryPath); err != nil {
 		// Restore backup on failure.
-		os.Rename(backupPath, binaryPath)
+		deps.rename(backupPath, binaryPath)
 		return fmt.Errorf("install failed: %w", err)
 	}
 
 	// Make executable (on Unix).
 	if runtime.GOOS != "windows" {
-		os.Chmod(binaryPath, 0755)
+		deps.chmod(binaryPath, 0755)
 	}
 
 	// Remove backup on success.
-	os.Remove(backupPath)
+	deps.remove(backupPath)
 
 	fmt.Printf("\n✅ Updated to %s successfully!\n", latest.TagName)
 	fmt.Printf("   Run 'sin-code --version' to verify.\n")

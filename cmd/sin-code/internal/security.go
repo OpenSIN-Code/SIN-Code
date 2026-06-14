@@ -261,7 +261,7 @@ func runGoVet(path string, timeoutSec int) (string, int, string, string) {
 	}
 	out, err := runWithTimeout("go", []string{"vet", "./..."}, path, timeoutSec)
 	if err != nil {
-		issues := len(strings.Split(string(out), "\n")) // rough heuristic
+		issues := countNonEmptyLines(string(out)) // rough heuristic
 		if issues > 0 {
 			return "issues", issues, string(out), ""
 		}
@@ -367,6 +367,10 @@ func runSecretsGrep(path string, timeoutSec int) (string, int, string, string) {
 	return "ok", 0, "No high-entropy secrets detected in source files.", ""
 }
 
+// dirEntryInfo abstracts fs.DirEntry.Info so tests can inject errors for the
+// file-permission scan without relying on racy filesystem state.
+var dirEntryInfo = func(d fs.DirEntry) (fs.FileInfo, error) { return d.Info() }
+
 func runFilePermissions(path string, timeoutSec int) (string, int, string, string) {
 	// Pure-Go scan: `find -perm +111` is BSD-only syntax (GNU find rejects
 	// it with an error), and `-perm /111` is GNU-only. Walking the tree
@@ -376,6 +380,9 @@ func runFilePermissions(path string, timeoutSec int) (string, int, string, strin
 	worldWritable := 0
 	err := filepath.WalkDir(path, func(p string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
+			if p == path {
+				return walkErr // fail fast when the scan root itself is unreadable
+			}
 			return nil // skip unreadable entries instead of aborting the scan
 		}
 		if d.IsDir() {
@@ -384,7 +391,7 @@ func runFilePermissions(path string, timeoutSec int) (string, int, string, strin
 			}
 			return nil
 		}
-		info, ierr := d.Info()
+		info, ierr := dirEntryInfo(d)
 		if ierr != nil {
 			return nil
 		}
@@ -441,6 +448,16 @@ func countSubstring(s, sub string) int {
 
 func countLinesSimple(s string) int {
 	return len(strings.Split(s, "\n"))
+}
+
+func countNonEmptyLines(s string) int {
+	n := 0
+	for _, line := range strings.Split(s, "\n") {
+		if strings.TrimSpace(line) != "" {
+			n++
+		}
+	}
+	return n
 }
 
 // ─── Output formatting ───────────────────────────────────────────────────

@@ -115,6 +115,13 @@ var indexStatusCmd = &cobra.Command{
 	},
 }
 
+// indexWatchInterval and indexWatchMaxIterations are test hooks for the
+// foreground daemon. indexWatchMaxIterations = -1 means loop forever.
+var (
+	indexWatchInterval     = 30 * time.Second
+	indexWatchMaxIterations = -1
+)
+
 var indexWatchCmd = &cobra.Command{
 	Use:   "watch [root]",
 	Short: "Auto-refresh every 30s (foreground daemon)",
@@ -128,7 +135,10 @@ var indexWatchCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		for {
+		for iter := 0; ; iter++ {
+			if indexWatchMaxIterations >= 0 && iter >= indexWatchMaxIterations {
+				return nil
+			}
 			idx, existed, err := getFileIndex(root)
 			if err != nil {
 				return err
@@ -148,7 +158,7 @@ var indexWatchCmd = &cobra.Command{
 				return err
 			}
 			setFileIndex(idx)
-			time.Sleep(30 * time.Second)
+			time.Sleep(indexWatchInterval)
 		}
 	},
 }

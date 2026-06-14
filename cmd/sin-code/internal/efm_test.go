@@ -1430,6 +1430,34 @@ func TestDetectContainerRuntime_FallsBackToDocker(t *testing.T) {
 	}
 }
 
+func TestDetectContainerRuntime_DockerWhenOrbMissing(t *testing.T) {
+	if runtime.GOOS != "darwin" {
+		t.Skip("only runs on macOS")
+	}
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "docker"), []byte("#!/bin/sh\n"), 0o755)
+	os.Setenv("PATH", dir)
+
+	rt := detectContainerRuntime()
+	if rt != "docker" {
+		t.Errorf("expected docker when orb missing, got %q", rt)
+	}
+}
+
+func TestDetectContainerRuntime_FallbackWhenNeitherAvailable(t *testing.T) {
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+
+	os.Setenv("PATH", t.TempDir())
+	rt := detectContainerRuntime()
+	if rt != "docker" {
+		t.Errorf("expected docker fallback, got %q", rt)
+	}
+}
+
 func TestContainerCommand_UsesRightBinary(t *testing.T) {
 	cmdOrb := containerCommand("orb", "ps")
 	if cmdOrb.Path == "" && cmdOrb.Args[0] != "orb" {
@@ -1607,6 +1635,24 @@ func TestRunEFM_RuntimeOverrideDocker(t *testing.T) {
 	}
 	if result.Runtime != "docker" {
 		t.Errorf("expected runtime='docker' in result, got %q", result.Runtime)
+	}
+}
+
+func TestParseComposeStates(t *testing.T) {
+	cases := []struct {
+		raw  string
+		want string
+	}{
+		{"", "no containers running"},
+		{"\n\n", "no containers running"},
+		{"running\nrunning\n", "all running"},
+		{"running\npaused\n", "partial"},
+	}
+	for _, c := range cases {
+		got := parseComposeStates(c.raw)
+		if got != c.want {
+			t.Errorf("parseComposeStates(%q) = %q, want %q", c.raw, got, c.want)
+		}
 	}
 }
 

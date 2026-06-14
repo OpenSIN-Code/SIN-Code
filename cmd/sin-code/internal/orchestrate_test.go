@@ -5,13 +5,14 @@ package internal
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestRunOrchestrate_AddTask(t *testing.T) {
+func TestOrchestrate_AddTask(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -35,14 +36,14 @@ func TestRunOrchestrate_AddTask(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_AddTaskMissingTitle(t *testing.T) {
+func TestOrchestrate_AddTaskMissingTitle(t *testing.T) {
 	err := runOrchestrate("add", "", "", "", "text")
 	if err == nil {
 		t.Error("expected error when title is missing for add action")
 	}
 }
 
-func TestRunOrchestrate_CompleteTask(t *testing.T) {
+func TestOrchestrate_CompleteTask(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -60,7 +61,7 @@ func TestRunOrchestrate_CompleteTask(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_CompleteTaskNotFound(t *testing.T) {
+func TestOrchestrate_CompleteTaskNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -70,7 +71,7 @@ func TestRunOrchestrate_CompleteTaskNotFound(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_RemoveTask(t *testing.T) {
+func TestOrchestrate_RemoveTask(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -87,7 +88,7 @@ func TestRunOrchestrate_RemoveTask(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_RemoveTaskNotFound(t *testing.T) {
+func TestOrchestrate_RemoveTaskNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -97,7 +98,7 @@ func TestRunOrchestrate_RemoveTaskNotFound(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_StatusTask(t *testing.T) {
+func TestOrchestrate_StatusTask(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -110,7 +111,7 @@ func TestRunOrchestrate_StatusTask(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_StatusTaskNotFound(t *testing.T) {
+func TestOrchestrate_StatusTaskNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -120,7 +121,7 @@ func TestRunOrchestrate_StatusTaskNotFound(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_List(t *testing.T) {
+func TestOrchestrate_List(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -140,7 +141,7 @@ func TestRunOrchestrate_List(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_ListJSONOutput(t *testing.T) {
+func TestOrchestrate_ListJSONOutput(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -172,14 +173,14 @@ func TestRunOrchestrate_ListJSONOutput(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_UnknownAction(t *testing.T) {
+func TestOrchestrate_UnknownAction(t *testing.T) {
 	err := runOrchestrate("unknown", "", "", "", "text")
 	if err == nil {
 		t.Error("expected error for unknown action")
 	}
 }
 
-func TestParseID(t *testing.T) {
+func TestOrchestrateParseID(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected int
@@ -202,7 +203,7 @@ func TestParseID(t *testing.T) {
 	}
 }
 
-func TestSplitTags(t *testing.T) {
+func TestOrchestrateSplitTags(t *testing.T) {
 	tests := []struct {
 		input    string
 		expected []string
@@ -230,7 +231,7 @@ func TestSplitTags(t *testing.T) {
 	}
 }
 
-func TestLoadState_NewFile(t *testing.T) {
+func TestOrchestrateLoadState_NewFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -249,7 +250,7 @@ func TestLoadState_NewFile(t *testing.T) {
 	}
 }
 
-func TestLoadState_CorruptJSON(t *testing.T) {
+func TestOrchestrateLoadState_CorruptJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -264,7 +265,7 @@ func TestLoadState_CorruptJSON(t *testing.T) {
 	}
 }
 
-func TestSaveState(t *testing.T) {
+func TestOrchestrateSaveState(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -286,7 +287,7 @@ func TestSaveState(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_AddTaskText(t *testing.T) {
+func TestOrchestrate_AddTaskText(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -310,7 +311,7 @@ func TestRunOrchestrate_AddTaskText(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_CompleteTaskJSON(t *testing.T) {
+func TestOrchestrate_CompleteTaskJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -324,7 +325,7 @@ func TestRunOrchestrate_CompleteTaskJSON(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_RemoveTaskJSON(t *testing.T) {
+func TestOrchestrate_RemoveTaskJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -338,7 +339,7 @@ func TestRunOrchestrate_RemoveTaskJSON(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_StatusTaskJSON(t *testing.T) {
+func TestOrchestrate_StatusTaskJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -352,28 +353,28 @@ func TestRunOrchestrate_StatusTaskJSON(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_RemoveMissingID(t *testing.T) {
+func TestOrchestrate_RemoveMissingID(t *testing.T) {
 	err := runOrchestrate("remove", "", "", "", "text")
 	if err == nil {
 		t.Error("expected error when --id is missing for remove")
 	}
 }
 
-func TestRunOrchestrate_CompleteMissingID(t *testing.T) {
+func TestOrchestrate_CompleteMissingID(t *testing.T) {
 	err := runOrchestrate("complete", "", "", "", "text")
 	if err == nil {
 		t.Error("expected error when --id is missing for complete")
 	}
 }
 
-func TestRunOrchestrate_StatusMissingID(t *testing.T) {
+func TestOrchestrate_StatusMissingID(t *testing.T) {
 	err := runOrchestrate("status", "", "", "", "text")
 	if err == nil {
 		t.Error("expected error when --id is missing for status")
 	}
 }
 
-func TestRunOrchestrate_ListWithInProgress(t *testing.T) {
+func TestOrchestrate_ListWithInProgress(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -397,7 +398,7 @@ func TestRunOrchestrate_ListWithInProgress(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_ListWithBlocked(t *testing.T) {
+func TestOrchestrate_ListWithBlocked(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -415,7 +416,7 @@ func TestRunOrchestrate_ListWithBlocked(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_AddWithTags(t *testing.T) {
+func TestOrchestrate_AddWithTags(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -430,7 +431,7 @@ func TestRunOrchestrate_AddWithTags(t *testing.T) {
 	}
 }
 
-func TestLoadState_ReadError(t *testing.T) {
+func TestOrchestrateLoadState_ReadError(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -447,7 +448,7 @@ func TestLoadState_ReadError(t *testing.T) {
 	}
 }
 
-func TestSaveState_MarshalError(t *testing.T) {
+func TestOrchestrateSaveState_MarshalError(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -462,7 +463,7 @@ func TestSaveState_MarshalError(t *testing.T) {
 	}
 }
 
-func TestGetStateFile_CreatesDir(t *testing.T) {
+func TestOrchestrateGetStateFile_CreatesDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 
@@ -476,7 +477,7 @@ func TestGetStateFile_CreatesDir(t *testing.T) {
 	}
 }
 
-func TestLoadState_InvalidJSON(t *testing.T) {
+func TestOrchestrateLoadState_InvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	stateDir := filepath.Join(tmpDir, ".local", "state", "sin-code")
@@ -489,7 +490,7 @@ func TestLoadState_InvalidJSON(t *testing.T) {
 	}
 }
 
-func TestSaveState_Error(t *testing.T) {
+func TestOrchestrateSaveState_Error(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	stateDir := filepath.Join(tmpDir, ".local", "state", "sin-code")
@@ -506,7 +507,7 @@ func TestSaveState_Error(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_CompleteNonexistent(t *testing.T) {
+func TestOrchestrate_CompleteNonexistent(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	err := runOrchestrate("complete", "", "", "999", "text")
@@ -515,7 +516,7 @@ func TestRunOrchestrate_CompleteNonexistent(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_RemoveNonexistent(t *testing.T) {
+func TestOrchestrate_RemoveNonexistent(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	err := runOrchestrate("remove", "", "", "999", "text")
@@ -524,7 +525,7 @@ func TestRunOrchestrate_RemoveNonexistent(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_StatusNonexistent(t *testing.T) {
+func TestOrchestrate_StatusNonexistent(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	err := runOrchestrate("status", "", "", "999", "text")
@@ -533,7 +534,7 @@ func TestRunOrchestrate_StatusNonexistent(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_AddNoTitle(t *testing.T) {
+func TestOrchestrate_AddNoTitle(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	err := runOrchestrate("add", "", "", "", "text")
@@ -542,7 +543,7 @@ func TestRunOrchestrate_AddNoTitle(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_InvalidAction(t *testing.T) {
+func TestOrchestrate_InvalidAction(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	err := runOrchestrate("bogus", "", "", "", "text")
@@ -551,7 +552,7 @@ func TestRunOrchestrate_InvalidAction(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_ListJSONv2Output(t *testing.T) {
+func TestOrchestrate_ListJSONv2Output(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	runOrchestrate("add", "Task1", "tag1", "", "text")
@@ -580,7 +581,7 @@ func TestRunOrchestrate_ListJSONv2Output(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_StatusJSON(t *testing.T) {
+func TestOrchestrate_StatusJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	runOrchestrate("add", "StatusTask", "", "", "text")
@@ -605,7 +606,7 @@ func TestRunOrchestrate_StatusJSON(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_RemoveNoID(t *testing.T) {
+func TestOrchestrate_RemoveNoID(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	err := runOrchestrate("remove", "", "", "", "text")
@@ -614,7 +615,7 @@ func TestRunOrchestrate_RemoveNoID(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_CompleteNoID(t *testing.T) {
+func TestOrchestrate_CompleteNoID(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	err := runOrchestrate("complete", "", "", "", "text")
@@ -623,7 +624,7 @@ func TestRunOrchestrate_CompleteNoID(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_StatusNoID(t *testing.T) {
+func TestOrchestrate_StatusNoID(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	err := runOrchestrate("status", "", "", "", "text")
@@ -632,7 +633,7 @@ func TestRunOrchestrate_StatusNoID(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_ListWithBlockedTask(t *testing.T) {
+func TestOrchestrate_ListWithBlockedTask(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	runOrchestrate("add", "BlockedTask", "", "", "text")
@@ -662,7 +663,7 @@ func TestRunOrchestrate_ListWithBlockedTask(t *testing.T) {
 	}
 }
 
-func TestLoadState_ZeroVersion(t *testing.T) {
+func TestOrchestrateLoadState_ZeroVersion(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	stateDir := filepath.Join(tmpDir, ".local", "state", "sin-code")
@@ -681,7 +682,9 @@ func TestLoadState_ZeroVersion(t *testing.T) {
 	}
 }
 
-func TestSaveState_MarshalCheck(t *testing.T) {
+func TestOrchestrateSaveState_MarshalCheck(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
 	state := &orchestrateState{
 		Tasks:   []task{{Title: strings.Repeat("x", 100)}},
 		NextID:  1,
@@ -691,7 +694,113 @@ func TestSaveState_MarshalCheck(t *testing.T) {
 	_ = err
 }
 
-func TestRunOrchestrate_SaveError(t *testing.T) {
+// failMarshal swaps jsonMarshalIndent for a failing implementation and
+// returns a restore function. Use with defer.
+func failMarshal(t *testing.T) func() {
+	t.Helper()
+	old := jsonMarshalIndent
+	jsonMarshalIndent = func(v interface{}, prefix, indent string) ([]byte, error) {
+		return nil, errors.New("forced marshal error")
+	}
+	return func() { jsonMarshalIndent = old }
+}
+
+func TestOrchestrate_CmdRunE(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	oldAction, oldTitle, oldTags, oldID, oldFormat := orchAction, orchTitle, orchTags, orchID, orchFormat
+	defer func() {
+		orchAction, orchTitle, orchTags, orchID, orchFormat = oldAction, oldTitle, oldTags, oldID, oldFormat
+	}()
+
+	orchAction = "add"
+	orchTitle = "CmdRunE task"
+	orchTags = "tag"
+	orchID = ""
+	orchFormat = "text"
+
+	err := OrchestrateCmd.RunE(nil, []string{})
+	if err != nil {
+		t.Fatalf("RunE failed: %v", err)
+	}
+	state, _ := loadState()
+	if len(state.Tasks) != 1 || state.Tasks[0].Title != "CmdRunE task" {
+		t.Errorf("expected task via RunE, got %+v", state.Tasks)
+	}
+}
+
+func TestOrchestrate_SaveStateMarshalError(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	defer failMarshal(t)()
+
+	err := saveState(&orchestrateState{Tasks: []task{{ID: 1, Title: "x"}}, NextID: 2, Version: 1})
+	if err == nil {
+		t.Error("expected marshal error")
+	}
+}
+
+func TestOrchestrate_AddSaveError(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	defer failMarshal(t)()
+
+	err := runOrchestrate("add", "Task", "", "", "text")
+	if err == nil {
+		t.Error("expected add save error")
+	}
+}
+
+func TestOrchestrate_CompleteSaveError(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	if err := runOrchestrate("add", "Task", "", "", "text"); err != nil {
+		t.Fatal(err)
+	}
+	defer failMarshal(t)()
+
+	err := runOrchestrate("complete", "", "", "1", "text")
+	if err == nil {
+		t.Error("expected complete save error")
+	}
+}
+
+func TestOrchestrate_RemoveSaveError(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	if err := runOrchestrate("add", "Task", "", "", "text"); err != nil {
+		t.Fatal(err)
+	}
+	defer failMarshal(t)()
+
+	err := runOrchestrate("remove", "", "", "1", "text")
+	if err == nil {
+		t.Error("expected remove save error")
+	}
+}
+
+func TestOrchestrate_RemoveKeepsOthers(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+
+	for _, title := range []string{"Keep", "Remove"} {
+		if err := runOrchestrate("add", title, "", "", "text"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := runOrchestrate("remove", "", "", "2", "text"); err != nil {
+		t.Fatal(err)
+	}
+	state, _ := loadState()
+	if len(state.Tasks) != 1 || state.Tasks[0].Title != "Keep" {
+		t.Errorf("expected Keep to remain, got %+v", state.Tasks)
+	}
+}
+
+func TestOrchestrate_SaveError(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	stateDir := filepath.Join(tmpDir, ".local", "state", "sin-code")
@@ -709,7 +818,7 @@ func TestRunOrchestrate_SaveError(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_CompleteSaveError(t *testing.T) {
+func TestOrchestrate_CompleteSaveErrorChmod(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	stateDir := filepath.Join(tmpDir, ".local", "state", "sin-code")
@@ -727,7 +836,7 @@ func TestRunOrchestrate_CompleteSaveError(t *testing.T) {
 	}
 }
 
-func TestRunOrchestrate_RemoveSaveError(t *testing.T) {
+func TestOrchestrate_RemoveSaveErrorChmod(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Setenv("HOME", tmpDir)
 	stateDir := filepath.Join(tmpDir, ".local", "state", "sin-code")

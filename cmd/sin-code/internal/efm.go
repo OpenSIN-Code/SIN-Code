@@ -25,6 +25,8 @@ var (
 	efmTTL     int
 	efmFormat  string
 	efmRuntime string
+	// efmGOOS allows tests to override runtime.GOOS for platform-specific branches.
+	efmGOOS = runtime.GOOS
 )
 
 var EfmCmd = &cobra.Command{
@@ -158,7 +160,7 @@ func resolveContainerRuntime(override string) string {
 }
 
 func detectContainerRuntime() string {
-	if runtime.GOOS == "darwin" {
+	if efmGOOS == "darwin" {
 		if _, err := exec.LookPath("orb"); err == nil {
 			return "orb"
 		}
@@ -210,14 +212,11 @@ func listDockerContainers(rt string) ([]efmService, error) {
 		}
 		lastErr = err
 	}
-	if out == nil {
+	if usedRt == "" {
 		if lastErr != nil {
 			return nil, fmt.Errorf("no container runtime responded (tried %v): %w", cands, lastErr)
 		}
 		return nil, fmt.Errorf("no container runtime binary found (tried %v)", cands)
-	}
-	if usedRt != "" {
-		_ = usedRt
 	}
 
 	var services []efmService

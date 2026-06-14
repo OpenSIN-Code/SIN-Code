@@ -968,3 +968,398 @@ func TestScoutCmd_NoQuery(t *testing.T) {
 		t.Error("expected error for empty query")
 	}
 }
+
+func TestSearchSingleFile_SuccessText_More(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "app.go")
+	os.WriteFile(f, []byte("package main\nfunc main() {}\n"), 0644)
+
+	getOut := captureStdout(t)
+	if err := searchSingleFile(f, "main", "regex", 10, "text"); err != nil {
+		t.Fatalf("searchSingleFile text: %v", err)
+	}
+	out := getOut()
+	if !strings.Contains(out, "matches found") {
+		t.Errorf("expected matches found, got %q", out)
+	}
+}
+
+func TestSearchSingleFile_SuccessJSON_More(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "app.go")
+	os.WriteFile(f, []byte("package main\nfunc main() {}\n"), 0644)
+
+	getOut := captureStdout(t)
+	if err := searchSingleFile(f, "main", "regex", 10, "json"); err != nil {
+		t.Fatalf("searchSingleFile json: %v", err)
+	}
+	out := getOut()
+	var results []scoutResult
+	if err := json.Unmarshal([]byte(out), &results); err != nil {
+		t.Fatalf("expected JSON: %v\n%s", err, out)
+	}
+}
+
+func TestSearchSingleFile_InvalidAbsPath_More(t *testing.T) {
+	if err := searchSingleFile("\x00invalid", "main", "regex", 10, "text"); err == nil {
+		t.Fatal("expected error for invalid abs path")
+	}
+}
+
+func TestSearchSingleFile_InvalidRegex_More(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "app.go")
+	os.WriteFile(f, []byte("package main\n"), 0644)
+	if err := searchSingleFile(f, "[invalid(", "regex", 10, "text"); err == nil {
+		t.Fatal("expected error for invalid regex")
+	}
+}
+
+func TestSearchSingleFile_MaxResults_More(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "app.go")
+	content := "package main\n"
+	for i := 0; i < 10; i++ {
+		content += fmt.Sprintf("func main%d() {}\n", i)
+	}
+	os.WriteFile(f, []byte(content), 0644)
+
+	getOut := captureStdout(t)
+	if err := searchSingleFile(f, "main", "regex", 3, "text"); err != nil {
+		t.Fatalf("searchSingleFile max: %v", err)
+	}
+	out := getOut()
+	if !strings.Contains(out, "3 matches found") {
+		t.Errorf("expected 3 matches found, got %q", out)
+	}
+}
+
+func TestRelOf_AbsFallback(t *testing.T) {
+	// On Unix filepath.Rel can always express an absolute path relative to
+	// the working directory, so the fallback branch is only reachable on
+	// Windows. Use a test hook to simulate the error path.
+	oldRelOf := relOfFunc
+	relOfFunc = func(wd, abs string) (string, error) {
+		return "", fmt.Errorf("simulated rel error")
+	}
+	defer func() { relOfFunc = oldRelOf }()
+
+	abs := "/some/absolute/path/that/does/not/exist"
+	if got := relOf(abs); got != abs {
+		t.Errorf("relOf(%q) = %q, want %q", abs, got, abs)
+	}
+}
+
+func TestScoutCmd_SingleFile_More(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "app.go")
+	os.WriteFile(f, []byte("package main\nfunc main() {}\n"), 0644)
+
+	scoutQuery = "main"
+	scoutPath = dir
+	scoutType = "regex"
+	scoutFormat = "text"
+	scoutMax = 10
+	scoutFile = f
+	defer func() { scoutFile = "" }()
+
+	getOut := captureStdout(t)
+	err := ScoutCmd.RunE(ScoutCmd, []string{})
+	out := getOut()
+	if err != nil {
+		t.Fatalf("ScoutCmd single file: %v", err)
+	}
+	if !strings.Contains(out, "matches found") {
+		t.Errorf("expected matches, got %q", out)
+	}
+}
+
+func TestScoutCmd_SingleFileNotFound_More(t *testing.T) {
+	scoutQuery = "main"
+	scoutPath = "."
+	scoutType = "regex"
+	scoutFormat = "text"
+	scoutMax = 10
+	scoutFile = "/nonexistent/path/file.go"
+	defer func() { scoutFile = "" }()
+
+	if err := ScoutCmd.RunE(ScoutCmd, []string{}); err == nil {
+		t.Fatal("expected error for single file not found")
+	}
+}
+
+func TestScoutCmd_SingleFileJSON_More(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "app.go")
+	os.WriteFile(f, []byte("package main\nfunc main() {}\n"), 0644)
+
+	scoutQuery = "main"
+	scoutPath = dir
+	scoutType = "regex"
+	scoutFormat = "json"
+	scoutMax = 10
+	scoutFile = f
+	defer func() { scoutFile = "" }()
+
+	getOut := captureStdout(t)
+	if err := ScoutCmd.RunE(ScoutCmd, []string{}); err != nil {
+		t.Fatalf("ScoutCmd single file json: %v", err)
+	}
+	out := getOut()
+	var results []scoutResult
+	if err := json.Unmarshal([]byte(out), &results); err != nil {
+		t.Fatalf("expected JSON: %v\n%s", err, out)
+	}
+}
+
+func TestIsBinaryFile_NullBytes(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "binary.bin")
+	os.WriteFile(f, []byte("hello\x00world"), 0644)
+	if !isBinaryFile(f) {
+		t.Error("expected file with null byte to be detected as binary")
+	}
+}
+
+func TestIsBinaryFile_Unreadable(t *testing.T) {
+	f := "/nonexistent/not-a-real-file-at-all.bin"
+	if !isBinaryFile(f) {
+		t.Error("expected unreadable file to be detected as binary")
+	}
+}
+
+func TestLoadGitignore_WithPatterns(t *testing.T) {
+	dir := t.TempDir()
+	content := "*.log\n!important.log\nbuild/\n\n# comment\n"
+	os.WriteFile(filepath.Join(dir, ".gitignore"), []byte(content), 0644)
+	m := loadGitignore(dir)
+	if len(m.patterns) != 3 {
+		t.Fatalf("expected 3 patterns, got %d", len(m.patterns))
+	}
+	if m.patterns[0].pattern != "*.log" || m.patterns[0].negate {
+		t.Errorf("first pattern should be *.log, non-negated")
+	}
+	if m.patterns[1].pattern != "important.log" || !m.patterns[1].negate {
+		t.Errorf("second pattern should be important.log, negated")
+	}
+	if m.patterns[2].pattern != "build" || !m.patterns[2].dirOnly {
+		t.Errorf("third pattern should be build, dir-only")
+	}
+}
+
+func TestLoadGitignore_NoFile(t *testing.T) {
+	dir := t.TempDir()
+	m := loadGitignore(dir)
+	if len(m.patterns) != 0 {
+		t.Errorf("expected empty patterns, got %d", len(m.patterns))
+	}
+}
+
+func TestGitignoreGlobToRegex(t *testing.T) {
+	re := gitignoreGlobToRegex("*.go")
+	if !re.MatchString("main.go") {
+		t.Error("expected *.go to match main.go")
+	}
+	if re.MatchString("main.go.bak") {
+		t.Error("expected *.go to NOT match main.go.bak")
+	}
+
+	re2 := gitignoreGlobToRegex("test.?")
+	if !re2.MatchString("test.a") {
+		t.Error("expected test.? to match test.a")
+	}
+}
+
+func TestMatchesPattern_Exact(t *testing.T) {
+	p := gitignorePattern{pattern: "main.go", negate: false}
+	if !matchesPattern("main.go", p) {
+		t.Error("expected exact match")
+	}
+	if matchesPattern("util.go", p) {
+		t.Error("expected no match for different file")
+	}
+}
+
+func TestMatchesPattern_Regex(t *testing.T) {
+	p := gitignorePattern{pattern: "*.go", negate: false, re: gitignoreGlobToRegex("*.go")}
+	if !matchesPattern("main.go", p) {
+		t.Error("expected regex match for main.go")
+	}
+	if matchesPattern("main.go.bak", p) {
+		t.Error("expected no regex match for main.go.bak")
+	}
+}
+
+func TestMatchFile_Simple(t *testing.T) {
+	m := &gitignoreMatcher{
+		patterns: []gitignorePattern{
+			{pattern: "*.log", negate: false, re: gitignoreGlobToRegex("*.log")},
+			{pattern: "keep.log", negate: true, re: gitignoreGlobToRegex("keep.log")},
+		},
+	}
+	if !m.matchFile("error.log") {
+		t.Error("expected error.log to be ignored")
+	}
+	if m.matchFile("keep.log") {
+		t.Error("expected keep.log to NOT be ignored (negated)")
+	}
+}
+
+func TestMatchDir_DirOnly(t *testing.T) {
+	m := &gitignoreMatcher{
+		patterns: []gitignorePattern{
+			{pattern: "build", dirOnly: true, negate: false, re: nil},
+		},
+	}
+	if !m.matchDir("/some/path/build") {
+		t.Error("expected build directory to be ignored")
+	}
+	if m.matchDir("/some/path/build/file.go") {
+		t.Error("expected files under build to not match dir-only pattern")
+	}
+}
+
+func TestSearchSingleFile_IsDirectory(t *testing.T) {
+	dir := t.TempDir()
+	err := searchSingleFile(dir, "test", "regex", 10, "text")
+	if err == nil {
+		t.Error("expected error when --file is a directory")
+	}
+}
+
+func TestMatchFile_DirOnlySkipped(t *testing.T) {
+	m := &gitignoreMatcher{
+		patterns: []gitignorePattern{
+			{pattern: "build", dirOnly: true, negate: false, re: nil},
+			{pattern: "*.log", negate: false, re: gitignoreGlobToRegex("*.log")},
+		},
+	}
+	if !m.matchFile("error.log") {
+		t.Error("expected error.log to be ignored")
+	}
+	if m.matchFile("build") {
+		t.Error("expected build (file) to NOT be ignored by dirOnly pattern")
+	}
+}
+
+func TestMatchDir_WithRegex(t *testing.T) {
+	m := &gitignoreMatcher{
+		patterns: []gitignorePattern{
+			// A non-dirOnly pattern that will be skipped via continue
+			{pattern: "*.log", negate: false, re: gitignoreGlobToRegex("*.log")},
+			// A dirOnly pattern with regex that should match
+			{pattern: "build_*", dirOnly: true, negate: false, re: gitignoreGlobToRegex("build_*")},
+		},
+	}
+	if !m.matchDir("/tmp/build_v1") {
+		t.Error("expected build_v1 dir to match regex dirOnly pattern")
+	}
+	if m.matchDir("/tmp/other") {
+		t.Error("expected other dir to not match")
+	}
+}
+
+func TestScoreRelevanceScout_AdditionalPrefixes(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+		line string
+	}{
+		{"struct definition", "main.go", "struct Person {"},
+		{"interface definition", "main.go", "interface Worker {"},
+		{"type definition", "main.go", "type MyType int"},
+		{"const definition", "main.go", "const MaxRetries = 3"},
+		{"var definition", "main.go", "var count int"},
+		{"let definition", "app.js", "let x = 42"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			score := scoreRelevanceScout(tt.path, tt.line)
+			// Definition boost (+20) + code ext bonus (+15) = 85
+			if score < 80 || score > 100 {
+				t.Errorf("expected high score for definition (80-100), got %.1f", score)
+			}
+		})
+	}
+}
+
+func TestGoSearch_MaxResults_Underflow(t *testing.T) {
+	dir := t.TempDir()
+	content := "// func main() {}\n// func helper() {}\n// func util() {}\n"
+	os.WriteFile(filepath.Join(dir, "app.go"), []byte(content), 0644)
+
+	// Use noRG=true to force goSearch path
+	results, err := searchFiles(dir, "func", "regex", 2, true)
+	if err != nil {
+		t.Fatalf("searchFiles(noRG=true) failed: %v", err)
+	}
+	if len(results) > 2 {
+		t.Errorf("expected at most 2 results, got %d", len(results))
+	}
+}
+
+func TestGoSearch_MaxResults_Drain(t *testing.T) {
+	dir := t.TempDir()
+	// Create 10 files each with multiple matches to ensure we hit the drain path
+	for i := 0; i < 10; i++ {
+		content := fmt.Sprintf("package main\nfunc helper%d() {}\nfunc worker%d() {}\n", i, i)
+		os.WriteFile(filepath.Join(dir, fmt.Sprintf("file_%d.go", i)), []byte(content), 0644)
+	}
+	// Use noRG=true with low maxResults to trigger drainMatches + goto sortResults
+	results, err := searchFiles(dir, "func", "regex", 3, true)
+	if err != nil {
+		t.Fatalf("searchFiles(noRG=true) failed: %v", err)
+	}
+	if len(results) > 3 {
+		t.Errorf("expected at most 3 results, got %d", len(results))
+	}
+	// Verify results are sorted by relevance
+	for i := 1; i < len(results); i++ {
+		if results[i-1].Relevance < results[i].Relevance {
+			t.Errorf("results not sorted by relevance")
+		}
+	}
+}
+
+func TestSearchSingleFile_MaxResultsTruncation(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "app.go")
+	content := "package main\n"
+	for i := 0; i < 20; i++ {
+		content += fmt.Sprintf("func main%d() {}\n", i)
+	}
+	os.WriteFile(f, []byte(content), 0644)
+
+	getOut := captureStdout(t)
+	if err := searchSingleFile(f, "main", "regex", 5, "json"); err != nil {
+		t.Fatalf("searchSingleFile: %v", err)
+	}
+	out := getOut()
+	var results []scoutResult
+	if err := json.Unmarshal([]byte(out), &results); err != nil {
+		t.Fatalf("expected JSON: %v\n%s", err, out)
+	}
+	if len(results) > 5 {
+		t.Errorf("expected at most 5 results, got %d", len(results))
+	}
+	if len(results) == 0 {
+		t.Error("expected at least 1 result after truncation")
+	}
+}
+
+func TestGoSearch_WalkError(t *testing.T) {
+	dir := t.TempDir()
+	// Create a subdirectory that will cause a walk error
+	sub := filepath.Join(dir, "sub")
+	os.MkdirAll(sub, 0755)
+	os.WriteFile(filepath.Join(sub, "f.go"), []byte("package main\nfunc F() {}\n"), 0644)
+	os.Chmod(sub, 0000)
+	defer os.Chmod(sub, 0755)
+
+	// Force goSearch with noRG=true - walk error should be silently skipped
+	results, err := searchFiles(dir, "func", "regex", 100, true)
+	_ = results
+	_ = err
+}
+
+

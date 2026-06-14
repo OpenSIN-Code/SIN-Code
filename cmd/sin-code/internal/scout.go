@@ -32,6 +32,10 @@ var (
 	scoutFile   string
 )
 
+// searchFileFn is the searchFile implementation used by searchWithIndex.
+// It is a variable so tests can inject per-candidate errors.
+var searchFileFn = searchFile
+
 var ScoutCmd = &cobra.Command{
 	Use:   "scout",
 	Short: "Search code with regex, semantic, symbol, and usage search",
@@ -572,9 +576,13 @@ func searchSingleFile(file, query, searchType string, maxResults int, format str
 	return outputTextScout(results)
 }
 
+// relOfFunc is a test hook for filepath.Rel so the error fallback can be
+// exercised on platforms where Rel never fails (e.g. Unix).
+var relOfFunc = filepath.Rel
+
 func relOf(abs string) string {
 	wd, _ := os.Getwd()
-	if rel, err := filepath.Rel(wd, abs); err == nil {
+	if rel, err := relOfFunc(wd, abs); err == nil {
 		return rel
 	}
 	return abs

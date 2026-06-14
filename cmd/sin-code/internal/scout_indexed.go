@@ -92,7 +92,7 @@ func searchWithIndex(idx *inMemoryIndex, root, query, searchType string, maxResu
 		if isBinaryFile(absPath) {
 			continue
 		}
-		fileResults, err := searchFile(absPath, relPath, root, re, searchType)
+		fileResults, err := searchFileFn(absPath, relPath, root, re, searchType)
 		if err != nil {
 			continue
 		}

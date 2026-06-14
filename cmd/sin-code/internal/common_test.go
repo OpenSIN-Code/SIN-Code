@@ -157,6 +157,71 @@ func TestLookupStandalone_SameFileSizeRecursion(t *testing.T) {
 	}
 }
 
+func TestLookupStandalone_ExecutableError(t *testing.T) {
+	orig := osExecutable
+	defer func() { osExecutable = orig }()
+	osExecutable = func() (string, error) {
+		return "", fmt.Errorf("mock exec error")
+	}
+
+	t.Setenv("HOME", "/nonexistent")
+	t.Setenv("PATH", "/nonexistent")
+
+	_, err := lookupStandalone("nonexistent-tool-xyz")
+	if err == nil {
+		t.Fatal("expected error when os.Executable() fails")
+	}
+}
+
+func TestLookupStandalone_SameFileSymlink(t *testing.T) {
+	tmpDir := t.TempDir()
+	binDir := filepath.Join(tmpDir, ".local", "bin")
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	selfPath, err := os.Executable()
+	if err != nil {
+		t.Skipf("cannot get self path: %v", err)
+	}
+
+	candidate := filepath.Join(binDir, "discover")
+	if err := os.Symlink(selfPath, candidate); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("HOME", tmpDir)
+	t.Setenv("PATH", "/nonexistent")
+
+	// Same-file symlink is SKIPPED (os.SameFile → continue), so not found
+	_, err = lookupStandalone("discover")
+	if err == nil {
+		t.Error("expected not-found since same-file candidate is skipped")
+	}
+}
+
+func TestLookupStandalone_SameFileViaPath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	selfPath, err := os.Executable()
+	if err != nil {
+		t.Skipf("cannot get self path: %v", err)
+	}
+
+	fakeBin := filepath.Join(tmpDir, "discover")
+	if err := os.Symlink(selfPath, fakeBin); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("HOME", "/nonexistent")
+	t.Setenv("PATH", tmpDir)
+
+	_, err = lookupStandalone("discover")
+	if err == nil {
+		t.Fatal("expected recursion prevention error for PATH binary")
+	}
+}
+
 func TestCapitalize(t *testing.T) {
 	tests := []struct {
 		input string

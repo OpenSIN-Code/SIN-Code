@@ -764,3 +764,29 @@ func TestAnalyzeFile_RustFile(t *testing.T) {
 		t.Errorf("expected language rust, got %q", result.Language)
 	}
 }
+
+func TestNormalizeGraspKind_Method(t *testing.T) {
+	if got := normalizeGraspKind("method"); got != "function" {
+		t.Errorf("normalizeGraspKind(method) = %q, want 'function'", got)
+	}
+	if got := normalizeGraspKind("type"); got != "type" {
+		t.Errorf("normalizeGraspKind(type) = %q, want 'type'", got)
+	}
+}
+
+func TestExtractExports_GoParseError(t *testing.T) {
+	exports := extractExports("not valid go {{{", "go")
+	if exports != nil {
+		t.Errorf("expected nil for invalid Go, got %v", exports)
+	}
+}
+
+func TestNormalizeGraspKind_Default(t *testing.T) {
+	for _, kind := range []string{"struct", "interface", "class", "enum", "trait", "type"} {
+		got := normalizeGraspKind(kind)
+		if got != kind {
+			t.Errorf("normalizeGraspKind(%q) = %q, want %q", kind, got, kind)
+		}
+	}
+}
+

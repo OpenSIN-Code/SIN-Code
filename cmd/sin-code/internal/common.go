@@ -21,7 +21,7 @@ func PrintError(err error) {
 // Skips files that are copies of the current executable (prevents recursion
 // when standalone binaries have been replaced with copies of sin-code).
 func lookupStandalone(name string) (string, error) {
-	selfPath, selfErr := os.Executable()
+	selfPath, selfErr := osExecutable()
 	if selfErr != nil {
 		selfPath = ""
 	}

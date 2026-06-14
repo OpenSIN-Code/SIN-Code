@@ -12,6 +12,7 @@ Key decisions:
 - Parallel worker pool (8 workers) for index build.
 - `.gitignore` aware (uses same `walkScout` logic).
 - Binary files indexed with empty trigrams.
+- `saveIndex` and `processFileForIndex` use package-level test hooks for the OS-dependent error paths so unit tests can cover them without mocking the whole filesystem.
 
 Consumers:
 - `scoutSearchAuto` — the production search entry point.

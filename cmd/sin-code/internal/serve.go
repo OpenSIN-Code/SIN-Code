@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Purpose: serve — start an MCP (Model Context Protocol) server that exposes
-// all 15 sin-code subcommands as MCP tools. This replaces the single MCP server
+// all sin-code subcommands as MCP tools.
 // MCP server registrations in opencode.json with a single one.
+// Docs: serve.doc.md
 package internal
 
 import (
@@ -1122,8 +1123,23 @@ func runSubcommand(ctx context.Context, name string, args map[string]any) (strin
 	return runSubcommandRaw(ctx, cmdArgs)
 }
 
+// osExecutable is a test hook for the fallback path in resolveBinary.
+var osExecutable = os.Executable
+
+// resolveBinary picks the sin-code binary to use for subcommand dispatch.
+// Order: SIN_CODE_BIN env, sin-code on PATH, os.Executable().
+func resolveBinary() (string, error) {
+	if bin := os.Getenv("SIN_CODE_BIN"); bin != "" {
+		return bin, nil
+	}
+	if bin, err := exec.LookPath("sin-code"); err == nil {
+		return bin, nil
+	}
+	return osExecutable()
+}
+
 func runSubcommandRaw(ctx context.Context, cmdArgs []string) (string, error) {
-	selfPath, err := os.Executable()
+	selfPath, err := resolveBinary()
 	if err != nil {
 		return "", fmt.Errorf("cannot find self: %w", err)
 	}

@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: MIT
+// Purpose: in-memory trigram/symbol index with gob persistence.
+// Docs: cmd/sin-code/internal/index.doc.md
 
 package internal
 
@@ -10,6 +12,19 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
+
+// Test hooks for saveIndex and processFile error paths. Production keeps the real OS calls.
+var (
+	saveIndexCreate     = os.Create
+	saveIndexRemove     = os.Remove
+	saveIndexEncode     = func(enc *gob.Encoder, pi persistentIndex) error { return enc.Encode(pi) }
+	saveIndexClose      = func(f *os.File) error { return f.Close() }
+	processFileReadFile = os.ReadFile
+
+	// Test hooks for error-path coverage in callers (scoutSearchAuto, handlers).
+	buildIndexOverride   func(root string) (*inMemoryIndex, error)
+	refreshIndexOverride func(idx *inMemoryIndex) (*inMemoryIndex, int, int, error)
 )
 
 // ── Index Data Model ──────────────────────────────────────
@@ -270,18 +285,18 @@ func saveIndex(idx *inMemoryIndex) error {
 		}
 	}
 	tmp := p + ".tmp"
-	f, err := os.Create(tmp)
+	f, err := saveIndexCreate(tmp)
 	if err != nil {
 		return err
 	}
 	enc := gob.NewEncoder(f)
-	if err := enc.Encode(pi); err != nil {
+	if err := saveIndexEncode(enc, pi); err != nil {
 		f.Close()
-		os.Remove(tmp)
+		saveIndexRemove(tmp)
 		return err
 	}
-	if err := f.Close(); err != nil {
-		os.Remove(tmp)
+	if err := saveIndexClose(f); err != nil {
+		saveIndexRemove(tmp)
 		return err
 	}
 	return os.Rename(tmp, p)
@@ -290,6 +305,9 @@ func saveIndex(idx *inMemoryIndex) error {
 // ── Parallel Build ──────────────────────────────────────────
 
 func buildIndex(root string) (*inMemoryIndex, error) {
+	if buildIndexOverride != nil {
+		return buildIndexOverride(root)
+	}
 	idx := &inMemoryIndex{
 		root:      root,
 		version:   1,
@@ -378,7 +396,7 @@ func processFileForIndex(absPath string, root string) indexEntry {
 	if ie.IsBinary {
 		return ie
 	}
-	data, err := os.ReadFile(absPath)
+	data, err := processFileReadFile(absPath)
 	if err != nil {
 		return ie
 	}
@@ -413,6 +431,9 @@ func (m *mockFileInfo) Sys() any           { return nil }
 // ── Refresh / Incremental ─────────────────────────────────
 
 func refreshIndex(idx *inMemoryIndex) (*inMemoryIndex, int, int, error) {
+	if refreshIndexOverride != nil {
+		return refreshIndexOverride(idx)
+	}
 	root := idx.root
 	ignorePatterns := loadGitignore(root)
 

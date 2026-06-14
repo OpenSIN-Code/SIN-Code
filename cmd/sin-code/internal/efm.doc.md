@@ -73,6 +73,7 @@ sin-code efm --action up --stack test-env.yml --format json
 
 ## Known caveats / footguns
 
+- **Runtime detection uses a test hook:** `detectContainerRuntime` consults the package-level `efmGOOS` variable (default `runtime.GOOS`). This allows unit tests to exercise macOS and Linux branches on any host. Production code should never modify it.
 - **Compose vs legacy fallback:** Tries `<runtime> compose` first, then `<runtime>-compose` (or `docker-compose` for empty runtime). If none work, the command fails.
 - **Auto-detect prefers OrbStack on macOS** when both runtimes are installed. Use `--runtime docker` to force the legacy path.
 - **No auto-cleanup enforcement:** TTL metadata is written but not acted upon. You must run a separate cleanup job (e.g., cron) that reads `.meta` files and calls `efm --action down` for expired stacks.
