@@ -1204,6 +1204,145 @@ func TestIndexCmd_AbsPathError_stcov2(t *testing.T) {
 	_ = indexClearCmd.RunE(indexClearCmd, []string{"."})
 }
 
+func TestIndexBuildCmd_BuildIndexError_stcov2(t *testing.T) {
+	orig := buildIndexOverride
+	buildIndexOverride = func(root string) (*inMemoryIndex, error) { return nil, errors.New("build error") }
+	defer func() { buildIndexOverride = orig }()
+	_ = indexBuildCmd.RunE(indexBuildCmd, []string{t.TempDir()})
+}
+
+func TestIndexBuildCmd_SaveIndexError_stcov2(t *testing.T) {
+	orig := saveIndexCreate
+	saveIndexCreate = func(name string) (*os.File, error) { return nil, errors.New("create error") }
+	defer func() { saveIndexCreate = orig }()
+	_ = indexBuildCmd.RunE(indexBuildCmd, []string{t.TempDir()})
+}
+
+func TestIndexRefreshCmd_GetFileIndexError_stcov2(t *testing.T) {
+	orig := globalFileIndex
+	globalFileIndex = nil
+	defer func() { globalFileIndex = orig }()
+	path := filepath.Join(t.TempDir(), "file")
+	os.WriteFile(path, []byte("x"), 0644)
+	_ = indexRefreshCmd.RunE(indexRefreshCmd, []string{path})
+}
+
+func TestIndexStatusCmd_GetFileIndexError_stcov2(t *testing.T) {
+	orig := globalFileIndex
+	globalFileIndex = nil
+	defer func() { globalFileIndex = orig }()
+	path := filepath.Join(t.TempDir(), "file")
+	os.WriteFile(path, []byte("x"), 0644)
+	_ = indexStatusCmd.RunE(indexStatusCmd, []string{path})
+}
+
+func TestIndexWatchCmd_GetFileIndexError_stcov2(t *testing.T) {
+	orig := globalFileIndex
+	globalFileIndex = nil
+	defer func() { globalFileIndex = orig }()
+	origMax := indexWatchMaxIterations
+	indexWatchMaxIterations = 1
+	defer func() { indexWatchMaxIterations = origMax }()
+	path := filepath.Join(t.TempDir(), "file")
+	os.WriteFile(path, []byte("x"), 0644)
+	_ = indexWatchCmd.RunE(indexWatchCmd, []string{path})
+}
+
+func TestIndexRefreshCmd_RefreshIndexError_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	idx, err := buildIndex(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saveIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	orig := refreshIndexOverride
+	refreshIndexOverride = func(idx *inMemoryIndex) (*inMemoryIndex, int, int, error) { return nil, 0, 0, errors.New("refresh error") }
+	defer func() { refreshIndexOverride = orig }()
+	globalFileIndex = nil
+	defer func() { globalFileIndex = nil }()
+	_ = indexRefreshCmd.RunE(indexRefreshCmd, []string{dir})
+}
+
+func TestIndexRefreshCmd_SaveIndexError_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	idx, err := buildIndex(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saveIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	orig := saveIndexCreate
+	saveIndexCreate = func(name string) (*os.File, error) { return nil, errors.New("create error") }
+	defer func() { saveIndexCreate = orig }()
+	globalFileIndex = nil
+	defer func() { globalFileIndex = nil }()
+	_ = indexRefreshCmd.RunE(indexRefreshCmd, []string{dir})
+}
+
+func TestIndexWatchCmd_BuildIndexError_stcov2(t *testing.T) {
+	origMax := indexWatchMaxIterations
+	indexWatchMaxIterations = 1
+	defer func() { indexWatchMaxIterations = origMax }()
+	orig := buildIndexOverride
+	buildIndexOverride = func(root string) (*inMemoryIndex, error) { return nil, errors.New("build error") }
+	defer func() { buildIndexOverride = orig }()
+	_ = indexWatchCmd.RunE(indexWatchCmd, []string{t.TempDir()})
+}
+
+func TestIndexWatchCmd_RefreshIndexError_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	idx, err := buildIndex(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saveIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	origMax := indexWatchMaxIterations
+	indexWatchMaxIterations = 1
+	defer func() { indexWatchMaxIterations = origMax }()
+	orig := refreshIndexOverride
+	refreshIndexOverride = func(idx *inMemoryIndex) (*inMemoryIndex, int, int, error) { return nil, 0, 0, errors.New("refresh error") }
+	defer func() { refreshIndexOverride = orig }()
+	globalFileIndex = nil
+	defer func() { globalFileIndex = nil }()
+	_ = indexWatchCmd.RunE(indexWatchCmd, []string{dir})
+}
+
+func TestIndexWatchCmd_SaveIndexError_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	idx, err := buildIndex(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := saveIndex(idx); err != nil {
+		t.Fatal(err)
+	}
+	origMax := indexWatchMaxIterations
+	indexWatchMaxIterations = 1
+	defer func() { indexWatchMaxIterations = origMax }()
+	orig := saveIndexCreate
+	saveIndexCreate = func(name string) (*os.File, error) { return nil, errors.New("create error") }
+	defer func() { saveIndexCreate = orig }()
+	globalFileIndex = nil
+	defer func() { globalFileIndex = nil }()
+	_ = indexWatchCmd.RunE(indexWatchCmd, []string{dir})
+}
+
+func TestIndexWatchCmd_SleepLoop_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	origInterval := indexWatchInterval
+	indexWatchInterval = 0
+	defer func() { indexWatchInterval = origInterval }()
+	origMax := indexWatchMaxIterations
+	indexWatchMaxIterations = 2
+	defer func() { indexWatchMaxIterations = origMax }()
+	_ = indexWatchCmd.RunE(indexWatchCmd, []string{dir})
+}
+
 func TestMemoryCmd_OpenStoreError_stcov2(t *testing.T) {
 	orig := openMemoryStoreFn
 	openMemoryStoreFn = func() (*memory.Store, error) { return nil, errors.New("store error") }
