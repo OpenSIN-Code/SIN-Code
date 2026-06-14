@@ -39,6 +39,8 @@ var (
 
 	// scoreScoutModifier is a test hook for adjusting scout relevance scores.
 	scoreScoutModifier func(score float64) float64
+
+	scoutAbsPath = filepath.Abs
 )
 
 // searchFileFn is the searchFile implementation used by searchWithIndex.
@@ -65,7 +67,7 @@ Examples:
 		if scoutQuery == "" {
 			return fmt.Errorf("--query is required")
 		}
-		absPath, err := filepath.Abs(scoutPath)
+		absPath, err := scoutAbsPath(scoutPath)
 		if err != nil {
 			return fmt.Errorf("invalid path: %w", err)
 		}

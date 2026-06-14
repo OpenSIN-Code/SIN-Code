@@ -18,12 +18,13 @@ import (
 )
 
 var (
-	lspLang    string
-	lspRoot    string
-	lspFile    string
-	lspLine    int
-	lspCol     int
-	lspNewName string
+	lspLang            string
+	lspRoot            string
+	lspFile            string
+	lspLine            int
+	lspCol             int
+	lspDetectAvailable = lsp.DetectAvailable
+	lspNewName         string
 
 	// filepathAbs is a test hook for lspSetup error paths.
 	// osGetwd is defined in serve.go as a shared package hook.
@@ -81,7 +82,7 @@ var lspServersCmd = &cobra.Command{
 	Use:   "servers",
 	Short: "List detected LSP servers on PATH",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		specs := lsp.DetectAvailable()
+		specs := lspDetectAvailable()
 		if len(specs) == 0 {
 			fmt.Println("(no LSP servers detected on PATH)")
 			fmt.Println("Install one of: gopls (go), pyright-langserver (python), typescript-language-server (ts/js)")

@@ -16,6 +16,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lsp"
 )
 
 type stcov2ErrorReader struct{}
@@ -971,6 +973,139 @@ func TestRunCommand_StreamError_stcov2(t *testing.T) {
 	defer func() { execRunCommand = origRun }()
 	if err := runCommand("echo hi", 0, "json", true); err != nil {
 		t.Fatalf("expected nil in stream mode, got %v", err)
+	}
+}
+
+func TestDiscoverCmd_JSONSuccess_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "x.go"), []byte("package x\n"), 0644)
+	final := captureStdout(t)
+	DiscoverCmd.SetArgs([]string{dir, "--format", "json", "--pattern", "*.go"})
+	if err := DiscoverCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := final()
+	if !strings.Contains(out, "x.go") {
+		t.Errorf("expected x.go in output, got %q", out)
+	}
+}
+
+func TestMapCmd_JSONSuccess_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "x.go"), []byte("package x\n"), 0644)
+	final := captureStdout(t)
+	MapCmd.SetArgs([]string{dir, "--format", "json", "--action", "map"})
+	if err := MapCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := final()
+	if !strings.Contains(out, "x.go") {
+		t.Errorf("expected x.go in output, got %q", out)
+	}
+}
+
+func TestExecuteCmd_JSONSuccess_stcov2(t *testing.T) {
+	final := captureStdout(t)
+	ExecuteCmd.SetArgs([]string{"--command", "echo hello", "--format", "json", "--timeout", "5"})
+	if err := ExecuteCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := final()
+	if !strings.Contains(out, "hello") {
+		t.Errorf("expected hello in output, got %q", out)
+	}
+}
+
+func TestReadCmd_JSONSuccess_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.go")
+	os.WriteFile(path, []byte("package x\n"), 0644)
+	final := captureStdout(t)
+	ReadCmd.SetArgs([]string{path, "--format", "json"})
+	if err := ReadCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := final()
+	if !strings.Contains(out, "package x") {
+		t.Errorf("expected package x in output, got %q", out)
+	}
+}
+
+func TestGraspCmd_AbsPathError_stcov2(t *testing.T) {
+	orig := graspAbsPath
+	graspAbsPath = func(path string) (string, error) { return "", errors.New("abs error") }
+	defer func() { graspAbsPath = orig }()
+	GraspCmd.SetArgs([]string{"foo.go"})
+	_ = GraspCmd.Execute()
+	// Error is returned directly; we only need to exercise the branch.
+}
+
+func TestGraspCmd_JSONSuccess_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.go")
+	os.WriteFile(path, []byte("package x\n"), 0644)
+	final := captureStdout(t)
+	GraspCmd.SetArgs([]string{path, "--format", "json"})
+	if err := GraspCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := final()
+	if !strings.Contains(out, "x.go") {
+		t.Errorf("expected x.go in output, got %q", out)
+	}
+}
+
+func TestScoutCmd_AbsPathError_stcov2(t *testing.T) {
+	orig := scoutAbsPath
+	scoutAbsPath = func(path string) (string, error) { return "", errors.New("abs error") }
+	defer func() { scoutAbsPath = orig }()
+	ScoutCmd.SetArgs([]string{"--query", "test"})
+	_ = ScoutCmd.Execute()
+}
+
+func TestWriteCmd_AbsPathError_stcov2(t *testing.T) {
+	orig := writeAbsPath
+	writeAbsPath = func(path string) (string, error) { return "", errors.New("abs error") }
+	defer func() { writeAbsPath = orig }()
+	WriteCmd.SetArgs([]string{"foo.txt", "--content", "hello"})
+	_ = WriteCmd.Execute()
+}
+
+func TestOracleCmd_VerifyCoverageError_stcov2(t *testing.T) {
+	OracleCmd.SetArgs([]string{"--claim", "/nonexistent", "--evidence", "/nonexistent"})
+	if err := OracleCmd.Execute(); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestOracleCmd_JSONSuccess_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	claim := filepath.Join(dir, "x.go")
+	evidence := filepath.Join(dir, "x_test.go")
+	os.WriteFile(claim, []byte("package x\nfunc Foo() {}\n"), 0644)
+	os.WriteFile(evidence, []byte("package x\nfunc TestFoo(t *testing.T) {}\n"), 0644)
+	final := captureStdout(t)
+	OracleCmd.SetArgs([]string{"--claim", claim, "--evidence", evidence, "--format", "json"})
+	if err := OracleCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := final()
+	if !strings.Contains(out, "coverage") {
+		t.Errorf("expected coverage in output, got %q", out)
+	}
+}
+
+func TestLspServersCmd_NoServers_stcov2(t *testing.T) {
+	orig := lspDetectAvailable
+	lspDetectAvailable = func() []lsp.ServerSpec { return nil }
+	defer func() { lspDetectAvailable = orig }()
+	final := captureStdout(t)
+	if err := lspServersCmd.RunE(lspServersCmd, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := final()
+	if !strings.Contains(out, "no LSP servers") {
+		t.Errorf("expected no servers message, got %q", out)
 	}
 }
 
