@@ -14,7 +14,7 @@ import (
 // tool-name prefixes ("websearch__search", "browser__navigate", ...), which
 // the permission matrix gates via the "mcp" policy class.
 func DefaultServers() []ServerConfig {
-	skillsDir := os.Getenv("SIN_SKILLS_DIR")
+	skillsDir := skillsDirOrDefault()
 	py := func(repo string) ServerConfig {
 		name := shortName(repo)
 		cfg := ServerConfig{Name: name, Transport: "stdio"}
@@ -26,8 +26,28 @@ func DefaultServers() []ServerConfig {
 		}
 		return cfg
 	}
+	// goNative returns a ServerConfig for a Go-native skill. It prefers the
+	// binary built inside SIN_SKILLS_DIR/<repo>/<binary> so that skillmgr
+	// can install and run the skill without requiring the user to put the binary
+	// on PATH. Falls back to the binary name on PATH if no local checkout exists.
+	goNative := func(repo, binary string, args ...string) ServerConfig {
+		name := shortName(repo)
+		cfg := ServerConfig{Name: name, Transport: "stdio", Args: args}
+		if skillsDir != "" {
+			localBin := filepath.Join(skillsDir, repo, binary)
+			if _, err := os.Stat(localBin); err == nil {
+				cfg.Command = localBin
+			} else {
+				cfg.Command = binary
+			}
+		} else {
+			cfg.Command = binary
+		}
+		return cfg
+	}
 	return []ServerConfig{
-		py("SIN-Code-Websearch-Skill"),
+		// web_search_bundle is the Go-native successor to SIN-Code-Websearch-Skill.
+		goNative("web_search_bundle", "sin-websearch", "serve"),
 		py("SIN-Code-Scheduler-Skill"),
 		py("SIN-Code-Goal-Mode-Skill"),
 		py("SIN-Code-Grill-Me-Skill"),
@@ -48,6 +68,7 @@ func DefaultServers() []ServerConfig {
 
 func shortName(repo string) string {
 	m := map[string]string{
+		"web_search_bundle":                 "websearch",
 		"SIN-Code-Websearch-Skill":          "websearch",
 		"SIN-Code-Scheduler-Skill":          "scheduler",
 		"SIN-Code-Goal-Mode-Skill":          "goalmode",
@@ -66,4 +87,15 @@ func shortName(repo string) string {
 		return s
 	}
 	return repo
+}
+
+// skillsDirOrDefault returns the configured SIN_SKILLS_DIR or the default
+// local share location used by skillmgr. This keeps the registry in sync
+// with where skillmgr actually installs skills.
+func skillsDirOrDefault() string {
+	if d := os.Getenv("SIN_SKILLS_DIR"); d != "" {
+		return d
+	}
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".local", "share", "sin-code", "skills")
 }

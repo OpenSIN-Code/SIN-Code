@@ -38,7 +38,7 @@ func SkillsDir() string {
 // with mcpclient.DefaultServers (ecosystem-sync CI enforces it).
 func KnownSkills() map[string]string {
 	return map[string]string{
-		"websearch":     "SIN-Code-Websearch-Skill",
+		"websearch":     "web_search_bundle",
 		"scheduler":     "SIN-Code-Scheduler-Skill",
 		"goalmode":      "SIN-Code-Goal-Mode-Skill",
 		"grillme":       "SIN-Code-Grill-Me-Skill",
@@ -123,6 +123,16 @@ func verifyEntrypoint(ctx context.Context, dir string) (bool, string) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "package.json")); err == nil {
 		return true, "node entrypoint (package.json)"
+	}
+	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+		// Go-native skill: build the binary into the repo root so the MCP
+		// registry can use the full path (SIN_SKILLS_DIR/<repo>/<binary>).
+		cmd := exec.CommandContext(ctx, "go", "build", "-o", "sin-websearch", "./cmd/sin-websearch")
+		cmd.Dir = dir
+		if _, err := cmd.CombinedOutput(); err != nil {
+			return false, fmt.Sprintf("go entrypoint exists but build failed: %v", err)
+		}
+		return true, "go entrypoint builds"
 	}
 	return false, "no recognized MCP entrypoint"
 }
