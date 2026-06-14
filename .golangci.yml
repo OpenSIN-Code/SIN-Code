@@ -1,5 +1,6 @@
-# .golangci.yml — SOTA lint gate for SIN-Code-Bundle
-# Requires golangci-lint >= 1.60
+# .golangci.yml — SOTA lint gate for SIN-Code
+# Requires golangci-lint >= 2.0
+version: "2"
 run:
   timeout: 5m
   tests: true
@@ -7,13 +8,12 @@ run:
     - treesitter
 
 linters:
-  disable-all: true
+  default: none
   enable:
     # Correctness
     - govet
     - staticcheck
     - errcheck
-    - gosimple
     - unused
     - ineffassign
     - nilerr
@@ -28,35 +28,38 @@ linters:
     - contextcheck
     - noctx
     # Style / hygiene (low-noise selection)
-    - gofmt
-    - goimports
     - misspell
     - unconvert
     - unparam
     - prealloc
     - gocritic
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+    gosec:
+      excludes:
+        - G104 # duplicate of errcheck
+      config:
+        G301: "0750"
+        G302: "0600"
+        G306: "0600"
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+      disabled-checks:
+        - hugeParam
+    misspell:
+      locale: US
 
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: false
-  gosec:
-    excludes:
-      - G104 # duplicate of errcheck
-    config:
-      G301: "0750"
-      G302: "0600"
-      G306: "0600"
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - performance
-    disabled-checks:
-      - hugeParam
-  goimports:
-    local-prefixes: github.com/OpenSIN-Code/SIN-Code
-  misspell:
-    locale: US
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes: github.com/OpenSIN-Code/SIN-Code
 
 issues:
   exclude-use-default: false

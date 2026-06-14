@@ -5,6 +5,7 @@ package sandbox
 
 import (
 	"fmt"
+	"os"
 
 	"golang.org/x/sys/unix"
 )
@@ -31,7 +32,7 @@ func applyLandlockImpl(ro, rw []string, netAllowed bool) error {
 		// gracefully — on older kernels this returns ENOPROTOOPT and
 		// we just continue without the net block.
 		if err := applyNetRules(); err != nil {
-			fmt.Fprintf(stderr(), "sandbox: net restrict skipped: %v\n", err)
+			fmt.Fprintf(os.Stderr, "sandbox: net restrict skipped: %v\n", err)
 		}
 	}
 	return nil
