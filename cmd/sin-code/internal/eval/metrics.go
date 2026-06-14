@@ -22,15 +22,15 @@ import (
 // step evaluates. Fields are flat so the n8n jq filter stays a
 // one-liner: `.summary.pass_rate >= .summary.min_required`.
 type Summary struct {
-	Total       int     `json:"total"`
-	Passed      int     `json:"passed"`
-	Failed      int     `json:"failed"`
-	PassRate    float64 `json:"pass_rate"`
-	MinRequired float64 `json:"min_required"`
-	MeanJudge   float64 `json:"mean_judge_score"`
-	MeanTurns   float64 `json:"mean_turns"`
-	MeanDurMS   float64 `json:"mean_duration_ms"`
-	Timeouts    int     `json:"timeouts"`
+	Total       int      `json:"total"`
+	Passed      int      `json:"passed"`
+	Failed      int      `json:"failed"`
+	PassRate    float64  `json:"pass_rate"`
+	MinRequired float64  `json:"min_required"`
+	MeanJudge   float64  `json:"mean_judge_score"`
+	MeanTurns   float64  `json:"mean_turns"`
+	MeanDurMS   float64  `json:"mean_duration_ms"`
+	Timeouts    int      `json:"timeouts"`
 	Failures    []string `json:"failures,omitempty"`
 }
 

@@ -5,8 +5,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 	"testing"
+	"time"
 )
 
 func TestMain_SymlinkRouting_Discover(t *testing.T) {
@@ -238,4 +238,3 @@ func TestMain_NoSymlinkMatch(t *testing.T) {
 		t.Error("binary name 'sin-code' should not match any subcommand")
 	}
 }
-

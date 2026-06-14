@@ -58,9 +58,9 @@ type RunnerConfig struct {
 // are created in the supplied store; if store is nil the runner
 // panics — that is a user bug, not a graceful degradation case.
 type Runner struct {
-	cfg     RunnerConfig
-	loop    *agentloop.Loop
-	store   *session.Store
+	cfg   RunnerConfig
+	loop  *agentloop.Loop
+	store *session.Store
 }
 
 // NewRunner constructs a Runner. Zero-value fields get sensible

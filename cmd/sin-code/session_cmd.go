@@ -9,8 +9,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
 
 func NewSessionsCmd() *cobra.Command {

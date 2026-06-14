@@ -12,11 +12,11 @@ import (
 )
 
 type ServerSpec struct {
-	Language  string
-	Binary    string
-	Args      []string
-	Aliases   []string
-	FileExts  []string
+	Language string
+	Binary   string
+	Args     []string
+	Aliases  []string
+	FileExts []string
 }
 
 var DefaultServers = []ServerSpec{

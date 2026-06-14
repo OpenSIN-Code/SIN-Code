@@ -16,8 +16,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/superpowers"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/superpowers"
 )
 
 // NewSuperpowersCmd builds the `superpowers` cobra subcommand. Pattern
@@ -38,11 +39,11 @@ and safe to call offline.`,
 	}
 
 	var (
-		yes   bool
-		repo  string
-		branch string
-		query string
-		jsonOut bool
+		yes        bool
+		repo       string
+		branch     string
+		query      string
+		jsonOut    bool
 		agentsPath string
 	)
 

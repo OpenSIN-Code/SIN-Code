@@ -8,8 +8,9 @@ import (
 	"os"
 	"sort"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/skillmgr"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/skillmgr"
 )
 
 func NewSkillCmd() *cobra.Command {

@@ -193,7 +193,9 @@ func TestAskDenyViaChannel(t *testing.T) {
 		},
 		&agentloop.Completion{Text: "denied and done", Raw: session.Message{Role: "assistant", Content: "denied and done"}},
 	))
-	r.Loop().LocalTool = func(ctx context.Context, name string, args map[string]any) (string, error) { return "should-not-reach", nil }
+	r.Loop().LocalTool = func(ctx context.Context, name string, args map[string]any) (string, error) {
+		return "should-not-reach", nil
+	}
 	r.Loop().LocalSpec = []agentloop.ToolSpec{{Name: "sin_bash", Description: "stub"}}
 
 	done, err := r.Submit(context.Background(), "deny please")

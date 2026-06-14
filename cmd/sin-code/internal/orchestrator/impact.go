@@ -97,10 +97,10 @@ func BuildImpactGraph(ctx context.Context, repoRoot string) (*ImpactGraph, error
 }
 
 type Impact struct {
-	ChangedPkgs       []string
-	AffectedPkgs      []string
-	AffectedTestPkgs  []string
-	Radius            float64
+	ChangedPkgs      []string
+	AffectedPkgs     []string
+	AffectedTestPkgs []string
+	Radius           float64
 }
 
 func (g *ImpactGraph) Predict(changedFiles []string) *Impact {

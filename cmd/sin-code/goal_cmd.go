@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
 )
 
 func NewGoalCmd() *cobra.Command {

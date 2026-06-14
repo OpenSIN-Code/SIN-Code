@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hub"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hub"
 )
 
 // NewHubCmd builds the `hub` cobra subcommand.

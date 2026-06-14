@@ -6,9 +6,9 @@ import (
 )
 
 type Session struct {
-	Name    string
-	Active  bool
-	Dirty   bool
+	Name   string
+	Active bool
+	Dirty  bool
 }
 
 type Tabs struct {

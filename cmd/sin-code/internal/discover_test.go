@@ -5,10 +5,10 @@ package internal
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"fmt"
 	"testing"
 )
 

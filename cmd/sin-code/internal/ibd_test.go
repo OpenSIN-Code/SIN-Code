@@ -411,8 +411,8 @@ func TestOutputTextIBD(t *testing.T) {
 		Diff: []diffLine{
 			{Type: "added", Line: 3, Text: "retry()", Number: 3},
 		},
-		Added:   []symbolInfo{{Name: "RetryFunc", Type: "function", Line: 3}},
-		Removed: []symbolInfo{{Name: "OldFunc", Type: "function", Line: 1}},
+		Added:    []symbolInfo{{Name: "RetryFunc", Type: "function", Line: 3}},
+		Removed:  []symbolInfo{{Name: "OldFunc", Type: "function", Line: 1}},
 		Modified: []symbolInfo{{Name: "MainFunc", Type: "function", Line: 5}},
 		Summary:  "Test summary",
 	}

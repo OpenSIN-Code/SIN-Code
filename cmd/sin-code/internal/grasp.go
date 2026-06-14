@@ -31,7 +31,7 @@ usage, and related context. Pure Go implementation.
 
 Example:
   sin-code grasp cmd/sin-code/main.go --format json`,
-	Args: cobra.ExactArgs(1),
+	Args:    cobra.ExactArgs(1),
 	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		absPath, err := filepath.Abs(args[0])
@@ -61,18 +61,18 @@ Example:
 }
 
 type graspResult struct {
-	Path         string            `json:"path"`
-	Language     string            `json:"language"`
-	Size         int64             `json:"size"`
-	Lines        int               `json:"lines"`
-	BlankLines   int               `json:"blank_lines"`
-	CommentLines int               `json:"comment_lines"`
-	CodeLines    int               `json:"code_lines"`
-	ModTime      string            `json:"mod_time"`
-	Structure    []structItem      `json:"structure"`
-	Dependencies []string          `json:"dependencies"`
-	Summary      string            `json:"summary"`
-	Exports      []string          `json:"exports"`
+	Path         string       `json:"path"`
+	Language     string       `json:"language"`
+	Size         int64        `json:"size"`
+	Lines        int          `json:"lines"`
+	BlankLines   int          `json:"blank_lines"`
+	CommentLines int          `json:"comment_lines"`
+	CodeLines    int          `json:"code_lines"`
+	ModTime      string       `json:"mod_time"`
+	Structure    []structItem `json:"structure"`
+	Dependencies []string     `json:"dependencies"`
+	Summary      string       `json:"summary"`
+	Exports      []string     `json:"exports"`
 }
 
 type structItem struct {

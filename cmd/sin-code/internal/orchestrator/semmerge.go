@@ -23,7 +23,7 @@ type Decl struct {
 }
 
 type SemConflict struct {
-	Key       string
+	Key        string
 	Base, A, B string
 }
 

@@ -66,16 +66,16 @@ Examples:
 }
 
 type ibdResult struct {
-	Before       string       `json:"before"`
-	After        string       `json:"after"`
-	Intent       string       `json:"intent"`
-	Diff         []diffLine   `json:"diff"`
-	Added        []symbolInfo `json:"added"`
-	Removed      []symbolInfo `json:"removed"`
-	Modified     []symbolInfo `json:"modified"`
-	IntentMatch  string       `json:"intent_match"` // strong, partial, weak, none
-	Score        int          `json:"score"`        // 0-100
-	Summary      string       `json:"summary"`
+	Before      string       `json:"before"`
+	After       string       `json:"after"`
+	Intent      string       `json:"intent"`
+	Diff        []diffLine   `json:"diff"`
+	Added       []symbolInfo `json:"added"`
+	Removed     []symbolInfo `json:"removed"`
+	Modified    []symbolInfo `json:"modified"`
+	IntentMatch string       `json:"intent_match"` // strong, partial, weak, none
+	Score       int          `json:"score"`        // 0-100
+	Summary     string       `json:"summary"`
 }
 
 type diffLine struct {

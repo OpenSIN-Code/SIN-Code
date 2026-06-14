@@ -43,7 +43,7 @@ Examples:
   sin-code adw .
   sin-code adw ./src --strict
   sin-code adw . --format json`,
-	Args: cobra.ArbitraryArgs,
+	Args:    cobra.ArbitraryArgs,
 	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := "."
@@ -73,21 +73,21 @@ Examples:
 }
 
 type adwResult struct {
-	Path        string        `json:"path"`
-	Summary     adwSummary    `json:"summary"`
-	Issues      []adwIssue    `json:"issues"`
-	Score       int           `json:"score"`
-	Grade       string        `json:"grade"`
-	ExitCode    int           `json:"exit_code"`
+	Path     string     `json:"path"`
+	Summary  adwSummary `json:"summary"`
+	Issues   []adwIssue `json:"issues"`
+	Score    int        `json:"score"`
+	Grade    string     `json:"grade"`
+	ExitCode int        `json:"exit_code"`
 }
 
 type adwSummary struct {
-	FilesScanned   int `json:"files_scanned"`
-	TotalIssues    int `json:"total_issues"`
-	Critical       int `json:"critical"`
-	High           int `json:"high"`
-	Medium         int `json:"medium"`
-	Low            int `json:"low"`
+	FilesScanned int `json:"files_scanned"`
+	TotalIssues  int `json:"total_issues"`
+	Critical     int `json:"critical"`
+	High         int `json:"high"`
+	Medium       int `json:"medium"`
+	Low          int `json:"low"`
 }
 
 type adwIssue struct {

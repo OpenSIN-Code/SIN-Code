@@ -15,8 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/security/sca"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/security/sca"
 )
 
 // SecurityCmd runs a fast security analysis tailored to the detected project type.
@@ -79,17 +80,17 @@ func init() {
 // ─── Data models ───────────────────────────────────────────────────────────
 
 type SecurityResult struct {
-	ProjectType string         `json:"project_type"`
-	Path        string         `json:"path"`
-	Duration    time.Duration  `json:"duration"`
-	Strict      bool           `json:"strict"`
-	Tools       []ToolResult   `json:"tools"`
+	ProjectType string          `json:"project_type"`
+	Path        string          `json:"path"`
+	Duration    time.Duration   `json:"duration"`
+	Strict      bool            `json:"strict"`
+	Tools       []ToolResult    `json:"tools"`
 	Summary     SecuritySummary `json:"summary"`
 }
 
 type ToolResult struct {
 	Name     string `json:"name"`
-	Status   string `json:"status"`   // ok, issues, skipped, error, not_found
+	Status   string `json:"status"` // ok, issues, skipped, error, not_found
 	Issues   int    `json:"issues"`
 	Duration string `json:"duration"`
 	Output   string `json:"output,omitempty"`
@@ -97,11 +98,11 @@ type ToolResult struct {
 }
 
 type SecuritySummary struct {
-	ToolsRun  int `json:"tools_run"`
-	Issues    int `json:"issues"`
-	Errors    int `json:"errors"`
-	Skipped   int `json:"skipped"`
-	NotFound  int `json:"not_found"`
+	ToolsRun int `json:"tools_run"`
+	Issues   int `json:"issues"`
+	Errors   int `json:"errors"`
+	Skipped  int `json:"skipped"`
+	NotFound int `json:"not_found"`
 }
 
 // ─── Project type detection ────────────────────────────────────────────────

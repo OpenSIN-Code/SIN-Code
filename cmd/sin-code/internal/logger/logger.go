@@ -58,8 +58,8 @@ type Entry struct {
 }
 
 var defaultLogger = &Logger{
-    level:  LevelInfo,
-    output: nil, // nil means use os.Stderr dynamically
+	level:  LevelInfo,
+	output: nil, // nil means use os.Stderr dynamically
 }
 
 func Default() *Logger {

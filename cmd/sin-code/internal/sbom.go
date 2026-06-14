@@ -88,36 +88,36 @@ type SPDXDocument struct {
 }
 
 type SPDXCreationInfo struct {
-	Created string   `json:"created"`
+	Created  string   `json:"created"`
 	Creators []string `json:"creators"`
 }
 
 type SPDXPackage struct {
-	SPDXID              string `json:"SPDXID"`
-	Name                string `json:"name"`
-	VersionInfo         string `json:"versionInfo"`
-	DownloadLocation    string `json:"downloadLocation"`
-	FilesAnalyzed       bool   `json:"filesAnalyzed"`
-	VerificationCode    *string `json:"verificationCode"`
-	LicenseConcluded    string `json:"licenseConcluded"`
-	LicenseDeclared     string `json:"licenseDeclared"`
-	CopyrightText       string `json:"copyrightText"`
-	PrimaryPackagePurpose string `json:"primaryPackagePurpose"`
+	SPDXID                string  `json:"SPDXID"`
+	Name                  string  `json:"name"`
+	VersionInfo           string  `json:"versionInfo"`
+	DownloadLocation      string  `json:"downloadLocation"`
+	FilesAnalyzed         bool    `json:"filesAnalyzed"`
+	VerificationCode      *string `json:"verificationCode"`
+	LicenseConcluded      string  `json:"licenseConcluded"`
+	LicenseDeclared       string  `json:"licenseDeclared"`
+	CopyrightText         string  `json:"copyrightText"`
+	PrimaryPackagePurpose string  `json:"primaryPackagePurpose"`
 }
 
 // CycloneDX 1.5 document
 type CycloneDXDocument struct {
-	BomFormat   string                `json:"bomFormat"`
-	SpecVersion string                `json:"specVersion"`
+	BomFormat    string               `json:"bomFormat"`
+	SpecVersion  string               `json:"specVersion"`
 	SerialNumber string               `json:"serialNumber"`
-	Version     int                   `json:"version"`
-	Metadata    CycloneDXMetadata     `json:"metadata"`
-	Components  []CycloneDXComponent `json:"components"`
+	Version      int                  `json:"version"`
+	Metadata     CycloneDXMetadata    `json:"metadata"`
+	Components   []CycloneDXComponent `json:"components"`
 }
 
 type CycloneDXMetadata struct {
-	Timestamp string              `json:"timestamp"`
-	Tools     []CycloneDXTool     `json:"tools"`
+	Timestamp string          `json:"timestamp"`
+	Tools     []CycloneDXTool `json:"tools"`
 }
 
 type CycloneDXTool struct {
@@ -168,15 +168,15 @@ func generateSPDX(path, projType, name, timestamp string) (*SPDXDocument, error)
 			spdxID = "SPDXRef-DOCUMENT"
 		}
 		pkg := SPDXPackage{
-			SPDXID:              spdxID,
-			Name:                dep.Name,
-			VersionInfo:         dep.Version,
-			DownloadLocation:    dep.DownloadLocation,
-			FilesAnalyzed:       false,
-			VerificationCode:    nil,
-			LicenseConcluded:    "NOASSERTION",
-			LicenseDeclared:     "NOASSERTION",
-			CopyrightText:       "NOASSERTION",
+			SPDXID:                spdxID,
+			Name:                  dep.Name,
+			VersionInfo:           dep.Version,
+			DownloadLocation:      dep.DownloadLocation,
+			FilesAnalyzed:         false,
+			VerificationCode:      nil,
+			LicenseConcluded:      "NOASSERTION",
+			LicenseDeclared:       "NOASSERTION",
+			CopyrightText:         "NOASSERTION",
 			PrimaryPackagePurpose: dep.Purpose,
 		}
 		packages = append(packages, pkg)
@@ -185,15 +185,15 @@ func generateSPDX(path, projType, name, timestamp string) (*SPDXDocument, error)
 	// Ensure at least a root package exists
 	if len(packages) == 0 {
 		packages = append(packages, SPDXPackage{
-			SPDXID:              "SPDXRef-DOCUMENT",
-			Name:                name,
-			VersionInfo:         "NOASSERTION",
-			DownloadLocation:    "NOASSERTION",
-			FilesAnalyzed:       false,
-			VerificationCode:    nil,
-			LicenseConcluded:    "NOASSERTION",
-			LicenseDeclared:     "NOASSERTION",
-			CopyrightText:       "NOASSERTION",
+			SPDXID:                "SPDXRef-DOCUMENT",
+			Name:                  name,
+			VersionInfo:           "NOASSERTION",
+			DownloadLocation:      "NOASSERTION",
+			FilesAnalyzed:         false,
+			VerificationCode:      nil,
+			LicenseConcluded:      "NOASSERTION",
+			LicenseDeclared:       "NOASSERTION",
+			CopyrightText:         "NOASSERTION",
 			PrimaryPackagePurpose: "APPLICATION",
 		})
 	}
@@ -466,9 +466,9 @@ func parsePyprojectToml(content string) []dependency {
 // ── Node.js dependencies ──────────────────────────────────────────────────────
 
 type packageJSON struct {
-	Name         string            `json:"name"`
-	Version      string            `json:"version"`
-	Dependencies map[string]string `json:"dependencies"`
+	Name            string            `json:"name"`
+	Version         string            `json:"version"`
+	Dependencies    map[string]string `json:"dependencies"`
 	DevDependencies map[string]string `json:"devDependencies"`
 }
 

@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
@@ -20,7 +22,6 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
-	"github.com/spf13/cobra"
 )
 
 func NewDaemonCmd() *cobra.Command {
@@ -76,7 +77,11 @@ func runDaemon(ctx context.Context, pollEvery, leaseDur time.Duration, verifyCmd
 
 	hookEngine := hooks.New(nil) // no workspace hook loading for daemon
 	memStoreLessons, _ := lessons.Open("")
-	defer func() { if memStoreLessons != nil { memStoreLessons.Close() } }()
+	defer func() {
+		if memStoreLessons != nil {
+			memStoreLessons.Close()
+		}
+	}()
 
 	if triggers := autonomy.LoadTriggers(workspace); len(triggers) > 0 {
 		runner := &autonomy.Runner{Queue: queue, Workspace: workspace, Triggers: triggers}

@@ -6,7 +6,8 @@
 // isolation before an `eval run --trace` step.
 //
 // Subcommands:
-//   trace doctor --exporter stdout|otlp [--endpoint host:port]
+//
+//	trace doctor --exporter stdout|otlp [--endpoint host:port]
 //
 // Docs: trace_cmd.doc.md
 package main
@@ -17,8 +18,9 @@ import (
 	"os"
 	"time"
 
-	sinctrace "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/trace"
 	"github.com/spf13/cobra"
+
+	sinctrace "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/trace"
 )
 
 func NewTraceCmd() *cobra.Command {

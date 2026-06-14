@@ -683,8 +683,8 @@ func TestLoadState_ZeroVersion(t *testing.T) {
 
 func TestSaveState_MarshalCheck(t *testing.T) {
 	state := &orchestrateState{
-		Tasks: []task{{Title: strings.Repeat("x", 100)}},
-		NextID: 1,
+		Tasks:   []task{{Title: strings.Repeat("x", 100)}},
+		NextID:  1,
 		Version: 1,
 	}
 	err := saveState(state)

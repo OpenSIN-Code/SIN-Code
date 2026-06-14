@@ -15,10 +15,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/apiweb"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/apiweb"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 )
 
 var (
@@ -474,7 +475,7 @@ func registerAllMCPTools(server *mcp.Server) {
 				"type": "object",
 				"properties": map[string]any{
 					"project": map[string]any{"type": "string"},
-					"tag":    map[string]any{"type": "string"},
+					"tag":     map[string]any{"type": "string"},
 				},
 			},
 		},
@@ -594,7 +595,7 @@ func registerAllMCPTools(server *mcp.Server) {
 				"required": []string{"name", "kvs"},
 				"properties": map[string]any{
 					"name": map[string]any{"type": "string"},
-					"kvs": map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+					"kvs":  map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 				},
 			},
 		},
@@ -1098,7 +1099,6 @@ func formatSecurityResultText(r SecurityResult) string {
 	}
 	return b.String()
 }
-
 
 func runSubcommand(ctx context.Context, name string, args map[string]any) (string, error) {
 	cmdArgs := []string{name}

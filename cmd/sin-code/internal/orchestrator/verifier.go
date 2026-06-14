@@ -33,10 +33,10 @@ var checkWeights = map[CheckKind]float64{
 }
 
 type Check struct {
-	Kind    CheckKind
-	Name    string
-	Cmd     []string
-	Timeout time.Duration
+	Kind         CheckKind
+	Name         string
+	Cmd          []string
+	Timeout      time.Duration
 	AllowedPaths []string
 }
 
@@ -75,7 +75,7 @@ func (v *Verdict) Diagnosis() string {
 }
 
 type Verifier struct {
-	Workdir       string
+	Workdir        string
 	MandatoryKinds []CheckKind
 }
 

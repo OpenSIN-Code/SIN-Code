@@ -15,7 +15,7 @@ import (
 var (
 	notifDBPath   string
 	notifFormat   string
-	notifWebhook string
+	notifWebhook  string
 	notifTTL      time.Duration
 	notifNoMac    bool
 	notifNoStderr bool

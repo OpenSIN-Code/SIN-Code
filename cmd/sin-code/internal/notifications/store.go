@@ -15,11 +15,11 @@ import (
 )
 
 const (
-	bucketNotifs     = "notifications"
-	bucketIdxUnread  = "idx_unread"
-	bucketIdxType    = "idx_type"
-	bucketIdxTodo    = "idx_todo"
-	ttlDefault       = 7 * 24 * time.Hour
+	bucketNotifs    = "notifications"
+	bucketIdxUnread = "idx_unread"
+	bucketIdxType   = "idx_type"
+	bucketIdxTodo   = "idx_todo"
+	ttlDefault      = 7 * 24 * time.Hour
 )
 
 var (
@@ -149,9 +149,9 @@ func (s *Store) Get(id string) (*Notification, error) {
 }
 
 type ListFilter struct {
-	Type      Type
-	TodoID    string
-	Unread    bool
+	Type         Type
+	TodoID       string
+	Unread       bool
 	NotDismissed bool
 }
 
@@ -309,9 +309,9 @@ func (s *Store) CountUnread() (int, error) {
 }
 
 type Stats struct {
-	Total  int            `json:"total"`
-	Unread int            `json:"unread"`
-	ByType map[Type]int   `json:"by_type"`
+	Total  int          `json:"total"`
+	Unread int          `json:"unread"`
+	ByType map[Type]int `json:"by_type"`
 }
 
 func (s *Store) ComputeStats() (*Stats, error) {

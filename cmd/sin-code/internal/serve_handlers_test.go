@@ -1112,7 +1112,6 @@ func TestServeCmd_RunEStdioFlag(t *testing.T) {
 	}
 }
 
-
 func TestHandlePoc_IntTypeArg(t *testing.T) {
 	setupServeTest(t)
 	ctx := context.Background()

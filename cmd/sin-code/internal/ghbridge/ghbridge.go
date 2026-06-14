@@ -234,22 +234,22 @@ var readOnlyVerbs = map[string]bool{
 // via gh_execute, which is ask-policy-gated in the agent loop. Adding
 // a verb here means the agent can call it — but the user must approve.
 var mutatingVerbs = map[string]bool{
-	"create":  true,
-	"comment": true,
-	"edit":    true,
-	"close":   true,
-	"reopen":  true,
-	"merge":   true,
-	"review":  true,
-	"ready":   true,
+	"create":   true,
+	"comment":  true,
+	"edit":     true,
+	"close":    true,
+	"reopen":   true,
+	"merge":    true,
+	"review":   true,
+	"ready":    true,
 	"checkout": true,
-	"label":   true,
-	"pin":     true,
-	"unpin":   true,
+	"label":    true,
+	"pin":      true,
+	"unpin":    true,
 	"download": true,
-	"rerun":   true,
-	"cancel":  true,
-	"watch":   true,
+	"rerun":    true,
+	"cancel":   true,
+	"watch":    true,
 }
 
 // forbiddenTokens is a deny-list scanned across ALL positions of the
@@ -257,21 +257,21 @@ var mutatingVerbs = map[string]bool{
 // still hard-blocks. This catches obfuscation attempts where a
 // forbidden verb hides behind a permitted group prefix.
 var forbiddenTokens = map[string]bool{
-	"delete":     true,
-	"auth":       true,
-	"secret":     true,
-	"ssh-key":    true,
-	"gpg-key":    true,
-	"api":        true,
-	"alias":      true,
-	"extension":  true,
-	"config":     true,
-	"codespace":  true,
-	"fork":       true,
-	"sync":       true,
-	"archive":    true,
-	"unarchive":  true,
-	"transfer":   true,
+	"delete":    true,
+	"auth":      true,
+	"secret":    true,
+	"ssh-key":   true,
+	"gpg-key":   true,
+	"api":       true,
+	"alias":     true,
+	"extension": true,
+	"config":    true,
+	"codespace": true,
+	"fork":      true,
+	"sync":      true,
+	"archive":   true,
+	"unarchive": true,
+	"transfer":  true,
 }
 
 // Classify inspects a gh arg list and returns its Tier plus an error

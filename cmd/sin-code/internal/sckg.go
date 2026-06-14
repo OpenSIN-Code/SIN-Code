@@ -38,7 +38,7 @@ Examples:
   sin-code sckg . --action query --query "auth module dependencies"
   sin-code sckg . --action stats
   sin-code sckg . --action export --format json`,
-	Args: cobra.ArbitraryArgs,
+	Args:    cobra.ArbitraryArgs,
 	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := "."
@@ -116,7 +116,7 @@ type sckgGraph struct {
 
 type sckgNode struct {
 	ID       string `json:"id"`
-	Type     string `json:"type"`     // file, function, class, module
+	Type     string `json:"type"` // file, function, class, module
 	Name     string `json:"name"`
 	Path     string `json:"path"`
 	Line     int    `json:"line,omitempty"`
@@ -126,7 +126,7 @@ type sckgNode struct {
 type sckgEdge struct {
 	Source string `json:"source"`
 	Target string `json:"target"`
-	Type   string `json:"type"`   // imports, calls, defines, contains
+	Type   string `json:"type"` // imports, calls, defines, contains
 }
 
 type sckgStats struct {
@@ -144,10 +144,10 @@ type importCount struct {
 }
 
 type queryResult struct {
-	Query      string     `json:"query"`
-	Matches    []sckgNode `json:"matches"`
-	Related    []sckgNode `json:"related"`
-	Total      int        `json:"total"`
+	Query   string     `json:"query"`
+	Matches []sckgNode `json:"matches"`
+	Related []sckgNode `json:"related"`
+	Total   int        `json:"total"`
 }
 
 func buildGraph(root string) (*sckgGraph, error) {
@@ -351,9 +351,15 @@ func outputTextSCKGBuild(graph *sckgGraph) error {
 	for _, node := range graph.Nodes {
 		types[node.Type]++
 	}
-	var typeList []struct{ name string; count int }
+	var typeList []struct {
+		name  string
+		count int
+	}
 	for k, v := range types {
-		typeList = append(typeList, struct{ name string; count int }{k, v})
+		typeList = append(typeList, struct {
+			name  string
+			count int
+		}{k, v})
 	}
 	sort.Slice(typeList, func(i, j int) bool { return typeList[i].count > typeList[j].count })
 	for _, t := range typeList {

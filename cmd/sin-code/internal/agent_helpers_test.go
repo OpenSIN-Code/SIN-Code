@@ -14,7 +14,7 @@ import (
 
 func TestSanitizeName(t *testing.T) {
 	cases := map[string]string{
-		"coder":   "coder",
+		"coder":    "coder",
 		"my-agent": "my-agent",
 		"a_b_c":    "a_b_c",
 		"a/b":      "ab",

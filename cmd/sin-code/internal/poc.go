@@ -62,23 +62,23 @@ Examples:
 }
 
 type pocResult struct {
-	Spec          string        `json:"spec"`
-	Code          string        `json:"code"`
-	Checks        []pocCheck    `json:"checks"`
-	Passed        int           `json:"passed"`
-	Failed        int           `json:"failed"`
-	TotalChecks   int           `json:"total_checks"`
-	Coverage      float64       `json:"coverage"`
-	Summary       string        `json:"summary"`
+	Spec        string     `json:"spec"`
+	Code        string     `json:"code"`
+	Checks      []pocCheck `json:"checks"`
+	Passed      int        `json:"passed"`
+	Failed      int        `json:"failed"`
+	TotalChecks int        `json:"total_checks"`
+	Coverage    float64    `json:"coverage"`
+	Summary     string     `json:"summary"`
 }
 
 type pocCheck struct {
-	Name      string `json:"name"`
-	Type      string `json:"type"`      // required, forbidden, signature, import
-	Status    string `json:"status"`    // pass, fail, warn
-	Message   string `json:"message"`
-	File      string `json:"file,omitempty"`
-	Line      int    `json:"line,omitempty"`
+	Name    string `json:"name"`
+	Type    string `json:"type"`   // required, forbidden, signature, import
+	Status  string `json:"status"` // pass, fail, warn
+	Message string `json:"message"`
+	File    string `json:"file,omitempty"`
+	Line    int    `json:"line,omitempty"`
 }
 
 func verifyCorrectness(specPath, codePath string) (*pocResult, error) {
@@ -159,9 +159,9 @@ func verifyCorrectness(specPath, codePath string) (*pocResult, error) {
 		}
 		if !found {
 			checks = append(checks, pocCheck{
-				Name:   req.Name,
-				Type:   "required",
-				Status: "fail",
+				Name:    req.Name,
+				Type:    "required",
+				Status:  "fail",
 				Message: fmt.Sprintf("Required '%s' not found in code", req.Name),
 			})
 		}

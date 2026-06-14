@@ -1174,15 +1174,15 @@ func TestSbomCmd_RunE_PythonProject(t *testing.T) {
 
 func TestSPDXPackage_Fields(t *testing.T) {
 	pkg := SPDXPackage{
-		SPDXID:              "SPDXRef-Package-test",
-		Name:                "test",
-		VersionInfo:         "1.0.0",
-		DownloadLocation:    "https://example.com",
-		FilesAnalyzed:       false,
-		VerificationCode:    nil,
-		LicenseConcluded:    "NOASSERTION",
-		LicenseDeclared:     "NOASSERTION",
-		CopyrightText:       "NOASSERTION",
+		SPDXID:                "SPDXRef-Package-test",
+		Name:                  "test",
+		VersionInfo:           "1.0.0",
+		DownloadLocation:      "https://example.com",
+		FilesAnalyzed:         false,
+		VerificationCode:      nil,
+		LicenseConcluded:      "NOASSERTION",
+		LicenseDeclared:       "NOASSERTION",
+		CopyrightText:         "NOASSERTION",
 		PrimaryPackagePurpose: "LIBRARY",
 	}
 	data, err := json.Marshal(pkg)

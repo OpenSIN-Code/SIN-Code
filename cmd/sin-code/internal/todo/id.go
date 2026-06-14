@@ -8,9 +8,9 @@ import (
 )
 
 var (
-	idMu     sync.Mutex
-	seenIDs  = make(map[string]struct{})
-	idSalt   uint64
+	idMu    sync.Mutex
+	seenIDs = make(map[string]struct{})
+	idSalt  uint64
 )
 
 const idPrefix = "st-"

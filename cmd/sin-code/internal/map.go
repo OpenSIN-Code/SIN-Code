@@ -27,7 +27,7 @@ and module-level analysis. Pure Go implementation.
 
 Example:
   sin-code map . --action map --format json`,
-	Args: cobra.ArbitraryArgs,
+	Args:    cobra.ArbitraryArgs,
 	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := "."
@@ -61,14 +61,14 @@ Example:
 }
 
 type mapResult struct {
-	Path         string            `json:"path"`
-	Summary      mapSummary        `json:"summary"`
-	EntryPoints  []string          `json:"entry_points"`
-	HotPaths     []hotPath         `json:"hot_paths"`
-	Orphans      []string          `json:"orphans"`
+	Path         string              `json:"path"`
+	Summary      mapSummary          `json:"summary"`
+	EntryPoints  []string            `json:"entry_points"`
+	HotPaths     []hotPath           `json:"hot_paths"`
+	Orphans      []string            `json:"orphans"`
 	Dependencies map[string][]string `json:"dependencies"`
 	ReverseDeps  map[string][]string `json:"reverse_dependencies"`
-	Modules      []moduleInfo      `json:"modules"`
+	Modules      []moduleInfo        `json:"modules"`
 }
 
 type mapSummary struct {
@@ -81,8 +81,8 @@ type mapSummary struct {
 }
 
 type hotPath struct {
-	Path     string `json:"path"`
-	Imports  int    `json:"imports"`
+	Path      string   `json:"path"`
+	Imports   int      `json:"imports"`
 	Importers []string `json:"importers"`
 }
 
@@ -279,9 +279,15 @@ func outputTextMap(r *mapResult) error {
 	fmt.Printf("  Docs:         %d\n", r.Summary.Documentation)
 
 	fmt.Printf("\nLanguages (%d):\n", len(r.Summary.Languages))
-	var langs []struct{ name string; count int }
+	var langs []struct {
+		name  string
+		count int
+	}
 	for k, v := range r.Summary.Languages {
-		langs = append(langs, struct{ name string; count int }{k, v})
+		langs = append(langs, struct {
+			name  string
+			count int
+		}{k, v})
 	}
 	sort.Slice(langs, func(i, j int) bool { return langs[i].count > langs[j].count })
 	for _, l := range langs {

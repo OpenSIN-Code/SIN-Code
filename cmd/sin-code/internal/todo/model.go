@@ -94,31 +94,31 @@ func (d DepType) IsBlocking() bool {
 }
 
 type Dependency struct {
-	From string `json:"from"`
-	To   string `json:"to"`
+	From string  `json:"from"`
+	To   string  `json:"to"`
 	Type DepType `json:"type"`
 }
 
 type Todo struct {
-	ID          string    `json:"id"`
-	Title       string    `json:"title"`
-	Description string    `json:"description,omitempty"`
-	Status      Status    `json:"status"`
-	Priority    Priority  `json:"priority"`
-	Type        TodoType  `json:"type"`
-	Tags        []string  `json:"tags,omitempty"`
-	Assignee    string    `json:"assignee,omitempty"`
-	Parent      string    `json:"parent,omitempty"`
-	ExternalRef string    `json:"external_ref,omitempty"`
-	Project     string    `json:"project,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Description string     `json:"description,omitempty"`
+	Status      Status     `json:"status"`
+	Priority    Priority   `json:"priority"`
+	Type        TodoType   `json:"type"`
+	Tags        []string   `json:"tags,omitempty"`
+	Assignee    string     `json:"assignee,omitempty"`
+	Parent      string     `json:"parent,omitempty"`
+	ExternalRef string     `json:"external_ref,omitempty"`
+	Project     string     `json:"project,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 	ClosedAt    *time.Time `json:"closed_at,omitempty"`
 	DueAt       *time.Time `json:"due_at,omitempty"`
-	Estimate    int       `json:"estimate_minutes,omitempty"`
-	Notes       string    `json:"notes,omitempty"`
-	Compacted   bool      `json:"compacted,omitempty"`
-	Summary     string    `json:"summary,omitempty"`
+	Estimate    int        `json:"estimate_minutes,omitempty"`
+	Notes       string     `json:"notes,omitempty"`
+	Compacted   bool       `json:"compacted,omitempty"`
+	Summary     string     `json:"summary,omitempty"`
 }
 
 func (t *Todo) IsOpen() bool {
@@ -140,13 +140,13 @@ type ListFilter struct {
 }
 
 type Stats struct {
-	Total     int            `json:"total"`
-	ByStatus  map[string]int `json:"by_status"`
+	Total      int            `json:"total"`
+	ByStatus   map[string]int `json:"by_status"`
 	ByPriority map[string]int `json:"by_priority"`
-	ByType    map[string]int `json:"by_type"`
+	ByType     map[string]int `json:"by_type"`
 	ByAssignee map[string]int `json:"by_assignee"`
-	Ready     int            `json:"ready"`
-	Blocked   int            `json:"blocked"`
+	Ready      int            `json:"ready"`
+	Blocked    int            `json:"blocked"`
 }
 
 type AuditEntry struct {

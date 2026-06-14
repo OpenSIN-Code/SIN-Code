@@ -34,7 +34,7 @@ and dependency analysis. Pure Go implementation — no external binary needed.
 
 Example:
   sin-code discover . --pattern "**/*.go" --sort_by relevance --format json`,
-	Args: cobra.ArbitraryArgs,
+	Args:    cobra.ArbitraryArgs,
 	Version: Version,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		path := "."
@@ -187,10 +187,10 @@ func scoreRelevance(relPath string, size int64) float64 {
 	// File extension bonus
 	ext := strings.ToLower(filepath.Ext(relPath))
 	bonus := map[string]float64{
-		".go":   15, ".py": 15, ".js": 12, ".ts": 14, ".tsx": 12,
-		".rs":   14, ".java": 10, ".c": 8, ".cpp": 10, ".h": 8,
-		".md":   10, ".json": 5, ".yaml": 8, ".yml": 8, ".toml": 8,
-		".sh":   8, ".dockerfile": 5, ".mod": 10, ".sum": 3,
+		".go": 15, ".py": 15, ".js": 12, ".ts": 14, ".tsx": 12,
+		".rs": 14, ".java": 10, ".c": 8, ".cpp": 10, ".h": 8,
+		".md": 10, ".json": 5, ".yaml": 8, ".yml": 8, ".toml": 8,
+		".sh": 8, ".dockerfile": 5, ".mod": 10, ".sum": 3,
 	}
 	if b, ok := bonus[ext]; ok {
 		score += b

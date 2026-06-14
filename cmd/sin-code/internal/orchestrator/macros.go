@@ -12,8 +12,8 @@ import (
 )
 
 type EditRequest struct {
-	TaskID            string
-	Edits             map[string][]byte
+	TaskID             string
+	Edits              map[string][]byte
 	DeclaredConfidence float64
 }
 

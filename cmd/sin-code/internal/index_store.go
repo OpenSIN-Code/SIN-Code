@@ -15,21 +15,21 @@ import (
 // ── Index Data Model ──────────────────────────────────────
 
 type indexEntry struct {
-	File      string
-	ModTime   time.Time
-	Size      int64
-	Trigrams  []uint32
-	Symbols   []symbolIndex
-	IsBinary  bool
-	Lines     int
+	File     string
+	ModTime  time.Time
+	Size     int64
+	Trigrams []uint32
+	Symbols  []symbolIndex
+	IsBinary bool
+	Lines    int
 }
 
 type symbolIndex struct {
-	Name       string
-	Type       string
-	StartLine  int
-	EndLine    int
-	Signature  string
+	Name      string
+	Type      string
+	StartLine int
+	EndLine   int
+	Signature string
 }
 
 type persistentIndex struct {
@@ -42,13 +42,13 @@ type persistentIndex struct {
 // ── In-Memory Index (Query Hot Path) ─────────────────────
 
 type fileIndex struct {
-	path      string
-	modTime   time.Time
-	size      int64
-	trigrams  map[uint32]struct{}
-	symbols   []symbolIndex
-	isBinary  bool
-	lines     int
+	path     string
+	modTime  time.Time
+	size     int64
+	trigrams map[uint32]struct{}
+	symbols  []symbolIndex
+	isBinary bool
+	lines    int
 }
 
 type inMemoryIndex struct {
@@ -391,12 +391,12 @@ func processFileForIndex(absPath string, root string) indexEntry {
 		return ie
 	}
 	for _, sym := range outline.Symbols {
-			ie.Symbols = append(ie.Symbols, symbolIndex{
-				Name:      sym.Name,
-				Type:      sym.Kind,
-				StartLine: sym.StartLine,
-				EndLine:   sym.EndLine,
-			})
+		ie.Symbols = append(ie.Symbols, symbolIndex{
+			Name:      sym.Name,
+			Type:      sym.Kind,
+			StartLine: sym.StartLine,
+			EndLine:   sym.EndLine,
+		})
 	}
 	return ie
 }

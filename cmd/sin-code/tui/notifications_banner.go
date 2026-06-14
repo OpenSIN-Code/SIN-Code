@@ -9,10 +9,10 @@ import (
 )
 
 type NotificationItem struct {
-	ID      string
-	Title   string
-	Message string
-	Type    string
+	ID        string
+	Title     string
+	Message   string
+	Type      string
 	Dismissed bool
 }
 

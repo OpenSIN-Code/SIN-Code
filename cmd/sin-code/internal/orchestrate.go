@@ -51,22 +51,22 @@ Example:
 }
 
 type task struct {
-	ID           int       `json:"id"`
-	Title        string    `json:"title"`
-	Tags         []string  `json:"tags"`
-	Status       string    `json:"status"`
-	Created      string    `json:"created"`
-	Updated      string    `json:"updated"`
-	Dependencies []int     `json:"dependencies,omitempty"`
-	Blocked      bool      `json:"blocked"`
-	Blockers     []string  `json:"blockers,omitempty"`
-	Rollback     string    `json:"rollback,omitempty"`
+	ID           int      `json:"id"`
+	Title        string   `json:"title"`
+	Tags         []string `json:"tags"`
+	Status       string   `json:"status"`
+	Created      string   `json:"created"`
+	Updated      string   `json:"updated"`
+	Dependencies []int    `json:"dependencies,omitempty"`
+	Blocked      bool     `json:"blocked"`
+	Blockers     []string `json:"blockers,omitempty"`
+	Rollback     string   `json:"rollback,omitempty"`
 }
 
 type orchestrateState struct {
-	Tasks    []task `json:"tasks"`
-	NextID   int    `json:"next_id"`
-	Version  int    `json:"version"`
+	Tasks   []task `json:"tasks"`
+	NextID  int    `json:"next_id"`
+	Version int    `json:"version"`
 }
 
 func getStateFile() string {

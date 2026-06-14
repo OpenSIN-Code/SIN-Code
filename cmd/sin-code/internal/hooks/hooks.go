@@ -4,10 +4,11 @@
 // they always run when their event fires (mandate C7, AGENTS.md §8).
 //
 // Hook types:
-//   command — shell command; event JSON on stdin; exit 0 = continue,
-//             exit 2 = BLOCK (stdout fed back to the agent), else warn.
-//   webhook — HTTP POST of the event JSON (fire-and-forget unless blocking).
-//   prompt  — injects static text into the next agent turn.
+//
+//	command — shell command; event JSON on stdin; exit 0 = continue,
+//	          exit 2 = BLOCK (stdout fed back to the agent), else warn.
+//	webhook — HTTP POST of the event JSON (fire-and-forget unless blocking).
+//	prompt  — injects static text into the next agent turn.
 //
 // Only *.pre events and permission.ask honor blocking.
 package hooks

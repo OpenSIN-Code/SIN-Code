@@ -10,11 +10,11 @@ import (
 )
 
 type Orchestrator struct {
-	Registry   *Registry
-	Planner    *Planner
-	Dispatcher *Dispatcher
-	Aggregator *Aggregator
-	Scratchpad *Scratchpad
+	Registry    *Registry
+	Planner     *Planner
+	Dispatcher  *Dispatcher
+	Aggregator  *Aggregator
+	Scratchpad  *Scratchpad
 	MaxParallel int
 }
 
@@ -25,11 +25,11 @@ func New() *Orchestrator {
 	dispatcher := NewDispatcher(registry, scratch, 4)
 	aggregator := NewAggregator(scratch)
 	return &Orchestrator{
-		Registry:   registry,
-		Planner:    planner,
-		Dispatcher: dispatcher,
-		Aggregator: aggregator,
-		Scratchpad: scratch,
+		Registry:    registry,
+		Planner:     planner,
+		Dispatcher:  dispatcher,
+		Aggregator:  aggregator,
+		Scratchpad:  scratch,
 		MaxParallel: 4,
 	}
 }
@@ -41,11 +41,11 @@ func NewWithAgents(extraConfigs []AgentConfig) *Orchestrator {
 	dispatcher := NewDispatcher(registry, scratch, 4)
 	aggregator := NewAggregator(scratch)
 	return &Orchestrator{
-		Registry:   registry,
-		Planner:    planner,
-		Dispatcher: dispatcher,
-		Aggregator: aggregator,
-		Scratchpad: scratch,
+		Registry:    registry,
+		Planner:     planner,
+		Dispatcher:  dispatcher,
+		Aggregator:  aggregator,
+		Scratchpad:  scratch,
 		MaxParallel: 4,
 	}
 }
@@ -73,7 +73,7 @@ func (o *Orchestrator) Run(ctx context.Context, prompt string, opts ...RunOption
 }
 
 type runConfig struct {
-	timeout    time.Duration
+	timeout     time.Duration
 	maxParallel int
 }
 

@@ -14,11 +14,11 @@ import (
 )
 
 type Provider struct {
-	Name        string
-	BaseURL     string
-	APIKeyEnv   string
+	Name         string
+	BaseURL      string
+	APIKeyEnv    string
 	DefaultModel string
-	Description string
+	Description  string
 }
 
 var Providers = map[string]Provider{
@@ -27,7 +27,7 @@ var Providers = map[string]Provider{
 		BaseURL:      "https://integrate.api.nvidia.com/v1",
 		APIKeyEnv:    "SIN_NIM_API_KEY",
 		DefaultModel: NIMDefaultModel,
-		Description: "NVIDIA NIM — cloud-hosted open models (Llama, Qwen, Kimi, etc.)",
+		Description:  "NVIDIA NIM — cloud-hosted open models (Llama, Qwen, Kimi, etc.)",
 	},
 	"openai": {
 		Name:         "openai",
@@ -78,6 +78,7 @@ func LookupProvider(name string) (Provider, error) {
 //   - baseURL override
 //   - apiKey override
 //   - model override
+//
 // Returns a Client ready to chat.
 func ProviderFromConfig(name, baseURLOverride, apiKeyOverride, modelOverride string, timeout time.Duration) (*Client, error) {
 	prov, err := LookupProvider(name)

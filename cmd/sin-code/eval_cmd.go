@@ -3,8 +3,9 @@
 // report, and gate the CI job on `--min-pass-rate` (issue #75).
 //
 // Subcommands:
-//   eval run --dataset <path> [--min-pass-rate N] [--json] [--trace]
-//   eval list [--dir path]
+//
+//	eval run --dataset <path> [--min-pass-rate N] [--json] [--trace]
+//	eval list [--dir path]
 //
 // Driver logic lives here (eval/trace ARE first-party CLI, not
 // Bridged-External — see cmd/sin-code/autodev_cmd.go for the
@@ -23,6 +24,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/dataset"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/eval"
@@ -31,7 +34,6 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	sinctrace "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/trace"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
-	"github.com/spf13/cobra"
 )
 
 func NewEvalCmd() *cobra.Command {

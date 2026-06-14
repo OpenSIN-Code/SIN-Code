@@ -209,13 +209,13 @@ func (s *Store) computeEmbedding(text string) ([]float32, error) {
 }
 
 type ListFilter struct {
-	Project  string
-	Tag      string
-	TagsAny  []string
-	TagsAll  []string
-	Actor    string
-	Search   string
-	Limit    int
+	Project string
+	Tag     string
+	TagsAny []string
+	TagsAll []string
+	Actor   string
+	Search  string
+	Limit   int
 }
 
 func (s *Store) List(f ListFilter) ([]*Memory, error) {

@@ -6,12 +6,12 @@
 // generated skill in the workspace's `.sin-code/mcp.json`.
 //
 // Mandate M4 is preserved by two layers:
-//   1. The chat-tool wrapper (chat_tools.go) checks
-//      `SIN_ALLOW_BOOTSTRAP=1` before delegating here. Without the
-//      env var, the agent cannot self-modify.
-//   2. permission_defaults.go adds a default `ask` rule for
-//      `sin_bootstrap_skill` so the engine prompts the user (or
-//      denies in headless mode) regardless of profile.
+//  1. The chat-tool wrapper (chat_tools.go) checks
+//     `SIN_ALLOW_BOOTSTRAP=1` before delegating here. Without the
+//     env var, the agent cannot self-modify.
+//  2. permission_defaults.go adds a default `ask` rule for
+//     `sin_bootstrap_skill` so the engine prompts the user (or
+//     denies in headless mode) regardless of profile.
 package meta
 
 import (
@@ -33,8 +33,9 @@ var nameRE = regexp.MustCompile(`^[a-z][a-z0-9_]{0,31}$`)
 
 // ServerTemplate is the body of the generated `mcp_server.py`. It
 // supports two modes:
-//   --list-tools (CLI flag, used for the bootstrap smoke test)
-//   stdin JSON-RPC (`tools/list`, `tools/call`) for normal use
+//
+//	--list-tools (CLI flag, used for the bootstrap smoke test)
+//	stdin JSON-RPC (`tools/list`, `tools/call`) for normal use
 const ServerTemplate = `#!/usr/bin/env python3
 """Auto-generated MCP server for the {{NAME}} skill (issue #51)."""
 from __future__ import annotations
