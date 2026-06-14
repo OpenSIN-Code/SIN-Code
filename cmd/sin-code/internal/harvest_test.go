@@ -284,3 +284,51 @@ func TestHarvestURLFetch_ServerError(t *testing.T) {
 		t.Errorf("expected JSON to surface 5xx (status 500 OR circuitbreaker error), got %q", s)
 	}
 }
+
+// errBody is a response body that always fails when read.
+type errBody struct{}
+
+func (errBody) Read(_ []byte) (int, error) { return 0, fmt.Errorf("simulated body read error") }
+func (errBody) Close() error                 { return nil }
+
+func TestHarvestURLFetch_ReadBodyError(t *testing.T) {
+	oldClient := harvestHTTPClient
+	harvestHTTPClient = func(timeout int) *http.Client {
+		return &http.Client{
+			Transport: roundTripperFn(func(_ *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Status:     "200 OK",
+					Header:     http.Header{"Content-Type": []string{"text/plain"}},
+					Body:       errBody{},
+				}, nil
+			}),
+		}
+	}
+	defer func() { harvestHTTPClient = oldClient }()
+
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	defer r.Close()
+	os.Stdout = w
+
+	err := harvestURLFetch("http://example.com", "GET", 5, "json")
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("harvestURLFetch failed: %v", err)
+	}
+	out, _ := io.ReadAll(r)
+	s := string(out)
+	if !strings.Contains(s, "read body:") {
+		t.Errorf("expected JSON output to contain 'read body:' error, got %q", s)
+	}
+}
+
+// roundTripperFn adapts a function to http.RoundTripper.
+type roundTripperFn func(*http.Request) (*http.Response, error)
+
+func (f roundTripperFn) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}

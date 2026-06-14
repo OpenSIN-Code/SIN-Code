@@ -23,7 +23,10 @@ var (
 	graspFormat string
 )
 
-var graspAbsPath = filepath.Abs
+var (
+	graspAbsPath     = filepath.Abs
+	graspAnalyzeFileFn = analyzeFile
+)
 
 var GraspCmd = &cobra.Command{
 	Use:   "grasp [path]",
@@ -48,7 +51,7 @@ Example:
 			return fmt.Errorf("path is a directory, not a file: %s", absPath)
 		}
 
-		result, err := analyzeFile(absPath, info)
+		result, err := graspAnalyzeFileFn(absPath, info)
 		if err != nil {
 			return err
 		}

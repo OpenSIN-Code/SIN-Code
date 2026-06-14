@@ -921,6 +921,22 @@ func TestMapArchitecture_WalkError_stcov2(t *testing.T) {
 	}
 }
 
+func TestDiscoverCmd_DiscoverFilesError_stcov2(t *testing.T) {
+	orig := discoverWalk
+	discoverWalk = func(root string, fn filepath.WalkFunc) error { return errors.New("walk error") }
+	defer func() { discoverWalk = orig }()
+	DiscoverCmd.SetArgs([]string{t.TempDir(), "--format", "json"})
+	_ = DiscoverCmd.Execute()
+}
+
+func TestMapCmd_MapArchitectureError_stcov2(t *testing.T) {
+	orig := mapWalk
+	mapWalk = func(root string, fn filepath.WalkFunc) error { return errors.New("walk error") }
+	defer func() { mapWalk = orig }()
+	MapCmd.SetArgs([]string{t.TempDir(), "--format", "json"})
+	_ = MapCmd.Execute()
+}
+
 func TestReadCmd_AbsPathError_stcov2(t *testing.T) {
 	orig := readAbsPath
 	readAbsPath = func(path string) (string, error) { return "", errors.New("abs error") }
@@ -1042,12 +1058,12 @@ func TestGraspCmd_AbsPathError_stcov2(t *testing.T) {
 	// Error is returned directly; we only need to exercise the branch.
 }
 
-func TestGraspCmd_JSONSuccess_stcov2(t *testing.T) {
+func TestGraspCmd_TextSuccess_stcov2(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "x.go")
 	os.WriteFile(path, []byte("package x\n"), 0644)
 	final := captureStdout(t)
-	GraspCmd.SetArgs([]string{path, "--format", "json"})
+	GraspCmd.SetArgs([]string{path})
 	if err := GraspCmd.Execute(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1055,6 +1071,17 @@ func TestGraspCmd_JSONSuccess_stcov2(t *testing.T) {
 	if !strings.Contains(out, "x.go") {
 		t.Errorf("expected x.go in output, got %q", out)
 	}
+}
+
+func TestGraspCmd_AnalyzeFileError_stcov2(t *testing.T) {
+	orig := graspAnalyzeFileFn
+	graspAnalyzeFileFn = func(path string, info os.FileInfo) (*graspResult, error) { return nil, errors.New("analyze error") }
+	defer func() { graspAnalyzeFileFn = orig }()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "x.go")
+	os.WriteFile(path, []byte("package x\n"), 0644)
+	GraspCmd.SetArgs([]string{path})
+	_ = GraspCmd.Execute()
 }
 
 func TestScoutCmd_AbsPathError_stcov2(t *testing.T) {
@@ -1097,6 +1124,23 @@ func TestOracleCmd_JSONSuccess_stcov2(t *testing.T) {
 	}
 }
 
+func TestOracleCmd_TextSuccess_stcov2(t *testing.T) {
+	dir := t.TempDir()
+	claim := filepath.Join(dir, "x.go")
+	evidence := filepath.Join(dir, "x_test.go")
+	os.WriteFile(claim, []byte("package x\nfunc Foo() {}\n"), 0644)
+	os.WriteFile(evidence, []byte("package x\nfunc TestFoo(t *testing.T) {}\n"), 0644)
+	final := captureStdout(t)
+	OracleCmd.SetArgs([]string{"--claim", claim, "--evidence", evidence})
+	if err := OracleCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := final()
+	if !strings.Contains(out, "Coverage") {
+		t.Errorf("expected Coverage in output, got %q", out)
+	}
+}
+
 func TestLspServersCmd_NoServers_stcov2(t *testing.T) {
 	orig := lspDetectAvailable
 	lspDetectAvailable = func() []lsp.ServerSpec { return nil }
@@ -1108,6 +1152,44 @@ func TestLspServersCmd_NoServers_stcov2(t *testing.T) {
 	out := final()
 	if !strings.Contains(out, "no LSP servers") {
 		t.Errorf("expected no servers message, got %q", out)
+	}
+}
+
+func TestLspServersCmd_JSONWithServers_stcov2(t *testing.T) {
+	orig := lspDetectAvailable
+	lspDetectAvailable = func() []lsp.ServerSpec {
+		return []lsp.ServerSpec{{Language: "go", Binary: "gopls", FileExts: []string{".go"}}}
+	}
+	defer func() { lspDetectAvailable = orig }()
+	origFormat := orch2Format
+	orch2Format = "json"
+	defer func() { orch2Format = origFormat }()
+	final := captureStdout(t)
+	if err := lspServersCmd.RunE(lspServersCmd, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := final()
+	if !strings.Contains(out, "gopls") {
+		t.Errorf("expected gopls in output, got %q", out)
+	}
+}
+
+func TestLspServersCmd_TextWithServers_stcov2(t *testing.T) {
+	orig := lspDetectAvailable
+	lspDetectAvailable = func() []lsp.ServerSpec {
+		return []lsp.ServerSpec{{Language: "go", Binary: "gopls", FileExts: []string{".go"}}}
+	}
+	defer func() { lspDetectAvailable = orig }()
+	origFormat := orch2Format
+	orch2Format = "text"
+	defer func() { orch2Format = origFormat }()
+	final := captureStdout(t)
+	if err := lspServersCmd.RunE(lspServersCmd, nil); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := final()
+	if !strings.Contains(out, "gopls") {
+		t.Errorf("expected gopls in output, got %q", out)
 	}
 }
 
@@ -1177,6 +1259,32 @@ func TestHarvestURLFetch_BodyReadError_stcov2(t *testing.T) {
 	defer func() { harvestHTTPClient = orig }()
 	if err := harvestURLFetch("http://example.com", "GET", 30, "json"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestHarvestURLFetch_TextSuccess_stcov2(t *testing.T) {
+	orig := harvestHTTPClient
+	harvestHTTPClient = func(timeout int) *http.Client {
+		return &http.Client{
+			Transport: stcov2RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: 200,
+					Status:     "200 OK",
+					Body:       io.NopCloser(strings.NewReader("hello")),
+					Header:     http.Header{},
+				}, nil
+			}),
+		}
+	}
+	defer func() { harvestHTTPClient = orig }()
+	final := captureStdout(t)
+	HarvestCmd.SetArgs([]string{"--url", "http://example-text.com", "--format", "text"})
+	if err := HarvestCmd.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := final()
+	if !strings.Contains(out, "hello") {
+		t.Errorf("expected hello in output, got %q", out)
 	}
 }
 
