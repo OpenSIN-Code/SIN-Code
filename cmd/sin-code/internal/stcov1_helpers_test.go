@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
@@ -317,4 +318,3 @@ func TestSetAgentField_InvalidNumber(t *testing.T) {
 		t.Fatal("expected error for invalid temperature")
 	}
 }
-

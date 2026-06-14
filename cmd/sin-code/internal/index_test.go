@@ -407,10 +407,10 @@ func TestHandleIndexSearch_Usage(t *testing.T) {
 	os.WriteFile(filepath.Join(root, "a.go"), []byte("package main\n\nfunc hello() {}\nfunc call() { hello() }\n"), 0644)
 
 	res, err := handleIndexSearch(context.Background(), map[string]any{
-		"query":        "hello",
-		"root":         root,
-		"search_type":  "usage",
-		"max_results":  float64(10),
+		"query":       "hello",
+		"root":        root,
+		"search_type": "usage",
+		"max_results": float64(10),
 	})
 	if err != nil {
 		t.Fatalf("handleIndexSearch usage: %v", err)
@@ -679,4 +679,3 @@ func TestIndexClearCmd_RemoveError(t *testing.T) {
 		t.Fatal("expected error when index path is a non-empty directory")
 	}
 }
-

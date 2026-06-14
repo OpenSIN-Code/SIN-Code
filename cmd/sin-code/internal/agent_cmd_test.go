@@ -11,7 +11,7 @@ import (
 )
 
 func TestFetchModels_HappyPath(t *testing.T) {
-	 srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"data":[{"id":"gpt-4"},{"id":"gpt-3.5"}]}`))
 	}))

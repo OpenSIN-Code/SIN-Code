@@ -291,12 +291,12 @@ func saveIndex(idx *inMemoryIndex) error {
 	}
 	enc := gob.NewEncoder(f)
 	if err := saveIndexEncode(enc, pi); err != nil {
-		f.Close()
-		saveIndexRemove(tmp)
+		_ = f.Close()
+		_ = saveIndexRemove(tmp)
 		return err
 	}
 	if err := saveIndexClose(f); err != nil {
-		saveIndexRemove(tmp)
+		_ = saveIndexRemove(tmp)
 		return err
 	}
 	return os.Rename(tmp, p)

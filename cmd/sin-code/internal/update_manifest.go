@@ -28,7 +28,6 @@ type UpdateSnapshot struct {
 	SkillsDirs   map[string]string `json:"skills_dirs"`
 }
 
-
 func SnapshotDir(stateRoot, ts string) string {
 	return filepath.Join(stateRoot, "updates", ts)
 }

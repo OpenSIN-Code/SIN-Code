@@ -20,12 +20,12 @@ import (
 )
 
 var (
-	adwPath        string
-	adwFormat      string
-	adwStrict      bool
-	adwAbs         = filepath.Abs   // test hook for filepath.Abs errors
-	adwWalk        = filepath.Walk  // test hook for filepath.Walk errors
-	adwInitialScore = 100            // test hook for the score > 100 cap
+	adwPath         string
+	adwFormat       string
+	adwStrict       bool
+	adwAbs          = filepath.Abs  // test hook for filepath.Abs errors
+	adwWalk         = filepath.Walk // test hook for filepath.Walk errors
+	adwInitialScore = 100           // test hook for the score > 100 cap
 )
 
 var AdwCmd = &cobra.Command{

@@ -15,8 +15,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 )
 
@@ -410,12 +410,12 @@ func TestSetAgentField_MoreFields(t *testing.T) {
 		val string
 		set func() bool
 	}{
-		"base_url":        {"base_url", "http://localhost", func() bool { return cfg.BaseURL == "http://localhost" }},
-		"system_file":     {"system_file", "sys.md", func() bool { return cfg.SystemFile == "sys.md" }},
-		"max_context":     {"max_context", "8192", func() bool { return cfg.MaxContext == 8192 }},
+		"base_url":         {"base_url", "http://localhost", func() bool { return cfg.BaseURL == "http://localhost" }},
+		"system_file":      {"system_file", "sys.md", func() bool { return cfg.SystemFile == "sys.md" }},
+		"max_context":      {"max_context", "8192", func() bool { return cfg.MaxContext == 8192 }},
 		"memory_namespace": {"memory_namespace", "ns", func() bool { return cfg.MemoryNS == "ns" }},
-		"retention_days":  {"retention_days", "30", func() bool { return cfg.RetentionDays == 30 }},
-		"tools_deny":      {"tools_deny", "exec,rm", func() bool { return len(cfg.ToolsDeny) == 2 }},
+		"retention_days":   {"retention_days", "30", func() bool { return cfg.RetentionDays == 30 }},
+		"tools_deny":       {"tools_deny", "exec,rm", func() bool { return len(cfg.ToolsDeny) == 2 }},
 	}
 	for name, tt := range fields {
 		t.Run(name, func(t *testing.T) {
@@ -491,10 +491,10 @@ func makeAnchor(lines []string, line int) string {
 func TestApplyAnchorEdit_Replace(t *testing.T) {
 	lines := []string{"package main", "", "func Hello() {}", "func Bye() {}"}
 	req := editRequest{
-		Anchor:    makeAnchor(lines, 3),
-		NewText:   "func Hello() string {}",
-		Drift:     DefaultDriftWindow,
-		Validate:  false,
+		Anchor:   makeAnchor(lines, 3),
+		NewText:  "func Hello() string {}",
+		Drift:    DefaultDriftWindow,
+		Validate: false,
 	}
 	res := &editResult{}
 	out, err := applyAnchorEdit(lines, req, res)
@@ -509,10 +509,10 @@ func TestApplyAnchorEdit_Replace(t *testing.T) {
 func TestApplyAnchorEdit_Delete(t *testing.T) {
 	lines := []string{"package main", "", "func Hello() {}", "func Bye() {}"}
 	req := editRequest{
-		Anchor:    makeAnchor(lines, 3),
-		Delete:    true,
-		Drift:     DefaultDriftWindow,
-		Validate:  false,
+		Anchor:   makeAnchor(lines, 3),
+		Delete:   true,
+		Drift:    DefaultDriftWindow,
+		Validate: false,
 	}
 	res := &editResult{}
 	out, err := applyAnchorEdit(lines, req, res)
@@ -527,11 +527,11 @@ func TestApplyAnchorEdit_Delete(t *testing.T) {
 func TestApplyAnchorEdit_InsertBefore(t *testing.T) {
 	lines := []string{"package main", "", "func Hello() {}"}
 	req := editRequest{
-		Anchor:    makeAnchor(lines, 3),
-		Insert:    "before",
-		NewText:   "// greeting",
-		Drift:     DefaultDriftWindow,
-		Validate:  false,
+		Anchor:   makeAnchor(lines, 3),
+		Insert:   "before",
+		NewText:  "// greeting",
+		Drift:    DefaultDriftWindow,
+		Validate: false,
 	}
 	res := &editResult{}
 	out, err := applyAnchorEdit(lines, req, res)
@@ -547,11 +547,11 @@ func TestApplyAnchorEdit_InsertBefore(t *testing.T) {
 func TestApplyAnchorEdit_InsertAfter(t *testing.T) {
 	lines := []string{"package main", "", "func Hello() {}"}
 	req := editRequest{
-		Anchor:    makeAnchor(lines, 3),
-		Insert:    "after",
-		NewText:   "// end",
-		Drift:     DefaultDriftWindow,
-		Validate:  false,
+		Anchor:   makeAnchor(lines, 3),
+		Insert:   "after",
+		NewText:  "// end",
+		Drift:    DefaultDriftWindow,
+		Validate: false,
 	}
 	res := &editResult{}
 	out, err := applyAnchorEdit(lines, req, res)
@@ -582,11 +582,11 @@ func TestApplyAnchorEdit_EndAnchorBeforeStart(t *testing.T) {
 func TestApplyAnchorEdit_InvalidInsert(t *testing.T) {
 	lines := []string{"package main", "func Hello() {}"}
 	req := editRequest{
-		Anchor:    makeAnchor(lines, 2),
-		Insert:    "middle",
-		NewText:   "x",
-		Drift:     DefaultDriftWindow,
-		Validate:  false,
+		Anchor:   makeAnchor(lines, 2),
+		Insert:   "middle",
+		NewText:  "x",
+		Drift:    DefaultDriftWindow,
+		Validate: false,
 	}
 	res := &editResult{}
 	if _, err := applyAnchorEdit(lines, req, res); err == nil {
@@ -597,9 +597,9 @@ func TestApplyAnchorEdit_InvalidInsert(t *testing.T) {
 func TestApplyAnchorEdit_MissingNewText(t *testing.T) {
 	lines := []string{"package main", "func Hello() {}"}
 	req := editRequest{
-		Anchor:    makeAnchor(lines, 2),
-		Drift:     DefaultDriftWindow,
-		Validate:  false,
+		Anchor:   makeAnchor(lines, 2),
+		Drift:    DefaultDriftWindow,
+		Validate: false,
 	}
 	res := &editResult{}
 	if _, err := applyAnchorEdit(lines, req, res); err == nil {

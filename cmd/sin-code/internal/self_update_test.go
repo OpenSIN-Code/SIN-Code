@@ -1052,9 +1052,9 @@ func TestRunSelfUpdateWithDeps_BackupFailure(t *testing.T) {
 		},
 		extractBinary: extractBinary,
 		currentBinary: func() (string, error) { return current, nil },
-		rename: func(_, _ string) error { return os.ErrPermission },
-		remove: os.Remove,
-		chmod:  os.Chmod,
+		rename:        func(_, _ string) error { return os.ErrPermission },
+		remove:        os.Remove,
+		chmod:         os.Chmod,
 	}
 	if err := runSelfUpdateWithDeps(deps, false); err == nil {
 		t.Fatal("expected backup failure error")
@@ -1139,3 +1139,45 @@ func TestExtractZip_CopyError(t *testing.T) {
 	}
 }
 
+func TestExtractZip_OpenEntryError(t *testing.T) {
+	files := map[string]string{"sin-code": "content"}
+	archivePath := createZip(t, files)
+	destDir := t.TempDir()
+
+	savedOpen := zipFileOpenFn
+	zipFileOpenFn = func(_ *zip.File) (io.ReadCloser, error) {
+		return nil, os.ErrInvalid
+	}
+	defer func() { zipFileOpenFn = savedOpen }()
+
+	_, err := extractZip(archivePath, destDir)
+	if err == nil {
+		t.Error("expected error when zip entry open fails")
+	}
+}
+
+func TestExtractTarGz_TarNextError(t *testing.T) {
+	// Create a valid gzip archive that contains invalid tar data, so that
+	// gzip.NewReader succeeds but tar.NewReader.Next returns an error.
+	dir := t.TempDir()
+	archivePath := filepath.Join(dir, "bad.tar.gz")
+	f, err := os.Create(archivePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gw := gzip.NewWriter(f)
+	if _, err := gw.Write([]byte("not a tar archive")); err != nil {
+		t.Fatal(err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = extractTarGz(archivePath, t.TempDir())
+	if err == nil {
+		t.Error("expected tar error for invalid tar data")
+	}
+}

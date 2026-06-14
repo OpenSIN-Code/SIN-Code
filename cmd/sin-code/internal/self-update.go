@@ -57,6 +57,7 @@ func init() {
 var runtimeGOOS = runtime.GOOS
 var osCreateFn = os.Create
 var ioCopyFn = io.Copy
+var zipFileOpenFn = func(f *zip.File) (io.ReadCloser, error) { return f.Open() }
 
 // ─── Data structures ───────────────────────────────────────────────────────
 
@@ -210,17 +211,17 @@ func runSelfUpdateWithDeps(deps *selfUpdateDeps, dryRun bool) error {
 	// Install new binary.
 	if err := deps.rename(extractedBinary, binaryPath); err != nil {
 		// Restore backup on failure.
-		deps.rename(backupPath, binaryPath)
+		_ = deps.rename(backupPath, binaryPath)
 		return fmt.Errorf("install failed: %w", err)
 	}
 
 	// Make executable (on Unix).
 	if runtime.GOOS != "windows" {
-		deps.chmod(binaryPath, 0755)
+		_ = deps.chmod(binaryPath, 0755)
 	}
 
 	// Remove backup on success.
-	deps.remove(backupPath)
+	_ = deps.remove(backupPath)
 
 	fmt.Printf("\n✅ Updated to %s successfully!\n", latest.TagName)
 	fmt.Printf("   Run 'sin-code --version' to verify.\n")
@@ -332,7 +333,7 @@ func extractZip(archivePath, destDir string) (string, error) {
 			}
 			defer out.Close()
 
-			rc, err := f.Open()
+			rc, err := zipFileOpenFn(f)
 			if err != nil {
 				return "", err
 			}

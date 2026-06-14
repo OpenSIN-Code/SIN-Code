@@ -10,8 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 )
 
 // newTestServerWithBinary registers all MCP tools and points subcommand

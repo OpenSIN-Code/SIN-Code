@@ -18,12 +18,12 @@ import (
 )
 
 var (
-	lspLang     string
-	lspRoot     string
-	lspFile     string
-	lspLine     int
-	lspCol      int
-	lspNewName  string
+	lspLang    string
+	lspRoot    string
+	lspFile    string
+	lspLine    int
+	lspCol     int
+	lspNewName string
 
 	// filepathAbs is a test hook for lspSetup error paths.
 	// osGetwd is defined in serve.go as a shared package hook.
@@ -97,7 +97,6 @@ var lspServersCmd = &cobra.Command{
 		return nil
 	},
 }
-
 
 var lspDefinitionCmd = &cobra.Command{
 	Use:   "definition <file> <line> <col>",

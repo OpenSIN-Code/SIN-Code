@@ -32,12 +32,12 @@ var (
 var ServerVersion = "dev"
 
 var (
-	pathAbs = filepath.Abs
-	osGetwd = os.Getwd
+	pathAbs               = filepath.Abs
+	osGetwd               = os.Getwd
 	securityMarshalIndent = json.MarshalIndent
 	sbomMarshalIndent     = json.MarshalIndent
 	sbomEncode            = func(enc *json.Encoder, v any) error { return enc.Encode(v) }
-	httpServerHook func(*http.Server)
+	httpServerHook        func(*http.Server)
 )
 
 var ServeCmd = &cobra.Command{
@@ -65,11 +65,11 @@ Then use sin_discover, sin_execute, sin_map, sin_grasp, sin_scout, sin_harvest,
 sin_orchestrate, sin_ibd, sin_poc, sin_sckg, sin_adw, sin_oracle, sin_efm,
 sin_security_scan, sin_sbom_generate as MCP tools.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-	parent := cmd.Context()
-	if parent == nil {
-		parent = context.Background()
-	}
-	ctx, cancel := context.WithCancel(parent)
+		parent := cmd.Context()
+		if parent == nil {
+			parent = context.Background()
+		}
+		ctx, cancel := context.WithCancel(parent)
 		defer cancel()
 
 		server := mcp.NewServer(&mcp.Implementation{

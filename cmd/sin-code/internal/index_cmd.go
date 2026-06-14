@@ -118,7 +118,7 @@ var indexStatusCmd = &cobra.Command{
 // indexWatchInterval and indexWatchMaxIterations are test hooks for the
 // foreground daemon. indexWatchMaxIterations = -1 means loop forever.
 var (
-	indexWatchInterval     = 30 * time.Second
+	indexWatchInterval      = 30 * time.Second
 	indexWatchMaxIterations = -1
 )
 

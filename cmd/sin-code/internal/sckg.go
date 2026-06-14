@@ -20,8 +20,8 @@ var (
 	sckgAction string
 	sckgQuery  string
 	sckgFormat string
-	sckgAbs    = filepath.Abs    // test hook for filepath.Abs errors
-	sckgWalk   = filepath.Walk   // test hook for filepath.Walk errors
+	sckgAbs    = filepath.Abs  // test hook for filepath.Abs errors
+	sckgWalk   = filepath.Walk // test hook for filepath.Walk errors
 )
 
 var SckgCmd = &cobra.Command{

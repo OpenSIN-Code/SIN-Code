@@ -789,4 +789,3 @@ func TestNormalizeGraspKind_Default(t *testing.T) {
 		}
 	}
 }
-

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
@@ -366,8 +367,8 @@ func TestHandleOrchestratorRun_Dispatches(t *testing.T) {
 func TestHandleOrchestratorRun_WithOptions(t *testing.T) {
 	_ = makeFakeSinCode(t, `{"plan":{"id":"P1"}}`, "")
 	if _, err := handleOrchestratorRun(context.Background(), map[string]any{
-		"prompt":      "add tests",
-		"timeout":     "30s",
+		"prompt":       "add tests",
+		"timeout":      "30s",
 		"max_parallel": float64(2),
 	}); err != nil {
 		t.Fatal(err)

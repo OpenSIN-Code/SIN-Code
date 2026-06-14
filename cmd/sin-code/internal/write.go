@@ -20,12 +20,12 @@ import (
 )
 
 var (
-	writeContent    string
-	writeStdin      bool
-	writeNoValidate bool
-	writeBackup     bool
-	writeMkdir      bool
-	writeFormat     string
+	writeContent     string
+	writeStdin       bool
+	writeNoValidate  bool
+	writeBackup      bool
+	writeMkdir       bool
+	writeFormat      string
 	writeStdinReader = io.Reader(os.Stdin)
 )
 
@@ -184,7 +184,7 @@ func writeFileAtomicWithHooks(path, content string, opts writeOpts, hooks writeH
 		return nil, fmt.Errorf("creating temp file: %w", err)
 	}
 	tmpName := tmp.Name()
-	cleanup := func() { hooks.closeFile(tmp); hooks.remove(tmpName) }
+	cleanup := func() { _ = hooks.closeFile(tmp); _ = hooks.remove(tmpName) }
 
 	if _, err := hooks.writeAll(tmp, []byte(content)); err != nil {
 		cleanup()
@@ -195,15 +195,15 @@ func writeFileAtomicWithHooks(path, content string, opts writeOpts, hooks writeH
 		return nil, fmt.Errorf("fsync: %w", err)
 	}
 	if err := hooks.closeFile(tmp); err != nil {
-		hooks.remove(tmpName)
+		_ = hooks.remove(tmpName)
 		return nil, fmt.Errorf("closing temp file: %w", err)
 	}
 	if err := hooks.chmod(tmpName, mode); err != nil {
-		hooks.remove(tmpName)
+		_ = hooks.remove(tmpName)
 		return nil, fmt.Errorf("chmod: %w", err)
 	}
 	if err := hooks.rename(tmpName, path); err != nil {
-		hooks.remove(tmpName)
+		_ = hooks.remove(tmpName)
 		return nil, fmt.Errorf("atomic rename: %w", err)
 	}
 

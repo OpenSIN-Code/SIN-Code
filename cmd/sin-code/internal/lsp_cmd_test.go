@@ -471,7 +471,9 @@ func TestLspRun_DefinitionWithFakeGopls(t *testing.T) {
 
 	oldFile, oldLang, oldRoot, oldLine, oldCol := lspFile, lspLang, lspRoot, lspLine, lspCol
 	oldFormat := orch2Format
-	defer func() { lspFile, lspLang, lspRoot, lspLine, lspCol, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldFormat }()
+	defer func() {
+		lspFile, lspLang, lspRoot, lspLine, lspCol, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldFormat
+	}()
 
 	root := t.TempDir()
 	lspRoot = root
@@ -527,7 +529,9 @@ func TestLspRun_RenameWithFakeGopls(t *testing.T) {
 
 	oldFile, oldLang, oldRoot, oldLine, oldCol, oldNewName := lspFile, lspLang, lspRoot, lspLine, lspCol, lspNewName
 	oldFormat := orch2Format
-	defer func() { lspFile, lspLang, lspRoot, lspLine, lspCol, lspNewName, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldNewName, oldFormat }()
+	defer func() {
+		lspFile, lspLang, lspRoot, lspLine, lspCol, lspNewName, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldNewName, oldFormat
+	}()
 
 	root := t.TempDir()
 	lspRoot = root
@@ -557,7 +561,9 @@ func TestLspRun_ReferencesWithFakeGopls(t *testing.T) {
 
 	oldFile, oldLang, oldRoot, oldLine, oldCol := lspFile, lspLang, lspRoot, lspLine, lspCol
 	oldFormat := orch2Format
-	defer func() { lspFile, lspLang, lspRoot, lspLine, lspCol, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldFormat }()
+	defer func() {
+		lspFile, lspLang, lspRoot, lspLine, lspCol, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldFormat
+	}()
 
 	root := t.TempDir()
 	lspRoot = root
@@ -586,7 +592,9 @@ func TestLspRun_HoverWithFakeGopls(t *testing.T) {
 
 	oldFile, oldLang, oldRoot, oldLine, oldCol := lspFile, lspLang, lspRoot, lspLine, lspCol
 	oldFormat := orch2Format
-	defer func() { lspFile, lspLang, lspRoot, lspLine, lspCol, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldFormat }()
+	defer func() {
+		lspFile, lspLang, lspRoot, lspLine, lspCol, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldFormat
+	}()
 
 	root := t.TempDir()
 	lspRoot = root
@@ -738,7 +746,9 @@ func TestLspRun_JSONOutput(t *testing.T) {
 
 	oldFile, oldLang, oldRoot, oldLine, oldCol := lspFile, lspLang, lspRoot, lspLine, lspCol
 	oldFormat := orch2Format
-	defer func() { lspFile, lspLang, lspRoot, lspLine, lspCol, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldFormat }()
+	defer func() {
+		lspFile, lspLang, lspRoot, lspLine, lspCol, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldFormat
+	}()
 
 	root := t.TempDir()
 	lspRoot = root
@@ -942,7 +952,9 @@ func TestLspRun_FallbackLanguage(t *testing.T) {
 	installFakeGopls(t)
 	oldFile, oldLang, oldRoot, oldLine, oldCol := lspFile, lspLang, lspRoot, lspLine, lspCol
 	oldFormat := orch2Format
-	defer func() { lspFile, lspLang, lspRoot, lspLine, lspCol, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldFormat }()
+	defer func() {
+		lspFile, lspLang, lspRoot, lspLine, lspCol, orch2Format = oldFile, oldLang, oldRoot, oldLine, oldCol, oldFormat
+	}()
 	root := t.TempDir()
 	lspRoot = root
 	lspFile = filepath.Join(root, "test.unknown_ext")

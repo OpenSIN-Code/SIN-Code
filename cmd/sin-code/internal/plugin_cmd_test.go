@@ -345,4 +345,3 @@ func TestLoadPlugin_InvalidManifest(t *testing.T) {
 		t.Fatal("expected error for invalid manifest")
 	}
 }
-

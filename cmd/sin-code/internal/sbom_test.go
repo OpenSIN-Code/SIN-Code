@@ -1357,3 +1357,36 @@ func TestCollectDependencies_NodeError(t *testing.T) {
 		t.Error("expected error for node project without package.json")
 	}
 }
+
+func TestSbomCollectDependencies_PythonReadError(t *testing.T) {
+	dir := t.TempDir()
+	// Create a directory named requirements.txt so os.ReadFile returns an error.
+	if err := os.Mkdir(filepath.Join(dir, "requirements.txt"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	_, err := collectDependencies(dir, "python")
+	if err == nil {
+		t.Error("expected error when requirements.txt is unreadable")
+	}
+}
+
+func TestSbomGenerateSPDX_FirstDepIsRoot(t *testing.T) {
+	// Module path matches the directory basename so the first go list dep is the root package.
+	dir := filepath.Join(t.TempDir(), "test")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\ngo 1.21\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	doc, err := generateSPDX(dir, "go", "test", "2026-06-07T12:00:00Z")
+	if err != nil {
+		t.Fatalf("generateSPDX error: %v", err)
+	}
+	if len(doc.Packages) == 0 {
+		t.Fatal("expected at least one package")
+	}
+	if doc.Packages[0].SPDXID != "SPDXRef-DOCUMENT" {
+		t.Errorf("root package SPDXID = %q, want SPDXRef-DOCUMENT", doc.Packages[0].SPDXID)
+	}
+}

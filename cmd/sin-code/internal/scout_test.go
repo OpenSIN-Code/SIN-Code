@@ -1636,4 +1636,48 @@ func TestRgSearch_BadMatchData(t *testing.T) {
 	_ = results
 }
 
+func TestRgSearch_MaxResultsAndSort(t *testing.T) {
+	rgCommandFn = func(name string, args ...string) *exec.Cmd {
+		return exec.Command("sh", "-c", `echo '{"type":"match","data":{"path":{"text":"a.go"},"lines":{"text":"func Hello()"},"line_number":1,"submatches":[{"match":{"text":"Hello"},"start":5,"end":10}]}}'
+echo '{"type":"match","data":{"path":{"text":"b.go"},"lines":{"text":"package main"},"line_number":1,"submatches":[{"match":{"text":"main"},"start":8,"end":12}]}}'
+echo '{"type":"match","data":{"path":{"text":"c.go"},"lines":{"text":"type Foo struct{}"},"line_number":1,"submatches":[{"match":{"text":"Foo"},"start":5,"end":8}]}}'`)
+	}
+	defer func() { rgCommandFn = nil }()
+	results, err := rgSearch(t.TempDir(), "test", "regex", 2)
+	if err != nil {
+		t.Fatalf("rgSearch failed: %v", err)
+	}
+	if len(results) != 2 {
+		t.Errorf("expected 2 results, got %d", len(results))
+	}
+	// Sort should order by relevance descending; type prefix is higher.
+	if results[0].Relevance < results[1].Relevance {
+		t.Errorf("expected descending relevance, got %v then %v", results[0].Relevance, results[1].Relevance)
+	}
+}
 
+func TestRgSearch_FallbackCommand(t *testing.T) {
+	oldFn := rgCommandFn
+	rgCommandFn = nil
+	defer func() { rgCommandFn = oldFn }()
+
+	// Create a fake rg script that returns one valid match.
+	fakeBin := filepath.Join(t.TempDir(), "rg")
+	script := `#!/bin/sh
+echo '{"type":"match","data":{"path":{"text":"x.go"},"lines":{"text":"func X()"},"line_number":1,"submatches":[{"match":{"text":"X"},"start":5,"end":6}]}}'
+`
+	if err := os.WriteFile(fakeBin, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+	os.Setenv("PATH", filepath.Dir(fakeBin)+":"+oldPath)
+
+	results, err := rgSearch(t.TempDir(), "X", "regex", 10)
+	if err != nil {
+		t.Fatalf("fallback command failed: %v", err)
+	}
+	if len(results) != 1 {
+		t.Errorf("expected 1 result, got %d", len(results))
+	}
+}

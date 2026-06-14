@@ -32,7 +32,6 @@ func resetIndexState(t *testing.T) {
 	})
 }
 
-
 func TestScoutIndexed_BuildIndexError(t *testing.T) {
 	resetIndexState(t)
 	root := t.TempDir()
@@ -165,9 +164,9 @@ func TestScoutIndexed_SearchWithIndexCandidateErrors(t *testing.T) {
 	idx := &inMemoryIndex{
 		root: root,
 		files: map[string]*fileIndex{
-			"a.go":      {path: "a.go", trigrams: tri},
-			"binary.go": {path: "binary.go", trigrams: tri},
-			"bad.go":    {path: "bad.go", trigrams: tri},
+			"a.go":       {path: "a.go", trigrams: tri},
+			"binary.go":  {path: "binary.go", trigrams: tri},
+			"bad.go":     {path: "bad.go", trigrams: tri},
 			"missing.go": {path: "missing.go", trigrams: tri},
 		},
 	}
