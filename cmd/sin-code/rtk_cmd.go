@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"sin-code/internal/rtk"
+	"github.com/OpenSIN-Code/SIN-Code/internal/rtk"
 )
 
 // NewRTKCmd creates the RTK command
