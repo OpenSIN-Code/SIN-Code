@@ -77,7 +77,13 @@ class Ledger:
                 (plan_id,)).fetchall()
         for task_id, kind in rows:
             if kind.startswith("state:"):
-                states[task_id] = TaskState(kind.split(":", 1)[1])
+                try:
+                    states[task_id] = TaskState(kind.split(":", 1)[1])
+                except ValueError:
+                    # Corrupt state string: keep the previous state and
+                    # surface it via a synthetic event for debugging.
+                    self.emit(plan_id, task_id, "ledger:corrupt_state",
+                              {"kind": kind})
         return states
 
     def attempts(self, plan_id: str, task_id: str) -> int:

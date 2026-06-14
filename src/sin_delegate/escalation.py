@@ -14,9 +14,8 @@ are ignored (first-writer-wins, tracked in the ledger).
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any
 
 from .ledger import Ledger
 
@@ -177,12 +176,18 @@ class EscalationBroker:
             return {"ok": False,
                     "error": f"option {option_id!r} requires input "
                              f"(e.g. guidance for the retry)"}
+        try:
+            action = ActionType(option["action"]).value
+        except ValueError:
+            return {"ok": False,
+                    "error": f"escalation has invalid action "
+                             f"{option['action']!r}"}
         self.ledger.emit(plan_id, esc["task_id"],
                          "escalation:resolved", {
             "escalation_id": escalation_id,
             "task_id": esc["task_id"],
             "option_id": option_id,
-            "action": option["action"],
+            "action": action,
             "user_input": user_input,
             "decided_by": decided_by,
         })

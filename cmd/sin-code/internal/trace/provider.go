@@ -39,6 +39,13 @@ const (
 // visible hang (mandate C6 hard-time-limit).
 const defaultShutdownTimeout = 5 * time.Second
 
+// Test hooks for error paths.
+var (
+	stdouttraceNew    = stdouttrace.New
+	otlptracehttpNew  = otlptracehttp.New
+	resourceNew       = resource.New
+)
+
 // ProviderConfig configures InitProvider.
 type ProviderConfig struct {
 	ServiceName    string        // semconv service.name (required for prod)
@@ -78,10 +85,13 @@ func InitProvider(ctx context.Context, cfg *ProviderConfig) (*sdktrace.TracerPro
 		cfg = &ProviderConfig{}
 	}
 	cfg.normalize()
+	if cfg.Exporter == "" {
+		cfg.Exporter = ExporterNoop
+	}
 
 	// Resource is mandatory even for noop — semconv attributes keep
 	// the trace dashboard readable when the exporter is OTLP.
-	res, err := resource.New(ctx,
+	res, err := resourceNew(ctx,
 		resource.WithAttributes(
 			semconv.ServiceName(cfg.ServiceName),
 			semconv.ServiceVersion(cfg.ServiceVersion),
@@ -94,7 +104,7 @@ func InitProvider(ctx context.Context, cfg *ProviderConfig) (*sdktrace.TracerPro
 
 	switch cfg.Exporter {
 	case ExporterStdout:
-		exp, err := stdouttrace.New(stdouttrace.WithPrettyPrint(), stdouttrace.WithWriter(os.Stderr))
+		exp, err := stdouttraceNew(stdouttrace.WithPrettyPrint(), stdouttrace.WithWriter(os.Stderr))
 		if err != nil {
 			return nil, fmt.Errorf("trace: build stdout exporter: %w", err)
 		}
@@ -117,7 +127,7 @@ func InitProvider(ctx context.Context, cfg *ProviderConfig) (*sdktrace.TracerPro
 		if h := os.Getenv("OTEL_EXPORTER_OTLP_HEADERS"); h != "" {
 			opts = append(opts, otlptracehttp.WithHeaders(parseHeaders(h)))
 		}
-		exp, err := otlptracehttp.New(ctx, opts...)
+		exp, err := otlptracehttpNew(ctx, opts...)
 		if err != nil {
 			return nil, fmt.Errorf("trace: build OTLP exporter: %w", err)
 		}

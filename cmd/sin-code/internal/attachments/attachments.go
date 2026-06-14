@@ -24,7 +24,16 @@ const (
 var (
 	ErrTooLarge = errors.New("attachment exceeds 50MB")
 	ErrNotFound = errors.New("attachment not found")
+
+	// Test hooks (overridden in tests).
+	osUserConfigDir = os.UserConfigDir
+	osMkdirAll      = os.MkdirAll
+	osOpen          = os.Open
+	osReadAllHook   = func(r io.Reader) ([]byte, error) { return io.ReadAll(r) }
+	osWriteFileHook = os.WriteFile
+	osReadDir       = os.ReadDir
 )
+
 
 type Attachment struct {
 	ID        string    `json:"id"`
@@ -46,14 +55,14 @@ func NewStore() (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := osMkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
 	return &Store{baseDir: dir}, nil
 }
 
 func NewStoreAt(dir string) (*Store, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := osMkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
 	return &Store{baseDir: dir}, nil
@@ -67,7 +76,7 @@ func (s *Store) Attach(srcPath string) (*Attachment, error) {
 	if info.Size() > MaxSize {
 		return nil, ErrTooLarge
 	}
-	f, err := os.Open(srcPath)
+	f, err := osOpen(srcPath)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +89,7 @@ func (s *Store) AttachReader(r io.Reader, name string, size int64) (*Attachment,
 		return nil, ErrTooLarge
 	}
 	h := sha256.New()
-	buf, err := io.ReadAll(io.TeeReader(r, h))
+	buf, err := osReadAllHook(io.TeeReader(r, h))
 	if err != nil {
 		return nil, err
 	}
@@ -89,11 +98,11 @@ func (s *Store) AttachReader(r io.Reader, name string, size int64) (*Attachment,
 	ext := extFor(mime, name)
 	relPath := hashHex[:2] + "/" + hashHex + ext
 	fullPath := filepath.Join(s.baseDir, relPath)
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
+	if err := osMkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
 		return nil, err
 	}
 	if _, err := os.Stat(fullPath); errors.Is(err, os.ErrNotExist) {
-		if err := os.WriteFile(fullPath, buf, 0o644); err != nil {
+		if err := osWriteFileHook(fullPath, buf, 0o644); err != nil {
 			return nil, err
 		}
 	}
@@ -112,7 +121,7 @@ func (s *Store) AttachReader(r io.Reader, name string, size int64) (*Attachment,
 
 func (s *Store) Get(hash string) (*Attachment, error) {
 	dir := filepath.Join(s.baseDir, hash[:2])
-	entries, err := os.ReadDir(dir)
+	entries, err := osReadDir(dir)
 	if err != nil {
 		return nil, ErrNotFound
 	}
@@ -156,7 +165,7 @@ func (s *Store) Prune() (int, error) {
 func (s *Store) BaseDir() string { return s.baseDir }
 
 func defaultDir() (string, error) {
-	cfg, err := os.UserConfigDir()
+	cfg, err := osUserConfigDir()
 	if err != nil {
 		return "", err
 	}

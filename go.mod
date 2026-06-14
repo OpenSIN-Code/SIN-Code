@@ -1,6 +1,6 @@
-// Purpose: Go module for the SIN-Code-Bundle Go-side binaries (sin tui
-// today; more later). Lives alongside the Python package which uses the
-// same name on PyPI — they share `sin` as user-facing command via PATH.
+// Purpose: Go module for the unified SIN-Code binary (cmd/sin-code) and
+// the standalone TUI (cmd/sin-tui). The deprecated Python companion package
+// lives in src/sin_code_bundle/ and is no longer referenced from Go code.
 // Docs: go.mod
 
 module github.com/OpenSIN-Code/SIN-Code

@@ -275,6 +275,11 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   exercises symbols / hover / definition / references / format against this
   repository. Added so the LSP client can be re-validated whenever `client.go`
   changes.
+- **Ecosystem cleanup (legacy Python bundle)** — removed the deprecated
+  `sin-code-bundle` package from `AllPythonPackages` in `cmd/sin-code/internal/update_phases.go`;
+  the `sin update` command no longer attempts to upgrade the superseded Python
+  companion. Fixed remaining `SIN-Code-Bundle` repo-name references in
+  `go.mod`, `self-update.doc.md`, and `harvest.doc.md` (M5 compliance).
 
 ### chore
 - **#61** — `.gitignore`: ignore `cmd/sin-code/tui/.sin-code/` runtime
