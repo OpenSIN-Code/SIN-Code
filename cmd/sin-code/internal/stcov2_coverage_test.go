@@ -1138,6 +1138,28 @@ func TestMemoryCmd_OpenStoreError_stcov2(t *testing.T) {
 	_ = memStatsCmd.RunE(memStatsCmd, nil)
 }
 
+func TestPluginListCmd_NoDir_stcov2(t *testing.T) {
+	orig := pluginPath
+	pluginPath = "/nonexistent"
+	defer func() { pluginPath = orig }()
+	final := captureStdout(t)
+	_ = pluginListCmd.RunE(pluginListCmd, nil)
+	out := final()
+	if !strings.Contains(out, "no plugins directory") {
+		t.Errorf("expected no plugins directory, got %q", out)
+	}
+}
+
+func TestPluginCmd_LoadPluginError_stcov2(t *testing.T) {
+	orig := loadPluginFn
+	loadPluginFn = func(name string) (*plugins.Plugin, error) { return nil, errors.New("load error") }
+	defer func() { loadPluginFn = orig }()
+	_ = pluginInfoCmd.RunE(pluginInfoCmd, []string{"x"})
+	_ = pluginUninstallCmd.RunE(pluginUninstallCmd, []string{"x"})
+	_ = pluginEnableCmd.RunE(pluginEnableCmd, []string{"x"})
+	_ = pluginDisableCmd.RunE(pluginDisableCmd, []string{"x"})
+}
+
 func TestHarvestURLFetch_BodyReadError_stcov2(t *testing.T) {
 	orig := harvestHTTPClient
 	harvestHTTPClient = func(timeout int) *http.Client {
