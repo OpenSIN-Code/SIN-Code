@@ -1,0 +1,66 @@
+{
+  "name": "Critical Path Tests",
+  "version": "1.0.0",
+  "description": "Tests for critical SIN-Code agent functionality (issue #75 Eval System).",
+  "test_cases": [
+    {
+      "id": "stub_completion_runs",
+      "prompt": "verify the agent loop reports a successful completion",
+      "description": "Trivial smoke test — should always pass under --judge-model '' (no judge).",
+      "tags": ["smoke", "critical"],
+      "constraints": {
+        "max_turns": 2,
+        "require_verify": false,
+        "timeout": "30s"
+      },
+      "expected": {
+        "contains_keywords": ["stub echo"],
+        "avoids_keywords": ["error"],
+        "output_contains": ["stub echo"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "smoke"
+      }
+    },
+    {
+      "id": "output_keyword_match",
+      "prompt": "respond with the word hello",
+      "description": "Asserts that the structural contains-output keyword check works.",
+      "tags": ["structural"],
+      "constraints": {
+        "max_turns": 2,
+        "require_verify": false,
+        "timeout": "30s"
+      },
+      "expected": {
+        "output_contains": ["hello"],
+        "output_avoids": ["forbidden-sentinel-token"]
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "structural"
+      }
+    },
+    {
+      "id": "max_turns_enforced",
+      "prompt": "force max-turns boundary",
+      "description": "Confirms that a max_turns=1 constraint flips success=false when the loop returns an error.",
+      "tags": ["boundary"],
+      "constraints": {
+        "max_turns": 0,
+        "require_verify": false,
+        "timeout": "30s"
+      },
+      "expected": {
+        "output_contains": ["stub echo"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "boundary"
+      }
+    }
+  ]
+}

@@ -56,6 +56,13 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "autodev__run_experiment", Policy: "ask"},
 		{Tool: "autodev__swarm", Policy: "ask"},
 		{Tool: "autodev__session_log", Policy: "ask"},
+		// v3.18.0: Eval & Observability (issue #75). eval/trace are
+		// first-party CLI verbs that orchestrate other tools but do
+		// not call them as MCP functions; the policy below covers
+		// any future agent-loop surface that exposes them as tools.
+		{Tool: "eval__list", Policy: "allow"},
+		{Tool: "eval__run", Policy: "ask"},   // may invoke real verification + LLM
+		{Tool: "trace__doctor", Policy: "allow"},
 		// Backstop catch-all (mirrors sin_bash default at line 44 for unmatched prefixes).
 		{Tool: "autodev__*", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},

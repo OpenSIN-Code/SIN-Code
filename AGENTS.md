@@ -391,3 +391,76 @@ The Go binary writes SQLite DBs to two distinct on-disk locations:
 These are ignored by `.gitignore` (lines 64–65). Do not `git add` them
 under any circumstances; the proper fix is to migrate to
 `os.UserConfigDir()` (tracked as issue #62).
+
+---
+
+## 12. Evaluation & Observability System (issue #75)
+
+SIN-Code ships a first-party eval pipeline + OpenTelemetry tracing
+that lets agents produce **golden datasets**, run them as CI gates,
+and inspect trajectories visually (Langfuse / Jaeger / Arize Phoenix).
+
+### Components
+
+| Path | Purpose |
+|------|---------|
+| `cmd/sin-code/internal/trace/provider.go` | OTel TracerProvider bootstrap (stdout / OTLP-HTTP / noop) |
+| `cmd/sin-code/internal/trace/hook_listener.go` | Decorator wrapper around `*hooks.Engine` that emits one span per Fire() |
+| `cmd/sin-code/internal/dataset/dataset.go` | Pure-stdlib Golden Dataset JSON parser + validator |
+| `cmd/sin-code/internal/dataset/runner.go` | Executes TestCases against the existing `agentloop.Loop` |
+| `cmd/sin-code/internal/eval/judge.go` | LLM-as-a-Judge via `internal/llm.Client` |
+| `cmd/sin-code/internal/eval/metrics.go` | Summary aggregation + JSON envelope for CI |
+| `cmd/sin-code/eval_cmd.go` | `sin-code eval run` + `sin-code eval list` |
+| `cmd/sin-code/trace_cmd.go` | `sin-code trace doctor` — exporter-only sanity check |
+| `evals/critical.json` | Example Golden Dataset (3 cases, no LLM needed) |
+
+### CLI surface
+
+```bash
+# Run a Golden Dataset (CI format)
+sin-code eval run --dataset evals/critical.json \
+    --min-pass-rate 0.95 --json
+
+# With tracing exported to OTLP (Langfuse / Jaeger / Phoenix)
+sin-code eval run --dataset evals/critical.json \
+    --trace --trace-exporter otlp \
+    --trace-endpoint langfuse.local:4318
+
+# LLM-as-a-Judge pass
+sin-code eval run --dataset evals/critical.json \
+    --judge-model gpt-4o --judge-endpoint https://api.openai.com/v1
+
+# Sanity-check the OTel exporter setup without a full eval
+sin-code trace doctor --exporter stdout --emit-sample-span
+```
+
+### Hard mandates honored
+
+- **M2 (single static binary, CGO_ENABLED=0):** pure-Go OTel SDK at
+  `go.opentelemetry.io/otel/sdk@v1.24.0` plus `stdouttrace` +
+  `otlptracehttp`. No CGO.
+- **M4 (permission engine):** eval/trace rules registered in
+  `cmd/sin-code/internal/permission_defaults.go` (`eval__list` allow,
+  `eval__run` ask, `trace__doctor` allow).
+- **M5 (module path):** the import path is
+  `github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/...` everywhere.
+  No `SIN-Code-Bundle` references.
+- **M7 (race-free):** every new test passes
+  `go test -race -count=1 ./cmd/sin-code/internal/{trace,dataset,eval}/...`.
+
+### Reference documentation
+
+- `cmd/sin-code/internal/trace/provider.doc.md` — exporter / sampler
+  configuration surface.
+- `cmd/sin-code/internal/trace/hook_listener.doc.md` — list of
+  divergences between the issue's reference code and the actual hook
+  API (the issue describes a `hooks.Manager.On(...)` API that does
+  not exist; we use the decorator-on-`Engine.Fire` pattern that
+  matches the real `hooks.go:108-143` interface).
+- `cmd/sin-code/internal/dataset/dataset.doc.md` — JSON schema contract.
+- `cmd/sin-code/internal/dataset/runner.doc.md` — agent-loop API
+  divergence notes (real `Loop.Run(ctx, *session.Session, string)`
+  vs reference `Loop.Run(ctx, sessID, prompt, RunOptions)`).
+- `cmd/sin-code/internal/eval/eval.doc.md` — judge prompt + JSON
+  contract; `JudgeResult` schema.
+
