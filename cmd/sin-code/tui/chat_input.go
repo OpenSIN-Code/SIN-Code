@@ -14,6 +14,14 @@ import (
 
 type chatInput = chat.Input
 
+// newChatRunnerHook is a test seam for chat runner construction.
+var newChatRunnerHook = func() (*chat.Runner, error) { return chat.NewRunner() }
+
+// chatRunnerRunHook is a test seam for chat runner execution.
+var chatRunnerRunHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string) (string, error) {
+	return r.Run(ctx, prompt, history)
+}
+
 func newChatInput() *chatInput {
 	store, err := attachments.NewStore()
 	if err != nil {
@@ -35,7 +43,7 @@ func (m *Model) initChatRunner() {
 	if m.ChatRunner != nil {
 		return
 	}
-	r, err := chat.NewRunner()
+	r, err := newChatRunnerHook()
 	if err != nil {
 		m.ChatRunner = nil
 		return

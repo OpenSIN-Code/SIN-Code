@@ -170,7 +170,7 @@ func (s *Server) dispatch(ctx context.Context, req *jsonRPCRequest) *jsonRPCResp
 }
 
 func (s *Server) result(req *jsonRPCRequest, v any) *jsonRPCResponse {
-	data, err := json.Marshal(v)
+	data, err := jsonMarshalFn(v)
 	if err != nil {
 		return &jsonRPCResponse{
 			JSONRPC: "2.0",

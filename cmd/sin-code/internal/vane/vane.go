@@ -447,28 +447,28 @@ func truncate(s string, n int) string {
 // directories are created on demand. Mirrors superpowers.WriteJSON() so
 // the rest of the codebase has a consistent persistence semantic.
 func writeJSONAtomic(path string, v any) error {
-	data, err := json.MarshalIndent(v, "", "  ")
+	data, err := jsonMarshalIndentFn(v, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := osMkdirAllFn(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".vane-*.json.tmp")
+	tmp, err := osCreateTempFn(filepath.Dir(path), ".vane-*.json.tmp")
 	if err != nil {
 		return err
 	}
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName)
-	if _, err := io.Copy(tmp, bytes.NewReader(data)); err != nil {
-		tmp.Close()
+	if _, err := writeJSONCopyFn(tmp, bytes.NewReader(data)); err != nil {
+		writeJSONCloseFn(tmp)
 		return err
 	}
-	if _, err := tmp.Write([]byte("\n")); err != nil {
-		tmp.Close()
+	if _, err := writeJSONWriteFn(tmp, []byte("\n")); err != nil {
+		writeJSONCloseFn(tmp)
 		return err
 	}
-	if err := tmp.Close(); err != nil {
+	if err := writeJSONCloseFn(tmp); err != nil {
 		return err
 	}
 	return os.Rename(tmpName, path)

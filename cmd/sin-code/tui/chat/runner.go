@@ -17,6 +17,11 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 )
 
+var (
+	// providerFromConfigHook is overridden in tests to exercise NewRunner error paths.
+	providerFromConfigHook = llm.ProviderFromConfig
+)
+
 const (
 	defaultModel  = "meta/llama-3.3-70b-instruct"
 	defaultSystem = "You are sin-code, an AI coding assistant. Be concise."
@@ -37,7 +42,7 @@ func NewRunner() (*Runner, error) {
 	if os.Getenv("SIN_NIM_API_KEY") == "" {
 		return nil, fmt.Errorf("no API key configured (set SIN_NIM_API_KEY)")
 	}
-	c, err := llm.ProviderFromConfig("nim", "", "", defaultModel, 0)
+	c, err := providerFromConfigHook("nim", "", "", defaultModel, 0)
 	if err != nil {
 		return nil, err
 	}

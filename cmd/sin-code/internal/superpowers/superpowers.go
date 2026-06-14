@@ -33,6 +33,26 @@ var DefaultRepoURL = "https://github.com/obra/superpowers.git"
 // corpus on `main`.
 const DefaultBranch = "main"
 
+// testHook variables expose hard-to-reach error paths to the test suite
+// without heavy refactoring. They are restored per-test via t.Cleanup.
+var (
+	osUserHomeDir     = os.UserHomeDir
+	osMkdirAll        = os.MkdirAll
+	osStat            = os.Stat
+	osReadFile        = os.ReadFile
+	osWriteFile       = os.WriteFile
+	osCreateTemp      = os.CreateTemp
+	osRenameHook      = os.Rename
+	jsonMarshalIndent = json.MarshalIndent
+	jsonUnmarshal     = json.Unmarshal
+	ioCopyHook        = io.Copy
+	fileWriteHook     = func(f *os.File, p []byte) (int, error) { return f.Write(p) }
+	fileCloseHook     = func(f *os.File) error { return f.Close() }
+	runGitHook        = runGit
+	currentShaHook    = currentSHA
+	currentBranchHook = currentBranch
+)
+
 // OverlayMarker is the sentinel HTML comment that delimiters the
 // automatically-appended overlay block. Idempotency: if the marker is
 // already present in a SKILL.md, AppendOverlay is a no-op for that file.
@@ -49,7 +69,7 @@ func Home() string {
 		return v
 	}
 	// Use os.UserHomeDir for cross-platform safety (macOS/Linux/Windows).
-	if h, err := os.UserHomeDir(); err == nil {
+	if h, err := osUserHomeDir(); err == nil {
 		return filepath.Join(h, ".local", "share", "sin-code")
 	}
 	// Last resort: cwd-relative fallback so the function is total.
@@ -124,25 +144,25 @@ func Install(ctx context.Context, repoURL, branch string) (*InstallResult, error
 	}
 	start := time.Now()
 	dst := SkillsDir()
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := osMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return nil, fmt.Errorf("mkdir: %w", err)
 	}
-	if _, err := os.Stat(filepath.Join(dst, ".git")); err == nil {
-		if err := runGit(ctx, dst, "fetch", "--depth", "1", "origin", branch); err != nil {
+	if _, err := osStat(filepath.Join(dst, ".git")); err == nil {
+		if err := runGitHook(ctx, dst, "fetch", "--depth", "1", "origin", branch); err != nil {
 			return nil, err
 		}
-		if err := runGit(ctx, dst, "reset", "--hard", "FETCH_HEAD"); err != nil {
+		if err := runGitHook(ctx, dst, "reset", "--hard", "FETCH_HEAD"); err != nil {
 			return nil, err
 		}
 	} else {
-		if err := os.MkdirAll(dst, 0o755); err != nil {
+		if err := osMkdirAll(dst, 0o755); err != nil {
 			return nil, fmt.Errorf("mkdir dst: %w", err)
 		}
-		if err := runGit(ctx, ".", "clone", "--depth", "1", "--branch", branch, repoURL, dst); err != nil {
+		if err := runGitHook(ctx, ".", "clone", "--depth", "1", "--branch", branch, repoURL, dst); err != nil {
 			return nil, err
 		}
 	}
-	sha, err := currentSHA(ctx, dst)
+	sha, err := currentShaHook(ctx, dst)
 	if err != nil {
 		return nil, err
 	}

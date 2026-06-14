@@ -279,7 +279,7 @@ func (i *Input) isFilePath(content string) bool {
 		return false
 	}
 	if strings.HasPrefix(trimmed, "~/") {
-		home, err := os.UserHomeDir()
+		home, err := osUserHomeDirHook()
 		if err != nil {
 			return false
 		}
