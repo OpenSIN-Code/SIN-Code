@@ -59,9 +59,13 @@ jobs:
       - name: Every ACTIVE repo is pinned in requirements-ecosystem.txt
         run: |
           set -e
-          repos=$(grep -E '\| (SIN-|Simone-|coder-)' ECOSYSTEM.md \
+          # Extract the repo name from the second column, trim spaces, and drop
+          # parenthetical qualifiers like "SIN-Code (security)" which are built-in
+          # SIN-Code capabilities, not separate ecosystem repos.
+          repos=$(grep -E '\| (SIN-|Simone-|coder-|web_search_bundle)' ECOSYSTEM.md \
             | grep 'ACTIVE' | awk -F'|' '{print $2}' | tr -d ' ' \
-            | grep -vE '^(SIN-Code|SIN-Code-WebUI-v2)$' || true)
+            | grep -vE '^(SIN-Code|SIN-Code-WebUI-v2)$' \
+            | grep -vE '\(.*\)' || true)
           missing=0
           for r in $repos; do
             if ! grep -q "^${r}==" requirements-ecosystem.txt; then
