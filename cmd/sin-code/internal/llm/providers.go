@@ -7,7 +7,6 @@ package llm
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -114,11 +113,13 @@ func ProviderFromConfig(name, baseURLOverride, apiKeyOverride, modelOverride str
 	if timeout == 0 {
 		timeout = 120 * time.Second
 	}
-	return &Client{
-		BaseURL: baseURL,
-		APIKey:  apiKey,
-		HTTP:    &http.Client{Timeout: timeout},
-	}, nil
+	// Build the client through NewClient so the breaker wiring stays
+	// in one place. NewClient takes (baseURL, apiKey) and constructs
+	// its own *http.Client with a wrapped transport; we then patch
+	// the timeout back in to honor the caller's choice.
+	c := NewClient(baseURL, apiKey)
+	c.HTTP.Timeout = timeout
+	return c, nil
 }
 
 // ListProviderNames returns all provider names.

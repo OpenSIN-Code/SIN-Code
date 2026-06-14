@@ -279,8 +279,13 @@ func TestSearchServerError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error on 5xx, got nil")
 	}
-	if !strings.Contains(err.Error(), "server error") {
-		t.Errorf("error: got %q want substring 'server error'", err.Error())
+	// With the circuit breaker wraps the transport (#72), 5xx is
+	// classified as "circuitbreaker: HTTP 500 (5xx treated as failure)"
+	// BEFORE the vane layer sees the response. Both error wordings are
+	// acceptable here — we just want to confirm the error path runs.
+	msg := err.Error()
+	if !strings.Contains(msg, "circuitbreaker: HTTP 500") && !strings.Contains(msg, "server error") {
+		t.Errorf("error: got %q want substring 'circuitbreaker: HTTP 500' or 'server error'", msg)
 	}
 }
 

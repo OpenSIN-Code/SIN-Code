@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Purpose: harvest — URL fetching with caching, structure extraction, and change
-// detection. Built-in Go implementation using net/http with local disk cache.
+// detection. Built-in Go implementation using net/http with local disk cache
+// wrapped in a circuitbreaker transport so a slow/unresponsive upstream
+// cannot pin the agent loop indefinitely (#72).
 package internal
 
 import (
@@ -15,7 +17,23 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/circuitbreaker"
 )
+
+// harvestBreaker rate-limits outbound plan HTTP traffic: 5 consecutive
+// 5xx / transport errors trip the breaker for 30s; the next call
+// after that gets a HalfOpen probe that re-trips if the upstream is
+// still down. Shared across all `sin-code harvest` invocations in the
+// same process — a slow upstream should affect plan-phase holistically,
+// not just one call site.
+var harvestBreaker = circuitbreaker.New(&circuitbreaker.Config{
+	Name:             "harvest",
+	FailureThreshold: 5,
+	OpenDuration:     30 * time.Second,
+	HalfOpenProbes:   1,
+	SuccessThreshold: 1,
+})
 
 var (
 	harvestURL     string
@@ -81,7 +99,10 @@ func harvestURLFetch(url, method string, timeout int, format string) error {
 		}
 	}
 
-	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
+	client := &http.Client{
+		Timeout:   time.Duration(timeout) * time.Second,
+		Transport: circuitbreaker.RoundTripper(http.DefaultTransport, harvestBreaker),
+	}
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return fmt.Errorf("invalid request: %w", err)

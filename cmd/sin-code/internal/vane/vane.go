@@ -19,6 +19,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/circuitbreaker"
 )
 
 // ── Public configuration constants ─────────────────────────────────────
@@ -200,23 +202,48 @@ type searchResponse struct {
 // with NewClient; the zero value is NOT usable (http.Client would be
 // nil and crash on first call).
 type Client struct {
-	cfg  Config
-	http *http.Client
+	cfg     Config
+	http    *http.Client
+	breaker *circuitbreaker.Breaker
 }
 
 // NewClient builds a Client from cfg. The http.Client honors
-// cfg.TimeoutSeconds; the caller may replace http via the (intentionally
-// omitted) field setter if they need a custom transport — but for the
-// SIN-Code use case the stdlib default transport is fine.
+// cfg.TimeoutSeconds; the outbound transport is wrapped in a
+// circuitbreaker.RoundTripper so a self-hosted Vane going into a
+// crash-loop does NOT pin the agent loop indefinitely on every search
+// call. See cmd/sin-code/internal/circuitbreaker for failure-threshold
+// semantics.
 func NewClient(cfg Config) *Client {
 	timeout := cfg.TimeoutSeconds
 	if timeout <= 0 {
 		timeout = DefaultTimeoutSeconds
 	}
+	br := circuitbreaker.New(&circuitbreaker.Config{
+		Name:             "vane",
+		FailureThreshold: 5,
+		OpenDuration:     30 * time.Second,
+		HalfOpenProbes:   1,
+		SuccessThreshold: 1,
+	})
 	return &Client{
-		cfg:  cfg,
-		http: &http.Client{Timeout: time.Duration(timeout) * time.Second},
+		cfg: cfg,
+		http: &http.Client{
+			Timeout:   time.Duration(timeout) * time.Second,
+			Transport: circuitbreaker.RoundTripper(http.DefaultTransport, br),
+		},
+		breaker: br,
 	}
+}
+
+// BreakerStats exposes the breaker's snapshot for diagnostic surfaces
+// (`sin-code vane status`). Returns nil if the client was constructed
+// without going through NewClient (defensive — zero-value Client).
+func (c *Client) BreakerStats() *circuitbreaker.Stats {
+	if c == nil || c.breaker == nil {
+		return nil
+	}
+	s := c.breaker.Stats()
+	return &s
 }
 
 // Healthy issues a GET to / and returns nil on any 2xx/3xx response.

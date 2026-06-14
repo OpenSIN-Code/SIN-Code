@@ -273,7 +273,14 @@ func TestHarvestURLFetch_ServerError(t *testing.T) {
 		t.Fatalf("harvestURLFetch failed: %v", err)
 	}
 	out, _ := io.ReadAll(r)
-	if !strings.Contains(string(out), `"status": 500`) {
-		t.Errorf("expected JSON output to contain status 500, got %q", string(out))
+	// With the circuitbreaker RoundTripper wrapping the transport
+	// (#72), 5xx responses are converted into a transport-level error
+	// BEFORE harvest.go can record `result.Status = resp.StatusCode`.
+	// Either the literal `"status": 500` (pre-breaker) or the new
+	// `"error"`-string carrying `circuitbreaker: HTTP 500` is
+	// acceptable — both prove "5xx surfaced as an error".
+	s := string(out)
+	if !strings.Contains(s, `"status": 500`) && !strings.Contains(s, "circuitbreaker: HTTP 500") {
+		t.Errorf("expected JSON to surface 5xx (status 500 OR circuitbreaker error), got %q", s)
 	}
 }

@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/circuitbreaker"
 )
 
 type Message struct {
@@ -48,14 +50,43 @@ type Client struct {
 	BaseURL string
 	APIKey  string
 	HTTP    *http.Client
+
+	// breaker wraps the outbound transport so a misbehaving LLM
+	// provider can no longer pin the agent loop on every chat call.
+	// Constructed by NewClient / ProviderFromConfig; nil is tolerated
+	// in tests that hand-build the struct (HTTP roundtrips still work,
+	// just without breaker protection).
+	breaker *circuitbreaker.Breaker
 }
 
 func NewClient(baseURL, apiKey string) *Client {
+	br := circuitbreaker.New(&circuitbreaker.Config{
+		Name:             "llm",
+		FailureThreshold: 5,
+		OpenDuration:     30 * time.Second,
+		HalfOpenProbes:   1,
+		SuccessThreshold: 1,
+	})
 	return &Client{
 		BaseURL: baseURL,
 		APIKey:  apiKey,
-		HTTP:    &http.Client{Timeout: 120 * time.Second},
+		HTTP: &http.Client{
+			Timeout:   120 * time.Second,
+			Transport: circuitbreaker.RoundTripper(http.DefaultTransport, br),
+		},
+		breaker: br,
 	}
+}
+
+// BreakerStats exposes the breaker's snapshot for diagnostic surfaces
+// (loopbuilder health, agentloop status). Returns nil if the client
+// was constructed without going through NewClient / ProviderFromConfig.
+func (c *Client) BreakerStats() *circuitbreaker.Stats {
+	if c == nil || c.breaker == nil {
+		return nil
+	}
+	s := c.breaker.Stats()
+	return &s
 }
 
 func (c *Client) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
