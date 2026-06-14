@@ -25,6 +25,8 @@ var (
 	memForgetID string
 	memForget   bool
 	memFormat   string
+
+	openMemoryStoreFn = openMemoryStore
 )
 
 var MemoryCmd = &cobra.Command{
@@ -90,7 +92,7 @@ var memAddCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		memInsight = args[0]
-		store, err := openMemoryStore()
+		store, err := openMemoryStoreFn()
 		if err != nil {
 			return err
 		}
@@ -113,7 +115,7 @@ var memListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List memories",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openMemoryStore()
+		store, err := openMemoryStoreFn()
 		if err != nil {
 			return err
 		}
@@ -149,7 +151,7 @@ var memShowCmd = &cobra.Command{
 	Short: "Show a single memory",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openMemoryStore()
+		store, err := openMemoryStoreFn()
 		if err != nil {
 			return err
 		}
@@ -183,7 +185,7 @@ var memSearchCmd = &cobra.Command{
 	Short: "Semantic search",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openMemoryStore()
+		store, err := openMemoryStoreFn()
 		if err != nil {
 			return err
 		}
@@ -218,7 +220,7 @@ var memLinkCmd = &cobra.Command{
 	Short: "Add a knowledge-graph link",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openMemoryStore()
+		store, err := openMemoryStoreFn()
 		if err != nil {
 			return err
 		}
@@ -237,7 +239,7 @@ var memUnlinkCmd = &cobra.Command{
 	Short: "Remove a knowledge-graph link",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openMemoryStore()
+		store, err := openMemoryStoreFn()
 		if err != nil {
 			return err
 		}
@@ -255,7 +257,7 @@ var memGraphCmd = &cobra.Command{
 	Short: "Show knowledge-graph neighborhood",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openMemoryStore()
+		store, err := openMemoryStoreFn()
 		if err != nil {
 			return err
 		}
@@ -283,7 +285,7 @@ var memPrimeCmd = &cobra.Command{
 	Short: "Print top-K relevant memories for an LLM prompt",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openMemoryStore()
+		store, err := openMemoryStoreFn()
 		if err != nil {
 			return err
 		}
@@ -302,7 +304,7 @@ var memForgetCmd = &cobra.Command{
 	Short: "Soft-delete a memory (--hard for permanent)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openMemoryStore()
+		store, err := openMemoryStoreFn()
 		if err != nil {
 			return err
 		}
@@ -323,7 +325,7 @@ var memStatsCmd = &cobra.Command{
 	Use:   "stats",
 	Short: "Show memory statistics",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openMemoryStore()
+		store, err := openMemoryStoreFn()
 		if err != nil {
 			return err
 		}
