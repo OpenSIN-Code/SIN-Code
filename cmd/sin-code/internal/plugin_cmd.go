@@ -19,7 +19,14 @@ var (
 	walkFn        = filepath.Walk
 	relFn         = filepath.Rel
 
-	loadPluginFn = loadPlugin
+	loadPluginFn   = loadPlugin
+	pluginReadDir  = os.ReadDir
+	pluginLoad     = plugins.Load
+	copyDirFn      = copyDir
+	pluginMkdirAll = os.MkdirAll
+	pluginRemove   = os.RemoveAll
+	pluginEnable   = func(p *plugins.Plugin) error { return p.Enable() }
+	pluginDisable  = func(p *plugins.Plugin) error { return p.Disable() }
 )
 
 var PluginCmd = &cobra.Command{
@@ -58,7 +65,7 @@ var pluginListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List installed plugins",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		entries, err := os.ReadDir(pluginDir())
+		entries, err := pluginReadDir(pluginDir())
 		if err != nil {
 			if os.IsNotExist(err) {
 				fmt.Println("(no plugins directory; install one with 'sin-code plugin install <path>')")
@@ -165,18 +172,18 @@ var pluginInstallCmd = &cobra.Command{
 		if _, err := os.Stat(manifestPath); err != nil {
 			return fmt.Errorf("not a plugin: %s (no %s found)", src, plugins.ManifestFile)
 		}
-		p, err := plugins.Load(manifestPath)
+		p, err := pluginLoad(manifestPath)
 		if err != nil {
 			return err
 		}
 		dest := filepath.Join(pluginDir(), p.Name)
-		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		if err := pluginMkdirAll(filepath.Dir(dest), 0o755); err != nil {
 			return err
 		}
 		if _, err := os.Stat(dest); err == nil {
 			return fmt.Errorf("plugin %s already installed at %s", p.Name, dest)
 		}
-		if err := copyDir(src, dest); err != nil {
+		if err := copyDirFn(src, dest); err != nil {
 			return err
 		}
 		fmt.Printf("Installed %s v%s to %s\n", p.Name, p.Version, dest)
@@ -195,7 +202,7 @@ var pluginUninstallCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if err := os.RemoveAll(p.Path); err != nil {
+		if err := pluginRemove(p.Path); err != nil {
 			return err
 		}
 		fmt.Printf("Uninstalled %s\n", p.Name)
@@ -213,7 +220,7 @@ var pluginEnableCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if err := p.Enable(); err != nil {
+		if err := pluginEnable(p); err != nil {
 			return err
 		}
 		fmt.Printf("Enabled %s\n", p.Name)
@@ -231,7 +238,7 @@ var pluginDisableCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if err := p.Disable(); err != nil {
+		if err := pluginDisable(p); err != nil {
 			return err
 		}
 		fmt.Printf("Disabled %s (reload sin-code to take effect)\n", p.Name)

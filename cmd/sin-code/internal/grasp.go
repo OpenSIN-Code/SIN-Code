@@ -24,7 +24,7 @@ var (
 )
 
 var (
-	graspAbsPath     = filepath.Abs
+	graspAbsPath       = filepath.Abs
 	graspAnalyzeFileFn = analyzeFile
 )
 

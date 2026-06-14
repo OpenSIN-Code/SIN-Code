@@ -3,6 +3,7 @@
 package internal
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -328,6 +329,45 @@ func TestMemorySearch_NoResults(t *testing.T) {
 	}
 }
 
+func TestMemorySearch_JSON(t *testing.T) {
+	withMemoryDB(t)
+	captureMemoryCmd(t, memAddCmd, []string{"json search"})
+	oldFormat := memFormat
+	memFormat = "json"
+	defer func() { memFormat = oldFormat }()
+	out, err := captureMemoryCmd(t, memSearchCmd, []string{"json"})
+	if err != nil {
+		t.Fatalf("memSearchCmd json: %v", err)
+	}
+	if !strings.Contains(out, "json search") {
+		t.Errorf("expected JSON search output, got %q", out)
+	}
+}
+
+func TestMemoryShow_JSON(t *testing.T) {
+	withMemoryDB(t)
+	captureMemoryCmd(t, memAddCmd, []string{"json show"})
+	store, err := openMemoryStore()
+	if err != nil {
+		t.Fatalf("openMemoryStore: %v", err)
+	}
+	items, _ := store.List(memory.ListFilter{})
+	_ = store.Close()
+	if len(items) == 0 {
+		t.Fatal("expected one memory")
+	}
+	oldFormat := memFormat
+	memFormat = "json"
+	defer func() { memFormat = oldFormat }()
+	out, err := captureMemoryCmd(t, memShowCmd, []string{items[0].ID})
+	if err != nil {
+		t.Fatalf("memShowCmd json: %v", err)
+	}
+	if !strings.Contains(out, "json show") {
+		t.Errorf("expected JSON show output, got %q", out)
+	}
+}
+
 func TestMemoryList_JSON(t *testing.T) {
 	withMemoryDB(t)
 	captureMemoryCmd(t, memAddCmd, []string{"json list"})
@@ -403,3 +443,144 @@ func TestMemoryPrime_NoResults(t *testing.T) {
 		t.Errorf("expected empty prime output, got %q", out)
 	}
 }
+
+func withOpenStore(t *testing.T) *memory.Store {
+	withMemoryDB(t)
+	store, err := openMemoryStore()
+	if err != nil {
+		t.Fatalf("openMemoryStore: %v", err)
+	}
+	return store
+}
+
+func TestMemoryAddCmd_StoreError(t *testing.T) {
+	store := withOpenStore(t)
+	old := memAddFn
+	memAddFn = func(s *memory.Store, m *memory.Memory) error { return errTest }
+	defer func() { memAddFn = old }()
+
+	_, err := captureMemoryCmd(t, memAddCmd, []string{"hello"})
+	if err == nil {
+		t.Fatal("expected error from memAddFn")
+	}
+	_ = store.Close()
+}
+
+func TestMemoryListCmd_StoreError(t *testing.T) {
+	store := withOpenStore(t)
+	old := memListFn
+	memListFn = func(s *memory.Store, f memory.ListFilter) ([]*memory.Memory, error) { return nil, errTest }
+	defer func() { memListFn = old }()
+
+	_, err := captureMemoryCmd(t, memListCmd, []string{})
+	if err == nil {
+		t.Fatal("expected error from memListFn")
+	}
+	_ = store.Close()
+}
+
+func TestMemoryShowCmd_StoreError(t *testing.T) {
+	store := withOpenStore(t)
+	old := memGetFn
+	memGetFn = func(s *memory.Store, id string) (*memory.Memory, error) { return nil, errTest }
+	defer func() { memGetFn = old }()
+
+	_, err := captureMemoryCmd(t, memShowCmd, []string{"x"})
+	if err == nil {
+		t.Fatal("expected error from memGetFn")
+	}
+	_ = store.Close()
+}
+
+func TestMemorySearchCmd_StoreError(t *testing.T) {
+	store := withOpenStore(t)
+	old := memSearchFn
+	memSearchFn = func(s *memory.Store, q, project string, k int) ([]memory.ScoredMemory, error) { return nil, errTest }
+	defer func() { memSearchFn = old }()
+
+	_, err := captureMemoryCmd(t, memSearchCmd, []string{"q"})
+	if err == nil {
+		t.Fatal("expected error from memSearchFn")
+	}
+	_ = store.Close()
+}
+
+func TestMemoryLinkCmd_StoreError(t *testing.T) {
+	store := withOpenStore(t)
+	old := memAddLinkFn
+	memAddLinkFn = func(s *memory.Store, l memory.Link) error { return errTest }
+	defer func() { memAddLinkFn = old }()
+
+	_, err := captureMemoryCmd(t, memLinkCmd, []string{"a", "b"})
+	if err == nil {
+		t.Fatal("expected error from memAddLinkFn")
+	}
+	_ = store.Close()
+}
+
+func TestMemoryUnlinkCmd_StoreError(t *testing.T) {
+	store := withOpenStore(t)
+	old := memRemoveLinkFn
+	memRemoveLinkFn = func(s *memory.Store, from, to string) error { return errTest }
+	defer func() { memRemoveLinkFn = old }()
+
+	_, err := captureMemoryCmd(t, memUnlinkCmd, []string{"a", "b"})
+	if err == nil {
+		t.Fatal("expected error from memRemoveLinkFn")
+	}
+	_ = store.Close()
+}
+
+func TestMemoryGraphCmd_StoreError(t *testing.T) {
+	store := withOpenStore(t)
+	old := memGraphFn
+	memGraphFn = func(s *memory.Store, id string, depth int) (map[string][]memory.Link, error) { return nil, errTest }
+	defer func() { memGraphFn = old }()
+
+	_, err := captureMemoryCmd(t, memGraphCmd, []string{"a"})
+	if err == nil {
+		t.Fatal("expected error from memGraphFn")
+	}
+	_ = store.Close()
+}
+
+func TestMemoryPrimeCmd_StoreError(t *testing.T) {
+	store := withOpenStore(t)
+	old := memPrimeFn
+	memPrimeFn = func(s *memory.Store, q, project string, k int) (string, error) { return "", errTest }
+	defer func() { memPrimeFn = old }()
+
+	_, err := captureMemoryCmd(t, memPrimeCmd, []string{"q"})
+	if err == nil {
+		t.Fatal("expected error from memPrimeFn")
+	}
+	_ = store.Close()
+}
+
+func TestMemoryForgetCmd_StoreError(t *testing.T) {
+	store := withOpenStore(t)
+	old := memDeleteFn
+	memDeleteFn = func(s *memory.Store, id string, hard bool) error { return errTest }
+	defer func() { memDeleteFn = old }()
+
+	_, err := captureMemoryCmd(t, memForgetCmd, []string{"x"})
+	if err == nil {
+		t.Fatal("expected error from memDeleteFn")
+	}
+	_ = store.Close()
+}
+
+func TestMemoryStatsCmd_StoreError(t *testing.T) {
+	store := withOpenStore(t)
+	old := memStatsFn
+	memStatsFn = func(s *memory.Store) (map[string]int, error) { return nil, errTest }
+	defer func() { memStatsFn = old }()
+
+	_, err := captureMemoryCmd(t, memStatsCmd, []string{})
+	if err == nil {
+		t.Fatal("expected error from memStatsFn")
+	}
+	_ = store.Close()
+}
+
+var errTest = fmt.Errorf("simulated error")

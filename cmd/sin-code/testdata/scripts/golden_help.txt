@@ -23,8 +23,10 @@ Usage:
 
 Available Commands:
   adw                 Architectural Debt Watchdogs — detect god modules, circular deps, etc.
+  auto                Ultra-autonomous mode: pursue a program.md objective on your behalf
   autodev             Bridge to OpenSIN-Code/autodev-cli (Python autoresearch loop, never vendored)
   chat                Run the SIN-Code agent loop (interactive REPL or headless one-shot)
+  codegraph           Bridge to CodeGraph for multi-language code analysis
   completion          Generate the autocompletion script for the specified shell
   config              View and manage sin-code configuration
   daemon              Run the autonomous worker: lease goals, execute, verify, learn
@@ -38,6 +40,7 @@ Available Commands:
   goal                Manage the autonomous goal queue
   grasp               Deep code understanding for a single file
   harvest             Fetch URLs with caching, structure extraction, and change detection
+  headroom            Manage Headroom context compression integration
   help                Help about any command
   hub                 Tool catalog and landing page for sin-code
   ibd                 Intent-Based Diffing — compare code changes against stated intent
@@ -56,6 +59,7 @@ Available Commands:
   plugin              Manage user-installed plugins (subcommands, agents, tools, hooks)
   poc                 Proof-of-Correctness — verify code satisfies its specification
   read                Read files with hashline anchors, outline, and size guards
+  rtk                 Bridge to rtk (Rust Token Killer) to cut LLM token usage 60-90%
   sbom                Generate SPDX or CycloneDX JSON SBOM for a project
   sckg                Semantic Codebase Knowledge Graphs — build & query code graph
   scout               Search code with regex, semantic, symbol, and usage search
@@ -64,6 +68,7 @@ Available Commands:
   serve               Start an MCP server exposing all 15 sin-code tools
   sessions            Manage persisted agent sessions
   skill               Install and manage ecosystem MCP skills
+  spec                Author, validate & inspect *.spec.md contracts (Spec-Layer)
   stack               Manage the DOX + Superpowers + Vane methodology stack
   summary             Build a deterministic summary from the session ledger
   superpowers         Integrate obra/superpowers skills into SIN-Code

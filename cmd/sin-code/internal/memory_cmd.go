@@ -27,6 +27,21 @@ var (
 	memFormat   string
 
 	openMemoryStoreFn = openMemoryStore
+
+	memAddFn    = func(s *memory.Store, m *memory.Memory) error { return s.Add(m) }
+	memListFn   = func(s *memory.Store, f memory.ListFilter) ([]*memory.Memory, error) { return s.List(f) }
+	memGetFn    = func(s *memory.Store, id string) (*memory.Memory, error) { return s.Get(id) }
+	memSearchFn = func(s *memory.Store, q, project string, k int) ([]memory.ScoredMemory, error) {
+		return s.Search(q, project, k)
+	}
+	memAddLinkFn    = func(s *memory.Store, l memory.Link) error { return s.AddLink(l) }
+	memRemoveLinkFn = func(s *memory.Store, from, to string) error { return s.RemoveLink(from, to) }
+	memGraphFn      = func(s *memory.Store, id string, depth int) (map[string][]memory.Link, error) {
+		return s.Graph(id, depth)
+	}
+	memPrimeFn  = func(s *memory.Store, q, project string, k int) (string, error) { return s.Prime(q, project, k) }
+	memDeleteFn = func(s *memory.Store, id string, hard bool) error { return s.Delete(id, hard) }
+	memStatsFn  = func(s *memory.Store) (map[string]int, error) { return s.Stats() }
 )
 
 var MemoryCmd = &cobra.Command{
@@ -103,7 +118,7 @@ var memAddCmd = &cobra.Command{
 			Tags:    splitCSV(memTags),
 			Actor:   memActor,
 		}
-		if err := store.Add(m); err != nil {
+		if err := memAddFn(store, m); err != nil {
 			return err
 		}
 		fmt.Printf("Stored %s: %s\n", m.ID, truncate(m.Insight, 80))
@@ -120,7 +135,7 @@ var memListCmd = &cobra.Command{
 			return err
 		}
 		defer store.Close()
-		results, err := store.List(memory.ListFilter{
+		results, err := memListFn(store, memory.ListFilter{
 			Project: memProject,
 			Tag:     memTags,
 			Limit:   memLimit,
@@ -156,7 +171,7 @@ var memShowCmd = &cobra.Command{
 			return err
 		}
 		defer store.Close()
-		m, err := store.Get(args[0])
+		m, err := memGetFn(store, args[0])
 		if err != nil {
 			return err
 		}
@@ -190,7 +205,7 @@ var memSearchCmd = &cobra.Command{
 			return err
 		}
 		defer store.Close()
-		results, err := store.Search(args[0], memProject, memTopK)
+		results, err := memSearchFn(store, args[0], memProject, memTopK)
 		if err != nil {
 			return err
 		}
@@ -226,7 +241,7 @@ var memLinkCmd = &cobra.Command{
 		}
 		defer store.Close()
 		l := memory.Link{From: args[0], To: args[1], Rel: memRel}
-		if err := store.AddLink(l); err != nil {
+		if err := memAddLinkFn(store, l); err != nil {
 			return err
 		}
 		fmt.Printf("Linked %s --%s--> %s\n", l.From, l.Rel, l.To)
@@ -244,7 +259,7 @@ var memUnlinkCmd = &cobra.Command{
 			return err
 		}
 		defer store.Close()
-		if err := store.RemoveLink(args[0], args[1]); err != nil {
+		if err := memRemoveLinkFn(store, args[0], args[1]); err != nil {
 			return err
 		}
 		fmt.Printf("Unlinked %s ---> %s\n", args[0], args[1])
@@ -262,7 +277,7 @@ var memGraphCmd = &cobra.Command{
 			return err
 		}
 		defer store.Close()
-		tree, err := store.Graph(args[0], memDepth)
+		tree, err := memGraphFn(store, args[0], memDepth)
 		if err != nil {
 			return err
 		}
@@ -290,7 +305,7 @@ var memPrimeCmd = &cobra.Command{
 			return err
 		}
 		defer store.Close()
-		text, err := store.Prime(args[0], memProject, memTopK)
+		text, err := memPrimeFn(store, args[0], memProject, memTopK)
 		if err != nil {
 			return err
 		}
@@ -309,7 +324,7 @@ var memForgetCmd = &cobra.Command{
 			return err
 		}
 		defer store.Close()
-		if err := store.Delete(args[0], memForget); err != nil {
+		if err := memDeleteFn(store, args[0], memForget); err != nil {
 			return err
 		}
 		verb := "Forgotten"
@@ -330,7 +345,7 @@ var memStatsCmd = &cobra.Command{
 			return err
 		}
 		defer store.Close()
-		stats, err := store.Stats()
+		stats, err := memStatsFn(store)
 		if err != nil {
 			return err
 		}

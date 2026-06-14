@@ -145,9 +145,9 @@ func TestApplyAnchorEdit_EndAnchorResolveError(t *testing.T) {
 func TestApplyAnchorEdit_InvalidInsert_Cli(t *testing.T) {
 	lines := []string{"a", "b", "c"}
 	_, err := applyAnchorEdit(lines, editRequest{
-		Anchor:   "1:" + LineHash("a"),
-		NewText:  "x",
-		Insert:   "middle",
+		Anchor:  "1:" + LineHash("a"),
+		NewText: "x",
+		Insert:  "middle",
 	}, &editResult{})
 	if err == nil {
 		t.Fatal("expected error for invalid insert")

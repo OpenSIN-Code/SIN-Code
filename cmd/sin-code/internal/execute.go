@@ -25,8 +25,10 @@ var (
 )
 
 var (
-	execIsWindows       = func() bool { return runtime.GOOS == "windows" }
-	execNewContext      = func(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) { return context.WithTimeout(ctx, timeout) }
+	execIsWindows  = func() bool { return runtime.GOOS == "windows" }
+	execNewContext = func(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+		return context.WithTimeout(ctx, timeout)
+	}
 	execTimeoutDuration = func(timeout int) time.Duration { return time.Duration(timeout) * time.Second }
 	execRunCommand      = func(c *exec.Cmd) error { return c.Run() }
 )
