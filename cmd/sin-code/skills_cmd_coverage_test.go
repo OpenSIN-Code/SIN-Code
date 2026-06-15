@@ -143,7 +143,7 @@ func TestSkillsCmd_Install(t *testing.T) {
 		skillsNewSmithHook = orig
 		skillsInstallDirHook = origDir
 	}()
-	out, err := runSkillsCmd(t, "install", "skill-create", "--dry-run")
+	out, err := runSkillsCmd(t, "install", "skill-code-create", "--dry-run")
 	if err != nil {
 		t.Fatalf("install error: %v\noutput: %s", err, out.String())
 	}

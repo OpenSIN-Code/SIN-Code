@@ -27,7 +27,7 @@ var listFSOnce = sync.OnceValues(func() (fs.FS, error) {
 
 // ListFS returns a flattened fs.FS suitable for skillsmith.Discover and
 // skillsmith.CopySkills. The returned FS exposes every leaf skill directory
-// at the root level (e.g. "code-skills/add-endpoint" becomes "add-endpoint").
+// at the root level (e.g. "code-skills/skill-code-add-endpoint" becomes "skill-code-add-endpoint").
 func ListFS() (fs.FS, error) {
 	return listFSOnce()
 }
