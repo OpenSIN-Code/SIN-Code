@@ -7,7 +7,7 @@ Maps built-in commands to sin-* tools and executes custom commands via shell or 
 """
 
 import subprocess
-from typing import Any, Optional
+from typing import Any
 
 from sin_code_bundle.tools.slash.registry import CustomCommand
 

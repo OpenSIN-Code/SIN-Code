@@ -11,6 +11,30 @@ Public API:
     AgentTask, Plan, Step, StepResult, StepState, Verdict, VerdictKind
 """
 
+from .builtin_tools import register_builtin_tools
+from .delegate import (
+    AdaptiveBudgetAllocator,
+    DelegationCache,
+    DelegationContext,
+    DelegationSupervisor,
+    make_delegate_tool,
+    validate_result,
+)
+from .distiller import (
+    KnowledgeDistiller,
+    StandingRule,
+    _heuristic_rule,
+)
+from .distiller import (
+    _signature as _rule_signature,
+)
+from .executor import Executor
+from .loop import AgentLoop
+from .memory_bridge import MemoryBridge
+from .planner import Planner
+from .router import CircuitOpenError, ToolRouter
+from .telemetry import Telemetry
+from .tracing import Span, SpanEmitter, TraceAssembler, TraceContext
 from .types import (
     AgentTask,
     Plan,
@@ -20,23 +44,7 @@ from .types import (
     Verdict,
     VerdictKind,
 )
-from .planner import Planner
-from .router import ToolRouter, CircuitOpenError
-from .executor import Executor
 from .verifier import Verifier
-from .telemetry import Telemetry
-from .memory_bridge import MemoryBridge
-from .builtin_tools import register_builtin_tools
-from .loop import AgentLoop
-from .tracing import TraceContext, SpanEmitter, Span, TraceAssembler
-from .distiller import (
-    KnowledgeDistiller, StandingRule, _signature as _rule_signature,
-    _heuristic_rule,
-)
-from .delegate import (
-    DelegationContext, AdaptiveBudgetAllocator, DelegationCache,
-    DelegationSupervisor, make_delegate_tool, validate_result,
-)
 
 __all__ = [
     "AgentTask",
@@ -67,6 +75,8 @@ __all__ = [
     "DelegationSupervisor",
     "make_delegate_tool",
     "validate_result",
+    "_heuristic_rule",
+    "_rule_signature",
 ]
 
 __version__ = "1.0.0"

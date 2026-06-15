@@ -4,13 +4,12 @@
 Docs: cyclonedx_generator.doc.md
 """
 
+import hashlib
 import json
 import uuid
-import hashlib
-from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
-from .models import SBOM, SBOMPackage
+from typing import Any, Dict
 
+from .models import SBOM, SBOMPackage
 
 CYCLONEDX_SPEC_VERSION = "1.5"
 CYCLONEDX_SCHEMA = "http://cyclonedx.org/schema/bom-1.5.schema.json"
@@ -166,7 +165,6 @@ def _is_spdx_license(license_id: str) -> bool:
 
 def uuid_from_namespace(namespace: str) -> str:
     """Generate a deterministic UUID from a namespace string."""
-    import hashlib
     return str(uuid.UUID(hashlib.md5(namespace.encode()).hexdigest()[:32]))
 
 

@@ -10,8 +10,7 @@ from __future__ import annotations
 import json
 import sys
 import time
-from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .ledger import Ledger
 from .models import TaskState
@@ -111,7 +110,7 @@ def report(plan_id: str, ledger: Ledger | None = None) -> str:
     out = [f"## Delegation Report — `{plan_id}`",
            f"**Goal:** {plan.get('goal', '?')}",
            "",
-           f"| | count |", f"|---|---|",
+           "| | count |", "|---|---|",
            f"| merged | {len(merged)} |",
            f"| escalated | {len(escalated)} |",
            f"| failed/skipped | {len(failed)} |",

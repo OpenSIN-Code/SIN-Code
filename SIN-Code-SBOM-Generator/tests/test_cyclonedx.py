@@ -5,10 +5,9 @@ Docs: test_cyclonedx.doc.md
 """
 
 import json
-import pytest
 
-from sbom_generator.cyclonedx_generator import generate_cyclonedx, cyclonedx_to_json
-from sbom_generator.models import SBOM, SBOMPackage, SBOMMetadata
+from sbom_generator.cyclonedx_generator import cyclonedx_to_json, generate_cyclonedx
+from sbom_generator.models import SBOM, SBOMMetadata, SBOMPackage
 
 
 class TestCycloneDXGenerator:

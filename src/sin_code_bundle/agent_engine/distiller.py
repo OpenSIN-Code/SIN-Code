@@ -173,7 +173,7 @@ class KnowledgeDistiller:
                         try:
                             raw = await self.complete(_DISTILL_PROMPT.format(
                                 lessons="\n".join(
-                                    f"- {l}" for l in lessons[:8]),
+                                    f"- {lesson}" for lesson in lessons[:8]),
                             ))
                             candidate = raw.strip().splitlines()[0][:160]
                             if 20 <= len(candidate) <= 160:

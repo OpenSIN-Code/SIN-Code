@@ -21,9 +21,15 @@ from dataclasses import replace
 from . import memory
 from .escalation import EscalationBroker, EscalationKind
 from .ledger import Ledger
-from .models import (Risk, RunResult, Task, TaskOutcome, TaskState)
-from .multirepo import (CONTRACT_INSTRUCTIONS, ContractStore, MergeUnit,
-                        MultiRepoPlan, TwoPhaseMerger, extract_contract)
+from .models import Risk, RunResult, Task, TaskOutcome, TaskState
+from .multirepo import (
+    CONTRACT_INSTRUCTIONS,
+    ContractStore,
+    MergeUnit,
+    MultiRepoPlan,
+    TwoPhaseMerger,
+    extract_contract,
+)
 from .runner import runner_for
 from .scheduler import Scheduler
 from .verify import verify

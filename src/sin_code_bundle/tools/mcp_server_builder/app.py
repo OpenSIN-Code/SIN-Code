@@ -20,17 +20,15 @@ single ``sin mcp-server`` subcommand group::
 from __future__ import annotations
 
 import json
-import shutil
-import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
 
 from .publisher import Publisher
-from .registrar import McpServerEntry, Registrar, build_local_entry
-from .scaffolder import ScaffoldSpec, Scaffolder
-from .templates import TemplateEngine, list_templates
+from .registrar import McpServerEntry, Registrar
+from .scaffolder import Scaffolder, ScaffoldSpec
+from .templates import list_templates
 from .test_gen import TestGenerator
 from .tool_adder import ToolAdder, ToolSpec
 from .validator import Validator

@@ -93,7 +93,7 @@ def marketplace_install(
 ) -> None:
     """Install a skill from the catalog."""
     from .catalog import Catalog, CatalogError
-    from .installer import InstallError, Installer
+    from .installer import Installer, InstallError
     from .registry import Registry
 
     if remote:
@@ -179,6 +179,7 @@ def marketplace_update(
 ) -> None:
     """Update installed skills (one or all)."""
     import json as _json
+
     from .updater import Updater
 
     updater = Updater()
@@ -208,6 +209,7 @@ def marketplace_update(
 def marketplace_sync() -> None:
     """Sync catalog with Infra-SIN-OpenCode-Stack."""
     import json as _json
+
     from .catalog import Catalog, CatalogError
     from .registry import Registry
 

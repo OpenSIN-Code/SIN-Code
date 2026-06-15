@@ -11,13 +11,10 @@ from typing import Optional
 
 import click
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from rich.text import Text
+from rich.table import Table
 
 from .generator import SBOMGenerator
-from .models import SBOM, SBOMPackage, SBOMMetadata
-
 
 console = Console()
 

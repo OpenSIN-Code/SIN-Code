@@ -12,13 +12,11 @@ Usage:
 
 from __future__ import annotations
 
-import json
+import os
 import subprocess
 import sys
 import time
-import os
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FUZZ_SCRIPT = os.path.join(BASE_DIR, "fuzz_go_mcp.py")
@@ -110,7 +108,7 @@ def run_sin_brain_fuzz() -> ToolResult:
     """Run sin_brain fuzz test."""
     result = ToolResult(name="SIN-Brain")
     print(f"\n{'='*60}")
-    print(f"  FUZZING: SIN-Brain (Python MCP)")
+    print("  FUZZING: SIN-Brain (Python MCP)")
     print(f"{'='*60}")
 
     t0 = time.time()
@@ -184,7 +182,7 @@ def generate_summary(results: list[ToolResult]):
     if total_crashes == 0 and total_hangs == 0 and total_violations == 0:
         print("🛡️  ALL TOOLS PASSED — No crashes, hangs, or violations detected")
     else:
-        print(f"💀 VULNERABILITY REPORT:")
+        print("💀 VULNERABILITY REPORT:")
         if total_crashes:
             print(f"   💥 {total_crashes} CRASHES across {sum(1 for r in results if r.crashes > 0)} tools")
         if total_hangs:

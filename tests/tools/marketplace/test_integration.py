@@ -8,8 +8,6 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from sin_code_bundle.tools.marketplace.catalog import Catalog
 from sin_code_bundle.tools.marketplace.installer import Installer
 from sin_code_bundle.tools.marketplace.registry import Registry

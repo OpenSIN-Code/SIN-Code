@@ -16,10 +16,9 @@ import pytest
 
 from sin_delegate.engine import Delegator
 from sin_delegate.escalation import EscalationBroker, EscalationKind
-from sin_delegate.resolution import apply_resolutions
 from sin_delegate.ledger import Ledger
-from sin_delegate.models import (AgentSpec, Budget, Plan, Risk, Task,
-                                TaskState)
+from sin_delegate.models import AgentSpec, Budget, Plan, Risk, Task, TaskState
+from sin_delegate.resolution import apply_resolutions
 
 
 def _git_init(path: Path) -> None:
@@ -75,7 +74,7 @@ def test_e2e_dag_with_dependencies_executes_all(repo, tmp_path):
     plan = Plan(goal="dag", tasks=(a, b, c), repo=str(repo))
     ledger = Ledger(tmp_path / "ledger.db")
     dele = Delegator(plan, ledger=ledger)
-    result = dele.run_sync()
+    dele.run_sync()
     states = ledger.task_states(plan.id)
     assert set(states.keys()) == {a.id, b.id, c.id}
 
@@ -143,7 +142,7 @@ def test_e2e_full_lifecycle_resume_to_completion(repo, tmp_path):
 
     # Phase 2: full resume
     dele = Delegator(plan, ledger=ledger)
-    result = dele.run_sync()
+    dele.run_sync()
     states = ledger.task_states(plan.id)
     TERMINAL = {TaskState.DONE, TaskState.FAILED, TaskState.SKIPPED,
                 TaskState.CANCELLED, TaskState.ESCALATED}

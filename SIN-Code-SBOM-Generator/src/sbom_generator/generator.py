@@ -6,12 +6,12 @@ Aggregates data from SCA scans and generates SBOMs in SPDX and CycloneDX formats
 Docs: generator.doc.md
 """
 
-import json
-from typing import List, Dict, Any, Optional
 from pathlib import Path
-from .models import SBOM, SBOMPackage, SBOMMetadata, ScanResult
-from .spdx_generator import spdx_to_json
+from typing import Any, Dict, List, Optional
+
 from .cyclonedx_generator import cyclonedx_to_json
+from .models import SBOM, SBOMMetadata, SBOMPackage
+from .spdx_generator import spdx_to_json
 
 
 class SBOMGenerator:

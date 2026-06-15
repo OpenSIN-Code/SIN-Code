@@ -5,10 +5,9 @@ Docs: test_spdx.doc.md
 """
 
 import json
-import pytest
 
+from sbom_generator.models import SBOM, SBOMMetadata, SBOMPackage
 from sbom_generator.spdx_generator import generate_spdx, spdx_to_json
-from sbom_generator.models import SBOM, SBOMPackage, SBOMMetadata
 
 
 class TestSPDXGenerator:

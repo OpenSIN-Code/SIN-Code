@@ -27,9 +27,8 @@ from pathlib import Path
 
 from sin_delegate.analytics import wilson_lower
 from sin_delegate.ledger import Ledger
-from sin_delegate.models import (AgentSpec, Budget, Plan, Risk, Task,
-                                TaskOutcome, TaskState)
-from sin_delegate.scheduler import (Scheduler, critical_path_priority)
+from sin_delegate.models import AgentSpec, Budget, Plan, Task, TaskOutcome, TaskState
+from sin_delegate.scheduler import Scheduler, critical_path_priority
 
 
 def _git_init(path: Path) -> None:

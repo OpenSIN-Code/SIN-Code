@@ -11,7 +11,7 @@ from .memory_bridge import MemoryBridge
 from .planner import Planner
 from .router import ToolRouter
 from .telemetry import Telemetry
-from .types import AgentTask, Plan, StepResult, Verdict
+from .types import AgentTask, StepResult, Verdict, VerdictKind
 from .verifier import Verifier
 
 RepairFactory = Callable[[AgentTask, Verdict], Awaitable[list[dict[str, Any]]]]

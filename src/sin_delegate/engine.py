@@ -10,7 +10,7 @@ from dataclasses import replace
 
 from . import memory
 from .ledger import Ledger
-from .models import (Plan, Risk, RunResult, Task, TaskOutcome, TaskState)
+from .models import Plan, Risk, RunResult, Task, TaskOutcome, TaskState
 from .runner import EchoRunner, runner_for
 from .scheduler import Scheduler
 from .worktree import GitError, WorktreeManager

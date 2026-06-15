@@ -14,21 +14,29 @@ as `sin slash <subcommand>` (issue #29). The legacy Click CLI in
 
 __version__ = "0.1.0"
 __all__ = [
-    "parser",
-    "registry",
+    "app",
+    "BUILTIN_COMMANDS",
+    "cli",
+    "commands",
+    "CommandDispatcher",
+    "CommandExecutor",
+    "CommandRegistry",
+    "CustomCommand",
+    "DispatchResult",
     "dispatcher",
     "executor",
-    "commands",
+    "get_command_help",
     "mcp_server",
-    "cli",
-    "app",
+    "ParsedCommand",
+    "parser",
+    "registry",
+    "SlashParser",
 ]
 
+# `app` is the Typer subcommand for `sin slash ...`
+from .app import app  # noqa: E402
 from .commands import BUILTIN_COMMANDS, get_command_help
 from .dispatcher import CommandDispatcher, DispatchResult
 from .executor import CommandExecutor
 from .parser import ParsedCommand, SlashParser
 from .registry import CommandRegistry, CustomCommand
-
-# `app` is the Typer subcommand for `sin slash ...`
-from .app import app  # noqa: E402

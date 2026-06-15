@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from sin_code_bundle.tools.marketplace.updater import Updater, UpdateError
+from sin_code_bundle.tools.marketplace.updater import UpdateError, Updater
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

@@ -8,10 +8,8 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from sbom_generator.generator import SBOMGenerator
-from sbom_generator.models import SBOM, SBOMPackage, SBOMMetadata
+from sbom_generator.models import SBOM, SBOMMetadata, SBOMPackage
 
 
 class TestSBOMGenerator:

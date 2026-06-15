@@ -13,17 +13,15 @@ repos are rolled back to their snapshot tags.
 
 from __future__ import annotations
 
-import json
 import subprocess
 from pathlib import Path
 
 import pytest
 
 from sin_delegate.ledger import Ledger
-from sin_delegate.models import (AgentSpec, Budget, Plan, Risk, Task)
-from sin_delegate.multirepo import (MergeUnit, TwoPhaseMerger,
-                                    multirepo_plan_from_dict)
-from sin_delegate.worktree import GitError, Worktree, WorktreeManager, _git
+from sin_delegate.models import AgentSpec, Budget, Risk, Task
+from sin_delegate.multirepo import MergeUnit, TwoPhaseMerger, multirepo_plan_from_dict
+from sin_delegate.worktree import GitError, WorktreeManager, _git
 
 
 def _git_init(path: Path) -> None:
@@ -115,7 +113,6 @@ def test_merge_saga_advances_both_repos_on_success(two_repos, tmp_path):
 def _topo_order_units(units: list) -> list:
     """Same as multirepo_engine._topo_order but for MergeUnits only."""
     # build dep map from task_id to deps
-    from sin_delegate.models import Plan
     # We only have MergeUnits; build a simple deps map from the plan_json
     return [u.task_id for u in units]
 

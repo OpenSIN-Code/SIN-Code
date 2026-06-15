@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import typing
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable
@@ -12,6 +13,9 @@ from typing import Any, Awaitable, Callable
 from .memory_bridge import MemoryBridge
 from .planner import Planner
 from .types import AgentTask
+
+if typing.TYPE_CHECKING:
+    from .distiller import KnowledgeDistiller
 
 CompleteFn = Callable[[str], Awaitable[str]]
 

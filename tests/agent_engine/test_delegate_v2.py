@@ -9,8 +9,11 @@ import time
 import pytest
 
 from sin_code_bundle.agent_engine.delegate import (
-    AdaptiveBudgetAllocator, DelegationCache, DelegationContext,
-    DelegationSupervisor, validate_result,
+    AdaptiveBudgetAllocator,
+    DelegationCache,
+    DelegationContext,
+    DelegationSupervisor,
+    validate_result,
 )
 
 
@@ -31,7 +34,7 @@ def test_contract_strips_unknown_keys_and_caps_lessons():
     clean = validate_result(raw)
     assert "malicious_context_dump" not in clean
     assert len(clean["lessons"]) == 5
-    assert all(len(l) <= 300 for l in clean["lessons"])
+    assert all(len(lesson) <= 300 for lesson in clean["lessons"])
 
 
 def test_contract_rejects_wrong_types():

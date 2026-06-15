@@ -10,9 +10,7 @@ removing, and updating skills.
 
 import asyncio
 import json
-import logging
 from pathlib import Path
-from typing import Any
 
 import typer
 from rich.console import Console
@@ -20,7 +18,7 @@ from rich.table import Table
 
 # ── Local imports ─────────────────────────────────────────────────────────────
 from .catalog import Catalog, CatalogError
-from .installer import InstallError, Installer
+from .installer import Installer, InstallError
 from .registry import Registry
 from .updater import Updater
 
@@ -31,7 +29,7 @@ console = Console()
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def _get_catalog(cache_path: Path | None = None) -> Catalog:
     """Load or create a catalog instance.
-    
+
     Args:
         cache_path: Optional path to local catalog cache. Defaults to
                     ~/.config/opencode/skills_catalog.json.

@@ -88,11 +88,11 @@ def test_sin_search_max_ceiling_200():
     We don't actually run a 200+ match query (too slow); we just verify
     the implementation by importing the function and checking the docstring.
     """
-    from sin_code_bundle.file_ops import sin_search
-
     # The implementation has a `if len(results) >= 200: break` ceiling.
     # Source-check: look for the literal in the function body.
     import inspect
+
+    from sin_code_bundle.file_ops import sin_search
 
     src = inspect.getsource(sin_search)
     assert "200" in src

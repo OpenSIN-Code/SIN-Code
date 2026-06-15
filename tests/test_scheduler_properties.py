@@ -16,8 +16,8 @@ import asyncio
 import random
 
 from sin_delegate.ledger import Ledger
-from sin_delegate.models import (Budget, Plan, Task, TaskOutcome, TaskState)
-from sin_delegate.scheduler import (Scheduler, critical_path_priority)
+from sin_delegate.models import Budget, Plan, Task, TaskOutcome, TaskState
+from sin_delegate.scheduler import Scheduler, critical_path_priority
 
 TERMINAL = {TaskState.DONE, TaskState.FAILED, TaskState.SKIPPED,
             TaskState.CANCELLED, TaskState.ESCALATED}

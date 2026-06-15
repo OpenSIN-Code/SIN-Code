@@ -4,7 +4,7 @@
 Docs: test_sin_code.doc.md
 """
 import subprocess
-import pytest
+
 
 def _run(args, timeout=30):
     return subprocess.run(args, capture_output=True, text=True, timeout=timeout)

@@ -7,7 +7,6 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
 from typer.testing import CliRunner
 
 from sin_code_bundle.tools.marketplace.legacy_cli import app

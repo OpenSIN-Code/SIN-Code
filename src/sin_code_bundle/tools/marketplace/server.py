@@ -11,13 +11,12 @@ update, sync, and inspect skills programmatically.
 import json
 import logging
 from pathlib import Path
-from typing import Any
 
 from fastmcp import FastMCP
 
 # ── Local imports ─────────────────────────────────────────────────────────────
 from .catalog import Catalog, CatalogError
-from .installer import InstallError, Installer
+from .installer import Installer, InstallError
 from .registry import Registry
 from .updater import Updater
 

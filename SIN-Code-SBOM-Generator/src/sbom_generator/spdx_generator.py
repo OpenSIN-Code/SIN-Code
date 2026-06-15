@@ -5,11 +5,9 @@ Docs: spdx_generator.doc.md
 """
 
 import json
-import uuid
-from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
-from .models import SBOM, SBOMPackage, SBOMMetadata
+from typing import Any, Dict, List, Optional
 
+from .models import SBOM, SBOMPackage
 
 SPDX_VERSION = "SPDX-2.3"
 SPDX_DATA_LICENSE = "CC0-1.0"

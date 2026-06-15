@@ -11,7 +11,8 @@ from __future__ import annotations
 from typing import Any
 
 try:
-    from sin_brain import recall as _recall, remember as _remember
+    from sin_brain import recall as _recall
+    from sin_brain import remember as _remember
     _AVAILABLE = True
 except Exception:  # pragma: no cover
     _AVAILABLE = False

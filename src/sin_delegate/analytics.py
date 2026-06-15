@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from pathlib import PurePosixPath
 
 from .ledger import Ledger
-from .models import Task
 
 
 def task_class(risk: str, files: list, verify: list) -> str:

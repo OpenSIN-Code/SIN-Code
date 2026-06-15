@@ -8,12 +8,11 @@ Provides a command-line interface for running slash commands directly.
 
 import json
 import sys
-from typing import Optional
 
 import click
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
 from sin_code_bundle.tools.slash.dispatcher import CommandDispatcher
 from sin_code_bundle.tools.slash.registry import CommandRegistry

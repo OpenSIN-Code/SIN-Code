@@ -21,7 +21,6 @@ Subcommands:
 from __future__ import annotations
 
 import argparse
-import asyncio
 import json
 import sys
 from pathlib import Path
@@ -124,8 +123,8 @@ def _cmd_plan(args: argparse.Namespace) -> int:
 
 
 def _cmd_auto(args: argparse.Namespace) -> int:
-    from .planner import plan_sync
     from .observe import report
+    from .planner import plan_sync
     plan = plan_sync(args.goal, repo=args.repo,
                      backend=args.backend, model=args.model)
     print(f"plan {plan.id}: {len(plan.tasks)} tasks")

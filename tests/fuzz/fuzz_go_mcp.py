@@ -11,13 +11,12 @@ Usage:
 
 from __future__ import annotations
 
+import argparse
 import json
+import os
+import signal
 import subprocess
 import sys
-import time
-import os
-import argparse
-import signal
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -220,7 +219,6 @@ def validate_jsonrpc_response(response_json: Any) -> str:
 
     # id field handling - note notifications don't get responses,
     # but if we get a response it must have id or error
-    has_id = "id" in response_json
     has_result = "result" in response_json
     has_error = "error" in response_json
 
@@ -302,7 +300,7 @@ def run_single_attack(
                 violation = validate_jsonrpc_response(result.response_json)
                 if violation:
                     result.protocol_violation = violation
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError:
                 result.protocol_violation = f"non_json_response: {stdout_data[:200]!r}"
 
     except FileNotFoundError:
@@ -337,12 +335,12 @@ def fuzz_go_tool(binary: str, tool_label: str, timeout: float = 5.0) -> FuzzRepo
     if startup.crashed or startup.hung:
         print(f"  ⚠️  Startup failed: crash={startup.crashed}, hang={startup.hung}")
     else:
-        print(f"  ✅ Startup OK")
+        print("  ✅ Startup OK")
 
     all_attacks = []
 
     # ── Category 1: Empty/invalid raw input ────────────
-    print(f"  → Testing empty/malformed raw input...")
+    print("  → Testing empty/malformed raw input...")
     for name, payload in make_empty_inputs():
         all_attacks.append((name, payload))
     for name, payload in make_non_json():
@@ -351,7 +349,7 @@ def fuzz_go_tool(binary: str, tool_label: str, timeout: float = 5.0) -> FuzzRepo
         all_attacks.append((name, payload))
 
     # ── Category 2: Invalid JSON-RPC structure ─────────
-    print(f"  → Testing invalid JSON-RPC...")
+    print("  → Testing invalid JSON-RPC...")
     for name, payload in make_invalid_json_rpc():
         all_attacks.append((name, payload))
     for name, payload in make_missing_method():
@@ -362,34 +360,34 @@ def fuzz_go_tool(binary: str, tool_label: str, timeout: float = 5.0) -> FuzzRepo
         all_attacks.append((name, payload))
 
     # ── Category 3: Weird params ───────────────────────
-    print(f"  → Testing weird params...")
+    print("  → Testing weird params...")
     for name, payload in make_missing_params():
         all_attacks.append((name, payload))
     for name, payload in make_weird_params():
         all_attacks.append((name, payload))
 
     # ── Category 4: Long inputs ────────────────────────
-    print(f"  → Testing long method names...")
+    print("  → Testing long method names...")
     for name, payload in make_long_method_name():
         all_attacks.append((name, payload))
 
     # ── Category 5: Deep nesting ───────────────────────
-    print(f"  → Testing deep nesting...")
+    print("  → Testing deep nesting...")
     for name, payload in make_nested_objects(1000):
         all_attacks.append((name, payload))
 
     # ── Category 6: Batches ────────────────────────────
-    print(f"  → Testing batch requests...")
+    print("  → Testing batch requests...")
     for name, payload in make_batch_requests():
         all_attacks.append((name, payload))
 
     # ── Category 7: Notifications ──────────────────────
-    print(f"  → Testing notifications...")
+    print("  → Testing notifications...")
     for name, payload in make_notifications():
         all_attacks.append((name, payload))
 
     # ── Category 8: Oversized ──────────────────────────
-    print(f"  → Testing oversized payload (10MB)...")
+    print("  → Testing oversized payload (10MB)...")
     for name, payload in make_oversized():
         all_attacks.append((name, payload))
 
@@ -451,7 +449,7 @@ def print_report(report: FuzzReport):
     )
     print()
     if severity == 0:
-        print(f"  🛡️  SEVERITY: NONE — Tool survived all attacks")
+        print("  🛡️  SEVERITY: NONE — Tool survived all attacks")
     elif severity < 20:
         print(f"  ⚠️  SEVERITY: LOW ({severity})")
     elif severity < 50:

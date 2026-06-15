@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import tempfile
 import time
-from pathlib import Path
 from typing import Callable
 
 from .planner import Planner

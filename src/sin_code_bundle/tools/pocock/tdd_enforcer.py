@@ -9,14 +9,13 @@ Docs: tdd_enforcer.doc.md
 
 from __future__ import annotations
 
-import sys
-import subprocess
-import os
-import json
 import argparse
-from pathlib import Path
-from typing import Optional
+import json
+import os
+import subprocess
+import sys
 from datetime import datetime
+from typing import Optional
 
 
 class TDDEnforcer:

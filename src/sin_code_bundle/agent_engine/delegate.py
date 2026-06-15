@@ -240,10 +240,10 @@ class DelegationSupervisor:
 
     def active(self) -> list[dict[str, Any]]:
         return [
-            {"delegation_id": l.delegation_id, "goal": l.goal[:80],
-             "depth": l.depth,
-             "age_s": round(time.monotonic() - l.started_at, 1)}
-            for l in self._leases.values()
+            {"delegation_id": lesson.delegation_id, "goal": lesson.goal[:80],
+             "depth": lesson.depth,
+             "age_s": round(time.monotonic() - lesson.started_at, 1)}
+            for lesson in self._leases.values()
         ]
 
     async def _reap_stalled(self) -> None:

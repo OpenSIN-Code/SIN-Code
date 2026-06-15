@@ -62,7 +62,7 @@ def check_repo(path: str) -> Check:
     code, out = _run(["git", "-C", str(p), "status", "--porcelain"])
     if code != 0:
         return Check("repository", False, f"git status failed: {out}")
-    dirty = [l for l in out.splitlines() if l.strip()]
+    dirty = [line for line in out.splitlines() if line.strip()]
     if dirty:
         return Check(
             "repository", False,

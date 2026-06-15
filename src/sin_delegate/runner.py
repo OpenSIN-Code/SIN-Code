@@ -8,7 +8,7 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Protocol
+from typing import Callable, Protocol
 
 from .models import Task
 

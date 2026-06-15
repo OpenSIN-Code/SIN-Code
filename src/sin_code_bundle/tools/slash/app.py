@@ -16,8 +16,6 @@ Exposes the same surface as the legacy Click CLI as ``sin slash ...``::
 from __future__ import annotations
 
 import json
-import sys
-from typing import Optional
 
 import typer
 

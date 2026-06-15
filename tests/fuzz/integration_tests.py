@@ -23,9 +23,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
-from pathlib import Path
 from typing import Any
 
 # ── Paths ────────────────────────────────────────────────
@@ -399,7 +397,7 @@ class TestWorkflow2_ScoutToGrasp(unittest.TestCase):
             scout_item = gr["scout_item"]
 
             # The scout match content should contain the function name
-            scout_content = scout_item.get("content", "")
+            scout_item.get("content", "")
             scout_file = scout_item.get("file", "")
 
             # grasp functions should include the scouted symbol
@@ -501,7 +499,7 @@ class TestWorkflow3_MapToScout(unittest.TestCase):
 
         # For each module, check that its symbols are findable by scout
         for mod in modules:
-            mod_deps = set(mod.get("dependencies", []))
+            set(mod.get("dependencies", []))
             exported = set(mod.get("exported_symbols", []))
 
             for symbol in list(exported)[:3]:
@@ -588,7 +586,7 @@ class TestWorkflow4_ExecuteToSINBrain(unittest.TestCase):
 
     def test_store_in_sinbrain(self):
         """Step 2: Store execute results in SIN-Brain memory.
-        
+
         Uses a subprocess to avoid import/threading conflicts with the
         test runner process. SIN-Brain runs cleanly in its own venv.
         """

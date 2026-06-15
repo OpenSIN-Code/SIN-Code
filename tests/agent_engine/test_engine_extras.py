@@ -6,7 +6,6 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from pathlib import Path
 
 import pytest
 
@@ -16,12 +15,13 @@ from sin_code_bundle.agent_engine.compactor import ContextCompactor
 from sin_code_bundle.agent_engine.delegate import DelegationContext
 from sin_code_bundle.agent_engine.insights import TelemetryAnalyzer
 from sin_code_bundle.agent_engine.policy_sandbox import (
-    PolicyRule, PolicySandbox, PolicyViolation,
+    PolicyRule,
+    PolicySandbox,
+    PolicyViolation,
 )
 from sin_code_bundle.agent_engine.repair import LLMRepairFactory
 from sin_code_bundle.agent_engine.router import ToolRouter
 from sin_code_bundle.agent_engine.types import AgentTask, StepState, Verdict, VerdictKind
-
 
 # --------------------------------------------------------------- repair
 

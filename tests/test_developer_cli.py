@@ -4,12 +4,9 @@
 Docs: test_developer_cli.doc.md
 """
 
-import os
 import subprocess
 import tempfile
 from pathlib import Path
-
-import pytest
 
 
 def _run(args, timeout=30):

@@ -6,16 +6,17 @@ from __future__ import annotations
 import asyncio
 import json
 
-import pytest
-
 from sin_code_bundle.agent_engine.distiller import (
-    KnowledgeDistiller, _heuristic_rule, _signature,
-)
-from sin_code_bundle.agent_engine.tracing import (
-    Span, SpanEmitter, TraceAssembler, TraceContext,
+    KnowledgeDistiller,
+    _heuristic_rule,
+    _signature,
 )
 from sin_code_bundle.agent_engine.telemetry import Telemetry
-
+from sin_code_bundle.agent_engine.tracing import (
+    SpanEmitter,
+    TraceAssembler,
+    TraceContext,
+)
 
 # --------------------------------------------------------------- tracing
 
@@ -93,7 +94,7 @@ def test_span_emitter_writes_start_and_end(tmp_path):
     ctx = TraceContext(trace_id="t1", span_id="s1")
     started = em.start(ctx, kind="run", name="x", goal="g")
     em.end(ctx, started, status="ok", steps=3)
-    recs = [json.loads(l) for l in log.read_text().splitlines()]
+    recs = [json.loads(line) for line in log.read_text().splitlines()]
     assert recs[0]["event"] == "span_start" and recs[0]["kind"] == "run"
     assert recs[1]["event"] == "span_end" and recs[1]["status"] == "ok"
 
@@ -169,7 +170,8 @@ class _FakeEmpty:
 
 
 def test_harvest_lessons_from_real_memory(tmp_path):
-    import sqlite3, time as _t
+    import sqlite3
+    import time as _t
     db = tmp_path / "mem.db"
     con = sqlite3.connect(db)
     con.executescript("""
@@ -186,4 +188,4 @@ def test_harvest_lessons_from_real_memory(tmp_path):
     con.close()
     d = KnowledgeDistiller(db_path=str(db))
     lessons = d.harvest_lessons(since_s=10_000_000)
-    assert any("fail_lint" in l for l in lessons)
+    assert any("fail_lint" in lesson for lesson in lessons)

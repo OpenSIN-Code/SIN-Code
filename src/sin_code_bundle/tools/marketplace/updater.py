@@ -71,7 +71,7 @@ class Updater:
 
         try:
             origin = repo.remotes.origin
-            fetch_info = origin.fetch()
+            origin.fetch()
             local_sha = repo.head.commit.hexsha
             remote_sha = origin.refs[repo.active_branch.name].commit.hexsha
         except (AttributeError, IndexError, git.GitCommandError) as exc:

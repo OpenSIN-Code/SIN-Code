@@ -8,13 +8,12 @@ any code is generated. It produces a standardized Product Requirements Document 
 
 from __future__ import annotations
 
+import argparse
+import json
 import os
 import sys
-import json
-import argparse
-from pathlib import Path
+from dataclasses import asdict, dataclass, field
 from typing import Optional
-from dataclasses import dataclass, field, asdict
 
 
 @dataclass
@@ -99,7 +98,7 @@ class GrillMe:
             print(f"\n{'─' * 70}")
             print(f"❓ FRAGE {i}/{len(self.session.questions)} [{q.category.upper()}]")
             print(f"   {q.question}")
-            
+
             while True:
                 try:
                     ans = input("   👉 Deine Antwort: ").strip()
@@ -127,19 +126,19 @@ class GrillMe:
     def generate_prd(self, output_path: Optional[str] = None) -> str:
         """Generate the Product Requirements Document from the grill session."""
         prd_content = self._build_prd_content()
-        
+
         if output_path is None:
             output_path = os.path.join(os.getcwd(), "PRD.md")
-        
+
         self.session.prd_path = output_path
-        
+
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(prd_content)
-        
+
         print(f"\n{'=' * 70}")
         print(f"🎉 PRD ERFOLGREICH GENERIERT: {output_path}")
         print(f"{'=' * 70}\n")
-        
+
         return output_path
 
     def _build_prd_content(self) -> str:

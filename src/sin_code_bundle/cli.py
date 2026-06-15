@@ -1503,7 +1503,7 @@ try:
     app.add_typer(slash_app, name="slash")
 except ImportError as exc:
     @app.command("slash")
-    def slash_missing() -> None:
+    def slash_missing(exc=exc) -> None:
         """Slash commands (slash module not installed)."""
         typer.echo(f"[SIN-BUNDLE] slash module unavailable: {exc}", err=True)
         raise typer.Exit(code=1)
@@ -1513,7 +1513,7 @@ try:
     app.add_typer(mcp_server_app, name="mcp-server")
 except ImportError as exc:
     @app.command("mcp-server")
-    def mcp_server_missing() -> None:
+    def mcp_server_missing(exc=exc) -> None:
         """MCP server builder (mcp_server_builder module not installed)."""
         typer.echo(f"[SIN-BUNDLE] mcp-server module unavailable: {exc}", err=True)
         raise typer.Exit(code=1)
@@ -1523,7 +1523,7 @@ try:
     app.add_typer(marketplace_app, name="marketplace")
 except ImportError as exc:
     @app.command("marketplace")
-    def marketplace_missing() -> None:
+    def marketplace_missing(exc=exc) -> None:
         """Marketplace (marketplace module not installed)."""
         typer.echo(f"[SIN-BUNDLE] marketplace module unavailable: {exc}", err=True)
         raise typer.Exit(code=1)
@@ -1720,14 +1720,14 @@ def pocock_dag_kanban(
     from sin_code_bundle.tools.pocock.dag_kanban import DAGKanban
 
     runner = DAGKanban(prd)
-    order = runner.run()
+    runner.run()
 
     if json_out:
         typer.echo(runner.to_json())
 
     if docker:
         try:
-            import yaml
+            import yaml  # noqa: F401
             runner.export_docker_compose(output)
         except ImportError:
             typer.echo("⚠️  PyYAML not installed. Run: pip install pyyaml", err=True)
@@ -2648,7 +2648,7 @@ try:
     app.add_typer(slash_app, name="slash")
 except ImportError as exc:
     @app.command("slash")
-    def slash_missing() -> None:
+    def slash_missing(exc=exc) -> None:
         """Slash commands (slash module not installed)."""
         typer.echo(f"[SIN-BUNDLE] slash module unavailable: {exc}", err=True)
         raise typer.Exit(code=1)
@@ -2658,7 +2658,7 @@ try:
     app.add_typer(mcp_server_app, name="mcp-server")
 except ImportError as exc:
     @app.command("mcp-server")
-    def mcp_server_missing() -> None:
+    def mcp_server_missing(exc=exc) -> None:
         """MCP server builder (mcp_server_builder module not installed)."""
         typer.echo(f"[SIN-BUNDLE] mcp-server module unavailable: {exc}", err=True)
         raise typer.Exit(code=1)
@@ -2668,7 +2668,7 @@ try:
     app.add_typer(marketplace_app, name="marketplace")
 except ImportError as exc:
     @app.command("marketplace")
-    def marketplace_missing() -> None:
+    def marketplace_missing(exc=exc) -> None:
         """Marketplace (marketplace module not installed)."""
         typer.echo(f"[SIN-BUNDLE] marketplace module unavailable: {exc}", err=True)
         raise typer.Exit(code=1)
@@ -2731,36 +2731,6 @@ def _forward_security_subcommand(subcommand: str) -> None:
     args = sys.argv[sys.argv.index(subcommand) + 1 :] if subcommand in sys.argv else []
     result = subprocess.run([binary, subcommand, *args])
     raise typer.Exit(code=result.returncode)
-
-
-@app.command()
-def ibd():
-    """Intent-Based Diffing (IBD) — thin wrapper around the `ibd` binary."""
-    _forward_to_binary("ibd", _NEW_TOOL_BINARIES["ibd"][0])
-
-
-@app.command()
-def poc():
-    """Proof-of-Correctness (POC) — thin wrapper around the `poc` binary."""
-    _forward_to_binary("poc", _NEW_TOOL_BINARIES["poc"][0])
-
-
-@app.command()
-def adw():
-    """Architectural Debt Watchdogs (ADW) — thin wrapper around the `adw` binary."""
-    _forward_to_binary("adw", _NEW_TOOL_BINARIES["adw"][0])
-
-
-@app.command()
-def oracle():
-    """Verification Oracle — thin wrapper around the `oracle` binary."""
-    _forward_to_binary("oracle", _NEW_TOOL_BINARIES["oracle"][0])
-
-
-@app.command()
-def efm():
-    """Ephemeral Full-Stack Mocking (EFM) — thin wrapper around the `efm` binary."""
-    _forward_to_binary("efm", _NEW_TOOL_BINARIES["efm"][0])
 
 
 @app.command()
@@ -3076,7 +3046,6 @@ def docs_generate(
     template: str = typer.Option("default", help="Template: default, minimal, full."),
 ):
     """Generate a README.md from project metadata."""
-    import os
     import json
 
     proj = Path(path)

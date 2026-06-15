@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from sin_code_bundle.tools.marketplace.installer import InstallError, Installer
+from sin_code_bundle.tools.marketplace.installer import Installer, InstallError
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────

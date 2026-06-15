@@ -5,7 +5,6 @@ resume/skip semantics, redaction, plan-file resolution."""
 from __future__ import annotations
 
 import asyncio
-import json
 
 import pytest
 
@@ -119,8 +118,7 @@ def test_dag_validation_unknown_dep(tmp_path):
 
 
 def test_run_result_ok_predicate():
-    from sin_delegate.models import RunResult
-    from sin_delegate.models import TaskOutcome
+    from sin_delegate.models import RunResult, TaskOutcome
     r = RunResult("p1", "g", {
         "A": TaskOutcome("A", TaskState.DONE),
         "B": TaskOutcome("B", TaskState.SKIPPED),

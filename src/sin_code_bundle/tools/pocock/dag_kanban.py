@@ -10,15 +10,13 @@ Docs: dag_kanban.doc.md
 
 from __future__ import annotations
 
+import argparse
+import json
 import os
 import re
-import sys
-import json
-import argparse
-from pathlib import Path
-from typing import Optional
 from collections import defaultdict, deque
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
+from typing import Optional
 
 
 @dataclass
@@ -44,7 +42,7 @@ class DAGKanban:
 
     def parse_prd(self) -> bool:
         """Parse PRD.md and extract task slices.
-        
+
         Returns:
             True if tasks were found, False otherwise.
         """
@@ -124,10 +122,10 @@ class DAGKanban:
 
     def get_execution_order(self) -> list[str]:
         """Get topological sort using Kahn's algorithm.
-        
+
         Returns:
             List of task IDs in execution order.
-            
+
         Raises:
             ValueError: If circular dependencies are detected.
         """
@@ -149,7 +147,7 @@ class DAGKanban:
 
     def get_parallel_groups(self) -> list[list[str]]:
         """Get tasks grouped by parallel execution groups.
-        
+
         Returns:
             List of groups where tasks within each group can run in parallel.
         """
@@ -180,7 +178,7 @@ class DAGKanban:
 
     def assign_executors(self, executor_pattern: str = "agent-{}") -> None:
         """Assign executors to tasks for parallel execution.
-        
+
         Args:
             executor_pattern: Pattern for executor naming (e.g., "agent-{}")
         """
@@ -192,7 +190,7 @@ class DAGKanban:
 
     def run(self) -> list[str]:
         """Execute the DAG analysis and display results.
-        
+
         Returns:
             List of task IDs in execution order.
         """
@@ -250,7 +248,7 @@ class DAGKanban:
 
     def export_docker_compose(self, output_path: str = "docker-compose.dag.yml") -> str:
         """Generate Docker Compose file for parallel execution.
-        
+
         Returns:
             Path to generated docker-compose file.
         """
@@ -291,24 +289,24 @@ class DAGKanban:
 
 def run_dag_kanban(prd_path: str = "PRD.md", output_json: bool = False, export_docker: bool = False) -> list[str]:
     """Convenience function to run DAG Kanban.
-    
+
     Args:
         prd_path: Path to PRD.md file
         output_json: Output JSON instead of human-readable
         export_docker: Export Docker Compose file
-        
+
     Returns:
         List of task IDs in execution order
     """
     runner = DAGKanban(prd_path)
     order = runner.run()
-    
+
     if output_json:
         print(runner.to_json())
-    
+
     if export_docker:
         runner.export_docker_compose()
-    
+
     return order
 
 
@@ -334,7 +332,7 @@ Examples:
     args = parser.parse_args()
 
     runner = DAGKanban(args.prd)
-    order = runner.run()
+    runner.run()
 
     if args.json:
         print(runner.to_json())

@@ -4,10 +4,10 @@
 Docs: models.doc.md
 """
 
-from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any
-from datetime import datetime
 import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -29,7 +29,7 @@ class SBOMPackage:
     homepage: Optional[str] = None
     source_repo: Optional[str] = None
     is_internal: bool = False
-    
+
     # Security metadata
     has_vulnerabilities: bool = False
     vulnerability_count: int = 0
@@ -37,7 +37,7 @@ class SBOMPackage:
     high_vulns: int = 0
     medium_vulns: int = 0
     low_vulns: int = 0
-    
+
     # Dependency info
     dependencies: List[str] = field(default_factory=list)  # list of package names
 
@@ -51,7 +51,7 @@ class SBOMMetadata:
     timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
     document_name: str = ""
     document_namespace: str = ""
-    
+
     def __post_init__(self):
         if not self.document_namespace:
             self.document_namespace = f"https://opensin-code.org/sbom/{uuid.uuid4()}"
@@ -62,13 +62,13 @@ class SBOM:
     """Complete SBOM representation."""
     metadata: SBOMMetadata
     packages: List[SBOMPackage] = field(default_factory=list)
-    
+
     # Additional properties
     total_packages: int = 0
     total_dependencies: int = 0
     unique_licenses: List[str] = field(default_factory=list)
     files_analyzed: List[str] = field(default_factory=list)
-    
+
     # Relationship to source
     source_type: str = ""  # npm, pypi, maven, go, etc.
     source_files: List[str] = field(default_factory=list)  # e.g., package.json, requirements.txt

@@ -21,9 +21,10 @@ from __future__ import annotations
 import json
 import os
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
 
 # External writer; stdlib tomllib is read-only on 3.11+. Import is
 # deferred to first write so the read path stays import-cheap.

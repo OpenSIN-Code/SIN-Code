@@ -16,7 +16,6 @@ import json
 import re
 from collections import Counter
 from pathlib import Path
-from typing import Any
 
 from . import memory
 from .models import AgentSpec, Plan, Task
@@ -52,7 +51,7 @@ def recon(repo: str | Path, max_files: int = 400) -> dict:
         out = subprocess_run_git_ls_files(root)
     except Exception:
         out = ""
-    files = [l for l in out.splitlines() if l][:max_files * 4]
+    files = [line for line in out.splitlines() if line][:max_files * 4]
     if not files:
         for p in root.rglob("*"):
             if p.is_file():
