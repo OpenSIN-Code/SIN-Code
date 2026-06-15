@@ -13,8 +13,10 @@ from typing import Callable, Protocol
 from .models import Task
 
 _SECRET_PATTERNS = [
-    re.compile(r"(?i)(api[_-]?key|token|secret|password|authorization)"
-               r"\s*[:=]\s*\S+"),
+    re.compile(
+        r"(?i)(api[_-]?key|token|secret|password|authorization)"
+        r"\s*[:=]\s*\S+"
+    ),
     re.compile(r"\b(sk|pk|ghp|gho|pypi|xox[bap])-[A-Za-z0-9_\-]{10,}\b"),
     re.compile(r"\beyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]+\b"),
 ]
@@ -34,8 +36,7 @@ class RunnerResult:
 
 
 class Runner(Protocol):
-    async def run(self, task: Task, cwd: str,
-                  timeout: float) -> RunnerResult: ...
+    async def run(self, task: Task, cwd: str, timeout: float) -> RunnerResult: ...
 
 
 def _prompt(task: Task) -> str:
@@ -60,28 +61,25 @@ class SubprocessRunner:
     def __init__(self, argv_factory: Callable[[Task], list[str]]) -> None:
         self._argv_factory = argv_factory
 
-    async def run(self, task: Task, cwd: str,
-                  timeout: float) -> RunnerResult:
+    async def run(self, task: Task, cwd: str, timeout: float) -> RunnerResult:
         argv = self._argv_factory(task)
-        env = {**os.environ, **task.agent.env,
-               "SIN_DELEGATE_TASK": task.id}
+        env = {**os.environ, **task.agent.env, "SIN_DELEGATE_TASK": task.id}
         proc = await asyncio.create_subprocess_exec(
-            *argv, cwd=cwd, env=env,
+            *argv,
+            cwd=cwd,
+            env=env,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             stdin=asyncio.subprocess.DEVNULL,
         )
         try:
-            out, _ = await asyncio.wait_for(
-                proc.communicate(), timeout=timeout)
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
-            return RunnerResult(
-                False, f"[timeout after {timeout:.0f}s]", -1)
+            return RunnerResult(False, f"[timeout after {timeout:.0f}s]", -1)
         text = redact(out.decode(errors="replace"))[-100_000:]
-        return RunnerResult(
-            proc.returncode == 0, text, proc.returncode or 0)
+        return RunnerResult(proc.returncode == 0, text, proc.returncode or 0)
 
 
 def _opencode_argv(task: Task) -> list[str]:
@@ -92,8 +90,15 @@ def _opencode_argv(task: Task) -> list[str]:
 
 
 def _claude_argv(task: Task) -> list[str]:
-    argv = ["claude", "-p", _prompt(task), "--output-format", "text",
-            "--permission-mode", "acceptEdits"]
+    argv = [
+        "claude",
+        "-p",
+        _prompt(task),
+        "--output-format",
+        "text",
+        "--permission-mode",
+        "acceptEdits",
+    ]
     if task.agent.model:
         argv += ["--model", task.agent.model]
     return argv
@@ -109,8 +114,7 @@ def _codex_argv(task: Task) -> list[str]:
 def _command_argv(task: Task) -> list[str]:
     if not task.agent.command:
         raise ValueError("backend 'command' requires AgentSpec.command")
-    return [a.replace("{prompt}", _prompt(task))
-            for a in task.agent.command]
+    return [a.replace("{prompt}", _prompt(task)) for a in task.agent.command]
 
 
 _BACKENDS = {
@@ -128,19 +132,16 @@ def runner_for(spec) -> Runner:
         return SubprocessRunner(_BACKENDS[spec.backend])
     except KeyError:
         raise ValueError(
-            f"unknown backend {spec.backend!r}; "
-            f"choose one of {sorted(_BACKENDS)}") from None
+            f"unknown backend {spec.backend!r}; choose one of {sorted(_BACKENDS)}"
+        ) from None
 
 
 class EchoRunner:
     """Dry-run backend: prints what WOULD happen. Used by --dry-run and tests."""
 
-    async def run(self, task: Task, cwd: str,
-                  timeout: float) -> RunnerResult:
+    async def run(self, task: Task, cwd: str, timeout: float) -> RunnerResult:
         return RunnerResult(
             True,
-            json.dumps(
-                {"dry_run": True, "task": task.title, "cwd": cwd},
-                indent=2),
+            json.dumps({"dry_run": True, "task": task.title, "cwd": cwd}, indent=2),
             0,
         )

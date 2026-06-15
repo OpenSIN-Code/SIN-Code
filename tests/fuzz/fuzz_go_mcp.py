@@ -59,6 +59,7 @@ class FuzzReport:
 
 # ── Payload generators ──────────────────────────────────
 
+
 def make_empty_inputs():
     return [
         ("empty_string", b""),
@@ -100,34 +101,67 @@ def make_missing_method():
 def make_weird_method_names():
     return [
         ("unicode_emoji", json.dumps({"jsonrpc": "2.0", "method": "\U0001f4a9", "id": 1}).encode()),
-        ("unicode_chinese", json.dumps({"jsonrpc": "2.0", "method": "\u4f60\u597d\u4e16\u754c", "id": 2}).encode()),
-        ("special_chars", json.dumps({"jsonrpc": "2.0", "method": "tool/!@#$%^&*()", "id": 3}).encode()),
-        ("sql_injection_method", json.dumps({"jsonrpc": "2.0", "method": "\"; DROP TABLE;--", "id": 4}).encode()),
+        (
+            "unicode_chinese",
+            json.dumps({"jsonrpc": "2.0", "method": "\u4f60\u597d\u4e16\u754c", "id": 2}).encode(),
+        ),
+        (
+            "special_chars",
+            json.dumps({"jsonrpc": "2.0", "method": "tool/!@#$%^&*()", "id": 3}).encode(),
+        ),
+        (
+            "sql_injection_method",
+            json.dumps({"jsonrpc": "2.0", "method": '"; DROP TABLE;--', "id": 4}).encode(),
+        ),
         ("empty_method", json.dumps({"jsonrpc": "2.0", "method": "", "id": 5}).encode()),
     ]
 
 
 def make_long_method_name():
-    name_10kb = "a" * (10 * 1024)    # 10 KB
+    name_10kb = "a" * (10 * 1024)  # 10 KB
     name_100kb = "a" * (100 * 1024)  # 100 KB
     return [
         ("long_method_10kb", json.dumps({"jsonrpc": "2.0", "method": name_10kb, "id": 1}).encode()),
-        ("long_method_100kb", json.dumps({"jsonrpc": "2.0", "method": name_100kb, "id": 1}).encode()),
+        (
+            "long_method_100kb",
+            json.dumps({"jsonrpc": "2.0", "method": name_100kb, "id": 1}).encode(),
+        ),
     ]
 
 
 def make_missing_params():
     return [
-        ("missing_params", json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": 1}).encode()),
+        (
+            "missing_params",
+            json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": 1}).encode(),
+        ),
     ]
 
 
 def make_weird_params():
     return [
-        ("params_as_array", json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": [1, 2, 3]}).encode()),
-        ("params_as_string", json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": "hello"}).encode()),
-        ("params_as_number", json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": 42}).encode()),
-        ("params_as_null", json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": None}).encode()),
+        (
+            "params_as_array",
+            json.dumps(
+                {"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": [1, 2, 3]}
+            ).encode(),
+        ),
+        (
+            "params_as_string",
+            json.dumps(
+                {"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": "hello"}
+            ).encode(),
+        ),
+        (
+            "params_as_number",
+            json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": 42}).encode(),
+        ),
+        (
+            "params_as_null",
+            json.dumps(
+                {"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": None}
+            ).encode(),
+        ),
     ]
 
 
@@ -139,7 +173,10 @@ def make_nested_objects(depth=1000):
         current = current["nested"]
     current["value"] = "bottom"
     return [
-        ("nested_1000_levels", json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": obj}).encode()),
+        (
+            "nested_1000_levels",
+            json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": obj}).encode(),
+        ),
     ]
 
 
@@ -149,7 +186,10 @@ def make_weird_ids():
         ("float_id", json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": 3.14}).encode()),
         ("string_id", json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": "abc"}).encode()),
         ("null_id", json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": None}).encode()),
-        ("very_large_id", json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": 2**63}).encode()),
+        (
+            "very_large_id",
+            json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": 2**63}).encode(),
+        ),
     ]
 
 
@@ -172,8 +212,16 @@ def make_batch_requests():
 
 def make_notifications():
     return [
-        ("notification_no_id", json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}).encode()),
-        ("notification_params", json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {"key": "val"}}).encode()),
+        (
+            "notification_no_id",
+            json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}).encode(),
+        ),
+        (
+            "notification_params",
+            json.dumps(
+                {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {"key": "val"}}
+            ).encode(),
+        ),
     ]
 
 
@@ -198,6 +246,7 @@ def make_invalid_json_syntax():
 
 
 # ── Response validation ────────────────────────────────
+
 
 def validate_jsonrpc_response(response_json: Any) -> str:
     """Check JSON-RPC 2.0 compliance. Returns violation description or ""."""
@@ -242,9 +291,8 @@ def validate_jsonrpc_response(response_json: Any) -> str:
 
 # ── Core fuzzing logic ─────────────────────────────────
 
-def run_single_attack(
-    binary: str, name: str, payload: bytes, timeout: float = 5.0
-) -> AttackResult:
+
+def run_single_attack(binary: str, name: str, payload: bytes, timeout: float = 5.0) -> AttackResult:
     """Send one attack payload via subprocess to a Go MCP binary."""
     result = AttackResult(name=name, payload=repr(payload[:100]))
 
@@ -320,14 +368,18 @@ def fuzz_go_tool(binary: str, tool_label: str, timeout: float = 5.0) -> FuzzRepo
     # Verify binary exists
     if not os.path.exists(binary):
         print(f"  ❌ Binary not found: {binary}")
-        report.results.append(AttackResult(name="binary_check", payload=None, crashed=True,
-                                            error_msg="binary_not_found"))
+        report.results.append(
+            AttackResult(
+                name="binary_check", payload=None, crashed=True, error_msg="binary_not_found"
+            )
+        )
         return report
 
     # Quick startup test: valid tools/list
     print(f"  → Startup check ({tool_label})...")
     startup = run_single_attack(
-        binary, "startup_check",
+        binary,
+        "startup_check",
         json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": 1}).encode(),
         timeout=timeout,
     )
@@ -398,13 +450,15 @@ def fuzz_go_tool(binary: str, tool_label: str, timeout: float = 5.0) -> FuzzRepo
 
         # Progress indicator
         if result.crashed:
-            print(f"    [{i+1}/{len(all_attacks)}] 💥 {name}: CRASH (exit={result.exit_code})")
+            print(f"    [{i + 1}/{len(all_attacks)}] 💥 {name}: CRASH (exit={result.exit_code})")
         elif result.hung:
-            print(f"    [{i+1}/{len(all_attacks)}] ⏳ {name}: HANG (>5s)")
+            print(f"    [{i + 1}/{len(all_attacks)}] ⏳ {name}: HANG (>5s)")
         elif result.protocol_violation:
-            print(f"    [{i+1}/{len(all_attacks)}] ⚠️  {name}: protocol violation ({result.protocol_violation})")
+            print(
+                f"    [{i + 1}/{len(all_attacks)}] ⚠️  {name}: protocol violation ({result.protocol_violation})"
+            )
         else:
-            print(f"    [{i+1}/{len(all_attacks)}] ✅ {name}: OK")
+            print(f"    [{i + 1}/{len(all_attacks)}] ✅ {name}: OK")
 
     return report
 
@@ -442,11 +496,7 @@ def print_report(report: FuzzReport):
                 print(f"       Response: {json.dumps(r.response_json)[:200]}")
 
     # Severity score
-    severity = (
-        len(report.crashes) * 10
-        + len(report.hangs) * 5
-        + len(report.violations) * 2
-    )
+    severity = len(report.crashes) * 10 + len(report.hangs) * 5 + len(report.violations) * 2
     print()
     if severity == 0:
         print("  🛡️  SEVERITY: NONE — Tool survived all attacks")

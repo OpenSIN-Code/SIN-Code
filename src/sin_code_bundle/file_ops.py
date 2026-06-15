@@ -21,6 +21,7 @@ Adding a new file-op?  Add the function here, then wire it into both:
   2. cli/sin_<name>.py — argparse-based CLI shim (see existing examples)
   3. pyproject.toml `[project.scripts]` — entry point
 """
+
 from __future__ import annotations
 
 import json

@@ -47,10 +47,14 @@ def test_scheduler_skips_downstream_of_failure(tmp_path):
     b = Task(title="b", instructions="b", id="B", deps=("A",))
     plan = _plan(tmp_path, [a, b])
     ledger = Ledger(tmp_path / "ledger.db")
+
     async def executor(task):
-        return TaskOutcome(task.id,
-                           TaskState.FAILED if task.id == "A" else TaskState.DONE,
-                           error="boom" if task.id == "A" else "")
+        return TaskOutcome(
+            task.id,
+            TaskState.FAILED if task.id == "A" else TaskState.DONE,
+            error="boom" if task.id == "A" else "",
+        )
+
     outcomes = asyncio.run(Scheduler(plan, ledger, executor).run())
     assert outcomes["A"].state == TaskState.FAILED
     assert outcomes["B"].state == TaskState.SKIPPED
@@ -67,6 +71,7 @@ def test_scheduler_resume_skips_done(tmp_path):
     async def executor(task):
         calls.append(task.id)
         return TaskOutcome(task.id, TaskState.DONE)
+
     outcomes = asyncio.run(Scheduler(plan, ledger, executor).run())
     assert outcomes["A"].state == TaskState.DONE
     assert calls == []
@@ -80,14 +85,16 @@ def test_redaction():
 
 
 def test_planfile_resolves_human_keys(tmp_path):
-    plan = plan_from_dict({
-        "goal": "g",
-        "tasks": [
-            {"key": "one", "title": "first", "instructions": "i1"},
-            {"key": "two", "title": "second", "instructions": "i2",
-             "deps": ["one"]},
-        ],
-    }, repo=str(tmp_path))
+    plan = plan_from_dict(
+        {
+            "goal": "g",
+            "tasks": [
+                {"key": "one", "title": "first", "instructions": "i1"},
+                {"key": "two", "title": "second", "instructions": "i2", "deps": ["one"]},
+            ],
+        },
+        repo=str(tmp_path),
+    )
     t1 = next(t for t in plan.tasks if t.title == "first")
     t2 = next(t for t in plan.tasks if t.title == "second")
     assert t2.deps == (t1.id,)
@@ -95,6 +102,7 @@ def test_planfile_resolves_human_keys(tmp_path):
 
 def test_ledger_roundtrip(tmp_path):
     from sin_delegate.ledger import Ledger
+
     ledger = Ledger(tmp_path / "l.db")
     ledger.register_run("p1", "goal", '{"x":1}')
     ledger.emit("p1", "T1", "attempt", {"n": 1})
@@ -120,14 +128,27 @@ def test_dag_validation_unknown_dep(tmp_path):
 
 def test_run_result_ok_predicate():
     from sin_delegate.models import RunResult, TaskOutcome
-    r = RunResult("p1", "g", {
-        "A": TaskOutcome("A", TaskState.DONE),
-        "B": TaskOutcome("B", TaskState.SKIPPED),
-    }, 1.0, 2.0)
+
+    r = RunResult(
+        "p1",
+        "g",
+        {
+            "A": TaskOutcome("A", TaskState.DONE),
+            "B": TaskOutcome("B", TaskState.SKIPPED),
+        },
+        1.0,
+        2.0,
+    )
     assert r.ok
-    r2 = RunResult("p1", "g", {
-        "A": TaskOutcome("A", TaskState.FAILED),
-    }, 1.0, 2.0)
+    r2 = RunResult(
+        "p1",
+        "g",
+        {
+            "A": TaskOutcome("A", TaskState.FAILED),
+        },
+        1.0,
+        2.0,
+    )
     assert not r2.ok
     r3 = RunResult("p1", "g", {}, 1.0, 2.0)
     assert not r3.ok

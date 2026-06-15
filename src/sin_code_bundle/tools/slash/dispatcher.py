@@ -127,9 +127,7 @@ class CommandDispatcher:
         if command_name in BUILTIN_COMMANDS:
             action = BUILTIN_COMMANDS[command_name]
             try:
-                output = self._executor.execute_builtin(
-                    command_name, action, args, flags
-                )
+                output = self._executor.execute_builtin(command_name, action, args, flags)
                 success = True
                 error = None
             except Exception as e:
@@ -141,9 +139,7 @@ class CommandDispatcher:
             custom = self._registry.get(command_name)
             if custom:
                 try:
-                    output = self._executor.execute_custom(
-                        custom, args, flags
-                    )
+                    output = self._executor.execute_custom(custom, args, flags)
                     success = True
                     error = None
                 except Exception as e:

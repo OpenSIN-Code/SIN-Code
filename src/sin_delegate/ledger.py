@@ -57,24 +57,24 @@ class Ledger:
             db.execute(
                 "INSERT OR IGNORE INTO runs(plan_id, goal, plan_json, "
                 "created_at) VALUES (?, ?, ?, ?)",
-                (plan_id, goal, plan_json, time.time()))
+                (plan_id, goal, plan_json, time.time()),
+            )
 
-    def emit(self, plan_id: str, task_id: str, kind: str,
-             payload: dict[str, Any] | None = None) -> None:
+    def emit(
+        self, plan_id: str, task_id: str, kind: str, payload: dict[str, Any] | None = None
+    ) -> None:
         with self._conn() as db:
             db.execute(
-                "INSERT INTO events(plan_id, task_id, kind, payload, ts) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (plan_id, task_id, kind, json.dumps(payload or {}),
-                 time.time()))
+                "INSERT INTO events(plan_id, task_id, kind, payload, ts) VALUES (?, ?, ?, ?, ?)",
+                (plan_id, task_id, kind, json.dumps(payload or {}), time.time()),
+            )
 
     def task_states(self, plan_id: str) -> dict[str, TaskState]:
         states: dict[str, TaskState] = {}
         with self._conn() as db:
             rows = db.execute(
-                "SELECT task_id, kind FROM events WHERE plan_id=? "
-                "ORDER BY seq",
-                (plan_id,)).fetchall()
+                "SELECT task_id, kind FROM events WHERE plan_id=? ORDER BY seq", (plan_id,)
+            ).fetchall()
         for task_id, kind in rows:
             if kind.startswith("state:"):
                 try:
@@ -82,44 +82,37 @@ class Ledger:
                 except ValueError:
                     # Corrupt state string: keep the previous state and
                     # surface it via a synthetic event for debugging.
-                    self.emit(plan_id, task_id, "ledger:corrupt_state",
-                              {"kind": kind})
+                    self.emit(plan_id, task_id, "ledger:corrupt_state", {"kind": kind})
         return states
 
     def attempts(self, plan_id: str, task_id: str) -> int:
         with self._conn() as db:
             (n,) = db.execute(
-                "SELECT COUNT(*) FROM events WHERE plan_id=? AND "
-                "task_id=? AND kind='attempt'",
-                (plan_id, task_id)).fetchone()
+                "SELECT COUNT(*) FROM events WHERE plan_id=? AND task_id=? AND kind='attempt'",
+                (plan_id, task_id),
+            ).fetchone()
         return int(n)
 
     def history(self, plan_id: str) -> list[dict[str, Any]]:
         with self._conn() as db:
             rows = db.execute(
-                "SELECT seq, task_id, kind, payload, ts FROM events "
-                "WHERE plan_id=? ORDER BY seq",
-                (plan_id,)).fetchall()
+                "SELECT seq, task_id, kind, payload, ts FROM events WHERE plan_id=? ORDER BY seq",
+                (plan_id,),
+            ).fetchall()
         return [
-            {"seq": s, "task_id": t, "kind": k,
-             "payload": json.loads(p), "ts": ts}
+            {"seq": s, "task_id": t, "kind": k, "payload": json.loads(p), "ts": ts}
             for s, t, k, p, ts in rows
         ]
 
     def load_plan_json(self, plan_id: str) -> str | None:
         with self._conn() as db:
-            row = db.execute(
-                "SELECT plan_json FROM runs WHERE plan_id=?",
-                (plan_id,)).fetchone()
+            row = db.execute("SELECT plan_json FROM runs WHERE plan_id=?", (plan_id,)).fetchone()
         return row[0] if row else None
 
     def list_runs(self, limit: int = 20) -> list[dict[str, Any]]:
         with self._conn() as db:
             rows = db.execute(
-                "SELECT plan_id, goal, created_at FROM runs "
-                "ORDER BY created_at DESC LIMIT ?",
-                (limit,)).fetchall()
-        return [
-            {"plan_id": p, "goal": g, "created_at": c}
-            for p, g, c in rows
-        ]
+                "SELECT plan_id, goal, created_at FROM runs ORDER BY created_at DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [{"plan_id": p, "goal": g, "created_at": c} for p, g, c in rows]

@@ -34,8 +34,10 @@ from .multirepo_engine import MultiRepoDelegator
 from .planfile import load_plan
 
 _ICON = {
-    TaskState.DONE: "[ok]", TaskState.FAILED: "[FAIL]",
-    TaskState.SKIPPED: "[skip]", TaskState.ESCALATED: "[ESCALATE]",
+    TaskState.DONE: "[ok]",
+    TaskState.FAILED: "[FAIL]",
+    TaskState.SKIPPED: "[skip]",
+    TaskState.ESCALATED: "[ESCALATE]",
     TaskState.CANCELLED: "[cancel]",
 }
 
@@ -44,15 +46,20 @@ def _cmd_run(args: argparse.Namespace) -> int:
     data = json.loads(Path(args.plan).read_text())
     if "repos" in data:
         mrp = multirepo_plan_from_dict(data)
-        print(f"plan {mrp.id}: {len(mrp.plan.tasks)} tasks across "
-              f"{len(mrp.repos)} repos ({', '.join(mrp.repos)})")
+        print(
+            f"plan {mrp.id}: {len(mrp.plan.tasks)} tasks across "
+            f"{len(mrp.repos)} repos ({', '.join(mrp.repos)})"
+        )
         dele = MultiRepoDelegator(mrp, max_parallel=args.parallel)
         result = dele.run_sync()
     else:
         plan = load_plan(args.plan, repo=args.repo)
-        dele = Delegator(plan, max_parallel=args.parallel,
-                         dry_run=args.dry_run,
-                         keep_worktrees=args.keep_worktrees)
+        dele = Delegator(
+            plan,
+            max_parallel=args.parallel,
+            dry_run=args.dry_run,
+            keep_worktrees=args.keep_worktrees,
+        )
         print(f"plan {plan.id}: {len(plan.tasks)} tasks")
         result = dele.run_sync()
     if args.json:
@@ -62,8 +69,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
             icon = _ICON.get(o.state, f"[{o.state.value}]")
             extra = f" — {o.error}" if o.error else ""
             print(f"  {icon} {tid}{extra}")
-        print("result:", "SUCCESS" if result.ok else "INCOMPLETE",
-              f"(plan {result.plan_id})")
+        print("result:", "SUCCESS" if result.ok else "INCOMPLETE", f"(plan {result.plan_id})")
     return 0 if result.ok else 1
 
 
@@ -78,8 +84,9 @@ def _cmd_status(args: argparse.Namespace) -> int:
 
 def _cmd_history(args: argparse.Namespace) -> int:
     for ev in Ledger().history(args.plan_id):
-        print(f"{ev['seq']:5d}  {ev['task_id']:<18} {ev['kind']:<22} "
-              f"{json.dumps(ev['payload'])[:80]}")
+        print(
+            f"{ev['seq']:5d}  {ev['task_id']:<18} {ev['kind']:<22} {json.dumps(ev['payload'])[:80]}"
+        )
     return 0
 
 
@@ -97,26 +104,34 @@ def _cmd_cancel(args: argparse.Namespace) -> int:
 
 def _cmd_plan(args: argparse.Namespace) -> int:
     from .planner import plan_sync
-    plan = plan_sync(args.goal, repo=args.repo,
-                     backend=args.backend, model=args.model,
-                     critique=not args.no_critique)
+
+    plan = plan_sync(
+        args.goal,
+        repo=args.repo,
+        backend=args.backend,
+        model=args.model,
+        critique=not args.no_critique,
+    )
     payload = {
         "goal": plan.goal,
         "base_branch": plan.base_branch,
-        "tasks": [{
-            "key": t.id, "title": t.title,
-            "instructions": t.instructions,
-            "deps": list(t.deps),
-            "files": list(t.files_hint),
-            "risk": t.risk.value,
-            "verify": list(t.verify),
-        } for t in plan.tasks],
+        "tasks": [
+            {
+                "key": t.id,
+                "title": t.title,
+                "instructions": t.instructions,
+                "deps": list(t.deps),
+                "files": list(t.files_hint),
+                "risk": t.risk.value,
+                "verify": list(t.verify),
+            }
+            for t in plan.tasks
+        ],
     }
     text = json.dumps(payload, indent=2, ensure_ascii=False)
     if args.out:
         Path(args.out).write_text(text, encoding="utf-8")
-        print(f"plan {plan.id} written to {args.out} "
-              f"({len(plan.tasks)} tasks)")
+        print(f"plan {plan.id} written to {args.out} ({len(plan.tasks)} tasks)")
     else:
         print(text)
     return 0
@@ -125,8 +140,8 @@ def _cmd_plan(args: argparse.Namespace) -> int:
 def _cmd_auto(args: argparse.Namespace) -> int:
     from .observe import report
     from .planner import plan_sync
-    plan = plan_sync(args.goal, repo=args.repo,
-                     backend=args.backend, model=args.model)
+
+    plan = plan_sync(args.goal, repo=args.repo, backend=args.backend, model=args.model)
     print(f"plan {plan.id}: {len(plan.tasks)} tasks")
     for t in plan.tasks:
         deps = f" <- {','.join(t.deps)}" if t.deps else ""
@@ -136,8 +151,7 @@ def _cmd_auto(args: argparse.Namespace) -> int:
         if answer != "y":
             print("aborted")
             return 1
-    dele = Delegator(plan, max_parallel=args.parallel,
-                     dry_run=args.dry_run)
+    dele = Delegator(plan, max_parallel=args.parallel, dry_run=args.dry_run)
     result = dele.run_sync()
     print(report(result.plan_id))
     return 0 if result.ok else 1
@@ -145,24 +159,28 @@ def _cmd_auto(args: argparse.Namespace) -> int:
 
 def _cmd_watch(args: argparse.Namespace) -> int:
     from .observe import StatusBoard
+
     StatusBoard(args.plan_id).watch()
     return 0
 
 
 def _cmd_report(args: argparse.Namespace) -> int:
     from .observe import report
+
     print(report(args.plan_id))
     return 0
 
 
 def _cmd_doctor(args: argparse.Namespace) -> int:
     from .doctor import doctor, print_report
-    backends = (args.backends.split(",") if args.backends else None)
+
+    backends = args.backends.split(",") if args.backends else None
     return print_report(doctor(repo=args.repo, backends=backends))
 
 
 def _cmd_stats(args: argparse.Namespace) -> int:
     from .analytics import Analytics
+
     rows = Analytics().table()
     if not rows:
         print("no verified runs yet — stats build up automatically")
@@ -170,15 +188,19 @@ def _cmd_stats(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(rows, indent=2))
         return 0
-    hdr = (f"{'task_class':<22} {'backend':<10} {'model':<24} "
-           f"{'n':>4} {'pass':>5} {'wilson':>7} {'~sec':>6} {'~try':>5}")
+    hdr = (
+        f"{'task_class':<22} {'backend':<10} {'model':<24} "
+        f"{'n':>4} {'pass':>5} {'wilson':>7} {'~sec':>6} {'~try':>5}"
+    )
     print(hdr)
     print("-" * len(hdr))
     for r in rows:
-        print(f"{r['task_class']:<22} {r['backend']:<10} "
-              f"{r['model']:<24} {r['trials']:>4} "
-              f"{r['pass_rate']:>5.0%} {r['wilson_score']:>7.3f} "
-              f"{r['ema_seconds']:>6.0f} {r['ema_attempts']:>5.1f}")
+        print(
+            f"{r['task_class']:<22} {r['backend']:<10} "
+            f"{r['model']:<24} {r['trials']:>4} "
+            f"{r['pass_rate']:>5.0%} {r['wilson_score']:>7.3f} "
+            f"{r['ema_seconds']:>6.0f} {r['ema_attempts']:>5.1f}"
+        )
     return 0
 
 
@@ -201,8 +223,8 @@ def _cmd_escalations(args: argparse.Namespace) -> int:
 
 def _cmd_resolve(args: argparse.Namespace) -> int:
     result = EscalationBroker().resolve(
-        args.plan_id, args.escalation_id, args.option,
-        user_input=args.input, decided_by="cli")
+        args.plan_id, args.escalation_id, args.option, user_input=args.input, decided_by="cli"
+    )
     if not result["ok"]:
         print(f"error: {result['error']}", file=sys.stderr)
         return 1
@@ -214,6 +236,7 @@ def _cmd_resolve(args: argparse.Namespace) -> int:
 def _cmd_resume(args: argparse.Namespace) -> int:
     from .observe import report
     from .planner import plan_from_dict as _pfd
+
     ledger = Ledger()
     raw = ledger.load_plan_json(args.plan_id)
     if not raw:
@@ -221,11 +244,15 @@ def _cmd_resume(args: argparse.Namespace) -> int:
         return 1
     data = json.loads(raw)
     plan = _pfd(
-        {"goal": data["goal"], "base_branch": data.get("base_branch", "main"),
-         "tasks": [{**t, "key": t["id"],
-                    "files": t.get("files_hint", [])}
-                   for t in data["tasks"]]},
-        repo=data.get("repo", args.repo))
+        {
+            "goal": data["goal"],
+            "base_branch": data.get("base_branch", "main"),
+            "tasks": [
+                {**t, "key": t["id"], "files": t.get("files_hint", [])} for t in data["tasks"]
+            ],
+        },
+        repo=data.get("repo", args.repo),
+    )
     dele = Delegator(plan, ledger=ledger, max_parallel=args.parallel)
     result = dele.run_sync()
     print(report(result.plan_id))
@@ -245,8 +272,7 @@ def build_parser(prog: str = "sin-delegate") -> argparse.ArgumentParser:
     run.add_argument("--json", action="store_true")
     run.set_defaults(fn=_cmd_run)
 
-    pl = sub.add_parser("plan",
-                        help="LLM-decompose a goal into a plan file")
+    pl = sub.add_parser("plan", help="LLM-decompose a goal into a plan file")
     pl.add_argument("goal")
     pl.add_argument("--repo", default=".")
     pl.add_argument("--backend", default="opencode")
@@ -292,14 +318,11 @@ def build_parser(prog: str = "sin-delegate") -> argparse.ArgumentParser:
     doc.add_argument("--backends", default="")
     doc.set_defaults(fn=_cmd_doctor)
 
-    st_ = sub.add_parser(
-        "stats",
-        help="learned backend performance per task class (Wilson-scored)")
+    st_ = sub.add_parser("stats", help="learned backend performance per task class (Wilson-scored)")
     st_.add_argument("--json", action="store_true")
     st_.set_defaults(fn=_cmd_stats)
 
-    es = sub.add_parser("escalations",
-                        help="list open decision requests of a run")
+    es = sub.add_parser("escalations", help="list open decision requests of a run")
     es.add_argument("plan_id")
     es.set_defaults(fn=_cmd_escalations)
 
@@ -307,12 +330,10 @@ def build_parser(prog: str = "sin-delegate") -> argparse.ArgumentParser:
     rv.add_argument("plan_id")
     rv.add_argument("escalation_id")
     rv.add_argument("--option", required=True)
-    rv.add_argument("--input", default="",
-                    help="guidance text for retry options")
+    rv.add_argument("--input", default="", help="guidance text for retry options")
     rv.set_defaults(fn=_cmd_resolve)
 
-    rs = sub.add_parser("resume",
-                        help="apply resolutions and continue a run")
+    rs = sub.add_parser("resume", help="apply resolutions and continue a run")
     rs.add_argument("plan_id")
     rs.add_argument("--repo", default=".")
     rs.add_argument("--parallel", type=int, default=4)

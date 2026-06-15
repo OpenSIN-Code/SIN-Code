@@ -23,15 +23,25 @@ from sin_delegate.resolution import apply_resolutions
 
 def _git_init(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "init", "-b", "main", str(path)],
-                   capture_output=True, check=True)
+    subprocess.run(["git", "init", "-b", "main", str(path)], capture_output=True, check=True)
     (path / "README.md").write_text("# test")
-    subprocess.run(["git", "-C", str(path), "add", "-A"],
-                   capture_output=True, check=True)
-    subprocess.run(["git", "-C", str(path),
-                    "-c", "user.email=test@test", "-c", "user.name=Test",
-                    "commit", "-m", "init"],
-                   capture_output=True, check=True)
+    subprocess.run(["git", "-C", str(path), "add", "-A"], capture_output=True, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(path),
+            "-c",
+            "user.email=test@test",
+            "-c",
+            "user.name=Test",
+            "commit",
+            "-m",
+            "init",
+        ],
+        capture_output=True,
+        check=True,
+    )
 
 
 @pytest.fixture
@@ -45,11 +55,12 @@ def _echo_task(title: str, deps=(), files=()) -> Task:
     """Task that creates a real file via shell so wt.commit_all succeeds."""
     safe = title.replace(" ", "_")
     return Task(
-        title=title, instructions=f"do {title}", deps=deps,
-        files_hint=files, risk=Risk.LOW,
-        agent=AgentSpec(backend="command",
-                        command=("sh", "-c",
-                                 f"echo '{title}' > {safe}.txt")),
+        title=title,
+        instructions=f"do {title}",
+        deps=deps,
+        files_hint=files,
+        risk=Risk.LOW,
+        agent=AgentSpec(backend="command", command=("sh", "-c", f"echo '{title}' > {safe}.txt")),
         budget=Budget(max_seconds=5, max_retries=0),
         verify=("diff",),
     ).finalize()
@@ -89,8 +100,7 @@ def test_e2e_resume_skips_already_done_tasks(repo, tmp_path):
     dele = Delegator(plan, ledger=ledger)
     result = dele.run_sync()
     assert result.outcomes[task.id].state == TaskState.DONE
-    history = [ev for ev in ledger.history(plan.id)
-               if ev["task_id"] == task.id]
+    history = [ev for ev in ledger.history(plan.id) if ev["task_id"] == task.id]
     assert any(ev["kind"] == "resume:skip-done" for ev in history)
 
 
@@ -108,8 +118,7 @@ def test_e2e_crash_recovery_via_ledger(repo, tmp_path):
     dele = Delegator(plan, ledger=ledger)
     result = dele.run_sync()
     assert result.outcomes[a.id].state == TaskState.DONE
-    b_events = [ev for ev in ledger.history(plan.id)
-                if ev["task_id"] == b.id]
+    b_events = [ev for ev in ledger.history(plan.id) if ev["task_id"] == b.id]
     assert any(ev["kind"] == "attempt" for ev in b_events)
 
 
@@ -117,13 +126,15 @@ def test_e2e_escalation_resolution_retry(repo, tmp_path):
     task = _echo_task("escalated task")
     plan = Plan(goal="escalation", tasks=(task,), repo=str(repo))
     ledger = Ledger(tmp_path / "ledger.db")
-    ledger.register_run(plan.id, plan.goal, json.dumps({
-        "goal": plan.goal, "tasks": [
-            {"id": task.id, "title": task.title}]}))
+    ledger.register_run(
+        plan.id,
+        plan.goal,
+        json.dumps({"goal": plan.goal, "tasks": [{"id": task.id, "title": task.title}]}),
+    )
     broker = EscalationBroker(ledger)
     esc = broker.raise_escalation(
-        plan.id, task.id, task.title, EscalationKind.GATE_FAILURE,
-        "gates failed", {})
+        plan.id, task.id, task.title, EscalationKind.GATE_FAILURE, "gates failed", {}
+    )
     broker.resolve(plan.id, esc.id, "retry", user_input="fix it")
     res = apply_resolutions(plan, ledger)
     assert res["applied"] == 1
@@ -144,7 +155,12 @@ def test_e2e_full_lifecycle_resume_to_completion(repo, tmp_path):
     dele = Delegator(plan, ledger=ledger)
     dele.run_sync()
     states = ledger.task_states(plan.id)
-    TERMINAL = {TaskState.DONE, TaskState.FAILED, TaskState.SKIPPED,
-                TaskState.CANCELLED, TaskState.ESCALATED}
+    TERMINAL = {
+        TaskState.DONE,
+        TaskState.FAILED,
+        TaskState.SKIPPED,
+        TaskState.CANCELLED,
+        TaskState.ESCALATED,
+    }
     assert states[a.id] in (TaskState.DONE, TaskState.FAILED)
     assert states[b.id] in TERMINAL

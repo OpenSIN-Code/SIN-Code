@@ -54,8 +54,7 @@ class ScaffoldSpec:
     def __post_init__(self) -> None:
         if self.template not in TEMPLATE_REGISTRY:
             raise ValueError(
-                f"Unknown template: {self.template!r}. "
-                f"Choose from: {sorted(TEMPLATE_REGISTRY)}"
+                f"Unknown template: {self.template!r}. Choose from: {sorted(TEMPLATE_REGISTRY)}"
             )
         if not self.tools:
             self.tools = ["ping"]  # Always scaffold at least one tool.
@@ -149,11 +148,7 @@ class Scaffolder:
     def dry_run(self, spec: ScaffoldSpec) -> dict[str, Any]:
         """Return a summary of what would be created without writing anything."""
         template_dir = self.engine.get_template_dir(spec.template)
-        files = [
-            str(p.relative_to(template_dir))
-            for p in template_dir.rglob("*")
-            if p.is_file()
-        ]
+        files = [str(p.relative_to(template_dir)) for p in template_dir.rglob("*") if p.is_file()]
         return {
             "target": f"<unsaved>/{spec.slug}",
             "template": spec.template,

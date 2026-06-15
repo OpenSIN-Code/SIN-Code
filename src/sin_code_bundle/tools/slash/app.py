@@ -85,9 +85,7 @@ def slash_register(
     name: str = typer.Argument(..., help="Command name (no leading slash)."),
     description: str = typer.Argument(..., help="Human-readable description."),
     action: str = typer.Argument(..., help="Action to execute."),
-    action_type: str = typer.Option(
-        "shell", "--type", help="Action type: shell | sin | script."
-    ),
+    action_type: str = typer.Option("shell", "--type", help="Action type: shell | sin | script."),
 ) -> None:
     """Register a new custom slash command."""
     registry = _registry()

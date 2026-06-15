@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 mcp = FastMCP("sin-marketplace")
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+
 async def _get_catalog() -> Catalog:
     """Load catalog from remote or local cache."""
     catalog = Catalog()
@@ -90,7 +92,9 @@ async def marketplace_install(slug: str) -> str:
 
     registry = Registry()
     registry.install(record)
-    return json.dumps({"success": True, "slug": slug, "destination": record["destination"]}, indent=2)
+    return json.dumps(
+        {"success": True, "slug": slug, "destination": record["destination"]}, indent=2
+    )
 
 
 @mcp.tool()

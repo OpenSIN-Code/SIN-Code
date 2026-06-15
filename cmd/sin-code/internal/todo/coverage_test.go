@@ -550,12 +550,6 @@ func captureStderr(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
-func usedOnce() sync.Once {
-	var o sync.Once
-	o.Do(func() {})
-	return o
-}
-
 func TestCurrentProjectError(t *testing.T) {
 	orig := osGetwdTodo
 	osGetwdTodo = func() (string, error) { return "", errors.New("boom") }
@@ -583,12 +577,12 @@ func TestGetHookConfigWarning(t *testing.T) {
 func TestFireHooks(t *testing.T) {
 	s := tempStore(t)
 	// nil config branch
-	hookConfigOnce = usedOnce()
+	hookConfigOnce = sync.Once{}
 	hookConfig = nil
 	fireHooks(s, EventPostAdd, &Todo{ID: "st-1", Title: "A"}, "", "", "")
 
 	// warning branch
-	hookConfigOnce = usedOnce()
+	hookConfigOnce = sync.Once{}
 	hookConfig = &HookConfig{Hooks: map[HookEvent][]Hook{EventPostAdd: {{Command: "false", OnError: "warn"}}}}
 	out := captureStderr(t, func() {
 		fireHooks(s, EventPostAdd, &Todo{ID: "st-1", Title: "A"}, "", "", "")
@@ -598,7 +592,7 @@ func TestFireHooks(t *testing.T) {
 	}
 
 	// fail branch
-	hookConfigOnce = usedOnce()
+	hookConfigOnce = sync.Once{}
 	hookConfig = &HookConfig{Hooks: map[HookEvent][]Hook{EventPostAdd: {{Command: "false", OnError: "fail"}}}}
 	out = captureStderr(t, func() {
 		fireHooks(s, EventPostAdd, &Todo{ID: "st-1", Title: "A"}, "", "", "")
@@ -608,7 +602,7 @@ func TestFireHooks(t *testing.T) {
 	}
 
 	// ignore branch
-	hookConfigOnce = usedOnce()
+	hookConfigOnce = sync.Once{}
 	hookConfig = &HookConfig{Hooks: map[HookEvent][]Hook{EventPostAdd: {{Command: "false", OnError: "ignore"}}}}
 	out = captureStderr(t, func() {
 		fireHooks(s, EventPostAdd, &Todo{ID: "st-1", Title: "A"}, "", "", "")
@@ -1571,7 +1565,7 @@ func TestAuditPrefix(t *testing.T) {
 
 func TestFireHooksSuccess(t *testing.T) {
 	s := tempStore(t)
-	hookConfigOnce = usedOnce()
+	hookConfigOnce = sync.Once{}
 	hookConfig = &HookConfig{Hooks: map[HookEvent][]Hook{EventPostAdd: {{Command: "true"}}}}
 	fireHooks(s, EventPostAdd, &Todo{ID: "st-1", Title: "A"}, "", "", "")
 }

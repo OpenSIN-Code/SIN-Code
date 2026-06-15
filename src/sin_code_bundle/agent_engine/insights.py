@@ -35,7 +35,8 @@ class Insight:
 class TelemetryAnalyzer:
     def __init__(self, log_path: str | None = None) -> None:
         self.log_path = Path(
-            log_path or os.environ.get("SIN_AGENT_LOG", "")
+            log_path
+            or os.environ.get("SIN_AGENT_LOG", "")
             or Path.home() / ".sin" / "agent-events.jsonl"
         )
 
@@ -53,8 +54,11 @@ class TelemetryAnalyzer:
     def analyze(self) -> list[Insight]:
         events = self._events()
         if not events:
-            return [Insight("info", "general", "no telemetry recorded yet",
-                            "run some agent tasks first")]
+            return [
+                Insight(
+                    "info", "general", "no telemetry recorded yet", "run some agent tasks first"
+                )
+            ]
         insights: list[Insight] = []
         insights += self._tool_health(events)
         insights += self._repair_hotspots(events)
@@ -88,29 +92,32 @@ class TelemetryAnalyzer:
             fail_rate = fails[tool] / n
             retry_rate = retries[tool] / n
             if fail_rate > 0.3:
-                out.append(Insight(
-                    "critical", "tool_health",
-                    f"tool {tool!r} fails {fail_rate:.0%} of the time "
-                    f"({fails[tool]}/{n})",
-                    f"inspect {tool!r} arguments in failing steps; consider "
-                    "a lower failure_threshold so its circuit opens earlier",
-                    {"starts": n, "fails": fails[tool],
-                     "fail_rate": round(fail_rate, 2)},
-                ))
+                out.append(
+                    Insight(
+                        "critical",
+                        "tool_health",
+                        f"tool {tool!r} fails {fail_rate:.0%} of the time ({fails[tool]}/{n})",
+                        f"inspect {tool!r} arguments in failing steps; consider "
+                        "a lower failure_threshold so its circuit opens earlier",
+                        {"starts": n, "fails": fails[tool], "fail_rate": round(fail_rate, 2)},
+                    )
+                )
             elif retry_rate > 0.5:
-                out.append(Insight(
-                    "warn", "tool_health",
-                    f"tool {tool!r} retries {retry_rate:.0%} of calls",
-                    "raise base_delay_s for this tool or serialize its "
-                    "steps via dependency edges",
-                    {"starts": n, "retries": retries[tool]},
-                ))
+                out.append(
+                    Insight(
+                        "warn",
+                        "tool_health",
+                        f"tool {tool!r} retries {retry_rate:.0%} of calls",
+                        "raise base_delay_s for this tool or serialize its "
+                        "steps via dependency edges",
+                        {"starts": n, "retries": retries[tool]},
+                    )
+                )
         return out
 
     def _repair_hotspots(self, events: list[dict]) -> list[Insight]:
         kinds = Counter(
-            e.get("kind", "?") for e in events
-            if e.get("event") == "verdict" and not e.get("ok")
+            e.get("kind", "?") for e in events if e.get("event") == "verdict" and not e.get("ok")
         )
         total = sum(kinds.values())
         out: list[Insight] = []
@@ -121,20 +128,23 @@ class TelemetryAnalyzer:
         if share > 0.5 and total >= 4:
             fix = {
                 "fail_lint": "add a 'ruff check . --fix' step BEFORE the "
-                             "verification step in every plan",
+                "verification step in every plan",
                 "fail_tests": "plans skip exploration — enforce sin_read of "
-                              "the test file before each edit step",
+                "the test file before each edit step",
                 "fail_architecture": "feed ADW rules into the synthesizer "
-                                     "prompt as hard constraints",
+                "prompt as hard constraints",
                 "fail_semantic": "plans produce oversized diffs — split "
-                                 "goals into smaller delegated sub-tasks",
+                "goals into smaller delegated sub-tasks",
             }.get(top, "investigate this failure class manually")
-            out.append(Insight(
-                "warn", "repair_hotspots",
-                f"{share:.0%} of all verification failures are {top!r} "
-                f"({n}/{total})",
-                fix, {"distribution": dict(kinds)},
-            ))
+            out.append(
+                Insight(
+                    "warn",
+                    "repair_hotspots",
+                    f"{share:.0%} of all verification failures are {top!r} ({n}/{total})",
+                    fix,
+                    {"distribution": dict(kinds)},
+                )
+            )
         return out
 
     def _step_patterns(self, events: list[dict]) -> list[Insight]:
@@ -153,40 +163,45 @@ class TelemetryAnalyzer:
         out: list[Insight] = []
         for prefix, n in starts.items():
             if n >= 8 and fails[prefix] / n > 0.4:
-                out.append(Insight(
-                    "warn", "step_patterns",
-                    f"steps prefixed {prefix!r}* fail "
-                    f"{fails[prefix] / n:.0%} of the time",
-                    f"review how {prefix!r} steps are planned — they likely "
-                    "need finer-grained exploration dependencies",
-                    {"starts": n, "fails": fails[prefix]},
-                ))
+                out.append(
+                    Insight(
+                        "warn",
+                        "step_patterns",
+                        f"steps prefixed {prefix!r}* fail {fails[prefix] / n:.0%} of the time",
+                        f"review how {prefix!r} steps are planned — they likely "
+                        "need finer-grained exploration dependencies",
+                        {"starts": n, "fails": fails[prefix]},
+                    )
+                )
         return out
 
     def _stalls(self, events: list[dict]) -> list[Insight]:
-        stalls = sum(1 for e in events
-                     if e.get("event") == "scheduler_stall")
-        exhausted = sum(1 for e in events
-                        if e.get("event") == "budget_exhausted")
-        runs = max(1, sum(1 for e in events
-                          if e.get("event") == "run_complete"))
+        stalls = sum(1 for e in events if e.get("event") == "scheduler_stall")
+        exhausted = sum(1 for e in events if e.get("event") == "budget_exhausted")
+        runs = max(1, sum(1 for e in events if e.get("event") == "run_complete"))
         out: list[Insight] = []
         if exhausted / runs > 0.25:
-            out.append(Insight(
-                "critical", "stalls",
-                f"{exhausted}/{runs} runs exhausted their budget",
-                "raise --budget, or shrink plans via sin_delegate so "
-                "long-running test steps get isolated child budgets",
-                {"budget_exhausted": exhausted, "runs": runs},
-            ))
+            out.append(
+                Insight(
+                    "critical",
+                    "stalls",
+                    f"{exhausted}/{runs} runs exhausted their budget",
+                    "raise --budget, or shrink plans via sin_delegate so "
+                    "long-running test steps get isolated child budgets",
+                    {"budget_exhausted": exhausted, "runs": runs},
+                )
+            )
         if stalls:
-            out.append(Insight(
-                "warn", "stalls",
-                f"{stalls} scheduler stalls (steps pending, none ready)",
-                "check plans for dependency chains on steps that can fail "
-                "permanently — add fallback paths or reduce fan-in",
-                {"stalls": stalls},
-            ))
+            out.append(
+                Insight(
+                    "warn",
+                    "stalls",
+                    f"{stalls} scheduler stalls (steps pending, none ready)",
+                    "check plans for dependency chains on steps that can fail "
+                    "permanently — add fallback paths or reduce fan-in",
+                    {"stalls": stalls},
+                )
+            )
         return out
 
     def _delegation(self, events: list[dict]) -> list[Insight]:
@@ -196,25 +211,30 @@ class TelemetryAnalyzer:
         ok = sum(1 for e in done if e.get("outcome") == "success")
         rate = ok / len(done)
         if rate < 0.5:
-            return [Insight(
-                "warn", "delegation",
-                f"sub-agents succeed only {rate:.0%} of the time "
-                f"({ok}/{len(done)})",
-                "child budgets may be too small — raise budget_fraction or "
-                "delegate smaller goals",
+            return [
+                Insight(
+                    "warn",
+                    "delegation",
+                    f"sub-agents succeed only {rate:.0%} of the time ({ok}/{len(done)})",
+                    "child budgets may be too small — raise budget_fraction or "
+                    "delegate smaller goals",
+                    {"delegations": len(done), "successes": ok},
+                )
+            ]
+        return [
+            Insight(
+                "info",
+                "delegation",
+                f"sub-agents succeed {rate:.0%} of the time — delegation pays off",
+                "consider delegating more long-running verification work",
                 {"delegations": len(done), "successes": ok},
-            )]
-        return [Insight(
-            "info", "delegation",
-            f"sub-agents succeed {rate:.0%} of the time — delegation pays off",
-            "consider delegating more long-running verification work",
-            {"delegations": len(done), "successes": ok},
-        )]
+            )
+        ]
 
-    def render_for_prompt(self, insights: list[Insight],
-                          *, max_chars: int = 1200) -> str:
+    def render_for_prompt(self, insights: list[Insight], *, max_chars: int = 1200) -> str:
         lines = [
             f"[{i.severity}] {i.finding} => {i.recommendation}"
-            for i in insights if i.severity != "info"
+            for i in insights
+            if i.severity != "info"
         ]
         return "\n".join(lines)[:max_chars] or "no systemic issues detected"

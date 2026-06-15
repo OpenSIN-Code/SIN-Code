@@ -12,6 +12,7 @@ Example:
     $ sin-edit /tmp/hello.py --old 'print("hi")' --new 'print("hello")'
     {"success": true, "message": "...", "intent": "", "patch": {...}}
 """
+
 from __future__ import annotations
 
 import argparse

@@ -13,6 +13,7 @@ Tests cover:
 - --content-from-file (read from disk)
 - --no-verify (skip syntax check)
 """
+
 from __future__ import annotations
 
 import json

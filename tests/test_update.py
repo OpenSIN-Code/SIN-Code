@@ -54,6 +54,7 @@ def test_update_check_does_not_modify(tmp_path: Path) -> None:
     (cmd / "main.go").write_text("package main\nfunc main() {}\n")
     # initialize a git repo on a branch so _git_branch() returns a name
     import subprocess
+
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
     subprocess.run(
@@ -65,6 +66,7 @@ def test_update_check_does_not_modify(tmp_path: Path) -> None:
     binary.parent.mkdir(parents=True)
     binary.write_text("#!/bin/sh\necho 0.0.0\n")  # fake binary with version output
     import os
+
     os.chmod(binary, 0o755)
     pre_binary_bytes = binary.read_bytes()
     pre_main_bytes = (cmd / "main.go").read_bytes()
@@ -86,6 +88,7 @@ def test_update_check_skips_detached_head(tmp_path: Path) -> None:
     (repo / "cmd" / "y").mkdir(parents=True)
     (repo / "cmd" / "y" / "main.go").write_text("package main")
     import subprocess
+
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
     subprocess.run(

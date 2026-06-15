@@ -17,8 +17,7 @@ from .types import AgentTask, Verdict, VerdictKind
 CompleteFn = Callable[[str], Awaitable[str]]
 
 _JSON_BLOCK = re.compile(r"\[[\s\S]*\]")
-_ALLOWED_TOOLS = {"sin_search", "sin_read", "sin_edit",
-                  "sin_write", "sin_bash", "sin_delegate"}
+_ALLOWED_TOOLS = {"sin_search", "sin_read", "sin_edit", "sin_write", "sin_bash", "sin_delegate"}
 
 _DETERMINISTIC_FIXES: dict[VerdictKind, list[dict[str, Any]]] = {
     VerdictKind.FAIL_LINT: [
@@ -68,16 +67,13 @@ class DeterministicRepair:
 
 
 class LLMRepairFactory:
-    def __init__(self, complete: CompleteFn | None = None,
-                 *, max_detail_chars: int = 6000) -> None:
+    def __init__(self, complete: CompleteFn | None = None, *, max_detail_chars: int = 6000) -> None:
         self.complete = complete
         self.deterministic = DeterministicRepair()
         self.max_detail_chars = max_detail_chars
         self._attempted_deterministic: set[VerdictKind] = set()
 
-    async def build_repair_plan(
-        self, task: AgentTask, verdict: Verdict
-    ) -> list[dict[str, Any]]:
+    async def build_repair_plan(self, task: AgentTask, verdict: Verdict) -> list[dict[str, Any]]:
         if verdict.kind not in self._attempted_deterministic:
             fix = self.deterministic.plan_for(verdict)
             if fix:
@@ -90,7 +86,7 @@ class LLMRepairFactory:
             constraints="; ".join(task.constraints) or "none",
             kind=verdict.kind.value,
             hint=verdict.repair_hint or "none",
-            detail=verdict.detail[-self.max_detail_chars:],
+            detail=verdict.detail[-self.max_detail_chars :],
         )
         raw = await self.complete(prompt)
         return self._parse_specs(raw)

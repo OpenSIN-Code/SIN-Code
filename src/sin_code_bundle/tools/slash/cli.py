@@ -88,7 +88,9 @@ def list(built_in: bool, custom: bool) -> None:
 @click.argument("name", required=True)
 @click.argument("description", required=True)
 @click.argument("action", required=True)
-@click.option("--type", "action_type", default="shell", type=click.Choice(["shell", "sin", "script"]))
+@click.option(
+    "--type", "action_type", default="shell", type=click.Choice(["shell", "sin", "script"])
+)
 def register(name: str, description: str, action: str, action_type: str) -> None:
     """Register a custom command.
 

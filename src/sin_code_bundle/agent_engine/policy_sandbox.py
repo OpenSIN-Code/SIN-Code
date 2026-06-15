@@ -42,13 +42,10 @@ class PolicySandbox:
     rules: list[PolicyRule] = field(default_factory=list)
     default: str = "allow"
     dry_run: bool = False
-    audit_path: Path = field(
-        default_factory=lambda: Path.home() / ".sin" / "policy-audit.jsonl"
-    )
+    audit_path: Path = field(default_factory=lambda: Path.home() / ".sin" / "policy-audit.jsonl")
 
     @classmethod
-    def load(cls, repo_root: str | None = None, *,
-             dry_run: bool = False) -> "PolicySandbox":
+    def load(cls, repo_root: str | None = None, *, dry_run: bool = False) -> "PolicySandbox":
         candidates: list[Path] = []
         if repo_root:
             candidates.append(Path(repo_root) / ".sin" / "policy.json")
@@ -60,11 +57,16 @@ class PolicySandbox:
                 except json.JSONDecodeError:
                     continue
                 return cls(
-                    rules=[PolicyRule(
-                        action=r["action"], tool=r.get("tool", "*"),
-                        pattern=r["pattern"], arg=r.get("arg"),
-                        reason=r.get("reason", ""),
-                    ) for r in raw.get("rules", [])],
+                    rules=[
+                        PolicyRule(
+                            action=r["action"],
+                            tool=r.get("tool", "*"),
+                            pattern=r["pattern"],
+                            arg=r.get("arg"),
+                            reason=r.get("reason", ""),
+                        )
+                        for r in raw.get("rules", [])
+                    ],
                     default=raw.get("default", "allow"),
                     dry_run=dry_run,
                 )
@@ -84,20 +86,23 @@ class PolicySandbox:
             return False, "default deny (no allow rule matched)"
         return True, "default allow"
 
-    def _audit(self, tool: str, kwargs: dict[str, Any],
-               allowed: bool, reason: str) -> None:
+    def _audit(self, tool: str, kwargs: dict[str, Any], allowed: bool, reason: str) -> None:
         self.audit_path.parent.mkdir(parents=True, exist_ok=True)
         with self.audit_path.open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps({
-                "ts": round(time.time(), 3),
-                "tool": tool,
-                "allowed": allowed,
-                "dry_run": self.dry_run,
-                "reason": reason,
-                "args_preview": json.dumps(
-                    kwargs, default=str, ensure_ascii=False
-                )[:400],
-            }, ensure_ascii=False) + "\n")
+            fh.write(
+                json.dumps(
+                    {
+                        "ts": round(time.time(), 3),
+                        "tool": tool,
+                        "allowed": allowed,
+                        "dry_run": self.dry_run,
+                        "reason": reason,
+                        "args_preview": json.dumps(kwargs, default=str, ensure_ascii=False)[:400],
+                    },
+                    ensure_ascii=False,
+                )
+                + "\n"
+            )
 
     def wrap(self, router) -> None:
         original_call = router.call
@@ -107,9 +112,7 @@ class PolicySandbox:
             if not allowed:
                 self._audit(name, kwargs, allowed=False, reason=reason)
                 if not self.dry_run:
-                    raise PolicyViolation(
-                        f"policy blocked tool {name!r}: {reason}"
-                    )
+                    raise PolicyViolation(f"policy blocked tool {name!r}: {reason}")
             elif reason != "default allow":
                 self._audit(name, kwargs, allowed=True, reason=reason)
             return await original_call(name, **kwargs)

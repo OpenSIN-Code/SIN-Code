@@ -50,9 +50,7 @@ class TestMcpSearch:
     @respx.mock
     async def test_marketplace_search(self, sample_catalog: list) -> None:
         _clear_cache()
-        respx.get(CATALOG_URL).mock(
-            return_value=Response(200, json=sample_catalog)
-        )
+        respx.get(CATALOG_URL).mock(return_value=Response(200, json=sample_catalog))
         result = await marketplace_search("test")
         data = json.loads(result)
         assert data["count"] == 1
@@ -61,9 +59,7 @@ class TestMcpSearch:
     @respx.mock
     async def test_marketplace_search_no_matches(self, sample_catalog: list) -> None:
         _clear_cache()
-        respx.get(CATALOG_URL).mock(
-            return_value=Response(200, json=sample_catalog)
-        )
+        respx.get(CATALOG_URL).mock(return_value=Response(200, json=sample_catalog))
         result = await marketplace_search("nonexistent")
         data = json.loads(result)
         assert data["count"] == 0
@@ -74,9 +70,7 @@ class TestMcpInstall:
     @respx.mock
     async def test_marketplace_install_not_found(self) -> None:
         _clear_cache()
-        respx.get(CATALOG_URL).mock(
-            return_value=Response(200, json=[])
-        )
+        respx.get(CATALOG_URL).mock(return_value=Response(200, json=[]))
         result = await marketplace_install("not-found")
         data = json.loads(result)
         assert "error" in data
@@ -84,9 +78,7 @@ class TestMcpInstall:
     @respx.mock
     async def test_marketplace_install_found(self, sample_catalog: list) -> None:
         _clear_cache()
-        respx.get(CATALOG_URL).mock(
-            return_value=Response(200, json=sample_catalog)
-        )
+        respx.get(CATALOG_URL).mock(return_value=Response(200, json=sample_catalog))
         # Will fail because source is not a real git repo
         result = await marketplace_install("test-skill")
         data = json.loads(result)
@@ -99,6 +91,7 @@ class TestMcpList:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             import sin_code_bundle.tools.marketplace.registry
+
             old_default = sin_code_bundle.tools.marketplace.registry.DEFAULT_DB_PATH
             sin_code_bundle.tools.marketplace.registry.DEFAULT_DB_PATH = db_path
             result = await marketplace_list()
@@ -113,6 +106,7 @@ class TestMcpRemove:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             import sin_code_bundle.tools.marketplace.registry
+
             old_default = sin_code_bundle.tools.marketplace.registry.DEFAULT_DB_PATH
             sin_code_bundle.tools.marketplace.registry.DEFAULT_DB_PATH = db_path
             result = await marketplace_remove("not-installed")
@@ -126,12 +120,11 @@ class TestMcpInfo:
     @respx.mock
     async def test_marketplace_info_found(self, sample_catalog: list) -> None:
         _clear_cache()
-        respx.get(CATALOG_URL).mock(
-            return_value=Response(200, json=sample_catalog)
-        )
+        respx.get(CATALOG_URL).mock(return_value=Response(200, json=sample_catalog))
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             import sin_code_bundle.tools.marketplace.registry
+
             old_default = sin_code_bundle.tools.marketplace.registry.DEFAULT_DB_PATH
             sin_code_bundle.tools.marketplace.registry.DEFAULT_DB_PATH = db_path
             result = await marketplace_info("test-skill")
@@ -143,9 +136,7 @@ class TestMcpInfo:
     @respx.mock
     async def test_marketplace_info_not_found(self) -> None:
         _clear_cache()
-        respx.get(CATALOG_URL).mock(
-            return_value=Response(200, json=[])
-        )
+        respx.get(CATALOG_URL).mock(return_value=Response(200, json=[]))
         result = await marketplace_info("not-found")
         data = json.loads(result)
         assert data["slug"] == "not-found"
@@ -159,6 +150,7 @@ class TestMcpUpdate:
             skills_dir = Path(tmpdir) / "skills"
             skills_dir.mkdir()
             import sin_code_bundle.tools.marketplace.updater
+
             old_default = sin_code_bundle.tools.marketplace.updater.DEFAULT_SKILLS_DIR
             sin_code_bundle.tools.marketplace.updater.DEFAULT_SKILLS_DIR = skills_dir
             result = await marketplace_update("test-skill")
@@ -171,6 +163,7 @@ class TestMcpUpdate:
             skills_dir = Path(tmpdir) / "skills"
             skills_dir.mkdir()
             import sin_code_bundle.tools.marketplace.updater
+
             old_default = sin_code_bundle.tools.marketplace.updater.DEFAULT_SKILLS_DIR
             sin_code_bundle.tools.marketplace.updater.DEFAULT_SKILLS_DIR = skills_dir
             result = await marketplace_update()
@@ -184,12 +177,11 @@ class TestMcpSync:
     @respx.mock
     async def test_marketplace_sync_success(self, sample_catalog: list) -> None:
         _clear_cache()
-        respx.get(CATALOG_URL).mock(
-            return_value=Response(200, json=sample_catalog)
-        )
+        respx.get(CATALOG_URL).mock(return_value=Response(200, json=sample_catalog))
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             import sin_code_bundle.tools.marketplace.registry
+
             old_default = sin_code_bundle.tools.marketplace.registry.DEFAULT_DB_PATH
             sin_code_bundle.tools.marketplace.registry.DEFAULT_DB_PATH = db_path
             result = await marketplace_sync()
@@ -201,9 +193,7 @@ class TestMcpSync:
     @respx.mock
     async def test_marketplace_sync_failure(self) -> None:
         _clear_cache()
-        respx.get(CATALOG_URL).mock(
-            return_value=Response(404, text="Not Found")
-        )
+        respx.get(CATALOG_URL).mock(return_value=Response(404, text="Not Found"))
         result = await marketplace_sync()
         data = json.loads(result)
         assert "error" in data

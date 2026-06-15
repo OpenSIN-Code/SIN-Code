@@ -215,7 +215,8 @@ def _query(
     subcommand: list[str],
     root: str = ".",
     env: GitNexusEnv | None = None,
-    timeout: int = 300,  # 300s = 5min for read-only graph queries (should hit npx cache, hence lower than analyze)
+    # 300s = 5min for read-only graph queries (should hit npx cache, hence lower than analyze)
+    timeout: int = 300,
 ) -> str:
     """Run a read-only GitNexus query command and return stdout."""
     env = env or detect_env()

@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Purpose: Shared test fixtures and configuration.
 # Docs: conftest.doc.md
-"""Shared fixtures for pytest.
-"""
+"""Shared fixtures for pytest."""
 
 import os
 import tempfile
@@ -66,4 +65,5 @@ def parser():
         SlashParser instance.
     """
     from sin_code_bundle.tools.slash.parser import SlashParser
+
     yield SlashParser()

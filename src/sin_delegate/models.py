@@ -43,7 +43,7 @@ class Budget:
     backoff_base: float = 2.0
 
     def retry_delay(self, attempt: int) -> float:
-        return min(self.backoff_base ** attempt, 60.0)
+        return min(self.backoff_base**attempt, 60.0)
 
 
 @dataclass(frozen=True)
@@ -70,18 +70,18 @@ class Task:
     def finalize(self) -> "Task":
         if self.id:
             return self
-        payload = json.dumps({
-            "title": self.title,
-            "instructions": self.instructions,
-            "deps": sorted(self.deps),
-            "files": sorted(self.files_hint),
-            "backend": self.agent.backend,
-        }, sort_keys=True).encode()
+        payload = json.dumps(
+            {
+                "title": self.title,
+                "instructions": self.instructions,
+                "deps": sorted(self.deps),
+                "files": sorted(self.files_hint),
+                "backend": self.agent.backend,
+            },
+            sort_keys=True,
+        ).encode()
         tid = hashlib.blake2b(payload, digest_size=8).hexdigest()
-        return Task(
-            **{**{f: getattr(self, f)
-                   for f in self.__dataclass_fields__},
-               "id": tid})
+        return Task(**{**{f: getattr(self, f) for f in self.__dataclass_fields__}, "id": tid})
 
 
 @dataclass(frozen=True)
@@ -95,8 +95,8 @@ class Plan:
     @property
     def id(self) -> str:
         return hashlib.blake2b(
-            (self.goal + "".join(t.id for t in self.tasks)).encode(),
-            digest_size=8).hexdigest()
+            (self.goal + "".join(t.id for t in self.tasks)).encode(), digest_size=8
+        ).hexdigest()
 
     def validate(self) -> None:
         ids = {t.id for t in self.tasks}
@@ -105,16 +105,14 @@ class Plan:
         for t in self.tasks:
             for d in t.deps:
                 if d not in ids:
-                    raise ValueError(
-                        f"task {t.id} depends on unknown task {d}")
+                    raise ValueError(f"task {t.id} depends on unknown task {d}")
         graph = {t.id: set(t.deps) for t in self.tasks}
         WHITE, GRAY, BLACK = 0, 1, 2
         color = {tid: WHITE for tid in graph}
 
         def visit(node: str) -> None:
             if color[node] == GRAY:
-                raise ValueError(
-                    f"dependency cycle involving task {node}")
+                raise ValueError(f"dependency cycle involving task {node}")
             if color[node] == BLACK:
                 return
             color[node] = GRAY
@@ -156,8 +154,7 @@ class RunResult:
     @property
     def ok(self) -> bool:
         return all(
-            o.state in (TaskState.DONE, TaskState.SKIPPED)
-            for o in self.outcomes.values()
+            o.state in (TaskState.DONE, TaskState.SKIPPED) for o in self.outcomes.values()
         ) and any(o.state == TaskState.DONE for o in self.outcomes.values())
 
     def to_json(self) -> str:

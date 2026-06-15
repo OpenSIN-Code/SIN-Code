@@ -31,21 +31,17 @@ def _digest_tool_result(step_id: str, content: str) -> str:
     try:
         data = json.loads(content)
         facts: dict[str, Any] = {"step_id": step_id}
-        for key in ("exit_code", "path", "bytes", "total_lines",
-                    "replaced", "truncated"):
+        for key in ("exit_code", "path", "bytes", "total_lines", "replaced", "truncated"):
             if key in data:
                 facts[key] = data[key]
         if isinstance(data.get("hits"), list):
             facts["hit_count"] = len(data["hits"])
-            facts["hit_files"] = sorted(
-                {h.get("file", "?") for h in data["hits"][:20]}
-            )
+            facts["hit_files"] = sorted({h.get("file", "?") for h in data["hits"][:20]})
         if data.get("stderr"):
             facts["error_head"] = str(data["stderr"])[:200]
         return json.dumps(facts, ensure_ascii=False)
     except (json.JSONDecodeError, TypeError, AttributeError):
-        return json.dumps({"step_id": step_id, "head": head},
-                          ensure_ascii=False)
+        return json.dumps({"step_id": step_id, "head": head}, ensure_ascii=False)
 
 
 @dataclass
@@ -55,10 +51,8 @@ class ContextCompactor:
     _entries: deque[_Entry] = field(default_factory=deque)
     _evicted: list[str] = field(default_factory=list)
 
-    def append(self, step_id: str, content: str,
-               kind: str = "tool_result") -> None:
-        self._entries.append(_Entry(step_id=step_id, kind=kind,
-                                    content=content))
+    def append(self, step_id: str, content: str, kind: str = "tool_result") -> None:
+        self._entries.append(_Entry(step_id=step_id, kind=kind, content=content))
         self._enforce()
 
     def _enforce(self) -> None:

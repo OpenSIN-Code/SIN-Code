@@ -20,6 +20,7 @@ from sin_code_bundle.agent_engine.tracing import (
 
 # --------------------------------------------------------------- tracing
 
+
 def _write_spans(tmp_path, records):
     log = tmp_path / "events.jsonl"
     log.write_text("\n".join(json.dumps(r) for r in records) + "\n")
@@ -29,20 +30,48 @@ def _write_spans(tmp_path, records):
 def test_assembler_builds_nested_tree(tmp_path):
     t = "trace1"
     records = [
-        {"event": "span_start", "trace_id": t, "span_id": "root",
-         "parent_span_id": None, "kind": "run", "name": "main", "ts": 1.0},
-        {"event": "span_start", "trace_id": t, "span_id": "d1",
-         "parent_span_id": "root", "kind": "delegate", "name": "sub-a",
-         "ts": 2.0},
-        {"event": "span_start", "trace_id": t, "span_id": "d2",
-         "parent_span_id": "d1", "kind": "delegate", "name": "sub-a-1",
-         "ts": 3.0},
-        {"event": "span_end", "trace_id": t, "span_id": "d2",
-         "status": "success", "duration_s": 1.0},
-        {"event": "span_end", "trace_id": t, "span_id": "d1",
-         "status": "success", "duration_s": 2.5},
-        {"event": "span_end", "trace_id": t, "span_id": "root",
-         "status": "ok", "duration_s": 5.0},
+        {
+            "event": "span_start",
+            "trace_id": t,
+            "span_id": "root",
+            "parent_span_id": None,
+            "kind": "run",
+            "name": "main",
+            "ts": 1.0,
+        },
+        {
+            "event": "span_start",
+            "trace_id": t,
+            "span_id": "d1",
+            "parent_span_id": "root",
+            "kind": "delegate",
+            "name": "sub-a",
+            "ts": 2.0,
+        },
+        {
+            "event": "span_start",
+            "trace_id": t,
+            "span_id": "d2",
+            "parent_span_id": "d1",
+            "kind": "delegate",
+            "name": "sub-a-1",
+            "ts": 3.0,
+        },
+        {
+            "event": "span_end",
+            "trace_id": t,
+            "span_id": "d2",
+            "status": "success",
+            "duration_s": 1.0,
+        },
+        {
+            "event": "span_end",
+            "trace_id": t,
+            "span_id": "d1",
+            "status": "success",
+            "duration_s": 2.5,
+        },
+        {"event": "span_end", "trace_id": t, "span_id": "root", "status": "ok", "duration_s": 5.0},
     ]
     roots = TraceAssembler(_write_spans(tmp_path, records)).assemble(t)
     assert len(roots) == 1
@@ -57,10 +86,24 @@ def test_assembler_builds_nested_tree(tmp_path):
 
 def test_assembler_defaults_to_latest_trace(tmp_path):
     records = [
-        {"event": "span_start", "trace_id": "old", "span_id": "a",
-         "parent_span_id": None, "kind": "run", "name": "old-run", "ts": 1},
-        {"event": "span_start", "trace_id": "new", "span_id": "b",
-         "parent_span_id": None, "kind": "run", "name": "new-run", "ts": 2},
+        {
+            "event": "span_start",
+            "trace_id": "old",
+            "span_id": "a",
+            "parent_span_id": None,
+            "kind": "run",
+            "name": "old-run",
+            "ts": 1,
+        },
+        {
+            "event": "span_start",
+            "trace_id": "new",
+            "span_id": "b",
+            "parent_span_id": None,
+            "kind": "run",
+            "name": "new-run",
+            "ts": 2,
+        },
     ]
     roots = TraceAssembler(_write_spans(tmp_path, records)).assemble()
     assert [r.name for r in roots] == ["new-run"]
@@ -68,10 +111,16 @@ def test_assembler_defaults_to_latest_trace(tmp_path):
 
 def test_chrome_export_is_valid_json(tmp_path):
     records = [
-        {"event": "span_start", "trace_id": "t", "span_id": "a",
-         "parent_span_id": None, "kind": "run", "name": "r", "ts": 1.0},
-        {"event": "span_end", "trace_id": "t", "span_id": "a",
-         "status": "ok", "duration_s": 2.0},
+        {
+            "event": "span_start",
+            "trace_id": "t",
+            "span_id": "a",
+            "parent_span_id": None,
+            "kind": "run",
+            "name": "r",
+            "ts": 1.0,
+        },
+        {"event": "span_end", "trace_id": "t", "span_id": "a", "status": "ok", "duration_s": 2.0},
     ]
     raw = TraceAssembler(_write_spans(tmp_path, records)).to_chrome_trace("t")
     data = json.loads(raw)
@@ -100,6 +149,7 @@ def test_span_emitter_writes_start_and_end(tmp_path):
 
 
 # -------------------------------------------------------------- distiller
+
 
 def _distiller(tmp_path, **kw):
     return KnowledgeDistiller(db_path=str(tmp_path / "mem.db"), **kw)
@@ -172,6 +222,7 @@ class _FakeEmpty:
 def test_harvest_lessons_from_real_memory(tmp_path):
     import sqlite3
     import time as _t
+
     db = tmp_path / "mem.db"
     con = sqlite3.connect(db)
     con.executescript("""
@@ -181,9 +232,11 @@ def test_harvest_lessons_from_real_memory(tmp_path):
         repair_rounds INTEGER DEFAULT 0, lessons TEXT DEFAULT '[]',
         plan_json TEXT DEFAULT '{}', elapsed_s REAL DEFAULT 0
     );""")
-    con.execute("INSERT INTO agent_runs (ts, task_id, goal, outcome, "
-                "lessons) VALUES (?, 't1', 'fix lint', 'failed:lint', ?)",
-                (_t.time(), '["round 0: fail_lint — typo"]'))
+    con.execute(
+        "INSERT INTO agent_runs (ts, task_id, goal, outcome, "
+        "lessons) VALUES (?, 't1', 'fix lint', 'failed:lint', ?)",
+        (_t.time(), '["round 0: fail_lint — typo"]'),
+    )
     con.commit()
     con.close()
     d = KnowledgeDistiller(db_path=str(db))

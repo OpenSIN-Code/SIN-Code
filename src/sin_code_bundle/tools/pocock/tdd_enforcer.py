@@ -36,11 +36,7 @@ class TDDEnforcer:
         """Execute test suite and return (exit_code, output)."""
         print(f"🧪 Führe Tests aus: {self.test_cmd}")
         result = subprocess.run(
-            self.test_cmd,
-            shell=True,
-            capture_output=True,
-            text=True,
-            timeout=60
+            self.test_cmd, shell=True, capture_output=True, text=True, timeout=60
         )
         output = result.stdout + result.stderr
         return result.returncode, output
@@ -98,7 +94,7 @@ class TDDEnforcer:
                 "status": "allowed",
                 "phase": "green",
                 "message": "GREEN-Phase: Refactoring erlaubt",
-                "file": self.file_to_edit
+                "file": self.file_to_edit,
             }
 
         # Run tests to check current state
@@ -116,7 +112,7 @@ class TDDEnforcer:
                     "phase": "green",
                     "message": "GREEN-Phase erreicht: Refactoring erlaubt",
                     "file": self.file_to_edit,
-                    "test_output": output
+                    "test_output": output,
                 }
             else:
                 # Already in GREEN or unknown
@@ -128,7 +124,7 @@ class TDDEnforcer:
                     "phase": "green",
                     "message": "GREEN-Phase: Refactoring erlaubt",
                     "file": self.file_to_edit,
-                    "test_output": output
+                    "test_output": output,
                 }
 
         else:
@@ -142,7 +138,7 @@ class TDDEnforcer:
                     "phase": "red",
                     "message": "RED-Phase: Implementierung erlaubt",
                     "file": self.file_to_edit,
-                    "test_output": output
+                    "test_output": output,
                 }
             else:
                 # Need to start RED phase
@@ -157,7 +153,7 @@ class TDDEnforcer:
                     "phase": "red",
                     "message": "RED-Phase: Implementierung erlaubt",
                     "file": self.file_to_edit,
-                    "test_output": output
+                    "test_output": output,
                 }
 
     def _create_lock(self) -> None:
@@ -213,7 +209,7 @@ Examples:
   %(prog)s "npm test" "src/components/Button.tsx"
   %(prog)s "pytest tests/" "src/api.py" --reset
   %(prog)s "pytest tests/" "src/api.py" --check
-        """
+        """,
     )
     parser.add_argument("test_cmd", help="Test command (e.g., 'pytest tests/')")
     parser.add_argument("file_to_edit", help="File to edit")
@@ -235,7 +231,7 @@ Examples:
             "is_locked": enforcer.is_locked(),
             "phase": enforcer._get_current_phase(),
             "file": args.file_to_edit,
-            "lock_file": enforcer.lock_file
+            "lock_file": enforcer.lock_file,
         }
         if args.json:
             print(json.dumps(result, indent=2, ensure_ascii=False))

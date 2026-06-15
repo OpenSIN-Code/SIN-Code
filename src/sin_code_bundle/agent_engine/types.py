@@ -47,8 +47,7 @@ class AgentTask:
     created_at: float = field(default_factory=time.time)
 
     def fingerprint(self) -> str:
-        raw = json.dumps({"goal": self.goal, "constraints": self.constraints},
-                         sort_keys=True)
+        raw = json.dumps({"goal": self.goal, "constraints": self.constraints}, sort_keys=True)
         return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
@@ -137,7 +136,6 @@ class Plan:
 
     def to_json(self) -> str:
         return json.dumps(
-            {"task_id": self.task_id,
-             "steps": [s.to_dict() for s in self.steps.values()]},
+            {"task_id": self.task_id, "steps": [s.to_dict() for s in self.steps.values()]},
             indent=2,
         )

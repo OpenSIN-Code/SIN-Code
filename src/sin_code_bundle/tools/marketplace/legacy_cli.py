@@ -27,6 +27,8 @@ app = typer.Typer(help="SIN Marketplace — manage OpenSIN-Code skills")
 console = Console()
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+
 def _get_catalog(cache_path: Path | None = None) -> Catalog:
     """Load or create a catalog instance.
 
@@ -214,6 +216,7 @@ def sync() -> None:
     cache_path = Path.home() / ".config" / "opencode" / "skills_catalog.json"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     import json
+
     with cache_path.open("w", encoding="utf-8") as fh:
         json.dump(catalog.list_skills(), fh, indent=2)
     console.print(f"[green]Synced {len(catalog)} skills → {cache_path}[/green]")

@@ -31,6 +31,7 @@ class TestMCPServer:
         # Reset dispatcher singleton
         import sin_code_bundle.tools.slash.mcp_server as mcp_module
         from sin_code_bundle.tools.slash.registry import CommandRegistry
+
         registry = CommandRegistry(self.db_path)
         mcp_module._dispatcher = CommandDispatcher(
             registry=registry,

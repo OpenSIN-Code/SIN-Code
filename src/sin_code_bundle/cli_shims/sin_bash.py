@@ -12,6 +12,7 @@ Example:
     $ sin-bash --command "echo hello"
     {"stdout": "hello\\n", "stderr": "", "returncode": 0, "redacted": true}
 """
+
 from __future__ import annotations
 
 import argparse

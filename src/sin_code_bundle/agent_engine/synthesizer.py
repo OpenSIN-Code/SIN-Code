@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
+from .distiller import KnowledgeDistiller  # noqa: F401
 from .memory_bridge import MemoryBridge
 from .planner import Planner
 from .types import AgentTask
@@ -20,8 +21,7 @@ if typing.TYPE_CHECKING:
 CompleteFn = Callable[[str], Awaitable[str]]
 
 _JSON_BLOCK = re.compile(r"\[[\s\S]*\]")
-_ALLOWED_TOOLS = {"sin_search", "sin_read", "sin_edit",
-                  "sin_write", "sin_bash", "sin_delegate"}
+_ALLOWED_TOOLS = {"sin_search", "sin_read", "sin_edit", "sin_write", "sin_bash", "sin_delegate"}
 _MAX_STEPS = 24
 
 
@@ -29,6 +29,7 @@ def _get_default_distiller():
     """Lazy import to avoid a hard dependency in tests that don't need it."""
     try:
         from .distiller import KnowledgeDistiller
+
         return KnowledgeDistiller()
     except Exception:
         return None
@@ -46,17 +47,27 @@ class RepoSurvey:
     top_dirs: list[str] = field(default_factory=list)
 
     def to_prompt_block(self) -> str:
-        return json.dumps({
-            "languages": self.languages,
-            "test_runner": self.test_runner,
-            "lint_tool": self.lint_tool,
-            "package_files": self.package_files,
-            "top_dirs": self.top_dirs,
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "languages": self.languages,
+                "test_runner": self.test_runner,
+                "lint_tool": self.lint_tool,
+                "package_files": self.package_files,
+                "top_dirs": self.top_dirs,
+            },
+            ensure_ascii=False,
+        )
 
 
-_EXT_LANG = {".py": "python", ".ts": "typescript", ".tsx": "typescript",
-             ".js": "javascript", ".rs": "rust", ".go": "go", ".java": "java"}
+_EXT_LANG = {
+    ".py": "python",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".js": "javascript",
+    ".rs": "rust",
+    ".go": "go",
+    ".java": "java",
+}
 
 
 def survey_repo(repo_root: str, *, max_files: int = 4000) -> RepoSurvey:
@@ -80,8 +91,7 @@ def survey_repo(repo_root: str, *, max_files: int = 4000) -> RepoSurvey:
         if (root / name).exists():
             s.package_files.append(name)
     if (root / "pyproject.toml").exists():
-        text = (root / "pyproject.toml").read_text(encoding="utf-8",
-                                                   errors="replace")
+        text = (root / "pyproject.toml").read_text(encoding="utf-8", errors="replace")
         if "pytest" in text:
             s.test_runner = "pytest"
         if "ruff" in text:
@@ -98,7 +108,8 @@ def survey_repo(repo_root: str, *, max_files: int = 4000) -> RepoSurvey:
             pass
     try:
         s.top_dirs = sorted(
-            d.name for d in root.iterdir()
+            d.name
+            for d in root.iterdir()
             if d.is_dir() and d.name not in {".git", "node_modules", ".venv"}
         )[:20]
     except OSError:
@@ -156,10 +167,14 @@ PLAN:
 
 
 class PlanSynthesizer:
-    def __init__(self, complete: CompleteFn | None = None, *,
-                 memory: MemoryBridge | None = None,
-                 distiller: "KnowledgeDistiller | None" = None,
-                 critique: bool = True) -> None:
+    def __init__(
+        self,
+        complete: CompleteFn | None = None,
+        *,
+        memory: MemoryBridge | None = None,
+        distiller: "KnowledgeDistiller | None" = None,
+        critique: bool = True,
+    ) -> None:
         self.complete = complete
         self.memory = memory or MemoryBridge()
         self.distiller = distiller or _get_default_distiller()
@@ -174,9 +189,7 @@ class PlanSynthesizer:
             )
 
         lessons = self.memory.recall_similar(task.goal, limit=5)
-        lesson_text = "; ".join(
-            line for hit in lessons for line in hit["lessons"]
-        )[:1500] or "none"
+        lesson_text = "; ".join(line for hit in lessons for line in hit["lessons"])[:1500] or "none"
 
         survey = survey_repo(task.repo_root)
 
@@ -185,22 +198,25 @@ class PlanSynthesizer:
         if standing:
             constraints_block = f"{constraints_block}\n{standing}"
 
-        draft_raw = await self.complete(_DRAFT_PROMPT.format(
-            max_steps=_MAX_STEPS,
-            survey=survey.to_prompt_block(),
-            lessons=lesson_text,
-            constraints=constraints_block,
-            goal=task.goal,
-        ))
+        draft_raw = await self.complete(
+            _DRAFT_PROMPT.format(
+                max_steps=_MAX_STEPS,
+                survey=survey.to_prompt_block(),
+                lessons=lesson_text,
+                constraints=constraints_block,
+                goal=task.goal,
+            )
+        )
         specs = self._parse_and_validate(task, draft_raw)
 
         if self.critique and specs:
-            critiqued_raw = await self.complete(_CRITIQUE_PROMPT.format(
-                goal=task.goal,
-                plan=json.dumps(specs, ensure_ascii=False, indent=2),
-            ))
-            critiqued = self._parse_and_validate(task, critiqued_raw,
-                                                 fallback=specs)
+            critiqued_raw = await self.complete(
+                _CRITIQUE_PROMPT.format(
+                    goal=task.goal,
+                    plan=json.dumps(specs, ensure_ascii=False, indent=2),
+                )
+            )
+            critiqued = self._parse_and_validate(task, critiqued_raw, fallback=specs)
             specs = critiqued
 
         if not specs:
@@ -208,7 +224,9 @@ class PlanSynthesizer:
         return specs
 
     def _parse_and_validate(
-        self, task: AgentTask, raw: str,
+        self,
+        task: AgentTask,
+        raw: str,
         fallback: list[dict[str, Any]] | None = None,
     ) -> list[dict[str, Any]]:
         match = _JSON_BLOCK.search(raw)
@@ -227,21 +245,25 @@ class PlanSynthesizer:
             if not isinstance(spec, dict):
                 continue
             sid = spec.get("step_id")
-            if (not isinstance(sid, str) or sid in seen_ids
-                    or spec.get("tool") not in _ALLOWED_TOOLS
-                    or not isinstance(spec.get("args"), dict)):
+            if (
+                not isinstance(sid, str)
+                or sid in seen_ids
+                or spec.get("tool") not in _ALLOWED_TOOLS
+                or not isinstance(spec.get("args"), dict)
+            ):
                 continue
             seen_ids.add(sid)
-            cleaned.append({
-                "step_id": sid,
-                "title": str(spec.get("title", sid))[:120],
-                "tool": spec["tool"],
-                "args": spec["args"],
-                "deps": [d for d in spec.get("deps", [])
-                         if isinstance(d, str)],
-                "estimated_cost": float(spec.get("estimated_cost", 1.0)),
-                "isolated": bool(spec.get("isolated", False)),
-            })
+            cleaned.append(
+                {
+                    "step_id": sid,
+                    "title": str(spec.get("title", sid))[:120],
+                    "tool": spec["tool"],
+                    "args": spec["args"],
+                    "deps": [d for d in spec.get("deps", []) if isinstance(d, str)],
+                    "estimated_cost": float(spec.get("estimated_cost", 1.0)),
+                    "isolated": bool(spec.get("isolated", False)),
+                }
+            )
         ids = {s["step_id"] for s in cleaned}
         for s in cleaned:
             s["deps"] = [d for d in s["deps"] if d in ids]

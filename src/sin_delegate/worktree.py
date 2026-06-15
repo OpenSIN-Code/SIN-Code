@@ -16,7 +16,9 @@ class GitError(RuntimeError):
 def _git(repo: str | Path, *args: str, check: bool = True) -> str:
     proc = subprocess.run(
         ["git", "-C", str(repo), *args],
-        capture_output=True, text=True, timeout=120,
+        capture_output=True,
+        text=True,
+        timeout=120,
     )
     if check and proc.returncode != 0:
         raise GitError(f"git {' '.join(args)}: {proc.stderr.strip()}")
@@ -54,19 +56,17 @@ class Worktree:
             _git(self.path, "rebase", "--abort", check=False)
             raise GitError(
                 f"rebase conflict on {self.branch}; branch preserved for "
-                f"manual resolution. base untouched. ({e})") from e
+                f"manual resolution. base untouched. ({e})"
+            ) from e
         try:
             _git(self.repo, "merge", "--ff-only", self.branch)
         except GitError as e:
             _git(self.repo, "reset", "--hard", snapshot, check=False)
-            raise GitError(
-                f"ff-merge failed, base restored to {snapshot}: {e}"
-            ) from e
+            raise GitError(f"ff-merge failed, base restored to {snapshot}: {e}") from e
         return snapshot
 
     def destroy(self, delete_branch: bool = True) -> None:
-        _git(self.repo, "worktree", "remove", "--force",
-             str(self.path), check=False)
+        _git(self.repo, "worktree", "remove", "--force", str(self.path), check=False)
         if delete_branch:
             _git(self.repo, "branch", "-D", self.branch, check=False)
 

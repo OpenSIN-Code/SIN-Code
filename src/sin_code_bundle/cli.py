@@ -51,14 +51,19 @@ app.add_typer(security_app, name="security")
 sckg_app = typer.Typer(help="SCKG - Semantic Codebase Knowledge Graph")
 app.add_typer(sckg_app, name="sckg")
 
+
 @sckg_app.command("run")
 def sckg_run(
-    args: list[str] = typer.Argument(default_factory=list, help="Arguments to pass to the sckg CLI"),
+    args: list[str] = typer.Argument(
+        default_factory=list, help="Arguments to pass to the sckg CLI"
+    ),
 ):
     """Pass-through to the `sckg` CLI — any subcommand and flags."""
     binary = shutil.which("sckg")
     if not binary:
-        typer.echo("[SCKG] 'sckg' binary not found. Install: pip install -e ~/SIN-Code-SCKG-Tool", err=True)
+        typer.echo(
+            "[SCKG] 'sckg' binary not found. Install: pip install -e ~/SIN-Code-SCKG-Tool", err=True
+        )
         raise typer.Exit(code=1)
     result = subprocess.run([binary] + args, capture_output=True, text=True)
     if result.stdout:
@@ -108,7 +113,9 @@ def sckg_search(
 @sckg_app.command("hot-paths")
 def sckg_hot_paths(
     path: str = typer.Argument(..., help="Path to the knowledge graph JSON"),
-    args: list[str] = typer.Argument(default_factory=list, help="Extra arguments for sckg hot-paths"),
+    args: list[str] = typer.Argument(
+        default_factory=list, help="Extra arguments for sckg hot-paths"
+    ),
 ):
     """Show most frequently called functions: `sckg hot-paths <path>`."""
     binary = shutil.which("sckg")
@@ -126,7 +133,9 @@ def sckg_hot_paths(
 @sckg_app.command("dead-code")
 def sckg_dead_code(
     path: str = typer.Argument(..., help="Path to the knowledge graph JSON"),
-    args: list[str] = typer.Argument(default_factory=list, help="Extra arguments for sckg dead-code"),
+    args: list[str] = typer.Argument(
+        default_factory=list, help="Extra arguments for sckg dead-code"
+    ),
 ):
     """Analyze graph for dead code: `sckg dead-code <path>`."""
     binary = shutil.which("sckg")
@@ -144,7 +153,9 @@ def sckg_dead_code(
 @sckg_app.command("communities")
 def sckg_communities(
     path: str = typer.Argument(..., help="Path to the knowledge graph JSON"),
-    args: list[str] = typer.Argument(default_factory=list, help="Extra arguments for sckg communities"),
+    args: list[str] = typer.Argument(
+        default_factory=list, help="Extra arguments for sckg communities"
+    ),
 ):
     """Detect language-aware communities: `sckg communities <path>`."""
     binary = shutil.which("sckg")
@@ -162,7 +173,9 @@ def sckg_communities(
 @sckg_app.command("dashboard")
 def sckg_dashboard(
     path: str = typer.Argument(..., help="Path to the knowledge graph JSON"),
-    args: list[str] = typer.Argument(default_factory=list, help="Extra arguments for sckg graph (dashboard)"),
+    args: list[str] = typer.Argument(
+        default_factory=list, help="Extra arguments for sckg graph (dashboard)"
+    ),
 ):
     """Generate interactive D3.js dashboard: `sckg graph <path>`."""
     binary = shutil.which("sckg")
@@ -438,7 +451,9 @@ def code(
         ...,
         help="Action: review, debt, verify, preflight, codocs, sckg, audit, oracle, adw, ibd, discover, scout, or full",
     ),
-    args: list[str] = typer.Argument(default_factory=list, help="Arguments to pass to the underlying command"),
+    args: list[str] = typer.Argument(
+        default_factory=list, help="Arguments to pass to the underlying command"
+    ),
 ):
     """Unified coding workflow hub — shortcut to all sin coding tools.
 
@@ -1500,28 +1515,36 @@ def serve():
 # Source repos are now archived (see DEPRECATED notice in their READMEs).
 try:
     from sin_code_bundle.tools.slash.app import app as slash_app
+
     app.add_typer(slash_app, name="slash")
 except ImportError as exc:
+
     @app.command("slash")
     def slash_missing(exc=exc) -> None:
         """Slash commands (slash module not installed)."""
         typer.echo(f"[SIN-BUNDLE] slash module unavailable: {exc}", err=True)
         raise typer.Exit(code=1)
 
+
 try:
     from sin_code_bundle.tools.mcp_server_builder.app import app as mcp_server_app
+
     app.add_typer(mcp_server_app, name="mcp-server")
 except ImportError as exc:
+
     @app.command("mcp-server")
     def mcp_server_missing(exc=exc) -> None:
         """MCP server builder (mcp_server_builder module not installed)."""
         typer.echo(f"[SIN-BUNDLE] mcp-server module unavailable: {exc}", err=True)
         raise typer.Exit(code=1)
 
+
 try:
     from sin_code_bundle.tools.marketplace.app import app as marketplace_app
+
     app.add_typer(marketplace_app, name="marketplace")
 except ImportError as exc:
+
     @app.command("marketplace")
     def marketplace_missing(exc=exc) -> None:
         """Marketplace (marketplace module not installed)."""
@@ -1637,7 +1660,9 @@ app.add_typer(pocock_app, name="pocock")
 def pocock_grill_me(
     goal: str = typer.Argument(..., help="Development goal / feature description"),
     output: str = typer.Option("PRD.md", "--output", "-o", help="Output path for PRD.md"),
-    non_interactive: bool = typer.Option(False, "--non-interactive", help="Non-interactive mode (CI/CD)"),
+    non_interactive: bool = typer.Option(
+        False, "--non-interactive", help="Non-interactive mode (CI/CD)"
+    ),
     answers: str = typer.Option(None, "--answers", help="JSON answers for non-interactive mode"),
     json_out: bool = typer.Option(False, "--json", help="Output JSON"),
 ):
@@ -1650,6 +1675,7 @@ def pocock_grill_me(
             typer.echo("❌ --non-interactive requires --answers JSON", err=True)
             raise typer.Exit(code=1)
         import json
+
         answers_dict = json.loads(answers)
         grill.run_non_interactive(answers_dict)
     else:
@@ -1714,7 +1740,9 @@ def pocock_dag_kanban(
     prd: str = typer.Option("PRD.md", "--prd", help="Path to PRD.md"),
     json_out: bool = typer.Option(False, "--json", help="Output JSON"),
     docker: bool = typer.Option(False, "--docker", help="Export Docker Compose"),
-    output: str = typer.Option("docker-compose.dag.yml", "--output", help="Docker Compose output path"),
+    output: str = typer.Option(
+        "docker-compose.dag.yml", "--output", help="Docker Compose output path"
+    ),
 ):
     """DAG-based Kanban - parses PRD and creates task execution graph."""
     from sin_code_bundle.tools.pocock.dag_kanban import DAGKanban
@@ -1728,6 +1756,7 @@ def pocock_dag_kanban(
     if docker:
         try:
             import yaml  # noqa: F401
+
             runner.export_docker_compose(output)
         except ImportError:
             typer.echo("⚠️  PyYAML not installed. Run: pip install pyyaml", err=True)
@@ -1737,7 +1766,9 @@ def pocock_dag_kanban(
 @pocock_app.command("cleanup")
 def pocock_cleanup():
     """Run post-flight cleanup hook (system cleanup after task runs)."""
-    script_path = Path(__file__).parent.parent.parent / "scripts" / "pocock" / "opencode-cleanup-hook.sh"
+    script_path = (
+        Path(__file__).parent.parent.parent / "scripts" / "pocock" / "opencode-cleanup-hook.sh"
+    )
     if not script_path.exists():
         typer.echo("❌ Cleanup script not found. Is the bundle installed correctly?", err=True)
         raise typer.Exit(code=1)
@@ -1752,16 +1783,20 @@ def pocock_cleanup():
 @pocock_app.command("safe-start")
 def pocock_safe_start():
     """Start OpenCode with safe environment injection (Zod patch + env substitution)."""
-    script_path = Path(__file__).parent.parent.parent / "scripts" / "pocock" / "opencode-safe-start.sh"
+    script_path = (
+        Path(__file__).parent.parent.parent / "scripts" / "pocock" / "opencode-safe-start.sh"
+    )
     if not script_path.exists():
         typer.echo("❌ Safe-start script not found. Is the bundle installed correctly?", err=True)
         raise typer.Exit(code=1)
 
     # Forward remaining args to the script
     import sys
-    args = sys.argv[sys.argv.index("safe-start") + 1:]
+
+    args = sys.argv[sys.argv.index("safe-start") + 1 :]
     result = subprocess.run(["bash", str(script_path), *args])
     raise typer.Exit(code=result.returncode)
+
 
 if __name__ == "__main__":
     app()
@@ -2006,7 +2041,8 @@ def doctor(root: str = typer.Option(".", help="Project root.")):
 @sin_code_app.command("run")
 def sin_code_run(
     tool: str = typer.Argument(
-        ..., help="Tool name: discover, execute, map, grasp, scout, harvest, orchestrate, ibd, poc, sckg, adw, oracle, efm"
+        ...,
+        help="Tool name: discover, execute, map, grasp, scout, harvest, orchestrate, ibd, poc, sckg, adw, oracle, efm",
     ),
     args: list[str] = typer.Argument(default_factory=list, help="Arguments to pass to the tool"),
 ):
@@ -2645,28 +2681,36 @@ def ast_status():
 # Source repos are now archived (see DEPRECATED notice in their READMEs).
 try:
     from sin_code_bundle.tools.slash.app import app as slash_app
+
     app.add_typer(slash_app, name="slash")
 except ImportError as exc:
+
     @app.command("slash")
     def slash_missing(exc=exc) -> None:
         """Slash commands (slash module not installed)."""
         typer.echo(f"[SIN-BUNDLE] slash module unavailable: {exc}", err=True)
         raise typer.Exit(code=1)
 
+
 try:
     from sin_code_bundle.tools.mcp_server_builder.app import app as mcp_server_app
+
     app.add_typer(mcp_server_app, name="mcp-server")
 except ImportError as exc:
+
     @app.command("mcp-server")
     def mcp_server_missing(exc=exc) -> None:
         """MCP server builder (mcp_server_builder module not installed)."""
         typer.echo(f"[SIN-BUNDLE] mcp-server module unavailable: {exc}", err=True)
         raise typer.Exit(code=1)
 
+
 try:
     from sin_code_bundle.tools.marketplace.app import app as marketplace_app
+
     app.add_typer(marketplace_app, name="marketplace")
 except ImportError as exc:
+
     @app.command("marketplace")
     def marketplace_missing(exc=exc) -> None:
         """Marketplace (marketplace module not installed)."""
@@ -2848,9 +2892,7 @@ def update_run(
 
     results = upd.run_update(core=core, go=go, check=check)
     if json_out:
-        typer.echo(
-            json.dumps([r.__dict__ for r in results], indent=2, default=str)
-        )
+        typer.echo(json.dumps([r.__dict__ for r in results], indent=2, default=str))
     else:
         typer.echo(upd.render_table(results))
     failed = [r for r in results if r.status == "failed"]
@@ -2884,8 +2926,7 @@ def config_show(
                 {
                     "config": payload,
                     "origins": {
-                        k: {"label": v.label, "path": str(v.path)}
-                        for k, v in origins.items()
+                        k: {"label": v.label, "path": str(v.path)} for k, v in origins.items()
                     },
                 },
                 indent=2,
@@ -2953,10 +2994,14 @@ def config_path() -> None:
 lint_app = typer.Typer(help="Lint code with popular linters (ruff, flake8, mypy, eslint, etc.).")
 app.add_typer(lint_app, name="lint")
 
+
 @lint_app.command("run")
 def lint_run(
     path: str = typer.Argument(".", help="Path to lint."),
-    tool: str = typer.Option("auto", help="Linter to use: auto, ruff, flake8, mypy, pylint, eslint, golangci-lint, shellcheck."),
+    tool: str = typer.Option(
+        "auto",
+        help="Linter to use: auto, ruff, flake8, mypy, pylint, eslint, golangci-lint, shellcheck.",
+    ),
     fix: bool = typer.Option(False, help="Auto-fix issues where supported."),
 ):
     """Run a linter on the given path."""
@@ -2978,7 +3023,10 @@ def lint_run(
                 tool = name
                 break
         else:
-            typer.echo("[SIN-BUNDLE] No supported linter found on PATH. Install one: ruff, flake8, mypy, pylint, eslint, golangci-lint, shellcheck", err=True)
+            typer.echo(
+                "[SIN-BUNDLE] No supported linter found on PATH. Install one: ruff, flake8, mypy, pylint, eslint, golangci-lint, shellcheck",
+                err=True,
+            )
             raise typer.Exit(code=1)
 
     if tool not in linters:
@@ -3007,8 +3055,12 @@ def lint_check(
 
     available = []
     for name, binary in [
-        ("ruff", "ruff"), ("flake8", "flake8"), ("mypy", "mypy"),
-        ("pylint", "pylint"), ("eslint", "eslint"), ("golangci-lint", "golangci-lint"),
+        ("ruff", "ruff"),
+        ("flake8", "flake8"),
+        ("mypy", "mypy"),
+        ("pylint", "pylint"),
+        ("eslint", "eslint"),
+        ("golangci-lint", "golangci-lint"),
         ("shellcheck", "shellcheck"),
     ]:
         if shutil.which(binary):
@@ -3038,6 +3090,7 @@ def lint_check(
 
 docs_app = typer.Typer(help="Documentation helpers — generate README, API docs, check coverage.")
 app.add_typer(docs_app, name="docs")
+
 
 @docs_app.command("generate")
 def docs_generate(
@@ -3192,7 +3245,9 @@ def docs_check(
     typer.echo(f"  README.md: {'✅' if has_readme else '❌'}")
     typer.echo(f"  .doc.md files: {len(doc_md_files)}")
     typer.echo(f"  Python files: {len(py_files)}")
-    typer.echo(f"  Files with docstrings: {docstring_count}/{len(py_files)} ({100*docstring_count//max(len(py_files),1)}%)")
+    typer.echo(
+        f"  Files with docstrings: {docstring_count}/{len(py_files)} ({100 * docstring_count // max(len(py_files), 1)}%)"
+    )
 
     if not has_readme:
         typer.echo("  ⚠️  Missing README.md — run `sin docs generate` to create one.")
@@ -3201,14 +3256,14 @@ def docs_check(
 git_app = typer.Typer(help="Git workflow helpers — status, commit, push, clean branches.")
 app.add_typer(git_app, name="git")
 
+
 @git_app.command("status")
 def git_status(
     path: str = typer.Argument(".", help="Repository path."),
 ):
     """Show git status with a clean summary."""
     result = subprocess.run(
-        ["git", "-C", path, "status", "--short"],
-        capture_output=True, text=True
+        ["git", "-C", path, "status", "--short"], capture_output=True, text=True
     )
     if result.returncode != 0:
         typer.echo(f"[SIN-BUNDLE] Not a git repository: {path}", err=True)
@@ -3228,7 +3283,9 @@ def git_status(
 def git_commit(
     message: str = typer.Argument(..., help="Commit message.", metavar="MESSAGE"),
     path: str = typer.Option(".", help="Repository path."),
-    all: bool = typer.Option(False, "--all", "-a", help="Stage all modified files before committing."),
+    all: bool = typer.Option(
+        False, "--all", "-a", help="Stage all modified files before committing."
+    ),
     push: bool = typer.Option(False, "--push", help="Push after committing."),
 ):
     """Create a git commit with the given message."""
@@ -3239,8 +3296,7 @@ def git_commit(
             raise typer.Exit(code=1)
 
     result = subprocess.run(
-        ["git", "-C", path, "commit", "-m", message],
-        capture_output=True, text=True
+        ["git", "-C", path, "commit", "-m", message], capture_output=True, text=True
     )
     if result.returncode != 0:
         typer.echo(f"[SIN-BUNDLE] Commit failed: {result.stderr}", err=True)
@@ -3259,7 +3315,9 @@ def git_commit(
 @git_app.command("clean")
 def git_clean(
     path: str = typer.Argument(".", help="Repository path."),
-    dry_run: bool = typer.Option(True, "--dry-run/--no-dry-run", help="Show what would be deleted without deleting."),
+    dry_run: bool = typer.Option(
+        True, "--dry-run/--no-dry-run", help="Show what would be deleted without deleting."
+    ),
     force: bool = typer.Option(False, "--force", "-f", help="Force delete merged branches."),
 ):
     """Clean up merged branches and stale references."""
@@ -3268,14 +3326,15 @@ def git_clean(
 
     # List merged branches (excluding current, main, master)
     result = subprocess.run(
-        ["git", "-C", path, "branch", "--merged"],
-        capture_output=True, text=True
+        ["git", "-C", path, "branch", "--merged"], capture_output=True, text=True
     )
     if result.returncode != 0:
         typer.echo(f"[SIN-BUNDLE] Failed to list branches: {result.stderr}", err=True)
         raise typer.Exit(code=1)
 
-    branches = [b.strip() for b in result.stdout.splitlines() if b.strip() and not b.startswith("*")]
+    branches = [
+        b.strip() for b in result.stdout.splitlines() if b.strip() and not b.startswith("*")
+    ]
     protected = {"main", "master", "develop", "dev"}
     to_delete = [b for b in branches if b not in protected]
 
@@ -3296,7 +3355,9 @@ def git_clean(
         return
 
     for b in to_delete:
-        del_result = subprocess.run(["git", "-C", path, "branch", "-d", b], capture_output=True, text=True)
+        del_result = subprocess.run(
+            ["git", "-C", path, "branch", "-d", b], capture_output=True, text=True
+        )
         if del_result.returncode == 0:
             typer.echo(f"  ✅ Deleted {b}")
         else:

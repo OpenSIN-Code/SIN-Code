@@ -75,6 +75,7 @@ def marketplace_search(
     results = catalog.search(query)
     if json_out:
         import json as _json
+
         _typer_echo(_json.dumps(results, indent=2))
         return
     if not results:
@@ -138,6 +139,7 @@ def marketplace_list(
     skills = Registry().list_all()
     if json_out:
         import json as _json
+
         _typer_echo(_json.dumps(skills, indent=2))
         return
     if not skills:

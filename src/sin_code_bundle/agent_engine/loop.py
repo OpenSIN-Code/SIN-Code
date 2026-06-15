@@ -34,9 +34,7 @@ class AgentLoop:
         self.planner = Planner()
         self.repair_factory = repair_factory
 
-    async def run(
-        self, task: AgentTask, step_specs: list[dict[str, Any]]
-    ) -> dict[str, Any]:
+    async def run(self, task: AgentTask, step_specs: list[dict[str, Any]]) -> dict[str, Any]:
         t0 = time.monotonic()
         lessons: list[str] = []
 
@@ -45,8 +43,7 @@ class AgentLoop:
             self.telemetry.emit("recall", hits=len(prior))
 
         plan = self.planner.build(task, step_specs)
-        self.telemetry.emit("plan_built", task_id=task.task_id,
-                            steps=len(plan.steps))
+        self.telemetry.emit("plan_built", task_id=task.task_id, steps=len(plan.steps))
 
         executor = Executor(self.router, self.telemetry)
         results: dict[str, StepResult] = {}
@@ -56,8 +53,9 @@ class AgentLoop:
             for round_no in range(task.max_repair_rounds + 1):
                 results.update(await executor.run(task, plan, self.planner))
                 verdict = await self.verifier.verify()
-                self.telemetry.emit("verdict", round=round_no,
-                                    kind=verdict.kind.value, ok=verdict.ok)
+                self.telemetry.emit(
+                    "verdict", round=round_no, kind=verdict.kind.value, ok=verdict.ok
+                )
                 if verdict.ok:
                     break
                 lessons.append(
@@ -70,8 +68,7 @@ class AgentLoop:
                 if not repair_specs:
                     break
                 plan = self.planner.build(task, repair_specs)
-                self.telemetry.emit("repair_plan", round=round_no,
-                                    steps=len(plan.steps))
+                self.telemetry.emit("repair_plan", round=round_no, steps=len(plan.steps))
         finally:
             executor.cleanup(task.repo_root)
 
@@ -98,7 +95,7 @@ class AgentLoop:
             "router_stats": self.router.stats(),
             "telemetry": self.telemetry.summary(),
         }
-        self.telemetry.emit("run_complete", **{
-            k: v for k, v in report.items() if k != "router_stats"
-        })
+        self.telemetry.emit(
+            "run_complete", **{k: v for k, v in report.items() if k != "router_stats"}
+        )
         return report

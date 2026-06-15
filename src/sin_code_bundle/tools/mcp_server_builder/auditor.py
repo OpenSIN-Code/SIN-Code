@@ -76,16 +76,12 @@ class Auditor:
                     check=False,
                 )
                 if install.returncode != 0:
-                    return self._degraded_report(
-                        name, install.stderr or "install failed"
-                    )
+                    return self._degraded_report(name, install.stderr or "install failed")
             except (FileNotFoundError, OSError) as exc:
                 return self._degraded_report(name, f"pip not available: {exc}")
 
         if shutil.which("sin") is None:
-            return self._degraded_report(
-                name, "sin CLI not available and auto-install failed"
-            )
+            return self._degraded_report(name, "sin CLI not available and auto-install failed")
 
         proc = subprocess.run(
             [

@@ -134,7 +134,10 @@ def slash_unregister(name: str) -> str:
     registry = dispatcher._registry
     removed = registry.unregister(name)
     return json.dumps(
-        {"success": removed, "message": f"Command /{name} removed" if removed else f"Command /{name} not found"},
+        {
+            "success": removed,
+            "message": f"Command /{name} removed" if removed else f"Command /{name} not found",
+        },
         indent=2,
     )
 

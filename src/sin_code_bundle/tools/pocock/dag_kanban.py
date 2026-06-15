@@ -22,6 +22,7 @@ from typing import Optional
 @dataclass
 class TaskNode:
     """A single task in the DAG."""
+
     id: str
     label: str
     description: str
@@ -75,15 +76,13 @@ class DAGKanban:
         if not matches:
             # Look for any list items under "Technische Spezifikation" or "Architekturschnitte"
             section_match = re.search(
-                r"##\s*Technische Spezifikation.*?(?=##|$)",
-                content,
-                re.DOTALL | re.IGNORECASE
+                r"##\s*Technische Spezifikation.*?(?=##|$)", content, re.DOTALL | re.IGNORECASE
             )
             if section_match:
                 section_content = section_match.group(0)
                 matches = re.findall(r"- \[\s*\]\s*(.+)", section_content)
                 if matches:
-                    matches = [(f"Task {i+1}", m) for i, m in enumerate(matches)]
+                    matches = [(f"Task {i + 1}", m) for i, m in enumerate(matches)]
 
         if not matches:
             print(f"⚠️  Keine verwertbaren Arbeitsschritte in {self.prd_path} gefunden.")
@@ -92,10 +91,7 @@ class DAGKanban:
         for idx, (task_label, desc) in enumerate(matches):
             task_id = task_label.strip().lower().replace(" ", "_")
             self.tasks[task_id] = TaskNode(
-                id=task_id,
-                label=task_label.strip(),
-                description=desc.strip(),
-                dependencies=[]
+                id=task_id, label=task_label.strip(), description=desc.strip(), dependencies=[]
             )
 
         # Build automatic sequential dependencies: Slice N depends on Slice N-1
@@ -163,7 +159,8 @@ class DAGKanban:
         while len(sum(groups, [])) < len(self.tasks):
             # Find all tasks with in-degree 0
             current_group = [
-                t_id for t_id in self.tasks
+                t_id
+                for t_id in self.tasks
                 if in_degree_copy[t_id] == 0 and t_id not in sum(groups, [])
             ]
             if not current_group:
@@ -240,11 +237,19 @@ class DAGKanban:
 
     def to_json(self) -> str:
         """Export DAG to JSON."""
-        return json.dumps({
-            "tasks": {t_id: asdict(t) for t_id, t in self.tasks.items()},
-            "execution_order": self.get_execution_order() if self.tasks else [],
-            "parallel_groups": [[t_id for t_id in group] for group in self.get_parallel_groups()] if self.tasks else [],
-        }, indent=2, ensure_ascii=False)
+        return json.dumps(
+            {
+                "tasks": {t_id: asdict(t) for t_id, t in self.tasks.items()},
+                "execution_order": self.get_execution_order() if self.tasks else [],
+                "parallel_groups": [
+                    [t_id for t_id in group] for group in self.get_parallel_groups()
+                ]
+                if self.tasks
+                else [],
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
 
     def export_docker_compose(self, output_path: str = "docker-compose.dag.yml") -> str:
         """Generate Docker Compose file for parallel execution.
@@ -270,8 +275,11 @@ class DAGKanban:
                 ],
                 "depends_on": {
                     self.tasks[dep].container: {"condition": "service_completed_successfully"}
-                    for dep in task.dependencies if dep in self.tasks
-                } if task.dependencies else {},
+                    for dep in task.dependencies
+                    if dep in self.tasks
+                }
+                if task.dependencies
+                else {},
             }
 
         compose = {
@@ -281,13 +289,16 @@ class DAGKanban:
 
         with open(output_path, "w", encoding="utf-8") as f:
             import yaml
+
             yaml.dump(compose, f, default_flow_style=False, sort_keys=False)
 
         print(f"🐳 Docker Compose generiert: {output_path}")
         return output_path
 
 
-def run_dag_kanban(prd_path: str = "PRD.md", output_json: bool = False, export_docker: bool = False) -> list[str]:
+def run_dag_kanban(
+    prd_path: str = "PRD.md", output_json: bool = False, export_docker: bool = False
+) -> list[str]:
     """Convenience function to run DAG Kanban.
 
     Args:
@@ -322,7 +333,7 @@ Examples:
   %(prog)s --json                    # Output JSON
   %(prog)s --docker                  # Export docker-compose.dag.yml
   %(prog)s --prd PRD.md --json --docker
-        """
+        """,
     )
     parser.add_argument("--prd", default="PRD.md", help="Pfad zur PRD.md")
     parser.add_argument("--json", action="store_true", help="JSON-Output")

@@ -19,8 +19,10 @@ from .worktree import Worktree
 Gate = Callable[[Task, Worktree], tuple[bool, str]]
 
 _FORBIDDEN_DIFF = [
-    (re.compile(r"(?i)^\+.*\b(api[_-]?key|secret|password)\s*=\s*['\"][^'\"]{8,}"),
-     "hardcoded secret introduced"),
+    (
+        re.compile(r"(?i)^\+.*\b(api[_-]?key|secret|password)\s*=\s*['\"][^'\"]{8,}"),
+        "hardcoded secret introduced",
+    ),
     (re.compile(r"^\+.*\beval\s*\("), "eval() introduced"),
     (re.compile(r"^\+.*\bexec\s*\("), "exec() introduced"),
 ]
@@ -41,8 +43,7 @@ def gate_diff(task: Task, wt: Worktree) -> tuple[bool, str]:
 
 def _run(cmd: list[str], cwd: str, timeout: int = 300) -> tuple[int, str]:
     try:
-        p = subprocess.run(
-            cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+        p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
         return p.returncode, (p.stdout + p.stderr)[-5000:]
     except subprocess.TimeoutExpired:
         return -1, "timeout"
@@ -119,6 +120,5 @@ def verify(task: Task, wt: Worktree) -> Verdict:
         results[name] = {"ok": ok, "detail": detail}
         all_ok = all_ok and ok
     failed = [n for n, r in results.items() if not r["ok"]]
-    summary = ("all gates passed" if all_ok
-               else f"failed gates: {', '.join(failed)}")
+    summary = "all gates passed" if all_ok else f"failed gates: {', '.join(failed)}"
     return Verdict(passed=all_ok, gates=results, summary=summary)

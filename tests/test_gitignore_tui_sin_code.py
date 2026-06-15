@@ -11,6 +11,7 @@ Asserts that:
 Run with:  pytest tests/test_gitignore_tui_sin_code.py -q
 Exit code: 0 on pass, 1 on any failure.
 """
+
 from __future__ import annotations
 
 import re
@@ -33,7 +34,10 @@ def _git(*args: str) -> str:
     """Run a git command in the repo root, return stdout (stripped)."""
     out = subprocess.run(
         ["git", "-C", str(REPO_ROOT), *args],
-        capture_output=True, text=True, check=False, timeout=10,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
     )
     return out.stdout.strip()
 
@@ -43,18 +47,17 @@ def test_tui_sin_code_rule_present() -> None:
     text = GITIGNORE.read_text(encoding="utf-8")
     pattern = rf"^\s*{re.escape(TUI_SIN_CODE.rstrip('/'))}/?\s*(?:#.*)?$"
     matches = [ln for ln in text.splitlines() if re.match(pattern, ln)]
-    assert matches, (
-        f"Expected a .gitignore rule for `{TUI_SIN_CODE}`, "
-        f"found none. See issue #61."
-    )
+    assert matches, f"Expected a .gitignore rule for `{TUI_SIN_CODE}`, found none. See issue #61."
 
 
 def test_tui_sin_code_is_ignored() -> None:
     """AC-2: `git check-ignore` must return exit 0 for the runtime dir."""
     rc = subprocess.run(
-        ["git", "-C", str(REPO_ROOT), "check-ignore",
-         f"{TUI_SIN_CODE.rstrip('/')}/lessons.db"],
-        capture_output=True, text=True, check=False, timeout=10,
+        ["git", "-C", str(REPO_ROOT), "check-ignore", f"{TUI_SIN_CODE.rstrip('/')}/lessons.db"],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=10,
     )
     assert rc.returncode == 0, (
         f"`git check-ignore` did not ignore the TUI runtime DB. "
@@ -85,11 +88,8 @@ def test_internal_sin_code_rule_still_present() -> None:
 def test_gitignore_companion_doc_exists() -> None:
     """AC-9: CoDocs companion must exist (and .gitignore must reference it)."""
     companion = REPO_ROOT / ".gitignore.doc.md"
-    assert companion.exists(), (
-        f"Missing CoDocs companion: {companion}. See AGENTS.md §3."
-    )
+    assert companion.exists(), f"Missing CoDocs companion: {companion}. See AGENTS.md §3."
     first_line = GITIGNORE.read_text(encoding="utf-8").splitlines()[0]
     assert "Docs:" in first_line and ".gitignore.doc.md" in first_line, (
-        f"`.gitignore` first line must be `# Docs: .gitignore.doc.md`, "
-        f"got: {first_line!r}"
+        f"`.gitignore` first line must be `# Docs: .gitignore.doc.md`, got: {first_line!r}"
     )

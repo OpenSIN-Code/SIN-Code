@@ -19,8 +19,13 @@ from sin_delegate.ledger import Ledger
 from sin_delegate.models import Budget, Plan, Task, TaskOutcome, TaskState
 from sin_delegate.scheduler import Scheduler, critical_path_priority
 
-TERMINAL = {TaskState.DONE, TaskState.FAILED, TaskState.SKIPPED,
-            TaskState.CANCELLED, TaskState.ESCALATED}
+TERMINAL = {
+    TaskState.DONE,
+    TaskState.FAILED,
+    TaskState.SKIPPED,
+    TaskState.CANCELLED,
+    TaskState.ESCALATED,
+}
 
 
 def random_dag(rng: random.Random, n_tasks: int) -> Plan:
@@ -31,10 +36,15 @@ def random_dag(rng: random.Random, n_tasks: int) -> Plan:
         possible = ids[:j]
         k = rng.randint(0, min(3, len(possible)))
         deps = tuple(rng.sample(possible, k)) if k else ()
-        tasks.append(Task(
-            title=f"task {j}", instructions=f"do {j}", id=ids[j],
-            deps=deps, budget=Budget(max_seconds=5, max_retries=0,
-                                     backoff_base=1.0)))
+        tasks.append(
+            Task(
+                title=f"task {j}",
+                instructions=f"do {j}",
+                id=ids[j],
+                deps=deps,
+                budget=Budget(max_seconds=5, max_retries=0, backoff_base=1.0),
+            )
+        )
     return Plan(goal="property test", tasks=tuple(tasks), repo=".")
 
 
@@ -58,13 +68,11 @@ class Probe:
         failed = self.rng.random() < self.fail_rate
         self._terminal.add(task.id)
         if failed:
-            return TaskOutcome(task.id, TaskState.FAILED,
-                               error="random failure")
+            return TaskOutcome(task.id, TaskState.FAILED, error="random failure")
         return TaskOutcome(task.id, TaskState.DONE)
 
 
-def _run(plan: Plan, ledger: Ledger, probe: Probe,
-         max_parallel: int = 4) -> dict:
+def _run(plan: Plan, ledger: Ledger, probe: Probe, max_parallel: int = 4) -> dict:
     sched = Scheduler(plan, ledger, probe, max_parallel=max_parallel)
     return asyncio.run(sched.run())
 
@@ -81,8 +89,7 @@ def test_property_dependency_order_and_completeness(tmp_path):
         deps_of = {t.id: set(t.deps) for t in plan.tasks}
         for tid, terminal_at_start in probe.started_after.items():
             missing = deps_of[tid] - terminal_at_start
-            assert not missing, (
-                f"seed={seed}: {tid} started before deps {missing}")
+            assert not missing, f"seed={seed}: {tid} started before deps {missing}"
 
 
 def test_property_failure_propagation(tmp_path):
@@ -91,14 +98,15 @@ def test_property_failure_propagation(tmp_path):
         plan = random_dag(rng, rng.randint(4, 12))
         probe = Probe(rng, fail_rate=0.4)
         outcomes = _run(plan, Ledger(tmp_path / f"l{seed}.db"), probe)
-        bad = {tid for tid, o in outcomes.items()
-               if o.state in (TaskState.FAILED, TaskState.SKIPPED,
-                              TaskState.CANCELLED)}
+        bad = {
+            tid
+            for tid, o in outcomes.items()
+            if o.state in (TaskState.FAILED, TaskState.SKIPPED, TaskState.CANCELLED)
+        }
         deps_of = {t.id: set(t.deps) for t in plan.tasks}
         for tid, o in outcomes.items():
             if deps_of[tid] & bad:
-                assert o.state != TaskState.DONE, (
-                    f"seed={seed}: {tid} DONE despite failed upstream")
+                assert o.state != TaskState.DONE, f"seed={seed}: {tid} DONE despite failed upstream"
 
 
 def test_property_parallelism_bound(tmp_path):
@@ -107,10 +115,8 @@ def test_property_parallelism_bound(tmp_path):
         plan = random_dag(rng, 12)
         limit = rng.randint(1, 4)
         probe = Probe(rng)
-        _run(plan, Ledger(tmp_path / f"l{seed}.db"), probe,
-             max_parallel=limit)
-        assert probe.max_concurrent <= limit, (
-            f"seed={seed}: {probe.max_concurrent} > limit {limit}")
+        _run(plan, Ledger(tmp_path / f"l{seed}.db"), probe, max_parallel=limit)
+        assert probe.max_concurrent <= limit, f"seed={seed}: {probe.max_concurrent} > limit {limit}"
 
 
 def test_property_resume_idempotence(tmp_path):
@@ -124,8 +130,7 @@ def test_property_resume_idempotence(tmp_path):
         assert all(o.state == TaskState.DONE for o in out1.values())
         probe2 = Probe(random.Random(seed + 1))
         out2 = _run(plan, ledger, probe2)
-        assert probe2.executed == [], (
-            f"seed={seed}: resume re-executed {probe2.executed}")
+        assert probe2.executed == [], f"seed={seed}: resume re-executed {probe2.executed}"
         assert all(o.state == TaskState.DONE for o in out2.values())
 
 
@@ -142,8 +147,7 @@ def test_property_partial_resume_runs_only_unfinished(tmp_path):
                 ledger.emit(plan.id, t.id, "state:done")
         probe = Probe(random.Random(seed), fail_rate=0.0)
         out = _run(plan, ledger, probe)
-        assert set(probe.executed) == {t.id for t in plan.tasks} - done, (
-            f"seed={seed}")
+        assert set(probe.executed) == {t.id for t in plan.tasks} - done, f"seed={seed}"
         assert all(o.state == TaskState.DONE for o in out.values())
 
 
@@ -155,5 +159,5 @@ def test_property_critical_path_dominates_children(tmp_path):
         for t in plan.tasks:
             for d in t.deps:
                 assert prio[d] > prio[t.id], (
-                    f"seed={seed}: prio({d})={prio[d]} <= "
-                    f"prio({t.id})={prio[t.id]}")
+                    f"seed={seed}: prio({d})={prio[d]} <= prio({t.id})={prio[t.id]}"
+                )

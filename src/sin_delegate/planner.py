@@ -23,9 +23,17 @@ from .planfile import plan_from_dict
 from .runner import runner_for
 
 _LANG_BY_EXT = {
-    ".py": "python", ".ts": "typescript", ".tsx": "typescript",
-    ".js": "javascript", ".go": "go", ".rs": "rust", ".java": "java",
-    ".rb": "ruby", ".php": "php", ".cs": "csharp", ".vue": "vue",
+    ".py": "python",
+    ".ts": "typescript",
+    ".tsx": "typescript",
+    ".js": "javascript",
+    ".go": "go",
+    ".rs": "rust",
+    ".java": "java",
+    ".rb": "ruby",
+    ".php": "php",
+    ".cs": "csharp",
+    ".vue": "vue",
 }
 
 _MARKERS = {
@@ -45,13 +53,18 @@ def recon(repo: str | Path, max_files: int = 400) -> dict:
     """Deterministic repo facts. No LLM, no guessing."""
     root = Path(repo).resolve()
     if not root.exists():
-        return {"languages": {}, "markers": [], "has_tests": False,
-                "top_dirs": [], "file_sample": []}
+        return {
+            "languages": {},
+            "markers": [],
+            "has_tests": False,
+            "top_dirs": [],
+            "file_sample": [],
+        }
     try:
         out = subprocess_run_git_ls_files(root)
     except Exception:
         out = ""
-    files = [line for line in out.splitlines() if line][:max_files * 4]
+    files = [line for line in out.splitlines() if line][: max_files * 4]
     if not files:
         for p in root.rglob("*"):
             if p.is_file():
@@ -63,15 +76,11 @@ def recon(repo: str | Path, max_files: int = 400) -> dict:
                 if len(files) >= max_files * 4:
                     break
 
-    langs = Counter(
-        _LANG_BY_EXT[Path(f).suffix] for f in files
-        if Path(f).suffix in _LANG_BY_EXT
-    )
-    markers = [desc for marker, desc in _MARKERS.items()
-               if (root / marker).exists()]
+    langs = Counter(_LANG_BY_EXT[Path(f).suffix] for f in files if Path(f).suffix in _LANG_BY_EXT)
+    markers = [desc for marker, desc in _MARKERS.items() if (root / marker).exists()]
     has_tests = any(
-        re.search(r"(^|/)(tests?|__tests__|spec)/", f) or
-        re.search(r"(test_.*\.py|.*\.test\.[jt]sx?)$", f)
+        re.search(r"(^|/)(tests?|__tests__|spec)/", f)
+        or re.search(r"(test_.*\.py|.*\.test\.[jt]sx?)$", f)
         for f in files
     )
     try:
@@ -90,9 +99,12 @@ def recon(repo: str | Path, max_files: int = 400) -> dict:
 
 def subprocess_run_git_ls_files(root: Path) -> str:
     import subprocess
+
     return subprocess.run(
         ["git", "-C", str(root), "ls-files"],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True,
+        text=True,
+        timeout=30,
     ).stdout
 
 
@@ -167,7 +179,7 @@ def _extract_json(text: str) -> dict:
         elif ch == "}":
             depth -= 1
             if depth == 0:
-                return json.loads(text[start:i + 1])
+                return json.loads(text[start:i + 1])  # fmt: skip
     raise ValueError("unbalanced JSON in planner output")
 
 
@@ -175,51 +187,59 @@ class Planner:
     def __init__(self, backend: str = "opencode", model: str = "") -> None:
         self.spec = AgentSpec(backend=backend, model=model)
 
-    async def plan(self, goal: str, repo: str = ".",
-                   critique: bool = True) -> Plan:
+    async def plan(self, goal: str, repo: str = ".", critique: bool = True) -> Plan:
         if self.spec.backend == "echo" or self.spec.model == "_stub_":
             # Deterministic path for tests: synthesize a minimal plan
-            t = Task(title="stub", instructions=goal,
-                     agent=AgentSpec(backend="echo", model="")).finalize()
+            t = Task(
+                title="stub", instructions=goal, agent=AgentSpec(backend="echo", model="")
+            ).finalize()
             return plan_from_dict(
-                {"goal": goal, "tasks": [
-                    {"key": t.id, "title": t.title,
-                     "instructions": t.instructions}]},
-                repo=repo)
+                {
+                    "goal": goal,
+                    "tasks": [{"key": t.id, "title": t.title, "instructions": t.instructions}],
+                },
+                repo=repo,
+            )
 
         facts = recon(repo)
         pitfalls = memory.recall_pitfalls(goal)
-        prompt = "\n\n".join(filter(None, [
-            f"Ziel: {goal}",
-            "Repo-Fakten (deterministisch ermittelt, NICHT anzweifeln):\n"
-            + json.dumps({k: v for k, v in facts.items()
-                          if k != "file_sample"}, indent=2),
-            "Relevante Dateien (Auszug):\n"
-            + "\n".join(facts["file_sample"][:120]),
-            ("Bekannte Pitfalls aus früheren Runs:\n- "
-             + "\n- ".join(pitfalls)) if pitfalls else "",
-            _DRAFT_PROMPT,
-        ]))
+        prompt = "\n\n".join(
+            filter(
+                None,
+                [
+                    f"Ziel: {goal}",
+                    "Repo-Fakten (deterministisch ermittelt, NICHT anzweifeln):\n"
+                    + json.dumps({k: v for k, v in facts.items() if k != "file_sample"}, indent=2),
+                    "Relevante Dateien (Auszug):\n" + "\n".join(facts["file_sample"][:120]),
+                    ("Bekannte Pitfalls aus früheren Runs:\n- " + "\n- ".join(pitfalls))
+                    if pitfalls
+                    else "",
+                    _DRAFT_PROMPT,
+                ],
+            )
+        )
 
         try:
             draft = await self._ask(prompt, repo)
         except Exception:
             # Backend unavailable — return a minimal valid plan
-            t = Task(title="fallback", instructions=goal,
-                     agent=self.spec).finalize()
+            t = Task(title="fallback", instructions=goal, agent=self.spec).finalize()
             return plan_from_dict(
-                {"goal": goal, "tasks": [
-                    {"key": t.id, "title": t.title,
-                     "instructions": t.instructions}]},
-                repo=repo)
+                {
+                    "goal": goal,
+                    "tasks": [{"key": t.id, "title": t.title, "instructions": t.instructions}],
+                },
+                repo=repo,
+            )
 
         if critique and isinstance(draft, dict) and "tasks" in draft:
             try:
                 revised = await self._ask(
                     _CRITIQUE_PROMPT.format(
-                        goal=goal,
-                        plan=json.dumps(draft, indent=2, ensure_ascii=False)),
-                    repo)
+                        goal=goal, plan=json.dumps(draft, indent=2, ensure_ascii=False)
+                    ),
+                    repo,
+                )
                 if isinstance(revised, dict) and revised.get("tasks"):
                     draft = revised
             except Exception:
@@ -228,25 +248,26 @@ class Planner:
         try:
             return plan_from_dict(draft, repo=repo)
         except Exception:
-            t = Task(title="fallback", instructions=goal,
-                     agent=self.spec).finalize()
+            t = Task(title="fallback", instructions=goal, agent=self.spec).finalize()
             return plan_from_dict(
-                {"goal": goal, "tasks": [
-                    {"key": t.id, "title": t.title,
-                     "instructions": t.instructions}]},
-                repo=repo)
+                {
+                    "goal": goal,
+                    "tasks": [{"key": t.id, "title": t.title, "instructions": t.instructions}],
+                },
+                repo=repo,
+            )
 
     async def _ask(self, prompt: str, repo: str) -> dict:
-        task = Task(title="plan", instructions=prompt,
-                    agent=self.spec).finalize()
+        task = Task(title="plan", instructions=prompt, agent=self.spec).finalize()
         res = await runner_for(self.spec).run(task, cwd=repo, timeout=300)
         if not res.ok:
-            raise RuntimeError(
-                f"planner backend failed: {res.output[-500:]}")
+            raise RuntimeError(f"planner backend failed: {res.output[-500:]}")
         return _extract_json(res.output)
 
 
-def plan_sync(goal: str, repo: str = ".", backend: str = "opencode",
-              model: str = "", critique: bool = True) -> Plan:
+def plan_sync(
+    goal: str, repo: str = ".", backend: str = "opencode", model: str = "", critique: bool = True
+) -> Plan:
     import asyncio
+
     return asyncio.run(Planner(backend, model).plan(goal, repo, critique))

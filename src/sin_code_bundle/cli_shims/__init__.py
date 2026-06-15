@@ -15,4 +15,5 @@ Exposed as console scripts (see pyproject.toml [project.scripts]):
     sin-bash    → cli.sin_bash:main
     sin-search  → cli.sin_search:main
 """
+
 from __future__ import annotations

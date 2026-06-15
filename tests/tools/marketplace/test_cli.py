@@ -37,12 +37,16 @@ class TestCliSearch:
 
             # Patch the catalog path
             import sin_code_bundle.tools.marketplace.legacy_cli
+
             old_cache = sin_code_bundle.tools.marketplace.legacy_cli._get_catalog
+
             def _patched():
                 from sin_code_bundle.tools.marketplace.catalog import Catalog
+
                 c = Catalog()
                 c.load_file(cache)
                 return c
+
             sin_code_bundle.tools.marketplace.legacy_cli._get_catalog = _patched
 
             result = runner.invoke(app, ["search", "test"])
@@ -65,6 +69,7 @@ class TestCliList:
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "test.db"
             import sin_code_bundle.tools.marketplace.registry
+
             old_default = sin_code_bundle.tools.marketplace.registry.DEFAULT_DB_PATH
             sin_code_bundle.tools.marketplace.registry.DEFAULT_DB_PATH = db_path
             result = runner.invoke(app, ["list"])
@@ -89,14 +94,19 @@ class TestCliRemove:
 class TestCliUpdate:
     def test_update_all(self) -> None:
         import sin_code_bundle.tools.marketplace.updater
+
         old_updater = sin_code_bundle.tools.marketplace.legacy_cli.Updater
+
         class MockUpdater:
             def __init__(self, *a, **kw):
                 pass
+
             def update_all(self):
                 return [{"slug": "test-skill", "success": True, "behind": False, "message": "ok"}]
+
             def update(self, name):
                 return {"name": name, "status": "up-to-date"}
+
         sin_code_bundle.tools.marketplace.legacy_cli.Updater = MockUpdater
         try:
             result = runner.invoke(app, ["update"])
@@ -106,14 +116,19 @@ class TestCliUpdate:
 
     def test_update_specific(self) -> None:
         import sin_code_bundle.tools.marketplace.updater
+
         old_updater = sin_code_bundle.tools.marketplace.legacy_cli.Updater
+
         class MockUpdater:
             def __init__(self, *a, **kw):
                 pass
+
             def update_all(self):
                 return [{"name": "test-skill", "status": "up-to-date"}]
+
             def update(self, name):
                 return {"name": name, "status": "up-to-date"}
+
         sin_code_bundle.tools.marketplace.legacy_cli.Updater = MockUpdater
         try:
             result = runner.invoke(app, ["update", "test-skill"])
@@ -148,12 +163,16 @@ class TestCliInfo:
                 json.dump([{"slug": "other", "name": "Other", "description": "desc"}], fh)
 
             import sin_code_bundle.tools.marketplace.legacy_cli
+
             old_cache = sin_code_bundle.tools.marketplace.legacy_cli._get_catalog
+
             def _patched():
                 from sin_code_bundle.tools.marketplace.catalog import Catalog
+
                 c = Catalog()
                 c.load_file(cache)
                 return c
+
             sin_code_bundle.tools.marketplace.legacy_cli._get_catalog = _patched
 
             result = runner.invoke(app, ["info", "test-skill"])

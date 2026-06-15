@@ -13,8 +13,9 @@ from httpx import Response
 
 from sin_code_bundle.tools.marketplace.catalog import Catalog, CatalogError
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
+
 @pytest.fixture
 def sample_catalog() -> list[dict]:
     return [

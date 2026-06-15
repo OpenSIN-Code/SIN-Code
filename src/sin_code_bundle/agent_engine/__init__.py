@@ -23,10 +23,10 @@ from .delegate import (
 from .distiller import (
     KnowledgeDistiller,
     StandingRule,
-    _heuristic_rule,
+    _heuristic_rule,  # noqa: F401
 )
 from .distiller import (
-    _signature as _rule_signature,
+    _signature as _rule_signature,  # noqa: F401
 )
 from .executor import Executor
 from .loop import AgentLoop
@@ -75,8 +75,6 @@ __all__ = [
     "DelegationSupervisor",
     "make_delegate_tool",
     "validate_result",
-    "_heuristic_rule",
-    "_rule_signature",
 ]
 
 __version__ = "1.0.0"

@@ -89,9 +89,7 @@ class CommandExecutor:
         else:
             raise RuntimeError(f"Unknown action type: {command.action_type}")
 
-    def _run_shell(
-        self, target: str, args: list[str], flags: dict[str, Any]
-    ) -> str:
+    def _run_shell(self, target: str, args: list[str], flags: dict[str, Any]) -> str:
         """Run a shell command.
 
         Args:
@@ -126,9 +124,7 @@ class CommandExecutor:
         except subprocess.TimeoutExpired:
             raise RuntimeError(f"Command timed out after {self._timeout}s")
 
-    def _run_sin(
-        self, target: str, args: list[str], flags: dict[str, Any]
-    ) -> str:
+    def _run_sin(self, target: str, args: list[str], flags: dict[str, Any]) -> str:
         """Run a sin-* tool command.
 
         Args:
@@ -143,9 +139,7 @@ class CommandExecutor:
         # For now, we simulate the invocation
         return f"[sin] {target} {' '.join(args)} flags={flags}\n"
 
-    def _run_python(
-        self, target: str, args: list[str], flags: dict[str, Any]
-    ) -> str:
+    def _run_python(self, target: str, args: list[str], flags: dict[str, Any]) -> str:
         """Run a Python function.
 
         Args:

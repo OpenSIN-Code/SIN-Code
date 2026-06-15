@@ -12,8 +12,7 @@ from .ledger import Ledger
 from .models import Plan, Task
 from .worktree import GitError, Worktree, _git
 
-_CONTRACT_RE = re.compile(
-    r"<sin-contract>\s*(\{.*?\})\s*</sin-contract>", re.DOTALL)
+_CONTRACT_RE = re.compile(r"<sin-contract>\s*(\{.*?\})\s*</sin-contract>", re.DOTALL)
 
 CONTRACT_INSTRUCTIONS = """\
 Wenn dieser Task Schnittstellen definiert, die andere Repos brauchen
@@ -55,11 +54,12 @@ class ContractStore:
         contracts = self.collect(dep_ids)
         if not contracts:
             return ""
-        parts = ["Verträge (Contracts) deiner Upstream-Tasks — das sind "
-                 "implementierte FAKTEN, halte dich exakt daran:"]
+        parts = [
+            "Verträge (Contracts) deiner Upstream-Tasks — das sind "
+            "implementierte FAKTEN, halte dich exakt daran:"
+        ]
         for tid, c in contracts.items():
-            parts.append(f"## {titles.get(tid, tid)}\n"
-                         + json.dumps(c, indent=2))
+            parts.append(f"## {titles.get(tid, tid)}\n" + json.dumps(c, indent=2))
         return "\n\n".join(parts)
 
 
@@ -85,21 +85,21 @@ class MultiRepoPlan:
         self.plan.validate()
         for tid, rname in self.task_repo.items():
             if rname not in self.repos:
-                raise ValueError(
-                    f"task {tid} references unknown repo {rname!r}")
+                raise ValueError(f"task {tid} references unknown repo {rname!r}")
         for repo in self.repos.values():
             if not (Path(repo.path) / ".git").exists():
-                raise GitError(
-                    f"{repo.path} is not a git repository")
+                raise GitError(f"{repo.path} is not a git repository")
 
 
 def multirepo_plan_from_dict(data: dict) -> MultiRepoPlan:
     """Plan format: {goal, repos: {name: {path, base_branch?}},
     tasks: [{key, repo, title, instructions, deps?, ...}]}"""
     repos = {
-        name: RepoRef(name=name,
-                      path=str(Path(cfg["path"]).resolve()),
-                      base_branch=cfg.get("base_branch", "main"))
+        name: RepoRef(
+            name=name,
+            path=str(Path(cfg["path"]).resolve()),
+            base_branch=cfg.get("base_branch", "main"),
+        )
         for name, cfg in data["repos"].items()
     }
     if not repos:
@@ -110,6 +110,7 @@ def multirepo_plan_from_dict(data: dict) -> MultiRepoPlan:
     # two-pass finalize() includes deps in the hash, so pre-resolved ids
     # from a separate pass wouldn't match the final hash).
     from .planfile import _task_from as _build_task
+
     title_to_id: dict = {}
     tasks: list = []
     key_repo: dict = {}
@@ -122,19 +123,19 @@ def multirepo_plan_from_dict(data: dict) -> MultiRepoPlan:
         key = rt.get("key") or rt["title"]
         rname = rt.get("repo", default_repo)
         if rname not in repos:
-            raise ValueError(
-                f"task {key!r}: unknown repo {rname!r}")
-        dep_ids = tuple(title_to_id.get(d, d)
-                        for d in rt.get("deps", []))
+            raise ValueError(f"task {key!r}: unknown repo {rname!r}")
+        dep_ids = tuple(title_to_id.get(d, d) for d in rt.get("deps", []))
         task = _build_task(rt, deps=dep_ids).finalize()
         # Pin the pre-resolved id (deps don't change the content-hash
         # for these tasks, since title+instructions+backend are the
         # primary input and deps are resolved after finalization).
         if task.id != title_to_id[key]:
             task = Task(
-                **{**{f: getattr(task, f)
-                       for f in task.__dataclass_fields__},
-                   "id": title_to_id[key]})
+                **{
+                    **{f: getattr(task, f) for f in task.__dataclass_fields__},
+                    "id": title_to_id[key],
+                }
+            )
         tasks.append(task)
         key_repo[task.id] = rname
 
@@ -145,8 +146,7 @@ def multirepo_plan_from_dict(data: dict) -> MultiRepoPlan:
         base_branch="main",
     )
     plan.validate()
-    mrp = MultiRepoPlan(goal=data["goal"], repos=repos, plan=plan,
-                        task_repo=key_repo)
+    mrp = MultiRepoPlan(goal=data["goal"], repos=repos, plan=plan, task_repo=key_repo)
     mrp.validate()
     return mrp
 
@@ -176,47 +176,55 @@ class TwoPhaseMerger:
 
     def stage(self, unit: MergeUnit) -> None:
         self.units.append(unit)
-        self.ledger.emit(self.plan_id, unit.task_id, "merge:staged",
-                         {"repo": unit.repo_name,
-                          "branch": unit.worktree.branch})
+        self.ledger.emit(
+            self.plan_id,
+            unit.task_id,
+            "merge:staged",
+            {"repo": unit.repo_name, "branch": unit.worktree.branch},
+        )
 
     def commit(self, order: list) -> None:
         rank = {tid: i for i, tid in enumerate(order)}
-        units = sorted(self.units,
-                       key=lambda u: rank.get(u.task_id, 1 << 30))
+        units = sorted(self.units, key=lambda u: rank.get(u.task_id, 1 << 30))
 
         snapshots: dict = {}
         for name, ref in self.repos.items():
             tag = f"sin-global-snap/{self.plan_id}"
             _git(ref.path, "tag", "-f", tag, ref.base_branch)
             snapshots[name] = tag
-        self.ledger.emit(self.plan_id, "*", "merge:phase2_begin",
-                         {"units": len(units),
-                          "snapshots": list(snapshots)})
+        self.ledger.emit(
+            self.plan_id,
+            "*",
+            "merge:phase2_begin",
+            {"units": len(units), "snapshots": list(snapshots)},
+        )
 
         merged: list = []
         try:
             for unit in units:
                 unit.worktree.merge_back()
                 merged.append(unit)
-                self.ledger.emit(self.plan_id, unit.task_id, "merged",
-                                 {"repo": unit.repo_name, "phase": 2})
+                self.ledger.emit(
+                    self.plan_id, unit.task_id, "merged", {"repo": unit.repo_name, "phase": 2}
+                )
         except GitError as e:
             rolled: set = set()
             for unit in merged:
                 ref = self.repos[unit.repo_name]
                 if unit.repo_name not in rolled:
-                    _git(ref.path, "reset", "--hard",
-                         snapshots[unit.repo_name], check=False)
+                    _git(ref.path, "reset", "--hard", snapshots[unit.repo_name], check=False)
                     rolled.add(unit.repo_name)
             self.ledger.emit(
-                self.plan_id, "*", "merge:phase2_rollback",
-                {"failed_unit": (units[len(merged)].task_id
-                                 if len(merged) < len(units) else "?"),
-                 "rolled_back_repos": sorted(rolled),
-                 "error": str(e)})
-            raise GitError(
-                f"two-phase commit aborted, all repos restored: {e}"
-            ) from e
-        self.ledger.emit(self.plan_id, "*", "merge:phase2_done",
-                         {"merged": len(merged)})
+                self.plan_id,
+                "*",
+                "merge:phase2_rollback",
+                {
+                    "failed_unit": (
+                        units[len(merged)].task_id if len(merged) < len(units) else "?"
+                    ),
+                    "rolled_back_repos": sorted(rolled),
+                    "error": str(e),
+                },
+            )
+            raise GitError(f"two-phase commit aborted, all repos restored: {e}") from e
+        self.ledger.emit(self.plan_id, "*", "merge:phase2_done", {"merged": len(merged)})
