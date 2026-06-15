@@ -27,6 +27,14 @@ jobs:
         run: go build ./cmd/sin-code
       - name: Vet
         run: go vet ./cmd/sin-code/... ./cmd/sin-code/internal/...
+      - name: Setup Python for skill validation
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate bundled skills
+        run: |
+          pip install pyyaml
+          python3 scripts/validate_skill.py --all-bundled --strict
       - name: Test
         run: go test ./cmd/sin-code/ ./cmd/sin-code/internal/ -count=1 -v 2>&1 | tail -50
       - name: Test LSP live (build tag, opt-in)

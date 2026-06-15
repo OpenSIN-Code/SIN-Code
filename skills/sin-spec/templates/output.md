@@ -1,0 +1,36 @@
+# Template: Output Format
+
+Docs: ../SKILL.md
+
+## Spec Document
+
+```markdown
+# Spec: {feature}
+
+## Goals
+- ...
+
+## Non-Goals
+- ...
+
+## User-Facing Behavior
+- Input: ...
+- Output: ...
+- Example: ...
+
+## Internal Design
+- Components: ...
+- Data: ...
+- Interfaces: ...
+
+## Error & Edge Cases
+- ...
+
+## Acceptance Criteria
+- [ ] ...
+- [ ] ...
+
+## Trade-offs
+- Alternative A: ... (rejected because ...)
+- Alternative B: ... (chosen because ...)
+```

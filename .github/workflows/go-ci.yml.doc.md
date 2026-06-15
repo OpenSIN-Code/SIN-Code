@@ -4,7 +4,7 @@ Go CI for the `sin-code` binary.
 
 ## What this workflow does
 
-- **go test**: Checks out the repo, sets up Go 1.25.11, installs `gopls`, builds `cmd/sin-code`, runs `go vet`, and runs the Go test suite. It also runs an opt-in LSP live test.
+- **go test**: Checks out the repo, sets up Go 1.25.11, installs `gopls`, builds `cmd/sin-code`, runs `go vet`, validates bundled skills, and runs the Go test suite. It also runs an opt-in LSP live test.
 - **benchmark**: Runs only benchmarks (`-run='^$'`) in `cmd/sin-code/internal/`, captures the output, and checks that the indexed search is at least 3x faster than the full-scan baseline.
 
 ## Related files
