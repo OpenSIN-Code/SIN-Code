@@ -39,6 +39,33 @@ type LocalToolFunc func(ctx context.Context, name string, args map[string]any) (
 
 type AskFunc func(tc ToolCall) bool
 
+// StopSnapshot is the read-only view of a run handed to the stop-gate when
+// the worker proposes completion (no more tool calls AND the verify-gate
+// passed). It carries just enough signal for an independent evaluator to
+// decide whether the goal is truly done.
+type StopSnapshot struct {
+	Prompt       string
+	FinalOutput  string
+	Turns        int
+	ToolsUsed    []string
+	VerifyPassed bool
+	SessionID    string
+}
+
+// StopDecision is the verdict returned by a StopGate. Complete=false forces
+// the loop to keep working, re-injecting OpenCriteria as the next instruction.
+type StopDecision struct {
+	Complete     bool
+	OpenCriteria []string
+	Report       string
+}
+
+// StopGate decouples completion authority from the worker. It is consulted
+// only AFTER the verify-gate passes, and may reject the proposed completion
+// (Complete=false) to force continued work — the core anti-babysitting hook.
+// A nil StopGate preserves the legacy behavior exactly.
+type StopGate func(ctx context.Context, snap StopSnapshot) StopDecision
+
 type Loop struct {
 	Gate       *verify.Gate
 	LocalTool  LocalToolFunc
@@ -52,6 +79,18 @@ type Loop struct {
 	Perm    *permission.Engine
 	Ask     AskFunc
 	Lessons *lessons.Store
+
+	// StopGate, if set, is consulted when the worker proposes completion and
+	// the verify-gate has already passed. If it returns Complete=false the
+	// loop re-injects the open criteria and keeps working instead of
+	// returning DONE. Optional — nil keeps the legacy single-gate behavior.
+	StopGate StopGate
+
+	// AllowContinuation switches the maxTurns outcome from a hard error to a
+	// checkpointed, resumable Result (Continuation=true). Daemons set this so
+	// a long task is re-enqueued and resumed rather than abandoned; one-shot
+	// CLI callers leave it false to preserve the legacy error.
+	AllowContinuation bool
 
 	// CompressMessages, if set, is invoked on the message history before
 	// every model request to reduce token usage (e.g. via Headroom). It
@@ -75,6 +114,12 @@ type Result struct {
 	Summary   string `json:"summary"`
 	Verified  bool   `json:"verified"`
 	Turns     int    `json:"turns"`
+	// Continuation is true when the run hit maxTurns with AllowContinuation
+	// enabled: the work is checkpointed (not failed) and should be resumed.
+	Continuation bool `json:"continuation,omitempty"`
+	// OpenCriteria carries the unmet acceptance criteria when the run ends
+	// without verified completion (stop-gate reject or continuation).
+	OpenCriteria []string `json:"open_criteria,omitempty"`
 }
 
 func (l *Loop) tools() []ToolSpec { return l.LocalSpec }
@@ -185,6 +230,10 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	tools := l.tools()
 
 	var pendingInjects []string
+	var lastText string
+	var lastOpen []string
+	toolsSeen := map[string]bool{}
+	var toolsUsed []string
 
 	for turn := 0; turn < maxTurns; turn++ {
 		if err := ctx.Err(); err != nil {
@@ -251,6 +300,52 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				"mode": string(res.Mode), "report": res.Report,
 			})
 			l.record(ctx, ledger.TypeVerifyPass, map[string]any{"mode": string(res.Mode)}, "verification passed ("+string(res.Mode)+")")
+
+			// Stop-gate: completion authority is decoupled from the worker.
+			// The verify-gate passing is necessary but not sufficient — an
+			// independent evaluator confirms the goal contract is satisfied
+			// before we accept DONE. A reject re-injects the open criteria
+			// and keeps the loop working (the core anti-babysitting path).
+			lastText = resp.Text
+			if l.StopGate != nil {
+				dec := l.StopGate(ctx, StopSnapshot{
+					Prompt:       prompt,
+					FinalOutput:  resp.Text,
+					Turns:        turn + 1,
+					ToolsUsed:    toolsUsed,
+					VerifyPassed: res.Passed,
+					SessionID:    sess.ID,
+				})
+				l.fire(ctx, hooks.StopEval, "", map[string]any{
+					"complete": dec.Complete, "open_criteria": dec.OpenCriteria,
+				})
+				if !dec.Complete {
+					lastOpen = dec.OpenCriteria
+					l.fire(ctx, hooks.StopContinue, "", map[string]any{
+						"open_criteria": dec.OpenCriteria, "report": dec.Report,
+					})
+					l.record(ctx, ledger.TypeStopContinue,
+						map[string]any{"open_criteria": dec.OpenCriteria},
+						"stop-gate rejected completion; continuing")
+					if l.Lessons != nil {
+						_ = l.Lessons.Record(ctx, lessons.Entry{
+							Type:      lessons.TypeFailedVerification,
+							Workspace: l.Workspace,
+							Context:   map[string]any{"open_criteria": dec.OpenCriteria},
+							Lesson:    "Stop-gate rejected premature completion: " + strings.Join(dec.OpenCriteria, "; "),
+						})
+					}
+					msgs = append(msgs, session.Message{
+						Role:    "user",
+						Content: formatStopContinue(dec),
+					})
+					if err := sess.SaveHistory(msgs); err != nil {
+						return nil, err
+					}
+					continue
+				}
+			}
+
 			if err := sess.SaveHistory(msgs); err != nil {
 				return nil, err
 			}
@@ -266,6 +361,10 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 		}
 
 		for _, tc := range resp.ToolCalls {
+			if !toolsSeen[tc.Name] {
+				toolsSeen[tc.Name] = true
+				toolsUsed = append(toolsUsed, tc.Name)
+			}
 			out, injects := l.execute(ctx, tc)
 			pendingInjects = append(pendingInjects, injects...)
 			msgs = append(msgs, session.Message{
@@ -276,7 +375,55 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			return nil, err
 		}
 	}
+	// maxTurns reached without verified completion.
+	if l.AllowContinuation {
+		// Checkpoint instead of abandoning: persist history and hand back a
+		// resumable Result so the caller (daemon) can re-enqueue and continue
+		// with the same session — a long task never needs a human restart.
+		if err := sess.SaveHistory(msgs); err != nil {
+			return nil, err
+		}
+		summary := fmt.Sprintf("checkpoint after %d turns (max reached); resuming", maxTurns)
+		l.record(ctx, ledger.TypeTaskCheckpoint, map[string]any{
+			"turns": maxTurns, "open_criteria": lastOpen,
+		}, summary)
+		l.fire(ctx, hooks.TaskAbort, "", map[string]any{
+			"reason": "max turns exceeded", "continuation": true,
+		})
+		if lastText == "" {
+			lastText = summary
+		}
+		return &Result{
+			SessionID:    sess.ID,
+			Summary:      lastText,
+			Verified:     false,
+			Turns:        maxTurns,
+			Continuation: true,
+			OpenCriteria: lastOpen,
+		}, nil
+	}
 	l.fire(ctx, hooks.TaskAbort, "", map[string]any{"reason": "max turns exceeded"})
 	l.record(ctx, ledger.TypeTaskAbort, map[string]any{"reason": "max turns exceeded"}, "task aborted: max turns exceeded")
 	return nil, fmt.Errorf("max turns (%d) exceeded without verified completion", maxTurns)
+}
+
+// formatStopContinue renders the stop-gate rejection into a directive the
+// model can act on: explicit, numbered, and unambiguous about NOT being done.
+func formatStopContinue(dec StopDecision) string {
+	var b strings.Builder
+	b.WriteString("NOT DONE — the work is not complete yet. ")
+	b.WriteString("An independent evaluator rejected the proposed completion.\n")
+	if len(dec.OpenCriteria) > 0 {
+		b.WriteString("Open acceptance criteria that MUST be satisfied:\n")
+		for i, c := range dec.OpenCriteria {
+			fmt.Fprintf(&b, "  %d. %s\n", i+1, c)
+		}
+	}
+	if strings.TrimSpace(dec.Report) != "" {
+		b.WriteString("Evaluator notes:\n")
+		b.WriteString(dec.Report)
+		b.WriteString("\n")
+	}
+	b.WriteString("Continue working until every criterion is met, then stop.")
+	return b.String()
 }

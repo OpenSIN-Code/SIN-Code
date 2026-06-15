@@ -2,6 +2,14 @@
 // Purpose: persistent goal queue for autonomous operation — goals survive
 // restarts, carry priorities and retry budgets, and are leased atomically
 // so multiple daemon workers never double-execute.
+//
+// Loop-engineering extensions:
+//   - Definition-of-Done contracts persisted per goal (column `contract`).
+//   - Recursive goal trees (`parent_id`, `depth`) so an agent can decompose a
+//     goal into sub-goals that are drained depth-first; a parent finalizes
+//     only once every child is verified (TryFinalize).
+//   - Continuation budget (`continuations`) so a checkpointed long task is
+//     re-enqueued without burning its retry budget, bounded by a max.
 package autonomy
 
 import (
@@ -10,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -23,25 +32,37 @@ const (
 	StatusVerified  GoalStatus = "verified"
 	StatusFailed    GoalStatus = "failed"
 	StatusExhausted GoalStatus = "exhausted"
+	// StatusBlocked marks a parent goal whose own work is done but which is
+	// waiting on unverified children before it can finalize.
+	StatusBlocked GoalStatus = "blocked"
 )
 
 type Goal struct {
-	ID         int64      `json:"id"`
-	Prompt     string     `json:"prompt"`
-	Workspace  string     `json:"workspace"`
-	Priority   int        `json:"priority"`
-	Status     GoalStatus `json:"status"`
-	Attempts   int        `json:"attempts"`
-	MaxRetries int        `json:"max_retries"`
-	SessionID  string     `json:"session_id,omitempty"`
-	LastError  string     `json:"last_error,omitempty"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	ID            int64      `json:"id"`
+	Prompt        string     `json:"prompt"`
+	Workspace     string     `json:"workspace"`
+	Priority      int        `json:"priority"`
+	Status        GoalStatus `json:"status"`
+	Attempts      int        `json:"attempts"`
+	MaxRetries    int        `json:"max_retries"`
+	SessionID     string     `json:"session_id,omitempty"`
+	LastError     string     `json:"last_error,omitempty"`
+	Contract      string     `json:"contract,omitempty"`
+	ParentID      int64      `json:"parent_id,omitempty"`
+	Depth         int        `json:"depth,omitempty"`
+	Continuations int        `json:"continuations,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
 type Queue struct {
 	db *sql.DB
 }
+
+// selectColumns is the canonical column list shared by Lease/List/Get so the
+// scan order never drifts from the query.
+const selectColumns = `id, prompt, workspace, priority, status, attempts, max_retries,
+  session_id, last_error, contract, parent_id, depth, continuations, created_at, updated_at`
 
 func Open(path string) (*Queue, error) {
 	db, err := sql.Open("sqlite", path)
@@ -68,24 +89,79 @@ CREATE INDEX IF NOT EXISTS idx_goals_status_priority ON goals(status, priority D
 	if _, err := db.Exec(schema); err != nil {
 		return nil, err
 	}
-	return &Queue{db: db}, nil
+	q := &Queue{db: db}
+	if err := q.migrate(); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	return q, nil
+}
+
+// migrate adds loop-engineering columns to pre-existing databases. Each ADD
+// COLUMN is idempotent: SQLite errors with "duplicate column name" when the
+// column already exists, which we tolerate so the migration is safe to run on
+// every Open.
+func (q *Queue) migrate() error {
+	addCols := []string{
+		`ALTER TABLE goals ADD COLUMN contract TEXT DEFAULT ''`,
+		`ALTER TABLE goals ADD COLUMN parent_id INTEGER DEFAULT 0`,
+		`ALTER TABLE goals ADD COLUMN depth INTEGER DEFAULT 0`,
+		`ALTER TABLE goals ADD COLUMN continuations INTEGER DEFAULT 0`,
+	}
+	for _, stmt := range addCols {
+		if _, err := q.db.Exec(stmt); err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+				continue
+			}
+			return fmt.Errorf("autonomy migrate: %q: %w", stmt, err)
+		}
+	}
+	_, _ = q.db.Exec(`CREATE INDEX IF NOT EXISTS idx_goals_parent ON goals(parent_id)`)
+	return nil
 }
 
 func (q *Queue) Close() error { return q.db.Close() }
 
-// Add enqueues a goal. Returns its ID.
+// Add enqueues a top-level goal. Returns its ID.
 func (q *Queue) Add(ctx context.Context, prompt, workspace string, priority, maxRetries int) (int64, error) {
+	return q.add(ctx, prompt, workspace, priority, maxRetries, "", 0, 0)
+}
+
+// AddWithContract enqueues a top-level goal carrying a Definition-of-Done
+// contract (serialized JSON; empty means none).
+func (q *Queue) AddWithContract(ctx context.Context, prompt, workspace string, priority, maxRetries int, contract string) (int64, error) {
+	return q.add(ctx, prompt, workspace, priority, maxRetries, contract, 0, 0)
+}
+
+// AddSub enqueues a child goal under parentID. The child inherits the parent's
+// workspace and runs at depth+1 with a higher effective priority so trees
+// drain depth-first (children before their parent).
+func (q *Queue) AddSub(ctx context.Context, parentID int64, prompt string, priority, maxRetries int, contract string) (int64, error) {
+	parent, err := q.Get(ctx, parentID)
+	if err != nil {
+		return 0, err
+	}
+	if parent == nil {
+		return 0, fmt.Errorf("autonomy: parent goal %d not found", parentID)
+	}
+	return q.add(ctx, prompt, parent.Workspace, priority, maxRetries, contract, parentID, parent.Depth+1)
+}
+
+func (q *Queue) add(ctx context.Context, prompt, workspace string, priority, maxRetries int, contract string, parentID int64, depth int) (int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	res, err := q.db.ExecContext(ctx, `
-INSERT INTO goals (prompt, workspace, priority, max_retries, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?)`, prompt, workspace, priority, maxRetries, now, now)
+INSERT INTO goals (prompt, workspace, priority, max_retries, contract, parent_id, depth, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, prompt, workspace, priority, maxRetries, contract, parentID, depth, now, now)
 	if err != nil {
 		return 0, err
 	}
 	return res.LastInsertId()
 }
 
-// Lease atomically claims the highest-priority pending or stale-running goal.
+// Lease atomically claims the highest-priority leasable goal. Goal trees are
+// drained depth-first: deeper goals are leased before shallower ones so a
+// parent is never finalized before its children. A goal is leasable when it is
+// pending (and has no unverified children) or a running lease has expired.
 func (q *Queue) Lease(ctx context.Context, leaseDur time.Duration) (*Goal, error) {
 	now := time.Now().UTC()
 	leaseUntil := now.Add(leaseDur).Format(time.RFC3339)
@@ -100,13 +176,19 @@ func (q *Queue) Lease(ctx context.Context, leaseDur time.Duration) (*Goal, error
 	var g Goal
 	var created, updated string
 	err = tx.QueryRowContext(ctx, `
-SELECT id, prompt, workspace, priority, status, attempts, max_retries, session_id, last_error, created_at, updated_at
-FROM goals
-WHERE (status = 'pending')
-   OR (status = 'running' AND lease_until < ?)
-ORDER BY priority DESC, id ASC
-LIMIT 1`, nowStr).Scan(&g.ID, &g.Prompt, &g.Workspace, &g.Priority, &g.Status,
-		&g.Attempts, &g.MaxRetries, &g.SessionID, &g.LastError, &created, &updated)
+SELECT `+selectColumns+`
+FROM goals g
+WHERE (
+        (status = 'pending')
+     OR (status = 'running' AND lease_until < ?)
+      )
+  AND NOT EXISTS (
+        SELECT 1 FROM goals c
+        WHERE c.parent_id = g.id
+          AND c.status NOT IN ('verified')
+      )
+ORDER BY depth DESC, priority DESC, id ASC
+LIMIT 1`, nowStr).Scan(scanArgs(&g, &created, &updated)...)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -128,9 +210,92 @@ WHERE id = ?`, leaseUntil, nowStr, g.ID); err != nil {
 	return &g, nil
 }
 
-// Complete marks a goal verified.
+// Get returns a single goal by ID, or (nil, nil) if it does not exist.
+func (q *Queue) Get(ctx context.Context, id int64) (*Goal, error) {
+	var g Goal
+	var created, updated string
+	err := q.db.QueryRowContext(ctx, `SELECT `+selectColumns+` FROM goals WHERE id = ?`, id).
+		Scan(scanArgs(&g, &created, &updated)...)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	g.CreatedAt, _ = time.Parse(time.RFC3339, created)
+	g.UpdatedAt, _ = time.Parse(time.RFC3339, updated)
+	return &g, nil
+}
+
+// Children returns the direct children of parentID, oldest first.
+func (q *Queue) Children(ctx context.Context, parentID int64) ([]Goal, error) {
+	rows, err := q.db.QueryContext(ctx, `SELECT `+selectColumns+` FROM goals WHERE parent_id = ? ORDER BY id ASC`, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanGoals(rows)
+}
+
+// Complete marks a goal verified. If the goal has unverified children it is
+// instead marked blocked (its own work is done, but the tree is not).
 func (q *Queue) Complete(ctx context.Context, id int64, sessionID string) error {
-	return q.setStatus(ctx, id, StatusVerified, sessionID, "")
+	pending, err := q.unverifiedChildCount(ctx, id)
+	if err != nil {
+		return err
+	}
+	if pending > 0 {
+		return q.setStatus(ctx, id, StatusBlocked, sessionID, "")
+	}
+	if err := q.setStatus(ctx, id, StatusVerified, sessionID, ""); err != nil {
+		return err
+	}
+	return q.bubbleUp(ctx, id)
+}
+
+// TryFinalize re-checks a (possibly blocked) goal: when all its children are
+// verified it transitions to verified and recurses up the tree. Safe to call
+// repeatedly; a no-op when children remain.
+func (q *Queue) TryFinalize(ctx context.Context, id int64) error {
+	g, err := q.Get(ctx, id)
+	if err != nil || g == nil {
+		return err
+	}
+	if g.Status == StatusVerified {
+		return nil
+	}
+	pending, err := q.unverifiedChildCount(ctx, id)
+	if err != nil {
+		return err
+	}
+	if pending > 0 {
+		return nil
+	}
+	// Only finalize goals whose own work already succeeded (blocked) — never
+	// resurrect a failed/exhausted goal just because its children passed.
+	if g.Status != StatusBlocked {
+		return nil
+	}
+	if err := q.setStatus(ctx, id, StatusVerified, g.SessionID, ""); err != nil {
+		return err
+	}
+	return q.bubbleUp(ctx, id)
+}
+
+// bubbleUp re-finalizes the parent (if any) after a child verifies.
+func (q *Queue) bubbleUp(ctx context.Context, id int64) error {
+	g, err := q.Get(ctx, id)
+	if err != nil || g == nil || g.ParentID == 0 {
+		return err
+	}
+	return q.TryFinalize(ctx, g.ParentID)
+}
+
+func (q *Queue) unverifiedChildCount(ctx context.Context, id int64) (int, error) {
+	var n int
+	err := q.db.QueryRowContext(ctx,
+		`SELECT COUNT(1) FROM goals WHERE parent_id = ? AND status NOT IN ('verified')`, id).Scan(&n)
+	return n, err
 }
 
 // Fail records a failure; the goal returns to pending until the retry
@@ -145,6 +310,27 @@ WHERE id = ?`, sessionID, errMsg, now, id)
 	return err
 }
 
+// Continue re-enqueues a checkpointed goal for resumption WITHOUT consuming
+// its retry budget: the lease's attempt increment is refunded and the
+// continuation counter is bumped instead. Returns the new continuation count
+// so the caller can enforce a ceiling.
+func (q *Queue) Continue(ctx context.Context, id int64, sessionID, note string) (int, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := q.db.ExecContext(ctx, `
+UPDATE goals SET
+  status = 'pending',
+  attempts = CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END,
+  continuations = continuations + 1,
+  session_id = ?, last_error = ?, lease_until = '', updated_at = ?
+WHERE id = ?`, sessionID, note, now, id)
+	if err != nil {
+		return 0, err
+	}
+	var n int
+	err = q.db.QueryRowContext(ctx, `SELECT continuations FROM goals WHERE id = ?`, id).Scan(&n)
+	return n, err
+}
+
 func (q *Queue) setStatus(ctx context.Context, id int64, s GoalStatus, sessionID, errMsg string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := q.db.ExecContext(ctx, `
@@ -155,7 +341,7 @@ WHERE id = ?`, s, sessionID, errMsg, now, id)
 
 // List returns goals filtered by status ("" = all), newest first.
 func (q *Queue) List(ctx context.Context, status GoalStatus) ([]Goal, error) {
-	query := `SELECT id, prompt, workspace, priority, status, attempts, max_retries, session_id, last_error, created_at, updated_at FROM goals`
+	query := `SELECT ` + selectColumns + ` FROM goals`
 	args := []any{}
 	if status != "" {
 		query += ` WHERE status = ?`
@@ -167,12 +353,25 @@ func (q *Queue) List(ctx context.Context, status GoalStatus) ([]Goal, error) {
 		return nil, err
 	}
 	defer rows.Close()
+	return scanGoals(rows)
+}
+
+// scanArgs returns the Scan destination list matching selectColumns. created
+// and updated are scanned as strings then parsed by the caller.
+func scanArgs(g *Goal, created, updated *string) []any {
+	return []any{
+		&g.ID, &g.Prompt, &g.Workspace, &g.Priority, &g.Status,
+		&g.Attempts, &g.MaxRetries, &g.SessionID, &g.LastError, &g.Contract,
+		&g.ParentID, &g.Depth, &g.Continuations, created, updated,
+	}
+}
+
+func scanGoals(rows *sql.Rows) ([]Goal, error) {
 	var out []Goal
 	for rows.Next() {
 		var g Goal
 		var created, updated string
-		if err := rows.Scan(&g.ID, &g.Prompt, &g.Workspace, &g.Priority, &g.Status,
-			&g.Attempts, &g.MaxRetries, &g.SessionID, &g.LastError, &created, &updated); err != nil {
+		if err := rows.Scan(scanArgs(&g, &created, &updated)...); err != nil {
 			return nil, err
 		}
 		g.CreatedAt, _ = time.Parse(time.RFC3339, created)
@@ -193,6 +392,3 @@ func DefaultPath() string {
 	_ = os.MkdirAll(base, 0o755)
 	return filepath.Join(base, "goals.db")
 }
-
-// formatForLog helper kept private — not used externally
-var _ = fmt.Sprintf

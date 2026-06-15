@@ -31,6 +31,8 @@ const (
 	TypeVerificationMode EntryType = "verification_mode"
 	TypeTaskComplete     EntryType = "task_complete"
 	TypeTaskAbort        EntryType = "task_abort"
+	TypeStopContinue     EntryType = "stop_continue"
+	TypeTaskCheckpoint   EntryType = "task_checkpoint"
 )
 
 // Entry is one row in the ledger.
