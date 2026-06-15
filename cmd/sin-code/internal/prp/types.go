@@ -11,12 +11,12 @@ import "time"
 type Phase string
 
 const (
-	PhaseDraft       Phase = "draft"       // created, not yet planned
-	PhasePlanned     Phase = "planned"     // tasks decomposed
+	PhaseDraft        Phase = "draft"   // created, not yet planned
+	PhasePlanned      Phase = "planned" // tasks decomposed
 	PhaseImplementing Phase = "implementing"
-	PhaseVerifying   Phase = "verifying"
-	PhaseReady       Phase = "ready"       // verified, ready for PR
-	PhaseShipped     Phase = "shipped"     // PR opened/merged
+	PhaseVerifying    Phase = "verifying"
+	PhaseReady        Phase = "ready"   // verified, ready for PR
+	PhaseShipped      Phase = "shipped" // PR opened/merged
 )
 
 // TaskState tracks a single task within a PRP.

@@ -27,11 +27,11 @@ type Asset struct {
 	Path         string   `yaml:"-"`
 	Name         string   `yaml:"name"`
 	Description  string   `yaml:"description"`
-	Model        string   `yaml:"model,omitempty"`          // agents
-	Tools        []string `yaml:"tools,omitempty"`          // agents
-	Color        string   `yaml:"color,omitempty"`          // agents (cosmetic)
-	Argument     string   `yaml:"argument-hint,omitempty"`  // commands
-	AllowedTools []string `yaml:"allowed-tools,omitempty"`  // commands
+	Model        string   `yaml:"model,omitempty"`         // agents
+	Tools        []string `yaml:"tools,omitempty"`         // agents
+	Color        string   `yaml:"color,omitempty"`         // agents (cosmetic)
+	Argument     string   `yaml:"argument-hint,omitempty"` // commands
+	AllowedTools []string `yaml:"allowed-tools,omitempty"` // commands
 	Domain       string   `yaml:"domain,omitempty"`
 	Origin       string   `yaml:"origin,omitempty"` // attribution, e.g. "ECC"
 	License      string   `yaml:"license,omitempty"`

@@ -11,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/adapters"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/instinct"
@@ -18,17 +19,16 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/adapters"
 )
 
 // Options configures a Learner. The zero value is fully usable:
 // all subsystems are wired to safe no-op defaults.
 type Options struct {
-	Workdir     string
-	LLM         *llm.Client
-	Model       string // background model for LLMExtractor; default haiku
-	Memory      *memory.Store
-	VerifyGate  *verify.Gate
+	Workdir    string
+	LLM        *llm.Client
+	Model      string // background model for LLMExtractor; default haiku
+	Memory     *memory.Store
+	VerifyGate *verify.Gate
 }
 
 // Learner is the single entry point for the agent loop. It owns

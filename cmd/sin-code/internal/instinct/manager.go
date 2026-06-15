@@ -40,8 +40,8 @@ func NewManagerWithStore(store *Store, project Project, sink MemorySink) *Manage
 	return &Manager{store: store, project: project, sink: sink}
 }
 
-func (m *Manager) Project() Project   { return m.project }
-func (m *Manager) Store() *Store      { return m.store }
+func (m *Manager) Project() Project { return m.project }
+func (m *Manager) Store() *Store    { return m.store }
 
 // Active returns instincts that should influence behavior right now
 // (this project + global), strongest first, active-only.
