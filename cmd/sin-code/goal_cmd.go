@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
 )
 
 func NewGoalCmd() *cobra.Command {
@@ -19,6 +20,8 @@ func NewGoalCmd() *cobra.Command {
 	}
 
 	var priority, retries int
+	var criteria []string
+	var contractFile string
 	addCmd := &cobra.Command{
 		Use:   "add <prompt>",
 		Short: "Enqueue a goal for the daemon",
@@ -30,16 +33,48 @@ func NewGoalCmd() *cobra.Command {
 			}
 			defer q.Close()
 			ws, _ := os.Getwd()
-			id, err := q.Add(cmd.Context(), args[0], ws, priority, retries)
+
+			// Build the Definition-of-Done contract from flags. --contract-file
+			// supplies a full JSON contract; --criteria adds semantic criteria
+			// the stop-gate's independent evaluator must confirm.
+			contractJSON := ""
+			if contractFile != "" {
+				raw, rerr := os.ReadFile(contractFile)
+				if rerr != nil {
+					return fmt.Errorf("read contract file: %w", rerr)
+				}
+				c, perr := goalcontract.Unmarshal(string(raw))
+				if perr != nil {
+					return fmt.Errorf("invalid contract file: %w", perr)
+				}
+				c.SemanticCriteria = append(c.SemanticCriteria, criteria...)
+				contractJSON, _ = c.Marshal()
+			} else if len(criteria) > 0 {
+				c := &goalcontract.GoalContract{SemanticCriteria: criteria}
+				contractJSON, _ = c.Marshal()
+			}
+
+			var id int64
+			if contractJSON != "" {
+				id, err = q.AddWithContract(cmd.Context(), args[0], ws, priority, retries, contractJSON)
+			} else {
+				id, err = q.Add(cmd.Context(), args[0], ws, priority, retries)
+			}
 			if err != nil {
 				return err
 			}
-			fmt.Printf("goal %d enqueued (priority %d, retries %d)\n", id, priority, retries)
+			if contractJSON != "" {
+				fmt.Printf("goal %d enqueued with contract (priority %d, retries %d)\n", id, priority, retries)
+			} else {
+				fmt.Printf("goal %d enqueued (priority %d, retries %d)\n", id, priority, retries)
+			}
 			return nil
 		},
 	}
 	addCmd.Flags().IntVar(&priority, "priority", 0, "higher runs sooner")
 	addCmd.Flags().IntVar(&retries, "retries", 3, "retry budget")
+	addCmd.Flags().StringArrayVar(&criteria, "criteria", nil, "acceptance criterion the stop-gate evaluator must confirm (repeatable)")
+	addCmd.Flags().StringVar(&contractFile, "contract-file", "", "path to a JSON Definition-of-Done contract")
 
 	var status string
 	var jsonOut bool
@@ -75,6 +110,48 @@ func NewGoalCmd() *cobra.Command {
 	listCmd.Flags().StringVar(&status, "status", "", "filter: pending|running|verified|failed|exhausted")
 	listCmd.Flags().BoolVar(&jsonOut, "json", false, "emit JSON")
 
-	cmd.AddCommand(addCmd, listCmd)
+	var dryRun bool
+	var discoverRetries int
+	discoverCmd := &cobra.Command{
+		Use:   "discover",
+		Short: "Scan the repo for latent work (TODO/FIXME, MASTER_TODO) and enqueue goals",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, _ := os.Getwd()
+			findings, err := autonomy.Discover(autonomy.DiscoverConfig{
+				Workspace:    ws,
+				ScanComments: true,
+				ScanMaster:   true,
+			})
+			if err != nil {
+				return err
+			}
+			if len(findings) == 0 {
+				fmt.Println("no work discovered")
+				return nil
+			}
+			if dryRun {
+				fmt.Printf("%d finding(s) (dry-run, not enqueued):\n", len(findings))
+				for _, f := range findings {
+					fmt.Printf("  [%s] %.80s\n", f.Source, f.Prompt)
+				}
+				return nil
+			}
+			q, err := autonomy.Open(autonomy.DefaultPath())
+			if err != nil {
+				return err
+			}
+			defer q.Close()
+			n, err := autonomy.EnqueueFindings(cmd.Context(), q, ws, findings, discoverRetries)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("discovered %d finding(s), enqueued %d new goal(s)\n", len(findings), n)
+			return nil
+		},
+	}
+	discoverCmd.Flags().BoolVar(&dryRun, "dry-run", false, "list findings without enqueueing")
+	discoverCmd.Flags().IntVar(&discoverRetries, "retries", 3, "retry budget for enqueued goals")
+
+	cmd.AddCommand(addCmd, listCmd, discoverCmd)
 	return cmd
 }

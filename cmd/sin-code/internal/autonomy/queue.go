@@ -107,6 +107,7 @@ func (q *Queue) migrate() error {
 		`ALTER TABLE goals ADD COLUMN parent_id INTEGER DEFAULT 0`,
 		`ALTER TABLE goals ADD COLUMN depth INTEGER DEFAULT 0`,
 		`ALTER TABLE goals ADD COLUMN continuations INTEGER DEFAULT 0`,
+		`ALTER TABLE goals ADD COLUMN dedup_key TEXT DEFAULT ''`,
 	}
 	for _, stmt := range addCols {
 		if _, err := q.db.Exec(stmt); err != nil {
@@ -117,7 +118,36 @@ func (q *Queue) migrate() error {
 		}
 	}
 	_, _ = q.db.Exec(`CREATE INDEX IF NOT EXISTS idx_goals_parent ON goals(parent_id)`)
+	_, _ = q.db.Exec(`CREATE INDEX IF NOT EXISTS idx_goals_dedup ON goals(dedup_key)`)
 	return nil
+}
+
+// AddDiscovered enqueues a goal found by the autonomous backlog scanner,
+// keyed by dedupKey. If an unfinished (non-terminal) goal with the same
+// dedupKey already exists, it is NOT re-enqueued and (0, false) is returned —
+// so a recurring scan does not pile up duplicates of the same TODO/issue.
+func (q *Queue) AddDiscovered(ctx context.Context, prompt, workspace, dedupKey string, priority, maxRetries int, contract string) (int64, bool, error) {
+	if dedupKey != "" {
+		var n int
+		err := q.db.QueryRowContext(ctx,
+			`SELECT COUNT(1) FROM goals WHERE dedup_key = ? AND status NOT IN ('verified','failed','exhausted')`,
+			dedupKey).Scan(&n)
+		if err != nil {
+			return 0, false, err
+		}
+		if n > 0 {
+			return 0, false, nil
+		}
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	res, err := q.db.ExecContext(ctx, `
+INSERT INTO goals (prompt, workspace, priority, max_retries, contract, dedup_key, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, prompt, workspace, priority, maxRetries, contract, dedupKey, now, now)
+	if err != nil {
+		return 0, false, err
+	}
+	id, err := res.LastInsertId()
+	return id, true, err
 }
 
 func (q *Queue) Close() error { return q.db.Close() }

@@ -74,16 +74,18 @@ func New(workspace string, opts ...Option) *Hybrid {
 
 // Evaluate runs the hybrid decision for one contract + run snapshot.
 func (h *Hybrid) Evaluate(ctx context.Context, contract goalcontract.GoalContract, snap agentloop.StopSnapshot) agentloop.StopDecision {
-	// (1) Deterministic checks — authoritative, fail-closed.
+	// (1) Deterministic checks — authoritative, fail-closed. For a
+	// Definition-of-Done gate EVERY failed check must block completion, not
+	// just the orchestrator's mandatory kinds (build/test): a failing
+	// predicate like "no-new-todos" or a custom "done-when" is just as
+	// disqualifying. We therefore inspect each result rather than trusting
+	// the weighted Verdict.Passed.
 	if len(contract.DeterministicChecks) > 0 {
-		// MandatoryKinds is set so that any failing build/test fails the gate
-		// regardless of weighted score; predicates contribute but the
-		// Diagnosis lists every failure for re-injection.
 		verdict := h.verifier.Verify(ctx, snap.SessionID, "stopgate", contract.DeterministicChecks)
-		if !verdict.Passed {
+		if open := failedCheckNames(verdict); len(open) > 0 {
 			return agentloop.StopDecision{
 				Complete:     false,
-				OpenCriteria: failedCheckNames(verdict),
+				OpenCriteria: open,
 				Report:       verdict.Diagnosis(),
 			}
 		}
@@ -139,6 +141,8 @@ func (h *Hybrid) LoopGate(contract goalcontract.GoalContract) agentloop.StopGate
 	}
 }
 
+// failedCheckNames returns one entry per FAILED deterministic check. An empty
+// slice means every check passed — the gate proceeds to semantic evaluation.
 func failedCheckNames(v *orchestrator.Verdict) []string {
 	var out []string
 	for _, r := range v.Results {
@@ -149,9 +153,6 @@ func failedCheckNames(v *orchestrator.Verdict) []string {
 			}
 			out = append(out, "deterministic check failed: "+name)
 		}
-	}
-	if len(out) == 0 {
-		out = []string{"one or more deterministic checks failed"}
 	}
 	return out
 }
