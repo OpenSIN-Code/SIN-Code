@@ -63,6 +63,7 @@ def test_scheduler_resume_skips_done(tmp_path):
     ledger.register_run(plan.id, plan.goal, "{}")
     ledger.emit(plan.id, "A", "state:done")
     calls = []
+
     async def executor(task):
         calls.append(task.id)
         return TaskOutcome(task.id, TaskState.DONE)

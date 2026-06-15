@@ -131,9 +131,10 @@ def multirepo_plan_from_dict(data: dict) -> MultiRepoPlan:
         # for these tasks, since title+instructions+backend are the
         # primary input and deps are resolved after finalization).
         if task.id != title_to_id[key]:
-            task = Task(**{**{f: getattr(task, f)
-                                for f in task.__dataclass_fields__},
-                            "id": title_to_id[key]})
+            task = Task(
+                **{**{f: getattr(task, f)
+                       for f in task.__dataclass_fields__},
+                   "id": title_to_id[key]})
         tasks.append(task)
         key_repo[task.id] = rname
 

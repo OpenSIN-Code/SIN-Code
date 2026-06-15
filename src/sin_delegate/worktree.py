@@ -66,7 +66,7 @@ class Worktree:
 
     def destroy(self, delete_branch: bool = True) -> None:
         _git(self.repo, "worktree", "remove", "--force",
-            str(self.path), check=False)
+             str(self.path), check=False)
         if delete_branch:
             _git(self.repo, "branch", "-D", self.branch, check=False)
 

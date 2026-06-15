@@ -77,11 +77,11 @@ class SubprocessRunner:
         except asyncio.TimeoutError:
             proc.kill()
             await proc.wait()
-            return RunnerResult(False,
-                               f"[timeout after {timeout:.0f}s]", -1)
+            return RunnerResult(
+                False, f"[timeout after {timeout:.0f}s]", -1)
         text = redact(out.decode(errors="replace"))[-100_000:]
-        return RunnerResult(proc.returncode == 0, text,
-                           proc.returncode or 0)
+        return RunnerResult(
+            proc.returncode == 0, text, proc.returncode or 0)
 
 
 def _opencode_argv(task: Task) -> list[str]:

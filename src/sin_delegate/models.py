@@ -78,9 +78,10 @@ class Task:
             "backend": self.agent.backend,
         }, sort_keys=True).encode()
         tid = hashlib.blake2b(payload, digest_size=8).hexdigest()
-        return Task(**{**{f: getattr(self, f)
-                           for f in self.__dataclass_fields__},
-                       "id": tid})
+        return Task(
+            **{**{f: getattr(self, f)
+                   for f in self.__dataclass_fields__},
+               "id": tid})
 
 
 @dataclass(frozen=True)

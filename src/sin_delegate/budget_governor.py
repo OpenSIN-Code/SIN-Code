@@ -42,11 +42,11 @@ class BudgetGovernor:
     min_grant: float = 60.0
 
     _pool: float = field(init=False, default=0.0)
-    _allocs: dict[str, Allocation] = field(init=False,
-                                          default_factory=dict)
+    _allocs: dict[str, Allocation] = field(
+        init=False, default_factory=dict)
     _deadline: float = field(init=False, default=0.0)
-    _lock: asyncio.Lock = field(init=False,
-                                default_factory=asyncio.Lock)
+    _lock: asyncio.Lock = field(
+        init=False, default_factory=asyncio.Lock)
 
     def __post_init__(self) -> None:
         self._deadline = time.monotonic() + self.global_seconds

@@ -64,8 +64,9 @@ class Scheduler:
         states: dict[str, TaskState] = {}
         for tid in self.tasks:
             prev = persisted.get(tid)
-            states[tid] = (TaskState.DONE if prev == TaskState.DONE
-                          else TaskState.PENDING)
+            states[tid] = (
+                TaskState.DONE if prev == TaskState.DONE
+                else TaskState.PENDING)
         return states
 
     def _circuit_open(self, states: dict[str, TaskState]) -> bool:

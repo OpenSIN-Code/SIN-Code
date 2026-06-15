@@ -24,6 +24,7 @@ from sin_delegate.multirepo_engine import _topo_order
 from sin_delegate.policy import Policy
 from sin_delegate.resolution import apply_resolutions
 
+
 # --------------------------------------------------------------- analytics
 
 def test_wilson_punishes_small_samples():
@@ -154,8 +155,8 @@ def test_resolve_requires_input_for_retry(tmp_path):
     esc = broker.raise_escalation(
         "p1", "T1", "t", EscalationKind.GATE_FAILURE, "x", {})
     assert not broker.resolve("p1", esc.id, "retry")["ok"]
-    assert broker.resolve("p1", esc.id, "retry",
-                            user_input="fix")["ok"]
+    assert broker.resolve(
+        "p1", esc.id, "retry", user_input="fix")["ok"]
 
 
 def test_resolve_is_idempotent(tmp_path):
@@ -168,8 +169,9 @@ def test_resolve_is_idempotent(tmp_path):
 
 def test_apply_resolutions_drop_yields_pending_or_skipped(tmp_path):
     ledger = Ledger(tmp_path / "l.db")
-    plan = Plan(goal="g", repo=".",
-               tasks=(Task(title="t", instructions="x", id="T1"),))
+    plan = Plan(
+        goal="g", repo=".",
+        tasks=(Task(title="t", instructions="x", id="T1"),))
     broker = EscalationBroker(ledger)
     ledger.register_run(plan.id, "g", json.dumps({
         "goal": "g", "tasks": [{"id": "T1", "title": "t"}]}))
