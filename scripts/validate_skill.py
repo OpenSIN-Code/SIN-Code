@@ -112,9 +112,15 @@ class SkillValidator:
 
         name = front.get("name")
         if name and not NAME_RE.match(name):
-            self.add("error", f"Invalid skill name {name!r} (must match {NAME_RE.pattern})", skill_md)
+            self.add(
+                "error", f"Invalid skill name {name!r} (must match {NAME_RE.pattern})", skill_md
+            )
         if name and name != self.root.name:
-            self.add("warning", f"Frontmatter name {name!r} does not match directory {self.root.name!r}", skill_md)
+            self.add(
+                "warning",
+                f"Frontmatter name {name!r} does not match directory {self.root.name!r}",
+                skill_md,
+            )
 
         desc = front.get("description", "")
         if desc and len(desc) > 1024:
@@ -210,8 +216,16 @@ def _validate_skill_dirs(skill_dirs: list[Path], json_out: bool, strict: bool) -
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate skill directory structure")
     parser.add_argument("path", nargs="?", help="Path to skill directory")
-    parser.add_argument("--all-sin", action="store_true", help="Validate all SIN-Code skills in ~/.config/opencode/skills")
-    parser.add_argument("--all-bundled", action="store_true", help="Validate all bundled skills in the repo's skills/ directory")
+    parser.add_argument(
+        "--all-sin",
+        action="store_true",
+        help="Validate all SIN-Code skills in ~/.config/opencode/skills",
+    )
+    parser.add_argument(
+        "--all-bundled",
+        action="store_true",
+        help="Validate all bundled skills in the repo's skills/ directory",
+    )
     parser.add_argument("--json", action="store_true", help="Emit JSON report")
     parser.add_argument("--strict", action="store_true", help="Enable extra checks")
     args = parser.parse_args(argv)

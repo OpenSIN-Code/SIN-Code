@@ -71,8 +71,9 @@ def run_go_fuzz(label: str, binary: str, timeout: float = 3.0) -> ToolResult:
         stdout = proc.stdout
         crash_count = stdout.count("💥")
         hang_count = stdout.count("⏳")
-        # exclude startup warning
-        viol_count = stdout.count("⚠️") - stdout.count("⚠️  Startup failed")
+        viol_count = stdout.count("⚠️") - stdout.count(
+            "⚠️  Startup failed"
+        )  # exclude startup warning
 
         result.total_attacks = max(
             stdout.count("✅") + crash_count + hang_count + stdout.count("⚠️  "), 1

@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 @dataclass
 class SBOMPackage:
     """Represents a package/component in an SBOM."""
+
     name: str
     version: str
     type: str = "library"  # library, application, framework, container, etc.
@@ -45,6 +46,7 @@ class SBOMPackage:
 @dataclass
 class SBOMMetadata:
     """Metadata for SBOM document."""
+
     tool_name: str = "SIN-Code-SBOM-Generator"
     tool_version: str = "1.0.0"
     authors: List[str] = field(default_factory=lambda: ["OpenSIN-Code"])
@@ -60,6 +62,7 @@ class SBOMMetadata:
 @dataclass
 class SBOM:
     """Complete SBOM representation."""
+
     metadata: SBOMMetadata
     packages: List[SBOMPackage] = field(default_factory=list)
 
@@ -77,6 +80,7 @@ class SBOM:
 @dataclass
 class ScanResult:
     """Input from security scanning tools."""
+
     tool_name: str
     packages: List[Dict[str, Any]] = field(default_factory=list)
     vulnerabilities: List[Dict[str, Any]] = field(default_factory=list)

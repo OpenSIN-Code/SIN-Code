@@ -1610,36 +1610,6 @@ def _forward_security_subcommand(subcommand: str) -> None:
     raise typer.Exit(code=result.returncode)
 
 
-@app.command()
-def ibd():
-    """Intent-Based Diffing (IBD) — thin wrapper around the `ibd` binary."""
-    _forward_to_binary("ibd", _NEW_TOOL_BINARIES["ibd"][0])
-
-
-@app.command()
-def poc():
-    """Proof-of-Correctness (POC) — thin wrapper around the `poc` binary."""
-    _forward_to_binary("poc", _NEW_TOOL_BINARIES["poc"][0])
-
-
-@app.command()
-def adw():
-    """Architectural Debt Watchdogs (ADW) — thin wrapper around the `adw` binary."""
-    _forward_to_binary("adw", _NEW_TOOL_BINARIES["adw"][0])
-
-
-@app.command()
-def oracle():
-    """Verification Oracle — thin wrapper around the `oracle` binary."""
-    _forward_to_binary("oracle", _NEW_TOOL_BINARIES["oracle"][0])
-
-
-@app.command()
-def efm():
-    """Ephemeral Full-Stack Mocking (EFM) — thin wrapper around the `efm` binary."""
-    _forward_to_binary("efm", _NEW_TOOL_BINARIES["efm"][0])
-
-
 # ── Pocock Workflow Tools (v0.11.0) ───────────────────────────────────────
 # Implements the Matt Pocock System-Design Paradigm:
 #   - grill-me      -> Socratic alignment & PRD generation

@@ -26,6 +26,7 @@ from .updater import Updater
 app = typer.Typer(help="SIN Marketplace — manage OpenSIN-Code skills")
 console = Console()
 
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
