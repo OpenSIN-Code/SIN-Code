@@ -5,6 +5,11 @@ import (
 	"time"
 )
 
+var (
+	listAllFn = (*Store).List
+	updateFn  = (*Store).Update
+)
+
 type CompactOptions struct {
 	OlderThan    time.Duration
 	OnlyStatuses []Status
@@ -25,7 +30,7 @@ func (s *Store) Compact(opts CompactOptions) (*CompactResult, error) {
 	if opts.OlderThan == 0 {
 		cutoff = time.Time{}
 	}
-	all, err := s.List()
+	all, err := listAllFn(s)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +57,7 @@ func (s *Store) Compact(opts CompactOptions) (*CompactResult, error) {
 			t.Compacted = true
 			t.Summary = summarize(t)
 			t.Description = ""
-			if err := s.Update(t); err != nil {
+			if err := updateFn(s, t); err != nil {
 				return nil, err
 			}
 		}

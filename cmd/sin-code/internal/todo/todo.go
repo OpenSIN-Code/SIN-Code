@@ -3,6 +3,7 @@ package todo
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +15,25 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
+)
+
+var (
+	openStoreFn           = openStore
+	currentActorFn        = currentActor
+	currentProjectFn      = currentProject
+	printJSONFn           = printJSON
+	notifyFn              = notify
+	getHookConfigFn       = getHookConfig
+	fireHooksFn           = fireHooks
+	firePluginHooksFn     = firePluginHooks
+	gitUserNameFn         = func() ([]byte, error) { return exec.Command("git", "config", "user.name").Output() }
+	osUserConfigDirTodo   = os.UserConfigDir
+	osGetwdTodo           = os.Getwd
+	osReadFileTodo        = os.ReadFile
+	osWriteFileTodo       = os.WriteFile
+	jsonMarshalIndentTodo = json.MarshalIndent
+	jsonMarshalTodo       = json.Marshal
+	osStdoutTodo        io.Writer = os.Stdout
 )
 
 var (
@@ -72,14 +92,14 @@ func currentActor() string {
 	if todoAs != "" {
 		return todoAs
 	}
-	out, err := exec.Command("git", "config", "user.name").Output()
+	out, err := gitUserNameFn()
 	if err == nil {
 		name := strings.TrimSpace(string(out))
 		if name != "" {
 			return name
 		}
 	}
-	if u, err := os.UserConfigDir(); err == nil {
+	if u, err := osUserConfigDirTodo(); err == nil {
 		return filepath.Base(u)
 	}
 	return "unknown"
@@ -89,7 +109,7 @@ func currentProject() string {
 	if todoProject != "" {
 		return todoProject
 	}
-	cwd, err := os.Getwd()
+	cwd, err := osGetwdTodo()
 	if err != nil {
 		return ""
 	}
@@ -97,7 +117,7 @@ func currentProject() string {
 }
 
 func printJSON(v interface{}) error {
-	enc := json.NewEncoder(os.Stdout)
+	enc := json.NewEncoder(osStdoutTodo)
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
 }
@@ -165,7 +185,7 @@ var addCmd = &cobra.Command{
 			return fmt.Errorf("invalid type: %q", ttype)
 		}
 		if project == "" {
-			project = currentProject()
+			project = currentProjectFn()
 		}
 		t := &Todo{
 			Title:       title,
@@ -178,7 +198,7 @@ var addCmd = &cobra.Command{
 			ExternalRef: externalRef,
 			Project:     project,
 		}
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -187,14 +207,14 @@ var addCmd = &cobra.Command{
 			return err
 		}
 		_ = store.AppendAudit(AuditEntry{
-			TodoID: t.ID, Actor: currentActor(), Action: "create",
+			TodoID: t.ID, Actor: currentActorFn(), Action: "create",
 			To: t.Title,
 		})
-		fireHooks(store, EventPostAdd, t, "", t.Title, "")
-		notify(notifications.TypeTodoCreated, t.ID, t.Title,
-			fmt.Sprintf("New %s %s: %s", t.Priority, t.Type, t.Title), currentActor())
+		fireHooksFn(store, EventPostAdd, t, "", t.Title, "")
+		notifyFn(notifications.TypeTodoCreated, t.ID, t.Title,
+			fmt.Sprintf("New %s %s: %s", t.Priority, t.Type, t.Title), currentActorFn())
 		if todoFormat == "json" {
-			return printJSON(t)
+			return printJSONFn(t)
 		}
 		fmt.Printf("Created %s: %s\n", t.ID, t.Title)
 		return nil
@@ -237,7 +257,7 @@ var listCmd = &cobra.Command{
 			Project:  project,
 			Search:   search,
 		}
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -249,7 +269,7 @@ var listCmd = &cobra.Command{
 				return err
 			}
 			if todoFormat == "json" {
-				return printJSON(ts)
+				return printJSONFn(ts)
 			}
 			printTodoTable(ts)
 			return nil
@@ -259,7 +279,7 @@ var listCmd = &cobra.Command{
 			return err
 		}
 		if todoFormat == "json" {
-			return printJSON(ts)
+			return printJSONFn(ts)
 		}
 		printTodoTable(ts)
 		return nil
@@ -284,7 +304,7 @@ var showCmd = &cobra.Command{
 	Short: "Show full details of a todo",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -297,7 +317,7 @@ var showCmd = &cobra.Command{
 		deps, _ := store.GetDeps(t.ID)
 		rev, _ := store.GetReverseDeps(t.ID)
 		if todoFormat == "json" {
-			return printJSON(map[string]interface{}{
+			return printJSONFn(map[string]interface{}{
 				"todo":    t,
 				"deps":    deps,
 				"deps_of": rev,
@@ -365,7 +385,7 @@ var updateCmd = &cobra.Command{
 	Short: "Update fields of a todo",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -432,11 +452,11 @@ var updateCmd = &cobra.Command{
 			return err
 		}
 		_ = store.AppendAudit(AuditEntry{
-			TodoID: t.ID, Actor: currentActor(), Action: "update",
+			TodoID: t.ID, Actor: currentActorFn(), Action: "update",
 			From: string(old), To: string(t.Status), Note: strings.Join(changes, ","),
 		})
 		if todoFormat == "json" {
-			return printJSON(t)
+			return printJSONFn(t)
 		}
 		fmt.Printf("Updated %s (%s)\n", t.ID, strings.Join(changes, ","))
 		return nil
@@ -463,7 +483,7 @@ var claimCmd = &cobra.Command{
 	Short: "Atomically claim a todo (assign to current user)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -472,7 +492,7 @@ var claimCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		actor := currentActor()
+		actor := currentActorFn()
 		if t.Assignee != "" && t.Assignee != actor {
 			return fmt.Errorf("already claimed by %s", t.Assignee)
 		}
@@ -488,7 +508,7 @@ var claimCmd = &cobra.Command{
 			TodoID: t.ID, Actor: actor, Action: "claim",
 			From: old, To: actor,
 		})
-		fireHooks(store, EventPostClaim, t, old, actor, "")
+		fireHooksFn(store, EventPostClaim, t, old, actor, "")
 		fmt.Printf("Claimed %s by %s\n", t.ID, actor)
 		return nil
 	},
@@ -499,7 +519,7 @@ var unclaimCmd = &cobra.Command{
 	Short: "Release a claim on a todo",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -517,7 +537,7 @@ var unclaimCmd = &cobra.Command{
 			return err
 		}
 		_ = store.AppendAudit(AuditEntry{
-			TodoID: t.ID, Actor: currentActor(), Action: "unclaim",
+			TodoID: t.ID, Actor: currentActorFn(), Action: "unclaim",
 			From: old, To: "",
 		})
 		fmt.Printf("Unclaimed %s (was %s)\n", t.ID, old)
@@ -532,7 +552,7 @@ var completeCmd = &cobra.Command{
 	Short: "Mark a todo as done",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -547,10 +567,10 @@ var completeCmd = &cobra.Command{
 			return err
 		}
 		_ = store.AppendAudit(AuditEntry{
-			TodoID: t.ID, Actor: currentActor(), Action: "complete",
+			TodoID: t.ID, Actor: currentActorFn(), Action: "complete",
 			From: string(old), To: string(t.Status),
 		})
-		fireHooks(store, EventPostComplete, t, string(old), string(t.Status), "")
+		fireHooksFn(store, EventPostComplete, t, string(old), string(t.Status), "")
 		fmt.Printf("Completed %s: %s\n", t.ID, t.Title)
 		return nil
 	},
@@ -561,7 +581,7 @@ var cancelCmd = &cobra.Command{
 	Short: "Mark a todo as cancelled",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -576,10 +596,10 @@ var cancelCmd = &cobra.Command{
 			return err
 		}
 		_ = store.AppendAudit(AuditEntry{
-			TodoID: t.ID, Actor: currentActor(), Action: "cancel",
+			TodoID: t.ID, Actor: currentActorFn(), Action: "cancel",
 			From: string(old), To: string(t.Status),
 		})
-		fireHooks(store, EventPostCancel, t, string(old), string(t.Status), "")
+		fireHooksFn(store, EventPostCancel, t, string(old), string(t.Status), "")
 		fmt.Printf("Cancelled %s: %s\n", t.ID, t.Title)
 		return nil
 	},
@@ -591,7 +611,7 @@ var deleteCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		soft, _ := cmd.Flags().GetBool("soft")
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -600,7 +620,7 @@ var deleteCmd = &cobra.Command{
 			return err
 		}
 		_ = store.AppendAudit(AuditEntry{
-			TodoID: args[0], Actor: currentActor(),
+			TodoID: args[0], Actor: currentActorFn(),
 			Action: "delete", Note: boolStr(soft, "soft", "hard"),
 		})
 		fmt.Printf("Deleted %s (%s)\n", args[0], boolStr(soft, "soft", "hard"))
@@ -628,7 +648,7 @@ var depAddCmd = &cobra.Command{
 		if !DepType(dtype).Valid() {
 			return fmt.Errorf("invalid type: %q (use blocks|parent-child|related|discovered-from|duplicates|supersedes)", dtype)
 		}
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -638,11 +658,11 @@ var depAddCmd = &cobra.Command{
 			return err
 		}
 		_ = store.AppendAudit(AuditEntry{
-			TodoID: args[0], Actor: currentActor(), Action: "dep:add",
+			TodoID: args[0], Actor: currentActorFn(), Action: "dep:add",
 			Note: fmt.Sprintf("%s -> %s (%s)", args[0], args[1], dtype),
 		})
 		if child, err := store.Get(args[0]); err == nil && child != nil {
-			fireHooks(store, EventPostDepAdd, child, args[1], dtype, "")
+			fireHooksFn(store, EventPostDepAdd, child, args[1], dtype, "")
 		}
 		fmt.Printf("Added %s -> %s (%s)\n", args[0], args[1], dtype)
 		return nil
@@ -654,7 +674,7 @@ var depRemoveCmd = &cobra.Command{
 	Short: "Remove a dependency",
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -663,7 +683,7 @@ var depRemoveCmd = &cobra.Command{
 			return err
 		}
 		_ = store.AppendAudit(AuditEntry{
-			TodoID: args[0], Actor: currentActor(), Action: "dep:remove",
+			TodoID: args[0], Actor: currentActorFn(), Action: "dep:remove",
 			Note: fmt.Sprintf("%s -> %s", args[0], args[1]),
 		})
 		fmt.Printf("Removed dep %s -> %s\n", args[0], args[1])
@@ -685,7 +705,7 @@ var depsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		maxDepth, _ := cmd.Flags().GetInt("depth")
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -695,7 +715,7 @@ var depsCmd = &cobra.Command{
 			return err
 		}
 		if todoFormat == "json" {
-			return printJSON(tree)
+			return printJSONFn(tree)
 		}
 		fmt.Printf("Dependency tree for %s (depth %d):\n", args[0], maxDepth)
 		seen := map[string]bool{}
@@ -730,7 +750,7 @@ var readyCmd = &cobra.Command{
 	Use:   "ready",
 	Short: "List unblocked open work (P0 first)",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -740,7 +760,7 @@ var readyCmd = &cobra.Command{
 			return err
 		}
 		if todoFormat == "json" {
-			return printJSON(ts)
+			return printJSONFn(ts)
 		}
 		printTodoTable(ts)
 		return nil
@@ -751,7 +771,7 @@ var blockedCmd = &cobra.Command{
 	Use:   "blocked",
 	Short: "List blocked work",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -761,7 +781,7 @@ var blockedCmd = &cobra.Command{
 			return err
 		}
 		if todoFormat == "json" {
-			return printJSON(ts)
+			return printJSONFn(ts)
 		}
 		printTodoTable(ts)
 		return nil
@@ -773,7 +793,7 @@ var searchCmd = &cobra.Command{
 	Short: "Search titles and descriptions",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -783,7 +803,7 @@ var searchCmd = &cobra.Command{
 			return err
 		}
 		if todoFormat == "json" {
-			return printJSON(ts)
+			return printJSONFn(ts)
 		}
 		printTodoTable(ts)
 		return nil
@@ -796,7 +816,7 @@ var graphCmd = &cobra.Command{
 	Use:   "graph",
 	Short: "Output dependency graph in DOT format",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -861,7 +881,7 @@ var statsCmd = &cobra.Command{
 	Use:   "stats",
 	Short: "Show counts by status, priority, type, assignee",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -871,7 +891,7 @@ var statsCmd = &cobra.Command{
 			return err
 		}
 		if todoFormat == "json" {
-			return printJSON(st)
+			return printJSONFn(st)
 		}
 		fmt.Printf("Total: %d\n", st.Total)
 		fmt.Printf("Ready: %d\n", st.Ready)
@@ -903,7 +923,7 @@ var timelineCmd = &cobra.Command{
 	Short: "Show audit log (optionally for a specific todo)",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -917,7 +937,7 @@ var timelineCmd = &cobra.Command{
 			return err
 		}
 		if todoFormat == "json" {
-			return printJSON(entries)
+			return printJSONFn(entries)
 		}
 		if len(entries) == 0 {
 			fmt.Println("(no audit entries)")
@@ -945,8 +965,8 @@ var mineCmd = &cobra.Command{
 	Use:   "mine",
 	Short: "List todos assigned to current user",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		actor := currentActor()
-		store, err := openStore()
+		actor := currentActorFn()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -956,7 +976,7 @@ var mineCmd = &cobra.Command{
 			return err
 		}
 		if todoFormat == "json" {
-			return printJSON(ts)
+			return printJSONFn(ts)
 		}
 		fmt.Printf("Assigned to %s:\n", actor)
 		printTodoTable(ts)
@@ -971,7 +991,7 @@ var projectCmd = &cobra.Command{
 	Short: "Switch project namespace (no arg = show current)",
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -979,7 +999,7 @@ var projectCmd = &cobra.Command{
 		if len(args) == 0 {
 			p, _ := store.GetMeta("current_project")
 			if p == "" {
-				p = currentProject()
+				p = currentProjectFn()
 			}
 			fmt.Printf("Current project: %s\n", p)
 			return nil
@@ -999,14 +1019,14 @@ var rememberCmd = &cobra.Command{
 	Short: "Store a persistent memory/insight",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
 		defer store.Close()
 		m := &Memory{
 			Insight: args[0],
-			Actor:   currentActor(),
+			Actor:   currentActorFn(),
 		}
 		if err := store.AddMemory(m); err != nil {
 			return err
@@ -1020,16 +1040,16 @@ var primeCmd = &cobra.Command{
 	Use:   "prime",
 	Short: "Print context to prepend to an agent prompt",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
 		defer store.Close()
 		ready, _ := store.Ready()
 		blocked, _ := store.Blocked()
-		mine, _ := store.Mine(currentActor())
+		mine, _ := store.Mine(currentActorFn())
 		fmt.Println("# sin-code todo context")
-		fmt.Printf("Project: %s\n", currentProject())
+		fmt.Printf("Project: %s\n", currentProjectFn())
 		fmt.Printf("Ready: %d  Blocked: %d  Mine: %d\n", len(ready), len(blocked), len(mine))
 		if len(ready) > 0 {
 			fmt.Println("\n## Ready work")
@@ -1065,7 +1085,7 @@ var compactCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("invalid --older-than: %w", err)
 		}
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -1075,7 +1095,7 @@ var compactCmd = &cobra.Command{
 			return err
 		}
 		if todoFormat == "json" {
-			return printJSON(res)
+			return printJSONFn(res)
 		}
 		verb := "Compacted"
 		if dry {
@@ -1102,7 +1122,7 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize the bbolt database",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -1116,7 +1136,7 @@ var doctorCmd = &cobra.Command{
 	Use:   "doctor",
 	Short: "Health check of the todo database",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -1141,7 +1161,7 @@ var doctorCmd = &cobra.Command{
 			"healthy":     true,
 		}
 		if todoFormat == "json" {
-			return printJSON(report)
+			return printJSONFn(report)
 		}
 		fmt.Printf("DB: %s\n", store.Path())
 		fmt.Printf("Total todos: %d\n", len(ts))
@@ -1160,7 +1180,7 @@ var exportCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		format, _ := cmd.Flags().GetString("format")
 		output, _ := cmd.Flags().GetString("output")
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -1172,11 +1192,11 @@ var exportCmd = &cobra.Command{
 		var data []byte
 		switch format {
 		case "json":
-			data, _ = json.MarshalIndent(ts, "", "  ")
+			data, _ = jsonMarshalIndentTodo(ts, "", "  ")
 		case "jsonl":
 			var b strings.Builder
 			for _, t := range ts {
-				line, _ := json.Marshal(t)
+				line, _ := jsonMarshalTodo(t)
 				b.Write(line)
 				b.WriteByte('\n')
 			}
@@ -1187,7 +1207,7 @@ var exportCmd = &cobra.Command{
 			return fmt.Errorf("unknown format: %q (use json|jsonl|markdown)", format)
 		}
 		if output != "" && output != "-" {
-			return os.WriteFile(output, data, 0644)
+			return osWriteFileTodo(output, data, 0644)
 		}
 		fmt.Print(string(data))
 		return nil
@@ -1227,11 +1247,11 @@ var importCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		format, _ := cmd.Flags().GetString("format")
-		data, err := os.ReadFile(args[0])
+		data, err := osReadFileTodo(args[0])
 		if err != nil {
 			return err
 		}
-		store, err := openStore()
+		store, err := openStoreFn()
 		if err != nil {
 			return err
 		}
@@ -1266,7 +1286,7 @@ var importCmd = &cobra.Command{
 			imported++
 		}
 		if todoFormat == "json" {
-			return printJSON(map[string]int{"imported": imported})
+			return printJSONFn(map[string]int{"imported": imported})
 		}
 		fmt.Printf("Imported %d todos\n", imported)
 		return nil
@@ -1331,7 +1351,7 @@ func fireHooks(store *Store, event HookEvent, t *Todo, from, to, note string) {
 	if hc == nil {
 		return
 	}
-	ctx := HookContext{Event: event, Todo: t, From: from, To: to, Note: note, Actor: currentActor()}
+	ctx := HookContext{Event: event, Todo: t, From: from, To: to, Note: note, Actor: currentActorFn()}
 	results := hc.Fire(ctx)
 	for _, r := range results {
 		if r.Err == nil {
@@ -1345,5 +1365,5 @@ func fireHooks(store *Store, event HookEvent, t *Todo, from, to, note string) {
 		case "ignore":
 		}
 	}
-	firePluginHooks(store, event, t, from, to, note)
+	firePluginHooksFn(store, event, t, from, to, note)
 }

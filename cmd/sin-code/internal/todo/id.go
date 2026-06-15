@@ -8,9 +8,11 @@ import (
 )
 
 var (
-	idMu    sync.Mutex
-	seenIDs = make(map[string]struct{})
-	idSalt  uint64
+	idMu          sync.Mutex
+	seenIDs       = make(map[string]struct{})
+	idSalt        uint64
+	idNowUnixNano = func() int64 { return time.Now().UnixNano() }
+	idSha1Sum     = sha1.Sum
 )
 
 const idPrefix = "st-"
@@ -40,7 +42,7 @@ func GenerateID() string {
 	idMu.Lock()
 	defer idMu.Unlock()
 	for i := 0; i < 32; i++ {
-		h := sha1.Sum([]byte(fmt.Sprintf("%d-%d-%d", time.Now().UnixNano(), idSalt, i)))
+		h := idSha1Sum([]byte(fmt.Sprintf("%d-%d-%d", idNowUnixNano(), idSalt, i)))
 		body := encodeBase36(uint64(h[0])<<24|uint64(h[1])<<16|uint64(h[2])<<8|uint64(h[3]), idBodyLen)
 		id := idPrefix + body
 		if _, exists := seenIDs[id]; !exists {
@@ -48,7 +50,7 @@ func GenerateID() string {
 			return id
 		}
 	}
-	return fmt.Sprintf("%s%s", idPrefix, encodeBase36(uint64(time.Now().UnixNano()), 8))
+	return fmt.Sprintf("%s%s", idPrefix, encodeBase36(uint64(idNowUnixNano()), 8))
 }
 
 func IsValidID(id string) bool {

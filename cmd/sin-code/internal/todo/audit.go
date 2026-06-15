@@ -11,6 +11,11 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+var (
+	jsonMarshalAudit   = json.Marshal
+	jsonUnmarshalAudit = json.Unmarshal
+)
+
 func auditKey(ts time.Time, id string) []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, uint64(ts.UnixNano()))
@@ -36,7 +41,7 @@ func (s *Store) AppendAudit(e AuditEntry) error {
 	}
 	return s.update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketAudit))
-		data, err := json.Marshal(&e)
+		data, err := jsonMarshalAudit(&e)
 		if err != nil {
 			return err
 		}
@@ -51,7 +56,7 @@ func (s *Store) ListAudit(todoID string) ([]*AuditEntry, error) {
 		c := b.Cursor()
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			var e AuditEntry
-			if uerr := json.Unmarshal(v, &e); uerr != nil {
+			if uerr := jsonUnmarshalAudit(v, &e); uerr != nil {
 				continue
 			}
 			if todoID == "" || e.TodoID == todoID {

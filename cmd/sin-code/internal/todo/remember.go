@@ -8,6 +8,11 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+var (
+	jsonMarshalMemory   = json.Marshal
+	jsonUnmarshalMemory = json.Unmarshal
+)
+
 type Memory struct {
 	ID        string    `json:"id"`
 	Insight   string    `json:"insight"`
@@ -37,7 +42,7 @@ func (s *Store) AddMemory(m *Memory) error {
 	}
 	return s.update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketMems))
-		data, err := json.Marshal(m)
+		data, err := jsonMarshalMemory(m)
 		if err != nil {
 			return err
 		}
@@ -51,7 +56,7 @@ func (s *Store) ListMemories() ([]*Memory, error) {
 		b := tx.Bucket([]byte(bucketMems))
 		return b.ForEach(func(_, v []byte) error {
 			var m Memory
-			if err := json.Unmarshal(v, &m); err != nil {
+			if err := jsonUnmarshalMemory(v, &m); err != nil {
 				return err
 			}
 			out = append(out, &m)
