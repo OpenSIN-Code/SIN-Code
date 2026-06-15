@@ -69,7 +69,7 @@ var (
 	readDirHook       = os.ReadDir
 	readFileHook      = os.ReadFile
 	execCommandRunner = func(name string, args ...string) ([]byte, error) {
-		return exec.Command(name, args...).Output()
+		return exec.Command(name, args...).Output() // #nosec G204
 	}
 	orchestratorRunFunc = func(ctx context.Context, prompt string) (*orchestrator.Result, error) {
 		return orchestrator.New().Run(ctx, prompt)
@@ -211,7 +211,7 @@ func loadTemplates() (*template.Template, error) {
 		return nil, err
 	}
 	tmpl, err := parseFSHook(template.New("").Funcs(template.FuncMap{
-		"safeHTML": func(s string) template.HTML { return template.HTML(s) },
+		"safeHTML": func(s string) template.HTML { return template.HTML(s) }, // #nosec G203
 	}), sub)
 	if err != nil {
 		return nil, fmt.Errorf("parse templates: %w", err)

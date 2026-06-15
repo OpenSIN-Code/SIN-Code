@@ -1542,9 +1542,9 @@ func TestEncodeBase36Zero(t *testing.T) {
 
 func TestGenerateIDFallback(t *testing.T) {
 	resetIDState()
-	orig := idSha1Sum
-	idSha1Sum = func(b []byte) [20]byte { return [20]byte{1} }
-	defer func() { idSha1Sum = orig }()
+	orig := idSha256Sum
+	idSha256Sum = func(b []byte) [32]byte { return [32]byte{1} }
+	defer func() { idSha256Sum = orig }()
 	id := GenerateID()
 	if !IsValidID(id) {
 		t.Errorf("invalid id: %q", id)
@@ -1975,9 +1975,9 @@ func TestEncodeBase36Padding(t *testing.T) {
 
 func TestGenerateIDFallbackExhausted(t *testing.T) {
 	resetIDState()
-	orig := idSha1Sum
-	idSha1Sum = func([]byte) [20]byte { return [20]byte{1} }
-	defer func() { idSha1Sum = orig }()
+	orig := idSha256Sum
+	idSha256Sum = func([]byte) [32]byte { return [32]byte{1} }
+	defer func() { idSha256Sum = orig }()
 	id := GenerateID()
 	seenIDs[id] = struct{}{}
 	id2 := GenerateID()

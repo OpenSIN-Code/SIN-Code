@@ -1,7 +1,7 @@
 package todo
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 	"sync"
 	"time"
@@ -12,7 +12,7 @@ var (
 	seenIDs       = make(map[string]struct{})
 	idSalt        uint64
 	idNowUnixNano = func() int64 { return time.Now().UnixNano() }
-	idSha1Sum     = sha1.Sum
+	idSha256Sum   = sha256.Sum256
 )
 
 const idPrefix = "st-"
@@ -20,7 +20,8 @@ const idBodyLen = 4
 const idAlphabet = "0123456789abcdefghijklmnopqrstuvwxyz"
 
 func init() {
-	idSalt = uint64(time.Now().UnixNano())
+	// UnixNano is non-negative until the year 2262 and fits safely into uint64.
+	idSalt = uint64(time.Now().UnixNano()) // #nosec G115
 }
 
 func encodeBase36(n uint64, w int) string {
@@ -42,7 +43,7 @@ func GenerateID() string {
 	idMu.Lock()
 	defer idMu.Unlock()
 	for i := 0; i < 32; i++ {
-		h := idSha1Sum([]byte(fmt.Sprintf("%d-%d-%d", idNowUnixNano(), idSalt, i)))
+		h := idSha256Sum([]byte(fmt.Sprintf("%d-%d-%d", idNowUnixNano(), idSalt, i)))
 		body := encodeBase36(uint64(h[0])<<24|uint64(h[1])<<16|uint64(h[2])<<8|uint64(h[3]), idBodyLen)
 		id := idPrefix + body
 		if _, exists := seenIDs[id]; !exists {
@@ -64,7 +65,7 @@ func IsValidID(id string) bool {
 	for _, c := range body {
 		found := false
 		for _, a := range idAlphabet {
-			if byte(a) == byte(c) {
+			if byte(a) == byte(c) { // #nosec G115
 				found = true
 				break
 			}

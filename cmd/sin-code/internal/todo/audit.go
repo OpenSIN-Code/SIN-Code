@@ -1,7 +1,7 @@
 package todo
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -30,7 +30,7 @@ func auditPrefix() []byte {
 
 func (s *Store) AppendAudit(e AuditEntry) error {
 	if e.ID == "" {
-		h := sha1.Sum([]byte(fmt.Sprintf("%d-%s-%s", time.Now().UnixNano(), e.TodoID, e.Action)))
+		h := sha256.Sum256([]byte(fmt.Sprintf("%d-%s-%s", time.Now().UnixNano(), e.TodoID, e.Action)))
 		e.ID = fmt.Sprintf("au-%x", h[:6])
 	}
 	if e.Timestamp.IsZero() {
