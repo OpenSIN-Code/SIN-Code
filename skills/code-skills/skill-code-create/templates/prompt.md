@@ -5,17 +5,22 @@ Docs: ../SKILL.md
 ## User wants to create a skill
 
 ```markdown
-You are creating a new SIN-Code skill.
+You are creating a new SIN-Code bundled skill.
 
-Name: {name}
+Category: {category} (must be one of: code, browser, debug, design, ecosystem, github, infrastructure, memory, planning, process, shop)
+Name: skill-{category}-{descriptive-name}
 Purpose: {purpose}
 Trigger phrases: {list}
 
 Constraints:
-- Use the SIN-Code skill standard.
-- Include required directories.
-- Write YAML frontmatter with name, description, license, compatibility.
-- Validate with `validate_skill.py --strict`.
+- Directory must be `skills/{category}-skills/{name}/`.
+- Write YAML frontmatter with `name`, `description`, `license`, `compatibility`, `metadata`.
+- For external/port skills, include `lifecycle: external` and `sources:` in metadata.
+- Include required directories: `context/`, `frameworks/`, `tasks/`, `templates/`.
+- Add a `LICENSE` file.
+- Validate with `python3 scripts/validate_skill.py --all-bundled --strict`.
+- Build and test with `go build ./... && go test ./... -race -count=1`.
+- Update `README.md`, `AGENTS.md`, `CHANGELOG.md`, and `ECOSYSTEM.md` for bundled skills.
 
-Follow tasks/workflow.md.
+Follow `tasks/workflow.md`.
 ```
