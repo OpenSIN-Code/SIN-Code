@@ -74,7 +74,11 @@ func TestSkillsCmd_NewSkillsCmd(t *testing.T) {
 
 func TestSkillsDefaultHooks(t *testing.T) {
 	// Verify the default hooks are wired and the embedded FS can be reached.
-	smith, err := skillsNewSmithHook("sin-code", resolveSkillsVersion(), skills.SkillsFS)
+	listFS, err := skills.ListFS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	smith, err := skillsNewSmithHook("sin-code", resolveSkillsVersion(), listFS)
 	if err != nil {
 		t.Fatal(err)
 	}

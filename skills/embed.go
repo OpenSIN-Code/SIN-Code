@@ -3,7 +3,11 @@
 // Docs: skills.doc.md
 package skills
 
-import "embed"
+import (
+	"embed"
+	"io/fs"
+	"sync"
+)
 
 // SkillsFS embeds every skill directory under the repository-root skills/ folder.
 // The embedded filesystem is consumed by the `sin-code skills` subcommand via
@@ -12,3 +16,18 @@ import "embed"
 //
 //go:embed *
 var SkillsFS embed.FS
+
+// listFSOnce holds the lazily-built flattened view of SkillsFS. Skillsmith
+// expects all skill directories at the root of the FS, but SIN-Code organizes
+// skills into category folders (code-skills/, shop-skills/, ...). listFSOnce
+// maps each leaf skill directory back to the root by skill name.
+var listFSOnce = sync.OnceValues(func() (fs.FS, error) {
+	return newFlatSkillFS(SkillsFS)
+})
+
+// ListFS returns a flattened fs.FS suitable for skillsmith.Discover and
+// skillsmith.CopySkills. The returned FS exposes every leaf skill directory
+// at the root level (e.g. "code-skills/add-endpoint" becomes "add-endpoint").
+func ListFS() (fs.FS, error) {
+	return listFSOnce()
+}

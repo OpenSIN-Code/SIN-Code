@@ -51,7 +51,11 @@ sin-code binary and can install them into the user's agent config directory
 		Use:   "list",
 		Short: "List bundled skills",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			smith, err := skillsNewSmithHook("sin-code", resolveSkillsVersion(), skills.SkillsFS)
+			listFS, err := skills.ListFS()
+			if err != nil {
+				return err
+			}
+			smith, err := skillsNewSmithHook("sin-code", resolveSkillsVersion(), listFS)
 			if err != nil {
 				return err
 			}
@@ -79,7 +83,11 @@ sin-code binary and can install them into the user's agent config directory
 		Short: "Install a bundled skill into the agent skills directory",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			smith, err := skillsNewSmithHook("sin-code", resolveSkillsVersion(), skills.SkillsFS)
+			listFS, err := skills.ListFS()
+			if err != nil {
+				return err
+			}
+			smith, err := skillsNewSmithHook("sin-code", resolveSkillsVersion(), listFS)
 			if err != nil {
 				return err
 			}
