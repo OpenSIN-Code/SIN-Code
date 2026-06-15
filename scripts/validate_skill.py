@@ -23,7 +23,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
 # Required directories per the SIN-Code skill standard.
 REQUIRED_DIRS = ("context", "frameworks", "tasks", "templates")
 
