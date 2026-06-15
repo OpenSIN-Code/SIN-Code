@@ -28,6 +28,10 @@ func NewBudget(minutes, maxExperiments int) *Budget {
 	}
 }
 
+// testBudgetForceConsumeFail is set by coverage tests to force Consume to
+// return false without actually advancing the experiment counter.
+var testBudgetForceConsumeFail bool
+
 // StopReason explains why the loop must end ("" means keep going).
 func (b *Budget) StopReason() string {
 	b.mu.Lock()
@@ -49,6 +53,9 @@ func (b *Budget) CanContinue() bool { return b.StopReason() == "" }
 func (b *Budget) Consume() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if testBudgetForceConsumeFail {
+		return false
+	}
 	if b.maxExperiments > 0 && b.used >= b.maxExperiments {
 		return false
 	}

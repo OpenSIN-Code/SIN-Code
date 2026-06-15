@@ -21,7 +21,41 @@ var (
 	warningOnce   sync.Once
 	warnedServers = make(map[string]bool)
 	warnedMu      sync.Mutex
+
+	// testConnectHook bypasses the real transport/Connect/ListTools dance and
+	// returns a fake session + tools directly. Used by coverage tests.
+	testConnectHook func(ctx context.Context, client *sdk.Client, cfg ServerConfig) (session, []Tool, error)
+
+	// testTransportProvider overrides stdio transport creation for the real
+	// Connect path (e.g. in-memory transports).
+	testTransportProvider func(cfg ServerConfig) (sdk.Transport, error)
+
+	// testListToolsErr injects a ListTools error in the real Connect path.
+	testListToolsErr error
 )
+
+// session is the minimal surface Manager needs from an MCP client session.
+// realSession wraps *sdk.ClientSession; tests supply fakeSession.
+type session interface {
+	CallTool(ctx context.Context, params *sdk.CallToolParams) (*sdk.CallToolResult, error)
+	Close() error
+}
+
+// realSession adapts *sdk.ClientSession to the session interface.
+type realSession struct {
+	sess *sdk.ClientSession
+}
+
+func (r *realSession) CallTool(ctx context.Context, params *sdk.CallToolParams) (*sdk.CallToolResult, error) {
+	return r.sess.CallTool(ctx, params)
+}
+
+func (r *realSession) Close() error {
+	if r.sess == nil {
+		return nil
+	}
+	return r.sess.Close()
+}
 
 type ServerConfig struct {
 	Name      string            `json:"name"`
@@ -43,12 +77,12 @@ type Tool struct {
 type Manager struct {
 	configs  []ServerConfig
 	mu       sync.RWMutex
-	sessions map[string]*sdk.ClientSession
+	sessions map[string]session
 	tools    []Tool
 }
 
 func NewManager(configs []ServerConfig) *Manager {
-	return &Manager{configs: configs, sessions: map[string]*sdk.ClientSession{}}
+	return &Manager{configs: configs, sessions: map[string]session{}}
 }
 
 // ConnectAll connects to every configured server. A single failing server is
@@ -75,26 +109,51 @@ func (m *Manager) ConnectAll(ctx context.Context) error {
 }
 
 func (m *Manager) connect(ctx context.Context, client *sdk.Client, cfg ServerConfig) error {
+	if testConnectHook != nil {
+		sess, tools, err := testConnectHook(ctx, client, cfg)
+		if err != nil {
+			return err
+		}
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		m.sessions[cfg.Name] = sess
+		m.tools = append(m.tools, tools...)
+		return nil
+	}
+
 	var transport sdk.Transport
 	switch cfg.Transport {
 	case "stdio":
-		cmd := exec.CommandContext(ctx, cfg.Command, cfg.Args...)
-		cmd.Env = os.Environ()
-		for k, v := range cfg.Env {
-			cmd.Env = append(cmd.Env, k+"="+v)
+		if testTransportProvider != nil {
+			tr, err := testTransportProvider(cfg)
+			if err != nil {
+				return err
+			}
+			transport = tr
+		} else {
+			cmd := exec.CommandContext(ctx, cfg.Command, cfg.Args...)
+			cmd.Env = os.Environ()
+			for k, v := range cfg.Env {
+				cmd.Env = append(cmd.Env, k+"="+v)
+			}
+			transport = &sdk.CommandTransport{Command: cmd}
 		}
-		transport = &sdk.CommandTransport{Command: cmd}
 	case "http":
 		transport = &sdk.StreamableClientTransport{Endpoint: cfg.URL}
 	default:
 		return fmt.Errorf("unknown transport %q", cfg.Transport)
 	}
 
-	sess, err := client.Connect(ctx, transport, nil)
+	sdkSess, err := client.Connect(ctx, transport, nil)
 	if err != nil {
 		return err
 	}
-	res, err := sess.ListTools(ctx, nil)
+	sess := &realSession{sess: sdkSess}
+
+	res, err := sdkSess.ListTools(ctx, nil)
+	if testListToolsErr != nil {
+		err = testListToolsErr
+	}
 	if err != nil {
 		_ = sess.Close()
 		return err
@@ -159,5 +218,5 @@ func (m *Manager) Close() {
 	for _, s := range m.sessions {
 		_ = s.Close()
 	}
-	m.sessions = map[string]*sdk.ClientSession{}
+	m.sessions = map[string]session{}
 }

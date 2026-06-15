@@ -10,6 +10,10 @@ import (
 	"path/filepath"
 )
 
+// testSkillsDir overrides the skills directory used by DefaultServers().
+// Points to a string so tests can also inject an explicit empty value.
+var testSkillsDir *string
+
 // DefaultServers returns the ecosystem registry. Server names double as
 // tool-name prefixes ("websearch__search", "browser__navigate", ...), which
 // the permission matrix gates via the "mcp" policy class.
@@ -93,6 +97,9 @@ func shortName(repo string) string {
 // local share location used by skillmgr. This keeps the registry in sync
 // with where skillmgr actually installs skills.
 func skillsDirOrDefault() string {
+	if testSkillsDir != nil {
+		return *testSkillsDir
+	}
 	if d := os.Getenv("SIN_SKILLS_DIR"); d != "" {
 		return d
 	}

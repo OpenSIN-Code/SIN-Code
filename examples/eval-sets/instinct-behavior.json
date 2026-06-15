@@ -1,0 +1,27 @@
+{
+  "name": "instinct-behavior",
+  "description": "Validates the continuous-learning loop end to end",
+  "cases": [
+    {
+      "id": "creates-instinct",
+      "prompt": "after a repeated git-commit-then-test pattern, an instinct exists",
+      "expected": "when committing\nrun tests",
+      "tags": ["learning", "git"],
+      "weight": 1.0
+    },
+    {
+      "id": "scopes-to-project",
+      "prompt": "a react-specific instinct does not leak into a go-only project",
+      "expected": "scope: project",
+      "tags": ["learning", "scope"],
+      "weight": 1.5
+    },
+    {
+      "id": "promotes-cross-project",
+      "prompt": "validate-input seen in two projects becomes global",
+      "expected": "scope: global",
+      "tags": ["learning", "promotion"],
+      "weight": 1.5
+    }
+  ]
+}

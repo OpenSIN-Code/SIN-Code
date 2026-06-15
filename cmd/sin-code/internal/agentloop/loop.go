@@ -104,6 +104,17 @@ func (l *Loop) fire(ctx context.Context, event, name string, data map[string]any
 	})
 }
 
+// saveHistoryHook is swapped by coverage tests to exercise the error path
+// without mutating the real session store.
+var saveHistoryHook func(*session.Session, []session.Message) error
+
+func saveHistory(sess *session.Session, msgs []session.Message) error {
+	if saveHistoryHook != nil {
+		return saveHistoryHook(sess, msgs)
+	}
+	return sess.SaveHistory(msgs)
+}
+
 func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []string) {
 	pre := l.fire(ctx, hooks.ToolPre, tc.Name, map[string]any{"args": tc.Args})
 	injects = append(injects, pre.PromptInjects...)
@@ -217,7 +228,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 					Role:    "user",
 					Content: "VERIFICATION BLOCKED by hook — fix before claiming completion:\n" + vpre.BlockReason,
 				})
-				if err := sess.SaveHistory(msgs); err != nil {
+				if err := saveHistory(sess, msgs); err != nil {
 					return nil, err
 				}
 				continue
@@ -242,7 +253,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 					Role:    "user",
 					Content: "VERIFICATION FAILED (" + string(res.Mode) + ") — fix before claiming completion:\n" + res.Report,
 				})
-				if err := sess.SaveHistory(msgs); err != nil {
+				if err := saveHistory(sess, msgs); err != nil {
 					return nil, err
 				}
 				continue
@@ -251,7 +262,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				"mode": string(res.Mode), "report": res.Report,
 			})
 			l.record(ctx, ledger.TypeVerifyPass, map[string]any{"mode": string(res.Mode)}, "verification passed ("+string(res.Mode)+")")
-			if err := sess.SaveHistory(msgs); err != nil {
+			if err := saveHistory(sess, msgs); err != nil {
 				return nil, err
 			}
 			result := &Result{
@@ -272,7 +283,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				Role: "tool", ToolCallID: tc.ID, Content: out,
 			})
 		}
-		if err := sess.SaveHistory(msgs); err != nil {
+		if err := saveHistory(sess, msgs); err != nil {
 			return nil, err
 		}
 	}

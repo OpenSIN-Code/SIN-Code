@@ -1,0 +1,38 @@
+{
+  "name": "go-quality",
+  "description": "Baseline quality checks for Go changes in SIN-Code",
+  "cases": [
+    {
+      "id": "builds",
+      "prompt": ".",
+      "expected": "PASS",
+      "tags": ["build"],
+      "weight": 2.0,
+      "meta": { "workdir": "." }
+    },
+    {
+      "id": "vet-clean",
+      "prompt": "./internal/...",
+      "expected": "no findings",
+      "tags": ["lint", "go"],
+      "weight": 1.5,
+      "meta": { "workdir": "." }
+    },
+    {
+      "id": "tests-pass",
+      "prompt": "./internal/instinct/... ./internal/hooklife/...",
+      "expected": "ok",
+      "tags": ["testing"],
+      "weight": 2.0,
+      "meta": { "workdir": "." }
+    },
+    {
+      "id": "no-secrets",
+      "prompt": "scan for hardcoded credentials",
+      "expected": "no secrets found",
+      "tags": ["security"],
+      "weight": 1.0,
+      "meta": { "workdir": "." }
+    }
+  ]
+}

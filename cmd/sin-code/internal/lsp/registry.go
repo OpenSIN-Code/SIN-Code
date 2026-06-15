@@ -11,6 +11,9 @@ import (
 	"sync"
 )
 
+// lookPathHook is swapped by tests to simulate missing LSP binaries.
+var lookPathHook = exec.LookPath
+
 type ServerSpec struct {
 	Language string
 	Binary   string
@@ -31,7 +34,7 @@ var DefaultServers = []ServerSpec{
 func DetectAvailable() []ServerSpec {
 	var out []ServerSpec
 	for _, spec := range DefaultServers {
-		if _, err := exec.LookPath(spec.Binary); err == nil {
+		if _, err := lookPathHook(spec.Binary); err == nil {
 			out = append(out, spec)
 		}
 	}
@@ -72,7 +75,7 @@ func (m *Manager) Get(lang, rootURI string) (*Client, error) {
 	if !ok {
 		return nil, fmt.Errorf("no LSP server configured for language: %s", lang)
 	}
-	if _, err := exec.LookPath(spec.Binary); err != nil {
+	if _, err := lookPathHook(spec.Binary); err != nil {
 		return nil, fmt.Errorf("LSP binary %s not found in PATH (install with: see LSP docs for %s)", spec.Binary, lang)
 	}
 	c, err := Start(spec.Binary, spec.Args, lang, rootURI)
