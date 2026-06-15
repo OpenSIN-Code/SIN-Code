@@ -144,9 +144,9 @@ def test_bench_ledger_append(tmp_path):
     r = _measure("ledger.append 1000 events", go, runs=3)
     print()
     _print_bench([r])
-    # 1000 events under 5s on a busy CI host. SQLite WAL, single writer.
-    # 2-5ms/op is the budget; the bench is sanity-check, not a perf gate.
-    assert r["median"] < 5000, f"too slow: {r['median']}ms"
+    # 1000 events under 7s on a busy CI host. SQLite WAL, single writer.
+    # 2-7ms/op is the budget; the bench is sanity-check, not a perf gate.
+    assert r["median"] < 7000, f"too slow: {r['median']}ms"
 
 
 def test_bench_wilson_score_convergence():

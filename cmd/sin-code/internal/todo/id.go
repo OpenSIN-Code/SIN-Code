@@ -51,7 +51,8 @@ func GenerateID() string {
 			return id
 		}
 	}
-	return fmt.Sprintf("%s%s", idPrefix, encodeBase36(uint64(idNowUnixNano()), 8))
+	// UnixNano is non-negative; overflow is harmless for entropy here.
+	return fmt.Sprintf("%s%s", idPrefix, encodeBase36(uint64(idNowUnixNano()), 8)) // #nosec G115
 }
 
 func IsValidID(id string) bool {
