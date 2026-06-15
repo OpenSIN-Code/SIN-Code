@@ -8,7 +8,6 @@
 package vane
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -20,6 +19,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/circuitbreaker"
 )
 
 // setHook replaces *target with value and restores it on test cleanup.
@@ -28,6 +29,15 @@ func setHook[T any](t *testing.T, target *T, value T) {
 	old := *target
 	*target = value
 	t.Cleanup(func() { *target = old })
+}
+
+// disableBreaker swaps the transport wrapper so raw HTTP responses reach
+// the Client error branches instead of being intercepted by the breaker.
+func disableBreaker(t *testing.T) {
+	t.Helper()
+	setHook(t, &roundTripperFn, func(inner http.RoundTripper, _ *circuitbreaker.Breaker) http.RoundTripper {
+		return inner
+	})
 }
 
 // failingWriter always returns an error so Serve's json.Encoder.Encode path
@@ -102,6 +112,34 @@ func TestLoadConfigFallbacks(t *testing.T) {
 	}
 }
 
+func TestLoadConfigTimeoutFallback(t *testing.T) {
+	dir := setupTestHome(t)
+	if err := os.WriteFile(filepath.Join(dir, "vane.json"), []byte(`{"timeout_seconds":0}`), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	cfg, _, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.TimeoutSeconds != DefaultTimeoutSeconds {
+		t.Errorf("TimeoutSeconds fallback: got %d", cfg.TimeoutSeconds)
+	}
+}
+
+func TestLoadConfigBaseURLFallback(t *testing.T) {
+	dir := setupTestHome(t)
+	if err := os.WriteFile(filepath.Join(dir, "vane.json"), []byte(`{"base_url":"   "}`), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	cfg, _, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.BaseURL != DefaultBaseURL {
+		t.Errorf("BaseURL fallback: got %q", cfg.BaseURL)
+	}
+}
+
 func TestSaveConfigBlankBaseURL(t *testing.T) {
 	setupTestHome(t)
 	if err := SaveConfig(Config{BaseURL: "  "}); err != nil {
@@ -136,13 +174,22 @@ func TestBreakerStatsNil(t *testing.T) {
 	}
 }
 
+func TestBreakerStatsNonNil(t *testing.T) {
+	c := NewClient(DefaultConfig())
+	stats := c.BreakerStats()
+	if stats == nil {
+		t.Fatal("expected non-nil stats")
+	}
+}
+
 // ── Healthy / Search error paths ────────────────────────────────────────
 
 func TestHealthyRequestError(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.BaseURL = "://invalid"
 	c := NewClient(cfg)
-	if err := c.Healthy(context.Background()); err == nil {
+	err := c.Healthy(context.Background())
+	if err == nil {
 		t.Fatal("expected error")
 	}
 	if !strings.Contains(err.Error(), "build request") {
@@ -151,12 +198,14 @@ func TestHealthyRequestError(t *testing.T) {
 }
 
 func TestHealthyServerError(t *testing.T) {
+	disableBreaker(t)
 	srv := mockVane(t, http.StatusInternalServerError, "err", nil)
 	defer srv.Close()
 	cfg := DefaultConfig()
 	cfg.BaseURL = srv.URL
 	c := NewClient(cfg)
-	if err := c.Healthy(context.Background()); err == nil {
+	err := c.Healthy(context.Background())
+	if err == nil {
 		t.Fatal("expected error")
 	}
 	if !strings.Contains(err.Error(), "server error") {
@@ -170,7 +219,8 @@ func TestHealthyClientError(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.BaseURL = srv.URL
 	c := NewClient(cfg)
-	if err := c.Healthy(context.Background()); err == nil {
+	err := c.Healthy(context.Background())
+	if err == nil {
 		t.Fatal("expected error")
 	}
 	if !strings.Contains(err.Error(), "client error") {
@@ -223,7 +273,8 @@ func TestSearchReadBodyError(t *testing.T) {
 	}
 }
 
-func TestSearchServerError(t *testing.T) {
+func TestSearchServerError5xx(t *testing.T) {
+	disableBreaker(t)
 	srv := mockVane(t, http.StatusInternalServerError, "boom", nil)
 	defer srv.Close()
 	cfg := DefaultConfig()
@@ -291,14 +342,33 @@ func TestSearchNilSources(t *testing.T) {
 	}
 }
 
+func TestSearchAnswerFallback(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, `{"answer":"fallback answer"}`)
+	}))
+	defer srv.Close()
+	cfg := DefaultConfig()
+	cfg.BaseURL = srv.URL
+	c := NewClient(cfg)
+	ans, err := c.Search(context.Background(), "q", "webSearch", "balanced")
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if ans.Message != "fallback answer" {
+		t.Errorf("Message: got %q want %q", ans.Message, "fallback answer")
+	}
+}
+
 // ── FormatAnswer ────────────────────────────────────────────────────────
 
 func TestFormatAnswerEmptySource(t *testing.T) {
 	got := FormatAnswer(&Answer{
 		Message: "msg",
 		Sources: []Source{
-			{Title: "", URL: ""},        // skipped entirely
-			{Title: "T", URL: ""},       // title-only
+			{Title: "", URL: ""},         // skipped entirely
+			{Title: "T", URL: ""},        // title-only
 			{Title: "", URL: "http://u"}, // url-only, title falls back to url
 		},
 	})
@@ -396,14 +466,14 @@ func TestNewServerDefaultCfgDir(t *testing.T) {
 }
 
 func TestServeWrapper(t *testing.T) {
-	dir := setupTestHome(t)
+	setupTestHome(t)
 	if err := SaveConfig(Config{BaseURL: "http://127.0.0.1:1", TimeoutSeconds: 1}); err != nil {
 		t.Fatalf("SaveConfig: %v", err)
 	}
 	r, w := io.Pipe()
 	out := &safeBuffer{}
-	setHook(t, &serveStdin, r)
-	setHook(t, &serveStdout, out)
+	setHook(t, &serveStdin, io.Reader(r))
+	setHook(t, &serveStdout, io.Writer(out))
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	done := make(chan struct{})
@@ -621,6 +691,16 @@ func TestDispatchNotification(t *testing.T) {
 	resp := s.dispatch(context.Background(), req)
 	if resp != nil {
 		t.Errorf("expected nil response for notification, got %v", resp)
+	}
+}
+
+func TestDispatchInitializedAck(t *testing.T) {
+	s := NewServerWithIO(strings.NewReader(""), &safeBuffer{}, &safeBuffer{}, "")
+	id := json.RawMessage(`1`)
+	req := &jsonRPCRequest{ID: &id, Method: "notifications/initialized", JSONRPC: "2.0"}
+	resp := s.dispatch(context.Background(), req)
+	if resp != nil {
+		t.Errorf("expected nil response for notifications/initialized, got %v", resp)
 	}
 }
 

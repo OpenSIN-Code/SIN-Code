@@ -108,9 +108,6 @@ func (i *Input) HandleSlashCommand(line string) (handled bool, err error) {
 		return false, nil
 	}
 	parts := strings.Fields(trimmed)
-	if len(parts) == 0 {
-		return false, nil
-	}
 	switch parts[0] {
 	case "/attach":
 		if len(parts) < 2 {

@@ -367,8 +367,8 @@ func marshalText(v any) []toolContent {
 // serveStdin and serveStdout are test hooks so the public Serve wrapper
 // can be exercised without touching the real process stdio.
 var (
-	serveStdin  = os.Stdin
-	serveStdout = os.Stdout
+	serveStdin  io.Reader = os.Stdin
+	serveStdout io.Writer = os.Stdout
 )
 
 func Serve(ctx context.Context) error {

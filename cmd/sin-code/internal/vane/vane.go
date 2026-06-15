@@ -38,6 +38,7 @@ var (
 	writeJSONCopyFn     = io.Copy
 	writeJSONWriteFn    = func(w io.Writer, p []byte) (int, error) { return w.Write(p) }
 	writeJSONCloseFn    = func(c io.Closer) error { return c.Close() }
+	roundTripperFn      = circuitbreaker.RoundTripper
 )
 
 // ── Public configuration constants ─────────────────────────────────────
@@ -246,7 +247,7 @@ func NewClient(cfg Config) *Client {
 		cfg: cfg,
 		http: &http.Client{
 			Timeout:   time.Duration(timeout) * time.Second,
-			Transport: circuitbreaker.RoundTripper(http.DefaultTransport, br),
+			Transport: roundTripperFn(http.DefaultTransport, br),
 		},
 		breaker: br,
 	}
@@ -315,7 +316,7 @@ func (c *Client) Search(ctx context.Context, query, focusMode, optimization stri
 		EmbeddingModelProvider: c.cfg.EmbedProvider,
 		EmbeddingModel:         c.cfg.EmbedModel,
 	}
-	raw, err := json.Marshal(body)
+	raw, err := jsonMarshalFn(body)
 	if err != nil {
 		return nil, fmt.Errorf("vane: marshal: %w", err)
 	}
@@ -332,7 +333,7 @@ func (c *Client) Search(ctx context.Context, query, focusMode, optimization stri
 		return nil, fmt.Errorf("vane: post: %w", err)
 	}
 	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := ioReadAllFn(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("vane: read body: %w", err)
 	}
@@ -400,7 +401,7 @@ func RegisterMCP(mcpPath string) (string, error) {
 	if mcpPath == "" {
 		mcpPath = MCPConfigPath()
 	}
-	exe, err := os.Executable()
+	exe, err := osExecutableFn()
 	if err != nil {
 		return mcpPath, fmt.Errorf("vane: resolve executable: %w", err)
 	}

@@ -51,6 +51,7 @@ var (
 	runGitHook        = runGit
 	currentShaHook    = currentSHA
 	currentBranchHook = currentBranch
+	writePromptHook   = WritePrompt
 	walkDirHook       = filepath.WalkDir
 )
 
@@ -173,7 +174,7 @@ func Install(ctx context.Context, repoURL, branch string) (*InstallResult, error
 	for i := range infos {
 		_ = AppendOverlay(infos[i].Path)
 	}
-	if _, err := WritePrompt(infos); err != nil {
+	if _, err := writePromptHook(infos); err != nil {
 		return nil, err
 	}
 	// Write pin file.
@@ -218,7 +219,7 @@ func Pin(ctx context.Context, sha string) (*PinState, error) {
 	for i := range infos {
 		_ = AppendOverlay(infos[i].Path)
 	}
-	if _, err := WritePrompt(infos); err != nil {
+	if _, err := writePromptHook(infos); err != nil {
 		return nil, err
 	}
 	return &state, nil

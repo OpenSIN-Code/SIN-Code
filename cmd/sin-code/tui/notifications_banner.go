@@ -72,10 +72,7 @@ func (m *Model) RenderBanner(styles Styles, width int) string {
 	case "todo_deleted", "todo_cancelled":
 		icon = "✗"
 	}
-	innerWidth := width - 4
-	if innerWidth < 10 {
-		innerWidth = 10
-	}
+	innerWidth := max(width-4, 10)
 	var b strings.Builder
 	b.WriteString(styles.AccentText.Render("╭─ " + icon + " " + m.NotificationBanner.Title + " "))
 	b.WriteString(styles.Muted.Render(strings.Repeat("─", innerWidth-len(m.NotificationBanner.Title)-6)))
@@ -86,12 +83,16 @@ func (m *Model) RenderBanner(styles Styles, width int) string {
 		msg = msg[:innerWidth-1] + "…"
 	}
 	b.WriteString(styles.Content.Render("│  " + msg))
-	b.WriteString(strings.Repeat(" ", innerWidth-len(msg)-2))
+	if pad := innerWidth - len(msg) - 2; pad > 0 {
+		b.WriteString(strings.Repeat(" ", pad))
+	}
 	b.WriteString("│")
 	b.WriteString("\n")
 	actions := "[o] open  [d] dismiss  [n] next"
 	b.WriteString(styles.Muted.Render("╰─ " + actions + " "))
-	b.WriteString(strings.Repeat("─", innerWidth-len(actions)-4))
+	if pad := innerWidth - len(actions) - 4; pad > 0 {
+		b.WriteString(strings.Repeat("─", pad))
+	}
 	b.WriteString("╯")
 	b.WriteString("\n")
 	return b.String()

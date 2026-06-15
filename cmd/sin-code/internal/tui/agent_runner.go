@@ -152,7 +152,7 @@ func NewAgentRunner(ctx context.Context, cfg Config) (*AgentRunner, error) {
 	if err != nil {
 		return nil, fmt.Errorf("agentrunner: open sessions: %w", err)
 	}
-	sess, err := store.StartOrResume(cfg.SessionID)
+	sess, err := storeStartOrResume(store, cfg.SessionID)
 	if err != nil {
 		_ = store.Close()
 		return nil, fmt.Errorf("agentrunner: start session: %w", err)
@@ -168,7 +168,7 @@ func NewAgentRunner(ctx context.Context, cfg Config) (*AgentRunner, error) {
 		Events:  make(chan AgentEvent, 64),
 		closed:  make(chan struct{}),
 	}
-	loop, cleanup, err := loopbuilder.Build(ctx, loopbuilder.Config{
+	loop, cleanup, err := loopbuilderBuild(ctx, loopbuilder.Config{
 		Workspace:   cfg.Workspace,
 		SessionID:   sess.ID,
 		AgentName:   cfg.AgentName,
@@ -317,7 +317,7 @@ func (r *AgentRunner) Close() error {
 			}
 		}
 		if r.store != nil {
-			if err := r.store.Close(); err != nil && firstErr == nil {
+			if err := storeClose(r.store); err != nil && firstErr == nil {
 				firstErr = err
 			}
 		}

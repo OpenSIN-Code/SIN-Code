@@ -336,3 +336,25 @@ func TestRunnerChatError(t *testing.T) {
 		t.Fatal("expected error")
 	}
 }
+
+func TestRunnerShortHistory(t *testing.T) {
+	var gotReq llm.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &gotReq)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`))
+	}))
+	defer srv.Close()
+
+	c := llm.NewClient(srv.URL, "k")
+	r := NewRunnerWithClient(c, "model", "system")
+	// history shorter than historyKeepN to cover the start < 0 branch
+	history := []string{"a", "b"}
+	if _, err := r.Run(context.Background(), "prompt", history); err != nil {
+		t.Fatal(err)
+	}
+	if len(gotReq.Messages) != 4 { // system + 2 history + prompt
+		t.Fatalf("expected 4 messages, got %d: %+v", len(gotReq.Messages), gotReq.Messages)
+	}
+}

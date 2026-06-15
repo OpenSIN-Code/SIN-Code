@@ -492,7 +492,18 @@ func TestInputSlashAttachTooLarge(t *testing.T) {
 	i := newTestInput(t)
 	dir := t.TempDir()
 	big := filepath.Join(dir, "big.bin")
-	if err := os.Truncate(big, attachments.MaxSize+1); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Create(big)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(attachments.MaxSize + 1); err != nil {
+		_ = f.Close()
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
 		t.Fatal(err)
 	}
 	handled, err := i.HandleSlashCommand("/attach " + big)
@@ -519,7 +530,18 @@ func TestInputSlashAttachGlobTooLarge(t *testing.T) {
 	i := newTestInput(t)
 	dir := t.TempDir()
 	big := filepath.Join(dir, "big.bin")
-	if err := os.Truncate(big, attachments.MaxSize+1); err != nil {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Create(big)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(attachments.MaxSize + 1); err != nil {
+		_ = f.Close()
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
 		t.Fatal(err)
 	}
 	handled, err := i.HandleSlashCommand("/attach-glob " + filepath.Join(dir, "*"))
@@ -644,5 +666,37 @@ func TestInputViewMultipleAttachments(t *testing.T) {
 	view := i.View()
 	if !strings.Contains(view, "a.txt, b.txt") {
 		t.Errorf("expected comma-separated names, got %q", view)
+	}
+}
+
+func TestInputSlashAttachGlobMissingArg(t *testing.T) {
+	i := newTestInput(t)
+	handled, err := i.HandleSlashCommand("/attach-glob")
+	if err == nil {
+		t.Error("expected error for missing glob argument")
+	}
+	if !handled {
+		t.Error("expected command handled")
+	}
+}
+
+func TestInputIsFilePathHomeSuccess(t *testing.T) {
+	i := newTestInput(t)
+	home := t.TempDir()
+	real := filepath.Join(home, "real.txt")
+	if err := os.WriteFile(real, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	prev := osUserHomeDirHook
+	osUserHomeDirHook = func() (string, error) { return home, nil }
+	defer func() { osUserHomeDirHook = prev }()
+	if !i.isFilePath("~/real.txt") {
+		t.Error("expected true for existing file under home dir")
+	}
+}
+
+func TestImageExtGIF(t *testing.T) {
+	if got := imageExt("GIF89a..."); got != "gif" {
+		t.Errorf("expected gif, got %q", got)
 	}
 }

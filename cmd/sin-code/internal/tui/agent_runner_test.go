@@ -723,7 +723,7 @@ func TestBridgeAskClosedSecondSelect(t *testing.T) {
 
 func TestAnswerAskDefaultWhenBlocked(t *testing.T) {
 	r := &AgentRunner{askReply: make(chan bool)} // unbuffered, no receiver
-	r.AnswerAsk(true)                             // should hit default case, not block
+	r.AnswerAsk(true)                            // should hit default case, not block
 }
 
 func TestSubmitSyncAfterCloseReturnsErrClosed(t *testing.T) {
@@ -762,7 +762,7 @@ func TestSessionIDNil(t *testing.T) {
 	}
 }
 
-func TestSetCompletionNilLoop(t *testing.T) {
+func TestSetCompletionNilLoopGuard(t *testing.T) {
 	r := &AgentRunner{}
 	r.SetCompletion(func(ctx context.Context, history []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error) {
 		return nil, nil
@@ -798,5 +798,77 @@ func TestCloseStoreCloseError(t *testing.T) {
 	r.cleanup = nil // ensure firstErr is available for the store error
 	if err := r.Close(); err == nil || !strings.Contains(err.Error(), "store close failed") {
 		t.Errorf("Close err = %v, want 'store close failed'", err)
+	}
+}
+
+// sessionWithHistory creates a real session seeded with the supplied messages.
+// The caller is responsible for closing the returned store when done.
+func sessionWithHistory(t *testing.T, msgs []session.Message) (*session.Store, *session.Session) {
+	t.Helper()
+	ws := t.TempDir()
+	store, err := session.Open(filepath.Join(ws, "sessions.db"))
+	if err != nil {
+		t.Fatalf("session.Open: %v", err)
+	}
+	sess, err := store.StartOrResume("")
+	if err != nil {
+		_ = store.Close()
+		t.Fatalf("StartOrResume: %v", err)
+	}
+	if err := sess.SaveHistory(msgs); err != nil {
+		_ = store.Close()
+		t.Fatalf("SaveHistory: %v", err)
+	}
+	return store, sess
+}
+
+func TestEmitSessionHistoryBranches(t *testing.T) {
+	store, sess := sessionWithHistory(t, []session.Message{
+		{Role: "tool", Content: "orphan tool result with no assistant call"},
+		{Role: "tool", Content: strings.Repeat("x", 100)},
+		{Role: "user", Content: "VERIFICATION PASSED summary text"},
+		{Role: "user", Content: "VERIFICATION FAILED another summary"},
+		{Role: "user", Content: "VERIFICATION BLOCKED — permission denied"},
+	})
+	defer store.Close()
+
+	r := &AgentRunner{Events: make(chan AgentEvent, 64)}
+	r.sess = sess
+	r.emitSessionHistory(context.Background())
+
+	events := collectEvents(r, 500*time.Millisecond)
+	var orphanResult, longContent, passed, failed, blocked bool
+	for _, ev := range events {
+		if ev.Kind == EventTool && ev.Detail == "tool result" {
+			orphanResult = true
+		}
+		if ev.Kind == EventTool && ev.Detail == "tool result" && ev.ToolName == "" {
+			// long content branch also emits "tool result" with empty name
+			longContent = true
+		}
+		if ev.Kind == EventVerify && ev.Result == "summary text" {
+			passed = true
+		}
+		if ev.Kind == EventVerify && ev.Result == "another summary" {
+			failed = true
+		}
+		if ev.Kind == EventVerify && ev.Result == "permission denied" {
+			blocked = true
+		}
+	}
+	if !orphanResult {
+		t.Errorf("expected orphan tool result event, got %+v", events)
+	}
+	if !longContent {
+		t.Errorf("expected long-content tool result event, got %+v", events)
+	}
+	if !passed {
+		t.Errorf("expected VERIFICATION PASSED event, got %+v", events)
+	}
+	if !failed {
+		t.Errorf("expected VERIFICATION FAILED event, got %+v", events)
+	}
+	if !blocked {
+		t.Errorf("expected VERIFICATION BLOCKED event, got %+v", events)
 	}
 }
