@@ -24,7 +24,6 @@ from sin_delegate.multirepo_engine import _topo_order
 from sin_delegate.policy import Policy
 from sin_delegate.resolution import apply_resolutions
 
-
 # --------------------------------------------------------------- analytics
 
 def test_wilson_punishes_small_samples():
