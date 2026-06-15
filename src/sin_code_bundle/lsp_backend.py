@@ -285,7 +285,8 @@ def compute_impact(
 
     if file and line and column:
         file_path = (
-            (root_path / file) if not Path(file).is_absolute() else Path(file)  # type: ignore[arg-type]
+            # type: ignore[arg-type]
+            (root_path / file) if not Path(file).is_absolute() else Path(file)
         )
         try:
             result = asyncio.run(_lsp_impact(root_path, file_path, symbol, line, column))

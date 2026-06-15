@@ -5,8 +5,6 @@
 
 from pathlib import Path
 
-import pytest
-
 
 # ── Script tests ──────────────────────────────────────────────────────────────
 class TestScripts:

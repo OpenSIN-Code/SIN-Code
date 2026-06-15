@@ -19,7 +19,7 @@ import (
 // sentinels (defined in superpowers.go) and is detected via a substring
 // search. Any other text in the file is preserved verbatim.
 func AppendOverlay(path string) bool {
-	body, err := os.ReadFile(path)
+	body, err := overlayReadFile(path)
 	if err != nil {
 		return false
 	}
@@ -30,7 +30,7 @@ func AppendOverlay(path string) bool {
 	overlay := RenderOverlay(SkillOverlayContext{
 		Path:        path,
 		SkillsRoot:  filepath.Dir(filepath.Dir(path)), // <skills>/<name>/SKILL.md → <skills>
-		CommitHint:  commitHint(path),
+		CommitHint:  commitHintHook(path),
 		OverlayKind: SkillOverlay,
 	})
 	var b strings.Builder
@@ -40,8 +40,13 @@ func AppendOverlay(path string) bool {
 	}
 	b.WriteByte('\n')
 	b.WriteString(overlay)
-	return os.WriteFile(path, []byte(b.String()), 0o644) == nil
+	return overlayWriteFile(path, []byte(b.String()), 0o644) == nil
 }
+
+// testHook variables expose hard-to-reach error paths to the test suite.
+var overlayReadFile = os.ReadFile
+var overlayWriteFile = os.WriteFile
+var commitHintHook = commitHint
 
 // OverlayKind tags the rendered block with a stable identifier so the
 // same RenderOverlay can produce skill- vs root-level overlays with

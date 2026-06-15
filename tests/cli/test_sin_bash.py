@@ -14,6 +14,7 @@ Tests cover:
 - --command-from-file (read from disk)
 - Missing --command / --command-from-file (CLI usage error)
 """
+
 from __future__ import annotations
 
 import json

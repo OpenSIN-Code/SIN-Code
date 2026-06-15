@@ -3,7 +3,7 @@
 # Docs: test_init.py.doc.md
 """Tests for sin_code_bundle.tools.marketplace.__init__."""
 
-from sin_code_bundle.tools.marketplace import __version__, Catalog, Installer, Registry, Updater
+from sin_code_bundle.tools.marketplace import Catalog, Installer, Registry, Updater, __version__
 
 
 def test_version() -> None:

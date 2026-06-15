@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -122,7 +122,14 @@ class CommandRegistry:
                 conn.execute(
                     "INSERT INTO commands (name, description, action, action_type, created_at, updated_at) "
                     "VALUES (?, ?, ?, ?, ?, ?)",
-                    (cmd.name, cmd.description, cmd.action, cmd.action_type, cmd.created_at, cmd.updated_at),
+                    (
+                        cmd.name,
+                        cmd.description,
+                        cmd.action,
+                        cmd.action_type,
+                        cmd.created_at,
+                        cmd.updated_at,
+                    ),
                 )
                 conn.commit()
             except sqlite3.IntegrityError as e:
@@ -141,9 +148,7 @@ class CommandRegistry:
         """
         with sqlite3.connect(self._db_path) as conn:
             conn.row_factory = sqlite3.Row
-            row = conn.execute(
-                "SELECT * FROM commands WHERE name = ?", (name,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM commands WHERE name = ?", (name,)).fetchone()
 
         if row is None:
             return None
@@ -179,9 +184,7 @@ class CommandRegistry:
         """
         with sqlite3.connect(self._db_path) as conn:
             conn.row_factory = sqlite3.Row
-            rows = conn.execute(
-                "SELECT * FROM commands ORDER BY name"
-            ).fetchall()
+            rows = conn.execute("SELECT * FROM commands ORDER BY name").fetchall()
 
         return [
             CustomCommand(
@@ -235,7 +238,13 @@ class CommandRegistry:
             conn.execute(
                 "UPDATE commands SET description=?, action=?, action_type=?, updated_at=? "
                 "WHERE name=?",
-                (updates["description"], updates["action"], updates["action_type"], updates["updated_at"], name),
+                (
+                    updates["description"],
+                    updates["action"],
+                    updates["action_type"],
+                    updates["updated_at"],
+                    name,
+                ),
             )
             conn.commit()
 

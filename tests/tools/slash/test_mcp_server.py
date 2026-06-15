@@ -10,18 +10,15 @@ import json
 import os
 import tempfile
 
-import pytest
-
+from sin_code_bundle.tools.slash.dispatcher import CommandDispatcher
 from sin_code_bundle.tools.slash.mcp_server import (
     slash_dispatch,
+    slash_help,
+    slash_history,
     slash_list,
     slash_register,
     slash_unregister,
-    slash_help,
-    slash_history,
-    _get_dispatcher,
 )
-from sin_code_bundle.tools.slash.dispatcher import CommandDispatcher
 
 
 class TestMCPServer:
@@ -34,6 +31,7 @@ class TestMCPServer:
         # Reset dispatcher singleton
         import sin_code_bundle.tools.slash.mcp_server as mcp_module
         from sin_code_bundle.tools.slash.registry import CommandRegistry
+
         registry = CommandRegistry(self.db_path)
         mcp_module._dispatcher = CommandDispatcher(
             registry=registry,

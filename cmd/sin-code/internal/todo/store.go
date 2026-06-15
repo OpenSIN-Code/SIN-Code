@@ -15,6 +15,18 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+var (
+	osUserConfigDirStore      = os.UserConfigDir
+	osMkdirAllStore           = os.MkdirAll
+	bboltOpenStore            = bolt.Open
+	dbUpdateInit              = func(db *bolt.DB, fn func(*bolt.Tx) error) error { return db.Update(fn) }
+	jsonMarshalStore          = json.Marshal
+	jsonUnmarshalStore        = json.Unmarshal
+	txBucketStore             = func(tx *bolt.Tx, name []byte) *bolt.Bucket { return tx.Bucket(name) }
+	bucketPutFn               = func(b *bolt.Bucket, k, v []byte) error { return b.Put(k, v) }
+	createBucketIfNotExistsFn = func(tx *bolt.Tx, name []byte) (*bolt.Bucket, error) { return tx.CreateBucketIfNotExists(name) }
+)
+
 const (
 	bucketTodos = "todos"
 	bucketDeps  = "deps"
@@ -41,25 +53,25 @@ type Store struct {
 
 func Open(path string) (*Store, error) {
 	if path == "" {
-		cfg, err := os.UserConfigDir()
+		cfg, err := osUserConfigDirStore()
 		if err != nil {
 			return nil, err
 		}
 		path = filepath.Join(cfg, "sin-code", "todo.db")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := osMkdirAllStore(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	db, err := bolt.Open(path, 0o644, &bolt.Options{Timeout: 2 * time.Second})
+	db, err := bboltOpenStore(path, 0o644, &bolt.Options{Timeout: 2 * time.Second})
 	if err != nil {
 		return nil, fmt.Errorf("open todo db: %w", err)
 	}
-	if err := db.Update(func(tx *bolt.Tx) error {
+	if err := dbUpdateInit(db, func(tx *bolt.Tx) error {
 		for _, b := range []string{
 			bucketTodos, bucketDeps, bucketAudit, bucketMems, bucketMeta,
 			bucketIdxSt, bucketIdxPr, bucketIdxAs, bucketIdxPj, bucketIdxTg,
 		} {
-			if _, err := tx.CreateBucketIfNotExists([]byte(b)); err != nil {
+			if _, err := createBucketIfNotExistsFn(tx, []byte(b)); err != nil {
 				return err
 			}
 		}
@@ -137,12 +149,12 @@ func (s *Store) Add(t *Todo) error {
 	}
 	t.Tags = normalizeTags(t.Tags)
 	return s.update(func(tx *bolt.Tx) error {
-		raw, err := json.Marshal(t)
+		raw, err := jsonMarshalStore(t)
 		if err != nil {
 			return err
 		}
-		bT := tx.Bucket([]byte(bucketTodos))
-		if err := bT.Put(todoKey(t.ID), raw); err != nil {
+		bT := txBucketStore(tx, []byte(bucketTodos))
+		if err := bucketPutFn(bT, todoKey(t.ID), raw); err != nil {
 			return err
 		}
 		writeIndex(tx, bucketIdxSt, string(t.Status), t.ID)
@@ -177,13 +189,13 @@ func (s *Store) Update(t *Todo) error {
 	}
 	t.Tags = normalizeTags(t.Tags)
 	return s.update(func(tx *bolt.Tx) error {
-		bT := tx.Bucket([]byte(bucketTodos))
+		bT := txBucketStore(tx, []byte(bucketTodos))
 		old := bT.Get(todoKey(t.ID))
 		if old == nil {
 			return ErrNotFound
 		}
 		var prev Todo
-		if err := json.Unmarshal(old, &prev); err != nil {
+		if err := jsonUnmarshalStore(old, &prev); err != nil {
 			return err
 		}
 		if prev.Status != t.Status {
@@ -224,23 +236,23 @@ func (s *Store) Update(t *Todo) error {
 				writeIndex(tx, bucketIdxTg, tg, t.ID)
 			}
 		}
-		raw, err := json.Marshal(t)
+		raw, err := jsonMarshalStore(t)
 		if err != nil {
 			return err
 		}
-		return bT.Put(todoKey(t.ID), raw)
+		return bucketPutFn(bT, todoKey(t.ID), raw)
 	})
 }
 
 func (s *Store) Get(id string) (*Todo, error) {
 	var out *Todo
 	err := s.view(func(tx *bolt.Tx) error {
-		raw := tx.Bucket([]byte(bucketTodos)).Get(todoKey(id))
+		raw := txBucketStore(tx, []byte(bucketTodos)).Get(todoKey(id))
 		if raw == nil {
 			return ErrNotFound
 		}
 		var t Todo
-		if err := json.Unmarshal(raw, &t); err != nil {
+		if err := jsonUnmarshalStore(raw, &t); err != nil {
 			return err
 		}
 		out = &t
@@ -252,9 +264,9 @@ func (s *Store) Get(id string) (*Todo, error) {
 func (s *Store) List() ([]*Todo, error) {
 	var out []*Todo
 	err := s.view(func(tx *bolt.Tx) error {
-		return tx.Bucket([]byte(bucketTodos)).ForEach(func(_, v []byte) error {
+		return txBucketStore(tx, []byte(bucketTodos)).ForEach(func(_, v []byte) error {
 			var t Todo
-			if err := json.Unmarshal(v, &t); err != nil {
+			if err := jsonUnmarshalStore(v, &t); err != nil {
 				return err
 			}
 			out = append(out, &t)
@@ -266,28 +278,28 @@ func (s *Store) List() ([]*Todo, error) {
 
 func (s *Store) Delete(id string, hard bool) error {
 	return s.update(func(tx *bolt.Tx) error {
-		bT := tx.Bucket([]byte(bucketTodos))
+		bT := txBucketStore(tx, []byte(bucketTodos))
 		raw := bT.Get(todoKey(id))
 		if raw == nil {
 			return ErrNotFound
 		}
 		if !hard {
 			var t Todo
-			if err := json.Unmarshal(raw, &t); err != nil {
+			if err := jsonUnmarshalStore(raw, &t); err != nil {
 				return err
 			}
 			t.Status = StatusCancelled
 			t.UpdatedAt = time.Now().UTC()
 			now := t.UpdatedAt
 			t.ClosedAt = &now
-			buf, err := json.Marshal(&t)
+			buf, err := jsonMarshalStore(&t)
 			if err != nil {
 				return err
 			}
-			return bT.Put(todoKey(id), buf)
+			return bucketPutFn(bT, todoKey(id), buf)
 		}
 		var t Todo
-		if err := json.Unmarshal(raw, &t); err != nil {
+		if err := jsonUnmarshalStore(raw, &t); err != nil {
 			return err
 		}
 		removeIndex(tx, bucketIdxSt, string(t.Status), t.ID)
@@ -297,7 +309,7 @@ func (s *Store) Delete(id string, hard bool) error {
 		for _, tg := range t.Tags {
 			removeIndex(tx, bucketIdxTg, tg, t.ID)
 		}
-		return bT.Delete(todoKey(id))
+		return bucketDeleteFn(bT, todoKey(id))
 	})
 }
 
@@ -325,7 +337,7 @@ func (s *Store) SetMeta(key, value string) error {
 func (s *Store) IndexKeys(bucketName, key string) ([]string, error) {
 	var ids []string
 	err := s.view(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(bucketName))
+		b := txBucketStore(tx, []byte(bucketName))
 		if b == nil {
 			return nil
 		}
@@ -345,7 +357,7 @@ func writeIndex(tx *bolt.Tx, bucketName, key, id string) {
 	if key == "" {
 		return
 	}
-	b := tx.Bucket([]byte(bucketName))
+	b := txBucketStore(tx, []byte(bucketName))
 	if b == nil {
 		return
 	}
@@ -356,7 +368,7 @@ func removeIndex(tx *bolt.Tx, bucketName, key, id string) {
 	if key == "" {
 		return
 	}
-	b := tx.Bucket([]byte(bucketName))
+	b := txBucketStore(tx, []byte(bucketName))
 	if b == nil {
 		return
 	}

@@ -5,14 +5,12 @@ Docs: test_spdx.doc.md
 """
 
 import json
-import pytest
 
+from sbom_generator.models import SBOM, SBOMMetadata, SBOMPackage
 from sbom_generator.spdx_generator import generate_spdx, spdx_to_json
-from sbom_generator.models import SBOM, SBOMPackage, SBOMMetadata
 
 
 class TestSPDXGenerator:
-
     def test_generate_spdx_basic(self):
         metadata = SBOMMetadata(document_name="test-sbom")
         packages = [
@@ -33,7 +31,12 @@ class TestSPDXGenerator:
     def test_generate_spdx_with_purl(self):
         metadata = SBOMMetadata(document_name="test-sbom")
         packages = [
-            SBOMPackage(name="requests", version="2.31.0", license_concluded="Apache-2.0", purl="pkg:pypi/requests@2.31.0"),
+            SBOMPackage(
+                name="requests",
+                version="2.31.0",
+                license_concluded="Apache-2.0",
+                purl="pkg:pypi/requests@2.31.0",
+            ),
         ]
         sbom = SBOM(metadata=metadata, packages=packages)
         doc = generate_spdx(sbom)
@@ -45,7 +48,12 @@ class TestSPDXGenerator:
     def test_generate_spdx_with_cpe(self):
         metadata = SBOMMetadata(document_name="test-sbom")
         packages = [
-            SBOMPackage(name="openssl", version="3.1.2", license_concluded="Apache-2.0", cpe="cpe:2.3:a:openssl:openssl:3.1.2:*:*:*:*:*:*:*"),
+            SBOMPackage(
+                name="openssl",
+                version="3.1.2",
+                license_concluded="Apache-2.0",
+                cpe="cpe:2.3:a:openssl:openssl:3.1.2:*:*:*:*:*:*:*",
+            ),
         ]
         sbom = SBOM(metadata=metadata, packages=packages)
         doc = generate_spdx(sbom)

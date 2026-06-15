@@ -146,9 +146,6 @@ func ComposeLayout(tabs Tabs, sidebar Sidebar, view ViewKind, content string, ri
 	footerView := footer.Render(styles)
 
 	contentHeight := height - 4
-	if contentHeight < 3 {
-		contentHeight = 3
-	}
 
 	leftWidth := 0
 	if !sidebar.Collapsed {

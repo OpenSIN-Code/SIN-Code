@@ -8,8 +8,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
 )
 
 var (

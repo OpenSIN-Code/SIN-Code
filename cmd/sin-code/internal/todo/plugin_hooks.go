@@ -14,8 +14,11 @@ import (
 )
 
 var (
-	pluginRegOnce sync.Once
-	pluginReg     *plugins.Registry
+	pluginRegOnce            sync.Once
+	pluginReg                *plugins.Registry
+	pluginRegistryFn         = pluginRegistry
+	runPluginHookFn          = runPluginHook
+	execCommandContextPlugin = exec.CommandContext
 )
 
 func pluginRegistry() *plugins.Registry {
@@ -27,7 +30,7 @@ func pluginRegistry() *plugins.Registry {
 }
 
 func firePluginHooks(store *Store, event HookEvent, t *Todo, from, to, note string) {
-	reg := pluginRegistry()
+	reg := pluginRegistryFn()
 	if reg == nil {
 		return
 	}
@@ -37,7 +40,7 @@ func firePluginHooks(store *Store, event HookEvent, t *Todo, from, to, note stri
 	}
 	ctx := HookContext{Event: event, Todo: t, From: from, To: to, Note: note, Actor: currentActor()}
 	for _, h := range hooks {
-		stdout, stderr, exitCode, err := runPluginHook(h, ctx)
+		stdout, stderr, exitCode, err := runPluginHookFn(h, ctx)
 		note := strings.TrimSpace(stdout)
 		if note == "" {
 			note = strings.TrimSpace(stderr)
@@ -71,7 +74,7 @@ func runPluginHook(h plugins.HookDef, ctx HookContext) (stdout, stderr string, e
 	execCtx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "sh", "-c", h.Command)
+	cmd := execCommandContextPlugin(execCtx, "sh", "-c", h.Command)
 	cmd.Env = buildEnv(ctx)
 
 	var outBuf, errBuf bytes.Buffer

@@ -10,6 +10,7 @@ import pytest
 def _suppress_logging():
     """Suppress logging during tests to reduce noise."""
     import logging
+
     logging.disable(logging.CRITICAL)
     yield
     logging.disable(logging.NOTSET)

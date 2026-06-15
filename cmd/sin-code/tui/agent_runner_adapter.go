@@ -11,6 +11,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -30,6 +31,16 @@ type AgentRunnerMsg struct {
 // initAgentRunner lazily initializes the agent runner used for chat
 // submits. Returns the runner or nil if it could not be constructed.
 // The caller is responsible for calling Close() when the TUI exits.
+// newAgentRunnerHook is a test seam for AgentRunner construction.
+var newAgentRunnerHook = func(ctx context.Context, cfg agentrunner.Config) (*agentrunner.AgentRunner, error) {
+	return agentrunner.NewAgentRunner(ctx, cfg)
+}
+
+// submitAgentRunnerHook is a test seam for AgentRunner submission.
+var submitAgentRunnerHook = func(r *agentrunner.AgentRunner, ctx context.Context, prompt string) (<-chan struct{}, error) {
+	return r.Submit(ctx, prompt)
+}
+
 func (m *Model) initAgentRunner() *agentrunner.AgentRunner {
 	if m.AgentRunner != nil {
 		return m.AgentRunner
@@ -38,7 +49,7 @@ func (m *Model) initAgentRunner() *agentrunner.AgentRunner {
 	if ws == "" {
 		ws = "."
 	}
-	r, err := agentrunner.NewAgentRunner(m.ctx(), agentrunner.Config{
+	r, err := newAgentRunnerHook(m.ctx(), agentrunner.Config{
 		Workspace: ws,
 		Headless:  false, // TUI is interactive — show the Ask dialog
 		Yolo:      false, // never auto-allow in interactive mode
@@ -122,7 +133,7 @@ func (m *Model) submitAgentPrompt(prompt string) tea.Cmd {
 	if r == nil {
 		return nil
 	}
-	if _, err := r.Submit(m.ctx(), prompt); err != nil {
+	if _, err := submitAgentRunnerHook(r, m.ctx(), prompt); err != nil {
 		m.ChatHistory = append(m.ChatHistory,
 			"assistant: (agent runner unavailable: "+err.Error()+")")
 		if len(m.ChatHistory) > 500 {
@@ -151,7 +162,7 @@ func (m *Model) runAgentSkillPrompt(skill, args string) tea.Cmd {
 		return nil
 	}
 	prompt := fmt.Sprintf("use the %s tool to %s", skill, args)
-	if _, err := r.Submit(m.ctx(), prompt); err != nil {
+	if _, err := submitAgentRunnerHook(r, m.ctx(), prompt); err != nil {
 		m.ChatHistory = append(m.ChatHistory,
 			"assistant: (agent runner error: "+err.Error()+")")
 		if len(m.ChatHistory) > 500 {

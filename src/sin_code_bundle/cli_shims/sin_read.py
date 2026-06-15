@@ -16,6 +16,7 @@ Example:
     $ sin-read sckg://module/foo/callers
     {"module": "foo", "callers": [...]}
 """
+
 from __future__ import annotations
 
 import argparse

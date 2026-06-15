@@ -10,13 +10,13 @@ import (
 // Compressor is the main entry point for headroom compression in SIN-Code.
 // It automatically selects the best available mode (MCP > CLI > disabled).
 type Compressor struct {
-	config   Config
-	mode     Mode
-	cliCli   *CLIClient
-	mcpCli   *MCPClient
-	lessons  *LessonStore
-	enabled  bool
-	stats    atomic.Value // stores *Stats
+	config  Config
+	mode    Mode
+	cliCli  *CLIClient
+	mcpCli  *MCPClient
+	lessons *LessonStore
+	enabled bool
+	stats   atomic.Value // stores *Stats
 }
 
 // SetLessonStore attaches a lesson store so that LearnFromFailure persists

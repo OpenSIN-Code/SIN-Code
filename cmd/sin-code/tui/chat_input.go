@@ -6,6 +6,8 @@
 package tui
 
 import (
+	"context"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/attachments"
@@ -14,8 +16,19 @@ import (
 
 type chatInput = chat.Input
 
+// newChatRunnerHook is a test seam for chat runner construction.
+var newChatRunnerHook = func() (*chat.Runner, error) { return chat.NewRunner() }
+
+// newAttachmentStoreHook is a test seam for the attachment store used by newChatInput.
+var newAttachmentStoreHook = func() (*attachments.Store, error) { return attachments.NewStore() }
+
+// chatRunnerRunHook is a test seam for chat runner execution.
+var chatRunnerRunHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string) (string, error) {
+	return r.Run(ctx, prompt, history)
+}
+
 func newChatInput() *chatInput {
-	store, err := attachments.NewStore()
+	store, err := newAttachmentStoreHook()
 	if err != nil {
 		store = nil
 	}
@@ -35,7 +48,7 @@ func (m *Model) initChatRunner() {
 	if m.ChatRunner != nil {
 		return
 	}
-	r, err := chat.NewRunner()
+	r, err := newChatRunnerHook()
 	if err != nil {
 		m.ChatRunner = nil
 		return
@@ -110,12 +123,12 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		// No program wired up (e.g. test path): run synchronously so the
 		// caller sees the final history immediately and the model is never
 		// mutated by a background goroutine.
-		text, err := runner.Run(m.ctx(), prompt, historySnapshot)
+		text, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
 		applyChatResponseMsg(m, chat.ChatResponseMsg{Text: text, Error: err}, thinkingIdx)
 		return nil
 	}
 	go func() {
-		text, err := runner.Run(m.ctx(), prompt, historySnapshot)
+		text, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
 		prog.Send(chat.ChatResponseMsg{Text: text, Error: err})
 	}()
 	return nil

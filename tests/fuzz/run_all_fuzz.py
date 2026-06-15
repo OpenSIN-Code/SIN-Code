@@ -12,13 +12,11 @@ Usage:
 
 from __future__ import annotations
 
-import json
+import os
 import subprocess
 import sys
 import time
-import os
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FUZZ_SCRIPT = os.path.join(BASE_DIR, "fuzz_go_mcp.py")
@@ -53,16 +51,17 @@ class ToolResult:
 def run_go_fuzz(label: str, binary: str, timeout: float = 3.0) -> ToolResult:
     """Run fuzz_go_mcp.py against one Go tool."""
     result = ToolResult(name=label)
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  FUZZING: {label} ({binary})")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
     t0 = time.time()
     try:
         proc = subprocess.run(
-            [sys.executable, FUZZ_SCRIPT, binary, "--label", label,
-             "--timeout", str(timeout)],
-            capture_output=True, text=True, timeout=600,  # 10 min max per tool
+            [sys.executable, FUZZ_SCRIPT, binary, "--label", label, "--timeout", str(timeout)],
+            capture_output=True,
+            text=True,
+            timeout=600,  # 10 min max per tool
         )
         result.duration_s = time.time() - t0
         result.raw_stdout = proc.stdout
@@ -72,12 +71,12 @@ def run_go_fuzz(label: str, binary: str, timeout: float = 3.0) -> ToolResult:
         stdout = proc.stdout
         crash_count = stdout.count("💥")
         hang_count = stdout.count("⏳")
-        viol_count = stdout.count("⚠️") - stdout.count("⚠️  Startup failed")  # exclude startup warning
+        viol_count = stdout.count("⚠️") - stdout.count(
+            "⚠️  Startup failed"
+        )  # exclude startup warning
 
         result.total_attacks = max(
-            stdout.count("✅") + crash_count + hang_count
-            + stdout.count("⚠️  "),
-            1
+            stdout.count("✅") + crash_count + hang_count + stdout.count("⚠️  "), 1
         )
         result.crashes = crash_count
         result.hangs = hang_count
@@ -109,24 +108,24 @@ def run_go_fuzz(label: str, binary: str, timeout: float = 3.0) -> ToolResult:
 def run_sin_brain_fuzz() -> ToolResult:
     """Run sin_brain fuzz test."""
     result = ToolResult(name="SIN-Brain")
-    print(f"\n{'='*60}")
-    print(f"  FUZZING: SIN-Brain (Python MCP)")
-    print(f"{'='*60}")
+    print(f"\n{'=' * 60}")
+    print("  FUZZING: SIN-Brain (Python MCP)")
+    print(f"{'=' * 60}")
 
     t0 = time.time()
     try:
         proc = subprocess.run(
             [sys.executable, SIN_BRAIN_SCRIPT],
-            capture_output=True, text=True, timeout=120,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
         result.duration_s = time.time() - t0
         result.raw_stdout = proc.stdout
         result.raw_stderr = proc.stderr
 
         crash_count = proc.stdout.count("💥")
-        result.total_attacks = max(
-            proc.stdout.count("✅") + crash_count, 1
-        )
+        result.total_attacks = max(proc.stdout.count("✅") + crash_count, 1)
         result.crashes = crash_count
 
         if proc.returncode == 0:
@@ -160,7 +159,9 @@ def generate_summary(results: list[ToolResult]):
     total_attacks = sum(r.total_attacks for r in results)
     total_time = sum(r.duration_s for r in results)
 
-    print(f"\n{'Tool':<18} {'Status':<12} {'Attacks':>8} {'Crashes':>8} {'Hangs':>8} {'Viols':>8} {'Time':>8}")
+    print(
+        f"\n{'Tool':<18} {'Status':<12} {'Attacks':>8} {'Crashes':>8} {'Hangs':>8} {'Viols':>8} {'Time':>8}"
+    )
     print("-" * 72)
 
     for r in results:
@@ -173,24 +174,34 @@ def generate_summary(results: list[ToolResult]):
             "SKIP": "⏭️",
         }.get(r.status, "❓")
 
-        print(f"{r.name:<18} {status_icon + ' ' + r.status:<10} "
-              f"{r.total_attacks:>8} {r.crashes:>8} {r.hangs:>8} {r.violations:>8} {r.duration_s:>7.1f}s")
+        print(
+            f"{r.name:<18} {status_icon + ' ' + r.status:<10} "
+            f"{r.total_attacks:>8} {r.crashes:>8} {r.hangs:>8} {r.violations:>8} {r.duration_s:>7.1f}s"
+        )
 
     print("-" * 72)
-    print(f"{'TOTAL':<18} {'':<12} {total_attacks:>8} {total_crashes:>8} {total_hangs:>8} {total_violations:>8} {total_time:>7.1f}s")
+    print(
+        f"{'TOTAL':<18} {'':<12} {total_attacks:>8} {total_crashes:>8} {total_hangs:>8} {total_violations:>8} {total_time:>7.1f}s"
+    )
 
     # Severity summary
     print()
     if total_crashes == 0 and total_hangs == 0 and total_violations == 0:
         print("🛡️  ALL TOOLS PASSED — No crashes, hangs, or violations detected")
     else:
-        print(f"💀 VULNERABILITY REPORT:")
+        print("💀 VULNERABILITY REPORT:")
         if total_crashes:
-            print(f"   💥 {total_crashes} CRASHES across {sum(1 for r in results if r.crashes > 0)} tools")
+            print(
+                f"   💥 {total_crashes} CRASHES across {sum(1 for r in results if r.crashes > 0)} tools"
+            )
         if total_hangs:
-            print(f"   ⏳ {total_hangs} HANGS across {sum(1 for r in results if r.hangs > 0)} tools")
+            print(
+                f"   ⏳ {total_hangs} HANGS across {sum(1 for r in results if r.hangs > 0)} tools"
+            )
         if total_violations:
-            print(f"   ⚠️  {total_violations} PROTOCOL VIOLATIONS across {sum(1 for r in results if r.violations > 0)} tools")
+            print(
+                f"   ⚠️  {total_violations} PROTOCOL VIOLATIONS across {sum(1 for r in results if r.violations > 0)} tools"
+            )
 
     # Affected tools detail
     affected = [r for r in results if r.crashes > 0 or r.hangs > 0]
@@ -215,6 +226,7 @@ def generate_summary(results: list[ToolResult]):
 
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Run all SIN-Code MCP fuzz tests")
     parser.add_argument("--quick", action="store_true", help="Quick mode (shorter timeout)")
     parser.add_argument("--tool", help="Run only one specific Go tool")

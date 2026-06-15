@@ -10,28 +10,38 @@ from __future__ import annotations
 import json
 import sys
 import time
-from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from .ledger import Ledger
 from .models import TaskState
 
 _GLYPH = {
-    TaskState.PENDING: "·", TaskState.READY: "○",
-    TaskState.RUNNING: "▶", TaskState.VERIFYING: "▣",
-    TaskState.MERGING: "⇡", TaskState.DONE: "✓",
-    TaskState.FAILED: "✗", TaskState.SKIPPED: "⤼",
-    TaskState.CANCELLED: "⊘", TaskState.ESCALATED: "‼",
+    TaskState.PENDING: "·",
+    TaskState.READY: "○",
+    TaskState.RUNNING: "▶",
+    TaskState.VERIFYING: "▣",
+    TaskState.MERGING: "⇡",
+    TaskState.DONE: "✓",
+    TaskState.FAILED: "✗",
+    TaskState.SKIPPED: "⤼",
+    TaskState.CANCELLED: "⊘",
+    TaskState.ESCALATED: "‼",
 }
 
-_TERMINAL = {TaskState.DONE, TaskState.FAILED, TaskState.SKIPPED,
-             TaskState.CANCELLED, TaskState.ESCALATED}
+_TERMINAL = {
+    TaskState.DONE,
+    TaskState.FAILED,
+    TaskState.SKIPPED,
+    TaskState.CANCELLED,
+    TaskState.ESCALATED,
+}
 
 
 @dataclass
 class StatusBoard:
-    def __init__(self, plan_id: str, ledger: Ledger | None = None,
-                 interval: float = 1.0, stream=sys.stderr) -> None:
+    def __init__(
+        self, plan_id: str, ledger: Ledger | None = None, interval: float = 1.0, stream=sys.stderr
+    ) -> None:
         self.plan_id = plan_id
         self.ledger = ledger or Ledger()
         self.interval = interval
@@ -53,14 +63,12 @@ class StatusBoard:
         if not states:
             return False
         if self._lines_drawn and self.stream.isatty():
-            self.stream.write(
-                f"\x1b[{self._lines_drawn}F\x1b[J")
+            self.stream.write(f"\x1b[{self._lines_drawn}F\x1b[J")
         lines = []
         for tid in sorted(states, key=lambda t: titles.get(t, t)):
             st = states[tid]
             title = titles.get(tid, tid)[:52]
-            lines.append(f"  {_GLYPH.get(st, '?')} "
-                         f"{st.value:<10} {title}")
+            lines.append(f"  {_GLYPH.get(st, '?')} {st.value:<10} {title}")
         done = sum(1 for s in states.values() if s in _TERMINAL)
         lines.append(f"  {done}/{len(states)} terminal")
         self.stream.write("\n".join(lines) + "\n")
@@ -86,9 +94,9 @@ def report(plan_id: str, ledger: Ledger | None = None) -> str:
     plan = json.loads(raw) if raw else {"goal": "?", "tasks": []}
     titles = {t["id"]: t["title"] for t in plan.get("tasks", [])}
 
-    per_task: dict = {tid: {"attempts": 0, "seconds": 0.0,
-                            "verdict": None, "error": ""}
-                      for tid in states}
+    per_task: dict = {
+        tid: {"attempts": 0, "seconds": 0.0, "verdict": None, "error": ""} for tid in states
+    }
     for ev in events:
         tid = ev["task_id"]
         if tid not in per_task:
@@ -97,25 +105,25 @@ def report(plan_id: str, ledger: Ledger | None = None) -> str:
             per_task[tid]["attempts"] += 1
         elif ev["kind"] == "verdict":
             per_task[tid]["verdict"] = ev["payload"]
-        elif (ev["kind"].startswith("state:")
-              and ev["payload"].get("seconds")):
+        elif ev["kind"].startswith("state:") and ev["payload"].get("seconds"):
             per_task[tid]["seconds"] = ev["payload"]["seconds"]
             per_task[tid]["error"] = ev["payload"].get("error", "")
 
     merged = [t for t, s in states.items() if s == TaskState.DONE]
-    escalated = [t for t, s in states.items()
-                 if s == TaskState.ESCALATED]
-    failed = [t for t, s in states.items()
-              if s in (TaskState.FAILED, TaskState.SKIPPED)]
+    escalated = [t for t, s in states.items() if s == TaskState.ESCALATED]
+    failed = [t for t, s in states.items() if s in (TaskState.FAILED, TaskState.SKIPPED)]
 
-    out = [f"## Delegation Report — `{plan_id}`",
-           f"**Goal:** {plan.get('goal', '?')}",
-           "",
-           f"| | count |", f"|---|---|",
-           f"| merged | {len(merged)} |",
-           f"| escalated | {len(escalated)} |",
-           f"| failed/skipped | {len(failed)} |",
-           ""]
+    out = [
+        f"## Delegation Report — `{plan_id}`",
+        f"**Goal:** {plan.get('goal', '?')}",
+        "",
+        "| | count |",
+        "|---|---|",
+        f"| merged | {len(merged)} |",
+        f"| escalated | {len(escalated)} |",
+        f"| failed/skipped | {len(failed)} |",
+        "",
+    ]
 
     def section(name: str, ids: list) -> None:
         if not ids:
@@ -123,17 +131,19 @@ def report(plan_id: str, ledger: Ledger | None = None) -> str:
         out.append(f"### {name}")
         for tid in ids:
             info = per_task[tid]
-            line = (f"- **{titles.get(tid, tid)}** — "
-                    f"{info['attempts']} attempt(s), "
-                    f"{info['seconds']:.0f}s")
+            line = (
+                f"- **{titles.get(tid, tid)}** — "
+                f"{info['attempts']} attempt(s), "
+                f"{info['seconds']:.0f}s"
+            )
             if info["error"]:
                 line += f" — `{info['error'][:120]}`"
             out.append(line)
             v = info["verdict"]
             if v:
                 gates = ", ".join(
-                    f"{g}:{'ok' if r['ok'] else 'FAIL'}"
-                    for g, r in v.get("gates", {}).items())
+                    f"{g}:{'ok' if r['ok'] else 'FAIL'}" for g, r in v.get("gates", {}).items()
+                )
                 out.append(f"  - gates: {gates}")
         out.append("")
 

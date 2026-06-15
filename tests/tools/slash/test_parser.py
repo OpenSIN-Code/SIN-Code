@@ -8,7 +8,7 @@ Tests cover parsing, validation, quoted strings, flags, and edge cases.
 
 import pytest
 
-from sin_code_bundle.tools.slash.parser import SlashParser, ParsedCommand
+from sin_code_bundle.tools.slash.parser import SlashParser
 
 
 class TestSlashParser:

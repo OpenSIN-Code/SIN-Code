@@ -11,9 +11,7 @@ from typing import Any, Optional
 
 from fastmcp import FastMCP
 
-from sin_code_bundle.tools.slash.dispatcher import CommandDispatcher, DispatchResult
-from sin_code_bundle.tools.slash.registry import CommandRegistry
-from sin_code_bundle.tools.slash.commands import BUILTIN_COMMANDS, get_command_help
+from sin_code_bundle.tools.slash.dispatcher import CommandDispatcher
 
 # Initialize MCP server
 mcp = FastMCP("sin-slash")
@@ -136,7 +134,10 @@ def slash_unregister(name: str) -> str:
     registry = dispatcher._registry
     removed = registry.unregister(name)
     return json.dumps(
-        {"success": removed, "message": f"Command /{name} removed" if removed else f"Command /{name} not found"},
+        {
+            "success": removed,
+            "message": f"Command /{name} removed" if removed else f"Command /{name} not found",
+        },
         indent=2,
     )
 

@@ -64,7 +64,6 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
 
 try:
     from mcp.server.fastmcp import FastMCP
@@ -76,13 +75,17 @@ except ImportError as exc:
 # standalone CLI shims (`sin-read`, `sin-write`, `sin-edit`, `sin-bash`,
 # `sin-search`) can call the SAME implementation. See file_ops.doc.md.
 from sin_code_bundle.file_ops import (
-    sin_read as _sin_read_impl,
-    sin_write as _sin_write_impl,
     sin_edit as _sin_edit_impl,
-    sin_bash as _sin_bash_impl,
+)
+from sin_code_bundle.file_ops import (
+    sin_read as _sin_read_impl,
+)
+from sin_code_bundle.file_ops import (
     sin_search as _sin_search_impl,
 )
-
+from sin_code_bundle.file_ops import (
+    sin_write as _sin_write_impl,
+)
 
 mcp = FastMCP("sin-code-bundle")
 

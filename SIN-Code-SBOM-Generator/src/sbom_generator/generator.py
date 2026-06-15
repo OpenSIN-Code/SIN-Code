@@ -6,12 +6,12 @@ Aggregates data from SCA scans and generates SBOMs in SPDX and CycloneDX formats
 Docs: generator.doc.md
 """
 
-import json
-from typing import List, Dict, Any, Optional
 from pathlib import Path
-from .models import SBOM, SBOMPackage, SBOMMetadata, ScanResult
-from .spdx_generator import spdx_to_json
+from typing import Any, Dict, List, Optional
+
 from .cyclonedx_generator import cyclonedx_to_json
+from .models import SBOM, SBOMMetadata, SBOMPackage
+from .spdx_generator import spdx_to_json
 
 
 class SBOMGenerator:
@@ -21,7 +21,9 @@ class SBOMGenerator:
         self.tool_name = tool_name
         self.tool_version = tool_version
 
-    def generate_from_sca_results(self, sca_results: Dict[str, Any], document_name: str = "") -> SBOM:
+    def generate_from_sca_results(
+        self, sca_results: Dict[str, Any], document_name: str = ""
+    ) -> SBOM:
         """Generate SBOM from SCA (Software Composition Analysis) scan results.
 
         Args:
@@ -67,7 +69,9 @@ class SBOMGenerator:
             source_files=source_files,
         )
 
-    def generate_from_raw_dependencies(self, deps: List[Dict[str, Any]], document_name: str = "") -> SBOM:
+    def generate_from_raw_dependencies(
+        self, deps: List[Dict[str, Any]], document_name: str = ""
+    ) -> SBOM:
         """Generate SBOM from a raw list of dependencies (e.g., from package.json, requirements.txt).
 
         Args:
@@ -147,8 +151,14 @@ class SBOMGenerator:
             "|------|---------|------|---------|-----------------|",
         ]
         for pkg in sbom.packages:
-            vuln_str = f"{pkg.vulnerability_count} (C:{pkg.critical_vulns} H:{pkg.high_vulns} M:{pkg.medium_vulns})" if pkg.has_vulnerabilities else "0"
-            lines.append(f"| {pkg.name} | {pkg.version} | {pkg.type} | {pkg.license_concluded or '-'} | {vuln_str} |")
+            vuln_str = (
+                f"{pkg.vulnerability_count} (C:{pkg.critical_vulns} H:{pkg.high_vulns} M:{pkg.medium_vulns})"
+                if pkg.has_vulnerabilities
+                else "0"
+            )
+            lines.append(
+                f"| {pkg.name} | {pkg.version} | {pkg.type} | {pkg.license_concluded or '-'} | {vuln_str} |"
+            )
 
         if sbom.unique_licenses:
             lines += ["", "## Licenses", ""]
@@ -191,7 +201,9 @@ class SBOMGenerator:
 
         return pkg
 
-    def _annotate_vulnerabilities(self, packages: List[SBOMPackage], vulns: List[Dict[str, Any]]) -> None:
+    def _annotate_vulnerabilities(
+        self, packages: List[SBOMPackage], vulns: List[Dict[str, Any]]
+    ) -> None:
         """Map vulnerability list to packages by name."""
         pkg_map = {p.name: p for p in packages}
         for vuln in vulns:

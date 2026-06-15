@@ -11,7 +11,9 @@ from __future__ import annotations
 from typing import Any
 
 try:
-    from sin_brain import recall as _recall, remember as _remember
+    from sin_brain import recall as _recall
+    from sin_brain import remember as _remember
+
     _AVAILABLE = True
 except Exception:  # pragma: no cover
     _AVAILABLE = False
@@ -25,8 +27,7 @@ def recall_pitfalls(goal: str, limit: int = 5) -> list[str]:
     if not _AVAILABLE:
         return []
     try:
-        hits: list[dict[str, Any]] = _recall(
-            query=goal, kinds=["pitfall", "fix"], limit=limit)
+        hits: list[dict[str, Any]] = _recall(query=goal, kinds=["pitfall", "fix"], limit=limit)
         return [h.get("text", "") for h in hits if h.get("text")]
     except Exception:
         return []
@@ -38,8 +39,7 @@ def remember_pitfall(goal: str, task_title: str, detail: str) -> None:
     try:
         _remember(
             kind="pitfall",
-            text=(f"[delegate] goal={goal!r} task={task_title!r}: "
-                  f"{detail}"),
+            text=(f"[delegate] goal={goal!r} task={task_title!r}: {detail}"),
             tags=["sin-delegate"],
         )
     except Exception:

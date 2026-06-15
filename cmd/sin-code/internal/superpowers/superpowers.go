@@ -33,6 +33,28 @@ var DefaultRepoURL = "https://github.com/obra/superpowers.git"
 // corpus on `main`.
 const DefaultBranch = "main"
 
+// testHook variables expose hard-to-reach error paths to the test suite
+// without heavy refactoring. They are restored per-test via t.Cleanup.
+var (
+	osUserHomeDir     = os.UserHomeDir
+	osMkdirAll        = os.MkdirAll
+	osStat            = os.Stat
+	osReadFile        = os.ReadFile
+	osWriteFile       = os.WriteFile
+	osCreateTemp      = os.CreateTemp
+	osRenameHook      = os.Rename
+	jsonMarshalIndent = json.MarshalIndent
+	jsonUnmarshal     = json.Unmarshal
+	ioCopyHook        = io.Copy
+	fileWriteHook     = func(f *os.File, p []byte) (int, error) { return f.Write(p) }
+	fileCloseHook     = func(f *os.File) error { return f.Close() }
+	runGitHook        = runGit
+	currentShaHook    = currentSHA
+	currentBranchHook = currentBranch
+	writePromptHook   = WritePrompt
+	walkDirHook       = filepath.WalkDir
+)
+
 // OverlayMarker is the sentinel HTML comment that delimiters the
 // automatically-appended overlay block. Idempotency: if the marker is
 // already present in a SKILL.md, AppendOverlay is a no-op for that file.
@@ -49,7 +71,7 @@ func Home() string {
 		return v
 	}
 	// Use os.UserHomeDir for cross-platform safety (macOS/Linux/Windows).
-	if h, err := os.UserHomeDir(); err == nil {
+	if h, err := osUserHomeDir(); err == nil {
 		return filepath.Join(h, ".local", "share", "sin-code")
 	}
 	// Last resort: cwd-relative fallback so the function is total.
@@ -124,25 +146,25 @@ func Install(ctx context.Context, repoURL, branch string) (*InstallResult, error
 	}
 	start := time.Now()
 	dst := SkillsDir()
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+	if err := osMkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return nil, fmt.Errorf("mkdir: %w", err)
 	}
-	if _, err := os.Stat(filepath.Join(dst, ".git")); err == nil {
-		if err := runGit(ctx, dst, "fetch", "--depth", "1", "origin", branch); err != nil {
+	if _, err := osStat(filepath.Join(dst, ".git")); err == nil {
+		if err := runGitHook(ctx, dst, "fetch", "--depth", "1", "origin", branch); err != nil {
 			return nil, err
 		}
-		if err := runGit(ctx, dst, "reset", "--hard", "FETCH_HEAD"); err != nil {
+		if err := runGitHook(ctx, dst, "reset", "--hard", "FETCH_HEAD"); err != nil {
 			return nil, err
 		}
 	} else {
-		if err := os.MkdirAll(dst, 0o755); err != nil {
+		if err := osMkdirAll(dst, 0o755); err != nil {
 			return nil, fmt.Errorf("mkdir dst: %w", err)
 		}
-		if err := runGit(ctx, ".", "clone", "--depth", "1", "--branch", branch, repoURL, dst); err != nil {
+		if err := runGitHook(ctx, ".", "clone", "--depth", "1", "--branch", branch, repoURL, dst); err != nil {
 			return nil, err
 		}
 	}
-	sha, err := currentSHA(ctx, dst)
+	sha, err := currentShaHook(ctx, dst)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +174,7 @@ func Install(ctx context.Context, repoURL, branch string) (*InstallResult, error
 	for i := range infos {
 		_ = AppendOverlay(infos[i].Path)
 	}
-	if _, err := WritePrompt(infos); err != nil {
+	if _, err := writePromptHook(infos); err != nil {
 		return nil, err
 	}
 	// Write pin file.
@@ -181,13 +203,13 @@ func Pin(ctx context.Context, sha string) (*PinState, error) {
 		return nil, errors.New("pin: empty sha")
 	}
 	dst := SkillsDir()
-	if _, err := os.Stat(filepath.Join(dst, ".git")); err != nil {
+	if _, err := osStat(filepath.Join(dst, ".git")); err != nil {
 		return nil, fmt.Errorf("pin: not installed (%s missing .git): %w", dst, err)
 	}
-	if err := runGit(ctx, dst, "reset", "--hard", sha); err != nil {
+	if err := runGitHook(ctx, dst, "reset", "--hard", sha); err != nil {
 		return nil, err
 	}
-	branch, _ := currentBranch(ctx, dst)
+	branch, _ := currentBranchHook(ctx, dst)
 	state := PinState{SHA: sha, Branch: branch, UpdatedAt: time.Now().UTC()}
 	if err := WriteJSON(PinFile(), state); err != nil {
 		return nil, err
@@ -197,7 +219,7 @@ func Pin(ctx context.Context, sha string) (*PinState, error) {
 	for i := range infos {
 		_ = AppendOverlay(infos[i].Path)
 	}
-	if _, err := WritePrompt(infos); err != nil {
+	if _, err := writePromptHook(infos); err != nil {
 		return nil, err
 	}
 	return &state, nil
@@ -206,7 +228,7 @@ func Pin(ctx context.Context, sha string) (*PinState, error) {
 // CurrentPin reads the .sin-code-pin file. Returns (nil, nil) if the
 // caller has not run Install yet — that is NOT an error, just "not pinned".
 func CurrentPin() (*PinState, error) {
-	b, err := os.ReadFile(PinFile())
+	b, err := osReadFile(PinFile())
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
@@ -214,7 +236,7 @@ func CurrentPin() (*PinState, error) {
 		return nil, err
 	}
 	var p PinState
-	if err := json.Unmarshal(b, &p); err != nil {
+	if err := jsonUnmarshal(b, &p); err != nil {
 		return nil, err
 	}
 	return &p, nil
@@ -229,11 +251,11 @@ func List(root string) ([]SkillInfo, error) {
 	if root == "" {
 		root = SkillsDir()
 	}
-	if _, err := os.Stat(root); err != nil {
+	if _, err := osStat(root); err != nil {
 		return nil, nil // not installed → empty result, not an error
 	}
 	var out []SkillInfo
-	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+	err := walkDirHook(root, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil // skip unreadable entries; do not abort the walk
 		}
@@ -243,7 +265,7 @@ func List(root string) ([]SkillInfo, error) {
 		if d.Name() != "SKILL.md" {
 			return nil
 		}
-		body, rerr := os.ReadFile(p)
+		body, rerr := osReadFile(p)
 		if rerr != nil {
 			return nil
 		}
@@ -318,7 +340,7 @@ func InjectAGENTS(agentsPath string, prompt string) error {
 	const start = "<!-- SIN-Code superpowers:begin -->"
 	const end = "<!-- SIN-Code superpowers:end -->"
 	block := start + "\n" + prompt + "\n" + end + "\n"
-	existing, err := os.ReadFile(agentsPath)
+	existing, err := osReadFile(agentsPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
@@ -336,7 +358,7 @@ func InjectAGENTS(agentsPath string, prompt string) error {
 		}
 		body += "\n" + block
 	}
-	return os.WriteFile(agentsPath, []byte(body), 0o644)
+	return osWriteFile(agentsPath, []byte(body), 0o644)
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────
@@ -392,29 +414,29 @@ func sha256Hex(b []byte) string {
 // The parent directory of path is created on demand — callers do not
 // need to MkdirAll beforehand.
 func WriteJSON(path string, v any) error {
-	data, err := json.MarshalIndent(v, "", "  ")
+	data, err := jsonMarshalIndent(v, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := osMkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".superpowers-*.json.tmp")
+	tmp, err := osCreateTemp(filepath.Dir(path), ".superpowers-*.json.tmp")
 	if err != nil {
 		return err
 	}
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName)
-	if _, err := io.Copy(tmp, strings.NewReader(string(data))); err != nil {
-		tmp.Close()
+	if _, err := ioCopyHook(tmp, strings.NewReader(string(data))); err != nil {
+		fileCloseHook(tmp)
 		return err
 	}
-	if _, err := tmp.Write([]byte("\n")); err != nil {
-		tmp.Close()
+	if _, err := fileWriteHook(tmp, []byte("\n")); err != nil {
+		fileCloseHook(tmp)
 		return err
 	}
-	if err := tmp.Close(); err != nil {
+	if err := fileCloseHook(tmp); err != nil {
 		return err
 	}
-	return os.Rename(tmpName, path)
+	return osRenameHook(tmpName, path)
 }

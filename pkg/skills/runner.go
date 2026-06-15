@@ -8,9 +8,9 @@ import (
 )
 
 type Runner struct {
-	registry   *Registry
-	mcpClient  interface{} // MCP-Client zum Aufruf von Tools
-	agentSys   interface{} // Multi-Agent-System (Governor, Critic, Adversary)
+	registry  *Registry
+	mcpClient interface{} // MCP-Client zum Aufruf von Tools
+	agentSys  interface{} // Multi-Agent-System (Governor, Critic, Adversary)
 }
 
 type RunOptions struct {
@@ -21,11 +21,11 @@ type RunOptions struct {
 }
 
 type RunResult struct {
-	SkillName    string
+	SkillName     string
 	StepsExecuted int
-	Success      bool
-	Outputs      map[string]string
-	Error        error
+	Success       bool
+	Outputs       map[string]string
+	Error         error
 }
 
 func NewRunner(reg *Registry, mcpClient interface{}, agentSys interface{}) *Runner {

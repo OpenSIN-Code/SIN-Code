@@ -72,8 +72,7 @@ def validate_result(result: dict[str, Any]) -> dict[str, Any]:
         value = result[key]
         if not isinstance(value, expected):
             raise ValueError(
-                f"delegate result key {key!r}: expected {expected}, "
-                f"got {type(value).__name__}"
+                f"delegate result key {key!r}: expected {expected}, got {type(value).__name__}"
             )
         clean[key] = value
     clean["lessons"] = [str(x)[:300] for x in clean["lessons"][:5]]
@@ -82,15 +81,14 @@ def validate_result(result: dict[str, Any]) -> dict[str, Any]:
 
 # ----------------------------------------------------------------- context
 
+
 @dataclass(slots=True)
 class DelegationContext:
     """Path-local inheritance context (depth, wall-clock deadline)."""
 
     depth: int = 0
     max_depth: int = 3
-    deadline_wall: float = field(
-        default_factory=lambda: time.monotonic() + 1800.0
-    )
+    deadline_wall: float = field(default_factory=lambda: time.monotonic() + 1800.0)
     safety_margin_s: float = 15.0
     min_budget_s: float = 60.0
 
@@ -109,8 +107,7 @@ class DelegationContext:
         return True, ""
 
     def child(self, granted_budget_s: float) -> "DelegationContext":
-        budget = min(granted_budget_s,
-                     self.remaining_s() - self.safety_margin_s)
+        budget = min(granted_budget_s, self.remaining_s() - self.safety_margin_s)
         return DelegationContext(
             depth=self.depth + 1,
             max_depth=self.max_depth,
@@ -122,6 +119,7 @@ class DelegationContext:
 
 # --------------------------------------------------------- budget allocator
 
+
 class AdaptiveBudgetAllocator:
     """Learns per goal class (first word of goal, normalized) from the
     MemoryBridge how much budget sub-goals of that class really need.
@@ -130,9 +128,9 @@ class AdaptiveBudgetAllocator:
     clamped to [min_s, fraction * parent_remainder]. Without history: a
     fraction of the parent remainder (conservative default)."""
 
-    def __init__(self, memory: MemoryBridge, *,
-                 default_fraction: float = 0.5,
-                 min_s: float = 60.0) -> None:
+    def __init__(
+        self, memory: MemoryBridge, *, default_fraction: float = 0.5, min_s: float = 60.0
+    ) -> None:
         self.memory = memory
         self.default_fraction = default_fraction
         self.min_s = min_s
@@ -146,7 +144,8 @@ class AdaptiveBudgetAllocator:
         cap = parent_remaining_s * self.default_fraction
         hits = self.memory.recall_similar(goal, limit=10)
         durations = sorted(
-            float(h.get("elapsed_s", 0.0)) for h in hits
+            float(h.get("elapsed_s", 0.0))
+            for h in hits
             if h.get("outcome") == "success" and h.get("elapsed_s")
         )
         if len(durations) >= 3:
@@ -158,18 +157,23 @@ class AdaptiveBudgetAllocator:
 
 # ------------------------------------------------------- idempotency cache
 
+
 def _tree_hash(repo_root: str) -> str:
     if not repo_root or not __import__("pathlib").Path(repo_root).exists():
         return ""
     stash = subprocess.run(
         ["git", "-C", repo_root, "stash", "create"],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True,
+        text=True,
+        timeout=60,
     ).stdout.strip()
     if stash:
         return stash
     return subprocess.run(
         ["git", "-C", repo_root, "rev-parse", "HEAD^{tree}"],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True,
+        text=True,
+        timeout=60,
     ).stdout.strip()
 
 
@@ -182,8 +186,7 @@ class DelegationCache:
         self._cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
     @staticmethod
-    def fingerprint(goal: str, steps: list[dict[str, Any]],
-                    tree: str) -> str:
+    def fingerprint(goal: str, steps: list[dict[str, Any]], tree: str) -> str:
         raw = json.dumps({"g": goal, "s": steps, "t": tree}, sort_keys=True)
         return hashlib.sha256(raw.encode()).hexdigest()[:24]
 
@@ -204,6 +207,7 @@ class DelegationCache:
 
 # -------------------------------------------------------------- supervisor
 
+
 @dataclass(slots=True)
 class _Lease:
     delegation_id: str
@@ -223,9 +227,13 @@ class DelegationSupervisor:
     - cancel_all(): structured teardown of the entire delegation tree.
     """
 
-    def __init__(self, *, global_limit: int = 8,
-                 heartbeat_timeout_s: float = 300.0,
-                 telemetry: Telemetry | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        global_limit: int = 8,
+        heartbeat_timeout_s: float = 300.0,
+        telemetry: Telemetry | None = None,
+    ) -> None:
         self._sem = asyncio.Semaphore(global_limit)
         self.global_limit = global_limit
         self.heartbeat_timeout_s = heartbeat_timeout_s
@@ -240,10 +248,13 @@ class DelegationSupervisor:
 
     def active(self) -> list[dict[str, Any]]:
         return [
-            {"delegation_id": l.delegation_id, "goal": l.goal[:80],
-             "depth": l.depth,
-             "age_s": round(time.monotonic() - l.started_at, 1)}
-            for l in self._leases.values()
+            {
+                "delegation_id": lease.delegation_id,
+                "goal": lease.goal[:80],
+                "depth": lease.depth,
+                "age_s": round(time.monotonic() - lease.started_at, 1),
+            }
+            for lease in self._leases.values()
         ]
 
     async def _reap_stalled(self) -> None:
@@ -273,11 +284,9 @@ class DelegationSupervisor:
         self._leases.clear()
         return n
 
-    async def supervise(self, *, delegation_id: str, goal: str, depth: int,
-                        coro) -> Any:
+    async def supervise(self, *, delegation_id: str, goal: str, depth: int, coro) -> Any:
         async with self._sem:
-            lease = _Lease(delegation_id=delegation_id, goal=goal,
-                           depth=depth)
+            lease = _Lease(delegation_id=delegation_id, goal=goal, depth=depth)
             task = asyncio.ensure_future(coro)
             lease.task = task
             self._leases[delegation_id] = lease
@@ -290,6 +299,7 @@ class DelegationSupervisor:
 
 
 # ----------------------------------------------------------- tool factory
+
 
 def make_delegate_tool(
     parent_ctx: DelegationContext,
@@ -321,16 +331,17 @@ def make_delegate_tool(
         key = DelegationCache.fingerprint(goal, steps, tree)
         cached = cache.get(key)
         if cached is not None:
-            telemetry.emit("delegate_cache_hit", goal=goal[:120],
-                           fingerprint=key)
+            telemetry.emit("delegate_cache_hit", goal=goal[:120], fingerprint=key)
             return {**cached, "cached": True}
 
         delegation_id = uuid.uuid4().hex[:10]
         granted = allocator.grant(goal, parent_ctx.remaining_s())
         child_ctx = parent_ctx.child(granted)
         telemetry.emit(
-            "delegate_start", delegation_id=delegation_id,
-            goal=goal[:120], depth=child_ctx.depth,
+            "delegate_start",
+            delegation_id=delegation_id,
+            goal=goal[:120],
+            depth=child_ctx.depth,
             granted_budget_s=round(child_ctx.remaining_s(), 1),
             goal_class=AdaptiveBudgetAllocator.goal_class(goal),
         )
@@ -341,18 +352,26 @@ def make_delegate_tool(
                 policy_wrap(child_router)
             child_router.register(
                 "sin_delegate",
-                make_delegate_tool(child_ctx, telemetry,
-                                   supervisor=supervisor, cache=cache,
-                                   allocator=allocator,
-                                   policy_wrap=policy_wrap),
+                make_delegate_tool(
+                    child_ctx,
+                    telemetry,
+                    supervisor=supervisor,
+                    cache=cache,
+                    allocator=allocator,
+                    policy_wrap=policy_wrap,
+                ),
             )
             from .loop import AgentLoop
+
             child_loop = AgentLoop(
-                child_router, Verifier(cwd, telemetry),
-                telemetry=telemetry, memory=MemoryBridge(),
+                child_router,
+                Verifier(cwd, telemetry),
+                telemetry=telemetry,
+                memory=MemoryBridge(),
             )
             task = AgentTask(
-                goal=goal, repo_root=cwd,
+                goal=goal,
+                repo_root=cwd,
                 constraints=list(constraints or []),
                 max_parallelism=parallel,
                 budget_seconds=child_ctx.remaining_s(),
@@ -364,35 +383,41 @@ def make_delegate_tool(
             return report
 
         try:
-            async with asyncio.timeout(child_ctx.remaining_s()
-                                       + parent_ctx.safety_margin_s):
+            async with asyncio.timeout(child_ctx.remaining_s() + parent_ctx.safety_margin_s):
                 report = await supervisor.supervise(
-                    delegation_id=delegation_id, goal=goal,
-                    depth=child_ctx.depth, coro=child_run(),
+                    delegation_id=delegation_id,
+                    goal=goal,
+                    depth=child_ctx.depth,
+                    coro=child_run(),
                 )
         except (asyncio.TimeoutError, asyncio.CancelledError) as err:
-            telemetry.emit("delegate_aborted", delegation_id=delegation_id,
-                           kind=type(err).__name__)
+            telemetry.emit("delegate_aborted", delegation_id=delegation_id, kind=type(err).__name__)
             raise RuntimeError(
                 f"sub-agent {delegation_id} aborted "
                 f"({type(err).__name__}) — parent deadline protected"
             ) from err
 
-        result = validate_result({
-            "outcome": report["outcome"],
-            "verdict": report["verdict"],
-            "elapsed_s": report["elapsed_s"],
-            "steps_ok": report["steps_ok"],
-            "steps_total": report["steps_total"],
-            "lessons": report["lessons"],
-            "depth": child_ctx.depth,
-            "delegation_id": delegation_id,
-            "cached": False,
-        })
+        result = validate_result(
+            {
+                "outcome": report["outcome"],
+                "verdict": report["verdict"],
+                "elapsed_s": report["elapsed_s"],
+                "steps_ok": report["steps_ok"],
+                "steps_total": report["steps_total"],
+                "lessons": report["lessons"],
+                "depth": child_ctx.depth,
+                "delegation_id": delegation_id,
+                "cached": False,
+            }
+        )
         cache.put(key, result)
-        telemetry.emit("delegate_done", delegation_id=delegation_id,
-                       goal=goal[:120], depth=child_ctx.depth,
-                       outcome=result["outcome"])
+        telemetry.emit(
+            "delegate_done",
+            delegation_id=delegation_id,
+            goal=goal[:120],
+            depth=child_ctx.depth,
+            outcome=result["outcome"],
+        )
         return result
 
     return sin_delegate

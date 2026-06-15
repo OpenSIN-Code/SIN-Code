@@ -1,7 +1,7 @@
 package todo
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -9,6 +9,11 @@ import (
 	"time"
 
 	bolt "go.etcd.io/bbolt"
+)
+
+var (
+	jsonMarshalAudit   = json.Marshal
+	jsonUnmarshalAudit = json.Unmarshal
 )
 
 func auditKey(ts time.Time, id string) []byte {
@@ -25,7 +30,7 @@ func auditPrefix() []byte {
 
 func (s *Store) AppendAudit(e AuditEntry) error {
 	if e.ID == "" {
-		h := sha1.Sum([]byte(fmt.Sprintf("%d-%s-%s", time.Now().UnixNano(), e.TodoID, e.Action)))
+		h := sha256.Sum256([]byte(fmt.Sprintf("%d-%s-%s", time.Now().UnixNano(), e.TodoID, e.Action)))
 		e.ID = fmt.Sprintf("au-%x", h[:6])
 	}
 	if e.Timestamp.IsZero() {
@@ -36,7 +41,7 @@ func (s *Store) AppendAudit(e AuditEntry) error {
 	}
 	return s.update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketAudit))
-		data, err := json.Marshal(&e)
+		data, err := jsonMarshalAudit(&e)
 		if err != nil {
 			return err
 		}
@@ -51,7 +56,7 @@ func (s *Store) ListAudit(todoID string) ([]*AuditEntry, error) {
 		c := b.Cursor()
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			var e AuditEntry
-			if uerr := json.Unmarshal(v, &e); uerr != nil {
+			if uerr := jsonUnmarshalAudit(v, &e); uerr != nil {
 				continue
 			}
 			if todoID == "" || e.TodoID == todoID {

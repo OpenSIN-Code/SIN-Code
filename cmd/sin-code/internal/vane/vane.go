@@ -23,6 +23,24 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/circuitbreaker"
 )
 
+// testHook variables allow tests to inject failure without heavy
+// refactoring. They are package-level vars (not build-tagged) so the
+// production binary pays only the indirection cost.
+var (
+	osUserHomeDirFn     = os.UserHomeDir
+	osExecutableFn      = os.Executable
+	jsonMarshalFn       = json.Marshal
+	jsonMarshalIndentFn = json.MarshalIndent
+	ioCopyNFn           = io.CopyN
+	ioReadAllFn         = io.ReadAll
+	osMkdirAllFn        = os.MkdirAll
+	osCreateTempFn      = os.CreateTemp
+	writeJSONCopyFn     = io.Copy
+	writeJSONWriteFn    = func(w io.Writer, p []byte) (int, error) { return w.Write(p) }
+	writeJSONCloseFn    = func(c io.Closer) error { return c.Close() }
+	roundTripperFn      = circuitbreaker.RoundTripper
+)
+
 // ── Public configuration constants ─────────────────────────────────────
 
 // ServerName is the MCP server name registered in mcp.json. Used by
@@ -62,7 +80,7 @@ func Home() string {
 		return v
 	}
 	// Use os.UserHomeDir for cross-platform safety (macOS/Linux/Windows).
-	if h, err := os.UserHomeDir(); err == nil {
+	if h, err := osUserHomeDirFn(); err == nil {
 		return filepath.Join(h, ".local", "share", "sin-code")
 	}
 	// Last resort: cwd-relative fallback so the function is total.
@@ -229,7 +247,7 @@ func NewClient(cfg Config) *Client {
 		cfg: cfg,
 		http: &http.Client{
 			Timeout:   time.Duration(timeout) * time.Second,
-			Transport: circuitbreaker.RoundTripper(http.DefaultTransport, br),
+			Transport: roundTripperFn(http.DefaultTransport, br),
 		},
 		breaker: br,
 	}
@@ -298,7 +316,7 @@ func (c *Client) Search(ctx context.Context, query, focusMode, optimization stri
 		EmbeddingModelProvider: c.cfg.EmbedProvider,
 		EmbeddingModel:         c.cfg.EmbedModel,
 	}
-	raw, err := json.Marshal(body)
+	raw, err := jsonMarshalFn(body)
 	if err != nil {
 		return nil, fmt.Errorf("vane: marshal: %w", err)
 	}
@@ -315,7 +333,7 @@ func (c *Client) Search(ctx context.Context, query, focusMode, optimization stri
 		return nil, fmt.Errorf("vane: post: %w", err)
 	}
 	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := ioReadAllFn(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("vane: read body: %w", err)
 	}
@@ -383,7 +401,7 @@ func RegisterMCP(mcpPath string) (string, error) {
 	if mcpPath == "" {
 		mcpPath = MCPConfigPath()
 	}
-	exe, err := os.Executable()
+	exe, err := osExecutableFn()
 	if err != nil {
 		return mcpPath, fmt.Errorf("vane: resolve executable: %w", err)
 	}
@@ -430,28 +448,28 @@ func truncate(s string, n int) string {
 // directories are created on demand. Mirrors superpowers.WriteJSON() so
 // the rest of the codebase has a consistent persistence semantic.
 func writeJSONAtomic(path string, v any) error {
-	data, err := json.MarshalIndent(v, "", "  ")
+	data, err := jsonMarshalIndentFn(v, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := osMkdirAllFn(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".vane-*.json.tmp")
+	tmp, err := osCreateTempFn(filepath.Dir(path), ".vane-*.json.tmp")
 	if err != nil {
 		return err
 	}
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName)
-	if _, err := io.Copy(tmp, bytes.NewReader(data)); err != nil {
-		tmp.Close()
+	if _, err := writeJSONCopyFn(tmp, bytes.NewReader(data)); err != nil {
+		writeJSONCloseFn(tmp)
 		return err
 	}
-	if _, err := tmp.Write([]byte("\n")); err != nil {
-		tmp.Close()
+	if _, err := writeJSONWriteFn(tmp, []byte("\n")); err != nil {
+		writeJSONCloseFn(tmp)
 		return err
 	}
-	if err := tmp.Close(); err != nil {
+	if err := writeJSONCloseFn(tmp); err != nil {
 		return err
 	}
 	return os.Rename(tmpName, path)

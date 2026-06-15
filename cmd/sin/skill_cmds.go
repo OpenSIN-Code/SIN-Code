@@ -7,8 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/OpenSIN-Code/SIN-Code/pkg/skills"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/pkg/skills"
 )
 
 var (
@@ -168,7 +169,7 @@ func runSkillValidate(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("parse error: %w", err)
 	}
-	
+
 	var errors []string
 	if skill.Name == "" {
 		errors = append(errors, "missing skill name (first heading)")
@@ -182,7 +183,7 @@ func runSkillValidate(cmd *cobra.Command, args []string) error {
 	if _, ok := skill.Sections["Anti-Rationalization"]; !ok {
 		errors = append(errors, "missing ## Anti-Rationalization section (recommended)")
 	}
-	
+
 	if len(errors) > 0 {
 		fmt.Printf("❌ Validation failed for %s:\n", path)
 		for _, e := range errors {

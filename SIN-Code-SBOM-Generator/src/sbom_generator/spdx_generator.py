@@ -5,11 +5,9 @@ Docs: spdx_generator.doc.md
 """
 
 import json
-import uuid
-from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
-from .models import SBOM, SBOMPackage, SBOMMetadata
+from typing import Any, Dict, List, Optional
 
+from .models import SBOM, SBOMPackage
 
 SPDX_VERSION = "SPDX-2.3"
 SPDX_DATA_LICENSE = "CC0-1.0"
@@ -30,7 +28,8 @@ def generate_spdx(sbom: SBOM) -> Dict[str, Any]:
             "created": sbom.metadata.timestamp,
             "creators": [
                 f"Tool: {sbom.metadata.tool_name}-{sbom.metadata.tool_version}",
-            ] + [f"Organization: {a}" for a in sbom.metadata.authors],
+            ]
+            + [f"Organization: {a}" for a in sbom.metadata.authors],
         },
         "packages": [],
         "files": [],
@@ -39,11 +38,13 @@ def generate_spdx(sbom: SBOM) -> Dict[str, Any]:
 
     # Add document-to-DESCRIBES relationship
     if sbom.packages:
-        doc["relationships"].append({
-            "spdxElementId": "SPDXRef-DOCUMENT",
-            "relatedSpdxElement": "SPDXRef-Package-0",
-            "relationshipType": "DESCRIBES",
-        })
+        doc["relationships"].append(
+            {
+                "spdxElementId": "SPDXRef-DOCUMENT",
+                "relatedSpdxElement": "SPDXRef-Package-0",
+                "relationshipType": "DESCRIBES",
+            }
+        )
 
     for idx, pkg in enumerate(sbom.packages):
         spdx_pkg = _package_to_spdx(pkg, idx)
@@ -52,11 +53,13 @@ def generate_spdx(sbom: SBOM) -> Dict[str, Any]:
         # Dependencies
         for dep_name in pkg.dependencies:
             dep_id = _find_package_id(sbom.packages, dep_name) or f"SPDXRef-Package-{dep_name}"
-            doc["relationships"].append({
-                "spdxElementId": spdx_pkg["SPDXID"],
-                "relatedSpdxElement": dep_id,
-                "relationshipType": "DEPENDS_ON",
-            })
+            doc["relationships"].append(
+                {
+                    "spdxElementId": spdx_pkg["SPDXID"],
+                    "relatedSpdxElement": dep_id,
+                    "relationshipType": "DEPENDS_ON",
+                }
+            )
 
     # Add unique licenses (optional, kept in extractedLicensingInfo)
     unique_licenses = list(set(filter(None, [p.license_concluded for p in sbom.packages])))
@@ -88,25 +91,28 @@ def _package_to_spdx(pkg: SBOMPackage, idx: int) -> Dict[str, Any]:
     }
 
     if pkg.purl:
-        spdx_pkg["externalRefs"] = [{
-            "referenceCategory": "PACKAGE-MANAGER",
-            "referenceType": "purl",
-            "referenceLocator": pkg.purl,
-        }]
+        spdx_pkg["externalRefs"] = [
+            {
+                "referenceCategory": "PACKAGE-MANAGER",
+                "referenceType": "purl",
+                "referenceLocator": pkg.purl,
+            }
+        ]
 
     if pkg.cpe:
         if "externalRefs" not in spdx_pkg:
             spdx_pkg["externalRefs"] = []
-        spdx_pkg["externalRefs"].append({
-            "referenceCategory": "SECURITY",
-            "referenceType": "cpe23Type",
-            "referenceLocator": pkg.cpe,
-        })
+        spdx_pkg["externalRefs"].append(
+            {
+                "referenceCategory": "SECURITY",
+                "referenceType": "cpe23Type",
+                "referenceLocator": pkg.cpe,
+            }
+        )
 
     if pkg.checksums:
         spdx_pkg["checksums"] = [
-            {"algorithm": algo.upper(), "checksumValue": val}
-            for algo, val in pkg.checksums.items()
+            {"algorithm": algo.upper(), "checksumValue": val} for algo, val in pkg.checksums.items()
         ]
 
     return spdx_pkg

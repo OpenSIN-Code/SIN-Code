@@ -87,9 +87,7 @@ class ToolAdder:
         if insertion_point is None:
             # No existing @mcp.tool() — insert after the `mcp = FastMCP(...)` line.
             insertion_point = self._find_mcp_declaration(existing)
-        new_content = (
-            existing[:insertion_point] + new_tool + "\n\n" + existing[insertion_point:]
-        )
+        new_content = existing[:insertion_point] + new_tool + "\n\n" + existing[insertion_point:]
         server_path.write_text(new_content, encoding="utf-8")
         return new_tool
 

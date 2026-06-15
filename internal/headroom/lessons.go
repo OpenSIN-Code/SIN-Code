@@ -16,11 +16,11 @@ import (
 // that previously turned out to be important.
 type Lesson struct {
 	ID        string    `json:"id"`
-	Category  string    `json:"category"`            // e.g. "compression", "retrieval", "tooling"
-	Pattern   string    `json:"pattern"`             // the content pattern that mattered
-	Insight   string    `json:"insight"`             // what was learned
-	Weight    float64   `json:"weight"`              // importance 0..1, higher = keep more
-	Hits      int       `json:"hits"`                // how often this lesson was reinforced
+	Category  string    `json:"category"` // e.g. "compression", "retrieval", "tooling"
+	Pattern   string    `json:"pattern"`  // the content pattern that mattered
+	Insight   string    `json:"insight"`  // what was learned
+	Weight    float64   `json:"weight"`   // importance 0..1, higher = keep more
+	Hits      int       `json:"hits"`     // how often this lesson was reinforced
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

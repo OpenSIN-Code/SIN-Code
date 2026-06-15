@@ -8,8 +8,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
 )
 
 // headroomCmd represents the headroom command

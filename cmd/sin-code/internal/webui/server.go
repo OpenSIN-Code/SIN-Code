@@ -57,6 +57,38 @@ type Config struct {
 	OpenBrowser bool
 }
 
+// test hooks allow error-path coverage without heavy refactoring.
+var (
+	netListenHook     = net.Listen
+	signalNotifyHook  = signal.Notify
+	openBrowserHook   = openInBrowser
+	userConfigDirHook = os.UserConfigDir
+	osTempDirHook     = os.TempDir
+	goosHook          = func() string { return runtime.GOOS }
+	lookPathHook      = exec.LookPath
+	readDirHook       = os.ReadDir
+	readFileHook      = os.ReadFile
+	execCommandRunner = func(name string, args ...string) ([]byte, error) {
+		return exec.Command(name, args...).Output() // #nosec G204
+	}
+	orchestratorRunFunc = func(ctx context.Context, prompt string) (*orchestrator.Result, error) {
+		return orchestrator.New().Run(ctx, prompt)
+	}
+	todoOpenHook  = todo.Open
+	notifOpenHook = notifications.Open
+	todoListHook  = func(s *todo.Store) ([]*todo.Todo, error) { return s.List() }
+	todoAddHook   = func(s *todo.Store, t *todo.Todo) error { return s.Add(t) }
+	notifListHook = func(s *notifications.Store, filter notifications.ListFilter, limit int) ([]*notifications.Notification, error) {
+		return s.List(filter, limit)
+	}
+	templateCloneHook = func(t *template.Template) (*template.Template, error) { return t.Clone() }
+	templateParseHook = func(t *template.Template, text string) (*template.Template, error) { return t.Parse(text) }
+	templateExecHook  = func(t *template.Template, wr io.Writer, name string, data interface{}) error {
+		return t.ExecuteTemplate(wr, name, data)
+	}
+	parseFSHook = func(t *template.Template, f fs.FS) (*template.Template, error) { return t.ParseFS(f, "*.html") }
+)
+
 func Start(port int) error {
 	host := os.Getenv("SIN_CODE_WEBUI_HOST")
 	if host == "" {
@@ -174,13 +206,13 @@ func (s *Server) setupHealthChecks() {
 }
 
 func loadTemplates() (*template.Template, error) {
-	sub, err := fs.Sub(templateFS, "templates")
+	sub, err := templateFSSubHook()
 	if err != nil {
 		return nil, err
 	}
-	tmpl, err := template.New("").Funcs(template.FuncMap{
-		"safeHTML": func(s string) template.HTML { return template.HTML(s) },
-	}).ParseFS(sub, "*.html")
+	tmpl, err := parseFSHook(template.New("").Funcs(template.FuncMap{
+		"safeHTML": func(s string) template.HTML { return template.HTML(s) }, // #nosec G203
+	}), sub)
 	if err != nil {
 		return nil, fmt.Errorf("parse templates: %w", err)
 	}
@@ -223,17 +255,17 @@ func (s *Server) render(w http.ResponseWriter, name string, data pageData) {
 		http.Error(w, "template not found: "+name, http.StatusInternalServerError)
 		return
 	}
-	cloned, err := s.templates.Clone()
+	cloned, err := templateCloneHook(s.templates)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if _, err := cloned.Parse(string(bodyRaw)); err != nil {
+	if _, err := templateParseHook(cloned, string(bodyRaw)); err != nil {
 		http.Error(w, "parse "+name+": "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	var buf bytes.Buffer
-	if err := cloned.ExecuteTemplate(&buf, "base", data); err != nil {
+	if err := templateExecHook(cloned, &buf, "base", data); err != nil {
 		http.Error(w, "render: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -275,8 +307,7 @@ func (s *Server) handleOrchestratorRun(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
 	defer cancel()
 
-	o := orchestrator.New()
-	res, err := o.Run(ctx, prompt)
+	res, err := orchestratorRunFunc(ctx, prompt)
 
 	agents := defaultAgentConfigs()
 	data := pageData{
@@ -296,7 +327,7 @@ func (s *Server) handleOrchestratorRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTodosPage(w http.ResponseWriter, r *http.Request) {
-	store, err := todo.Open(s.todoDB)
+	store, err := todoOpenHook(s.todoDB)
 	if err != nil {
 		s.render(w, "todos.html", pageData{
 			Title:  "Todos",
@@ -306,7 +337,7 @@ func (s *Server) handleTodosPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer store.Close()
-	ts, err := store.List()
+	ts, err := todoListHook(store)
 	if err != nil {
 		s.render(w, "todos.html", pageData{
 			Title:  "Todos",
@@ -353,7 +384,7 @@ func (s *Server) handleTodosAdd(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/todos?err=title_required", http.StatusSeeOther)
 		return
 	}
-	store, err := todo.Open(s.todoDB)
+	store, err := todoOpenHook(s.todoDB)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -372,7 +403,7 @@ func (s *Server) handleTodosAdd(w http.ResponseWriter, r *http.Request) {
 	if t.Type == "" {
 		t.Type = todo.TypeTask
 	}
-	if err := store.Add(t); err != nil {
+	if err := todoAddHook(store, t); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -381,7 +412,7 @@ func (s *Server) handleTodosAdd(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleTodoDetail(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	store, err := todo.Open(s.todoDB)
+	store, err := todoOpenHook(s.todoDB)
 	if err != nil {
 		s.render(w, "todo_detail.html", pageData{
 			Title:  "Todo " + id,
@@ -412,7 +443,7 @@ func (s *Server) handleTodoDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleNotificationsPage(w http.ResponseWriter, r *http.Request) {
-	store, err := notifications.Open(s.notifDB)
+	store, err := notifOpenHook(s.notifDB)
 	if err != nil {
 		s.render(w, "notifications.html", pageData{
 			Title:  "Notifications",
@@ -422,7 +453,7 @@ func (s *Server) handleNotificationsPage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	defer store.Close()
-	ns, err := store.List(notifications.ListFilter{NotDismissed: true}, 100)
+	ns, err := notifListHook(store, notifications.ListFilter{NotDismissed: true}, 100)
 	if err != nil {
 		s.render(w, "notifications.html", pageData{
 			Title:  "Notifications",
@@ -496,13 +527,13 @@ func (s *Server) handleAgentsJSON(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleNotificationsJSON(w http.ResponseWriter, r *http.Request) {
-	store, err := notifications.Open(s.notifDB)
+	store, err := notifOpenHook(s.notifDB)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
 	defer store.Close()
-	ns, err := store.List(notifications.ListFilter{}, 0)
+	ns, err := notifListHook(store, notifications.ListFilter{}, 0)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err)
 		return
@@ -514,13 +545,13 @@ func (s *Server) handleNotificationsJSON(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleTodosJSON(w http.ResponseWriter, r *http.Request) {
-	store, err := todo.Open(s.todoDB)
+	store, err := todoOpenHook(s.todoDB)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
 	defer store.Close()
-	ts, err := store.List()
+	ts, err := todoListHook(store)
 	if err != nil {
 		writeJSONError(w, http.StatusInternalServerError, err)
 		return
@@ -552,7 +583,7 @@ func defaultTodoDB() string {
 	if env := os.Getenv("SIN_CODE_TODO_DB"); env != "" {
 		return env
 	}
-	cfg, err := os.UserConfigDir()
+	cfg, err := userConfigDirHook()
 	if err != nil {
 		return "todo.db"
 	}
@@ -563,7 +594,7 @@ func defaultNotifDB() string {
 	if env := os.Getenv("SIN_CODE_NOTIF_DB"); env != "" {
 		return env
 	}
-	cfg, err := os.UserConfigDir()
+	cfg, err := userConfigDirHook()
 	if err != nil {
 		return "notifications.db"
 	}
@@ -574,9 +605,9 @@ func efmMetaDir() string {
 	if home := os.Getenv("HOME"); home != "" {
 		return filepath.Join(home, ".local", "state", "sin-code", "efm")
 	}
-	cfg, err := os.UserConfigDir()
+	cfg, err := userConfigDirHook()
 	if err != nil {
-		return filepath.Join(os.TempDir(), "sin-code-efm")
+		return filepath.Join(osTempDirHook(), "sin-code-efm")
 	}
 	return filepath.Join(cfg, "sin-code", "efm")
 }
@@ -587,12 +618,12 @@ func efmMetaKey(stackPath string) string {
 }
 
 func detectContainerRuntime() string {
-	if runtime.GOOS == "darwin" {
-		if _, err := exec.LookPath("orb"); err == nil {
+	if goosHook() == "darwin" {
+		if _, err := lookPathHook("orb"); err == nil {
 			return "orb"
 		}
 	}
-	if _, err := exec.LookPath("docker"); err == nil {
+	if _, err := lookPathHook("docker"); err == nil {
 		return "docker"
 	}
 	return ""
@@ -601,7 +632,7 @@ func detectContainerRuntime() string {
 func discoverEfmStacks() ([]efmStack, string, error) {
 	rt := detectContainerRuntime()
 	dir := efmMetaDir()
-	entries, err := os.ReadDir(dir)
+	entries, err := readDirHook(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return []efmStack{}, rt, nil
@@ -613,7 +644,7 @@ func discoverEfmStacks() ([]efmStack, string, error) {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".meta") {
 			continue
 		}
-		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		raw, err := readFileHook(filepath.Join(dir, e.Name()))
 		if err != nil {
 			continue
 		}
@@ -625,8 +656,7 @@ func discoverEfmStacks() ([]efmStack, string, error) {
 		name := strings.TrimSuffix(filepath.Base(stackPath), filepath.Ext(stackPath))
 		status := "unknown"
 		if rt != "" {
-			cmd := exec.Command(rt, "ps", "-a", "--filter", "label=com.docker.compose.project="+name, "--format", "{{.Status}}")
-			outBytes, _ := cmd.Output()
+			outBytes, _ := execCommandRunner(rt, "ps", "-a", "--filter", "label=com.docker.compose.project="+name, "--format", "{{.Status}}")
 			running := strings.Contains(string(outBytes), "Up")
 			if running {
 				status = "running"
@@ -659,7 +689,7 @@ func discoverEfmStacks() ([]efmStack, string, error) {
 }
 
 func (s *Server) ListenAndServe() error {
-	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", s.host, s.port))
+	ln, err := netListenHook("tcp", fmt.Sprintf("%s:%d", s.host, s.port))
 	if err != nil {
 		return err
 	}
@@ -674,7 +704,7 @@ func (s *Server) ListenAndServe() error {
 	if s.openBrowser {
 		go func() {
 			time.Sleep(200 * time.Millisecond)
-			_ = openInBrowser("http://" + s.addr_)
+			_ = openBrowserHook("http://" + s.addr_)
 		}()
 	}
 
@@ -684,7 +714,7 @@ func (s *Server) ListenAndServe() error {
 	}()
 
 	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	signalNotifyHook(stop, os.Interrupt, syscall.SIGTERM)
 	select {
 	case err := <-errCh:
 		if errors.Is(err, http.ErrServerClosed) {
@@ -700,13 +730,13 @@ func (s *Server) ListenAndServe() error {
 
 func openInBrowser(target string) error {
 	var cmd *exec.Cmd
-	switch runtime.GOOS {
+	switch goosHook() {
 	case "darwin":
-		cmd = exec.Command("open", target)
+		cmd = exec.Command("open", target) // #nosec G204 — opens validated user URL in browser
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", target)
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", target) // #nosec G204 — opens validated user URL in browser
 	default:
-		cmd = exec.Command("xdg-open", target)
+		cmd = exec.Command("xdg-open", target) // #nosec G204 — opens validated user URL in browser
 	}
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard

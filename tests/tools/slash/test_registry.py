@@ -11,7 +11,7 @@ import tempfile
 
 import pytest
 
-from sin_code_bundle.tools.slash.registry import CommandRegistry, CustomCommand
+from sin_code_bundle.tools.slash.registry import CommandRegistry
 
 
 class TestCommandRegistry:

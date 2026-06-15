@@ -11,20 +11,20 @@ import (
 
 // ChainStep represents one skill invocation within a chain.
 type ChainStep struct {
-	SkillName string            `json:"skill"`
-	OnFailure string            `json:"on_failure"` // "abort", "retry", "skip", "fallback"
-	MaxRetries int              `json:"max_retries"`
+	SkillName  string            `json:"skill"`
+	OnFailure  string            `json:"on_failure"` // "abort", "retry", "skip", "fallback"
+	MaxRetries int               `json:"max_retries"`
 	Variables  map[string]string `json:"variables"`
 }
 
 // Chain defines a sequential workflow of skills.
 type Chain struct {
-	Name        string       `json:"name"`
-	Description string       `json:"description"`
-	Steps       []ChainStep  `json:"steps"`
-	OnSuccess   string       `json:"on_success"` // "stop", "next", "restart"
-	OnFailure   string       `json:"on_failure"`
-	MaxLoops    int          `json:"max_loops"` // prevent infinite loops
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	Steps       []ChainStep `json:"steps"`
+	OnSuccess   string      `json:"on_success"` // "stop", "next", "restart"
+	OnFailure   string      `json:"on_failure"`
+	MaxLoops    int         `json:"max_loops"` // prevent infinite loops
 }
 
 // ChainExecutor executes chains with loop detection and retry logic.

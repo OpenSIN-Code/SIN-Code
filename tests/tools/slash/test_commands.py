@@ -9,8 +9,8 @@ Tests cover command lookup, help text, and built-in listing.
 from sin_code_bundle.tools.slash.commands import (
     BUILTIN_COMMANDS,
     get_builtin_command,
-    list_builtin_commands,
     get_command_help,
+    list_builtin_commands,
 )
 
 
@@ -19,7 +19,18 @@ class TestBuiltinCommands:
 
     def test_all_commands_exist(self) -> None:
         """All expected built-in commands exist."""
-        expected = {"refactor", "test", "docs", "commit", "audit", "status", "search", "help", "list", "history"}
+        expected = {
+            "refactor",
+            "test",
+            "docs",
+            "commit",
+            "audit",
+            "status",
+            "search",
+            "help",
+            "list",
+            "history",
+        }
         assert set(BUILTIN_COMMANDS.keys()) == expected
 
     def test_refactor_command(self) -> None:

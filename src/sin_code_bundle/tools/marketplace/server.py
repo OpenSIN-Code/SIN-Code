@@ -11,13 +11,12 @@ update, sync, and inspect skills programmatically.
 import json
 import logging
 from pathlib import Path
-from typing import Any
 
 from fastmcp import FastMCP
 
 # ── Local imports ─────────────────────────────────────────────────────────────
 from .catalog import Catalog, CatalogError
-from .installer import InstallError, Installer
+from .installer import Installer, InstallError
 from .registry import Registry
 from .updater import Updater
 
@@ -27,7 +26,10 @@ logger = logging.getLogger(__name__)
 # ── MCP Server ───────────────────────────────────────────────────────────────
 mcp = FastMCP("sin-marketplace")
 
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+
 async def _get_catalog() -> Catalog:
     """Load catalog from remote or local cache."""
     catalog = Catalog()
@@ -91,7 +93,9 @@ async def marketplace_install(slug: str) -> str:
 
     registry = Registry()
     registry.install(record)
-    return json.dumps({"success": True, "slug": slug, "destination": record["destination"]}, indent=2)
+    return json.dumps(
+        {"success": True, "slug": slug, "destination": record["destination"]}, indent=2
+    )
 
 
 @mcp.tool()

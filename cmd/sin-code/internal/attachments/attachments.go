@@ -34,7 +34,6 @@ var (
 	osReadDir       = os.ReadDir
 )
 
-
 type Attachment struct {
 	ID        string    `json:"id"`
 	Hash      string    `json:"hash"`

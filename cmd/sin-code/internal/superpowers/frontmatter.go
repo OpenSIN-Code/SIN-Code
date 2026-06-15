@@ -97,7 +97,7 @@ func parseBlock(block string, out map[string]string) {
 			continue
 		}
 		// A "key: value" line. The colon must NOT be inside quotes.
-		key, val, hasVal, keyEnd := splitKeyValue(raw)
+		key, val, hasVal, _ := splitKeyValue(raw)
 		if key == "" {
 			i++
 			continue
@@ -119,12 +119,6 @@ func parseBlock(block string, out map[string]string) {
 			indent := leadingSpaces(raw)
 			// Block may start on next line.
 			startIdx := i + 1
-			if keyEnd+1 < len(raw) && raw[keyEnd+1] != ' ' && raw[keyEnd+1] != '\t' {
-				// Inline value (e.g. "key: >- inline") — not supported here;
-				// we treat the rest of the line as a single line then keep
-				// collecting indented continuations.
-				startIdx = i + 1
-			}
 			collected, next := collectBlockLines(lines, startIdx, indent+1, stripTrailing)
 			joined := strings.Join(collected, "\n")
 			folded := foldScalar(joined, stripTrailing)
@@ -198,7 +192,7 @@ func splitKeyValue(line string) (key, value string, hasVal bool, colonIdx int) {
 	}
 	keyPart := trimmed[:colon]
 	valPart := trimmed[colon+1:]
-	return keyPart, valPart, true, leading + colon
+	return keyPart, valPart, valPart != "", leading + colon
 }
 
 // leadingSpaces returns the count of leading space/tab runes in line.

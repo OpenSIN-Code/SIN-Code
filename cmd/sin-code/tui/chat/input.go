@@ -15,6 +15,9 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/attachments"
 )
 
+// osUserHomeDirHook is a test seam for os.UserHomeDir.
+var osUserHomeDirHook = os.UserHomeDir
+
 type Input struct {
 	textarea    textarea.Model
 	attachments []*attachments.Attachment
@@ -105,9 +108,6 @@ func (i *Input) HandleSlashCommand(line string) (handled bool, err error) {
 		return false, nil
 	}
 	parts := strings.Fields(trimmed)
-	if len(parts) == 0 {
-		return false, nil
-	}
 	switch parts[0] {
 	case "/attach":
 		if len(parts) < 2 {
@@ -279,7 +279,7 @@ func (i *Input) isFilePath(content string) bool {
 		return false
 	}
 	if strings.HasPrefix(trimmed, "~/") {
-		home, err := os.UserHomeDir()
+		home, err := osUserHomeDirHook()
 		if err != nil {
 			return false
 		}

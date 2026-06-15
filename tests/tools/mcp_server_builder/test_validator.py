@@ -4,8 +4,6 @@ Purpose: Test the Validator.
 Docs: test_validator.doc.md
 """
 
-
-
 from sin_code_bundle.tools.mcp_server_builder.validator import Validator
 
 

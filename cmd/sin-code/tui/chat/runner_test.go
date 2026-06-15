@@ -7,12 +7,14 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 )
@@ -231,5 +233,128 @@ func TestRunnerProviderErrorSurfaces(t *testing.T) {
 	}
 	if r.Client == nil {
 		t.Error("expected non-nil client")
+	}
+}
+
+func TestRunnerProviderConfigError(t *testing.T) {
+	prev := providerFromConfigHook
+	providerFromConfigHook = func(name, baseURLOverride, apiKeyOverride, modelOverride string, timeout time.Duration) (*llm.Client, error) {
+		return nil, errors.New("provider failure")
+	}
+	defer func() { providerFromConfigHook = prev }()
+
+	prevKey, hadKey := os.LookupEnv("SIN_NIM_API_KEY")
+	os.Setenv("SIN_NIM_API_KEY", "fake-key")
+	defer func() {
+		if hadKey {
+			os.Setenv("SIN_NIM_API_KEY", prevKey)
+		} else {
+			os.Unsetenv("SIN_NIM_API_KEY")
+		}
+	}()
+
+	r, err := NewRunner()
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if r != nil {
+		t.Errorf("expected nil runner, got %+v", r)
+	}
+}
+
+func TestRunnerDefaults(t *testing.T) {
+	var gotReq llm.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &gotReq)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`))
+	}))
+	defer srv.Close()
+
+	c := llm.NewClient(srv.URL, "k")
+	r := &Runner{Client: c}
+	out, err := r.Run(context.Background(), "hello", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out != "ok" {
+		t.Errorf("got %q", out)
+	}
+	if gotReq.Model != defaultModel {
+		t.Errorf("model: %q", gotReq.Model)
+	}
+	if gotReq.Messages[0].Content != defaultSystem {
+		t.Errorf("system: %q", gotReq.Messages[0].Content)
+	}
+}
+
+func TestRunnerHistoryPrefixes(t *testing.T) {
+	var gotReq llm.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &gotReq)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`))
+	}))
+	defer srv.Close()
+
+	c := llm.NewClient(srv.URL, "k")
+	r := NewRunnerWithClient(c, "model", "system")
+	history := []string{
+		"plain",
+		"",
+		"assistant:",
+		"assistant: hi",
+		"user: hello",
+	}
+	if _, err := r.Run(context.Background(), "prompt", history); err != nil {
+		t.Fatal(err)
+	}
+	// system + 4 kept history entries (empty and bare "assistant:" skipped) + prompt = 5
+	if len(gotReq.Messages) != 5 {
+		t.Fatalf("expected 5 messages, got %d: %+v", len(gotReq.Messages), gotReq.Messages)
+	}
+	wantRoles := []string{"system", "user", "assistant", "user", "user"}
+	for i, want := range wantRoles {
+		if got := gotReq.Messages[i].Role; got != want {
+			t.Errorf("msg[%d] role = %q, want %q", i, got, want)
+		}
+	}
+}
+
+func TestRunnerChatError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("boom"))
+	}))
+	defer srv.Close()
+
+	c := llm.NewClient(srv.URL, "k")
+	r := NewRunnerWithClient(c, "model", "system")
+	if _, err := r.Run(context.Background(), "hi", nil); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestRunnerShortHistory(t *testing.T) {
+	var gotReq llm.ChatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &gotReq)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}`))
+	}))
+	defer srv.Close()
+
+	c := llm.NewClient(srv.URL, "k")
+	r := NewRunnerWithClient(c, "model", "system")
+	// history shorter than historyKeepN to cover the start < 0 branch
+	history := []string{"a", "b"}
+	if _, err := r.Run(context.Background(), "prompt", history); err != nil {
+		t.Fatal(err)
+	}
+	if len(gotReq.Messages) != 4 { // system + 2 history + prompt
+		t.Fatalf("expected 4 messages, got %d: %+v", len(gotReq.Messages), gotReq.Messages)
 	}
 }

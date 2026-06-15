@@ -11,11 +11,11 @@ import (
 )
 
 type Registry struct {
-	mu         sync.RWMutex
-	skillsDir  string                 // e.g., ~/.sin/skills or ./skills
-	skills     map[string]*Skill      // name -> Skill
-	index      map[string]string      // name -> path
-	builtins   map[string]bool        // built-in skills
+	mu        sync.RWMutex
+	skillsDir string            // e.g., ~/.sin/skills or ./skills
+	skills    map[string]*Skill // name -> Skill
+	index     map[string]string // name -> path
+	builtins  map[string]bool   // built-in skills
 }
 
 // NewRegistry creates a skill registry pointing to a directory.

@@ -9,13 +9,13 @@ import (
 
 // Skill represents a parsed agent skill.
 type Skill struct {
-	Name        string              // e.g., "spec", "plan"
-	Description string              // Short description
-	FullText    string              // Raw markdown
-	Sections    map[string]string   // Key sections: "Overview", "Steps", "Verification", "Anti-Rationalization"
-	Steps       []SkillStep         // Parsed numbered steps
-	Metadata    map[string]string   // Frontmatter if any
-	Path        string              // Source file path
+	Name        string            // e.g., "spec", "plan"
+	Description string            // Short description
+	FullText    string            // Raw markdown
+	Sections    map[string]string // Key sections: "Overview", "Steps", "Verification", "Anti-Rationalization"
+	Steps       []SkillStep       // Parsed numbered steps
+	Metadata    map[string]string // Frontmatter if any
+	Path        string            // Source file path
 }
 
 type SkillStep struct {

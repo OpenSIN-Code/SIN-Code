@@ -18,16 +18,18 @@ class Planner:
     def build(self, task: AgentTask, step_specs: list[dict[str, Any]]) -> Plan:
         plan = Plan(task_id=task.task_id)
         for spec in step_specs:
-            plan.add(Step(
-                step_id=spec["step_id"],
-                title=spec.get("title", spec["step_id"]),
-                tool=spec["tool"],
-                args=spec.get("args", {}),
-                deps=list(spec.get("deps", [])),
-                estimated_cost=float(spec.get("estimated_cost", 1.0)),
-                isolated=bool(spec.get("isolated", False)),
-                max_attempts=int(spec.get("max_attempts", 3)),
-            ))
+            plan.add(
+                Step(
+                    step_id=spec["step_id"],
+                    title=spec.get("title", spec["step_id"]),
+                    tool=spec["tool"],
+                    args=spec.get("args", {}),
+                    deps=list(spec.get("deps", [])),
+                    estimated_cost=float(spec.get("estimated_cost", 1.0)),
+                    isolated=bool(spec.get("isolated", False)),
+                    max_attempts=int(spec.get("max_attempts", 3)),
+                )
+            )
         plan.validate()
         return plan
 

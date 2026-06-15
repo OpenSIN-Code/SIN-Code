@@ -21,12 +21,14 @@ from __future__ import annotations
 import json
 import os
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 # External writer; stdlib tomllib is read-only on 3.11+. Import is
 # deferred to first write so the read path stays import-cheap.
+
+
 def _writer():
     import tomli_w  # type: ignore[import-not-found]
 
@@ -256,8 +258,7 @@ def redact(payload: Any) -> Any:
     """
     if isinstance(payload, dict):
         return {
-            k: (REDACTED_PLACEHOLDER if _is_sensitive(k) else redact(v))
-            for k, v in payload.items()
+            k: (REDACTED_PLACEHOLDER if _is_sensitive(k) else redact(v)) for k, v in payload.items()
         }
     if isinstance(payload, list):
         return [redact(v) for v in payload]
@@ -265,9 +266,7 @@ def redact(payload: Any) -> Any:
 
 
 # ── Mutators (write back to project TOML) ───────────────────────────────
-def set_value(
-    key: str, value: str, *, project_path: Path = PROJECT_TOML
-) -> Path:
+def set_value(key: str, value: str, *, project_path: Path = PROJECT_TOML) -> Path:
     """Set *key* to *value* in the project-level TOML file.
 
     Creates the file (and parents) if missing. *value* is stored as a
@@ -282,8 +281,7 @@ def set_value(
         # Top-level assignment — store as a one-key table only if the value
         # is a JSON object; otherwise this is ambiguous and we error.
         raise ValueError(
-            f"top-level key '{key}' is reserved for tables; "
-            "use a dotted key like 'tui.theme'"
+            f"top-level key '{key}' is reserved for tables; use a dotted key like 'tui.theme'"
         )
     bucket = payload.setdefault(section, {})
     if not isinstance(bucket, dict):
@@ -398,9 +396,7 @@ def merged(
 
 
 # ── Formatting ───────────────────────────────────────────────────────────
-def format_show(
-    payload: dict[str, Any], origins: dict[str, ConfigSource]
-) -> str:
+def format_show(payload: dict[str, Any], origins: dict[str, ConfigSource]) -> str:
     """Render ``sin config show`` output: flat dotted-key list with origin."""
     if not payload:
         return "(no config set)"

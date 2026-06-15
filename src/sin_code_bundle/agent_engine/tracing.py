@@ -43,21 +43,26 @@ class SpanEmitter:
     def __init__(self, telemetry: Telemetry) -> None:
         self.telemetry = telemetry
 
-    def start(self, ctx: TraceContext, *, kind: str, name: str,
-              **attrs: Any) -> float:
+    def start(self, ctx: TraceContext, *, kind: str, name: str, **attrs: Any) -> float:
         self.telemetry.emit(
-            "span_start", trace_id=ctx.trace_id, span_id=ctx.span_id,
-            parent_span_id=ctx.parent_span_id, kind=kind,
-            name=name[:120], **attrs,
+            "span_start",
+            trace_id=ctx.trace_id,
+            span_id=ctx.span_id,
+            parent_span_id=ctx.parent_span_id,
+            kind=kind,
+            name=name[:120],
+            **attrs,
         )
         return time.monotonic()
 
-    def end(self, ctx: TraceContext, started: float, *,
-            status: str = "ok", **attrs: Any) -> None:
+    def end(self, ctx: TraceContext, started: float, *, status: str = "ok", **attrs: Any) -> None:
         self.telemetry.emit(
-            "span_end", trace_id=ctx.trace_id, span_id=ctx.span_id,
+            "span_end",
+            trace_id=ctx.trace_id,
+            span_id=ctx.span_id,
             duration_s=round(time.monotonic() - started, 3),
-            status=status, **attrs,
+            status=status,
+            **attrs,
         )
 
 
@@ -77,13 +82,10 @@ class Span:
 class TraceAssembler:
     """Rekonstruiert Span-Baeume aus dem JSONL-Telemetrie-Log."""
 
-    _SKIP_KEYS = {"event", "ts", "rel_s", "trace_id", "span_id",
-                 "parent_span_id", "kind", "name"}
+    _SKIP_KEYS = {"event", "ts", "rel_s", "trace_id", "span_id", "parent_span_id", "kind", "name"}
 
     def __init__(self, log_path: str | None = None) -> None:
-        self.log_path = Path(
-            log_path or Path.home() / ".sin" / "agent-events.jsonl"
-        )
+        self.log_path = Path(log_path or Path.home() / ".sin" / "agent-events.jsonl")
 
     def _events(self) -> list[dict[str, Any]]:
         if not self.log_path.exists():
@@ -117,8 +119,7 @@ class TraceAssembler:
                     kind=e.get("kind", "?"),
                     name=e.get("name", "?"),
                     started_ts=e.get("ts", 0.0),
-                    attrs={k: v for k, v in e.items()
-                           if k not in self._SKIP_KEYS},
+                    attrs={k: v for k, v in e.items() if k not in self._SKIP_KEYS},
                 )
             elif e["event"] == "span_end" and sid in spans:
                 spans[sid].status = e.get("status", "ok")
@@ -137,8 +138,7 @@ class TraceAssembler:
 
     @staticmethod
     def render_tree(roots: list[Span], *, color: bool = False) -> str:
-        GREEN, RED, CYAN, DIM, RESET = (
-            "\x1b[32m", "\x1b[31m", "\x1b[36m", "\x1b[2m", "\x1b[0m")
+        GREEN, RED, CYAN, DIM, RESET = ("\x1b[32m", "\x1b[31m", "\x1b[36m", "\x1b[2m", "\x1b[0m")
 
         def paint(code: str, text: str) -> str:
             return f"{code}{text}{RESET}" if color else text
@@ -146,19 +146,18 @@ class TraceAssembler:
         lines: list[str] = []
 
         def walk(span: Span, prefix: str, connector: str) -> None:
-            dur = (f"{span.duration_s:.1f}s" if span.duration_s is not None
-                   else "running")
+            dur = f"{span.duration_s:.1f}s" if span.duration_s is not None else "running"
             status_code = {"ok": GREEN, "running": CYAN}.get(span.status, RED)
             lines.append(
-                prefix + connector
+                prefix
+                + connector
                 + paint(status_code, f"[{span.status}]")
                 + f" {span.kind}:{span.name} "
                 + paint(DIM, f"({dur})")
             )
             ext = "    " if connector == "└─ " else "│   "
             for i, child in enumerate(span.children):
-                walk(child, prefix + ext, "└─ " if i == len(span.children) - 1
-                     else "├─ ")
+                walk(child, prefix + ext, "└─ " if i == len(span.children) - 1 else "├─ ")
 
         for i, root in enumerate(roots):
             walk(root, "", "└─ " if i == len(roots) - 1 else "├─ ")
@@ -170,16 +169,18 @@ class TraceAssembler:
         events: list[dict[str, Any]] = []
 
         def walk(span: Span, depth: int) -> None:
-            events.append({
-                "name": f"{span.kind}:{span.name}",
-                "cat": span.kind,
-                "ph": "X",
-                "ts": int(span.started_ts * 1_000_000),
-                "dur": int((span.duration_s or 0.0) * 1_000_000),
-                "pid": 1,
-                "tid": depth + 1,
-                "args": {**span.attrs, "status": span.status},
-            })
+            events.append(
+                {
+                    "name": f"{span.kind}:{span.name}",
+                    "cat": span.kind,
+                    "ph": "X",
+                    "ts": int(span.started_ts * 1_000_000),
+                    "dur": int((span.duration_s or 0.0) * 1_000_000),
+                    "pid": 1,
+                    "tid": depth + 1,
+                    "args": {**span.attrs, "status": span.status},
+                }
+            )
             for child in span.children:
                 walk(child, depth + 1)
 

@@ -30,6 +30,16 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
 
+var (
+	// test hooks (overridable in tests to exercise error paths without
+	// heavy refactoring or heavy external dependencies).
+	osGetwd            = os.Getwd
+	sessionOpen        = session.Open
+	storeStartOrResume = func(s *session.Store, id string) (*session.Session, error) { return s.StartOrResume(id) }
+	loopbuilderBuild   = loopbuilder.Build
+	storeClose         = func(s *session.Store) error { return s.Close() }
+)
+
 // EventKind enumerates the discrete signals the runner emits.
 type EventKind int
 
@@ -122,7 +132,7 @@ const (
 // session store, and starts a new resumable session.
 func NewAgentRunner(ctx context.Context, cfg Config) (*AgentRunner, error) {
 	if cfg.Workspace == "" {
-		wd, err := os.Getwd()
+		wd, err := osGetwd()
 		if err != nil {
 			return nil, fmt.Errorf("agentrunner: resolve workspace: %w", err)
 		}
@@ -138,11 +148,11 @@ func NewAgentRunner(ctx context.Context, cfg Config) (*AgentRunner, error) {
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
 		return nil, fmt.Errorf("agentrunner: mkdir sessions: %w", err)
 	}
-	store, err := session.Open(dbPath)
+	store, err := sessionOpen(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("agentrunner: open sessions: %w", err)
 	}
-	sess, err := store.StartOrResume(cfg.SessionID)
+	sess, err := storeStartOrResume(store, cfg.SessionID)
 	if err != nil {
 		_ = store.Close()
 		return nil, fmt.Errorf("agentrunner: start session: %w", err)
@@ -158,7 +168,7 @@ func NewAgentRunner(ctx context.Context, cfg Config) (*AgentRunner, error) {
 		Events:  make(chan AgentEvent, 64),
 		closed:  make(chan struct{}),
 	}
-	loop, cleanup, err := loopbuilder.Build(ctx, loopbuilder.Config{
+	loop, cleanup, err := loopbuilderBuild(ctx, loopbuilder.Config{
 		Workspace:   cfg.Workspace,
 		SessionID:   sess.ID,
 		AgentName:   cfg.AgentName,
@@ -307,7 +317,7 @@ func (r *AgentRunner) Close() error {
 			}
 		}
 		if r.store != nil {
-			if err := r.store.Close(); err != nil && firstErr == nil {
+			if err := storeClose(r.store); err != nil && firstErr == nil {
 				firstErr = err
 			}
 		}

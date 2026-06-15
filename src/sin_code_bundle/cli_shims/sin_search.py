@@ -12,6 +12,7 @@ Example:
     $ sin-search --query "def main" --path ./src --type regex
     {"results": [{"file": "...", "line": 1, "match": "def main", ...}], ...}
 """
+
 from __future__ import annotations
 
 import argparse

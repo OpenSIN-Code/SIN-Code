@@ -17,6 +17,16 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
+var (
+	osUserConfigDirHooks    = os.UserConfigDir
+	osStatHooks             = os.Stat
+	tomlDecodeFileHooks     = toml.DecodeFile
+	osMkdirAllHooks         = os.MkdirAll
+	osCreateHooks           = os.Create
+	execCommandContextHooks = exec.CommandContext
+	envEnvironHooks         = os.Environ
+)
+
 type HookEvent string
 
 const (
@@ -83,7 +93,7 @@ type HookConfig struct {
 }
 
 func DefaultHooksPath() string {
-	cfg, err := os.UserConfigDir()
+	cfg, err := osUserConfigDirHooks()
 	if err != nil {
 		return ""
 	}
@@ -101,10 +111,10 @@ func LoadHooksConfig(path string) (*HookConfig, error) {
 	if path == "" {
 		return cfg, nil
 	}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
+	if _, err := osStatHooks(path); os.IsNotExist(err) {
 		return cfg, nil
 	}
-	if _, err := toml.DecodeFile(path, cfg); err != nil {
+	if _, err := tomlDecodeFileHooks(path, cfg); err != nil {
 		return nil, fmt.Errorf("decode hooks.toml: %w", err)
 	}
 	if cfg.Hooks == nil {
@@ -160,10 +170,10 @@ func (c *HookConfig) save() error {
 	if c.path == "" {
 		return nil
 	}
-	if err := os.MkdirAll(filepath.Dir(c.path), 0o755); err != nil {
+	if err := osMkdirAllHooks(filepath.Dir(c.path), 0o755); err != nil {
 		return err
 	}
-	f, err := os.Create(c.path)
+	f, err := osCreateHooks(c.path)
 	if err != nil {
 		return err
 	}
@@ -212,7 +222,7 @@ func runHook(h Hook, ctx HookContext) HookResult {
 	execCtx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "sh", "-c", h.Command)
+	cmd := execCommandContextHooks(execCtx, "sh", "-c", h.Command)
 	cmd.Env = buildEnv(ctx)
 
 	var stdout, stderr bytes.Buffer
@@ -235,7 +245,7 @@ func runHook(h Hook, ctx HookContext) HookResult {
 }
 
 func buildEnv(ctx HookContext) []string {
-	env := os.Environ()
+	env := envEnvironHooks()
 	set := func(k, v string) {
 		env = append(env, k+"="+v)
 	}

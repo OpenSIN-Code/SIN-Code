@@ -479,3 +479,224 @@ func TestInputIsFilePath(t *testing.T) {
 		})
 	}
 }
+
+func TestInputAttachBytesTooLarge(t *testing.T) {
+	i := newTestInput(t)
+	data := make([]byte, attachments.MaxSize+1)
+	if err := i.AttachBytes(data, "big.bin"); err == nil {
+		t.Error("expected error for oversized attachment")
+	}
+}
+
+func TestInputSlashAttachTooLarge(t *testing.T) {
+	i := newTestInput(t)
+	dir := t.TempDir()
+	big := filepath.Join(dir, "big.bin")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Create(big)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(attachments.MaxSize + 1); err != nil {
+		_ = f.Close()
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	handled, err := i.HandleSlashCommand("/attach " + big)
+	if err == nil {
+		t.Error("expected error for oversized attachment")
+	}
+	if !handled {
+		t.Error("expected command handled")
+	}
+}
+
+func TestInputSlashAttachGlobBadPattern(t *testing.T) {
+	i := newTestInput(t)
+	handled, err := i.HandleSlashCommand("/attach-glob [")
+	if err == nil {
+		t.Error("expected error for invalid glob pattern")
+	}
+	if !handled {
+		t.Error("expected command handled")
+	}
+}
+
+func TestInputSlashAttachGlobTooLarge(t *testing.T) {
+	i := newTestInput(t)
+	dir := t.TempDir()
+	big := filepath.Join(dir, "big.bin")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f, err := os.Create(big)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(attachments.MaxSize + 1); err != nil {
+		_ = f.Close()
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	handled, err := i.HandleSlashCommand("/attach-glob " + filepath.Join(dir, "*"))
+	if err == nil {
+		t.Error("expected error for oversized attachment matched by glob")
+	}
+	if !handled {
+		t.Error("expected command handled")
+	}
+}
+
+func TestInputSlashDetachMissingArg(t *testing.T) {
+	i := newTestInput(t)
+	handled, err := i.HandleSlashCommand("/detach")
+	if err == nil {
+		t.Error("expected error for missing detach argument")
+	}
+	if !handled {
+		t.Error("expected command handled")
+	}
+}
+
+func TestInputUpdateSlashError(t *testing.T) {
+	i := newTestInput(t)
+	i.textarea.SetValue("/attach")
+	cmd, submit := i.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
+	if cmd != nil {
+		t.Errorf("expected nil cmd, got %v", cmd)
+	}
+	if submit != nil {
+		t.Error("expected no submit for failed slash command")
+	}
+	if !strings.Contains(i.RawValue(), "[error:") {
+		t.Errorf("expected error marker in textarea, got %q", i.RawValue())
+	}
+}
+
+func TestInputUpdateCtrlD(t *testing.T) {
+	i := newTestInput(t)
+	cmd, _ := i.Update(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
+	if cmd == nil {
+		t.Fatal("expected quit cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(tea.QuitMsg); !ok {
+		t.Errorf("expected QuitMsg, got %T", msg)
+	}
+}
+
+func TestInputHandlePasteImageString(t *testing.T) {
+	i := newTestInput(t)
+	png := []byte{0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, 'I', 'H', 'D', 'R'}
+	cmd, submit := i.Update(tea.PasteMsg{Content: string(png)})
+	if cmd != nil {
+		t.Errorf("expected nil cmd, got %v", cmd)
+	}
+	if submit != nil {
+		t.Errorf("expected nil submit, got %+v", submit)
+	}
+	if got := len(i.Attachments()); got != 1 {
+		t.Fatalf("expected 1 attachment, got %d", got)
+	}
+	if i.RawValue() != "" {
+		t.Errorf("expected empty textarea, got %q", i.RawValue())
+	}
+}
+
+func TestInputHandlePasteBytesFilePath(t *testing.T) {
+	i := newTestInput(t)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "note.txt")
+	if err := os.WriteFile(path, []byte("hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	i.HandlePasteBytes([]byte(path))
+	if got := len(i.Attachments()); got != 1 {
+		t.Fatalf("expected 1 attachment, got %d", got)
+	}
+	if i.RawValue() != "" {
+		t.Errorf("expected empty textarea, got %q", i.RawValue())
+	}
+}
+
+func TestInputHandlePasteBytesText(t *testing.T) {
+	i := newTestInput(t)
+	text := "plain text from bytes"
+	i.HandlePasteBytes([]byte(text))
+	if got := len(i.Attachments()); got != 0 {
+		t.Errorf("expected 0 attachments, got %d", got)
+	}
+	if !strings.Contains(i.RawValue(), text) {
+		t.Errorf("expected text in textarea, got %q", i.RawValue())
+	}
+}
+
+func TestInputIsFilePathHomeError(t *testing.T) {
+	i := newTestInput(t)
+	prev := osUserHomeDirHook
+	osUserHomeDirHook = func() (string, error) {
+		return "", os.ErrInvalid
+	}
+	defer func() { osUserHomeDirHook = prev }()
+	if i.isFilePath("~/missing.txt") {
+		t.Error("expected false when home dir resolution fails")
+	}
+}
+
+func TestImageExt(t *testing.T) {
+	webp := []byte("RIFF\x00\x00\x00\x00WEBPVP8")
+	if got := imageExt(string(webp)); got != "webp" {
+		t.Errorf("expected webp, got %q", got)
+	}
+	if got := imageExt("unknown"); got != "bin" {
+		t.Errorf("expected bin, got %q", got)
+	}
+}
+
+func TestInputViewMultipleAttachments(t *testing.T) {
+	i := newTestInput(t)
+	i.AttachBytes([]byte("a"), "a.txt")
+	i.AttachBytes([]byte("b"), "b.txt")
+	view := i.View()
+	if !strings.Contains(view, "a.txt, b.txt") {
+		t.Errorf("expected comma-separated names, got %q", view)
+	}
+}
+
+func TestInputSlashAttachGlobMissingArg(t *testing.T) {
+	i := newTestInput(t)
+	handled, err := i.HandleSlashCommand("/attach-glob")
+	if err == nil {
+		t.Error("expected error for missing glob argument")
+	}
+	if !handled {
+		t.Error("expected command handled")
+	}
+}
+
+func TestInputIsFilePathHomeSuccess(t *testing.T) {
+	i := newTestInput(t)
+	home := t.TempDir()
+	real := filepath.Join(home, "real.txt")
+	if err := os.WriteFile(real, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	prev := osUserHomeDirHook
+	osUserHomeDirHook = func() (string, error) { return home, nil }
+	defer func() { osUserHomeDirHook = prev }()
+	if !i.isFilePath("~/real.txt") {
+		t.Error("expected true for existing file under home dir")
+	}
+}
+
+func TestImageExtGIF(t *testing.T) {
+	if got := imageExt("GIF89a..."); got != "gif" {
+		t.Errorf("expected gif, got %q", got)
+	}
+}

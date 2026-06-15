@@ -8,6 +8,13 @@ import (
 	bolt "go.etcd.io/bbolt"
 )
 
+var (
+	allDepTypes    = []DepType{DepBlocks, DepParentChild, DepRelated, DepDiscoveredFrom, DepDuplicates, DepSupersedes}
+	bucketDeleteFn = func(b *bolt.Bucket, k []byte) error { return b.Delete(k) }
+	bucketGetFn    = func(b *bolt.Bucket, k []byte) []byte { return b.Get(k) }
+	getDepsFn      = (*Store).GetDeps
+)
+
 func depKey(from, to string, dtype DepType) []byte {
 	return []byte(from + "\x00" + to + "\x00" + string(dtype))
 }
@@ -35,14 +42,14 @@ func (s *Store) AddDep(dep Dependency) error {
 	}
 	return s.update(func(tx *bolt.Tx) error {
 		bT := tx.Bucket([]byte(bucketTodos))
-		if bT.Get(todoKey(dep.From)) == nil {
+		if bucketGetFn(bT, todoKey(dep.From)) == nil {
 			return fmt.Errorf("from todo not found: %s", dep.From)
 		}
-		if bT.Get(todoKey(dep.To)) == nil {
+		if bucketGetFn(bT, todoKey(dep.To)) == nil {
 			return fmt.Errorf("to todo not found: %s", dep.To)
 		}
 		bD := tx.Bucket([]byte(bucketDeps))
-		return bD.Put(depKey(dep.From, dep.To, dep.Type), []byte("1"))
+		return bucketPutFn(bD, depKey(dep.From, dep.To, dep.Type), []byte("1"))
 	})
 }
 
@@ -50,8 +57,8 @@ func (s *Store) RemoveDep(from, to string) error {
 	return s.update(func(tx *bolt.Tx) error {
 		bD := tx.Bucket([]byte(bucketDeps))
 		found := false
-		for _, dt := range []DepType{DepBlocks, DepParentChild, DepRelated, DepDiscoveredFrom, DepDuplicates, DepSupersedes} {
-			if err := bD.Delete(depKey(from, to, dt)); err != nil {
+		for _, dt := range allDepTypes {
+			if err := bucketDeleteFn(bD, depKey(from, to, dt)); err != nil {
 				return err
 			}
 			found = true
@@ -103,7 +110,7 @@ func (s *Store) GetReverseDeps(id string) ([]Dependency, error) {
 }
 
 func (s *Store) BlockingDepsOf(id string) ([]Dependency, error) {
-	all, err := s.GetDeps(id)
+	all, err := getDepsFn(s, id)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +134,7 @@ func (s *Store) wouldCreateCycle(from, to string) (bool, error) {
 			return false, nil
 		}
 		visited[node] = true
-		deps, err := s.GetDeps(node)
+		deps, err := getDepsFn(s, node)
 		if err != nil {
 			return false, err
 		}
@@ -156,7 +163,7 @@ func (s *Store) DependencyTree(root string, maxDepth int) (map[string][]Dependen
 			return nil
 		}
 		visited[id] = true
-		deps, err := s.GetDeps(id)
+		deps, err := getDepsFn(s, id)
 		if err != nil {
 			return err
 		}

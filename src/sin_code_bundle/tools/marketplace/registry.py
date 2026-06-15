@@ -150,9 +150,7 @@ class Registry:
         """
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            row = conn.execute(
-                "SELECT * FROM skills WHERE slug = ?", (slug,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM skills WHERE slug = ?", (slug,)).fetchone()
         return dict(row) if row else None
 
     def list_all(self) -> list[SkillRecord]:
@@ -163,9 +161,7 @@ class Registry:
         """
         with sqlite3.connect(self.db_path) as conn:
             conn.row_factory = sqlite3.Row
-            rows = conn.execute(
-                "SELECT * FROM skills ORDER BY installed_at"
-            ).fetchall()
+            rows = conn.execute("SELECT * FROM skills ORDER BY installed_at").fetchall()
         return [dict(row) for row in rows]
 
     def exists(self, slug: str) -> bool:
@@ -178,9 +174,7 @@ class Registry:
             True if the skill is in the registry.
         """
         with sqlite3.connect(self.db_path) as conn:
-            row = conn.execute(
-                "SELECT 1 FROM skills WHERE slug = ?", (slug,)
-            ).fetchone()
+            row = conn.execute("SELECT 1 FROM skills WHERE slug = ?", (slug,)).fetchone()
         return row is not None
 
     def update_timestamp(self, slug: str) -> bool:
@@ -229,9 +223,7 @@ class Registry:
             Stored value, or ``None``.
         """
         with sqlite3.connect(self.db_path) as conn:
-            row = conn.execute(
-                "SELECT value FROM catalog_meta WHERE key = ?", (key,)
-            ).fetchone()
+            row = conn.execute("SELECT value FROM catalog_meta WHERE key = ?", (key,)).fetchone()
         return row[0] if row else None
 
     def clear(self) -> None:

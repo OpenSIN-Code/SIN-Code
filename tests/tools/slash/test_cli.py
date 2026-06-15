@@ -9,7 +9,6 @@ Tests cover CLI commands using click.testing.CliRunner.
 import os
 import tempfile
 
-import pytest
 from click.testing import CliRunner
 
 from sin_code_bundle.tools.slash.cli import cli
@@ -80,7 +79,7 @@ class TestCLI:
         """Register a command via CLI."""
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "registry.db")
-            registry = CommandRegistry(db_path)
+            CommandRegistry(db_path)
             result = self.runner.invoke(
                 cli,
                 ["register", "deploy", "Deploy app", "git push", "--type", "shell"],

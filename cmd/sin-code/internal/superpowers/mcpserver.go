@@ -17,6 +17,14 @@ import (
 	"sync"
 )
 
+// testHook variables expose hard-to-reach error paths to the test suite.
+var (
+	mcpListFunc = List
+	mcpFindFunc = Find
+	mcpGetFunc  = Get
+	mcpReadFile = os.ReadFile
+)
+
 // Server is the stdio MCP server. Construct with NewServer, then call
 // Serve(ctx) which blocks until ctx is cancelled or stdin reaches EOF.
 type Server struct {
@@ -123,7 +131,7 @@ func (s *Server) result(req *jsonRPCRequest, v any) *jsonRPCResponse {
 func (s *Server) callTool(ctx context.Context, req *jsonRPCRequest, p *toolCallParams) *jsonRPCResponse {
 	switch p.Name {
 	case "superpowers_list_skills":
-		all, err := List("")
+		all, err := mcpListFunc("")
 		if err != nil {
 			return s.errResult(req, err)
 		}
@@ -134,7 +142,7 @@ func (s *Server) callTool(ctx context.Context, req *jsonRPCRequest, p *toolCallP
 			MaxResults int    `json:"max_results"`
 		}
 		_ = json.Unmarshal(p.Arguments, &args)
-		hits, err := Find(args.Query, args.MaxResults)
+		hits, err := mcpFindFunc(args.Query, args.MaxResults)
 		if err != nil {
 			return s.errResult(req, err)
 		}
@@ -144,11 +152,11 @@ func (s *Server) callTool(ctx context.Context, req *jsonRPCRequest, p *toolCallP
 			Name string `json:"name"`
 		}
 		_ = json.Unmarshal(p.Arguments, &args)
-		info, err := Get(args.Name)
+		info, err := mcpGetFunc(args.Name)
 		if err != nil {
 			return s.errResult(req, err)
 		}
-		body, rerr := os.ReadFile(info.Path)
+		body, rerr := mcpReadFile(info.Path)
 		if rerr != nil {
 			return s.errResult(req, rerr)
 		}

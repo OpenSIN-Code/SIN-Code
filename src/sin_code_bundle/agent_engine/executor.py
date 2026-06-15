@@ -8,7 +8,6 @@ import shutil
 import subprocess
 import tempfile
 import time
-from pathlib import Path
 from typing import Callable
 
 from .planner import Planner
@@ -18,9 +17,12 @@ from .types import AgentTask, Plan, Step, StepResult, StepState
 
 
 class Executor:
-    def __init__(self, router: ToolRouter, telemetry: Telemetry,
-                 on_step_terminal: Callable[[str, StepState], None] | None = None
-                 ) -> None:
+    def __init__(
+        self,
+        router: ToolRouter,
+        telemetry: Telemetry,
+        on_step_terminal: Callable[[str, StepState], None] | None = None,
+    ) -> None:
         self.router = router
         self.telemetry = telemetry
         self.on_step_terminal = on_step_terminal
@@ -31,7 +33,10 @@ class Executor:
         wt = tempfile.mkdtemp(prefix=f"sin-wt-{step_id}-")
         subprocess.run(
             ["git", "-C", repo_root, "worktree", "add", "--detach", wt],
-            check=True, capture_output=True, text=True, timeout=60,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         self._worktrees.append(wt)
         return wt
@@ -40,13 +45,14 @@ class Executor:
         for wt in self._worktrees:
             subprocess.run(
                 ["git", "-C", repo_root, "worktree", "remove", "--force", wt],
-                capture_output=True, text=True, timeout=60,
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             shutil.rmtree(wt, ignore_errors=True)
         self._worktrees.clear()
 
-    async def run(self, task: AgentTask, plan: Plan,
-                  planner: Planner) -> dict[str, StepResult]:
+    async def run(self, task: AgentTask, plan: Plan, planner: Planner) -> dict[str, StepResult]:
         results: dict[str, StepResult] = {}
         sem = asyncio.Semaphore(task.max_parallelism)
         in_flight: set[asyncio.Task[None]] = set()
@@ -60,8 +66,9 @@ class Executor:
             async with sem:
                 step.state = StepState.RUNNING
                 step.attempts += 1
-                self.telemetry.emit("step_start", step_id=step.step_id,
-                                    tool=step.tool, attempt=step.attempts)
+                self.telemetry.emit(
+                    "step_start", step_id=step.step_id, tool=step.tool, attempt=step.attempts
+                )
                 start = time.monotonic()
                 worktree: str | None = None
                 try:
@@ -78,29 +85,36 @@ class Executor:
                             output = await self.router.call(step.tool, **args)
                     step.state = StepState.SUCCEEDED
                     results[step.step_id] = StepResult(
-                        step_id=step.step_id, ok=True, output=output,
+                        step_id=step.step_id,
+                        ok=True,
+                        output=output,
                         duration_s=time.monotonic() - start,
                         worktree=worktree,
                     )
-                    self.telemetry.emit("step_ok", step_id=step.step_id,
-                                        duration_s=round(time.monotonic() - start, 3))
+                    self.telemetry.emit(
+                        "step_ok",
+                        step_id=step.step_id,
+                        duration_s=round(time.monotonic() - start, 3),
+                    )
                     await _notify(step.state, step.step_id)
                 except Exception as err:
-                    if step.attempts < step.max_attempts and not isinstance(
-                        err, CircuitOpenError
-                    ):
+                    if step.attempts < step.max_attempts and not isinstance(err, CircuitOpenError):
                         step.state = StepState.PENDING
-                        self.telemetry.emit("step_retry", step_id=step.step_id,
-                                            error=str(err)[:500])
+                        self.telemetry.emit(
+                            "step_retry", step_id=step.step_id, error=str(err)[:500]
+                        )
                     else:
                         step.state = StepState.FAILED
                         results[step.step_id] = StepResult(
-                            step_id=step.step_id, ok=False, error=str(err),
+                            step_id=step.step_id,
+                            ok=False,
+                            error=str(err),
                             duration_s=time.monotonic() - start,
                         )
                         skipped = planner.propagate_failure(plan, step.step_id)
-                        self.telemetry.emit("step_fail", step_id=step.step_id,
-                                            error=str(err)[:500], skipped=skipped)
+                        self.telemetry.emit(
+                            "step_fail", step_id=step.step_id, error=str(err)[:500], skipped=skipped
+                        )
                         await _notify(step.state, step.step_id)
                         for s in skipped:
                             await _notify(StepState.SKIPPED, s)
@@ -122,8 +136,7 @@ class Executor:
             if all(s.state in terminal for s in plan.steps.values()):
                 break
             if not in_flight:
-                pending = [s.step_id for s in plan.steps.values()
-                           if s.state not in terminal]
+                pending = [s.step_id for s in plan.steps.values() if s.state not in terminal]
                 if pending:
                     self.telemetry.emit("scheduler_stall", pending=pending)
                 break
