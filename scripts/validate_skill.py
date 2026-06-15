@@ -183,11 +183,31 @@ def validate_all_sin(json_out: bool, strict: bool) -> int:
     return _validate_skill_dirs(skill_dirs, json_out, strict)
 
 
+def _find_bundled_skill_dirs(skills_root: Path) -> list[Path]:
+    """Discover bundled skill directories.
+
+    Top-level directories that contain a SKILL.md are skills themselves.
+    Directories without a SKILL.md are treated as category folders and their
+    immediate subdirectories are scanned for skills.
+    """
+    skill_dirs: list[Path] = []
+    for d in sorted(skills_root.iterdir()):
+        if not d.is_dir():
+            continue
+        if (d / "SKILL.md").is_file():
+            skill_dirs.append(d)
+            continue
+        for sub in sorted(d.iterdir()):
+            if sub.is_dir() and (sub / "SKILL.md").is_file():
+                skill_dirs.append(sub)
+    return skill_dirs
+
+
 def validate_all_bundled(json_out: bool, strict: bool) -> int:
     """Validate all bundled skills under the repo's skills/ directory."""
     repo_root = Path(__file__).resolve().parent.parent
     skills_root = repo_root / "skills"
-    skill_dirs = sorted(d for d in skills_root.iterdir() if d.is_dir())
+    skill_dirs = _find_bundled_skill_dirs(skills_root)
     return _validate_skill_dirs(skill_dirs, json_out, strict)
 
 
