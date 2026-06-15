@@ -14,10 +14,10 @@ import (
 )
 
 var (
-	pluginRegOnce          sync.Once
-	pluginReg              *plugins.Registry
-	pluginRegistryFn       = pluginRegistry
-	runPluginHookFn        = runPluginHook
+	pluginRegOnce            sync.Once
+	pluginReg                *plugins.Registry
+	pluginRegistryFn         = pluginRegistry
+	runPluginHookFn          = runPluginHook
 	execCommandContextPlugin = exec.CommandContext
 )
 

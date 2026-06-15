@@ -11,9 +11,10 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/Songmu/skillsmith"
+
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/skills"
-	"github.com/Songmu/skillsmith"
 )
 
 // skillsVersionHook is overridden by tests to avoid depending on the real

@@ -12,9 +12,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/OpenSIN-Code/SIN-Code/skills"
 	"github.com/Songmu/skillsmith"
 	"github.com/Songmu/skillsmith/agentskills"
+
+	"github.com/OpenSIN-Code/SIN-Code/skills"
 )
 
 func TestResolveSkillsVersion(t *testing.T) {

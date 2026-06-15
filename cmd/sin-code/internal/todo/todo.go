@@ -18,22 +18,22 @@ import (
 )
 
 var (
-	openStoreFn           = openStore
-	currentActorFn        = currentActor
-	currentProjectFn      = currentProject
-	printJSONFn           = printJSON
-	notifyFn              = notify
-	getHookConfigFn       = getHookConfig
-	fireHooksFn           = fireHooks
-	firePluginHooksFn     = firePluginHooks
-	gitUserNameFn         = func() ([]byte, error) { return exec.Command("git", "config", "user.name").Output() }
-	osUserConfigDirTodo   = os.UserConfigDir
-	osGetwdTodo           = os.Getwd
-	osReadFileTodo        = os.ReadFile
-	osWriteFileTodo       = os.WriteFile
-	jsonMarshalIndentTodo = json.MarshalIndent
-	jsonMarshalTodo       = json.Marshal
-	osStdoutTodo        io.Writer = os.Stdout
+	openStoreFn                     = openStore
+	currentActorFn                  = currentActor
+	currentProjectFn                = currentProject
+	printJSONFn                     = printJSON
+	notifyFn                        = notify
+	getHookConfigFn                 = getHookConfig
+	fireHooksFn                     = fireHooks
+	firePluginHooksFn               = firePluginHooks
+	gitUserNameFn                   = func() ([]byte, error) { return exec.Command("git", "config", "user.name").Output() }
+	osUserConfigDirTodo             = os.UserConfigDir
+	osGetwdTodo                     = os.Getwd
+	osReadFileTodo                  = os.ReadFile
+	osWriteFileTodo                 = os.WriteFile
+	jsonMarshalIndentTodo           = json.MarshalIndent
+	jsonMarshalTodo                 = json.Marshal
+	osStdoutTodo          io.Writer = os.Stdout
 )
 
 var (

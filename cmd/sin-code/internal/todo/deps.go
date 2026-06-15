@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	allDepTypes = []DepType{DepBlocks, DepParentChild, DepRelated, DepDiscoveredFrom, DepDuplicates, DepSupersedes}
+	allDepTypes    = []DepType{DepBlocks, DepParentChild, DepRelated, DepDiscoveredFrom, DepDuplicates, DepSupersedes}
 	bucketDeleteFn = func(b *bolt.Bucket, k []byte) error { return b.Delete(k) }
 	bucketGetFn    = func(b *bolt.Bucket, k []byte) []byte { return b.Get(k) }
 	getDepsFn      = (*Store).GetDeps

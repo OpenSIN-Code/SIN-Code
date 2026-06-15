@@ -16,11 +16,12 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	bolt "go.etcd.io/bbolt"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 )
 
 func setTestGlobals(t *testing.T) (string, func()) {

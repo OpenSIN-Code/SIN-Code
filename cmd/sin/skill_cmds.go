@@ -7,8 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/OpenSIN-Code/SIN-Code/pkg/skills"
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/pkg/skills"
 )
 
 var (
