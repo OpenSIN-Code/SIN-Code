@@ -167,30 +167,30 @@ type flatDirInfo struct {
 }
 
 func (i flatDirInfo) Name() string       { return i.name }
-func (i flatDirInfo) Size() int64       { return 0 }
-func (i flatDirInfo) Mode() fs.FileMode { return fs.ModeDir | 0o755 }
+func (i flatDirInfo) Size() int64        { return 0 }
+func (i flatDirInfo) Mode() fs.FileMode  { return fs.ModeDir | 0o755 }
 func (i flatDirInfo) ModTime() time.Time { return time.Time{} }
-func (i flatDirInfo) IsDir() bool       { return true }
-func (i flatDirInfo) Sys() any          { return nil }
+func (i flatDirInfo) IsDir() bool        { return true }
+func (i flatDirInfo) Sys() any           { return nil }
 
 type flatRootInfo struct{}
 
 func (i flatRootInfo) Name() string       { return "." }
-func (i flatRootInfo) Size() int64       { return 0 }
-func (i flatRootInfo) Mode() fs.FileMode { return fs.ModeDir | 0o755 }
+func (i flatRootInfo) Size() int64        { return 0 }
+func (i flatRootInfo) Mode() fs.FileMode  { return fs.ModeDir | 0o755 }
 func (i flatRootInfo) ModTime() time.Time { return time.Time{} }
-func (i flatRootInfo) IsDir() bool       { return true }
-func (i flatRootInfo) Sys() any          { return nil }
+func (i flatRootInfo) IsDir() bool        { return true }
+func (i flatRootInfo) Sys() any           { return nil }
 
 type flatRootDir struct {
-	fs  *flatSkillFS
-	idx int
+	fs    *flatSkillFS
+	idx   int
 	names []string
 }
 
 func (d *flatRootDir) Stat() (fs.FileInfo, error) { return &flatRootInfo{}, nil }
-func (d *flatRootDir) Read([]byte) (int, error)    { return 0, io.EOF }
-func (d *flatRootDir) Close() error                { return nil }
+func (d *flatRootDir) Read([]byte) (int, error)   { return 0, io.EOF }
+func (d *flatRootDir) Close() error               { return nil }
 
 func (d *flatRootDir) ReadDir(n int) ([]fs.DirEntry, error) {
 	if d.names == nil {
