@@ -1,7 +1,8 @@
 # [loop-001] Post-completion doc updater — agent must never leave docs stale
 
 **Labels:** `loop-engineering` `autonomy` `p0`
-**Branch:** `agent-loop-engineering`
+**Branch:** `sincode-loop-system`
+**Status:** DONE
 **Affects:** `daemon_cmd.go`, `goalcontract/goalcontract.go`, `agentloop/loop.go`
 
 ---
@@ -54,19 +55,25 @@ type GoalContract struct {
     // This is how the loop ensures docs, CHANGELOG, BACKLOG, and README
     // are ALWAYS updated without a human reminder.
     PostCompletionGoals []PostGoal `json:"post_completion_goals,omitempty"`
+
+    // DisablePostGoals persists a per-goal opt-out set via
+    // `goal add --no-post-goals`. Survives restarts because it is stored
+    // in the contract JSON alongside the goal in the queue DB.
+    DisablePostGoals bool `json:"disable_post_goals,omitempty"`
 }
 
 // PostGoal is one automatically spawned follow-up goal.
 type PostGoal struct {
     // PromptTemplate is a Go text/template rendered with the parent
     // Result as its data (fields: .Summary, .SessionID, .Turns).
-    PromptTemplate string `json:"prompt_template"`
+    PromptTemplate string   `json:"prompt_template"`
     // Criteria are acceptance criteria for this post-goal's stop-gate.
     Criteria       []string `json:"criteria,omitempty"`
     // OnlyIfChanged is a glob pattern; the post-goal is skipped when no
     // files matching the pattern were modified by the parent goal. Avoids
     // spawning a CHANGELOG update when no user-visible code changed.
-    OnlyIfChanged  string `json:"only_if_changed,omitempty"`
+    // Uses filepath.Match against the base name of each changed file.
+    OnlyIfChanged  string   `json:"only_if_changed,omitempty"`
 }
 ```
 
@@ -84,7 +91,7 @@ func autoDetectPostGoals(workspace string) []PostGoal {
 Add it under the [Unreleased] section with today's date. Follow the
 existing format exactly. Ensure the build and tests still pass.`,
             Criteria:      []string{"CHANGELOG.md updated with the completed work"},
-            OnlyIfChanged: "**/*.go",
+            OnlyIfChanged: "*.go",
         })
     }
     // If a MASTER_TODO.md exists: check off any item the goal addressed.
@@ -106,7 +113,7 @@ flag, or behavioral changes:
 {{ .Summary }}
 Do not change unrelated docs. Ensure the build and tests still pass.`,
             Criteria:      []string{"all affected doc.md files reflect the change"},
-            OnlyIfChanged: "**/*.go",
+            OnlyIfChanged: "*.go",
         })
     }
     return goals
@@ -117,7 +124,7 @@ Do not change unrelated docs. Ensure the build and tests still pass.`,
 
 ```go
 // daemon_cmd.go — after verifying, before queue.Complete
-if !res.Continuation && !opt.noContract && contract != nil {
+if !opt.noPostGoals && contract != nil && len(contract.PostCompletionGoals) > 0 {
     spawnPostGoals(ctx, queue, goal, res, contract.PostCompletionGoals)
 }
 _ = queue.Complete(ctx, goal.ID, sess.ID)
@@ -160,6 +167,10 @@ func spawnPostGoals(ctx context.Context, q *autonomy.Queue,
 
 ```go
 // daemon_cmd.go
+// changedFilesMatch reports whether any file changed in the last commit
+// matches the glob pattern. Fail-open: returns true when the diff cannot
+// be determined (no prior commit, not a git repo) so post-goals always
+// run in ambiguous situations rather than silently skip.
 func changedFilesMatch(workspace, pattern string) bool {
     cmd := exec.Command("git", "diff", "--name-only", "HEAD~1", "HEAD")
     cmd.Dir = workspace
@@ -168,8 +179,10 @@ func changedFilesMatch(workspace, pattern string) bool {
         return true // fail-open: when we can't detect, always spawn
     }
     for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-        ok, _ := filepath.Match(pattern, line)
-        if ok {
+        if ok, _ := filepath.Match(pattern, filepath.Base(line)); ok {
+            return true
+        }
+        if ok, _ := filepath.Match(pattern, line); ok {
             return true
         }
     }
@@ -179,13 +192,51 @@ func changedFilesMatch(workspace, pattern string) bool {
 
 ---
 
+## Implementation notes (added after build)
+
+**Why `queue.Complete` fires AFTER post-goals are spawned, not before:**
+The queue's tree semantics treat a parent as "blocked" until all children are
+verified. If `queue.Complete` were called first, the parent would immediately
+become verified and the queue could prune it before the children are picked up
+by a worker. The ordering `spawnPostGoals → queue.Complete` is load-bearing.
+
+**Template data is intentionally minimal (Summary, SessionID, Turns):**
+Passing the full `agentloop.Result` would couple this to the internal loop API.
+Three fields are enough for every post-goal prompt we need. If more context is
+required in the future, add fields to a dedicated `PostGoalData` struct.
+
+**`OnlyIfChanged` uses `filepath.Match` not full glob expansion:**
+`filepath.Match` only handles a single path segment per `*`. For cross-directory
+patterns the check falls back to matching against the full relative path. This
+means `*.go` matches `foo.go` in any directory, which is the intended behaviour.
+Use `**/*.go` style paths with caution — `filepath.Match` does not expand `**`.
+
+**`DisablePostGoals` vs `--no-post-goals` daemon flag:**
+The daemon flag (`opt.noPostGoals`) is a runtime global override. The per-goal
+`DisablePostGoals` field is stored in the contract JSON in the queue DB, so it
+survives daemon restarts. Both are checked: `opt.noPostGoals || persisted.DisablePostGoals`.
+
+**Post-goals are not recursive:**
+Post-completion goals themselves do not spawn further post-completion goals.
+`autoDetectPostGoals` is only called in the `Resolve` path for the initial
+contract, not for goals spawned from `spawnPostGoals`. This prevents infinite
+doc-update chains.
+
+**Relation to loop-007 (auto-commit):**
+Auto-commit runs BEFORE post-goals are spawned. This gives the doc-update
+child goals a clean baseline (the main work is already committed as HEAD),
+so `git diff HEAD~1..HEAD` inside the doc-goal correctly shows only the parent's
+changes and not the doc-update changes themselves.
+
+---
+
 ## Acceptance criteria
 
-- [ ] `GoalContract` has `PostCompletionGoals []PostGoal`
-- [ ] `autoDetectChecks` auto-populates post-goals for CHANGELOG, MASTER_TODO, docs when files exist
-- [ ] `executeGoal` spawns post-completion sub-goals before `queue.Complete`
-- [ ] post-goals run as tree children; parent finalizes only once all post-goals are verified
-- [ ] `--no-post-goals` flag on daemon to opt out
-- [ ] `goal add --no-post-goals` flag
-- [ ] unit tests for template rendering and `changedFilesMatch`
-- [ ] `go test -race` green on `goalcontract` and `autonomy` packages
+- [x] `GoalContract` has `PostCompletionGoals []PostGoal`
+- [x] `autoDetectChecks` auto-populates post-goals for CHANGELOG, MASTER_TODO, docs when files exist
+- [x] `executeGoal` spawns post-completion sub-goals before `queue.Complete`
+- [x] post-goals run as tree children; parent finalizes only once all post-goals are verified
+- [x] `--no-post-goals` flag on daemon to opt out
+- [x] `goal add --no-post-goals` flag
+- [x] unit tests for template rendering and `changedFilesMatch`
+- [x] `go test -race` green on `goalcontract` and `autonomy` packages
