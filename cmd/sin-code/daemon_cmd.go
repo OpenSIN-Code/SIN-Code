@@ -22,6 +22,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/loopbuilder"
@@ -34,19 +35,24 @@ import (
 // daemonOptions bundles the parsed CLI flags so the worker pool and
 // trigger registration share one config value.
 type daemonOptions struct {
-	pollEvery   time.Duration
-	leaseDur    time.Duration
-	verifyCmd   string
-	maxTurns    int
-	concurrency int
-	repos       []string
-	limits      resource.Limits
+	pollEvery        time.Duration
+	leaseDur         time.Duration
+	verifyCmd        string
+	maxTurns         int
+	concurrency      int
+	repos            []string
+	limits           resource.Limits
+	maxContinuations int
+	maxDepth         int
+	noContract       bool
 }
 
 func NewDaemonCmd() *cobra.Command {
 	var pollEvery, leaseDur time.Duration
 	var verifyCmd string
 	var maxTurns, concurrency, maxProcs int
+	var maxContinuations, maxDepth int
+	var noContract bool
 	var repos []string
 	var maxMemory, minDisk string
 	cmd := &cobra.Command{
@@ -69,13 +75,16 @@ func NewDaemonCmd() *cobra.Command {
 				concurrency = 1
 			}
 			return runDaemon(cmd.Context(), daemonOptions{
-				pollEvery:   pollEvery,
-				leaseDur:    leaseDur,
-				verifyCmd:   verifyCmd,
-				maxTurns:    maxTurns,
-				concurrency: concurrency,
-				repos:       repos,
-				limits:      limits,
+				pollEvery:        pollEvery,
+				leaseDur:         leaseDur,
+				verifyCmd:        verifyCmd,
+				maxTurns:         maxTurns,
+				concurrency:      concurrency,
+				repos:            repos,
+				limits:           limits,
+				maxContinuations: maxContinuations,
+				maxDepth:         maxDepth,
+				noContract:       noContract,
 			})
 		},
 	}
@@ -88,6 +97,9 @@ func NewDaemonCmd() *cobra.Command {
 	cmd.Flags().StringVar(&maxMemory, "max-memory", "", "soft heap memory limit, e.g. 2GiB (0/empty = unlimited)")
 	cmd.Flags().IntVar(&maxProcs, "max-procs", 0, "cap GOMAXPROCS (0 = leave default)")
 	cmd.Flags().StringVar(&minDisk, "min-disk", "", "minimum free disk before leasing new goals, e.g. 1GiB (empty = off)")
+	cmd.Flags().IntVar(&maxContinuations, "max-continuations", 5, "max times a goal may checkpoint+resume past max-turns before failing (0 = disabled)")
+	cmd.Flags().IntVar(&maxDepth, "max-depth", 3, "max sub-goal nesting depth an agent may spawn via spawn_subgoal")
+	cmd.Flags().BoolVar(&noContract, "no-contract", false, "disable Definition-of-Done contracts (revert to single verify-gate)")
 	return cmd
 }
 
@@ -188,7 +200,7 @@ func runWorker(ctx context.Context, worker int, queue *autonomy.Queue, store *se
 			}
 			fmt.Printf("daemon[w%d]: executing goal %d (attempt %d/%d) repo=%s: %.60s\n",
 				worker, goal.ID, goal.Attempts, goal.MaxRetries, goal.Workspace, goal.Prompt)
-			executeGoal(ctx, queue, store, lessonsStore, memStore, hookEngine, goal, opt.verifyCmd, opt.maxTurns)
+			executeGoal(ctx, queue, store, lessonsStore, memStore, hookEngine, goal, opt)
 		}
 	}
 }
@@ -232,7 +244,7 @@ func dedupeRepos(cwd string, extra []string) []string {
 
 func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Store,
 	lessonsStore *lessons.Store, memStore *memory.Store,
-	hookEngine *hooks.Engine, goal *autonomy.Goal, verifyCmd string, maxTurns int) {
+	hookEngine *hooks.Engine, goal *autonomy.Goal, opt daemonOptions) {
 
 	hookEngine.Fire(ctx, hooks.Payload{Event: hooks.GoalStarted, Data: map[string]any{"goal_id": goal.ID, "attempt": goal.Attempts}})
 
@@ -241,15 +253,47 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 		_ = queue.Fail(ctx, goal.ID, "", "open session: "+err.Error())
 		return
 	}
+
+	// Resolve the Definition-of-Done contract: persisted contract (from
+	// `goal add --contract/--criteria`) merged with auto-detected repo checks
+	// and the verify-cmd fallback. The stop-gate enforces it so completion is
+	// confirmed independently of the worker.
+	var contract *goalcontract.GoalContract
+	if !opt.noContract {
+		persisted, perr := goalcontract.Unmarshal(goal.Contract)
+		if perr != nil {
+			fmt.Fprintf(os.Stderr, "daemon: goal %d has invalid contract, ignoring: %v\n", goal.ID, perr)
+			persisted = &goalcontract.GoalContract{}
+		}
+		resolved, rerr := goalcontract.Resolve(goalcontract.ResolveOptions{
+			Workspace:    goal.Workspace,
+			GoalID:       fmt.Sprintf("%d", goal.ID),
+			Criteria:     persisted.SemanticCriteria,
+			VerifyCmd:    opt.verifyCmd,
+			AutoDetect:   true,
+		})
+		if rerr != nil {
+			fmt.Fprintf(os.Stderr, "daemon: goal %d contract resolve failed: %v\n", goal.ID, rerr)
+		} else {
+			// Merge persisted deterministic checks on top of resolved ones.
+			resolved.DeterministicChecks = append(resolved.DeterministicChecks, persisted.DeterministicChecks...)
+			contract = resolved
+		}
+	}
+
 	loop, cleanup, err := loopbuilder.Build(ctx, loopbuilder.Config{
-		Workspace:  goal.Workspace,
-		SessionID:  sess.ID,
-		MaxTurns:   maxTurns,
-		VerifyMode: "poc",
-		VerifyCmd:  verifyCmd,
-		Headless:   true,
+		Workspace:         goal.Workspace,
+		SessionID:         sess.ID,
+		MaxTurns:          opt.maxTurns,
+		VerifyMode:        "poc",
+		VerifyCmd:         opt.verifyCmd,
+		Headless:          true,
+		Contract:          contract,
+		AllowContinuation: opt.maxContinuations > 0,
 		ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
-			return combinedTool(goal.Workspace, mgr), combinedSpecs(mgr)
+			baseTool := combinedTool(goal.Workspace, mgr)
+			baseSpecs := combinedSpecs(mgr)
+			return wrapWithSpawn(queue, goal, opt.maxDepth, baseTool, baseSpecs)
 		},
 	}, lessonsStore)
 	if err != nil {
@@ -265,8 +309,75 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 		fmt.Printf("daemon: goal %d failed: %v\n", goal.ID, err)
 		return
 	}
+
+	// Continuation: the run checkpointed at max-turns without completing.
+	// Re-enqueue for resumption without burning the retry budget, bounded by
+	// --max-continuations so "work forever" still has a ceiling.
+	if res.Continuation {
+		count, cerr := queue.Continue(ctx, goal.ID, sess.ID, "checkpoint: "+res.Summary)
+		if cerr != nil {
+			_ = queue.Fail(ctx, goal.ID, sess.ID, "continue: "+cerr.Error())
+			return
+		}
+		if count >= opt.maxContinuations {
+			_ = queue.Fail(ctx, goal.ID, sess.ID, fmt.Sprintf("exceeded max continuations (%d)", opt.maxContinuations))
+			hookEngine.Fire(ctx, hooks.Payload{Event: hooks.GoalExhausted, Data: map[string]any{"goal_id": goal.ID, "reason": "max continuations"}})
+			fmt.Printf("daemon: goal %d exhausted continuations (%d)\n", goal.ID, count)
+			return
+		}
+		fmt.Printf("daemon: goal %d CHECKPOINTED (continuation %d/%d), will resume\n", goal.ID, count, opt.maxContinuations)
+		return
+	}
+
 	_ = queue.Complete(ctx, goal.ID, sess.ID)
 	hookEngine.Fire(ctx, hooks.Payload{Event: hooks.GoalVerified, Data: map[string]any{
 		"goal_id": goal.ID, "turns": res.Turns, "session_id": sess.ID}})
 	fmt.Printf("daemon: goal %d VERIFIED in %d turns (session %s)\n", goal.ID, res.Turns, sess.ID)
+}
+
+// wrapWithSpawn augments the daemon toolset with `spawn_subgoal`, letting the
+// agent decompose a large goal into child goals that the daemon drains
+// depth-first. Depth is bounded by maxDepth to prevent runaway recursion.
+func wrapWithSpawn(queue *autonomy.Queue, goal *autonomy.Goal, maxDepth int,
+	base agentloop.LocalToolFunc, specs []agentloop.ToolSpec) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
+
+	spec := agentloop.ToolSpec{
+		Name: "spawn_subgoal",
+		Description: "Decompose the current goal into a child sub-goal that an autonomous worker will " +
+			"complete and verify before this goal can finalize. Use for independent units of work.",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"prompt":   map[string]any{"type": "string", "description": "The sub-goal instruction."},
+				"criteria": map[string]any{"type": "string", "description": "Optional acceptance criteria for the sub-goal."},
+			},
+			"required": []any{"prompt"},
+		},
+	}
+	specs = append(specs, spec)
+
+	tool := func(ctx context.Context, name string, args map[string]any) (string, error) {
+		if name != "spawn_subgoal" {
+			return base(ctx, name, args)
+		}
+		if goal.Depth >= maxDepth {
+			return fmt.Sprintf("REFUSED: max sub-goal depth (%d) reached; do this work inline instead of spawning.", maxDepth), nil
+		}
+		prompt, _ := args["prompt"].(string)
+		if prompt == "" {
+			return "ERROR: spawn_subgoal requires a non-empty 'prompt'", nil
+		}
+		var contractJSON string
+		if crit, _ := args["criteria"].(string); crit != "" {
+			c := &goalcontract.GoalContract{SemanticCriteria: []string{crit}}
+			contractJSON, _ = c.Marshal()
+		}
+		// Children get higher priority so the tree drains before the parent.
+		id, err := queue.AddSub(ctx, goal.ID, prompt, goal.Priority+1, goal.MaxRetries, contractJSON)
+		if err != nil {
+			return "ERROR: could not enqueue sub-goal: " + err.Error(), nil
+		}
+		return fmt.Sprintf("Sub-goal %d enqueued under goal %d. It will be completed and verified by a worker before this goal finalizes.", id, goal.ID), nil
+	}
+	return tool, specs
 }

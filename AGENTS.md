@@ -70,6 +70,25 @@ and the gate has not passed. Default `verify_mode` is `"poc"`. The
 **daemon refuses to start without `--verify-cmd`** (autonomy requires a
 gate).
 
+**Stop-gate (loop engineering, decoupled completion authority):** when a
+Definition-of-Done contract is present (`internal/goalcontract`), the worker's
+"done" is necessary but NOT sufficient. After the verify-gate passes, an
+independent stop-gate (`internal/stopgate`) confirms the contract — deterministic
+checks first (fail-closed: ANY failed check blocks, including predicates), then a
+strong/equal LLM judge (`SIN_EVALUATOR_MODEL`, fallback worker model) for
+non-mechanical criteria. A green judge can never override a red deterministic
+check. Rejection re-injects the open criteria and forces continued work. All of
+this is opt-in and fail-safe: nil stop-gate / empty contract / no contract flag
+preserves exact legacy single-gate behavior.
+
+**Daemon loop-engineering flags:** `--max-continuations` (checkpoint+resume past
+`--max-turns` instead of aborting, bounded), `--max-depth` (sub-goal nesting via
+the `spawn_subgoal` tool), `--no-contract` (disable Definition-of-Done, revert to
+single verify-gate). Discovery: `goal discover [--dry-run]` and the `discover`
+trigger type turn TODO/FIXME markers and `MASTER_TODO.md` items into deduplicated
+goals. Env vars: `SIN_EVALUATOR_MODEL`, `SIN_EVALUATOR_BASE_URL`,
+`SIN_EVALUATOR_API_KEY`.
+
 ### M4 — Permission engine gates everything destructive
 Every tool call goes through the permission engine
 (`allow` / `ask` / `deny`). In headless mode, `ask` resolves to `deny`
