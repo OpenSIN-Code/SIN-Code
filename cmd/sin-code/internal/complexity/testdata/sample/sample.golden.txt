@@ -1,0 +1,9 @@
+stdlib: Hand-rolled min function. Use the built-in min function. [minmax.go:3-8]
+yagni: Factory NewPinger returns interface Pinger with one product. Return concrete type defaultPinger directly. [factory.go:3-5]
+yagni: Interface Pinger has one implementation (defaultPinger). Inline it until a second implementation exists. [iface.go:5-7] (approved: sin-debt)
+shrink: Loop repeats append to build a slice. Use slices.Repeat. [loop.go:5-7]
+yagni: File exports only Helper. Merge into callers or remove the thin file. [single_export.go:1-3]
+shrink: Function WrapMin only delegates to min. Replace calls with min. [wrapper.go:3-5]
+native: Import github.com/pkg/errors duplicates stdlib/platform behavior. errors.New / fmt.Errorf with %w. [native.go:3]
+delete: Unused flag variable unusedFlag. Remove the variable and its registration. [flags.go:3]
+net: -23 lines, -1 deps possible.

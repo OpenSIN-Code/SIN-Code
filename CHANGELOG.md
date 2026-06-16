@@ -759,6 +759,21 @@ spec's signatures.
   `skill-code-lazy` is preserved as the v3.18.0 exception because
   the `lazy_skill` activation keyword binds to the literal
   frontmatter name.
+### Added — Complexity Review (issue #179)
+- **`cmd/sin-code/internal/complexity/`** — static, AST-based complexity analyzer
+  implementing ponytail's 5-tag format: `delete`, `stdlib`, `native`, `yagni`,
+  `shrink`. Detects single-implementation interfaces, one-product factories,
+  wrapper-only functions, hand-rolled `min`/`max`, dead flag-like variables,
+  repeat-append loops, and imports that duplicate stdlib/platform features.
+  Respects `// sin-debt:` and `# sin-debt:` markers (issue #177).
+- **`cmd/sin-code/review_cmd.go`** — new top-level `sin-code review` command with
+  `sin-code review --complexity [--path] [--since <ref>] [--tags] [--format text|json|markdown]`.
+- **Output format**: one line per finding
+  (`<tag>: <what>. <replacement>. [path:line]`), ranked by line count and removed
+  dependencies, ending with `net: -<N> lines, -<M> deps possible.` or
+  `Lean already. Ship.`. `net_lines` and `net_deps` are included in JSON output.
+- **Tests**: `cmd/sin-code/internal/complexity/complexity_test.go` + golden file,
+  race-clean.
 
 ## [v3.17.0] - 2026-06-13
 

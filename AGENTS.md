@@ -37,6 +37,8 @@
 > maintainer workflow.
 > `sin-code audit` + `sin-code ceo-audit` added (issue #180): complexity-audit
 > engine in `cmd/sin-code/internal/audit/`, 48th CEO-audit gate.
+> `sin-code install` (issue #170) — 40th subcommand; `sin-code review --complexity`
+> (issue #179) — 41st subcommand.
 
 ---
 
@@ -180,6 +182,8 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code audit         ← v3.18.0: repo-wide complexity audit (issue #180)
   ├─ sin-code ceo-audit     ← v3.18.0: 48-gate CEO audit with complexity gate (issue #180)
   └─ 41 subcommands
+  ├─ sin-code review        ← v3.19.0: ponytail complexity review (issue #179)
+  └─ 41 subcommands (v3.19.0)
 
          │
          ▼
@@ -281,6 +285,11 @@ SIN-Code/
 │
 ├── cmd/
 │   ├── sin-code/              ← MAIN BINARY (40 subcommands — v3.18.0)
+│   ├── complexity-review.md    ← v3.19.0: ponytail complexity review docs
+│   └── mcp.json.example
+│
+├── cmd/
+│   ├── sin-code/              ← MAIN BINARY (41 subcommands — v3.19.0)
 │   │   ├── main.go            ← cobra root; AddCommand for all subcommands
 │   │   ├── tui.go, webui_cmd.go
 │   │   ├── chat_cmd.go        ← v3.4.0: chat + -p headless
@@ -309,6 +318,9 @@ SIN-Code/
 │   │   ├── profile_cmd.go       ← v3.18.0: single-source-of-truth profile renderer (issue #175)
 │   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
 │   │   └── internal/          ← 18 packages (v3.18.0)
+│   │   ├── review_cmd.go        ← v3.19.0: `review --complexity` ponytail 5-tag review (issue #179)
+│   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
+│   │   └── internal/          ← 18 packages (v3.19.0)
 │   │       ├── agentloop/     ← PLAN→ACT→VERIFY→DONE loop
 │   │       ├── session/       ← SQLite-backed resumable sessions
 │   │       ├── permission/    ← allow/ask/deny engine
@@ -336,6 +348,7 @@ SIN-Code/
 │   │       ├── evalharness/   ← v3.18.0: 4-arm comparator (issue #171)
 │   │       ├── install/       ← v3.18.0: pure-stdlib install + SHA256 (issue #170)
 │   │       ├── sindept/       ← v3.18.0: // sin-debt: marker scanner/reporter (issue #177)
+│   │       ├── complexity/    ← v3.19.0: static ponytail complexity analyzer (issue #179)
 │   │       ├── llm/           ← provider layer
 │   │       ├── style/         ← v3.17.0: verbosity / compression mode system-prompt renderer (issue #167)
 │   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
@@ -511,6 +524,9 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.18.0 | ACTIVE | `sin-code debt` (issue #177) — `// sin-debt: <ceiling>, upgrade: <trigger>` marker convention (ponytail adoption), byte-stable `internal/sindept/` scanner + report, policy gate via `sin-code debt check`, 41st subcommand; alongside `sin-code install` (issue #170), `eval` / `trace` (issue #75), `evalset` / `prp` / `instinct` / `assets` / `hooks` / `rtk` / `codegraph` / `spec` v0 work |
 | (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
 | v3.19.0 | ACTIVE | `autoactivate` hooklife subpackage (#176): `cmd/sin-code/internal/hooklife/autoactivate` — per-session rule injection on `SessionStart` + `UserPrompt`. `--activate <rule>` + `--no-trigger` flags on `sin-code chat`; project-local `.sin-code/autoactivate.toml`; deterministic byte-stable `RuleSet.Render()`; race-safe (mandate M7). Hooks register against any `*hooklife.Registry` via `Activator.Register(reg)`. |
+| v3.17.0 | ✅ SHIPPED | TUI runtime DB .gitignore, MCP warning deduplication, marketplace update test hardening, skills 33 → 34 |
+| v3.18.0 | ✅ SHIPPED | `sin-code install` single-binary installer (issue #170), curl/bash + PowerShell shims, SHA256-verified release downloads |
+| v3.19.0 | ACTIVE | `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format (`delete`, `stdlib`, `native`, `yagni`, `shrink`), `// sin-debt:` marker support (issue #177), text/json/markdown output, race-clean tests |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -667,6 +683,8 @@ output), exactly as skilldist demands.
 ``` (v3.18.0: 41 subcommands — `debt` is issue #177, sin-debt markers; `install` is issue #170; `eval`, `evalset`, `prp`, `instinct`, `assets`, `hooks`, `rtk`, `codegraph`, `spec` follow)
 Audit:     audit, ceo-audit
 ``` (v3.18.0: 41 subcommands, up from 39 in v3.13.0)
+           config, self-update, hub, ledger, summary, review
+``` (v3.19.0: 41 subcommands, up from 39 in v3.13.0)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 
