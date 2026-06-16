@@ -3,6 +3,8 @@ package learning
 import (
 	"context"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
@@ -153,6 +155,58 @@ func TestEndTurnAndPreCompact(t *testing.T) {
 	}
 	if created != 1 || reinforced != 0 {
 		t.Errorf("PreCompact after observations: expected 1,0, got %d,%d", created, reinforced)
+	}
+}
+
+func TestSetStyle(t *testing.T) {
+	t.Setenv("SIN_INSTINCT_DIR", t.TempDir())
+	l, err := New(Options{Workdir: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Default style returns empty when no instincts are active.
+	if got := l.BeforeTurn(context.Background(), &session.Session{}); got != "" {
+		t.Fatalf("expected empty block with default style, got %q", got)
+	}
+
+	// Switch to terse mode; the style block should be emitted even with no active instincts.
+	l.SetStyle("terse")
+	got := l.BeforeTurn(context.Background(), &session.Session{})
+	if !strings.Contains(got, "# Output style") {
+		t.Fatalf("expected style block after SetStyle(terse), got %q", got)
+	}
+
+	// Revert to default.
+	l.SetStyle("")
+	if got := l.BeforeTurn(context.Background(), &session.Session{}); got != "" {
+		t.Fatalf("expected empty block after reverting to default, got %q", got)
+	}
+}
+
+func TestBeforeTurnActiveErrorFallsBackToStyle(t *testing.T) {
+	instinctDir := t.TempDir()
+	t.Setenv("SIN_INSTINCT_DIR", instinctDir)
+	workdir := t.TempDir()
+	l, err := New(Options{Workdir: workdir})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Corrupt the project's instinct directory so Manager.Active() returns an error.
+	projID := l.Manager().Project().ID
+	dir := filepath.Join(instinctDir, "projects", projID, "instincts")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "corrupt.md"), []byte("not valid instinct"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	l.SetStyle("terse")
+	got := l.BeforeTurn(context.Background(), &session.Session{})
+	if !strings.Contains(got, "# Output style") {
+		t.Fatalf("expected style block even when Active() errors, got %q", got)
 	}
 }
 

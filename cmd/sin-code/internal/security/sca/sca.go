@@ -11,6 +11,9 @@ import (
 	"path/filepath"
 )
 
+// resolvePath is swappable for tests that exercise the error path.
+var resolvePath = filepath.Abs
+
 // Package represents a parsed dependency.
 type Package struct {
 	Name      string `json:"name"`
@@ -68,7 +71,7 @@ func DetectGoProject(path string) bool {
 // grype to obtain vulnerability findings. If grype is not available, the result
 // still contains the parsed dependency list with zero vulnerabilities.
 func (s *Scanner) Scan(ctx context.Context, path string) (*Result, error) {
-	path, err := filepath.Abs(path)
+	path, err := resolvePath(path)
 	if err != nil {
 		return nil, fmt.Errorf("resolve path: %w", err)
 	}
@@ -105,7 +108,7 @@ func (s *Scanner) Scan(ctx context.Context, path string) (*Result, error) {
 // ScanPackages returns the dependency list for a Go project without running grype.
 func (s *Scanner) ScanPackages(ctx context.Context, path string) ([]Package, error) {
 	_ = ctx
-	path, err := filepath.Abs(path)
+	path, err := resolvePath(path)
 	if err != nil {
 		return nil, fmt.Errorf("resolve path: %w", err)
 	}

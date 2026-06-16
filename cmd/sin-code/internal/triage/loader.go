@@ -18,6 +18,11 @@ import (
 // can inject a fixture without spawning gh.
 var Loader = loadFromGH
 
+// ghExec is a package-level hook for the ghbridge call so the
+// loadFromGH error and parsing paths can be exercised without a live
+// `gh` binary.
+var ghExec = ghbridge.New().Execute
+
 // loadFromGH runs `gh issue list --state open --json ...` via the
 // bridge. The JSON fields are deliberately a strict subset of what
 // gh can return — see the Issue struct for what we need.
@@ -32,7 +37,7 @@ func loadFromGH(ctx context.Context, repo string) ([]Issue, error) {
 	if repo != "" {
 		args = append(args, "--repo", repo)
 	}
-	out, _, err := ghbridge.New().Execute(ctx, args)
+	out, _, err := ghExec(ctx, args)
 	if err != nil {
 		return nil, fmt.Errorf("gh issue list: %w", err)
 	}

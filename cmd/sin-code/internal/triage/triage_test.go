@@ -5,10 +5,14 @@ package triage
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ghbridge"
 )
 
 func mkIssue(num int, title string, labels []string, body string, updatedDaysAgo int) Issue {
@@ -234,4 +238,236 @@ func TestUpdated_FallsBackToZero(t *testing.T) {
 	if !i.Updated().IsZero() {
 		t.Error("expected zero time for garbage UpdatedAt")
 	}
+}
+
+func TestCreated_FallsBackToZero(t *testing.T) {
+	i := Issue{}
+	if !i.Created().IsZero() {
+		t.Error("expected zero time for empty CreatedAt")
+	}
+	i.CreatedAt = "garbage"
+	if !i.Created().IsZero() {
+		t.Error("expected zero time for garbage CreatedAt")
+	}
+}
+
+func TestCreated_ParsesValid(t *testing.T) {
+	i := Issue{CreatedAt: "2026-06-16T12:00:00Z"}
+	got := i.Created()
+	want := time.Date(2026, 6, 16, 12, 0, 0, 0, time.UTC)
+	if !got.Equal(want) {
+		t.Errorf("created: got %v, want %v", got, want)
+	}
+}
+
+func TestGroupInOrder_Empty(t *testing.T) {
+	if got := groupInOrder(ScoredList{}); got != nil {
+		t.Errorf("expected nil for empty list, got %v", got)
+	}
+}
+
+func TestGroupInOrder_SingleItem(t *testing.T) {
+	list := ScoredList{Items: []Scored{{GroupKey: "epic"}}}
+	got := groupInOrder(list)
+	if len(got) != 1 || got[0].key != "epic" {
+		t.Errorf("expected one epic group, got %v", got)
+	}
+}
+
+func TestGroupInOrder_SortByTopScore(t *testing.T) {
+	list := ScoredList{Items: []Scored{
+		{GroupKey: "low", Score: 1},
+		{GroupKey: "high", Score: 10},
+	}}
+	got := groupInOrder(list)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 groups, got %d", len(got))
+	}
+	if got[0].key != "high" || got[1].key != "low" {
+		t.Errorf("expected high before low, got %v", got)
+	}
+}
+
+func TestTrim_EdgeCases(t *testing.T) {
+	cases := []struct {
+		s    string
+		n    int
+		want string
+	}{
+		{"", 5, ""},
+		{"hi", 5, "hi"},
+		{"hello", 4, "hel…"},
+		{"x", 1, "x"},
+		{"ab", 1, "…"},
+	}
+	for _, c := range cases {
+		if got := trim(c.s, c.n); got != c.want {
+			t.Errorf("trim(%q, %d) = %q, want %q", c.s, c.n, got, c.want)
+		}
+	}
+}
+
+func TestScore_GoodFirstIssue(t *testing.T) {
+	now := fixedNow()
+	base := mkIssue(1, "base", nil, "", 1)
+	gf := mkIssue(2, "gf", []string{"good first issue"}, "", 1)
+	baseScore := Score(base, now, []Issue{base, gf})
+	gfScore := Score(gf, now, []Issue{base, gf})
+	if gfScore.Score >= baseScore.Score {
+		t.Errorf("good first issue should lower score relative to base (%d vs %d)", gfScore.Score, baseScore.Score)
+	}
+	if !strings.Contains(strings.Join(gfScore.Reasons, " "), "good first issue") {
+		t.Errorf("expected good-first-issue reason, got %v", gfScore.Reasons)
+	}
+}
+
+func TestScore_FusionLabel(t *testing.T) {
+	now := fixedNow()
+	i := mkIssue(1, "f", []string{"fusion"}, "", 1)
+	s := Score(i, now, []Issue{i})
+	if !strings.Contains(strings.Join(s.Reasons, " "), "fusion") {
+		t.Errorf("expected fusion reason, got %v", s.Reasons)
+	}
+}
+
+func TestScore_MemoryLabel(t *testing.T) {
+	now := fixedNow()
+	i := mkIssue(1, "m", []string{"memory"}, "", 1)
+	s := Score(i, now, []Issue{i})
+	if !strings.Contains(strings.Join(s.Reasons, " "), "memory/v0") {
+		t.Errorf("expected memory/v0 reason, got %v", s.Reasons)
+	}
+}
+
+func TestScore_V0Label(t *testing.T) {
+	now := fixedNow()
+	i := mkIssue(1, "v", []string{"v0"}, "", 1)
+	s := Score(i, now, []Issue{i})
+	if strings.Contains(strings.Join(s.Reasons, " "), "not in v0") {
+		t.Errorf("v0 label should suppress the not-in-v0 reason, got %v", s.Reasons)
+	}
+	if !strings.Contains(strings.Join(s.Reasons, " "), "memory/v0") {
+		t.Errorf("expected memory/v0 reason, got %v", s.Reasons)
+	}
+}
+
+func TestScoreAll_TieBreakByNumber(t *testing.T) {
+	now := fixedNow()
+	a := mkIssue(1, "a", nil, "", 1)
+	b := mkIssue(2, "b", nil, "", 1)
+	list := ScoreAll([]Issue{a, b}, now)
+	if list.Items[0].Issue.Number != 1 {
+		t.Errorf("expected #1 first on tie, got #%d", list.Items[0].Issue.Number)
+	}
+}
+
+func TestAgeDays_Future(t *testing.T) {
+	now := fixedNow()
+	future := now.Add(24 * time.Hour)
+	if got := ageDays(future, now); got != 0 {
+		t.Errorf("future date should report 0 days, got %d", got)
+	}
+}
+
+func TestAgeDays_Zero(t *testing.T) {
+	now := fixedNow()
+	if got := ageDays(time.Time{}, now); got != 1<<31-1 {
+		t.Errorf("zero time should report max days, got %d", got)
+	}
+}
+
+func TestBlocksReason_Singular(t *testing.T) {
+	if got := blocksReason(1); got != "blocks 1 other issue" {
+		t.Errorf("blocksReason(1) = %q", got)
+	}
+}
+
+func TestBlocksReason_Plural(t *testing.T) {
+	if got := blocksReason(2); got != "blocks 2 other issues" {
+		t.Errorf("blocksReason(2) = %q", got)
+	}
+}
+
+func TestItoa(t *testing.T) {
+	cases := map[int]string{
+		0:    "0",
+		1:    "1",
+		-42:  "-42",
+		1234: "1234",
+	}
+	for n, want := range cases {
+		if got := itoa(n); got != want {
+			t.Errorf("itoa(%d) = %q, want %q", n, got, want)
+		}
+	}
+}
+
+func TestLoadFromGH_Success(t *testing.T) {
+	prev := ghExec
+	defer func() { ghExec = prev }()
+	ghExec = func(_ context.Context, args []string) (string, ghbridge.Tier, error) {
+		if !contains(args, "--repo") {
+			return "", 0, fmt.Errorf("expected --repo in args")
+		}
+		out := `[{"number":7,"title":"t","body":"b","state":"OPEN","author":{"login":"a"},"labels":[{"name":"bug"}],"updatedAt":"2026-06-16T10:00:00Z","createdAt":"2026-06-16T09:00:00Z","url":"https://example.com/7"}]`
+		return out, ghbridge.TierReadOnly, nil
+	}
+	issues, err := loadFromGH(context.Background(), "owner/repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(issues) != 1 || issues[0].Number != 7 {
+		t.Errorf("expected 1 issue (#7), got %+v", issues)
+	}
+}
+
+func TestLoadFromGH_NoRepo(t *testing.T) {
+	prev := ghExec
+	defer func() { ghExec = prev }()
+	ghExec = func(_ context.Context, args []string) (string, ghbridge.Tier, error) {
+		if contains(args, "--repo") {
+			return "", 0, fmt.Errorf("did not expect --repo in args")
+		}
+		return "[]", ghbridge.TierReadOnly, nil
+	}
+	issues, err := loadFromGH(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(issues) != 0 {
+		t.Errorf("expected 0 issues, got %d", len(issues))
+	}
+}
+
+func TestLoadFromGH_Error(t *testing.T) {
+	prev := ghExec
+	defer func() { ghExec = prev }()
+	ghExec = func(_ context.Context, args []string) (string, ghbridge.Tier, error) {
+		return "", ghbridge.TierForbidden, fmt.Errorf("boom")
+	}
+	_, err := loadFromGH(context.Background(), "")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestLoadFromGH_ParseError(t *testing.T) {
+	prev := ghExec
+	defer func() { ghExec = prev }()
+	ghExec = func(_ context.Context, args []string) (string, ghbridge.Tier, error) {
+		return "not-json", ghbridge.TierReadOnly, nil
+	}
+	_, err := loadFromGH(context.Background(), "")
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+}
+
+func contains(s []string, v string) bool {
+	for _, x := range s {
+		if x == v {
+			return true
+		}
+	}
+	return false
 }

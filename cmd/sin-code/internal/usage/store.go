@@ -66,6 +66,22 @@ type Store struct {
 	pricingPer1K map[string]float64
 }
 
+// Package-level hooks for error paths that are otherwise impossible to
+// trigger in a portable test (no real filesystem errors, missing driver, etc.).
+var (
+	userHomeDir    = os.UserHomeDir
+	mkdirAll       = os.MkdirAll
+	sqlOpen        = sql.Open
+	migrateExec    = func(db *sql.DB, schema string) error { _, err := db.Exec(schema); return err }
+	queryRows      = func(ctx context.Context, db *sql.DB, query string, args ...any) (*sql.Rows, error) {
+		return db.QueryContext(ctx, query, args...)
+	}
+	rowsClose      = func(r *sql.Rows) error { return r.Close() }
+	aggregateQuery = func(ctx context.Context, db *sql.DB, query string, args ...any) (*sql.Rows, error) {
+		return db.QueryContext(ctx, query, args...)
+	}
+)
+
 // DefaultPath returns the canonical on-disk location:
 //
 //	$XDG_DATA_HOME/sin-code/tokens.db  (else ~/.local/share/sin-code/tokens.db)
@@ -81,7 +97,7 @@ func DefaultPath() string {
 	}
 	dir := os.Getenv("XDG_DATA_HOME")
 	if dir == "" {
-		home, _ := os.UserHomeDir()
+		home, _ := userHomeDir()
 		if home == "" {
 			return "tokens.db"
 		}
@@ -96,10 +112,10 @@ func Open(path string) (*Store, error) {
 	if path == "" {
 		path = DefaultPath()
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := mkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, fmt.Errorf("usage: mkdir: %w", err)
 	}
-	db, err := sql.Open("sqlite", path)
+	db, err := sqlOpen("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
@@ -161,8 +177,7 @@ CREATE INDEX IF NOT EXISTS idx_usage_source ON usage_events(source);
 CREATE INDEX IF NOT EXISTS idx_usage_created ON usage_events(created_at);
 PRAGMA user_version = 1;
 `
-	_, err := s.db.Exec(schema)
-	return err
+	return migrateExec(s.db, schema)
 }
 
 // Record persists one event. SessionID/Model/Source default to safe
@@ -335,7 +350,7 @@ FROM usage_events
 	default:
 		return top, nil, fmt.Errorf("usage: unknown group_by %q (want day|month|model|source|session)", groupBy)
 	}
-	rows, err := s.db.QueryContext(ctx, subSQL, args...)
+	rows, err := aggregateQuery(ctx, s.db, subSQL, args...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -359,7 +374,7 @@ FROM usage_events
 }
 
 func scanBreakdowns(ctx context.Context, db *sql.DB, f Filter, where string, args []any, top *Aggregation) error {
-	rows, err := db.QueryContext(ctx, `SELECT model, SUM(total_tokens) FROM usage_events `+where+` GROUP BY model`, args...)
+	rows, err := queryRows(ctx, db, `SELECT model, SUM(total_tokens) FROM usage_events `+where+` GROUP BY model`, args...)
 	if err != nil {
 		return err
 	}
@@ -367,20 +382,20 @@ func scanBreakdowns(ctx context.Context, db *sql.DB, f Filter, where string, arg
 		var m string
 		var t int
 		if err := rows.Scan(&m, &t); err != nil {
-			_ = rows.Close()
+			_ = rowsClose(rows)
 			return err
 		}
 		top.ByModel[m] = t
 	}
-	if err := rows.Close(); err != nil {
+	if err := rowsClose(rows); err != nil {
 		return err
 	}
 
-	rows, err = db.QueryContext(ctx, `SELECT source, SUM(total_tokens) FROM usage_events `+where+` GROUP BY source`, args...)
+	rows, err = queryRows(ctx, db, `SELECT source, SUM(total_tokens) FROM usage_events `+where+` GROUP BY source`, args...)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
+	defer rowsClose(rows)
 	for rows.Next() {
 		var src string
 		var t int

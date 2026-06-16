@@ -3,6 +3,7 @@
 package mcpclient
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -73,4 +74,49 @@ func TestDefaultServersWebsearchUsesDefaultSkillsDir(t *testing.T) {
 		return
 	}
 	t.Fatal("websearch server not found in DefaultServers")
+}
+
+func TestDefaultServersFallbacksWhenNoSkillsDir(t *testing.T) {
+	// Force UserHomeDir to fail so skillsDirOrDefault returns empty and both
+	// py and goNative fall back to the binary-on-PATH command.
+	orig := userHomeDirHook
+	userHomeDirHook = func() (string, error) { return "", errors.New("no home") }
+	t.Cleanup(func() { userHomeDirHook = orig })
+	t.Setenv("SIN_SKILLS_DIR", "")
+
+	for _, s := range DefaultServers() {
+		switch s.Name {
+		case "websearch":
+			if s.Command != "sin-websearch" {
+				t.Fatalf("websearch fallback command mismatch: %q", s.Command)
+			}
+		case "scheduler":
+			if s.Command != "sin-scheduler" {
+				t.Fatalf("scheduler fallback command mismatch: %q", s.Command)
+			}
+		}
+	}
+}
+
+func TestDefaultServersPythonSkillWithSkillsDir(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SIN_SKILLS_DIR", dir)
+
+	for _, s := range DefaultServers() {
+		if s.Name != "scheduler" {
+			continue
+		}
+		want := filepath.Join(dir, "SIN-Code-Scheduler-Skill", "mcp_server.py")
+		if s.Command != "python3" || len(s.Args) != 1 || s.Args[0] != want {
+			t.Fatalf("scheduler should use python3 + skills dir, got %+v", s)
+		}
+		return
+	}
+	t.Fatal("scheduler server not found in DefaultServers")
+}
+
+func TestShortNameDefaultReturnsRepo(t *testing.T) {
+	if got := shortName("Unknown-Repo-Name"); got != "Unknown-Repo-Name" {
+		t.Fatalf("expected repo name unchanged, got %q", got)
+	}
 }

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
@@ -163,6 +164,68 @@ func TestLoopGateAdapter(t *testing.T) {
 	dec := gate(context.Background(), snap())
 	if !dec.Complete {
 		t.Fatal("loop gate adapter should pass through Evaluate")
+	}
+}
+
+// failedCheckNames must fall back to the Kind string when Name is empty.
+func TestFailedCheckNamesFallbackToKind(t *testing.T) {
+	g := New(t.TempDir())
+	c := goalcontract.GoalContract{DeterministicChecks: []orchestrator.Check{
+		{Kind: orchestrator.CheckBuild, Cmd: []string{"false"}},
+	}}
+	dec := g.Evaluate(context.Background(), c, snap())
+	if dec.Complete {
+		t.Fatal("expected failure")
+	}
+	found := false
+	for _, o := range dec.OpenCriteria {
+		if strings.Contains(o, "CheckBuild") || strings.Contains(o, "build") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected open criteria to name the check, got %v", dec.OpenCriteria)
+	}
+}
+
+func TestJudgeOpenCriteriaDefaultMessage(t *testing.T) {
+	j := &fakeJudge{result: &eval.JudgeResult{Pass: false, Score: 0.0, Reason: "", Feedback: ""}}
+	g := New(t.TempDir(), WithJudge(j))
+	c := goalcontract.GoalContract{
+		DeterministicChecks: []orchestrator.Check{passPredicate("p")},
+		SemanticCriteria:    []string{"docs updated"},
+	}
+	dec := g.Evaluate(context.Background(), c, snap())
+	if dec.Complete {
+		t.Fatal("judge reject should block completion")
+	}
+	if len(dec.OpenCriteria) == 0 {
+		t.Fatal("expected open criteria")
+	}
+	if dec.OpenCriteria[0] != "semantic acceptance criteria not met" {
+		t.Fatalf("expected default message, got %q", dec.OpenCriteria[0])
+	}
+}
+
+func TestJudgeOpenCriteriaFeedback(t *testing.T) {
+	j := &fakeJudge{result: &eval.JudgeResult{Pass: false, Score: 0.0, Reason: "", Feedback: "add more tests"}}
+	g := New(t.TempDir(), WithJudge(j))
+	c := goalcontract.GoalContract{
+		DeterministicChecks: []orchestrator.Check{passPredicate("p")},
+		SemanticCriteria:    []string{"docs updated"},
+	}
+	dec := g.Evaluate(context.Background(), c, snap())
+	if dec.Complete {
+		t.Fatal("judge reject should block completion")
+	}
+	found := false
+	for _, o := range dec.OpenCriteria {
+		if strings.Contains(o, "add more tests") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected feedback in open criteria, got %v", dec.OpenCriteria)
 	}
 }
 

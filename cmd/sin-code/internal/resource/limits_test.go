@@ -3,6 +3,7 @@ package resource
 
 import (
 	"os"
+	"runtime"
 	"runtime/debug"
 	"testing"
 )
@@ -120,5 +121,60 @@ func TestDiskFreeOnTempDir(t *testing.T) {
 	free, ok := DiskFree(os.TempDir())
 	if ok && free <= 0 {
 		t.Errorf("DiskFree returned ok with non-positive free=%d", free)
+	}
+}
+
+func TestDiskFreeError(t *testing.T) {
+	free, ok := DiskFree("/path/that/does/not/exist/ever")
+	if ok {
+		t.Error("DiskFree ok = true for non-existent path, want false")
+	}
+	if free != 0 {
+		t.Errorf("DiskFree free = %d, want 0", free)
+	}
+}
+
+func TestLimitsApplyProcs(t *testing.T) {
+	prev := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(prev)
+
+	l := Limits{MaxProcs: 2}
+	l.Apply()
+	if got := runtime.GOMAXPROCS(0); got != 2 {
+		t.Errorf("GOMAXPROCS = %d, want 2", got)
+	}
+}
+
+func TestLimitsApplyAll(t *testing.T) {
+	orig := debug.SetMemoryLimit(-1)
+	defer debug.SetMemoryLimit(orig)
+	prev := runtime.GOMAXPROCS(0)
+	defer runtime.GOMAXPROCS(prev)
+
+	l := Limits{MaxMemoryBytes: 256 * 1024 * 1024, MaxProcs: 2}
+	l.Apply()
+	if got := debug.SetMemoryLimit(-1); got != l.MaxMemoryBytes {
+		t.Errorf("memory limit = %d, want %d", got, l.MaxMemoryBytes)
+	}
+	if got := runtime.GOMAXPROCS(0); got != 2 {
+		t.Errorf("GOMAXPROCS = %d, want 2", got)
+	}
+}
+
+func TestParseLimitsBadMinDisk(t *testing.T) {
+	if _, err := ParseLimits("", 0, "bad"); err == nil {
+		t.Error("expected error for bad min-disk")
+	}
+}
+
+func TestParseBytesNegativePlain(t *testing.T) {
+	if _, err := ParseBytes("-10"); err == nil {
+		t.Error("expected error for negative plain bytes")
+	}
+}
+
+func TestParseBytesInvalidFloat(t *testing.T) {
+	if _, err := ParseBytes("1.2.3GiB"); err == nil {
+		t.Error("expected error for invalid float in suffixed size")
 	}
 }

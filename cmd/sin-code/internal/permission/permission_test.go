@@ -61,3 +61,20 @@ func TestFirstMatchWins(t *testing.T) {
 		t.Error("first match (sin_*) should win over later sin_bash deny")
 	}
 }
+
+func TestPolicyString(t *testing.T) {
+	cases := []struct {
+		p    Policy
+		want string
+	}{
+		{Allow, "allow"},
+		{Ask, "ask"},
+		{Deny, "deny"},
+		{Policy(99), "deny"},
+	}
+	for _, c := range cases {
+		if got := c.p.String(); got != c.want {
+			t.Errorf("%v.String() = %q, want %q", c.p, got, c.want)
+		}
+	}
+}

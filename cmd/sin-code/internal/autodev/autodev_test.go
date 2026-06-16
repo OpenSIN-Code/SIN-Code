@@ -198,3 +198,72 @@ func TestVersion_PropagatesContextDeadline(t *testing.T) {
 		t.Errorf("versionWith(cancelled ctx) = (value, nil), want err on cancelled ctx")
 	}
 }
+
+func TestResolveAutodevBin_OK(t *testing.T) {
+	dir := t.TempDir()
+	writeFakeBinary(t, dir, "autodev-fake", "ok", 0)
+	t.Setenv("AUTODEV_BIN", "autodev-fake")
+	t.Setenv("PATH", prependPath(dir))
+	if err := ResolveAutodevBin(); err != nil {
+		t.Errorf("ResolveAutodevBin() = %v, want nil", err)
+	}
+}
+
+func TestResolveAutodevBin_NotInstalled(t *testing.T) {
+	t.Setenv("AUTODEV_BIN", "definitely-not-installed-xyzzy")
+	t.Setenv("PATH", t.TempDir())
+	err := ResolveAutodevBin()
+	if err == nil {
+		t.Fatal("ResolveAutodevBin() = nil, want non-nil")
+	}
+	if !errors.Is(err, ErrNotInstalled) {
+		t.Errorf("err = %v, does not wrap ErrNotInstalled", err)
+	}
+}
+
+func TestResolve_EmptyBin(t *testing.T) {
+	// Direct coverage of the shared resolve() empty-name branch.
+	err := resolve("")
+	if err == nil {
+		t.Fatal("resolve(\"\") = nil, want non-nil")
+	}
+	if !errors.Is(err, ErrNotInstalled) {
+		t.Errorf("err = %v, does not wrap ErrNotInstalled", err)
+	}
+}
+
+func TestVersion_EmptyStdout(t *testing.T) {
+	// Successful exit with no output -> explicit empty-stdout error.
+	dir := t.TempDir()
+	writeFakeBinary(t, dir, "autodev-empty", "", 0)
+	t.Setenv("AUTODEV_BIN", "autodev-empty")
+	t.Setenv("PATH", prependPath(dir))
+
+	got, err := Version()
+	if err == nil {
+		t.Fatal("Version() err = nil, want non-nil on empty stdout")
+	}
+	if got != "" {
+		t.Errorf("Version() = %q, want empty string", got)
+	}
+	if !strings.Contains(err.Error(), "returned empty stdout") {
+		t.Errorf("Version() err %q missing expected text", err.Error())
+	}
+}
+
+func TestVersion_NoOutputError(t *testing.T) {
+	// Non-zero exit with no stdout/stderr -> the wrapped exec error is
+	// used as the diagnostic payload.
+	dir := t.TempDir()
+	writeFakeBinary(t, dir, "autodev-silent", "", 1)
+	t.Setenv("AUTODEV_BIN", "autodev-silent")
+	t.Setenv("PATH", prependPath(dir))
+
+	_, err := Version()
+	if err == nil {
+		t.Fatal("Version() err = nil, want non-nil")
+	}
+	if !strings.Contains(err.Error(), "exit status 1") {
+		t.Errorf("Version() err %q missing wrapped exec error", err.Error())
+	}
+}

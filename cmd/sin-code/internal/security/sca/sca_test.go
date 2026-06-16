@@ -4,11 +4,15 @@ package sca
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"golang.org/x/mod/modfile"
+	"golang.org/x/mod/module"
 )
 
 func TestIsGoProject(t *testing.T) {
@@ -404,6 +408,125 @@ printf '%s' '{
 	os.Setenv("PATH", dir+":"+oldPath)
 	t.Cleanup(func() { os.Setenv("PATH", oldPath) })
 	return &GrypeClient{Path: script, CommandRunner: exec.CommandContext}
+}
+
+func TestParseGoModBytes_NilAndEmptyRequire(t *testing.T) {
+	old := modfileParse
+	defer func() { modfileParse = old }()
+
+	modfileParse = func(name string, data []byte, fix modfile.VersionFixer) (*modfile.File, error) {
+		f, err := modfile.Parse(name, data, fix)
+		if err != nil {
+			return nil, err
+		}
+		f.Require = append(f.Require, nil)
+		f.Require = append(f.Require, &modfile.Require{Mod: module.Version{Path: "", Version: "v1.0.0"}})
+		return f, nil
+	}
+	data := []byte(`module x
+
+go 1.23
+require github.com/a/b v1.0.0
+`)
+	pkgs, err := parseGoModBytes(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 || pkgs[0].Name != "github.com/a/b" {
+		t.Fatalf("expected only the valid require, got %+v", pkgs)
+	}
+}
+
+func TestGrypeClientAvailable_EmptyPath(t *testing.T) {
+	c := &GrypeClient{}
+	// We cannot assert the boolean value without controlling PATH, but the
+	// empty-path branch must be exercised without panicking.
+	_ = c.Available()
+}
+
+func TestGrypeClientScanDirectory_NilRunner(t *testing.T) {
+	client := &GrypeClient{Path: "false", CommandRunner: nil}
+	_, err := client.ScanDirectory(context.Background(), t.TempDir())
+	if err == nil {
+		t.Fatal("expected error when command fails")
+	}
+}
+
+func TestScannerScan_ResolvePathError(t *testing.T) {
+	old := resolvePath
+	resolvePath = func(path string) (string, error) { return "", errors.New("boom") }
+	defer func() { resolvePath = old }()
+
+	_, err := New().Scan(context.Background(), t.TempDir())
+	if err == nil {
+		t.Fatal("expected error from resolve path")
+	}
+}
+
+func TestGrypeClientScanDirectory_EmptyPath(t *testing.T) {
+	client := &GrypeClient{
+		Path:          "",
+		CommandRunner: func(ctx context.Context, name string, arg ...string) *exec.Cmd { return exec.CommandContext(ctx, "false") },
+	}
+	_, err := client.ScanDirectory(context.Background(), t.TempDir())
+	if err == nil {
+		t.Fatal("expected error when command fails")
+	}
+}
+
+func TestScannerScan_MalformedGoMod(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("not a go.mod file"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := New().Scan(context.Background(), dir)
+	if err == nil {
+		t.Fatal("expected error for malformed go.mod")
+	}
+}
+
+func TestScannerScan_GrypeErrorSwallowed(t *testing.T) {
+	old := resolvePath
+	resolvePath = func(path string) (string, error) { return filepath.Abs(path) }
+	defer func() { resolvePath = old }()
+
+	dir := t.TempDir()
+	goMod := filepath.Join(dir, "go.mod")
+	if err := os.WriteFile(goMod, []byte("module example.com/test\n\nrequire github.com/foo/bar v1.2.3\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	client := &GrypeClient{
+		Path: "true", // Available() returns true
+		CommandRunner: func(ctx context.Context, name string, arg ...string) *exec.Cmd {
+			return exec.CommandContext(ctx, "false")
+		},
+	}
+	res, err := NewWithGrype(client).Scan(context.Background(), dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Vulnerabilities) != 0 {
+		t.Fatalf("expected 0 vulns when grype errors, got %d", len(res.Vulnerabilities))
+	}
+}
+
+func TestScannerScanPackages_ResolvePathError(t *testing.T) {
+	old := resolvePath
+	resolvePath = func(path string) (string, error) { return "", errors.New("boom") }
+	defer func() { resolvePath = old }()
+
+	_, err := New().ScanPackages(context.Background(), t.TempDir())
+	if err == nil {
+		t.Fatal("expected error from resolve path")
+	}
+}
+
+func TestScannerScanPackages_NonGoProject(t *testing.T) {
+	_, err := New().ScanPackages(context.Background(), t.TempDir())
+	if err == nil {
+		t.Fatal("expected error for non-Go project")
+	}
 }
 
 // BenchmarkParseGoModBytes gives a rough sense of parser performance.

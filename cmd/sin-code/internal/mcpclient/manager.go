@@ -21,6 +21,14 @@ var (
 	warningOnce   sync.Once
 	warnedServers = make(map[string]bool)
 	warnedMu      sync.Mutex
+
+	// connectTransportHook lets tests inject an in-memory MCP transport so the
+	// connection success path can be exercised without spawning subprocesses.
+	connectTransportHook func(ctx context.Context, cfg ServerConfig) (sdk.Transport, error)
+
+	// listToolsHook lets tests inject a ListTools error without building a
+	// custom transport/connection implementation.
+	listToolsHook func(ctx context.Context, sess *sdk.ClientSession) (*sdk.ListToolsResult, error)
 )
 
 type ServerConfig struct {
@@ -90,11 +98,24 @@ func (m *Manager) connect(ctx context.Context, client *sdk.Client, cfg ServerCon
 		return fmt.Errorf("unknown transport %q", cfg.Transport)
 	}
 
+	if connectTransportHook != nil {
+		if t, err := connectTransportHook(ctx, cfg); err != nil {
+			return err
+		} else if t != nil {
+			transport = t
+		}
+	}
+
 	sess, err := client.Connect(ctx, transport, nil)
 	if err != nil {
 		return err
 	}
-	res, err := sess.ListTools(ctx, nil)
+	var res *sdk.ListToolsResult
+	if listToolsHook != nil {
+		res, err = listToolsHook(ctx, sess)
+	} else {
+		res, err = sess.ListTools(ctx, nil)
+	}
 	if err != nil {
 		_ = sess.Close()
 		return err
