@@ -53,6 +53,8 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "sin_browser_navigate", Policy: "ask"},
 		{Tool: "sin_browser_findings", Policy: "allow"},
 		{Tool: "sin_browser_snapshot", Policy: "allow"},
+		{Tool: "sin_browser_vitals_flush", Policy: "allow"},
+		{Tool: "sin_browser_diff", Policy: "allow"},
 
 		// v3.16.0: autodev-cli bridge (Bridged-External + autodev-mcp stdio MCP).
 		// Qualified name = server-name + "__" + tool-name (registry.go "autodev" + autodev-mcp tools).

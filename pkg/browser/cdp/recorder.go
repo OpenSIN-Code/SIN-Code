@@ -94,6 +94,10 @@ type Recorder struct {
 
 	// dead is closed by Close() to signal background goroutines to exit.
 	dead chan struct{}
+
+	// bodyWG tracks in-flight async response-body fetches so Close() can wait
+	// for them to finish (with a 5 s guard) before flushing the sink.
+	bodyWG sync.WaitGroup
 }
 
 // NewRecorder creates a Recorder and opens the JSONL sink at cfg.JSONLPath.
@@ -139,8 +143,17 @@ func (r *Recorder) Events() []*Event {
 }
 
 // Close stops background goroutines and flushes + closes the JSONL sink.
+// It first waits (up to 5 s) for any in-flight response-body fetches to
+// complete so no captured bodies are lost on fast sessions.
 // Must be called exactly once after recording is complete.
 func (r *Recorder) Close() error {
+	// Wait for in-flight body fetches, but never hang forever.
+	done := make(chan struct{})
+	go func() { r.bodyWG.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+	}
 	close(r.dead)
 	return r.sink.Close()
 }
@@ -172,9 +185,26 @@ func (r *Recorder) EnableDomains(ctx context.Context) error {
 // and before the first navigation.
 func (r *Recorder) Attach(ctx context.Context) {
 	chromedp.ListenTarget(ctx, func(ev interface{}) { r.dispatch(ctx, ev) })
+	r.captureInitialTargets(ctx) // record any targets that already exist
 	if r.cfg.MetricsEvery > 0 {
 		go r.pollMetrics(ctx)
 	}
+}
+
+// captureInitialTargets records targets that already existed before we
+// attached so that pre-opened tabs, workers, and service workers are not
+// missed by the session.
+func (r *Recorder) captureInitialTargets(ctx context.Context) {
+	_ = chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		infos, err := target.GetTargets().Do(ctx)
+		if err != nil {
+			return nil
+		}
+		for _, ti := range infos {
+			r.emit("Target", "initialTarget", "", ti)
+		}
+		return nil
+	}))
 }
 
 func (r *Recorder) pollMetrics(ctx context.Context) {
@@ -246,6 +276,7 @@ func (r *Recorder) dispatch(ctx context.Context, ev interface{}) {
 	case *network.EventLoadingFinished:
 		r.emit("Network", "loadingFinished", "", e)
 		if r.cfg.CaptureBodies {
+			r.bodyWG.Add(1)
 			go r.fetchBody(ctx, e.RequestID)
 		}
 	case *network.EventLoadingFailed:
@@ -309,14 +340,12 @@ func (r *Recorder) dispatch(ctx context.Context, ev interface{}) {
 
 	// ---- Targets (OOPIFs, workers, service workers) -----------------------
 	// setAutoAttach(flatten=true) surfaces cross-origin iframes and workers as
-	// child sessions. We record the attach/detach events here; enabling domains
-	// on child sessions (the TODO below) is the next hardening step.
+	// child sessions. enableOnSession turns on Network/Runtime/Log/Audits on
+	// each child so iframe console errors and audit issues are captured with
+	// the same fidelity as the main frame.
 	case *target.EventAttachedToTarget:
 		r.emit("Target", "attachedToTarget", string(e.SessionID), e)
-		// TODO(oopif): call Runtime.enable, Network.enable, Log.enable, and
-		// Audits.enable on the child session executor so that console errors,
-		// network failures, and audit issues inside cross-origin iframes are
-		// captured with the same fidelity as the main frame.
+		go r.enableOnSession(ctx, e.SessionID)
 	case *target.EventDetachedFromTarget:
 		r.emit("Target", "detachedFromTarget", string(e.SessionID), e)
 	case *target.EventTargetCreated:
@@ -329,7 +358,9 @@ func (r *Recorder) dispatch(ctx context.Context, ev interface{}) {
 // fetchBody retrieves the response body for a completed request and emits it
 // as a synthetic "Network"/"responseBody" event. Called in its own goroutine
 // after loadingFinished so the body is guaranteed to be available.
+// bodyWG.Done is always called, even when the fetch fails, so Close() drains cleanly.
 func (r *Recorder) fetchBody(ctx context.Context, id network.RequestID) {
+	defer r.bodyWG.Done()
 	_ = chromedp.Run(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
 		body, err := network.GetResponseBody(id).Do(ctx)
 		if err != nil {
@@ -347,6 +378,28 @@ func (r *Recorder) fetchBody(ctx context.Context, id network.RequestID) {
 			"truncated": truncated,
 			"body":      string(body),
 		})
+		return nil
+	}))
+}
+
+// enableOnSession turns on the relevant CDP domains for an auto-attached child
+// target (OOPIF / dedicated worker / service worker). Without this, events
+// originating inside cross-origin iframes or workers are never delivered to the
+// top-level listener. Events from child sessions carry their own SessionID in
+// the envelope so the analysis layer can separate top-frame and iframe traffic.
+func (r *Recorder) enableOnSession(ctx context.Context, sid target.SessionID) {
+	sessionCtx, cancel := chromedp.NewContext(ctx, chromedp.WithExistingSession(sid))
+	_ = cancel // session lifetime is owned by the target; we only borrow the executor
+
+	_ = chromedp.Run(sessionCtx, chromedp.ActionFunc(func(ctx context.Context) error {
+		_ = network.Enable().Do(ctx)
+		_ = runtime.Enable().Do(ctx)
+		_ = cdplog.Enable().Do(ctx)
+		_ = audits.Enable().Do(ctx)
+		// Recursively auto-attach so nested OOPIFs/workers also surface.
+		_ = target.SetAutoAttach(true, false, true).Do(ctx)
+		// Release workers that pause waiting for a debugger to attach.
+		_ = target.RunIfWaitingForDebugger().Do(ctx)
 		return nil
 	}))
 }
