@@ -275,6 +275,7 @@ SIN-Code/
 │   │       ├── ledger/        ← v3.13.0: semantic session ledger (SQLite)
 │   │       ├── summary/       ← v3.13.0: deterministic session summary builder
 │   │       ├── llm/           ← provider layer
+│   │       ├── style/         ← v3.17.0: verbosity / compression mode system-prompt renderer (issue #167)
 │   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
 │   │       ├── memory/        ← (existing) store/search/embed
 │   │       ├── lsp/, notifications/, todo/, plugins/, sandbox/, attachments/, webui/
@@ -317,6 +318,25 @@ Lessons DB: `~/.local/share/sin-code/lessons.db` (SQLite, modernc).
 Goal Queue DB: `~/.local/share/sin-code/goals.db` (SQLite, modernc).
 Ledger DB: `~/.local/share/sin-code/ledger.db` (SQLite, modernc), overridable
 via `SIN_CODE_LEDGER`.
+
+### Verbosity / compression mode (issue #167)
+
+| Config key | Allowed values | Default |
+|---|---|---|
+| `llm.style` | `default` \| `verbose` \| `normal` \| `terse` \| `ultra` | `default` |
+
+The setting is read at startup and forwarded into
+`internal/style.RenderRules` via `wiring.Deps.Style` and
+`learning.Learner.BeforeTurn`. The renderer is dependency-free
+(contributes bytes only) and is byte-stable per `(mode, skillBody)`
+pair — a prerequisite for the system-prompt hash metric (issue #2).
+`default` and `verbose` are pass-throughs (no ruleset injected);
+`normal`, `terse`, `ultra` emit the caveman-derived ruleset that
+drops pleasantries, hedging, and tool-call narration while preserving
+every byte of code, URLs, paths, error strings, and `func`/`var`/
+`const` names. Every ruleset carries the **auto-clarity** clause
+that drops to normal prose around destructive, security-relevant, or
+order-sensitive actions (mandate M3, the verification gate is sacred).
 
 Headless JSON contract (stable API — never break without major bump):
 

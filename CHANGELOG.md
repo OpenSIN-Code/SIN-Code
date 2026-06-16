@@ -4,6 +4,41 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — Verbosity / compression mode (issue #167)
+- **`internal/style/`** — first-class verbosity mode system-prompt
+  renderer. Five canonical modes (`default`, `verbose`, `normal`,
+  `terse`, `ultra`) with byte-stable output per `(mode, skillBody)`
+  pair (prerequisite for the system-prompt hash metric, issue #2).
+  `default` and `verbose` pass through skill bodies unchanged;
+  `normal` drops pleasantries + tool-call narration, `terse` drops
+  articles/hedging, `ultra` is the tightest valid compression.
+  Every non-default ruleset carries the **auto-clarity** clause that
+  forces normal prose around destructive, security-relevant, or
+  order-sensitive actions — the verification gate (mandate M3) must
+  never be skipped because the output mode is terse. API surface:
+  `ParseMode(s)`, `RenderRules(mode, body)`, `RenderSystemBlock(level)`,
+  `AppendVerbosity(existing, mode)`, `WithVerbosity(mode)` (functional
+  option).
+- **`instinct.RenderSystemBlockWithVerbosity`** (issue #167): the
+  instinct renderer now accepts a verbosity-mode string and appends
+  the matching ruleset after the learned-instinct list (stable order:
+  instincts → style, separated by exactly one blank line). Backward-
+  compatible — the legacy `RenderSystemBlock(active, max)` still
+  returns the bare instinct block.
+- **`learning.Learner` style hook**: `BeforeTurn` now honors
+  `Options.Style` and routes it through the new renderer. New
+  `SetStyle(level)` method lets mid-session callers toggle verbosity
+  safely under a per-instance `sync.RWMutex` (mandate M7, race-free).
+  `wiring.Deps.Style` passes through.
+- **`llm.style` config key** (`internal/config.go`): user-facing knob
+  with full get/set/list/validate/TOML/JSON coverage. Validated
+  against the canonical mode set. `sin-code config set llm.style terse`
+  works end-to-end.
+- **Reference docs**: `internal/style/style.doc.md` (developer),
+  `cmd/sin-code/internal/config.doc.md` updated (table + example),
+  `cmd/sin-code/internal/learning/learner.doc.md` updated (Style
+  field), `AGENTS.md` §6 + §7 cross-references.
+
 ### Added — Loop Engineering (decoupled completion authority)
 - **Stop-gate harness** (`internal/stopgate`): an independent completion
   authority consulted after the verify-gate passes. Hybrid mode runs

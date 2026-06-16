@@ -1067,3 +1067,113 @@ paths.skills_dir = "./skills"
 		t.Errorf("expected skills dir, got %q", cfg.PathsSkillsDir)
 	}
 }
+
+// ─── llm.style (issue #167) ───────────────────────────────────────────────
+
+func TestConfig_DefaultLLMStyle(t *testing.T) {
+	cfg := defaultConfig()
+	if cfg.LLMStyle != "default" {
+		t.Errorf("expected LLMStyle default %q, got %q", "default", cfg.LLMStyle)
+	}
+}
+
+func TestConfig_GetLLMStyle(t *testing.T) {
+	val, err := getConfigValueFrom("llm.style", SinCodeConfig{LLMStyle: "terse"})
+	if err != nil {
+		t.Fatalf("get llm.style: %v", err)
+	}
+	if val != "terse" {
+		t.Errorf("expected terse, got %q", val)
+	}
+}
+
+func TestConfig_SetLLMStyle_Defaults(t *testing.T) {
+	// All canonical modes must be accepted.
+	for _, mode := range []string{"default", "verbose", "normal", "terse", "ultra"} {
+		cfg := SinCodeConfig{}
+		if err := setConfigValueIn("llm.style", mode, &cfg); err != nil {
+			t.Errorf("setConfigValueIn(llm.style, %q): %v", mode, err)
+		}
+		if cfg.LLMStyle != mode {
+			t.Errorf("expected %q, got %q", mode, cfg.LLMStyle)
+		}
+	}
+}
+
+func TestConfig_SetLLMStyle_RejectsInvalid(t *testing.T) {
+	for _, mode := range []string{"loud", "", "Terse-but-typo", "ultra+", "\x00bad"} {
+		err := setConfigValueIn("llm.style", mode, &SinCodeConfig{})
+		if err == nil {
+			t.Errorf("setConfigValueIn(llm.style, %q) must return an error", mode)
+		}
+	}
+}
+
+func TestConfig_ValidateLLMStyle(t *testing.T) {
+	cases := map[string]bool{
+		"":        false,
+		"default": true,
+		"verbose": true,
+		"normal":  true,
+		"terse":   true,
+		"ultra":   true,
+		"loud":    false,
+		"ultra++": false,
+	}
+	for v, ok := range cases {
+		cfg := defaultConfig()
+		cfg.LLMStyle = v
+		issues := validateConfig(cfg)
+		hasStyleIssue := false
+		for _, iss := range issues {
+			if strings.Contains(iss, "llm.style") {
+				hasStyleIssue = true
+				break
+			}
+		}
+		if hasStyleIssue && ok {
+			t.Errorf("validate(%q) flagged llm.style but value is valid", v)
+		}
+		if !hasStyleIssue && !ok {
+			t.Errorf("validate(%q) did not flag llm.style but value is invalid", v)
+		}
+	}
+}
+
+func TestConfig_ApplyMap_HonorsLLMStyle(t *testing.T) {
+	cfg := defaultConfig()
+	applyMap(&cfg, map[string]string{"llm.style": "terse"})
+	if cfg.LLMStyle != "terse" {
+		t.Errorf("applyMap(llm.style=terse) lost value, got %q", cfg.LLMStyle)
+	}
+}
+
+func TestConfig_PairsContainLLMStyle(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.LLMStyle = "terse"
+	pairs := configPairs(cfg, true)
+	var found bool
+	for _, p := range pairs {
+		if p.Key == "llm.style" {
+			found = true
+			if p.Value != "terse" {
+				t.Errorf("pair value = %q, want terse", p.Value)
+			}
+		}
+	}
+	if !found {
+		t.Error("configPairs missing llm.style")
+	}
+}
+
+func TestConfig_RenderTOMLContainsLLMStyle(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.LLMStyle = "ultra"
+	got := renderConfigTOML(cfg)
+	if !strings.Contains(got, `llm.style = "ultra"`) {
+		t.Errorf("TOML must contain llm.style line, got:\n%s", got)
+	}
+	if !strings.Contains(got, "issue #167") {
+		t.Errorf("TOML should reference issue #167 in a comment, got:\n%s", got)
+	}
+}
