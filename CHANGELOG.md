@@ -603,6 +603,28 @@ spec's signatures.
 - **`AGENTS.md` §12.1** added documenting the four-arm comparator
   contract: the honest delta = `<user-skill>` − `__terse__`, not
   the inflated `<user-skill>` − `__baseline__`.
+### Added — Bundled skills (issue #178)
+- **`skill-code-lazy`** (35th bundled skill, in `skills/process-skills/`):
+  SIN-Code adaptation of Dietrich Gebert's `ponytail` skill — "ship
+  the laziest version that actually works" with the 6-stufige Leiter
+  (YAGNI → stdlib → platform → existing dep → one function → minimum
+  that works). **Gated by `verify.pass` (mandate M3)**: the skill is
+  inert while `verify.result ∈ {pending, pre, fail}` and only arms
+  after the verify-gate. Activation keyword `lazy_skill` (issue #176)
+  binds to the four intensities `off | lite | full | ultra`.
+- **`sin-debt:` marker cookbook** in `templates/debt-markers.md`:
+  paired ceiling + upgrade-trigger convention (issue #177); every
+  shortcut ships a `// sin-debt: <ceiling>, upgrade: <event>` pair
+  so reviewers can audit YAGNI vs hardening pressure.
+- **Byte-stable render contract**: the 5 keyword examples in
+  `SKILL.md` render to identical octets across runs (prerequisite
+  for the issue #2 system-prompt hash metric).
+- **Naming-convention exception** recorded in `AGENTS.md` §10: the
+  canonical pattern is `skill-<category>-<name>`, but
+  `skill-code-lazy` is preserved as the v3.18.0 exception because
+  the `lazy_skill` activation keyword binds to the literal
+  frontmatter name.
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added
