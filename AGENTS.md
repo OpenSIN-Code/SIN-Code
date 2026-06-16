@@ -4,11 +4,13 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** v3.17.0 (2026-06-16) —
+> **Last verified against main:** v3.18.0 (2026-06-16) —
 > bundled skills reorganized into category directories and renamed to
 > `skill-<category>-<name>`; `github-skills/` category added; 34 bundled skills
 > embedded in the binary. Branch protection on `main` permanently relaxed to
 > `required_approving_review_count: 0` for solo-maintainer workflow.
+> `sin-code install` (issue #170) — new 40th subcommand; root `install.sh`
+> rewritten to a 27-line curl|bash shim; matching `install.ps1` for Windows.
 
 ---
 
@@ -227,7 +229,8 @@ SIN-Code/
 │   ├── ceo-audit.yml          ← n8n delegation (mandate M1)
 │   ├── sin-code-release.yml   ← goreleaser + brew tap
 │   └── ecosystem-sync.yml     ← prevents registry/permission/ECOSYSTEM drift
-├── install.sh
+├── install.sh                    ← 27-line curl|bash shim → `sin-code install` (issue #170)
+├── install.ps1                   ← PowerShell equivalent shim (issue #170)
 ├── profiles/                   ← v3.4.0: agent profile TOML files
 │   ├── fireworks.toml
 │   └── qwen-relay.toml
@@ -238,7 +241,7 @@ SIN-Code/
 │   └── mcp.json.example
 │
 ├── cmd/
-│   ├── sin-code/              ← MAIN BINARY (39 subcommands — v3.13.0)
+│   ├── sin-code/              ← MAIN BINARY (40 subcommands — v3.18.0)
 │   │   ├── main.go            ← cobra root; AddCommand for all subcommands
 │   │   ├── tui.go, webui_cmd.go
 │   │   ├── chat_cmd.go        ← v3.4.0: chat + -p headless
@@ -256,8 +259,32 @@ SIN-Code/
 │   │   ├── hub_cmd.go           ← v3.12.0: tool catalog hub subcommand
 │   │   ├── ledger_cmd.go        ← v3.13.0: ledger query subcommand
 │   │   ├── summary_cmd.go       ← v3.13.0: summary builder subcommand
+│   │   ├── install_cmd.go       ← v3.18.0: `sin-code install` (issue #170, single-binary installer)
 │   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
-│   │   └── internal/          ← 17 packages (v3.8.0)
+│   │   └── internal/          ← 18 packages (v3.18.0)
+│   │       ├── agentloop/     ← PLAN→ACT→VERIFY→DONE loop
+│   │       ├── session/       ← SQLite-backed resumable sessions
+│   │       ├── permission/    ← allow/ask/deny engine
+│   │       ├── verify/        ← mandatory PoC/Oracle gate
+│   │       ├── mcpclient/     ← external MCP consumption
+│   │       ├── hooks/         ← 24 lifecycle events
+│   │       ├── commands/      ← custom slash commands
+│   │       ├── lessons/       ← v3.4.0: closed learning loop
+│   │       ├── autonomy/      ← v3.5.0: goal queue + triggers
+│   │       ├── skillmgr/      ← v3.5.0: install/verify skills
+│   │       ├── skilldist/     ← v3.17.0: marker-fenced skill distribution (issue #169)
+│   │       ├── loopbuilder/   ← v3.4.0: shared factory (DRY)
+│   │       ├── vane/          ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (internal/vane)
+│   │       ├── stack/         ← v3.8.0: unified install/doctor across 3 layers
+│   │       ├── hub/           ← v3.12.0: static tool catalog
+│   │       ├── ledger/        ← v3.13.0: semantic session ledger (SQLite)
+│   │       ├── summary/       ← v3.13.0: deterministic session summary builder
+│   │       ├── install/       ← v3.18.0: pure-stdlib release install + SHA256 verify + atomic place (issue #170)
+│   │       ├── llm/           ← provider layer
+│   │       ├── style/         ← v3.17.0: verbosity / compression mode system-prompt renderer (issue #167)
+│   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
+│   │       ├── memory/        ← (existing) store/search/embed
+│   │       ├── lsp/, notifications/, todo/, plugins/, sandbox/, attachments/, webui/
 │   │       ├── agentloop/     ← PLAN→ACT→VERIFY→DONE loop
 │   │       ├── session/       ← SQLite-backed resumable sessions
 │   │       ├── permission/    ← allow/ask/deny engine
@@ -368,6 +395,9 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.15.0 | ✅ SHIPPED | Go-native SCA Phase 1 (#41), race-flake hardening (#59) |
 | v3.16.0 | ✅ SHIPPED | Forge integration (#37): `sin forge` command, `sin status` detection, 16th MCP tool in `mcp_config` |
 
+| v3.18.0 | ACTIVE | `sin-code install` + curl|bash shim + PowerShell (issue #170): new 40th subcommand + internal/install/ package, 27-line install.sh mirror + 35-line install.ps1, SHA256-verified single-binary downloads from goreleaser assets |
+| (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
+
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
 
@@ -461,13 +491,13 @@ the same major-bump policy.
 Core:      discover, execute, map, grasp, scout, harvest, orchestrate,
            ibd, poc, sckg, adw, oracle, efm
 Agents:    chat, sessions, mcp, goal, daemon, skill, superpowers,
-           vane, stack, gh
+           vane, stack, gh, install
 Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
            orchestrator_agents, orchestrator_plan, update
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
            config, self-update, hub, ledger, summary
-``` (v3.13.0: 39 subcommands, up from 36 in v3.9.0)
+``` (v3.18.0: 40 subcommands; `install` is the v3.18.0 single-binary installer from issue #170)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 

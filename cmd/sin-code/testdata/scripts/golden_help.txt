@@ -9,7 +9,7 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
   Utility commands: security, sbom, config, self-update, tui, serve, update
   Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, superpowers,
-                    vane, stack, gh, hub, ledger, summary
+                    vane, stack, gh, hub, ledger, summary, install
   Other:            completion, read, write, edit, lsp, plugin, index,
                     orchestrator-run, orchestrator-agents, orchestrator-plan,
                     todo, notifications, memory, assets, evalset, hooks,
@@ -49,6 +49,7 @@ Available Commands:
   hub                 Tool catalog and landing page for sin-code
   ibd                 Intent-Based Diffing — compare code changes against stated intent
   index               Manage persistent incremental code index
+  install             Install or verify the sin-code single-binary release
   instinct            Manage learned instincts (continuous learning)
   ledger              Query the semantic session ledger
   lsp                 LSP (Language Server Protocol) — IDE-grade code intelligence

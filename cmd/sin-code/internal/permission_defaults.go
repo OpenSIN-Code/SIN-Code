@@ -62,6 +62,16 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "eval__list", Policy: "allow"},
 		{Tool: "eval__run", Policy: "ask"}, // may invoke real verification + LLM
 		{Tool: "trace__doctor", Policy: "allow"},
+		// v3.18.0: issue #170 single-binary installer. The agent
+		// loop invokes install via MCP when a fresh machine needs a
+		// working sin-code. The install flow downloads + writes under
+		// the user's $HOME/.local/bin and is non-privileged — but the
+		// permission tier is "ask" so headless mode (incl. the
+		// daemon) refuses to run it without explicit approval. Only
+		// --verify-only is silent, since it is read-only.
+		{Tool: "install__verify_only", Policy: "allow"},
+		{Tool: "install__run", Policy: "ask"},
+		{Tool: "install__dry_run", Policy: "allow"},
 		// Backstop catch-all (mirrors sin_bash default at line 44 for unmatched prefixes).
 		{Tool: "autodev__*", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},

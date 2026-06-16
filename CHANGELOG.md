@@ -4,6 +4,41 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — `sin-code install` + one-line curl|bash installer (issue #170)
+- **`cmd/sin-code/install_cmd.go`** — new 40th subcommand `sin-code install`
+  (and `install --auto`). Downloads the latest GitHub release asset,
+  SHA256-verifies against the goreleaser-style `checksums.txt`,
+  extracts the single binary, atomically places it into
+  `$SIN_CODE_BIN_DIR` or `$HOME/.local/bin`, and prints the canonical
+  PATH hint. Flags: `--dir`, `--release <tag>` (pin a version),
+  `--channel stable|dev`, `--verify-only` (health-check, no write),
+  `--no-verify` (offline / sanctioned CI), `--dry-run`.
+- **`cmd/sin-code/internal/install/`** — new pure-stdlib package.
+  Four tiny files (`release.go`, `github.go`, `verify.go`, `composer.go`)
+  plus race-safe `install_test.go` (19 tests, all green under
+  `-race -count=1`). The bootstrap never depends on `gh` or `jq`,
+  making the install cmd safe to run on a freshly imaged host.
+- **Root `install.sh`** — rewritten from 1031 lines to **27 lines**
+  shell-only shim. `curl -fsSL ... | bash` compatible. Settles the
+  downloaded archive, extracts the `sin-code` binary via three
+  tolerant glob shapes (works across goreleaser versions), then
+  `exec`s `sin-code install --auto` so the Go entrypoint owns the
+  verify-and-place flow. Legacy 12-step logic permanently retired —
+  post-v3.0 the unified `sin-code` binary already subsumes the 7
+  Go tool subcommands the old installer built.
+- **Root `install.ps1`** — new 35-line Windows equivalent
+  (`irm https://raw.githubusercontent.com/.../install.ps1 | iex`).
+  Uses `Invoke-WebRequest` + `System.IO.Compression.ZipFile`, then
+  re-execs `sin-code.exe install --auto`.
+- **`permission_defaults.go`** — three new MCP rules under the
+  `install__*` prefix (mirror of the `gh_execute` precedent in §3
+  M4): `install__verify_only` allow, `install__dry_run` allow,
+  `install__run` ask. The headless daemon therefore CANNOT
+  self-install silently, satisfying M4's "always headless" clause.
+- **`AGENTS.md` §6** — repo layout now lists `install.sh`,
+  `install.ps1`, `cmd/sin-code/install_cmd.go`, and the new
+  `internal/install/` package alongside the existing 39 subcommands.
+
 ### Added — Verbosity / compression mode (issue #167)
 - **`internal/style/`** — first-class verbosity mode system-prompt
   renderer. Five canonical modes (`default`, `verbose`, `normal`,
