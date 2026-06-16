@@ -989,6 +989,33 @@ output, network allow toggling, sorted path emission, sandbox-exec
 PATH look-up, sentinel error typing, and self-consistent input
 ordering. Total runtime ~1s under `-race`.
 
+### Added — `internal/autolevel` + `sin-code chat --autolevel` (issue #198)
+Deterministic prompt-intent → permission-mode classifier. Removes
+the friction of typing `--mode=plan` explicitly: with
+`--autolevel` set, the chat session reads `opts.prompt` through
+a regex + substring classifier and picks one of
+`default | plan | acceptEdits | bypass`.
+- **Hard-coded rule matrix** (`internal/autolevel/autolevel.go`):
+  - explicit plan / read-only verbs (weight 12) → `plan`
+  - build/edit verbs (weight 8) → `acceptEdits`
+  - destructive verbs + explicit user OK (weight 50) → `bypass`
+  - test-only instructions (weight 6) → `acceptEdits`
+  - ending `?` (weight 3) → `plan`
+  - tie-broken by earliest hit index so byte-stable output
+    is achievable
+- **Byte-stable by design**: every classifier decision carries a
+  human-readable reason (e.g. `"explicit plan / read-only verb"`)
+  printed to stderr at chat start, so M3's
+  "no silent mode shifts" invariant holds even if the operator
+  did not set `--mode`.
+- **CLI**: `--autolevel` opt-in flag on `sin-code chat`.
+  `--mode` and `--autolevel` are mutually exclusive in spirit
+  but `--mode` wins when both are set (explicit > inferred).
+- **Tests**: 7 race-clean tests covering all 4 mode selections,
+  the no-signal fallback, byte-stable per-input-output
+  determinism, weight tiebreak (plan vs accept), and edge cases
+  (high-confidence `?` after `add tests`). Total runtime ~1s.
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added

@@ -20,6 +20,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autolevel"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/checkpoint"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife/autoactivate"
@@ -72,6 +73,13 @@ type chatOptions struct {
 	//   none        — disable syscall filtering entirely (debugging only)
 	// Empty value picks the platform default at startup.
 	sandbox string
+	// autolevel flips the chat loop into auto-classification mode:
+	// if --mode is empty AND --autolevel is set, the chat reads
+	// `opts.prompt` through `internal/autolevel.Classify` to pick
+	// `plan | acceptEdits | bypass | default` automatically. The
+	// classifier is deterministic (regex + substring, no LLM) so
+	// M3 is honoured: every mode pick is operator-visible.
+	autolevel bool
 }
 
 func NewChatCmd() *cobra.Command {
@@ -91,7 +99,8 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --mode plan|acceptEdits|bypass  session-wide permission mode (issue #193)
   sin-code chat --worktree <name>        run inside a git worktree (issue #194 part 2)
   sin-code chat --rewind <checkpoint>    restore workspace to a checkpoint before running
-  sin-code chat --sandbox <backend>      landlock|seatbelt|bubblewrap|none (issue #199)`,
+  sin-code chat --sandbox <backend>      landlock|seatbelt|bubblewrap|none (issue #199)
+  sin-code chat --autolevel              prompt-intent based permission auto-classifier (issue #198)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context(), opts)
 		},
@@ -114,6 +123,7 @@ func NewChatCmd() *cobra.Command {
 	f.StringVar(&opts.worktree, "worktree", "", "run inside a fresh git worktree at .sin-code/worktrees/<name> (issue #194)")
 	f.StringVar(&opts.rewind, "rewind", "", "restore workspace to the named checkpoint before the chat starts")
 	f.StringVar(&opts.sandbox, "sandbox", "", "sandbox backend: landlock|seatbelt|bubblewrap|none (default: platform-native)")
+	f.BoolVar(&opts.autolevel, "autolevel", false, "auto-classify permission mode from prompt intent (issue #198)")
 	return cmd
 }
 
@@ -144,6 +154,18 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		if err := perm.SetMode(permission.Mode(opts.mode)); err != nil {
 			return fmt.Errorf("chat: --mode: %w", err)
 		}
+	} else if opts.autolevel && opts.prompt != "" {
+		// Auto-classify the prompt intent → permission mode.
+		// Deterministic regex classifier (no LLM); result is
+		// announced on stderr so M3's no-silent-mode-shift
+		// invariant holds. --mode overrides --autolevel when
+		// both are set (explicit > inferred).
+		rec := autolevel.Classify(opts.prompt)
+		if err := perm.SetMode(rec.Mode); err != nil {
+			return fmt.Errorf("chat: --autolevel: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "sin-code chat: --autolevel picked mode=%q (%s)\n",
+			rec.Mode, rec.Reason)
 	}
 
 	workspace, err := os.Getwd()
