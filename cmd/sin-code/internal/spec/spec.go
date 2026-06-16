@@ -130,18 +130,42 @@ func parseRequirement(item string, n int) Requirement {
 	return r
 }
 
-// parseCriterion extracts an optional "An:" id and a trailing "`verify: cmd`".
+// parseCriterion extracts an optional "An:" id and a trailing
+// "`verify: cmd`". The verify annotation must be backtick-wrapped
+// (e.g. "`verify: go test ./...`") so the parser can distinguish
+// it from a literal "verify:" in the criterion's text. Unwrapped
+// occurrences of "verify:" are left in the text.
 func parseCriterion(item string, n int) Criterion {
 	c := Criterion{ID: fmt.Sprintf("A%d", n)}
 	if id, rest, ok := stripID(item); ok {
 		c.ID, item = id, rest
 	}
-	if i := strings.Index(item, "verify:"); i >= 0 {
-		c.Verify = strings.TrimSpace(strings.Trim(item[i+len("verify:"):], " `"))
-		item = strings.TrimRight(item[:i], " `")
+	if cmd, ok := extractVerify(item); ok {
+		c.Verify = cmd
+		item = strings.TrimRight(item[:strings.LastIndex(item, "`verify:")], " `")
 	}
 	c.Text = strings.TrimSpace(item)
 	return c
+}
+
+// extractVerify finds the last backtick-wrapped `verify: <cmd>` in
+// item. Returns the trimmed command and true on success, "" and
+// false otherwise. The backtick requirement prevents the parser
+// from misinterpreting prose like "verify: the parser works" as
+// a verify-command.
+func extractVerify(item string) (string, bool) {
+	const open = "`verify:"
+	const close = "`"
+	i := strings.LastIndex(item, open)
+	if i < 0 {
+		return "", false
+	}
+	rest := item[i+len(open):]
+	j := strings.Index(rest, close)
+	if j < 0 {
+		return "", false
+	}
+	return strings.TrimSpace(rest[:j]), true
 }
 
 func stripPriority(item string, def Priority) (string, Priority) {
