@@ -40,6 +40,9 @@ const (
 	// TypeTokenBudgetExhausted is recorded when cumulative token usage exceeds
 	// MaxTokens and the run stops spending (issue #151).
 	TypeTokenBudgetExhausted EntryType = "token_budget_exhausted"
+	// TypeReflection records a self-critique pass that found issues and forced
+	// another work turn before stop-gate evaluation.
+	TypeReflection EntryType = "reflection"
 )
 
 // Entry is one row in the ledger.
