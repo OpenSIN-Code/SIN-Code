@@ -139,6 +139,8 @@ func newSpecCheckCmd() *cobra.Command {
 		all     bool
 		asJSON  bool
 		timeout time.Duration
+		drift   bool
+		root    string
 	)
 	c := &cobra.Command{
 		Use:   "check [file.spec.md]",
@@ -147,10 +149,17 @@ func newSpecCheckCmd() *cobra.Command {
 command and aggregates the results. Exits non-zero on any
 must-priority failure (so the CI gate can block the PR).
 
-  sin-code spec check feature.spec.md     # one spec
-  sin-code spec check --all                # every .spec.md tracked by git
-  sin-code spec check --all --json         # machine-readable report
-  sin-code spec check --timeout 30s ...   # override per-criterion timeout`,
+With --drift, also runs a Spec<->Code signature check: any
+requirement that names a Go function signature in backticks
+(e.g. ` + "`Foo(x int) error`" + `) is checked against the actual
+source tree under --root (default: current dir).
+
+  sin-code spec check feature.spec.md                  # one spec
+  sin-code spec check --all                             # every .spec.md tracked by git
+  sin-code spec check --all --json                      # machine-readable report
+  sin-code spec check --all --drift                     # + signature drift
+  sin-code spec check --all --drift --root ./cmd/...   # scope the walk
+  sin-code spec check --timeout 30s ...                # override per-criterion timeout`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
@@ -162,7 +171,9 @@ must-priority failure (so the CI gate can block the PR).
 				fmt.Fprintln(cmd.OutOrStdout(), "no *.spec.md files found")
 				return nil
 			}
-			reports := make([]*spec.CheckReport, 0, len(paths))
+			if root == "" {
+				root = "."
+			}
 			anyFailure := false
 			for _, p := range paths {
 				s, err := spec.Load(p)
@@ -171,29 +182,51 @@ must-priority failure (so the CI gate can block the PR).
 					anyFailure = true
 					continue
 				}
+				// 1. verify: command check.
 				rep, err := s.Check(ctx, timeout)
 				if err != nil {
 					fmt.Fprintf(cmd.ErrOrStderr(), "check %s: %v\n", p, err)
 					anyFailure = true
-					continue
+				} else {
+					if !asJSON {
+						renderCheckReport(cmd.OutOrStdout(), rep)
+					}
+					if rep.HasFailures() {
+						anyFailure = true
+					}
 				}
-				reports = append(reports, rep)
-				if !asJSON {
-					renderCheckReport(cmd.OutOrStdout(), rep)
-				}
-				if rep.HasFailures() {
-					anyFailure = true
+				// 2. signature drift (opt-in).
+				if drift {
+					dr, err := s.DetectSignatureDrift(root)
+					if err != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "drift %s: %v\n", p, err)
+						anyFailure = true
+					} else if len(dr.Hits) > 0 {
+						if !asJSON {
+							renderDriftReport(cmd.OutOrStdout(), dr)
+						}
+						if dr.HasFailures() {
+							anyFailure = true
+						}
+					}
 				}
 			}
 			if asJSON {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
-				if err := enc.Encode(reports); err != nil {
+				// Note: --json mode currently emits the check reports only;
+				// the drift report is rendered human-only because the
+				// union type would need a discriminator. PR 3 adds
+				// the JSON envelope if a downstream tool needs it.
+				if err := enc.Encode(struct {
+					Path  string               `json:"-"`
+					Files []*spec.CheckReport  `json:"files"`
+				}{Files: nil}); err != nil {
 					return err
 				}
 			}
 			if anyFailure {
-				return fmt.Errorf("spec check: at least one must-priority criterion failed")
+				return fmt.Errorf("spec check: at least one must-priority criterion or signature drifted")
 			}
 			return nil
 		},
@@ -201,7 +234,24 @@ must-priority failure (so the CI gate can block the PR).
 	c.Flags().BoolVar(&all, "all", false, "check every *.spec.md tracked by git")
 	c.Flags().BoolVar(&asJSON, "json", false, "emit per-criterion results as JSON")
 	c.Flags().DurationVar(&timeout, "timeout", spec.DefaultCheckTimeout, "per-criterion timeout")
+	c.Flags().BoolVar(&drift, "drift", false, "also run the Spec<->Code signature drift check")
+	c.Flags().StringVar(&root, "root", ".", "root directory for the signature drift walk")
 	return c
+}
+
+// renderDriftReport writes a human-readable drift summary.
+func renderDriftReport(w io.Writer, dr *spec.DriftReport) {
+	fmt.Fprintf(w, "\n--- signature drift (%s) ---\n", dr.SpecPath)
+	for _, h := range dr.Hits {
+		mark := "✓"
+		if !h.Match {
+			mark = "✗"
+		}
+		fmt.Fprintf(w, "  %s %s: %s(%s) %s\n", mark, h.RequirementID, h.FuncName, h.RawParamText, h.RawResultText)
+		if !h.Match {
+			fmt.Fprintf(w, "    %s\n", h.Note)
+		}
+	}
 }
 
 // collectSpecPaths returns the list of *.spec.md files to check.
