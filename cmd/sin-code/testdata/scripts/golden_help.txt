@@ -25,9 +25,11 @@ Usage:
 Available Commands:
   adw                 Architectural Debt Watchdogs — detect god modules, circular deps, etc.
   assets              Manage harvested agents/commands/skills
+  audit               Repo-wide audits (complexity, ...)
   auto                Ultra-autonomous mode: pursue a program.md objective on your behalf
   autodev             Bridge to OpenSIN-Code/autodev-cli (Python autoresearch loop, never vendored)
   catalog             Unified tool catalog (hub + assets, one CLI)
+  ceo-audit           CEO-grade SOTA repository audit (48 gates)
   chat                Run the SIN-Code agent loop (interactive REPL or headless one-shot)
   codegraph           Bridge to CodeGraph for multi-language code analysis
   compile-spec        Compile .sin-code.yml into the four derived JSON artifacts
@@ -35,6 +37,7 @@ Available Commands:
   compress            Lossless compaction for lessons / instincts / summaries / AGENTS.md
   config              View and manage sin-code configuration
   daemon              Run the autonomous worker: lease goals, execute, verify, learn
+  debt                Inspect sin-debt markers (issue #177)
   discover            Discover files with relevance scoring and pattern matching
   dox                 Self-maintaining AGENTS.md hierarchy (agent0ai/dox protocol)
   edit                Hashline-anchored surgical edits with validation
@@ -45,6 +48,7 @@ Available Commands:
   gh                  Bridge to the GitHub CLI (gh) with a 3-tier verb-allowlist policy
   goal                Manage the autonomous goal queue
   grasp               Deep code understanding for a single file
+  grill               Native adversarial design-review interview (issue #141 fusion)
   harvest             Fetch URLs with caching, structure extraction, and change detection
   headroom            Manage Headroom context compression integration
   help                Help about any command
@@ -83,6 +87,7 @@ Available Commands:
   skills              List and install bundled project-local skills
   spec                Author, validate & inspect *.spec.md contracts (Spec-Layer)
   stack               Manage the DOX + Superpowers + Vane methodology stack
+  subagent            Run a subtask in an isolated session, return summary (issue #192)
   summary             Build a deterministic summary from the session ledger
   superpowers         Integrate obra/superpowers skills into SIN-Code
   swarm               Race N agent profiles on the same prompt (first verified wins)
