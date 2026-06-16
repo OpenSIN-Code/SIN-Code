@@ -88,6 +88,7 @@ func init() {
 		NewCodeGraphCmd(),                                                                              // CodeGraph multi-language analysis bridge (issue #126)
 		NewSpecCmd(),                                                                                   // Spec-Layer: *.spec.md contracts (issue #122)
 		NewInstallCmd(),                                                                                // v3.18.0: `sin-code install` — single-binary installer entrypoint (issue #170)
+		NewTriageCmd(),                                                                                 // v3.18.0: `sin-code triage` — backlog auto-prioritizer via gh (issue #162)
 		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + eval + prp workflow
 	)
 
