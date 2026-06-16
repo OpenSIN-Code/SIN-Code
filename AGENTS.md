@@ -28,6 +28,13 @@
 > (`// sin-debt: <ceiling>, upgrade: <trigger>`) adopted from ponytail;
 > 41st subcommand, `cmd/sin-code/internal/sindept/` package with byte-stable
 > scanner + aggregator + report + policy gate.
+> **Last verified against main:** v3.19.0 (2026-06-16) —
+> `autoactivate` hooklife subpackage (issue #176) wired into `sin-code chat`
+> with `--activate <rule>` + `--no-trigger` flags; project-local
+> `.sin-code/autoactivate.toml`; deterministic byte-stable rule rendering;
+> race-safe per-session state (mandate M7). Branch protection on `main`
+> permanently relaxed to `required_approving_review_count: 0` for solo-
+> maintainer workflow.
 
 ---
 
@@ -444,6 +451,7 @@ Headless JSON contract (stable API — never break without major bump):
 
 | v3.18.0 | ACTIVE | `sin-code debt` (issue #177) — `// sin-debt: <ceiling>, upgrade: <trigger>` marker convention (ponytail adoption), byte-stable `internal/sindept/` scanner + report, policy gate via `sin-code debt check`, 41st subcommand; alongside `sin-code install` (issue #170), `eval` / `trace` (issue #75), `evalset` / `prp` / `instinct` / `assets` / `hooks` / `rtk` / `codegraph` / `spec` v0 work |
 | (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
+| v3.19.0 | ACTIVE | `autoactivate` hooklife subpackage (#176): `cmd/sin-code/internal/hooklife/autoactivate` — per-session rule injection on `SessionStart` + `UserPrompt`. `--activate <rule>` + `--no-trigger` flags on `sin-code chat`; project-local `.sin-code/autoactivate.toml`; deterministic byte-stable `RuleSet.Render()`; race-safe (mandate M7). Hooks register against any `*hooklife.Registry` via `Activator.Register(reg)`. |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -665,6 +673,26 @@ Every **intentional** shortcut in source code is marked in-line with:
   can pin its golden snapshot.
 - Policy file: `.sin-code/debt-policy.toml` (see
   `cmd/sin-code/debt_cmd.doc.md`).
+### Hook events (verified `internal/hooklife/event.go`, v3.19.0)
+
+Seven phases for the second, programmatic hooking system:
+
+| Phase | Verdict caps | Used by |
+|---|---|---|
+| `PreToolUse` | Block allowed | `block-no-verify`, `config-protection`, `quality-gate` |
+| `PostToolUse` | Warn (aggregated) | `post-edit-format`, `post-edit-typecheck`, `cost-tracker` |
+| `Stop` | Warn (aggregated) | `suggest-compact` |
+| `SessionStart` | Warn (aggregated) | `autoactivate-session-start` (issue #176) |
+| `SessionEnd` | Warn (aggregated) | (reserved) |
+| `PreCompact` | Warn (aggregated) | `suggest-compact` (privacy-first) |
+| `UserPrompt` | Warn (aggregated) | `autoactivate-user-prompt` (issue #176) |
+
+Auto-activation hooks (v3.19.0, issue #176) wire through
+`Activator.Register(reg)` and emit their rule body via the `Decision.Message`
+field, returning `Warn` so the runner's aggregation surfaces it. Off by
+default — privacy-first activation via `--activate` or
+`.sin-code/autoactivate.toml`. See
+`cmd/sin-code/internal/hooklife/autoactivate/activator.doc.md`.
 
 ---
 

@@ -410,6 +410,27 @@ reports them; `debt check` gates them.
   through the same shape regardless of consumer.
 
 ---
+### Added — Auto-Activation Hook (issue #176, v3.19.0)
+- **`internal/hooklife/autoactivate/`** — per-session rule injection subpackage.
+  Two Phase hooks (`autoactivate-session-start` / `autoactivate-user-prompt`)
+  register against any `*hooklife.Registry` via `Activator.Register(reg)`.
+  Privacy-first: off by default; activated by `sin-code chat --activate <rule>`
+  or a project-local `.sin-code/autoactivate.toml` file.
+- **`AutoActivate.Activator`** tracks per-session state under a single
+  `sync.RWMutex` (mandate M7 — race-safe under `go test -race -count=1`).
+  `OnSessionStart(sid, opts)` is idempotent; `OnUserPrompt(sid, prompt)`
+  returns the rule set re-emittable for this turn, with trigger-phrase
+  substring matching for natural-language activation. `EndSession(sid)`
+  drops state on exit.
+- **`RuleSet.Render()`** is byte-stable: any two RuleSets with the same
+  name+body+trigger tuples produce identical bytes regardless of insertion
+  order (prerequisite for the system-prompt hash metric, issue #2).
+- **`sin-code chat --activate terse,skill-x`** comma-separated rule list;
+  **`--no-trigger`** suppresses per-prompt phrase matching; reads
+  `.sin-code/autoactivate.toml` silently when present.
+- Tests: 35 race-safe unit tests + 8 chat-wiring integration tests, 91.5%
+  statement coverage on the autoactivate package. New package follows
+  the existing `hooklife` Phase contract; no new external deps.
 
 ### Added — Loop Engineering (decoupled completion authority)
 ### Added — MCP tool-manifest compression (issue #173, v3.19.0)

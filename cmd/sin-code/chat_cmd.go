@@ -20,6 +20,8 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife/autoactivate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
@@ -41,6 +43,11 @@ type chatOptions struct {
 	verifyCmd  string
 	maxTurns   int
 	dbPath     string
+	// activate is a comma-separated list of rule names to auto-activate
+	// for this session (issue #176). Empty = no CLI-level activation;
+	// a project-local .sin-code/autoactivate.toml may still apply.
+	activate  string
+	noTrigger bool
 }
 
 func NewChatCmd() *cobra.Command {
@@ -54,7 +61,9 @@ func NewChatCmd() *cobra.Command {
   sin-code chat -p "..." --json          headless one-shot (stable JSON contract)
   sin-code chat --resume <session-id>    continue an existing session
   sin-code chat --agent <name>           use a specific agent profile
-  sin-code chat --yolo                   bypass 'ask' permissions (M4)`,
+  sin-code chat --yolo                   bypass 'ask' permissions (M4)
+  sin-code chat --activate terse,skill-x auto-activate the named rules (issue #176)
+  sin-code chat --no-trigger             disable prompt-phrase activation`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context(), opts)
 		},
@@ -71,6 +80,8 @@ func NewChatCmd() *cobra.Command {
 	f.StringVar(&opts.verifyCmd, "verify-cmd", os.Getenv("SIN_VERIFY_CMD"), "shell command used as verification runner (exit 0 = pass)")
 	f.IntVar(&opts.maxTurns, "max-turns", 0, "max agent turns (default 80)")
 	f.StringVar(&opts.dbPath, "db", "", "sessions db path (default ~/.local/share/sin-code/sessions.db)")
+	f.StringVar(&opts.activate, "activate", "", "comma-separated rule names to auto-activate for this session (issue #176)")
+	f.BoolVar(&opts.noTrigger, "no-trigger", false, "disable prompt-phrase activation (issue #176)")
 	return cmd
 }
 
@@ -104,6 +115,26 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	}
 	hookEngine := hooks.New(loadHooks(workspace))
 
+	// --- auto-activation hook (issue #176) ------------------------------
+	// Off by default. Privacy-first: only opens when the operator sets
+	// `--activate` or ships `.sin-code/autoactivate.toml`. The activator
+	// keeps a per-session state and emits the rule body via hooklife
+	// Decision.Message — informative stderr output today; LLM system-
+	// prompt injection is tracked separately.
+	act := newChatActivator(workspace, opts)
+	hooklifeReg := hooklife.NewRegistry()
+	// Wire the activator's two hooks. Defaults + AutoOn are baked into
+	// the SessionStartHook at registration time so the hook handles
+	// per-session OnSessionStart internally when Dispatch fires.
+	autoOn := act.Def.AutoOn || len(act.Rules) > 0 || len(act.Defaults) > 0
+	hooklifeReg.Register(autoactivate.SessionStartHook{
+		Act:      act.Act,
+		Defaults: act.Defaults,
+		AutoOn:   autoOn,
+	})
+	hooklifeReg.Register(autoactivate.UserPromptHook{Act: act.Act})
+	hooklifeRunner := hooklife.NewRunner(hooklifeReg).WithTimeout(2 * time.Second)
+
 	// --- External MCP servers (mandate C5, ecosystem skills) -------------
 	mcpMgr := mcpclient.NewManager(mcpclient.LoadConfigs(workspace))
 	if err := mcpMgr.ConnectAll(ctx); err != nil {
@@ -136,6 +167,26 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		return err
 	}
 
+	// Dispatch SessionStart once the session id is known. The hook
+	// itself initialises the activator's per-session state, including
+	// any CLI `--activate <rule>` names added after the fact.
+	d := hooklifeRunner.Dispatch(ctx, hooklife.Event{
+		Phase:   hooklife.SessionStart,
+		Workdir: workspace,
+		Meta: map[string]string{
+			"session_id": sess.ID,
+			"no_trigger": boolStr(opts.noTrigger),
+		},
+	})
+	if d.Message != "" {
+		fmt.Fprintln(os.Stderr, "[autoactivate] session start rules:\n"+d.Message)
+	}
+	// Apply the CLI `--activate` list now that the hook has wired the
+	// state for this session id.
+	for _, name := range act.Rules {
+		act.Act.Activate(sess.ID, autoactivate.Rule{Name: name})
+	}
+
 	var ask agentloop.AskFunc
 	if !headless {
 		ask = terminalAsk
@@ -154,15 +205,37 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		Ask:        ask,
 	}
 
+	dispatchUserPrompt := func(prompt string) {
+		pd := hooklifeRunner.Dispatch(ctx, hooklife.Event{
+			Phase:   hooklife.UserPrompt,
+			Tool:    "ChatPrompt",
+			Workdir: workspace,
+			Meta: map[string]string{
+				"session_id": sess.ID,
+				"prompt":     prompt,
+			},
+		})
+		if pd.Message != "" {
+			fmt.Fprintln(os.Stderr, "[autoactivate] per-turn rules:\n"+pd.Message)
+		}
+	}
+
 	if headless {
+		dispatchUserPrompt(opts.prompt)
 		res, err := loop.Run(ctx, sess, opts.prompt)
 		if err != nil {
+			act.Act.EndSession(sess.ID)
 			return err
 		}
+		act.Act.EndSession(sess.ID)
 		return printResult(res, opts.jsonOut)
 	}
 
-	fmt.Printf("sin-code chat — session %s (verify=%s). Type 'exit' to quit.\n", sess.ID, gate.Mode())
+	fmt.Printf("sin-code chat — session %s (verify=%s).", sess.ID, gate.Mode())
+	if st, ok := act.Act.Snapshot(sess.ID); ok && len(st.ActiveRules.Names()) > 0 {
+		fmt.Printf(" Active rules: %s", strings.Join(st.ActiveRules.Names(), ", "))
+	}
+	fmt.Println(" Type 'exit' to quit.")
 	scanner := bufio.NewScanner(os.Stdin)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for {
@@ -177,6 +250,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		if line == "exit" || line == "quit" {
 			break
 		}
+		dispatchUserPrompt(line)
 		res, err := loop.Run(ctx, sess, line)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -184,6 +258,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		}
 		_ = printResult(res, opts.jsonOut)
 	}
+	act.Act.EndSession(sess.ID)
 	return scanner.Err()
 }
 
@@ -256,4 +331,50 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// chatActivator bundles the autoactivate.Activator with the CLI flags
+// that should be applied when a real session id is known. A single
+// instance is created per chat invocation; it is GC'd on exit.
+type chatActivator struct {
+	Act      *autoactivate.Activator
+	Defaults autoactivate.RuleSet
+	Def      autoactivate.Default
+	Rules    []string // CLI --activate list (names only — bodies come from TOML)
+}
+
+// newChatActivator constructs a chatActivator from workspace +
+// the optional `--activate <list>` and `--no-trigger` flags. Reads
+// `.sin-code/autoactivate.toml` silently when present (privacy-first).
+func newChatActivator(workspace string, opts *chatOptions) *chatActivator {
+	defaults, def, _ := autoactivate.LoadFile(filepath.Join(workspace, ".sin-code", "autoactivate.toml"))
+	return &chatActivator{
+		Act:      autoactivate.NewActivator(defaults),
+		Defaults: defaults,
+		Def:      def,
+		Rules:    parseActivateFlag(opts.activate),
+	}
+}
+
+// parseActivateFlag splits a comma-separated rule list into trimmed
+// non-empty names. Empty input returns nil.
+func parseActivateFlag(s string) []string {
+	if s == "" {
+		return nil
+	}
+	var out []string
+	for _, raw := range strings.Split(s, ",") {
+		n := strings.TrimSpace(raw)
+		if n != "" {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+func boolStr(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
 }
