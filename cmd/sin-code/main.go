@@ -96,6 +96,7 @@ func init() {
 		NewCompileSpecCmd(),             // v3.21.0 — declarative .sin-code.yml compiler (issue #164)
 		NewGrillCmd(),                   // v3.18.0 — native adversarial design-review (issue #141 fusion)
 		NewSubagentCmd(),                 // v3.18.0 — isolated-context sub-agent (issue #192, wraps #153)
+		NewAutoPRCmd(),                   // v3.18.0 — self-healing pipeline (issue #158)
 		NewCheckpointCmd(), NewRewindCmd(), // v3.20.0 — workspace checkpointing + rewind (issue #194)
 		NewDebtCmd(),                    // v3.18.0 — sin-debt marker manager (issue #177)
 		NewAuditCmd(), NewCEOAUDITCmd(), // v3.18.0 — complexity audit (issue #180) + 48-gate CEO audit
