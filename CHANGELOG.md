@@ -918,6 +918,49 @@ Acceptance criteria (issue #194 part 3):
 - [x] Restore failures return a wrapped error (`chat: --rewind=...: ...`)
       that is operator-actionable.
 
+### Added — `internal/rules` + `sin-code rules` (issue #195, Claude-Code v2.1 parity)
+Path-scoped rule surface mirroring Claude Code's
+`.claude/rules/<topic>.md` (Anthropic release v2.1, 2026-01-22).
+A rule is a single markdown file with a YAML frontmatter header
+declaring:
+- `name:` — unique identifier for the rule
+- `description:` — one-line summary
+- `paths:` — glob list (or `always_on: true`) for files the rule
+  applies to
+
+Files in `<workspace>/.sin-code/rules/*.md` are parsed once on
+`sin-code rules list` (or on chat-init), and the rule body is
+**lazy-injected** when the agent edits or reads a file whose path
+matches `paths:`. This keeps the system prompt small on every turn
+even with hundreds of rules in a repo.
+
+- **New package `cmd/sin-code/internal/rules`**:
+  - `New(workspace) *Store` constructs an unloaded store.
+  - `Store.Load() (int, error)` reads every `<name>.md` and parses
+    the frontmatter. Idempotent — second call is a no-op.
+  - `Store.All() []Rule` / `Names()` / `Get(name)` accessors.
+  - `Store.ForPath(absPath)` returns every rule that matches
+    (gitignore-style `**`/single-segment `*` glob match algorithm).
+  - Always-on rules (`always_on: true`) match every path.
+  - Hand-written YAML subset parser (~80 LoC) so the frontmatter
+    format is fully introspectable without external libs (M2).
+  - **Typed errors**: `ErrInvalidFrontmatter{Path, Reason}` for
+    mis-fenced files; `ErrDuplicateRule{Name, A, B}` when two
+    rule files share a normalised name.
+- **CLI surface**: `sin-code rules list|show|path|where` registered
+  as a top-level subcommand. `rules path <abs-file-path>` is the
+  diagnostic primitive: it answers "what rules will fire when I
+  edit this file?"
+- **Tests**: 11 race-clean tests covering parse (5 sub-cases),
+  glob matching (single + `**` + per-segment `*` + special
+  characters), Idempotent reload, duplicate detection,
+  fresh-directory degradation, and path-based lookup with mixed
+  always-on + glob matches. Total runtime ~1s under `-race`.
+- **No chat auto-injection in this PR.** The wiring that calls
+  `ForPath(path)` on every `sin_read` / `sin_edit` lands in a
+  separate PR against `internal/agentloop/loop.go` to keep this
+  PR focused on the surface + algorithm.
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added

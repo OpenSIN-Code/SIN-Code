@@ -68,6 +68,7 @@ func init() {
 	rootCmd.AddCommand(todo.TodoCmd)
 	rootCmd.AddCommand(notifications.NotificationsCmd)
 	rootCmd.AddCommand(internal.MemoryCmd)
+	rootCmd.AddCommand(internal.RulesCmd)
 	rootCmd.AddCommand(internal.ReadCmd)
 	rootCmd.AddCommand(internal.WriteCmd)
 	rootCmd.AddCommand(internal.EditCmd)
