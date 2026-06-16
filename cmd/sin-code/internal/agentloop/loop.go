@@ -27,6 +27,18 @@ type Completion struct {
 	Text      string
 	ToolCalls []ToolCall
 	Raw       session.Message
+	// Usage carries token accounting returned by the model provider. All
+	// fields optional; zero values mean "unknown" and never trigger the
+	// budget guard (issue #151).
+	Usage Usage
+}
+
+// Usage carries token accounting returned by the model provider. All fields
+// optional; zero values mean "unknown" and never trigger the budget guard.
+type Usage struct {
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
 }
 
 type ToolSpec struct {
@@ -66,12 +78,33 @@ type StopDecision struct {
 // A nil StopGate preserves the legacy behavior exactly.
 type StopGate func(ctx context.Context, snap StopSnapshot) StopDecision
 
+// Reflection is the worker's self-critique of a proposed completion. Issues
+// non-empty means the agent found problems in its own work and should fix
+// them before the stop-gate is consulted.
+type Reflection struct {
+	Issues []string
+	Notes  string
+}
+
+// Reflector performs a self-critique pass on a proposed completion. Returning
+// a Reflection with non-empty Issues forces one more work turn. A nil
+// Reflector disables the reflection step (legacy behavior).
+// Issue #152.
+type Reflector func(ctx context.Context, snap StopSnapshot) Reflection
+
 type Loop struct {
 	Gate      *verify.Gate
 	LocalTool LocalToolFunc
 	LocalSpec []ToolSpec
 	Workspace string
 	MaxTurns  int
+	// BeforeMutate, if set, is called before a mutating tool
+	// (sin_write / sin_edit) executes, with the workspace-relative
+	// path it will change. The loopbuilder wires this to
+	// checkpoint.Store.Capture so every edit is auto-snapshotted and
+	// rewind-able. Optional — nil disables auto-checkpoint.
+	// (issue #194)
+	BeforeMutate func(ctx context.Context, tool, path string)
 	// MaxStopRejects caps how many times the stop-gate can reject
 	// completion before the run errors. Zero falls back to the
 	// default of 3. Independent of StallThreshold (issue #150):
@@ -96,6 +129,23 @@ type Loop struct {
 	// of open criteria this many times consecutively (no progress). Zero
 	// disables stall detection. Recommended: 3. Independent of MaxStopRejects.
 	StallThreshold int
+
+	// MaxTokens is a hard cap on cumulative tokens (prompt+completion) across
+	// the whole run. Zero means unlimited. When exceeded the run checkpoints
+	// (if AllowContinuation) or errors, rather than continuing to spend.
+	// Issue #151.
+	MaxTokens int
+
+	// BudgetWarnRatio, if set, fires hooks.BudgetWarn once when token usage
+	// crosses this fraction of MaxTokens (e.g. 0.8). Useful for alerting.
+	BudgetWarnRatio float64
+
+	// Reflector, if set, runs a self-critique pass right BEFORE the stop-gate.
+	// If it returns issues, the loop injects them and continues working — a
+	// cheap quality lift that reduces stop-gate rejections. Runs at most once
+	// per proposed completion to avoid infinite self-doubt loops.
+	// Issue #152.
+	Reflector Reflector
 
 	// AllowContinuation switches the maxTurns outcome from a hard error to a
 	// checkpointed, resumable Result (Continuation=true). Daemons set this so
@@ -197,6 +247,11 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 	if l.LocalTool == nil {
 		return "TOOL ERROR: no LocalTool registered", injects
 	}
+	if l.BeforeMutate != nil {
+		if p := mutatedPath(tc); p != "" {
+			l.BeforeMutate(ctx, tc.Name, p)
+		}
+	}
 	res, err := l.LocalTool(ctx, tc.Name, tc.Args)
 	if err != nil {
 		l.fire(ctx, hooks.ToolError, tc.Name, map[string]any{"error": err.Error()})
@@ -259,6 +314,9 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	stopRejects := 0 // tracks how many times the stop-gate rejected completion
 	lastCritFingerprint := ""
 	stallCount := 0
+	totalTokens := 0      // issue #151: cumulative tokens across the run
+	warnedBudget := false // fires hooks.BudgetWarn once per run
+	reflectedThisProposal := false
 	toolsSeen := map[string]bool{}
 	var toolsUsed []string
 
@@ -284,6 +342,40 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			return nil, fmt.Errorf("turn %d: %w", turn, err)
 		}
 		msgs = append(msgs, resp.Raw)
+		// Token budget accounting (issue #151). Provider usage is optional;
+		// if zero we simply skip the guard for that turn.
+		if u := resp.Usage.TotalTokens; u > 0 {
+			totalTokens += u
+		} else {
+			totalTokens += resp.Usage.PromptTokens + resp.Usage.CompletionTokens
+		}
+		if l.MaxTokens > 0 {
+			if !warnedBudget && l.BudgetWarnRatio > 0 &&
+				float64(totalTokens) >= l.BudgetWarnRatio*float64(l.MaxTokens) {
+				warnedBudget = true
+				l.fire(ctx, hooks.BudgetWarn, "", map[string]any{
+					"total_tokens": totalTokens, "max_tokens": l.MaxTokens,
+				})
+			}
+			if totalTokens >= l.MaxTokens {
+				if serr := sess.SaveHistory(msgs); serr != nil {
+					return nil, serr
+				}
+				l.fire(ctx, hooks.BudgetExhausted, "", map[string]any{
+					"total_tokens": totalTokens, "max_tokens": l.MaxTokens,
+				})
+				l.record(ctx, ledger.TypeTokenBudgetExhausted,
+					map[string]any{"total_tokens": totalTokens, "max_tokens": l.MaxTokens},
+					fmt.Sprintf("token budget exhausted: %d/%d", totalTokens, l.MaxTokens))
+				if l.AllowContinuation {
+					return &Result{
+						SessionID: sess.ID, Summary: lastText, Verified: false,
+						Turns: turn + 1, Continuation: true, OpenCriteria: lastOpen,
+					}, nil
+				}
+				return nil, fmt.Errorf("token budget exhausted: %d/%d tokens used", totalTokens, l.MaxTokens)
+			}
+		}
 
 		if len(resp.ToolCalls) == 0 {
 			vpre := l.fire(ctx, hooks.VerifyPre, "", nil)
@@ -327,6 +419,37 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				"mode": string(res.Mode), "report": res.Report,
 			})
 			l.record(ctx, ledger.TypeVerifyPass, map[string]any{"mode": string(res.Mode)}, "verification passed ("+string(res.Mode)+")")
+
+			// Self-reflection: one cheap self-critique pass before the
+			// independent stop-gate. Reset the flag whenever the worker did
+			// real work (tool calls) in between, so each fresh proposal gets
+			// exactly one reflection. Issue #152.
+			if l.Reflector != nil && !reflectedThisProposal {
+				reflectedThisProposal = true
+				ref := l.Reflector(ctx, StopSnapshot{
+					Prompt: prompt, FinalOutput: resp.Text, Turns: turn + 1,
+					ToolsUsed: toolsUsed, VerifyPassed: res.Passed, SessionID: sess.ID,
+				})
+				if len(ref.Issues) > 0 {
+					l.fire(ctx, hooks.ReflectIssues, "", map[string]any{"issues": ref.Issues})
+					l.record(ctx, ledger.TypeReflection,
+						map[string]any{"issues": ref.Issues},
+						"self-reflection found issues; continuing")
+					var b strings.Builder
+					b.WriteString("SELF-REVIEW found issues to fix before completing:\n")
+					for i, is := range ref.Issues {
+						fmt.Fprintf(&b, "  %d. %s\n", i+1, is)
+					}
+					if strings.TrimSpace(ref.Notes) != "" {
+						b.WriteString("Notes: " + ref.Notes + "\n")
+					}
+					msgs = append(msgs, session.Message{Role: "user", Content: b.String()})
+					if err := sess.SaveHistory(msgs); err != nil {
+						return nil, err
+					}
+					continue
+				}
+			}
 
 			// Stop-gate: completion authority is decoupled from the worker.
 			// The verify-gate passing is necessary but not sufficient — an
@@ -425,6 +548,9 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 		}
 
 		for _, tc := range resp.ToolCalls {
+			// Real work happened in this turn — reset the reflection
+			// flag so a fresh proposal can be re-evaluated.
+			reflectedThisProposal = false
 			if !toolsSeen[tc.Name] {
 				toolsSeen[tc.Name] = true
 				toolsUsed = append(toolsUsed, tc.Name)
@@ -490,4 +616,18 @@ func formatStopContinue(dec StopDecision) string {
 	}
 	b.WriteString("Continue working until every criterion is met, then stop.")
 	return b.String()
+}
+
+// mutatedPath extracts the target path for tools that mutate the workspace
+// so the auto-checkpoint snapshots exactly the file about to change (cheap,
+// O(1)). Returns "" for tools that don't mutate the workspace or have no
+// "path" argument. (issue #194)
+func mutatedPath(tc ToolCall) string {
+	switch tc.Name {
+	case "sin_write", "sin_edit":
+		if p, ok := tc.Args["path"].(string); ok {
+			return p
+		}
+	}
+	return ""
 }

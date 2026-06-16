@@ -82,31 +82,27 @@ func init() {
 	rootCmd.AddCommand(NewChatCmd(), NewSessionsCmd(), NewMCPCmd(),
 		NewGoalCmd(), NewDaemonCmd(), NewSkillCmd(), NewSwarmCmd(), NewSuperpowersCmd(), NewDoxCmd(),
 		NewVaneCmd(), NewStackCmd(), NewGhCmd(), NewHubCmd(),
-		NewLedgerCmd(), NewSummaryCmd(), NewAutodevCmd(), // v3.4.0 + v3.5.0 + v3.6.0 + v3.7.0 + v3.8.0 + v3.9.0 + v3.12.0 + v3.13.0 + autodev-bridge (Python MIT v0.4.0, stdio MCP via autodev-mcp)
-		NewCompressCmd(),                                                 // v3.18.0 — deterministic + LLM compaction (issue #172)
-		NewLedgerCmd(), NewSummaryCmd(), NewAutodevCmd(), NewReviewCmd(), // v3.4.0 + v3.5.0 + v3.6.0 + v3.7.0 + v3.8.0 + v3.9.0 + v3.12.0 + v3.13.0 + autodev-bridge + review --complexity (issue #179)
+		NewLedgerCmd(), NewSummaryCmd(), NewAutodevCmd(), // v3.4.0 + v3.5.0 + v3.6.0 + v3.7.0 + v3.8.0 + v3.9.0 + v3.12.0 + v3.13.0 + autodev-bridge
+		NewCompressCmd(),            // v3.18.0 — deterministic + LLM compaction (issue #172)
+		NewReviewCmd(),              // v3.19.0 — review --complexity (issue #179)
 		NewSkillsCmd(),              // bundled project-local agent skills
 		NewEvalCmd(), NewTraceCmd(), // v3.18.0: Eval & Observability System (issue #75)
-		NewProfileCmd(),             // v3.18.0: single-source-of-truth per-agent profile renderer (issue #175)
-		NewEvalCmd(), NewTraceCmd(), // v3.18.0: Eval + Observability System (issue #75)
+		NewProfileCmd(),                 // v3.18.0 — single-source-of-truth per-agent profile renderer (issue #175)
 		NewRtkCmd(),                     // rtk (Rust Token Killer) bridge (issue #123)
 		NewCodeGraphCmd(),               // CodeGraph multi-language analysis bridge (issue #126)
 		NewSpecCmd(),                    // Spec-Layer: *.spec.md contracts (issue #122)
-		NewInstallCmd(),                 // v3.18.0: `sin-code install` — single-binary installer entrypoint (issue #170)
-		NewTriageCmd(),                  // v3.18.0: `sin-code triage` — backlog auto-prioritizer via gh (issue #162)
-		NewCatalogCmd(),                 // v3.18.0: `sin-code catalog` — unified tool catalog (issue #163, supersedes `hub` + `assets`)
-		NewCompileSpecCmd(),             // v3.21.0: `sin-code compile-spec` — declarative .sin-code.yml → hooks/verify/perm (issue #164)
-		NewGrillCmd(),                   // v3.18.0: `sin-code grill` — native adversarial design-review (issue #141 fusion)
-		NewRtkCmd(),                     // rtk (Rust Token Killer) bridge (issue #123)
-		NewCodeGraphCmd(),               // CodeGraph multi-language analysis bridge (issue #126)
-		NewSpecCmd(),                    // Spec-Layer: *.spec.md contracts (issue #122)
-		NewDebtCmd(),                    // issue #177: sin-debt marker manager (`// sin-debt: <ceiling>, upgrade: <trigger>`)
-		NewRtkCmd(),                     // rtk (Rust Token Killer) bridge (issue #123)
-		NewCodeGraphCmd(),               // CodeGraph multi-language analysis bridge (issue #126)
-		NewSpecCmd(),                    // Spec-Layer: *.spec.md contracts (issue #122)
-		NewAuditCmd(), NewCEOAUDITCmd(), // v3.18.0: complexity audit (issue #180) + 48-gate CEO audit
-		NewCoverCmd(),                   // Coverage-Drohne: scan, check, gaps, generate
-		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + eval + prp workflow
+		NewInstallCmd(),                 // v3.18.0 — single-binary installer entrypoint (issue #170)
+		NewTriageCmd(),                  // v3.18.0 — backlog auto-prioritizer via gh (issue #162)
+		NewCatalogCmd(),                 // v3.18.0 — unified tool catalog (issue #163, supersedes hub + assets)
+		NewCompileSpecCmd(),             // v3.21.0 — declarative .sin-code.yml compiler (issue #164)
+		NewGrillCmd(),                   // v3.18.0 — native adversarial design-review (issue #141 fusion)
+		NewSubagentCmd(),                // v3.18.0 — isolated-context sub-agent (issue #192, wraps #153)
+		NewAutoPRCmd(),                  // v3.18.0 — self-healing pipeline (issue #158)
+		NewCheckpointCmd(), NewRewindCmd(), // v3.20.0 — workspace checkpointing + rewind (issue #194)
+		NewDebtCmd(),                    // v3.18.0 — sin-debt marker manager (issue #177)
+		NewAuditCmd(), NewCEOAUDITCmd(), // v3.18.0 — complexity audit (issue #180) + 48-gate CEO audit
+		NewCoverCmd(),                   // Coverage-Drohne: scan, check, gaps, generate, hook
+		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + evalset + prp workflow
 	)
 
 	// Pass build-time version to self-update module.

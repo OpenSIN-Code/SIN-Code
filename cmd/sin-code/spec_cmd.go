@@ -145,6 +145,7 @@ func newSpecCheckCmd() *cobra.Command {
 		timeout time.Duration
 		drift   bool
 		root    string
+		policy  string
 	)
 	c := &cobra.Command{
 		Use:   "check [file.spec.md]",
@@ -163,10 +164,22 @@ source tree under --root (default: current dir).
   sin-code spec check --all --json                      # machine-readable report
   sin-code spec check --all --drift                     # + signature drift
   sin-code spec check --all --drift --root ./cmd/...   # scope the walk
-  sin-code spec check --timeout 30s ...                # override per-criterion timeout`,
+  sin-code spec check --timeout 30s ...                # override per-criterion timeout
+  sin-code spec check --policy off|warn|error          # drift strictness (issue #157)`,
+  // The --policy default reads from SIN_SPEC_DRIFT env var, then falls
+  // back to "error" (CI gate mode; the verify gate is sacred).
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()
+			// Resolve policy: --policy flag > SIN_SPEC_DRIFT env > "error".
+			polRaw := policy
+			if polRaw == "" {
+				polRaw = os.Getenv("SIN_SPEC_DRIFT")
+			}
+			pol := spec.ParsePolicy(polRaw)
+			if !asJSON {
+				fmt.Fprintf(cmd.OutOrStdout(), "policy: %s\n", pol)
+			}
 			paths, err := collectSpecPaths(args, all)
 			if err != nil {
 				return err
@@ -229,8 +242,8 @@ source tree under --root (default: current dir).
 					return err
 				}
 			}
-			if anyFailure {
-				return fmt.Errorf("spec check: at least one must-priority criterion or signature drifted")
+			if anyFailure && pol == spec.PolicyError {
+				return fmt.Errorf("spec check: at least one must-priority criterion or signature drifted (policy=%s)", pol)
 			}
 			return nil
 		},
@@ -240,6 +253,7 @@ source tree under --root (default: current dir).
 	c.Flags().DurationVar(&timeout, "timeout", spec.DefaultCheckTimeout, "per-criterion timeout")
 	c.Flags().BoolVar(&drift, "drift", false, "also run the Spec<->Code signature drift check")
 	c.Flags().StringVar(&root, "root", ".", "root directory for the signature drift walk")
+	c.Flags().StringVar(&policy, "policy", "", "drift strictness: off|warn|error (overrides SIN_SPEC_DRIFT env; default error)")
 	return c
 }
 

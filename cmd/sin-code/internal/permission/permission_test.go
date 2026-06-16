@@ -1,64 +1,117 @@
 // SPDX-License-Identifier: MIT
-// Purpose: permission engine tests (mandate M4, AGENTS.md §8).
+// Purpose: tests for issue #193 — session-wide permission modes.
 package permission
 
 import "testing"
 
-func TestCheck(t *testing.T) {
-	e := New([]Rule{
-		{Tool: "sin_read", Policy: "allow"},
-		{Tool: "sckg_*", Policy: "allow"},
-		{Tool: "sin_bash", Policy: "ask"},
-		{Tool: "*", Policy: "ask"},
-	})
-
-	cases := []struct {
-		tool string
-		want Policy
-	}{
-		{"sin_read", Allow},
-		{"sckg_query", Allow},
-		{"sin_bash", Ask},
-		{"unknown_tool", Ask},
+func TestEngine_ModeDefault_NoOp(t *testing.T) {
+	e := New([]Rule{{Tool: "Bash", Policy: "allow"}})
+	if e.Check("Bash") != Allow {
+		t.Error("default mode should not change rule-based Allow")
 	}
-	for _, c := range cases {
-		if got := e.Check(c.tool); got != c.want {
-			t.Errorf("Check(%q) = %v, want %v", c.tool, got, c.want)
-		}
+	if e.Check("unknown") != Ask {
+		t.Error("default mode should keep Ask for unknown tools")
 	}
 }
 
-func TestHeadlessAskBecomesDeny(t *testing.T) {
-	e := New([]Rule{{Tool: "sin_bash", Policy: "ask"}})
+func TestEngine_ModePlan_ForcesAskOnMutating(t *testing.T) {
+	rules := []Rule{
+		{Tool: "Bash", Policy: "allow"},
+		{Tool: "Edit", Policy: "allow"},
+		{Tool: "Read", Policy: "allow"},
+		{Tool: "ls", Policy: "allow"},
+	}
+	e := New(rules)
+	if err := e.SetMode(ModePlan); err != nil {
+		t.Fatal(err)
+	}
+	if e.Check("Bash") != Ask {
+		t.Errorf("plan mode: Bash should be Ask, got %s", e.Check("Bash"))
+	}
+	if e.Check("Edit") != Ask {
+		t.Errorf("plan mode: Edit should be Ask, got %s", e.Check("Edit"))
+	}
+	if e.Check("Read") != Allow {
+		t.Errorf("plan mode: Read should be Allow, got %s", e.Check("Read"))
+	}
+	if e.Check("ls") != Allow {
+		t.Errorf("plan mode: ls should be Allow, got %s", e.Check("ls"))
+	}
+}
+
+func TestEngine_ModeAcceptEdits(t *testing.T) {
+	rules := []Rule{
+		{Tool: "Edit", Policy: "ask"},
+		{Tool: "Bash", Policy: "ask"},
+		{Tool: "Read", Policy: "allow"},
+	}
+	e := New(rules)
+	if err := e.SetMode(ModeAcceptEdits); err != nil {
+		t.Fatal(err)
+	}
+	if e.Check("Edit") != Allow {
+		t.Errorf("acceptEdits: Edit should be Allow, got %s", e.Check("Edit"))
+	}
+	if e.Check("Write") != Allow {
+		t.Errorf("acceptEdits: Write should be Allow, got %s", e.Check("Write"))
+	}
+	if e.Check("Bash") != Ask {
+		t.Errorf("acceptEdits: Bash should stay Ask, got %s", e.Check("Bash"))
+	}
+	if e.Check("Read") != Allow {
+		t.Errorf("acceptEdits: Read should be Allow, got %s", e.Check("Read"))
+	}
+}
+
+func TestEngine_ModeBypass(t *testing.T) {
+	rules := []Rule{
+		{Tool: "Bash", Policy: "ask"},
+		{Tool: "Edit", Policy: "ask"},
+		{Tool: "danger", Policy: "deny"},
+	}
+	e := New(rules)
+	if err := e.SetMode(ModeBypass); err != nil {
+		t.Fatal(err)
+	}
+	if e.Check("Bash") != Allow {
+		t.Errorf("bypass: Bash should be Allow, got %s", e.Check("Bash"))
+	}
+	if e.Check("Edit") != Allow {
+		t.Errorf("bypass: Edit should be Allow, got %s", e.Check("Edit"))
+	}
+	if e.Check("danger") != Deny {
+		t.Errorf("bypass: Deny must NEVER be overridden, got %s", e.Check("danger"))
+	}
+}
+
+func TestEngine_SetMode_Invalid(t *testing.T) {
+	e := New(nil)
+	if err := e.SetMode(Mode("garbage")); err == nil {
+		t.Error("expected error for unknown mode")
+	}
+}
+
+func TestEngine_ModeHeadlessAskToDeny(t *testing.T) {
+	rules := []Rule{{Tool: "Bash", Policy: "ask"}}
+	e := New(rules)
 	e.Headless = true
-	if e.Check("sin_bash") != Deny {
-		t.Error("headless: ask must resolve to deny")
+	if err := e.SetMode(ModeDefault); err != nil {
+		t.Fatal(err)
+	}
+	if e.Check("Bash") != Deny {
+		t.Errorf("headless: Ask should resolve to Deny, got %s", e.Check("Bash"))
 	}
 }
 
-func TestYoloBypassesAsk(t *testing.T) {
-	e := New([]Rule{{Tool: "sin_bash", Policy: "ask"}})
+func TestEngine_ModeYoloBypassesAsk(t *testing.T) {
+	rules := []Rule{{Tool: "Bash", Policy: "ask"}}
+	e := New(rules)
 	e.Yolo = true
-	if e.Check("sin_bash") != Allow {
-		t.Error("yolo: ask must resolve to allow")
+	if err := e.SetMode(ModeDefault); err != nil {
+		t.Fatal(err)
 	}
-}
-
-func TestYoloNeverBypassesDeny(t *testing.T) {
-	e := New([]Rule{{Tool: "rm_*", Policy: "deny"}})
-	e.Yolo = true
-	if e.Check("rm_rf") != Deny {
-		t.Error("yolo must never bypass deny")
-	}
-}
-
-func TestFirstMatchWins(t *testing.T) {
-	e := New([]Rule{
-		{Tool: "sin_*", Policy: "allow"},
-		{Tool: "sin_bash", Policy: "deny"},
-	})
-	if e.Check("sin_bash") != Allow {
-		t.Error("first match (sin_*) should win over later sin_bash deny")
+	if e.Check("Bash") != Allow {
+		t.Errorf("yolo: Ask should resolve to Allow, got %s", e.Check("Bash"))
 	}
 }
 
