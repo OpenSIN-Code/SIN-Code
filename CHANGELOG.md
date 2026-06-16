@@ -4,6 +4,22 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — `sin-code triage` (issue #162)
+- **`cmd/sin-code/triage_cmd.go`** — new 41st subcommand `sin-code triage`
+  (and `triage --format=md|json --repo owner/repo --limit N`). Reads the
+  open issue backlog via `gh issue list` through the `ghbridge` wrapper,
+  scores each issue with a deterministic heuristic (epic +10, blocks +5
+  per ref, acceptance +3, not-in-v0 +5, loop-system +4, fusion +2,
+  fresh -2, stale +1, good-first-issue -3), groups by label bucket, and
+  renders. The markdown output is the canonical `BACKLOG.md` generator.
+- **`cmd/sin-code/internal/triage/`** — new package, four files
+  (`types.go`, `score.go`, `render.go`, `loader.go`) plus
+  `triage_test.go` (15 tests, all green under `-race -count=1`). The
+  loader is a `var` so tests inject fixtures without spawning `gh`. No
+  new third-party deps (M2).
+- **`triage.doc.md`** — design doc with the scoring table, the
+  per-bucket ordering rule, and the deferred-items list.
+
 ### Added — `sin-code install` + one-line curl|bash installer (issue #170)
 - **`cmd/sin-code/install_cmd.go`** — new 40th subcommand `sin-code install`
   (and `install --auto`). Downloads the latest GitHub release asset,
