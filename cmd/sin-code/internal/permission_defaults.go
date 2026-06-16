@@ -96,6 +96,16 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "profile__list", Policy: "allow"},
 		{Tool: "profile__verify", Policy: "allow"},
 		{Tool: "profile__render", Policy: "ask"},
+		// v3.18.0: sin-debt marker manager (issue #177).
+		// Read-only scanners are allow; check is ask because failing
+		// the gate is a visible signal; fix/export are ask because they
+		// either instruct humans to edit code or write to disk.
+		{Tool: "sindept__list", Policy: "allow"},
+		{Tool: "sindept__stats", Policy: "allow"},
+		{Tool: "sindept__policy", Policy: "allow"},
+		{Tool: "sindept__check", Policy: "ask"},
+		{Tool: "sindept__fix", Policy: "ask"},
+		{Tool: "sindept__export", Policy: "ask"},
 		// Backstop catch-all (mirrors sin_bash default at line 44 for unmatched prefixes).
 		{Tool: "autodev__*", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},

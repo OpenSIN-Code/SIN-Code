@@ -95,6 +95,10 @@ func init() {
 		NewCatalogCmd(),                                                                                // v3.18.0: `sin-code catalog` — unified tool catalog (issue #163, supersedes `hub` + `assets`)
 		NewCompileSpecCmd(),                                                                            // v3.21.0: `sin-code compile-spec` — declarative .sin-code.yml → hooks/verify/perm (issue #164)
 		NewGrillCmd(),                                                                                  // v3.18.0: `sin-code grill` — native adversarial design-review (issue #141 fusion)
+		NewRtkCmd(),                                                                                    // rtk (Rust Token Killer) bridge (issue #123)
+		NewCodeGraphCmd(),                                                                              // CodeGraph multi-language analysis bridge (issue #126)
+		NewSpecCmd(),                                                                                   // Spec-Layer: *.spec.md contracts (issue #122)
+		NewDebtCmd(),                                                                                   // issue #177: sin-debt marker manager (`// sin-debt: <ceiling>, upgrade: <trigger>`)
 		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + eval + prp workflow
 	)
 

@@ -350,6 +350,66 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   contract (golden render, marker-fence idempotency, marker-Fence
   covenant, `Verify` pass / missing / drift, write-after-write SHA
   equality, replace-not-append for stale mirrors).
+### Added — sin-debt marker convention (issue #177)
+SIN-Code adopts ponytail v4.7.0's `ponytail:` marker convention as a
+first-class, parseable `// sin-debt: <ceiling>, upgrade: <trigger>`
+convention. Every intentional shortcut now carries a marker naming its
+ceiling and the trigger to revisit; the scanner reads them; `debt stats`
+reports them; `debt check` gates them.
+
+- **`internal/sindept/`** — scanner, aggregator, byte-stable report
+  renderer, and policy gate. Single-package surface:
+  - `parser.go`  — `Marker{File, Line, Column, Reason, Upgrade, HasUpg,
+    Raw, Language, Symbol}`, regex over five comment families
+    (`//`, `#`, `--`, `/*…*/`, `<!--…-->`), `ParseFile` + `ParseDir`.
+    Trims trailing block-comment closers (`*/`, `-->`) and post-processes
+    captured clauses for byte-determinism.
+  - `stats.go`   — `Stats{Total, WithUpgrade, WithoutUpgrade, ByFile,
+    ByReason, ByLanguage, BySymbol, RotRisk, Oldest, MarkersPerFile}`.
+    Every map is materialized as a lex-sorted `[]KV` so `Render*`
+    output is stable.
+  - `report.go`  — `RenderStats` / `RenderStatsString` /
+    `RenderListString` markdown renders with `FormatVersion =
+    "sin-debt/v1"`. Two scans of the same tree emit the same bytes.
+  - `policy.go`  — `Policy{DefaultReasons, UpgradeTriggers,
+    MaxNoUpgrade, RequireUpgrade, Source}`. TOML overlay via
+    `.sin-code/debt-policy.toml`; `LoadPolicyForRoot` walks upward to
+    the closest file.
+- **`debt_cmd.go`** — 41st subcommand. `sin-code debt list | stats |
+  check | policy | fix | export`. Common flags: `--path`, `--format`
+  (`table|json`), `--no-trigger`. Stats sub-commands take `--by
+  file|reason|language|symbol|age|summary`. The `check` sub-command
+  is the CI gate; it exits non-zero when `Missing > MaxNoUpgrade` or
+  `RequireUpgrade=true && Missing > 0`.
+- **`docs/sin-debt-convention.md`** — author-facing reference:
+  format, examples, default reasons catalogue, default upgrade
+  triggers.
+- **Permitted `sindept__*` tools**: `sindept__list`, `sindept__stats`,
+  `sindept__policy` are read-only `allow`; `sindept__check` exiting
+  non-zero is `ask`; `sindept__fix` and `sindept__export` are
+  `ask` because they instruct humans to edit code or write a file.
+- **10 hard-coded fixture markers** under
+  `cmd/sin-code/internal/sindept/testdata/` (5 languages) and 4 *real*
+  markers placed in production code (`cmd/sin-code/internal/lessons/
+  store.go` × 2, `…/ledger/store.go`, `…/orchestrator/dispatcher.go`).
+- **Tests**: 23 tests in `cmd/sin-code/internal/sindept/sindept_test.go`
+  cover family coverage, trailing-closer stripping, byte-stability,
+  vendor / hidden-dir walk, age/rot grouping, and the
+  policy-gate semantics above vs. below threshold. Race-clean.
+
+### Notes
+- `sin-code debt stats` is the precondition for the four-arm
+  comparator snapshot (issue #171); byte-stable today, golden file is
+  expected in the next PR cycle.
+- The marker syntax deliberately does NOT include `\Q…\E` quoting —
+  RE2 has no such construct, and the literal token `sin-debt:` is
+  plain inside the regex.
+- `internal/sindept` is the upstream of issue #179 (complexity auditor)
+  and issue #180 (audit-engine): both are expected to call
+  `sindept.ParseFile` / `sindept.AggregateStats` so a marker reads
+  through the same shape regardless of consumer.
+
+---
 
 ### Added — Loop Engineering (decoupled completion authority)
 ### Added — MCP tool-manifest compression (issue #173, v3.19.0)
