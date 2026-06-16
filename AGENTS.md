@@ -470,7 +470,7 @@ All bundled skills live under `skills/<category>-skills/` and are named
 | Code | `code-skills/` | `skill-code-audit`, `skill-code-build`, `skill-code-create` |
 | GitHub | `github-skills/` | `skill-github-actions`, `skill-github-account`, `skill-github-app` |
 | Memory | `memory-skills/` | `skill-memory-honcho`, `skill-memory-infisical` |
-| Process | `process-skills/` | `skill-process-goal`, `skill-process-grill` |
+| Process | `process-skills/` | `skill-process-goal`, `skill-process-grill`, `skill-code-lazy` |
 | Shop | `shop-skills/` | `skill-shop-cj-dropshipping`, `skill-shop-stripe` |
 
 Each skill **must** contain:
@@ -478,7 +478,8 @@ Each skill **must** contain:
 - `context/`, `frameworks/`, `tasks/`, `templates/` directories
 - `LICENSE` file
 
-Skills ported from external repos (e.g. `Infra-SIN-OpenCode-Stack`) must include
+Skills ported from external repos (e.g. `Infra-SIN-OpenCode-Stack`,
+`DietrichGebert/ponytail` → `skill-code-lazy`) must include
 `lifecycle: external` and `sources:` in their metadata.
 
 ### Skill distribution to external agents (issue #169)
@@ -518,6 +519,17 @@ via the `--agent <name>` flag. Adding a target is non-breaking; renaming
 or removing one is a major bump. The `sin-code skill list --json`
 output schema is also a public API — preferred-format changes go through
 the same major-bump policy.
+### Naming-convention note (issue #178)
+
+The canonical pattern is `skill-<category>-<name>` (i.e. the
+middle token matches the directory category, e.g.
+`skill-process-lazy`). **`skill-code-lazy`** is the v3.18.0
+historical exception preserved for activation-keyword stability
+(`lazy_skill` binds to the literal name as it appears in
+`SKILL.md:frontmatter.name`). New bundled skills must follow the
+canonical pattern; renaming `skill-code-lazy` would require a
+major bump because the `lazy_skill` keyword is part of the
+external activate-mode contract (issue #176).
 
 ### CLI subcommands (verified `cmd/sin-code/main.go`, v3.5.0)
 
