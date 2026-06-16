@@ -32,7 +32,8 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
   Utility commands: security, sbom, config, self-update, tui, serve, update
   Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, superpowers,
-                    vane, stack, gh, hub, ledger, summary, install, compress
+                    vane, stack, gh, hub, ledger, summary, install, compress,
+                    cover
   Other:            completion, read, write, edit, lsp, plugin, index,
                     orchestrator-run, orchestrator-agents, orchestrator-plan,
                     todo, notifications, memory, assets, evalset, hooks,
@@ -104,6 +105,7 @@ func init() {
 		NewCodeGraphCmd(),               // CodeGraph multi-language analysis bridge (issue #126)
 		NewSpecCmd(),                    // Spec-Layer: *.spec.md contracts (issue #122)
 		NewAuditCmd(), NewCEOAUDITCmd(), // v3.18.0: complexity audit (issue #180) + 48-gate CEO audit
+		NewCoverCmd(),                   // Coverage-Drohne: scan, check, gaps, generate
 		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + eval + prp workflow
 	)
 
