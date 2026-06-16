@@ -2,12 +2,9 @@
 name: skill-github-governance
 description: "Autonomous repository management: internal governance (Zeus & Hermes) and external bug-hunter outreach."
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: OpenSIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: native
 ---
 
 # skill-github-governance

@@ -2,12 +2,9 @@
 name: skill-code-build
 description: Implement a feature from an approved plan with tests and verification. Use when the user asks to build, implement, or code a feature.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: native
 ---
 
 # skill-code-build

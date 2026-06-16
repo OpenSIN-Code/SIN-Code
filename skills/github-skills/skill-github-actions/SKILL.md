@@ -2,12 +2,9 @@
 name: skill-github-actions
 description: One-command GitHub Actions workflow deployment for OpenSIN-Code repos. Provisions canonical workflows, branch protection, dependabot, and release automation.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: native
 ---
 
 # skill-github-actions

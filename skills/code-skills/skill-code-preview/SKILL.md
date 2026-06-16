@@ -2,12 +2,9 @@
 name: skill-code-preview
 description: Open generated images and screenshots in macOS Preview automatically. Always use when creating or referencing images.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: native
 ---
 
 # skill-code-preview

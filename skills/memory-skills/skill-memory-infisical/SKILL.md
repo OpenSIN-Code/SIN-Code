@@ -2,12 +2,9 @@
 name: skill-memory-infisical
 description: Centralized secret management via Infisical CLI. Stores API keys, tokens, and credentials without .env files or shell history.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: external
 ---
 
 # skill-memory-infisical

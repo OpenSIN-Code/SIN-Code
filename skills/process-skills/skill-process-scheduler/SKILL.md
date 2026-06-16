@@ -2,12 +2,9 @@
 name: skill-process-scheduler
 description: Job scheduling with cron expressions and human-readable intervals via MCP server and CLI. Schedule, list, cancel, run, and inspect job execution logs.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: OpenSIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: external
 ---
 
 # skill-process-scheduler

@@ -2,12 +2,9 @@
 name: skill-browser-tools
 description: Browser automation and CDP evidence capture for agents. Navigate, record, screenshot, scrape, and interact with web pages. Surfaces deterministic findings (network failures, JS exceptions, CORS/CSP violations, security state) without requiring LLM interpretation of raw logs.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 2.0.0
+compatibility: 
+metadata: 
+lifecycle: external
 ---
 
 # skill-browser-tools
