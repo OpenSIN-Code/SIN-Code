@@ -27,6 +27,7 @@ func NewCommand() *cobra.Command {
 		cmdExport(),
 		cmdImport(),
 		cmdShow(),
+		cmdSearch(),
 		cmdForget(),
 		cmdHistory(),
 	)
