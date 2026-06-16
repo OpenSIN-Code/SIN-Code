@@ -23,11 +23,11 @@ func (e *ValidationError) Error() string {
 
 // ValidProjectTypes are the values accepted by project.type.
 var ValidProjectTypes = map[string]bool{
-	"go":        true,
-	"python":    true,
-	"rust":      true,
-	"node":      true,
-	"polyglot":  true,
+	"go":       true,
+	"python":   true,
+	"rust":     true,
+	"node":     true,
+	"polyglot": true,
 }
 
 // ValidVerifyModes are the values accepted by verify.mode.
@@ -63,7 +63,7 @@ func Validate(c *Config) error {
 	// Project: type must be a known value.
 	if c.Project.Type != "" && !ValidProjectTypes[c.Project.Type] {
 		return &ValidationError{
-			Path:    "project.type",
+			Path: "project.type",
 			Message: fmt.Sprintf("invalid value %q (expected one of %s)",
 				c.Project.Type, strings.Join(ValidProjectTypeValues, ", ")),
 		}
@@ -71,7 +71,7 @@ func Validate(c *Config) error {
 	// Verify: mode must be a known value.
 	if c.Verify.Mode != "" && !ValidVerifyModes[c.Verify.Mode] {
 		return &ValidationError{
-			Path:    "verify.mode",
+			Path: "verify.mode",
 			Message: fmt.Sprintf("invalid value %q (expected one of %s)",
 				c.Verify.Mode, strings.Join(ValidVerifyModeValues, ", ")),
 		}
@@ -93,7 +93,7 @@ func Validate(c *Config) error {
 		}
 		if seen[p.Name] {
 			return &ValidationError{
-				Path: fmt.Sprintf("verify.predicates[%d].name", i),
+				Path:    fmt.Sprintf("verify.predicates[%d].name", i),
 				Message: fmt.Sprintf("duplicate name %q", p.Name),
 			}
 		}

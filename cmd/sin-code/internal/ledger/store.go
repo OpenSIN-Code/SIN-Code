@@ -33,6 +33,10 @@ const (
 	TypeTaskAbort        EntryType = "task_abort"
 	TypeStopContinue     EntryType = "stop_continue"
 	TypeTaskCheckpoint   EntryType = "task_checkpoint"
+	// TypeStallDetected is recorded when the stop-gate returns the SAME open
+	// criteria StallThreshold times in a row — the worker is not making
+	// progress and the run escalates early instead of burning the full budget.
+	TypeStallDetected EntryType = "stall_detected"
 )
 
 // Entry is one row in the ledger.
@@ -170,6 +174,7 @@ func (s *Store) QueryByType(ctx context.Context, sessionID string, t EntryType, 
 	return scanRows(rows)
 }
 
+// sin-debt: DISTINCT query scans entire ledger, upgrade: maintain session_id index table when ledger entries > 1M
 // Sessions returns all distinct session IDs, newest first.
 func (s *Store) Sessions(ctx context.Context, limit int) ([]string, error) {
 	if limit <= 0 {

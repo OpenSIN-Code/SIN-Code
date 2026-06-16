@@ -2,12 +2,9 @@
 name: skill-code-mcp-builder
 description: Meta-skill that scaffolds new MCP servers in python-fastmcp, node-mcp, or go-mcp. Provides tools for scaffold, template_list, add_tool, test, register, validate, publish, and audit.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: OpenSIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: external
 ---
 
 # skill-code-mcp-builder

@@ -25,9 +25,6 @@ func (r Runner) Execute(ctx context.Context, set EvalSet) (Run, error) {
 	if r.Subject == nil {
 		return Run{}, fmt.Errorf("evalharness: nil Subject")
 	}
-	if r.Scorer == nil {
-		r.Scorer = SuccessFlag{}
-	}
 	run := Run{
 		ID:        fmt.Sprintf("%s-%d", set.Name, time.Now().Unix()),
 		SetName:   set.Name,
@@ -62,7 +59,20 @@ func (r Runner) runCase(ctx context.Context, c EvalCase) Result {
 	if err != nil {
 		return Result{CaseID: c.ID, Score: 0, Weight: w, Passed: false, Duration: dur, Err: err.Error()}
 	}
-	score, passed, detail := r.Scorer.Score(c, out)
+	scorer := r.Scorer
+	if c.Scorer != nil {
+		caseScorer, serr := ScorerFromConfig(c.Scorer)
+		if serr != nil {
+			return Result{CaseID: c.ID, Score: 0, Weight: w, Passed: false, Duration: dur, Err: serr.Error()}
+		}
+		if caseScorer != nil {
+			scorer = caseScorer
+		}
+	}
+	if scorer == nil {
+		scorer = SuccessFlag{}
+	}
+	score, passed, detail := scorer.Score(c, out)
 	return Result{
 		CaseID: c.ID, Score: score, Weight: w, Passed: passed,
 		Output: truncate(out.Text, 500), Detail: detail, Duration: dur,

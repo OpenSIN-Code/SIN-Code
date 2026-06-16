@@ -2,12 +2,9 @@
 name: skill-memory-honcho-rollback
 description: Snapshot, diff, and rollback sin-brain / Honcho memory with merge/exact/patch strategies and an audit log.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: external
 ---
 
 # skill-memory-honcho-rollback

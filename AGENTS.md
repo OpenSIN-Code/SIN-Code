@@ -8,9 +8,37 @@
 > bundled skills reorganized into category directories and renamed to
 > `skill-<category>-<name>`; `github-skills/` category added; 34 bundled skills
 > embedded in the binary. Branch protection on `main` permanently relaxed to
+> **Last verified against main:** v3.19.0 (2026-06-16) —
+> `sin-code serve --compress-tools` wired (issue #173): ponytail-tag
+> compressor `cmd/sin-code/internal/mcpcompress/` shrinks the 47-tool
+> manifest on the wire (delete|stdlib|native|yagni|shrink tags,
+> byte-stable per `(tool_spec, ruleset)`). Bundled skills reorganized
+> into category directories and renamed to `skill-<category>-<name>`;
+> `github-skills/` category added; 34 bundled skills embedded in the
+> binary. Branch protection on `main` permanently relaxed to
 > `required_approving_review_count: 0` for solo-maintainer workflow.
 > `sin-code install` (issue #170) — new 40th subcommand; root `install.sh`
 > rewritten to a 27-line curl|bash shim; matching `install.ps1` for Windows.
+> `sin-code compress` (issue #172): deterministic + LLM compaction for
+> lessons / instincts / summaries / memory / AGENTS.md; snapshot+rollback
+> for lossless Apply; 39 → 40 subcommands. Branch protection on `main`
+> permanently relaxed to `required_approving_review_count: 0` for
+> solo-maintainer workflow.
+> `sin-code debt` (issue #177) — sin-debt marker convention
+> (`// sin-debt: <ceiling>, upgrade: <trigger>`) adopted from ponytail;
+> 41st subcommand, `cmd/sin-code/internal/sindept/` package with byte-stable
+> scanner + aggregator + report + policy gate.
+> **Last verified against main:** v3.19.0 (2026-06-16) —
+> `autoactivate` hooklife subpackage (issue #176) wired into `sin-code chat`
+> with `--activate <rule>` + `--no-trigger` flags; project-local
+> `.sin-code/autoactivate.toml`; deterministic byte-stable rule rendering;
+> race-safe per-session state (mandate M7). Branch protection on `main`
+> permanently relaxed to `required_approving_review_count: 0` for solo-
+> maintainer workflow.
+> `sin-code audit` + `sin-code ceo-audit` added (issue #180): complexity-audit
+> engine in `cmd/sin-code/internal/audit/`, 48th CEO-audit gate.
+> `sin-code install` (issue #170) — 40th subcommand; `sin-code review --complexity`
+> (issue #179) — 41st subcommand.
 
 ---
 
@@ -149,8 +177,21 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code hub           ← v3.12.0: tool catalog hub
   ├─ sin-code ledger        ← v3.13.0: semantic session ledger
   ├─ sin-code summary       ← v3.13.0: session auto-summary
-  └─ 39 subcommands
+  ├─ sin-code compress      ← v3.18.0: deterministic + LLM compaction (issue #172)
+  └─ 40 subcommands
+  ├─ sin-code audit         ← v3.18.0: repo-wide complexity audit (issue #180)
+  ├─ sin-code ceo-audit     ← v3.18.0: 48-gate CEO audit with complexity gate (issue #180)
+  └─ 41 subcommands
+  ├─ sin-code review        ← v3.19.0: ponytail complexity review (issue #179)
+  └─ 41 subcommands (v3.19.0)
 
+         │
+         ▼
+  ┌──────────────────────────────────────────┐
+  │      AUDIT LAYER (v3.18.0)               │
+  │  • complexity — static + LLM judge (M3)    │
+  │  • ceo-audit — 48 gates incl. complexity   │
+  └──────────────────────────────────────────┘
          │
          ▼
   ┌──────────────────────────────────────────┐
@@ -226,7 +267,7 @@ SIN-Code/
 ├── go.mod                     ← module github.com/OpenSIN-Code/SIN-Code
 ├── .goreleaser.yaml
 ├── .github/workflows/
-│   ├── ceo-audit.yml          ← n8n delegation (mandate M1)
+│   ├── ceo-audit.yml          ← n8n delegation (mandate M1) + profile-verify job (issue #175)
 │   ├── sin-code-release.yml   ← goreleaser + brew tap
 │   └── ecosystem-sync.yml     ← prevents registry/permission/ECOSYSTEM drift
 ├── install.sh                    ← 27-line curl|bash shim → `sin-code install` (issue #170)
@@ -238,10 +279,17 @@ SIN-Code/
 │   ├── HOOKS.md
 │   ├── LEARNING.md
 │   ├── WEBUI.md                ← WebUI-v2 backend contract
-│   └── mcp.json.example
+│   ├── mcp.json.example
+│   └── agent-profiles/
+│       └── sin-profile.md      ← v3.18.0: single-source-of-truth per-agent profile (issue #175)
 │
 ├── cmd/
 │   ├── sin-code/              ← MAIN BINARY (40 subcommands — v3.18.0)
+│   ├── complexity-review.md    ← v3.19.0: ponytail complexity review docs
+│   └── mcp.json.example
+│
+├── cmd/
+│   ├── sin-code/              ← MAIN BINARY (41 subcommands — v3.19.0)
 │   │   ├── main.go            ← cobra root; AddCommand for all subcommands
 │   │   ├── tui.go, webui_cmd.go
 │   │   ├── chat_cmd.go        ← v3.4.0: chat + -p headless
@@ -262,6 +310,17 @@ SIN-Code/
 │   │   ├── install_cmd.go       ← v3.18.0: `sin-code install` (issue #170, single-binary installer)
 │   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
 │   │   └── internal/          ← 18 packages (v3.18.0)
+  │   │   ├── summary_cmd.go       ← v3.13.0: summary builder subcommand
+  │   │   ├── compress_cmd.go       ← v3.18.0: sin-code compress subcommand (plan/apply/rollback, issue #172)
+  │   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
+│   │   └── internal/          ← 17 packages (v3.8.0)
+│   │   ├── install_cmd.go       ← v3.18.0: sin-code install (issue #170)
+│   │   ├── profile_cmd.go       ← v3.18.0: single-source-of-truth profile renderer (issue #175)
+│   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
+│   │   └── internal/          ← 18 packages (v3.18.0)
+│   │   ├── review_cmd.go        ← v3.19.0: `review --complexity` ponytail 5-tag review (issue #179)
+│   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
+│   │   └── internal/          ← 18 packages (v3.19.0)
 │   │       ├── agentloop/     ← PLAN→ACT→VERIFY→DONE loop
 │   │       ├── session/       ← SQLite-backed resumable sessions
 │   │       ├── permission/    ← allow/ask/deny engine
@@ -280,6 +339,16 @@ SIN-Code/
 │   │       ├── ledger/        ← v3.13.0: semantic session ledger (SQLite)
 │   │       ├── summary/       ← v3.13.0: deterministic session summary builder
 │   │       ├── install/       ← v3.18.0: pure-stdlib release install + SHA256 verify + atomic place (issue #170)
+│   │       ├── mcpcompress/   ← v3.19.0: ponytail-tag compressor for `serve --compress-tools`
+│   │       ├── install/       ← v3.18.0: pure-stdlib release install + SHA256 verify (issue #170)
+│   │       ├── profile/       ← v3.18.0: single-source-of-truth per-agent renderer (issue #175)
+│   │       ├── eval/          ← v3.18.0: issue #75 eval + observability
+│   │       ├── dataset/       ← v3.18.0: golden-dataset JSON parser
+│   │       ├── trace/         ← v3.18.0: OpenTelemetry TracerProvider
+│   │       ├── evalharness/   ← v3.18.0: 4-arm comparator (issue #171)
+│   │       ├── install/       ← v3.18.0: pure-stdlib install + SHA256 (issue #170)
+│   │       ├── sindept/       ← v3.18.0: // sin-debt: marker scanner/reporter (issue #177)
+│   │       ├── complexity/    ← v3.19.0: static ponytail complexity analyzer (issue #179)
 │   │       ├── llm/           ← provider layer
 │   │       ├── style/         ← v3.17.0: verbosity / compression mode system-prompt renderer (issue #167)
 │   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
@@ -299,12 +368,16 @@ SIN-Code/
 │   │       ├── loopbuilder/   ← v3.4.0: shared factory (DRY)
 │   │       ├── vane/          ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (internal/vane)
 │   │       ├── stack/         ← v3.8.0: unified install/doctor across 3 layers
-│   │       ├── hub/           ← v3.12.0: static tool catalog
-│   │       ├── ledger/        ← v3.13.0: semantic session ledger (SQLite)
-│   │       ├── summary/       ← v3.13.0: deterministic session summary builder
+  │   │       ├── hub/           ← v3.12.0: static tool catalog
+  │   │       ├── ledger/        ← v3.13.0: semantic session ledger (SQLite)
+  │   │       ├── summary/       ← v3.13.0: deterministic session summary builder
+  │   │       ├── compress/      ← v3.18.0: deterministic + LLM compaction (issue #172)
 │   │       ├── llm/           ← provider layer
 │   │       ├── style/         ← v3.17.0: verbosity / compression mode system-prompt renderer (issue #167)
 │   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
+│   │       ├── orchestrator/  ← DAG, critic, adversary, governor,
+│   │       │                   cartographer; caveman-style output
+│   │       │                   contracts (issue #174)
 │   │       ├── memory/        ← (existing) store/search/embed
 │   │       ├── lsp/, notifications/, todo/, plugins/, sandbox/, attachments/, webui/
 │   ├── sin-tui/               ← standalone TUI binary
@@ -329,6 +402,50 @@ SIN-Code/
 └── scripts/                   ← org-cleanup.sh, promote-to-sin-code.sh, validate_skill.py
 ```
 
+### 6.1 Orchestrator output contracts (issue #174)
+
+The four orchestrator sub-agents — `Critic`, `Adversary`, `Governor`,
+`Cartographer` — emit caveman-style one-liners via `Finding` structs in
+`cmd/sin-code/internal/orchestrator/output_contract.go`. The contract is
+the prose layer; the structured result types (e.g. `AdversaryResult.Attacks`)
+are unchanged.
+
+**One-liner shape** (byte-stable, em-dash U+2014 separator):
+
+```
+<path>:<line> — <symbol> — <tag> — <hint> # c=<confidence>
+```
+
+**5 closed tags** (parallel to JuliusBrussee/ponytail):
+
+| Tag       | Meaning                                          |
+| --------- | ------------------------------------------------ |
+| `delete`  | remove this code / path / symbol                 |
+| `simplify`| inline, collapse, reduce                         |
+| `rebuild` | rewrite from scratch                             |
+| `risk`    | blast radius, regression source                  |
+| `verify`  | needs human verification                         |
+
+**Hedging forbidden** in `Hint` (closed set, case-folded):
+`you might`, `perhaps`, `could consider`, `maybe`, `i think`, `i would`,
+`sort of`, `kind of`, `tends to`, `should probably`, `i'd suggest`,
+`we should`. `VerifyFindings` rejects every finding whose hint contains
+any of these — the sub-agent loses the entire batch, not silently
+passes.
+
+**Wired into**: `CriticResult.Findings` (parsed from the last attempt's
+prose; `CriticResult.ParseErrors` carries the per-line rejection trace),
+`AdversaryResult.Findings` (derived from each Attack), `GovernorResult.Findings`
+(one per Escalation, anchored at `task://<ID>`), `Cartographer.Findings(k)`
+(top-k by PageRank, opt-in — k ≤ 0 yields empty). Byte-stability is a hard
+prerequisite for downstream consumers (issue #168 ledger hashing,
+orchestrator re-ingestion cost).
+
+This file is distinct from `contract.go`, which owns the **Intent Contract**
+(task-scope: allowed globs, frozen globs, forbidden patterns, blast radius).
+Output-contract is the **prose-shape** contract; the two have no shared
+types and no shared parser.
+
 ---
 
 ## 7. Configuration contract
@@ -346,6 +463,10 @@ Lessons DB: `~/.local/share/sin-code/lessons.db` (SQLite, modernc).
 Goal Queue DB: `~/.local/share/sin-code/goals.db` (SQLite, modernc).
 Ledger DB: `~/.local/share/sin-code/ledger.db` (SQLite, modernc), overridable
 via `SIN_CODE_LEDGER`.
+Compress snapshots: `~/.local/share/sin-code/compress-snapshots/<plan-id>.json`
+(JSON, one file per Apply), overridable via `SIN_CODE_SNAPSHOT_DIR`. Each
+snapshot is content-addressed (Plan.ID is `plan-<sha256-prefix>`) and is
+the rollback artifact for `sin-code compress rollback <id>` (issue #172).
 
 ### Verbosity / compression mode (issue #167)
 
@@ -394,9 +515,18 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.14.0 | ✅ SHIPPED | Unified config subsystem (#34): `sin-code config init/show/validate`, expanded TOML schema, user + project deep merge, atomic writes, secret masking, 39 subcommands |
 | v3.15.0 | ✅ SHIPPED | Go-native SCA Phase 1 (#41), race-flake hardening (#59) |
 | v3.16.0 | ✅ SHIPPED | Forge integration (#37): `sin forge` command, `sin status` detection, 16th MCP tool in `mcp_config` |
+| v3.18.0 | ✅ SHIPPED | Memory compaction (`internal/compress/`, `compress_cmd.go`, issue #172): deterministic dedupe + byte-budget + sort, optional LLM summarization (`--strategy llm|hybrid`) with byte-preservation validation, snapshot+rollback for lossless Apply, `compress__plan/apply/rollback` permission defaults (ask-only on `apply`). Closes #172. |
 
 | v3.18.0 | ACTIVE | `sin-code install` + curl|bash shim + PowerShell (issue #170): new 40th subcommand + internal/install/ package, 27-line install.sh mirror + 35-line install.ps1, SHA256-verified single-binary downloads from goreleaser assets |
 | (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
+| v3.19.0 | ✅ SHIPPED | `sin-code serve --compress-tools` (issue #173): ponytail-tag compressor in `internal/mcpcompress/` shrinks the 47-tool manifest on the wire. Tag set `delete|stdlib|native|yagni|shrink`, subset via `--compress-tags`, savings reported via `--print-stats`. Tool names, schemas, and behavior are unchanged (AGENTS.md §10). Closing #173. |
+
+| v3.18.0 | ACTIVE | `sin-code debt` (issue #177) — `// sin-debt: <ceiling>, upgrade: <trigger>` marker convention (ponytail adoption), byte-stable `internal/sindept/` scanner + report, policy gate via `sin-code debt check`, 41st subcommand; alongside `sin-code install` (issue #170), `eval` / `trace` (issue #75), `evalset` / `prp` / `instinct` / `assets` / `hooks` / `rtk` / `codegraph` / `spec` v0 work |
+| (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
+| v3.19.0 | ACTIVE | `autoactivate` hooklife subpackage (#176): `cmd/sin-code/internal/hooklife/autoactivate` — per-session rule injection on `SessionStart` + `UserPrompt`. `--activate <rule>` + `--no-trigger` flags on `sin-code chat`; project-local `.sin-code/autoactivate.toml`; deterministic byte-stable `RuleSet.Render()`; race-safe (mandate M7). Hooks register against any `*hooklife.Registry` via `Activator.Register(reg)`. |
+| v3.17.0 | ✅ SHIPPED | TUI runtime DB .gitignore, MCP warning deduplication, marketplace update test hardening, skills 33 → 34 |
+| v3.18.0 | ✅ SHIPPED | `sin-code install` single-binary installer (issue #170), curl/bash + PowerShell shims, SHA256-verified release downloads |
+| v3.19.0 | ACTIVE | `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format (`delete`, `stdlib`, `native`, `yagni`, `shrink`), `// sin-debt:` marker support (issue #177), text/json/markdown output, race-clean tests |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -436,7 +566,7 @@ All bundled skills live under `skills/<category>-skills/` and are named
 | Code | `code-skills/` | `skill-code-audit`, `skill-code-build`, `skill-code-create` |
 | GitHub | `github-skills/` | `skill-github-actions`, `skill-github-account`, `skill-github-app` |
 | Memory | `memory-skills/` | `skill-memory-honcho`, `skill-memory-infisical` |
-| Process | `process-skills/` | `skill-process-goal`, `skill-process-grill` |
+| Process | `process-skills/` | `skill-process-goal`, `skill-process-grill`, `skill-code-lazy` |
 | Shop | `shop-skills/` | `skill-shop-cj-dropshipping`, `skill-shop-stripe` |
 
 Each skill **must** contain:
@@ -444,7 +574,8 @@ Each skill **must** contain:
 - `context/`, `frameworks/`, `tasks/`, `templates/` directories
 - `LICENSE` file
 
-Skills ported from external repos (e.g. `Infra-SIN-OpenCode-Stack`) must include
+Skills ported from external repos (e.g. `Infra-SIN-OpenCode-Stack`,
+`DietrichGebert/ponytail` → `skill-code-lazy`) must include
 `lifecycle: external` and `sources:` in their metadata.
 
 ### Skill distribution to external agents (issue #169)
@@ -484,6 +615,17 @@ via the `--agent <name>` flag. Adding a target is non-breaking; renaming
 or removing one is a major bump. The `sin-code skill list --json`
 output schema is also a public API — preferred-format changes go through
 the same major-bump policy.
+### Naming-convention note (issue #178)
+
+The canonical pattern is `skill-<category>-<name>` (i.e. the
+middle token matches the directory category, e.g.
+`skill-process-lazy`). **`skill-code-lazy`** is the v3.18.0
+historical exception preserved for activation-keyword stability
+(`lazy_skill` binds to the literal name as it appears in
+`SKILL.md:frontmatter.name`). New bundled skills must follow the
+canonical pattern; renaming `skill-code-lazy` would require a
+major bump because the `lazy_skill` keyword is part of the
+external activate-mode contract (issue #176).
 
 ### CLI subcommands (verified `cmd/sin-code/main.go`, v3.5.0)
 
@@ -492,12 +634,57 @@ Core:      discover, execute, map, grasp, scout, harvest, orchestrate,
            ibd, poc, sckg, adw, oracle, efm
 Agents:    chat, sessions, mcp, goal, daemon, skill, superpowers,
            vane, stack, gh, install
+           vane, stack, gh, install, profile
+           vane, stack, gh, debt
 Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
            orchestrator_agents, orchestrator_plan, update
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
            config, self-update, hub, ledger, summary
 ``` (v3.18.0: 40 subcommands; `install` is the v3.18.0 single-binary installer from issue #170)
+           config, self-update, hub, ledger, summary, compress
+``` (v3.18.0: 40 subcommands, up from 39 in v3.13.0)
+``` (v3.18.0: 40 subcommands, up from 39 in v3.16.0;
+`install` is the v3.18.0 single-binary installer from issue #170;
+`profile` is the v3.18.0 single-source-of-truth per-agent renderer
+from issue #175.)
+
+### Per-agent profile distribution (issue #175)
+
+`sin-code profile` renders the single in-repo source
+(`docs/agent-profiles/sin-profile.md`, ≤80 lines, KISS) into every
+per-host-agent mirror file. The render is **byte-stable** per
+`(target, source)` pair; the verify gate (`sin-code profile verify`)
+refuses to pass whenever any mirror drifts off the source SHA. Adding
+a target is non-breaking; renaming or removing one is a major bump.
+The single source of truth for the table is
+`cmd/sin-code/internal/profile/target.go` — keep the AGENTS.md row in
+sync if the table moves.
+
+| Target        | Format  | Install path (relative to repo root)                       |
+| ------------- | ------- | ----------------------------------------------------------- |
+| claude-code   | dir     | `.claude/skills/sin-code/SKILL.md`                          |
+| opencode      | dir     | `.config/opencode/skills/sin-code/SKILL.md`                 |
+| gemini        | dir     | `.gemini/skills/sin-code/SKILL.md`                          |
+| codex         | rule    | `.codex/rules/sin-code.md`                                  |
+| cursor        | rule    | `.cursor/rules/sin-code.mdc`                                |
+| windsurf      | rule    | `.windsurf/rules/sin-code.md`                               |
+| cline         | rule    | `.clinerules/sin-code.md`                                   |
+| copilot       | marker  | `.github/copilot-instructions.md`                           |
+
+The four marker-fence outputs (`rule` + `marker`) wrap the body in
+`<!-- SIN-CODE-SKILL-START: sin-code -->` … `<!-- SIN-CODE-SKILL-END:   sin-code -->`
+inside the file. The fence is **byte-identical** to the one
+`internal/skilldist` uses (issue #169): the two systems share the
+same anchor (`SIN-CODE-SKILL`) so a downstream parser finds both
+per-skill bundles and per-profile mirrors with one regex. Profile
+renders are idempotent (rerun with unchanged source = byte-identical
+output), exactly as skilldist demands.
+``` (v3.18.0: 41 subcommands — `debt` is issue #177, sin-debt markers; `install` is issue #170; `eval`, `evalset`, `prp`, `instinct`, `assets`, `hooks`, `rtk`, `codegraph`, `spec` follow)
+Audit:     audit, ceo-audit
+``` (v3.18.0: 41 subcommands, up from 39 in v3.13.0)
+           config, self-update, hub, ledger, summary, review
+``` (v3.19.0: 41 subcommands, up from 39 in v3.13.0)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 
@@ -508,6 +695,83 @@ Utility:   read, write, edit, lsp, plugin, index, security, sbom,
 `push.pre`, `task.{complete,abort}`, `compaction.pre`,
 `goal.{enqueued,started,verified,exhausted}` (v3.5.0),
 `trigger.fired` (v3.5.0), `skill.{installed,failed}` (v3.5.0).
+
+### Ponytail tag set — MCP-tool-description compressor (issue #173, v3.19.0)
+
+`cmd/sin-code/internal/mcpcompress/` (introduced in v3.19.0) is the
+canonical ponytail-tag compressor for `sin-code serve --compress-tools`.
+The five canonical tags control which rules run:
+
+| Tag | Rule | Drops |
+|---|---|---|
+| `delete` | `DeleteHedges` | pleasantries / hedge adverbs ("safely", "carefully", "thoroughly", "robustly", "elegantly", "gracefully", "seamlessly", "effortlessly", "smoothly", "meticulously") |
+| `stdlib` | `StdlibPatterns` | redundant `(via stdlib)` parentheticals; "Go stdlib" / "Python stdlib" / "Rust stdlib" / "Java stdlib" / "JavaScript stdlib" / "TypeScript stdlib" adjectives |
+| `native` | `DropTrimEncouragement` | M6 tail clauses `Always prefer over native X` / `Prefer sin_X over native Y`; leading `Use sin_X when possible, …` encouragements |
+| `yagni` | `YagniPatterns` | speculative `(experimental)` / `(TBD)` / `(TBA)` / `(reserved)` / `(may be deprecated …)` parentheticals; bare `TBD` / `TBA` words |
+| `shrink` | `ShrinkExamples` | redundant `(e.g. …)` / `(such as …)` parenthetical examples |
+
+**Public API contract.** The five tag strings are part of the public
+configuration surface; renaming any is a major bump. The five `Rule`
+constructor types (`RuleDeleteHedges`, `RuleStdlibPatterns`,
+`RuleDropTrimEncouragement`, `RuleYagniPatterns`, `RuleShrinkExamples`)
+are part of the public Go surface for downstream embeds; renaming is a
+major bump. Adding a sixth rule is non-breaking. The `sin-code serve
+--print-stats` text-table format is part of the documented telemetry
+surface — additions are non-breaking, removals/reorderings are major.
+
+**Byte-stability.** Every Rule and the Pipeline are byte-stable per
+`(input, Pipeline)` pair. The `compressor_test.go` golden suite is the
+single source of truth — any rule regex / order change must update the
+golden expectations in the same commit. This is a prerequisite for the
+system-prompt hash metric (issue #2).
+
+**Names are immutable.** The 44+ MCP tool `Name` field is public API
+(§10). The compressor mutates `Description` only. `CompressSpec`
+asserts this in `TestCompressSpec_NameMutable`.
+### sin-debt marker convention (issue #177)
+
+Every **intentional** shortcut in source code is marked in-line with:
+
+```
+// sin-debt: <ceiling>, upgrade: <trigger>
+// sin-debt: <ceiling>            # upgrade clause is OPTIONAL but RECOMMENDED
+```
+
+- Recognised comment families: `//`, `#`, `--`, `/* … */`, `<!-- … -->`.
+- The `upgrade:` clause names the trigger to revisit; markers without it
+  are **rot-risk** and surface in the `debt stats` rot-risk table.
+- Authoring template: prefer the canonical reasons catalogued in
+  `cmd/sin-code/internal/sindept/policy.go` (`DefaultReasons`) and the
+  upgrade triggers in `UpgradeTriggers`. Free-form text is allowed;
+  pick from the catalogue when possible.
+- The scanner (`internal/sindept`) and CLI (`sin-code debt`) read this
+  format; the complexity auditor (issue #179) and audit-engine
+  (issue #180) recognise it as an "approved shortcut" tag.
+- Byte-stable: the same source tree emits byte-identical reports
+  (`sin-code debt stats`) so the four-arm comparator (issue #171)
+  can pin its golden snapshot.
+- Policy file: `.sin-code/debt-policy.toml` (see
+  `cmd/sin-code/debt_cmd.doc.md`).
+### Hook events (verified `internal/hooklife/event.go`, v3.19.0)
+
+Seven phases for the second, programmatic hooking system:
+
+| Phase | Verdict caps | Used by |
+|---|---|---|
+| `PreToolUse` | Block allowed | `block-no-verify`, `config-protection`, `quality-gate` |
+| `PostToolUse` | Warn (aggregated) | `post-edit-format`, `post-edit-typecheck`, `cost-tracker` |
+| `Stop` | Warn (aggregated) | `suggest-compact` |
+| `SessionStart` | Warn (aggregated) | `autoactivate-session-start` (issue #176) |
+| `SessionEnd` | Warn (aggregated) | (reserved) |
+| `PreCompact` | Warn (aggregated) | `suggest-compact` (privacy-first) |
+| `UserPrompt` | Warn (aggregated) | `autoactivate-user-prompt` (issue #176) |
+
+Auto-activation hooks (v3.19.0, issue #176) wire through
+`Activator.Register(reg)` and emit their rule body via the `Decision.Message`
+field, returning `Warn` so the runner's aggregation surfaces it. Off by
+default — privacy-first activation via `--activate` or
+`.sin-code/autoactivate.toml`. See
+`cmd/sin-code/internal/hooklife/autoactivate/activator.doc.md`.
 
 ---
 
@@ -558,6 +822,9 @@ and inspect trajectories visually (Langfuse / Jaeger / Arize Phoenix).
 | `cmd/sin-code/internal/evalharness/prices.go` | v3.18.0 self-pricing price book (USD/1k tokens per model) |
 | `cmd/sin-code/internal/evalharness/snapshot.go` | v3.18.0 deterministic snapshot round-trip (caveman evals/README.md §3) |
 | `cmd/sin-code/eval_cmd.go` | `sin-code eval run` + `eval compare` + `eval snapshot` + `eval diff` (issue #171) |
+| `cmd/sin-code/internal/evalharness/scorer.go` | Scorers: exact, contains, success, LLM-judge, composite, **CompileAndRun** |
+| `cmd/sin-code/internal/evalharness/runner_extras.go` | Compile-and-run helpers (code extraction, sandboxed compile/run) |
+| `cmd/sin-code/eval_cmd.go` | `sin-code eval run` + `sin-code eval list` |
 | `cmd/sin-code/trace_cmd.go` | `sin-code trace doctor` — exporter-only sanity check |
 | `evals/critical.json` | Example Golden Dataset (3 cases, no LLM needed) |
 | `evals/three-arm-example.json` | v3.18.0 four-arm bench, 3 cases (issue #171) |
@@ -584,6 +851,14 @@ sin-code eval run --dataset evals/three-arm-example.json \
 sin-code eval compare --dataset evals/three-arm-example.json
 sin-code eval snapshot --dataset evals/three-arm-example.json --out /tmp/snap.json
 sin-code eval diff --snapshot /tmp/snap-base.json --snapshot-b /tmp/snap-head.json
+# Compile-and-run scorer (ponytail correctness.js analog)
+sin-code eval run --dataset evals/coding.json \
+    --scorer compile-and-run --language python \
+    --self-check "assert fizzbuzz(15) == 'FizzBuzz'"
+
+# YAGNI mode: trivial one-liners accepted after compile-only
+sin-code eval run --dataset evals/trivial.json \
+    --scorer compile-and-run --language python --skip-test
 
 # Sanity-check the OTel exporter setup without a full eval
 sin-code trace doctor --exporter stdout --emit-sample-span
@@ -656,4 +931,8 @@ same input on every CI run (caveman evals/README.md §3 promise:
   `Compare` runner, arm constructors, snapshot round-trip (issue #171).
 - `cmd/sin-code/internal/evalharness/snapshot.doc.md` — deterministic
   matrix + diff (issue #171).
+- `cmd/sin-code/internal/evalharness/scorer.doc.md` — scorer interface
+  and built-in scorers (including `CompileAndRun`).
+- `cmd/sin-code/internal/evalharness/runner_extras.doc.md` — code-block
+  extraction, per-language compile, and sandboxed self-check execution.
 

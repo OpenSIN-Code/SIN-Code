@@ -203,7 +203,7 @@ func Analyze(events []*Event) []*Finding {
 		// ---- Security state degradation ------------------------------------
 		case e.Domain == "Security" && e.Method == "securityStateChanged":
 			var raw struct {
-				SecurityState        string `json:"securityState"`
+				SecurityState         string `json:"securityState"`
 				SchemeIsCryptographic bool   `json:"schemeIsCryptographic"`
 			}
 			if json.Unmarshal(e.Params, &raw) != nil {

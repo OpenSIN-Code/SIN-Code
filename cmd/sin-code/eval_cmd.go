@@ -97,6 +97,11 @@ func newEvalRunCmd() *cobra.Command {
 		armsFlag      string
 		userSkill     string
 		modelPricing  string
+		scorerType    string
+		scorerLang    string
+		scorerSelfChk string
+		scorerSkip    bool
+		scorerBinary  string
 	)
 
 	cmd := &cobra.Command{
@@ -160,6 +165,15 @@ func newEvalRunCmd() *cobra.Command {
 				RunOverride: stubRunOverride,
 			}
 
+			var overrideScorer evalharness.Scorer
+			if scorerType != "" {
+				scorer, err := buildScorer(scorerType, scorerLang, scorerSelfChk, scorerSkip, scorerBinary)
+				if err != nil {
+					return fmt.Errorf("eval run: scorer: %w", err)
+				}
+				overrideScorer = scorer
+			}
+
 			runner, err := dataset.NewRunner(dataset.RunnerConfig{
 				ProfileName:    profile,
 				HeadlessMode:   true,
@@ -170,6 +184,7 @@ func newEvalRunCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("eval run: new runner: %w", err)
 			}
+			runner.Scorer = overrideScorer
 
 			results, err := runner.RunDataset(ctx, ds)
 			if err != nil {
@@ -215,6 +230,11 @@ func newEvalRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&armsFlag, "arm", "", "Comma-separated arm list (issue #171 comparator). Reserved tokens: baseline, terse, lazy_skill. Anything else is treated as a user-skill name. Empty = single-arm (legacy behavior).")
 	cmd.Flags().StringVar(&userSkill, "skill", "skill-code-create", "User-skill arm name used when --arm contains a non-reserved token (issue #171).")
 	cmd.Flags().StringVar(&modelPricing, "model-pricing", "stub", "Model-price entry from the comparator price book (issue #171). Default 'stub' = USD 0 in CI.")
+	cmd.Flags().StringVar(&scorerType, "scorer", "", "Override scorer type (compile_and_run|exact|contains)")
+	cmd.Flags().StringVar(&scorerLang, "language", "", "Language for --scorer compile-and-run (go|python|javascript|bash)")
+	cmd.Flags().StringVar(&scorerSelfChk, "self-check", "", "Self-check code for --scorer compile-and-run")
+	cmd.Flags().BoolVar(&scorerSkip, "skip-test", false, "YAGNI mode: accept compile-only for trivial one-liners")
+	cmd.Flags().StringVar(&scorerBinary, "scorer-binary", "", "Explicit compiler/interpreter for --scorer compile-and-run")
 
 	cmd.MarkFlagRequired("dataset")
 	return cmd
@@ -671,4 +691,30 @@ func newEvalDiffCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("snapshot")
 	_ = cmd.MarkFlagRequired("snapshot-b")
 	return cmd
+}
+
+// buildScorer constructs an evalharness.Scorer from the CLI flags.
+// Supported types: compile_and_run, exact, contains.
+func buildScorer(typ, lang, selfCheck string, skipTest bool, binary string) (evalharness.Scorer, error) {
+	switch typ {
+	case "compile_and_run":
+		if lang == "" {
+			return nil, errors.New("--language is required for compile_and_run scorer")
+		}
+		if !evalharness.IsCompileAndRunLanguage(lang) {
+			return nil, fmt.Errorf("unsupported language %q", lang)
+		}
+		return evalharness.CompileAndRun{
+			Language:  lang,
+			SelfCheck: selfCheck,
+			SkipTest:  skipTest,
+			Binary:    binary,
+		}, nil
+	case "exact":
+		return evalharness.ExactMatch{}, nil
+	case "contains":
+		return evalharness.ContainsAll{}, nil
+	default:
+		return nil, fmt.Errorf("unsupported scorer %q", typ)
+	}
 }

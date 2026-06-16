@@ -26,10 +26,18 @@ type Attempt struct {
 	Diagnose string
 }
 
+// CriticResult is the bounded verify→diagnose→repair outcome. Findings
+// carries the caveman-style one-liners extracted from the final attempt's
+// output (the prose layer the orchestrator re-ingests; structured fields
+// above are unchanged). ParseErrors is the per-line rejection trace —
+// non-empty means the sub-agent emitted prose the Verifier couldn't
+// digest; the orchestrator re-injects these verbatim as retry feedback.
 type CriticResult struct {
-	Attempts []Attempt
-	Final    *Verdict
-	Passed   bool
+	Attempts    []Attempt
+	Final       *Verdict
+	Passed      bool
+	Findings    []Finding
+	ParseErrors []string
 }
 
 type Critic struct {
@@ -87,15 +95,37 @@ func (c *Critic) Drive(ctx context.Context, ag Agent, task *Task, scratch *Scrat
 
 		if v.Passed {
 			res.Passed = true
+			collectCriticFindings(res)
 			return res, nil
 		}
 
 		if bestScore >= 0 && v.Score < bestScore+c.Policy.MinImprovement {
+			collectCriticFindings(res)
 			break
 		}
 		if v.Score > bestScore {
 			bestScore = v.Score
 		}
 	}
+	collectCriticFindings(res)
 	return res, nil
+}
+
+// collectCriticFindings parses the LAST attempt's prose through the
+// caveman output contract and stores the result on res. The contract is
+// the PROSE layer; structured Result fields above are unchanged.
+// Empty Findings + nil ParseErrors means "the agent said nothing
+// parseable" — the caller decides what to do (typically: re-inject
+// ParseErrors as retry feedback). We never silently drop bad lines.
+func collectCriticFindings(res *CriticResult) {
+	if len(res.Attempts) == 0 {
+		return
+	}
+	if len(res.Findings) > 0 || len(res.ParseErrors) > 0 {
+		return
+	}
+	last := res.Attempts[len(res.Attempts)-1]
+	fs, perrs, _ := ParseFindings(last.Output)
+	res.Findings = fs
+	res.ParseErrors = perrs
 }

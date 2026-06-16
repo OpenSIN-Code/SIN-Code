@@ -21,6 +21,27 @@ func TestKnownSkillsCoversRegistry(t *testing.T) {
 	}
 }
 
+func TestKnownSkillsHasShopEntries(t *testing.T) {
+	// Issue #142 fusion: the three shop skills (CJ Dropshipping,
+	// Stripe, TikTok Shop) are in KnownSkills so `sin-code skill
+	// install <name>` works. The mapping is shortname -> repo.
+	ks := KnownSkills()
+	for name, want := range map[string]string{
+		"shop-cj-dropshipping": "cj-dropshipping-skill",
+		"shop-stripe":          "SIN-Stripe-Bundle",
+		"shop-tiktok":          "SIN-eCommerce-Scraper-Bundle",
+	} {
+		got, ok := ks[name]
+		if !ok {
+			t.Errorf("expected %q in KnownSkills (issue #142)", name)
+			continue
+		}
+		if got != want {
+			t.Errorf("KnownSkills[%q] = %q, want %q", name, got, want)
+		}
+	}
+}
+
 func TestInstallUnknownSkillFails(t *testing.T) {
 	_, err := Install(context.Background(), "no-such-skill-xyz")
 	if err == nil {

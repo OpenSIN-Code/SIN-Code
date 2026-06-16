@@ -20,8 +20,8 @@ type mockHook struct {
 	run    func(context.Context, Event) Decision
 }
 
-func (m mockHook) ID() string                    { return m.id }
-func (m mockHook) Phases() []Phase               { return m.phases }
+func (m mockHook) ID() string      { return m.id }
+func (m mockHook) Phases() []Phase { return m.phases }
 func (m mockHook) Run(ctx context.Context, ev Event) Decision {
 	if m.run != nil {
 		return m.run(ctx, ev)

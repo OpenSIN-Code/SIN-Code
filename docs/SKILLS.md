@@ -1,68 +1,70 @@
-# SIN-Code Skills Integration
+# Skill Lifecycle Markers (issue #139)
 
-## Übersicht
-SIN-Code unterstützt nun **Agent Skills** gemäß dem [agent-skills](https://github.com/addyosmani/agent-skills) Standard.  
-Skills sind strukturierte Workflows, die AI-Agenten diszipliniert ausführen – inklusive Qualitätsgates, Verifikationsschritten und Anti-Rationalisierungen.
+SIN-Code ecosystem skills have a **lifecycle** field in their
+SKILL.md frontmatter. The lifecycle tells the operator and the
+agent loop whether a skill is implemented natively in the
+`sin-code` binary, externally in a separate repo, or deprecated.
 
-## Installation eines Skills
+## Values
+
+| Value | Meaning |
+|---|---|
+| `native` | Implemented in the `sin-code` binary (a subcommand or a Go-native package). The bundled SKILL.md is documentation, not the implementation. |
+| `external` | Implemented in a separate repo (Python MCP server or Go bundle). The bundled SKILL.md is a discovery copy. |
+| `deprecated` | The upstream is archived. The bundled SKILL.md exists only so old configs don't break. |
+
+## Where the source of truth lives
+
+`scripts/lifecycle_map.yaml` is the single source of truth for the
+lifecycle of every bundled skill. The `sync_lifecycle.py` script
+reads this file and applies the lifecycle field to the SKILL.md
+frontmatter.
+
+## Workflow
+
 ```bash
-sin skill install ~/mein-skill-verzeichnis   # lokaler Pfad
-sin skill install https://github.com/benutzer/awesome-skill   # Git-Repo (bald)
+# 1. Edit scripts/lifecycle_map.yaml to add a new skill or change
+#    a lifecycle.
+# 2. Apply the change to the SKILL.md frontmatter:
+python3 scripts/sync_lifecycle.py --apply
+# 3. Verify nothing is out of sync:
+python3 scripts/sync_lifecycle.py --check
+# 4. Validate the bundled skills in strict mode (the migration
+#    is complete when --strict passes):
+python3 scripts/validate_skill.py --all-bundled --strict
 ```
 
-## Verfügbare Skills auflisten
-```bash
-sin skill list
+CI runs `sync_lifecycle.py --check` and `validate_skill.py --all-bundled --strict`
+on every PR. A drift between the map and the SKILL.md is a hard
+failure.
+
+## CLI surface
+
+`sin-code skill list` now prints a `[lifecycle]` column:
+
+```
+SKILL                             LIFECYCLE   claude-code   opencode
+skill-process-goal                [native   ]  —            —
+skill-process-grill                [external ]  —            —
+skill-code-build                   [native   ]  —            —
+...
 ```
 
-## Skill ausführen
-```bash
-sin skill run spec --verbose
-```
+`unknown` means the SKILL.md has no `lifecycle:` field — usually a
+legacy skill that has not been migrated. Run
+`scripts/sync_lifecycle.py --apply` to fix.
 
-## Eigene Skills schreiben
-Erstellen Sie ein Verzeichnis mit einer `SKILL.md` Datei. Aufbau:
-```markdown
-# skill-name
-## Overview
-Kurzbeschreibung
+## Acceptance criteria (from #139)
 
-## Steps
-1. Erster Schritt
-2. Zweiter Schritt
+- [x] `lifecycle` field in every bundled SKILL.md (34/34 after migration)
+- [x] `validate_skill.py --all-bundled --strict` passes
+- [x] `sin-code skill list` shows lifecycle markers
+- [x] `scripts/lifecycle_map.yaml` is the single source of truth
+- [x] `scripts/sync_lifecycle.py` (--check / --apply / --diff)
 
-## Verification
-- [ ] Prüfpunkt
+## Why a separate script (not a go binary)
 
-## Anti-Rationalization
-| Ausrede | Entkräftung |
-| "..." | "..." |
-```
-
-Die Steps werden nacheinander durch den SIN-Code-Agenten ausgeführt. Jeder Step kann auf MCP-Tools zugreifen.
-
-## Integration mit Multi-Agent-System
-- **Governor**: Budget- und Sicherheitsgrenzen.
-- **Critic**: Prüft jeden Step vor Ausführung.
-- **Adversary**: Verifiziert die Ausgabe jedes Steps.
-
-## Best Practices
-- Halten Sie Skills fokussiert (max. 10 Steps).
-- Nutzen Sie die Anti-Rationalization-Tabelle, um typische Agenten-Ausreden zu blockieren.
-- Lagern Sie komplexe Logik in separate MCP-Tools aus.
-
-## Fehlersuche
-- `sin skill run --verbose` zeigt jeden Step an.
-- Logs in `~/.sin/logs/skill-<name>.log`.
-
-## Chains – Verkettete Skill-Ausführung
-Skills können in Chains verkettet werden für komplexe Workflows:
-```bash
-sin skill chain execute ./chains/sin-full-lifecycle.chain.json
-```
-
-Chains unterstützen:
-- **Retry-Logik**: Automatische Wiederholung bei Fehlern
-- **Fallback-Skills**: Alternative Skills bei Fehler
-- **Shared State**: Daten zwischen Skills austauschen
-- **Loop-Detection**: Endlosschleifen verhindern
+`scripts/sync_lifecycle.py` is stdlib-only and runs without a Go
+toolchain. The skill migration is a one-time per-skill event, so
+the cost of a Go binary is not justified. CI uses the Python script
+in --check mode on every PR.

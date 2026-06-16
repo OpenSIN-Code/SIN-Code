@@ -2,12 +2,9 @@
 name: skill-code-add-endpoint
 description: Add an API endpoint with an ephemeral mock and verification. Use when the user asks to add a new endpoint, route, or API method.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: native
 ---
 
 # skill-code-add-endpoint

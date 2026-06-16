@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: MIT
 //go:build coverage
+
+// SPDX-License-Identifier: MIT
 // Purpose: coverage tests for the remaining branches in the notifications package.
 package notifications
 

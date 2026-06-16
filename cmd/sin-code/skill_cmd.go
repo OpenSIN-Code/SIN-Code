@@ -345,9 +345,10 @@ func runSkillInstallDistribute(cmd *cobra.Command, args []string, agentFlag stri
 // bundled skill × every agent family; --installed filters out rows with
 // zero installs; --agent filters the agent columns to one target.
 type listRow struct {
-	Skill   string          `json:"skill"`
-	Targets map[string]bool `json:"targets"`
-	HasAny  bool            `json:"has_any"`
+	Skill     string          `json:"skill"`
+	Lifecycle string          `json:"lifecycle,omitempty"` // issue #139
+	Targets   map[string]bool `json:"targets"`
+	HasAny    bool            `json:"has_any"`
 }
 
 func runSkillList(cmd *cobra.Command, agentFlag string, installedOnly, jsonOut bool) error {
@@ -373,6 +374,14 @@ func runSkillList(cmd *cobra.Command, agentFlag string, installedOnly, jsonOut b
 	rows := make([]listRow, 0, len(skillNames))
 	for _, sk := range skillNames {
 		row := listRow{Skill: sk, Targets: make(map[string]bool, len(targets))}
+		// Read the lifecycle from the embedded SKILL.md frontmatter
+		// (issue #139). Bundled skills are content-addressed; the
+		// lifecycle field is part of the manifest. If missing
+		// (legacy skills before the migration), the field is
+		// empty and the CLI shows a `[unknown]` marker.
+		if sm, err := fs.ReadFile(src, sk+"/SKILL.md"); err == nil {
+			row.Lifecycle = parseLifecycleFromFrontmatter(string(sm))
+		}
 		for _, ag := range targets {
 			tgt := skilldist.Targets[ag]
 			ok, err := skilldist.IsInstalled(tgt, sk, home)
@@ -398,14 +407,18 @@ func runSkillList(cmd *cobra.Command, agentFlag string, installedOnly, jsonOut b
 	}
 
 	// Pretty table.
-	header := fmt.Sprintf("%-32s", "SKILL")
+	header := fmt.Sprintf("%-32s %-12s", "SKILL", "LIFECYCLE")
 	for _, ag := range targets {
 		tgt := skilldist.Targets[ag]
 		header += fmt.Sprintf(" %-12s", tgt.DisplayName)
 	}
 	fmt.Fprintln(cmd.OutOrStdout(), header)
 	for _, r := range rows {
-		row := fmt.Sprintf("%-32s", r.Skill)
+		lc := r.Lifecycle
+		if lc == "" {
+			lc = "unknown"
+		}
+		row := fmt.Sprintf("%-32s [%-8s]", r.Skill, lc)
 		for _, ag := range targets {
 			if r.Targets[ag] {
 				row += " ✓           "
@@ -469,4 +482,37 @@ func bundledSkillNames(src fs.FS) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// parseLifecycleFromFrontmatter extracts the `lifecycle:` value from
+// a SKILL.md's YAML frontmatter. The format is intentionally narrow:
+// we do not pull in a yaml dep just for this; a regex is enough.
+//
+// Returns "" if the field is missing or malformed. The caller treats
+// "" as `[unknown]` so the operator notices skills that have not been
+// migrated yet (run scripts/sync_lifecycle.py --apply).
+func parseLifecycleFromFrontmatter(s string) string {
+	const openDelim = "---"
+	if !strings.HasPrefix(s, openDelim) {
+		return ""
+	}
+	rest := strings.TrimPrefix(s, openDelim)
+	idx := strings.Index(rest, "\n---")
+	if idx < 0 {
+		return ""
+	}
+	fm := rest[:idx]
+	// Look for `lifecycle: <value>` (allow leading whitespace).
+	for _, line := range strings.Split(fm, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "lifecycle:") {
+			val := strings.TrimSpace(strings.TrimPrefix(line, "lifecycle:"))
+			// Strip surrounding quotes if present.
+			if len(val) >= 2 && (val[0] == '"' && val[len(val)-1] == '"') {
+				val = val[1 : len(val)-1]
+			}
+			return val
+		}
+	}
+	return ""
 }

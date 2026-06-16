@@ -2,12 +2,9 @@
 name: skill-code-ceo-audit
 description: CEO-grade SOTA repository audit. Runs 47 quality gates (security, performance, code quality, dependencies, tests, docs, compliance) and produces a board-ready Markdown + SARIF report.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: native
 ---
 
 # skill-code-ceo-audit

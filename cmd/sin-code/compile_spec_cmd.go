@@ -3,10 +3,10 @@
 // .sin-code.yml, validates it, and writes the four derived
 // JSON outputs to disk. Has three modes:
 //
-//   sin-code compile-spec                       # compile .sin-code.yml in cwd
-//   sin-code compile-spec --init                # write a starter .sin-code.yml
-//   sin-code compile-spec --check               # check that derived files are in sync
-//   sin-code compile-spec --out <dir>           # override the output directory
+//	sin-code compile-spec                       # compile .sin-code.yml in cwd
+//	sin-code compile-spec --init                # write a starter .sin-code.yml
+//	sin-code compile-spec --check               # check that derived files are in sync
+//	sin-code compile-spec --out <dir>           # override the output directory
 //
 // Docs: docs/SPEC-COMPILER.md
 package main
@@ -25,7 +25,7 @@ import (
 // NewCompileSpecCmd builds the `compile-spec` cobra subcommand.
 func NewCompileSpecCmd() *cobra.Command {
 	var (
-		outDir  string
+		outDir   string
 		initMode bool
 		check    bool
 		dryRun   bool

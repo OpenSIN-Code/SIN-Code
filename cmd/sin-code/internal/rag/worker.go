@@ -22,9 +22,9 @@ var ErrPoolClosed = errors.New("rag: worker pool closed")
 // (size 1) so the worker can send without blocking, and the
 // caller can read without coordinating with the worker.
 type job struct {
-	ctx   context.Context
-	text  string
-	done  chan result
+	ctx  context.Context
+	text string
+	done chan result
 }
 
 type result struct {
@@ -34,9 +34,9 @@ type result struct {
 
 // WorkerPool is the bounded-concurrency embedder.
 type WorkerPool struct {
-	embedder Embedder
-	queue    chan job
-	wg       sync.WaitGroup
+	embedder  Embedder
+	queue     chan job
+	wg        sync.WaitGroup
 	closeOnce sync.Once
 	closed    chan struct{}
 }

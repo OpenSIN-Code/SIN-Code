@@ -82,6 +82,30 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "install__verify_only", Policy: "allow"},
 		{Tool: "install__run", Policy: "ask"},
 		{Tool: "install__dry_run", Policy: "allow"},
+		// v3.18.0: Compress (issue #172). compress is a first-party
+		// CLI verb that mutates the on-disk memory stores; the
+		// policy below mirrors eval__run (ask): a destructive
+		// operation gated on user confirmation.
+		{Tool: "compress__plan", Policy: "allow"},     // read-only projection
+		{Tool: "compress__apply", Policy: "ask"},      // rewrites + LLM call
+		{Tool: "compress__rollback", Policy: "allow"}, // restorative — never destructive
+		// v3.18.0: profile renderer (issue #175). Read-only
+		// (show/list/verify/dry-run) is allow; the writing `render`
+		// surface is `ask` because it touches per-agent dotdirs.
+		{Tool: "profile__show", Policy: "allow"},
+		{Tool: "profile__list", Policy: "allow"},
+		{Tool: "profile__verify", Policy: "allow"},
+		{Tool: "profile__render", Policy: "ask"},
+		// v3.18.0: sin-debt marker manager (issue #177).
+		// Read-only scanners are allow; check is ask because failing
+		// the gate is a visible signal; fix/export are ask because they
+		// either instruct humans to edit code or write to disk.
+		{Tool: "sindept__list", Policy: "allow"},
+		{Tool: "sindept__stats", Policy: "allow"},
+		{Tool: "sindept__policy", Policy: "allow"},
+		{Tool: "sindept__check", Policy: "ask"},
+		{Tool: "sindept__fix", Policy: "ask"},
+		{Tool: "sindept__export", Policy: "ask"},
 		// Backstop catch-all (mirrors sin_bash default at line 44 for unmatched prefixes).
 		{Tool: "autodev__*", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},

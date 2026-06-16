@@ -32,7 +32,7 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
   Utility commands: security, sbom, config, self-update, tui, serve, update
   Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, superpowers,
-                    vane, stack, gh, hub, ledger, summary, install
+                    vane, stack, gh, hub, ledger, summary, install, compress
   Other:            completion, read, write, edit, lsp, plugin, index,
                     orchestrator-run, orchestrator-agents, orchestrator-plan,
                     todo, notifications, memory, assets, evalset, hooks,
@@ -82,15 +82,28 @@ func init() {
 		NewGoalCmd(), NewDaemonCmd(), NewSkillCmd(), NewSwarmCmd(), NewSuperpowersCmd(), NewDoxCmd(),
 		NewVaneCmd(), NewStackCmd(), NewGhCmd(), NewHubCmd(),
 		NewLedgerCmd(), NewSummaryCmd(), NewAutodevCmd(), // v3.4.0 + v3.5.0 + v3.6.0 + v3.7.0 + v3.8.0 + v3.9.0 + v3.12.0 + v3.13.0 + autodev-bridge (Python MIT v0.4.0, stdio MCP via autodev-mcp)
+		NewCompressCmd(),                                                 // v3.18.0 — deterministic + LLM compaction (issue #172)
+		NewLedgerCmd(), NewSummaryCmd(), NewAutodevCmd(), NewReviewCmd(), // v3.4.0 + v3.5.0 + v3.6.0 + v3.7.0 + v3.8.0 + v3.9.0 + v3.12.0 + v3.13.0 + autodev-bridge + review --complexity (issue #179)
 		NewSkillsCmd(),              // bundled project-local agent skills
 		NewEvalCmd(), NewTraceCmd(), // v3.18.0: Eval & Observability System (issue #75)
-		NewRtkCmd(),                                                                                    // rtk (Rust Token Killer) bridge (issue #123)
-		NewCodeGraphCmd(),                                                                              // CodeGraph multi-language analysis bridge (issue #126)
-		NewSpecCmd(),                                                                                   // Spec-Layer: *.spec.md contracts (issue #122)
-		NewInstallCmd(),                                                                                // v3.18.0: `sin-code install` — single-binary installer entrypoint (issue #170)
-		NewTriageCmd(),                                                                                 // v3.18.0: `sin-code triage` — backlog auto-prioritizer via gh (issue #162)
-		NewCatalogCmd(),                                                                                // v3.18.0: `sin-code catalog` — unified tool catalog (issue #163, supersedes `hub` + `assets`)
-		NewCompileSpecCmd(),                                                                            // v3.21.0: `sin-code compile-spec` — declarative .sin-code.yml → hooks/verify/perm (issue #164)
+		NewProfileCmd(),             // v3.18.0: single-source-of-truth per-agent profile renderer (issue #175)
+		NewEvalCmd(), NewTraceCmd(), // v3.18.0: Eval + Observability System (issue #75)
+		NewRtkCmd(),                     // rtk (Rust Token Killer) bridge (issue #123)
+		NewCodeGraphCmd(),               // CodeGraph multi-language analysis bridge (issue #126)
+		NewSpecCmd(),                    // Spec-Layer: *.spec.md contracts (issue #122)
+		NewInstallCmd(),                 // v3.18.0: `sin-code install` — single-binary installer entrypoint (issue #170)
+		NewTriageCmd(),                  // v3.18.0: `sin-code triage` — backlog auto-prioritizer via gh (issue #162)
+		NewCatalogCmd(),                 // v3.18.0: `sin-code catalog` — unified tool catalog (issue #163, supersedes `hub` + `assets`)
+		NewCompileSpecCmd(),             // v3.21.0: `sin-code compile-spec` — declarative .sin-code.yml → hooks/verify/perm (issue #164)
+		NewGrillCmd(),                   // v3.18.0: `sin-code grill` — native adversarial design-review (issue #141 fusion)
+		NewRtkCmd(),                     // rtk (Rust Token Killer) bridge (issue #123)
+		NewCodeGraphCmd(),               // CodeGraph multi-language analysis bridge (issue #126)
+		NewSpecCmd(),                    // Spec-Layer: *.spec.md contracts (issue #122)
+		NewDebtCmd(),                    // issue #177: sin-debt marker manager (`// sin-debt: <ceiling>, upgrade: <trigger>`)
+		NewRtkCmd(),                     // rtk (Rust Token Killer) bridge (issue #123)
+		NewCodeGraphCmd(),               // CodeGraph multi-language analysis bridge (issue #126)
+		NewSpecCmd(),                    // Spec-Layer: *.spec.md contracts (issue #122)
+		NewAuditCmd(), NewCEOAUDITCmd(), // v3.18.0: complexity audit (issue #180) + 48-gate CEO audit
 		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + eval + prp workflow
 	)
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Purpose: JSON-Schema signature matching. A spec requirement that
-// names a JSON object shape (e.g. `\`{"name": str, "id": int}\``)
+// names a JSON object shape (e.g. `\`{"name": str, "id": int}\“)
 // is checked against the .json files in the source tree.
 //
 // v0 is intentionally simple: we don't pull in a full JSON-Schema
@@ -164,7 +164,9 @@ func typeCompatible(want string, got any) bool {
 // object literals in requirements and returns them as jsonFunc
 // records. The strict mode is set per-shape via a trailing
 // "strict!" marker inside the body, e.g.:
-//   `{"name": str, "id": int} strict!`
+//
+//	`{"name": str, "id": int} strict!`
+//
 // (Useful for hand-edited specs that need extras forbidden.)
 func extractJSONShapes(text string) []jsonFunc {
 	var out []jsonFunc

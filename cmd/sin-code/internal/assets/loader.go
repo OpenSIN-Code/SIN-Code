@@ -13,7 +13,7 @@ import (
 
 // package-level hooks to make filesystem error branches testable.
 var (
-	walkDirHook  = filepath.WalkDir
+	walkDirHook    = filepath.WalkDir
 	osReadFileHook = os.ReadFile
 )
 

@@ -12,12 +12,12 @@ package compiler
 
 // Config is the top-level .sin-code.yml document.
 type Config struct {
-	Version     int          `yaml:"version"`
-	Project     Project      `yaml:"project"`
-	Verify      Verify       `yaml:"verify"`
-	Hooks       Hooks        `yaml:"hooks"`
-	Permissions Permissions  `yaml:"permissions"`
-	Loop        Loop         `yaml:"loop"` // v1.1 follow-up, ignored in v0
+	Version     int         `yaml:"version"`
+	Project     Project     `yaml:"project"`
+	Verify      Verify      `yaml:"verify"`
+	Hooks       Hooks       `yaml:"hooks"`
+	Permissions Permissions `yaml:"permissions"`
+	Loop        Loop        `yaml:"loop"` // v1.1 follow-up, ignored in v0
 }
 
 // Project is the project's metadata.
@@ -28,7 +28,7 @@ type Project struct {
 
 // Verify is the verify-gate configuration.
 type Verify struct {
-	Mode       string     `yaml:"mode"`       // minimal|standard|strict
+	Mode       string      `yaml:"mode"` // minimal|standard|strict
 	Predicates []Predicate `yaml:"predicates"`
 }
 

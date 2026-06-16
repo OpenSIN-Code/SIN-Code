@@ -67,13 +67,19 @@ type StopDecision struct {
 type StopGate func(ctx context.Context, snap StopSnapshot) StopDecision
 
 type Loop struct {
-	Gate       *verify.Gate
-	LocalTool  LocalToolFunc
-	LocalSpec  []ToolSpec
-	Workspace  string
-	MaxTurns   int
-	SessionID  string
-	Completion func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error)
+	Gate      *verify.Gate
+	LocalTool LocalToolFunc
+	LocalSpec []ToolSpec
+	Workspace string
+	MaxTurns  int
+	// MaxStopRejects caps how many times the stop-gate can reject
+	// completion before the run errors. Zero falls back to the
+	// default of 3. Independent of StallThreshold (issue #150):
+	// MaxStopRejects is a hard count, StallThreshold is an
+	// identical-criteria fingerprint count.
+	MaxStopRejects int
+	SessionID      string
+	Completion     func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error)
 
 	Hooks   *hooks.Engine
 	Perm    *permission.Engine
@@ -85,6 +91,11 @@ type Loop struct {
 	// loop re-injects the open criteria and keeps working instead of
 	// returning DONE. Optional — nil keeps the legacy single-gate behavior.
 	StopGate StopGate
+
+	// StallThreshold escalates early when the stop-gate returns the SAME set
+	// of open criteria this many times consecutively (no progress). Zero
+	// disables stall detection. Recommended: 3. Independent of MaxStopRejects.
+	StallThreshold int
 
 	// AllowContinuation switches the maxTurns outcome from a hard error to a
 	// checkpointed, resumable Result (Continuation=true). Daemons set this so
@@ -245,6 +256,9 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	var pendingInjects []string
 	var lastText string
 	var lastOpen []string
+	stopRejects := 0 // tracks how many times the stop-gate rejected completion
+	lastCritFingerprint := ""
+	stallCount := 0
 	toolsSeen := map[string]bool{}
 	var toolsUsed []string
 
@@ -334,12 +348,38 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				})
 				if !dec.Complete {
 					lastOpen = dec.OpenCriteria
+					stopRejects++
 					l.fire(ctx, hooks.StopContinue, "", map[string]any{
 						"open_criteria": dec.OpenCriteria, "report": dec.Report,
 					})
 					l.record(ctx, ledger.TypeStopContinue,
 						map[string]any{"open_criteria": dec.OpenCriteria},
 						"stop-gate rejected completion; continuing")
+					// Stagnation guard: identical open criteria across consecutive
+					// rejects means the worker is stuck. Escalate early.
+					fp := strings.Join(dec.OpenCriteria, "\x1f")
+					if fp != "" && fp == lastCritFingerprint {
+						stallCount++
+					} else {
+						stallCount = 1
+						lastCritFingerprint = fp
+					}
+					if l.StallThreshold > 0 && stallCount >= l.StallThreshold {
+						if serr := sess.SaveHistory(msgs); serr != nil {
+							return nil, serr
+						}
+						l.fire(ctx, hooks.StopStalled, "", map[string]any{
+							"stall_count": stallCount, "open_criteria": lastOpen,
+						})
+						l.record(ctx, ledger.TypeStallDetected,
+							map[string]any{"stall_count": stallCount, "open_criteria": lastOpen},
+							fmt.Sprintf("no progress: identical open criteria %d turns in a row; escalating", stallCount))
+						return nil, fmt.Errorf(
+							"stop-gate stalled: identical open criteria %d turns in a row "+
+								"(StallThreshold=%d); open criteria: %s",
+							stallCount, l.StallThreshold, strings.Join(lastOpen, "; "),
+						)
+					}
 					if l.Lessons != nil {
 						_ = l.Lessons.Record(ctx, lessons.Entry{
 							Type:      lessons.TypeFailedVerification,
@@ -354,6 +394,17 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 					})
 					if err := sess.SaveHistory(msgs); err != nil {
 						return nil, err
+					}
+					// Hard cap on stop-gate rejections. Independent of
+					// StallThreshold (issue #150): MaxStopRejects is a
+					// straight count, stall is a fingerprint match.
+					maxRejects := l.MaxStopRejects
+					if maxRejects <= 0 {
+						maxRejects = 3
+					}
+					if stopRejects >= maxRejects {
+						return nil, fmt.Errorf("stop-gate rejected completion %d times (max %d); open criteria: %s",
+							stopRejects, maxRejects, strings.Join(lastOpen, "; "))
 					}
 					continue
 				}

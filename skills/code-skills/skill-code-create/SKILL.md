@@ -2,12 +2,9 @@
 name: skill-code-create
 description: Creates and validates new SIN-Code / OpenCode skills. Use when the user says "create skill", "new skill", "skill-code-create", "/skill-code-create", or asks how to build a skill.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 1.1.0
+compatibility: 
+metadata: 
+lifecycle: native
 ---
 
 # skill-code-create
@@ -61,7 +58,7 @@ ADD CONTEXT/FRAMEWORKS/TASKS/TEMPLATES → VALIDATE → UPDATE REGISTRY & DOCS �
 | Infrastructure | `infrastructure-skills/` | `skill-infrastructure-supabase`, `skill-infrastructure-cloudflare` |
 | Memory | `memory-skills/` | `skill-memory-honcho`, `skill-memory-infisical` |
 | Planning | `planning-skills/` | `skill-planning-enterprise` |
-| Process | `process-skills/` | `skill-process-goal`, `skill-process-grill` |
+| Process | `process-skills/` | `skill-process-goal`, `skill-process-grill`, `skill-code-lazy` |
 | Shop | `shop-skills/` | `skill-shop-stripe`, `skill-shop-cj-dropshipping` |
 
 ## Naming Rules
@@ -75,7 +72,21 @@ ADD CONTEXT/FRAMEWORKS/TASKS/TEMPLATES → VALIDATE → UPDATE REGISTRY & DOCS �
 
 - External skills live in `~/.config/opencode/skills/` or are registered as MCP servers.
 - They must still follow the `SKILL.md` standard and include `lifecycle: external` + `sources:`.
-- Bundled external skills (e.g., from `Infra-SIN-OpenCode-Stack`) are copied into `skills/<category>-skills/` with attribution.
+- Bundled external skills (e.g., from `Infra-SIN-OpenCode-Stack`,
+  or `DietrichGebert/ponytail` → `skill-code-lazy` in `process-skills/`)
+  are copied into `skills/<category>-skills/` with attribution.
+
+## Pairing with `skill-code-lazy`
+
+`skill-code-create` *defaults to* lazy: when you scaffold a skill,
+start from the simplest template, add complexity only when needed.
+For the review/refactor side of the same philosophy, see
+`skills/process-skills/skill-code-lazy/` (SIN-Code variant of
+ponytail, gated by `verify.pass` per M3). Use both together:
+
+1. `skill-code-create` to build the skeleton (lazy-by-default).
+2. `skill-code-lazy` in the review phase to trim over-engineering
+   **after** the verify-gate passes.
 
 ## Common Rationalizations
 

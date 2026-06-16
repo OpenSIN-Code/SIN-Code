@@ -38,10 +38,17 @@ type AdversaryAgent interface {
 	ProposeAttacks(ctx context.Context, diff, impactBrief string, maxAttacks int) ([]Attack, error)
 }
 
+// AdversaryResult is the bounded probe outcome. Findings carries the
+// caveman-style one-liners derived from each Attack; the prose
+// CounterexampleBrief below is rendered from the same Findings when
+// possible and falls back to free-form only when the contract was
+// not satisfied. ParseErrors is the per-line rejection trace.
 type AdversaryResult struct {
-	Attacks []Attack
-	Landed  int
-	Cleared bool
+	Attacks     []Attack
+	Landed      int
+	Cleared     bool
+	Findings    []Finding
+	ParseErrors []string
 }
 
 func (r *AdversaryResult) CounterexampleBrief() string {
@@ -96,7 +103,40 @@ func (adv *Adversary) Review(ctx context.Context, diff, impactBrief string) (*Ad
 		res.Attacks = append(res.Attacks, *a)
 	}
 	res.Cleared = res.Landed == 0
+	collectAdversaryFindings(res)
 	return res, nil
+}
+
+// collectAdversaryFindings derives caveman-style Findings from each
+// Attack. The Attack struct already carries structured fields (Kind,
+// Hypothesis) so the Finding is cheaply assembled. landed attacks
+// are tagged `risk` (regression source), cleared attacks are tagged
+// `verify` (probe passed, human review still wanted). ParseErrors
+// is reserved for the prose layer (currently unused but kept for
+// symmetry with the Critic and Governor result types).
+func collectAdversaryFindings(res *AdversaryResult) {
+	res.Findings = make([]Finding, 0, len(res.Attacks))
+	for _, a := range res.Attacks {
+		tag := TagVerify
+		conf := 0.5
+		if a.Landed {
+			tag = TagRisk
+			conf = 1.0
+		}
+		// Adversary Attacks have no natural Path:Line (they are
+		// hypothesis-shaped, not locator-shaped). We emit a
+		// file-level Finding so the orchestrator's verifiers can
+		// still attribute — the Adversary produces the hypothesis,
+		// not the location.
+		res.Findings = append(res.Findings, Finding{
+			Tag:        tag,
+			Symbol:     string(a.Kind),
+			Path:       "adversary://probe",
+			Line:       0,
+			Confidence: conf,
+			Hint:       a.Hypothesis,
+		})
+	}
 }
 
 func (adv *Adversary) executeProbe(ctx context.Context, a *Attack, idx int) (landed bool, output string, err error) {

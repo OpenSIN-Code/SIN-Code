@@ -20,15 +20,15 @@ const DefaultCheckTimeout = 60 * time.Second
 // CheckResult is the outcome of running a single criterion's verify
 // command. The ID matches the Criterion.ID from the parsed spec.
 type CheckResult struct {
-	ID         string        `json:"id"`
-	Text       string        `json:"text"`
-	Command    string        `json:"command,omitempty"`
-	Passed     bool          `json:"passed"`
-	Skipped    bool          `json:"skipped,omitempty"`
-	ExitCode   int           `json:"exit_code,omitempty"`
-	Duration   time.Duration `json:"duration_ns"`
-	Output     string        `json:"output,omitempty"`     // truncated stdout+stderr
-	Priority   Priority      `json:"priority,omitempty"`
+	ID       string        `json:"id"`
+	Text     string        `json:"text"`
+	Command  string        `json:"command,omitempty"`
+	Passed   bool          `json:"passed"`
+	Skipped  bool          `json:"skipped,omitempty"`
+	ExitCode int           `json:"exit_code,omitempty"`
+	Duration time.Duration `json:"duration_ns"`
+	Output   string        `json:"output,omitempty"` // truncated stdout+stderr
+	Priority Priority      `json:"priority,omitempty"`
 }
 
 // CheckReport aggregates per-criterion results into a summary.
@@ -84,8 +84,8 @@ func (s *Spec) Check(ctx context.Context, timeout time.Duration) (*CheckReport, 
 
 	for _, c := range s.Criteria {
 		res := CheckResult{
-			ID:    c.ID,
-			Text:  c.Text,
+			ID:       c.ID,
+			Text:     c.Text,
 			Priority: Must, // conservative until the parser learns priorities
 		}
 		if strings.TrimSpace(c.Verify) == "" {

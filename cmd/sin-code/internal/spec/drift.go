@@ -36,14 +36,14 @@ var pySignaturePattern = regexp.MustCompile("`def\\s+([A-Za-z_][A-Za-z0-9_]*)\\s
 // Kind discriminates Go vs Python (JSON shapes use JSONShapeHit
 // instead because their structure is different).
 type SignatureHit struct {
-	Kind         string // "go" or "python"
+	Kind          string // "go" or "python"
 	RequirementID string
 	FuncName      string
 	RawParamText  string
 	RawResultText string
-	Code         string
-	Match        bool
-	Note         string
+	Code          string
+	Match         bool
+	Note          string
 }
 
 // JSONShapeHit is one requirement that names a JSON object shape
@@ -121,11 +121,11 @@ func (s *Spec) DetectSignatureDriftWithPython(root, pythonBin string) (*DriftRep
 		// 2a. Go signatures.
 		for _, m := range signaturePattern.FindAllStringSubmatch(r.Text, -1) {
 			hit := SignatureHit{
-				Kind:           "go",
-				RequirementID:  r.ID,
-				FuncName:       m[1],
-				RawParamText:   strings.TrimSpace(m[2]),
-				RawResultText:  strings.TrimSpace(m[3]),
+				Kind:          "go",
+				RequirementID: r.ID,
+				FuncName:      m[1],
+				RawParamText:  strings.TrimSpace(m[2]),
+				RawResultText: strings.TrimSpace(m[3]),
 			}
 			candidates, ok := gofuncs[hit.FuncName]
 			if !ok {
@@ -152,11 +152,11 @@ func (s *Spec) DetectSignatureDriftWithPython(root, pythonBin string) (*DriftRep
 		// 2b. Python signatures.
 		for _, m := range pySignaturePattern.FindAllStringSubmatch(r.Text, -1) {
 			hit := SignatureHit{
-				Kind:           "python",
-				RequirementID:  r.ID,
-				FuncName:       m[1],
-				RawParamText:   strings.TrimSpace(m[2]),
-				RawResultText:  strings.TrimSpace(m[3]),
+				Kind:          "python",
+				RequirementID: r.ID,
+				FuncName:      m[1],
+				RawParamText:  strings.TrimSpace(m[2]),
+				RawResultText: strings.TrimSpace(m[3]),
 			}
 			if pyfuncs == nil {
 				hit.Note = "python3 not available; skipping Python signature check"
@@ -298,7 +298,7 @@ func receiverTypeName(expr ast.Expr) string {
 	case *ast.IndexExpr:
 		// Generic receiver: T[int] -> "T[int]"
 		return exprText(v.X) + "[" + exprText(v.Index) + "]"
-}
+	}
 	return ""
 }
 

@@ -109,11 +109,11 @@ func TestContainsRef(t *testing.T) {
 	}{
 		{"see #1", "#1", true},
 		{"#1 wins", "#1", true},
-		{"x#1y", "#1", true}, // adjacent non-digit both sides
-		{"#12 contains #1", "#1", true},    // #1 at end after space
-		{"#12", "#1", false},               // #1 followed by digit
-		{"prefix0#1", "#1", false},         // #1 preceded by digit
-		{"#1234", "#123", false},           // #123 in #1234: digit boundary rejects prefix
+		{"x#1y", "#1", true},            // adjacent non-digit both sides
+		{"#12 contains #1", "#1", true}, // #1 at end after space
+		{"#12", "#1", false},            // #1 followed by digit
+		{"prefix0#1", "#1", false},      // #1 preceded by digit
+		{"#1234", "#123", false},        // #123 in #1234: digit boundary rejects prefix
 		{"#1234", "#1234", true},
 		{"#1234", "#12345", false},
 		{"", "#1", false},

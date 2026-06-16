@@ -4,6 +4,97 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — Shop-Center skill integration (issue #142 fusion)
+- **`KnownSkills()` registry extended** with the three shop skills
+  (issue #142 acceptance criterion #2 — installable via
+  `sin-code skill install <name>`):
+  - `shop-cj-dropshipping` → `cj-dropshipping-skill`
+  - `shop-stripe`          → `SIN-Stripe-Bundle`
+  - `shop-tiktok`          → `SIN-eCommerce-Scraper-Bundle`
+- **Bundled `SKILL.md` files** (cj-dropshipping, stripe, tiktok)
+  already carry `lifecycle: external` + `sources:` frontmatter
+  (added by PR #218 / issue #139). The `sources:` field points
+  to the canonical external repos so the operator can discover
+  the upstream implementation directly from the bundled skill.
+- **New test** `TestKnownSkillsHasShopEntries` in
+  `cmd/sin-code/internal/skillmgr/manager_test.go` asserts the
+  three entries are present with the correct repo mapping.
+- **Validation passes** — `validate_skill.py --all-bundled
+  --strict` reports `0 failed` for the 34 skills (the 3 shop
+  skills were migrated by PR #218).
+- **Long-term fusion strategy** documented in the issue body:
+  phase 1 (external canonical) → phase 2 (bundled doc, done) →
+  phase 3 (native subcommand) → phase 4 (deprecate upstream).
+  Phase 3 is deferred until the shop domain matures.
+
+### Added — `sin-code grill` (issue #141 fusion, native implementation)
+- **New package** `cmd/sin-code/internal/grill/` with 4 source
+  files (`types.go`, `catalog.go`, `manager.go`, `grill_test.go`)
+  + 14 race-clean unit tests. The native Go implementation of
+  the external `SIN-Code-Grill-Me-Skill` Python MCP server
+  (38 KB). Ships in v0 with JSON-file storage; SQLite session
+  storage is a v1 follow-up.
+- **New subcommand** `sin-code grill` (5 subcommands):
+  - `grill start <topic>` — begin a grilling session, print the id
+  - `grill next <id>` — ask the next adversarial question
+  - `grill answer <id> <d-id> <text>` — record the response
+    (use "done" to resolve a decision)
+  - `grill status <id>` — show resolved + open decisions
+  - `grill synthesize <id> [--json]` — produce a structured
+    summary of decisions, assumptions, and open questions
+- **Question catalog** — 8 seed anti-patterns (Hidden
+  Assumptions, Rollback Plan, Failure Modes, Operator Cost,
+  Premature Optimization, Scope Creep, Single Point of Failure,
+  Verification Gap). Each has 2-3 example questions. The CLI
+  picks one per `grill next` call (hash-seeded for determinism).
+- **Storage** — `$SIN_CODE_HOME/grill/<id>.json`, atomic writes
+  (temp + rename). v1 will migrate to SQLite via the existing
+  `internal/session/store`.
+- **14 race-clean tests** covering the full flow (Start → Next →
+  Answer → Synthesize → round-trip across restarts).
+
+### Added — `sin-code goal` fusion (issue #140, v0.5)
+- **Four new subcommands** under `sin-code goal` (issue #140 fusion
+  with the external `SIN-Code-Goal-Mode-Skill` Python MCP server):
+  - `goal status <id>` — show one goal with subtasks (children)
+  - `goal complete <id>` — mark a goal as verified/done
+  - `goal subtask <parent-id> <prompt>` — add a subtask
+  - `goal report [--format md|json]` — progress report
+- **Mapping to the 8 external tools** (issue body):
+  - `goal_start` → existing `goal add`
+  - `goal_status` → NEW `goal status`
+  - `goal_list` → existing `goal list`
+  - `goal_complete` → NEW `goal complete`
+  - `goal_subtask` → NEW `goal subtask`
+  - `goal_report` → NEW `goal report`
+  - `goal_checkpoint` / `goal_rollback` — **deferred to v1** (no
+    storage yet; the Queue has no `Checkpoint` table)
+- **`parseGoalID` helper** — accepts both `42` and `#42` (with
+  optional whitespace); used by all four new subcommands
+- **11 tests** (1 unit test for `parseGoalID`, all autonomy
+  tests pass under `go test -race -count=1`)
+
+### Added — Skill lifecycle markers (issue #139)
+- **`scripts/lifecycle_map.yaml`** — single source of truth for the
+  lifecycle of every bundled skill. Maps each of the 34 skills to
+  one of `native | external | deprecated` with a `canonical:` field
+  pointing to the upstream implementation.
+- **`scripts/sync_lifecycle.py`** — stdlib-only Python script. Three
+  modes: `--check` (CI: exit 1 if any drift), `--apply` (write
+  changes), `--diff` (show what would change). Hand-rolled YAML
+  parser for the map file (no PyYAML dep).
+- **`scripts/validate_skill.py` strict mode** — now requires the
+  `lifecycle` frontmatter key in `--strict` mode and validates the
+  value. Non-strict mode remains backward-compatible.
+- **`sin-code skill list`** now prints a `LIFECYCLE` column with
+  `[native]`, `[external]`, `[deprecated]`, or `[unknown]` markers.
+  A new `parseLifecycleFromFrontmatter` helper extracts the field
+  from the embedded SKILL.md without a yaml dep.
+- **`docs/SKILLS.md`** — design doc with the value table, the
+  workflow, and the migration path.
+- **All 34 SKILL.md files migrated** — 28 skills received the
+  `lifecycle:` field; 6 were already in sync. Total: 34/34.
+
 ### Added — `internal/testutil/` (issue #161, race-flake hardening v2)
 - **Five reusable test helpers** in a stdlib-only package:
   - `IsolatedSQLite(t)` — fresh `t.TempDir()`-backed `*sql.DB`, auto-closed
@@ -179,8 +270,243 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   `cmd/sin-code/internal/config.doc.md` updated (table + example),
   `cmd/sin-code/internal/learning/learner.doc.md` updated (Style
   field), `AGENTS.md` §6 + §7 cross-references.
+### Added — `sin-code compress` (issue #172, deterministic + LLM compaction)
+- **`internal/compress/`** — first-party package implementing the
+  caveman-compress pattern (`JuliusBrussee/caveman`) for SIN-Code's
+  long-lived stores. Public API: `BuildPlan`, `Apply`, `Rollback`;
+  three strategies (`deterministic` default, `llm`, `hybrid`)
+  targeting four surfaces (`lessons`, `instincts`, `summaries`,
+  `memory`, `agents_md`) plus an aggregate `all`. Plan is read-only
+  and content-addressed (`PlanHash` covers Entries+Drops+Merges);
+  Apply is atomic (snapshot written to `.partial` then renamed before
+  any source rewrite) and lossless (dropped entries are preserved
+  verbatim under `~/.local/share/sin-code/compress-snapshots/<plan-id>.json`).
+- **Deterministic pass** (`compressor.go` + `deterministic.go`):
+  SHA-256 dedupe + utility-sorted (recency × inverse-size) keep-recent
+  with byte-budget cap. Algorithm pins `time.Now()` for tests via
+  `PlanOptions.UseStableTime` so two plans built from identical inputs
+  agree byte-for-byte regardless of wall clock. Stable-time pins are
+  verified by `TestPlanDeterministicIdempotent`.
+- **LLM summarization pass** (`llm.go`): caveman-style compress prompt
+  that preserves code fences, URLs, file paths, commands, and headings
+  byte-for-byte. Validates the response with a line-based check;
+  retries up to 2 with a targeted patch prompt on validation failure
+  (`MaxRetries`, configurable). Falls back to deterministic on
+  exhausted retries or when no provider is configured.
+- **Atomic snapshot+rollback**: Apply writes a `.partial` snapshot
+  first; `Rollback(<plan-id>)` reads the snapshot, refuses to consume
+  any in-flight `.partial`, and restores the originals via per-target
+  re-apply. `TestApplyIsAtomicAndLossless` covers one round-trip.
+- **CLI surface** (`compress_cmd.go`, 41st subcommand = 40th
+  registered cobra verb because `internal.InstinctCmd` etc. are
+  in-package additions):
+  - `sin-code compress plan [--target all] [--strategy deterministic]
+     [--keep-bytes 4096] [--keep N] [--recent-days N] [--json]`
+  - `sin-code compress apply [--dry-run] [--no-llm] [--target ...]
+     [--strategy ...] [--keep-bytes ...] [--json]`
+  - `sin-code compress rollback <snapshot-id>`
+- **Permission policy** (`permission_defaults.go`):
+  `{Tool: "compress__plan", Policy: "allow"}`,
+  `{Tool: "compress__apply", Policy: "ask"}` (M4 — destructive),
+  `{Tool: "compress__rollback", Policy: "allow"}` (restorative only).
+  Wired so any future agent-loop surface that exposes the compressor
+  via MCP is gated correctly.
+- **Regression tests** (`compress_test.go` + `testhelpers_test.go`):
+  hash determinism, plan idempotence, byte-budget enforcement, dedupe
+  invariance, atomic-write contract, dry-run no-touching-nothing,
+  partial-marker rollback refusal, preservation line scoping (heading,
+  code fence, URL, file path, command line), snapshot JSON round-trip.
+  Passes `go test -race -count=1 ./cmd/sin-code/internal/compress/`.
+- **Snapshot dir**: `~/.local/share/sin-code/compress-snapshots/`
+  (overridable via `SIN_CODE_SNAPSHOT_DIR`). Same form factor as
+  lessons.db / ledger.db per AGENTS.md §7.
+### Added — Per-agent profile renderer (issue #175)
+- **Single source of truth** at `docs/agent-profiles/sin-profile.md`
+  (≤80 lines, KISS, hard mandates + working style + subagent contracts +
+  per-agent notes, edits roll out everywhere).
+- **`internal/profile`** package: targets map mirroring AGENTS.md §10
+  (`claude-code`, `opencode`, `gemini`, `codex`, `cursor`, `windsurf`,
+  `cline`, `copilot`); per-format writers (`dir`, `rule`, `marker`); a
+  byte-stable `Render(tgt, body)`; a `Verify(base, body)` SHA-256
+  drift gate; idempotent marker-fence envelopes byte-identical to
+  `internal/skilldist` (issue #169 covenants preserved).
+- **`sin-code profile` subcommand** with four verbs:
+  - `profile show`               — print the source markdown
+  - `profile list`               — print the supported target table (text + `--json`)
+  - `profile render <target|all>` — write one or all mirrors (idempotent;
+    supports `--dry-run` for byte/audit preview without touching disk)
+  - `profile verify`             — CI gate: refuse on missing/drift;
+    surfaces a 12-char-row table or a JSON envelope for `--json`
+- **Permission engine**: `profile__show` / `list` / `verify` are
+  registered as `allow`; `profile__render` is `ask` because it
+  touches per-agent dotdirs (mandate M4).
+- **CI sync**: `.github/workflows/ceo-audit.yml` grew a parallel
+  `profile-verify` job that builds `sin-code`, runs
+  `profile render all && profile verify`, uploads the rendered
+  mirrors as artifacts, and fails the build if any drift surfaces.
+  Mirrors AGENTS.md §6 + §10 — single source of truth in
+  `internal/profile/target.go`.
+- **Test coverage**: 22 race-tested Go tests pinning the byte-stable
+  contract (golden render, marker-fence idempotency, marker-Fence
+  covenant, `Verify` pass / missing / drift, write-after-write SHA
+  equality, replace-not-append for stale mirrors).
+### Added — sin-debt marker convention (issue #177)
+SIN-Code adopts ponytail v4.7.0's `ponytail:` marker convention as a
+first-class, parseable `// sin-debt: <ceiling>, upgrade: <trigger>`
+convention. Every intentional shortcut now carries a marker naming its
+ceiling and the trigger to revisit; the scanner reads them; `debt stats`
+reports them; `debt check` gates them.
+
+- **`internal/sindept/`** — scanner, aggregator, byte-stable report
+  renderer, and policy gate. Single-package surface:
+  - `parser.go`  — `Marker{File, Line, Column, Reason, Upgrade, HasUpg,
+    Raw, Language, Symbol}`, regex over five comment families
+    (`//`, `#`, `--`, `/*…*/`, `<!--…-->`), `ParseFile` + `ParseDir`.
+    Trims trailing block-comment closers (`*/`, `-->`) and post-processes
+    captured clauses for byte-determinism.
+  - `stats.go`   — `Stats{Total, WithUpgrade, WithoutUpgrade, ByFile,
+    ByReason, ByLanguage, BySymbol, RotRisk, Oldest, MarkersPerFile}`.
+    Every map is materialized as a lex-sorted `[]KV` so `Render*`
+    output is stable.
+  - `report.go`  — `RenderStats` / `RenderStatsString` /
+    `RenderListString` markdown renders with `FormatVersion =
+    "sin-debt/v1"`. Two scans of the same tree emit the same bytes.
+  - `policy.go`  — `Policy{DefaultReasons, UpgradeTriggers,
+    MaxNoUpgrade, RequireUpgrade, Source}`. TOML overlay via
+    `.sin-code/debt-policy.toml`; `LoadPolicyForRoot` walks upward to
+    the closest file.
+- **`debt_cmd.go`** — 41st subcommand. `sin-code debt list | stats |
+  check | policy | fix | export`. Common flags: `--path`, `--format`
+  (`table|json`), `--no-trigger`. Stats sub-commands take `--by
+  file|reason|language|symbol|age|summary`. The `check` sub-command
+  is the CI gate; it exits non-zero when `Missing > MaxNoUpgrade` or
+  `RequireUpgrade=true && Missing > 0`.
+- **`docs/sin-debt-convention.md`** — author-facing reference:
+  format, examples, default reasons catalogue, default upgrade
+  triggers.
+- **Permitted `sindept__*` tools**: `sindept__list`, `sindept__stats`,
+  `sindept__policy` are read-only `allow`; `sindept__check` exiting
+  non-zero is `ask`; `sindept__fix` and `sindept__export` are
+  `ask` because they instruct humans to edit code or write a file.
+- **10 hard-coded fixture markers** under
+  `cmd/sin-code/internal/sindept/testdata/` (5 languages) and 4 *real*
+  markers placed in production code (`cmd/sin-code/internal/lessons/
+  store.go` × 2, `…/ledger/store.go`, `…/orchestrator/dispatcher.go`).
+- **Tests**: 23 tests in `cmd/sin-code/internal/sindept/sindept_test.go`
+  cover family coverage, trailing-closer stripping, byte-stability,
+  vendor / hidden-dir walk, age/rot grouping, and the
+  policy-gate semantics above vs. below threshold. Race-clean.
+
+### Notes
+- `sin-code debt stats` is the precondition for the four-arm
+  comparator snapshot (issue #171); byte-stable today, golden file is
+  expected in the next PR cycle.
+- The marker syntax deliberately does NOT include `\Q…\E` quoting —
+  RE2 has no such construct, and the literal token `sin-debt:` is
+  plain inside the regex.
+- `internal/sindept` is the upstream of issue #179 (complexity auditor)
+  and issue #180 (audit-engine): both are expected to call
+  `sindept.ParseFile` / `sindept.AggregateStats` so a marker reads
+  through the same shape regardless of consumer.
+
+---
+### Added — Auto-Activation Hook (issue #176, v3.19.0)
+- **`internal/hooklife/autoactivate/`** — per-session rule injection subpackage.
+  Two Phase hooks (`autoactivate-session-start` / `autoactivate-user-prompt`)
+  register against any `*hooklife.Registry` via `Activator.Register(reg)`.
+  Privacy-first: off by default; activated by `sin-code chat --activate <rule>`
+  or a project-local `.sin-code/autoactivate.toml` file.
+- **`AutoActivate.Activator`** tracks per-session state under a single
+  `sync.RWMutex` (mandate M7 — race-safe under `go test -race -count=1`).
+  `OnSessionStart(sid, opts)` is idempotent; `OnUserPrompt(sid, prompt)`
+  returns the rule set re-emittable for this turn, with trigger-phrase
+  substring matching for natural-language activation. `EndSession(sid)`
+  drops state on exit.
+- **`RuleSet.Render()`** is byte-stable: any two RuleSets with the same
+  name+body+trigger tuples produce identical bytes regardless of insertion
+  order (prerequisite for the system-prompt hash metric, issue #2).
+- **`sin-code chat --activate terse,skill-x`** comma-separated rule list;
+  **`--no-trigger`** suppresses per-prompt phrase matching; reads
+  `.sin-code/autoactivate.toml` silently when present.
+- Tests: 35 race-safe unit tests + 8 chat-wiring integration tests, 91.5%
+  statement coverage on the autoactivate package. New package follows
+  the existing `hooklife` Phase contract; no new external deps.
+### Added — Orchestrator output contracts (issue #174)
+- **Caveman-style output contract** for the four orchestrator sub-agents
+  (`internal/orchestrator/output_contract.go`). Every Finding renders to ONE
+  byte-stable line: `<path>:<line> — <symbol> — <tag> — <hint> # c=<confidence>`.
+  Five closed tags (parallel to `JuliusBrussee/ponytail`): `delete | simplify |
+  rebuild | risk | verify`. Em-dash U+2014 separator; no prose, no pleasantries,
+  no hedging (`you might`, `perhaps`, `could consider`, `maybe`, `i think`,
+  `sort of`, `should probably`, … — closed set of 12 phrases, case-folded).
+- **`Finding` struct** (`internal/orchestrator`) and `ParseFinding` /
+  `ParseFindings` regex parsers with strict byte-stability. `Render()` is
+  fully deterministic — `Finding{...}` → `Render()` → `ParseFinding()` →
+  equal struct, every byte counted (verified by `TestParseFinding_RoundTrip`).
+- **`VerifyFindings`** runs the full contract: structural (`Path != ""`,
+  `Tag ∈ {delete, simplify, rebuild, risk, verify}`), lexical (zero hedging,
+  hint ≤ 240 chars, no trailing punctuation), and emits per-Finding error
+  strings — never silent drops.
+- **Wired into the four sub-agents**:
+  - `Critic.Drive` parses the LAST attempt's prose into `CriticResult.Findings`
+    and surfaces `CriticResult.ParseErrors` for the orchestrator to re-inject
+    as retry feedback (mirrors the `verify.fail` flow).
+  - `Adversary.Review` derives Findings from the structured `Attack` slice
+    (landed → `risk`, cleared → `verify`); the `CounterexampleBrief` free-
+    form prose is preserved as the audit trail.
+  - `Governor.Execute` derives one `risk` Finding per `Escalation` (Path =
+    `task://<ID>`, Symbol = `<from>-><to>`); the prose `Reason` stays on
+    Escalation for the audit log.
+  - `Cartographer.Findings(k)` exposes the PageRank-sorted top-k as
+    `verify`-tagged Findings (opt-in: k ≤ 0 yields the empty slice).
+- **Byte-stable golden tests** (`output_contract_test.go` and
+  `output_contract_integration_test.go`) pin one fixture per agent;
+  rendering drift breaks the build (the prerequisite for issue #168's
+  ledger-level token-cost hashing).
 
 ### Added — Loop Engineering (decoupled completion authority)
+### Added — MCP tool-manifest compression (issue #173, v3.19.0)
+- **`internal/mcpcompress/`** — ponytail-tag compressor for
+  `sin-code serve --compress-tools` (issue #173). Five canonical tags
+  drive five byte-stable Rules:
+  - `delete` → `DeleteHedges` drops pleasantries / hedge adverbs
+    ("safely", "carefully", …).
+  - `stdlib` → `StdlibPatterns` drops redundant stdlib
+    parentheticals ("(via stdlib)", `Go stdlib …`).
+  - `native` → `DropTrimEncouragement` drops M6 tail clauses
+    `Always prefer over native X` / `Prefer sin_X over native Y`
+    (the M6 mandate is internal-only, not for the model).
+  - `yagni` → `YagniPatterns` drops speculative
+    `(experimental)` / `(TBD)` / `(reserved)` parentheticals.
+  - `shrink` → `ShrinkExamples` drops redundant
+    `(e.g. …)` / `(such as …)` parenthetical examples.
+- **Three new `serve` flags**:
+  - `--compress-tools` — apply the full default ponytail tag set
+    (`delete|stdlib|native|yagni|shrink`) before registration.
+  - `--compress-tags <csv>` — override the active tag set
+    (e.g. `--compress-tags "delete,yagni,shrink"`). Unknown tags
+    are silently dropped; the active set is logged via `--print-stats`.
+  - `--print-stats` — emit a left-aligned text table to stderr
+    (tool / orig / comp / saved / ratio + TOTAL row + active rules).
+- **Tool names unchanged.** The compressor mutates only `Description`;
+  the 47 MCP tool `Name` fields (public API per AGENTS.md §10)
+  are never modified. `TestCompressSpec_NameMutable` guards this.
+- **Byte-stable per `(tool_spec, ruleset)`** — every Rule, the
+  Pipeline, and the post-pipeline `Normalize` are deterministic and
+  idempotent. The `compressor_test.go` golden suite is the single
+  source of truth — any Rule regex / declaration-order change must
+  update the gold expectations in the same PR. Prerequisite for the
+  system-prompt hash metric (issue #2).
+- **Real-world savings.** Smoke test against the 47-tool registry:
+  `sin_execute` 80→73 bytes (-7, 8.8%); `sin_read` 200→167 bytes
+  (-33, 16.5%); `sin_write` 194→160 bytes (-34, 17.5%);
+  `sin_edit` 474→441 bytes (-33, 7.0%). TOTAL 3977→3870 bytes
+  saved across 4 affected tools (-107 bytes / 2.7%); the other 43
+  tools' descriptions don't match any of the conservative patterns
+  and stay byte-identical. Per-tool `--print-stats` output is
+  deterministic across runs (no time, no random).
+
+### Added — Loop Engineering (decoupled completion authority)### Added — Loop Engineering (decoupled completion authority)
 - **Stop-gate harness** (`internal/stopgate`): an independent completion
   authority consulted after the verify-gate passes. Hybrid mode runs
   deterministic checks first (fail-closed) then a strong/equal LLM judge
@@ -234,9 +560,17 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   `sin assets list|validate|show|import`.
 - **`internal/evalharness/`** — eval-driven development. `EvalSet` /
   `Run` / `Result` types, pluggable `Scorer`s (exact, contains-all,
-  success-flag, LLM-judge, composite), per-case timeout, JSONL run
-  history, and `Compare` for case-by-case regression detection with
-  `--fail-on-regress` as a CI gate. CLI: `sin eval run|list|compare`.
+  success-flag, LLM-judge, composite, **CompileAndRun**), per-case
+  timeout, JSONL run history, and `Compare` for case-by-case regression
+  detection with `--fail-on-regress` as a CI gate. CLI:
+  `sin eval run|list|compare`.
+- **`CompileAndRun` scorer** (issue #181) — ponytail `correctness.js`
+  analog for SIN-Code. Extracts fenced code from model output, compiles
+  it (`go`/`python`/`javascript`/`bash`), and runs a sandboxed self-check.
+  Returns 1.0 only when compile + run pass; `skip_test` mode accepts
+  trivial one-liners after compile-only (YAGNI for tests). Wired into
+  `sin-code eval run` via `--scorer compile-and-run --language <lang>`
+  and into Golden Datasets via `test_cases[].scorer`.
 - **`internal/dispatch/`** — turns loaded command and agent assets
   into executable actions. ECC-style placeholder substitution
   (`$ARGUMENTS`, `$1..$9`, `$@`, `${flag}`), `Dispatcher` routes
@@ -270,6 +604,20 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   (The existing `sin eval` — Golden-Dataset runner from issue #75 — is
   preserved unchanged; the new harness lives at `sin evalset` to avoid
   a cobra `Use:` collision.)
+
+### Added — Complexity Audit (issue #180)
+- **`sin-code audit complexity`** — repo-wide ponytail-audit analog. Five tags
+  (`delete`, `stdlib`, `native`, `yagni`, `shrink`), deterministic static pass
+  (single-impl interfaces, single-product factories, wrapper functions,
+  one-export files, dead flags/config, hand-rolled stdlib), optional LLM judge
+  for top-N findings. Output: one-liner per finding ending with
+  `net: -<N> lines, -<M> deps possible.` or `Lean already. Ship.`.
+- **`cmd/sin-code/internal/audit/`** — new `Auditor`, `Finding`, `Result` types;
+  `// sin-debt:` markers approve findings and exclude them from the net total.
+- **`sin-code ceo-audit`** — new 48-gate CEO-grade audit. The 48th gate is the
+  complexity audit; score contribution is `+1` per 100 removable lines.
+- **Docs** `docs/complexity-audit.md` and **tests** `complexity_test.go` +
+  `audit_cmd_test.go` with race-free coverage.
 
 ### Notes
 - All loop-engineering features are opt-in and fail-safe: a nil stop-gate /
@@ -390,6 +738,43 @@ spec's signatures.
 - **`AGENTS.md` §12.1** added documenting the four-arm comparator
   contract: the honest delta = `<user-skill>` − `__terse__`, not
   the inflated `<user-skill>` − `__baseline__`.
+### Added — Bundled skills (issue #178)
+- **`skill-code-lazy`** (35th bundled skill, in `skills/process-skills/`):
+  SIN-Code adaptation of Dietrich Gebert's `ponytail` skill — "ship
+  the laziest version that actually works" with the 6-stufige Leiter
+  (YAGNI → stdlib → platform → existing dep → one function → minimum
+  that works). **Gated by `verify.pass` (mandate M3)**: the skill is
+  inert while `verify.result ∈ {pending, pre, fail}` and only arms
+  after the verify-gate. Activation keyword `lazy_skill` (issue #176)
+  binds to the four intensities `off | lite | full | ultra`.
+- **`sin-debt:` marker cookbook** in `templates/debt-markers.md`:
+  paired ceiling + upgrade-trigger convention (issue #177); every
+  shortcut ships a `// sin-debt: <ceiling>, upgrade: <event>` pair
+  so reviewers can audit YAGNI vs hardening pressure.
+- **Byte-stable render contract**: the 5 keyword examples in
+  `SKILL.md` render to identical octets across runs (prerequisite
+  for the issue #2 system-prompt hash metric).
+- **Naming-convention exception** recorded in `AGENTS.md` §10: the
+  canonical pattern is `skill-<category>-<name>`, but
+  `skill-code-lazy` is preserved as the v3.18.0 exception because
+  the `lazy_skill` activation keyword binds to the literal
+  frontmatter name.
+### Added — Complexity Review (issue #179)
+- **`cmd/sin-code/internal/complexity/`** — static, AST-based complexity analyzer
+  implementing ponytail's 5-tag format: `delete`, `stdlib`, `native`, `yagni`,
+  `shrink`. Detects single-implementation interfaces, one-product factories,
+  wrapper-only functions, hand-rolled `min`/`max`, dead flag-like variables,
+  repeat-append loops, and imports that duplicate stdlib/platform features.
+  Respects `// sin-debt:` and `# sin-debt:` markers (issue #177).
+- **`cmd/sin-code/review_cmd.go`** — new top-level `sin-code review` command with
+  `sin-code review --complexity [--path] [--since <ref>] [--tags] [--format text|json|markdown]`.
+- **Output format**: one line per finding
+  (`<tag>: <what>. <replacement>. [path:line]`), ranked by line count and removed
+  dependencies, ending with `net: -<N> lines, -<M> deps possible.` or
+  `Lean already. Ship.`. `net_lines` and `net_deps` are included in JSON output.
+- **Tests**: `cmd/sin-code/internal/complexity/complexity_test.go` + golden file,
+  race-clean.
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added

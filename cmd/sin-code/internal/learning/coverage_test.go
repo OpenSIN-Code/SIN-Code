@@ -84,8 +84,8 @@ func TestBeforeTool_allowAndBlock(t *testing.T) {
 
 type warnHook struct{}
 
-func (warnHook) ID() string                              { return "test-warn" }
-func (warnHook) Phases() []hooklife.Phase                { return []hooklife.Phase{hooklife.PostToolUse} }
+func (warnHook) ID() string               { return "test-warn" }
+func (warnHook) Phases() []hooklife.Phase { return []hooklife.Phase{hooklife.PostToolUse} }
 func (warnHook) Run(context.Context, hooklife.Event) hooklife.Decision {
 	return hooklife.Decision{Verdict: hooklife.Warn, Message: "test warning"}
 }

@@ -42,11 +42,11 @@ func loadFromGH(ctx context.Context, repo string) ([]Issue, error) {
 		return nil, fmt.Errorf("gh issue list: %w", err)
 	}
 	var raw []struct {
-		Number    int    `json:"number"`
-		Title     string `json:"title"`
-		Body      string `json:"body"`
-		State     string `json:"state"`
-		Author    struct {
+		Number int    `json:"number"`
+		Title  string `json:"title"`
+		Body   string `json:"body"`
+		State  string `json:"state"`
+		Author struct {
 			Login string `json:"login"`
 		} `json:"author"`
 		Labels []struct {
