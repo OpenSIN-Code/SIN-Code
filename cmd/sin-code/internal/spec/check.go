@@ -17,6 +17,33 @@ import (
 // DefaultCheckTimeout is the per-criterion timeout if not configured.
 const DefaultCheckTimeout = 60 * time.Second
 
+// Policy controls how spec-drift failures affect exit codes (issue #157).
+//   - PolicyOff:   never block, exit 0 even with must-failures
+//   - PolicyWarn:  print warnings, exit 0 (advisory mode)
+//   - PolicyError: block on must-failures, exit 1 (CI gate mode)
+type Policy string
+
+const (
+	PolicyOff   Policy = "off"
+	PolicyWarn  Policy = "warn"
+	PolicyError Policy = "error"
+)
+
+// ParsePolicy normalises a raw policy string. Unknown values
+// default to PolicyError (fail-closed; the verify gate is sacred).
+func ParsePolicy(s string) Policy {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "off":
+		return PolicyOff
+	case "warn", "warning":
+		return PolicyWarn
+	case "error", "strict", "":
+		return PolicyError
+	default:
+		return PolicyError
+	}
+}
+
 // CheckResult is the outcome of running a single criterion's verify
 // command. The ID matches the Criterion.ID from the parsed spec.
 type CheckResult struct {
@@ -52,6 +79,18 @@ func (r *CheckReport) HasFailures() bool {
 		}
 	}
 	return false
+}
+
+// ShouldBlock returns true if the report should cause the calling
+// CLI to exit non-zero, given the active policy. PolicyOff and
+// PolicyWarn never block; PolicyError blocks on must-failures.
+func (r *CheckReport) ShouldBlock(p Policy) bool {
+	switch p {
+	case PolicyOff, PolicyWarn:
+		return false
+	default:
+		return r.HasFailures()
+	}
 }
 
 // Check runs every criterion's verify: command in s. The per-command
