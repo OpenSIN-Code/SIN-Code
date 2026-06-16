@@ -98,6 +98,13 @@ type Loop struct {
 	LocalSpec []ToolSpec
 	Workspace string
 	MaxTurns  int
+	// BeforeMutate, if set, is called before a mutating tool
+	// (sin_write / sin_edit) executes, with the workspace-relative
+	// path it will change. The loopbuilder wires this to
+	// checkpoint.Store.Capture so every edit is auto-snapshotted and
+	// rewind-able. Optional — nil disables auto-checkpoint.
+	// (issue #194)
+	BeforeMutate func(ctx context.Context, tool, path string)
 	// MaxStopRejects caps how many times the stop-gate can reject
 	// completion before the run errors. Zero falls back to the
 	// default of 3. Independent of StallThreshold (issue #150):
@@ -239,6 +246,11 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 
 	if l.LocalTool == nil {
 		return "TOOL ERROR: no LocalTool registered", injects
+	}
+	if l.BeforeMutate != nil {
+		if p := mutatedPath(tc); p != "" {
+			l.BeforeMutate(ctx, tc.Name, p)
+		}
 	}
 	res, err := l.LocalTool(ctx, tc.Name, tc.Args)
 	if err != nil {
@@ -604,4 +616,18 @@ func formatStopContinue(dec StopDecision) string {
 	}
 	b.WriteString("Continue working until every criterion is met, then stop.")
 	return b.String()
+}
+
+// mutatedPath extracts the target path for tools that mutate the workspace
+// so the auto-checkpoint snapshots exactly the file about to change (cheap,
+// O(1)). Returns "" for tools that don't mutate the workspace or have no
+// "path" argument. (issue #194)
+func mutatedPath(tc ToolCall) string {
+	switch tc.Name {
+	case "sin_write", "sin_edit":
+		if p, ok := tc.Args["path"].(string); ok {
+			return p
+		}
+	}
+	return ""
 }
