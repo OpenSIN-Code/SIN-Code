@@ -51,6 +51,15 @@ func KnownSkills() map[string]string {
 		"browser":       "SIN-Browser-Tools",
 		"simone":        "Simone-MCP",
 		"symfonylens":   "SIN-Code-Symfony-Lens",
+		// Shop / commerce (issue #142 fusion). The bundled skills
+		// document the canonical implementation; the source repos
+		// listed below are the install targets for
+		// `sin-code skill install <name>`. The skill name and
+		// repo are 1:1 unless a single repo covers multiple
+		// bundled skills (see skillmgr.InstallBatch).
+		"shop-cj-dropshipping": "cj-dropshipping-skill",
+		"shop-stripe":          "SIN-Stripe-Bundle",
+		"shop-tiktok":          "SIN-eCommerce-Scraper-Bundle",
 	}
 }
 

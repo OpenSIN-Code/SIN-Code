@@ -4,6 +4,29 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — Shop-Center skill integration (issue #142 fusion)
+- **`KnownSkills()` registry extended** with the three shop skills
+  (issue #142 acceptance criterion #2 — installable via
+  `sin-code skill install <name>`):
+  - `shop-cj-dropshipping` → `cj-dropshipping-skill`
+  - `shop-stripe`          → `SIN-Stripe-Bundle`
+  - `shop-tiktok`          → `SIN-eCommerce-Scraper-Bundle`
+- **Bundled `SKILL.md` files** (cj-dropshipping, stripe, tiktok)
+  already carry `lifecycle: external` + `sources:` frontmatter
+  (added by PR #218 / issue #139). The `sources:` field points
+  to the canonical external repos so the operator can discover
+  the upstream implementation directly from the bundled skill.
+- **New test** `TestKnownSkillsHasShopEntries` in
+  `cmd/sin-code/internal/skillmgr/manager_test.go` asserts the
+  three entries are present with the correct repo mapping.
+- **Validation passes** — `validate_skill.py --all-bundled
+  --strict` reports `0 failed` for the 34 skills (the 3 shop
+  skills were migrated by PR #218).
+- **Long-term fusion strategy** documented in the issue body:
+  phase 1 (external canonical) → phase 2 (bundled doc, done) →
+  phase 3 (native subcommand) → phase 4 (deprecate upstream).
+  Phase 3 is deferred until the shop domain matures.
+
 ### Added — `sin-code grill` (issue #141 fusion, native implementation)
 - **New package** `cmd/sin-code/internal/grill/` with 4 source
   files (`types.go`, `catalog.go`, `manager.go`, `grill_test.go`)
