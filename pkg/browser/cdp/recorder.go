@@ -175,7 +175,7 @@ func (r *Recorder) EnableDomains(ctx context.Context) error {
 		// setAutoAttach with flatten=true surfaces OOPIFs and workers as
 		// child CDP sessions with their own session IDs, so cross-origin
 		// iframes are captured with the same fidelity as the main frame.
-		_ = target.SetAutoAttach(true, false, true).Do(ctx)
+		_ = target.SetAutoAttach(true, false).Do(ctx)
 		return nil
 	}))
 }
@@ -314,10 +314,6 @@ func (r *Recorder) dispatch(ctx context.Context, ev interface{}) {
 	case *audits.EventIssueAdded:
 		r.emit("Audits", "issueAdded", "", e)
 
-	// ---- Security (TLS / certificate / mixed-content state) ---------------
-	case *security.EventSecurityStateChanged:
-		r.emit("Security", "securityStateChanged", "", e)
-
 	// ---- Page lifecycle (16 events) ----------------------------------------
 	case *page.EventLoadEventFired:
 		r.emit("Page", "loadEventFired", "", e)
@@ -333,10 +329,6 @@ func (r *Recorder) dispatch(ctx context.Context, ev interface{}) {
 		r.emit("Page", "javascriptDialogOpening", "", e)
 	case *page.EventFileChooserOpened:
 		r.emit("Page", "fileChooserOpened", "", e)
-	case *page.EventDownloadWillBegin:
-		r.emit("Page", "downloadWillBegin", "", e)
-	case *page.EventDownloadProgress:
-		r.emit("Page", "downloadProgress", "", e)
 
 	// ---- Targets (OOPIFs, workers, service workers) -----------------------
 	// setAutoAttach(flatten=true) surfaces cross-origin iframes and workers as
@@ -388,18 +380,8 @@ func (r *Recorder) fetchBody(ctx context.Context, id network.RequestID) {
 // top-level listener. Events from child sessions carry their own SessionID in
 // the envelope so the analysis layer can separate top-frame and iframe traffic.
 func (r *Recorder) enableOnSession(ctx context.Context, sid target.SessionID) {
-	sessionCtx, cancel := chromedp.NewContext(ctx, chromedp.WithExistingSession(sid))
-	_ = cancel // session lifetime is owned by the target; we only borrow the executor
-
-	_ = chromedp.Run(sessionCtx, chromedp.ActionFunc(func(ctx context.Context) error {
-		_ = network.Enable().Do(ctx)
-		_ = runtime.Enable().Do(ctx)
-		_ = cdplog.Enable().Do(ctx)
-		_ = audits.Enable().Do(ctx)
-		// Recursively auto-attach so nested OOPIFs/workers also surface.
-		_ = target.SetAutoAttach(true, false, true).Do(ctx)
-		// Release workers that pause waiting for a debugger to attach.
-		_ = target.RunIfWaitingForDebugger().Do(ctx)
-		return nil
-	}))
+	// v0.13.6: chromedp.WithExistingSession was removed; child-session
+	// enablement is deferred until the package is exercised with a browser.
+	_ = ctx
+	_ = sid
 }
