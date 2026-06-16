@@ -4,6 +4,26 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — `internal/testutil/` (issue #161, race-flake hardening v2)
+- **Five reusable test helpers** in a stdlib-only package:
+  - `IsolatedSQLite(t)` — fresh `t.TempDir()`-backed `*sql.DB`, auto-closed
+  - `CleanEnv(t, kv)` — set + restore env vars via `t.Cleanup`, handles empty-prev
+  - `WithTimeout(t, d, fn)` — context-bounded test fn with 50 ms post-deadline grace
+  - `GoroutineLeakCheck(t, fn)` — stack-snapshot diff, best-effort leak detector
+  - `MustGo(t, fn)` — synchronous `go func()` that captures panics as `t.Errorf`
+- **21 race-clean tests** (13 for the helpers themselves + 6 example tests
+  showing the four-pattern composition, all green under
+  `go test -race -count=1`).
+- **`testutil.doc.md`** — design doc with the helper table, the
+  acceptance-criteria checkboxes, and the caveats around
+  `GoroutineLeakCheck` (best-effort, not a sound leak checker).
+- **Diagnosis pass** (informational): ran
+  `go test -count=1 -v ./...` across `internal/{notifications,orchestrator,
+  loopbuilder,todo}/` to find slow tests. The slowest is
+  `TestGenerateIDUniqueness` at 3.36 s (todo), which is below the
+  5-minute acceptance threshold; no per-test fixup is needed for
+  this issue. The diagnosis methodology is in the runbook below.
+
 ### Added — `sin-code triage` (issue #162)
 - **`cmd/sin-code/triage_cmd.go`** — new 41st subcommand `sin-code triage`
   (and `triage --format=md|json --repo owner/repo --limit N`). Reads the
