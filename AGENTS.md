@@ -89,6 +89,31 @@ trigger type turn TODO/FIXME markers and `MASTER_TODO.md` items into deduplicate
 goals. Env vars: `SIN_EVALUATOR_MODEL`, `SIN_EVALUATOR_BASE_URL`,
 `SIN_EVALUATOR_API_KEY`.
 
+**SIN-Code Loop System (loop-001…008) — necessary adjacent work is automatic.**
+A goal pulls its own tests, docs, and follow-up work along with it; humans never
+ask an agent to "also write tests" or "update the README":
+- **Tests forced** (loop-002): Go workspaces auto-get a `new-test-coverage`
+  predicate (changed non-test packages must ship `_test.go`) + a `-race` test
+  semantic criterion.
+- **Docs/changelog forced** (loop-006): `changelog-updated` + `doc-md-freshness`
+  predicates and README/AGENTS semantic criteria. Untracked files count, so new
+  code is covered.
+- **Post-completion goals** (loop-001): after verify, the daemon auto-spawns
+  child goals to update CHANGELOG.md / MASTER_TODO.md / `*.doc.md` (templated,
+  `OnlyIfChanged`-gated); the parent finalizes only once they verify. Disable via
+  `goal add --no-post-goals` or `daemon --no-post-goals`.
+- **Proactive decomposition** (loop-005): fresh top-level goals are prefixed with
+  an autonomous-execution protocol forcing scope assessment + `spawn_subgoal`.
+- **GitHub issue discovery** (loop-003): `goal discover --github-issues
+  [--github-labels …]` and the `discover` trigger (`scan_github_issues`) drain
+  open issues into goals (`GH_TOKEN`/`GITHUB_TOKEN`, auto-detected owner/repo).
+- **CI failure discovery** (loop-008): `goal discover --ci-checks [--ci-branch …]`
+  turns failing check runs into high-priority fix-goals.
+- **Auto-commit/push/PR** (loop-007): `daemon --auto-commit` (env
+  `SIN_AUTO_COMMIT=1`), `--push-remote`, `--open-pr` (`internal/gitops`).
+- **Loop status** (loop-004): `sin-code status [--json]` shows the queue tree,
+  recent events, and failures.
+
 ### M4 — Permission engine gates everything destructive
 Every tool call goes through the permission engine
 (`allow` / `ask` / `deny`). In headless mode, `ask` resolves to `deny`
@@ -155,7 +180,7 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   │  • Permission engine (allow/ask/deny)    │
   │  • Hook engine (24 lifecycle events)     │
   │  • Verify Gate (PoC/Oracle, M3)          │
-  │  • Sessions: SQLite, resumable           │
+  │  �� Sessions: SQLite, resumable           │
   │  • Lessons: closed learning loop (v3.4)  │
   │  • MCP-Client: external servers           │
   └──────────────────────────────────────────┘
@@ -372,8 +397,8 @@ Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
            orchestrator_agents, orchestrator_plan, update
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
-           config, self-update, hub, ledger, summary
-``` (v3.13.0: 39 subcommands, up from 36 in v3.9.0)
+           config, self-update, hub, ledger, summary, status
+``` (status added by the SIN-Code Loop System; loop-004)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 

@@ -26,9 +26,9 @@ func collect(cfg DiscoverConfig) []Finding {
 func TestParseGitHubRemote(t *testing.T) {
 	cases := map[string][2]string{
 		"https://github.com/OpenSIN-Code/SIN-Code.git": {"OpenSIN-Code", "SIN-Code"},
-		"git@github.com:OpenSIN-Code/SIN-Code.git":      {"OpenSIN-Code", "SIN-Code"},
-		"https://github.com/foo/bar":                    {"foo", "bar"},
-		"https://gitlab.com/foo/bar.git":                {"", ""},
+		"git@github.com:OpenSIN-Code/SIN-Code.git":     {"OpenSIN-Code", "SIN-Code"},
+		"https://github.com/foo/bar":                   {"foo", "bar"},
+		"https://gitlab.com/foo/bar.git":               {"", ""},
 	}
 	for url, want := range cases {
 		o, r, _ := parseGitHubRemote(url)

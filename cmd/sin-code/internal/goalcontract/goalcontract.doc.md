@@ -24,7 +24,18 @@ satisfied — not when the model stops emitting tool calls.
 1. **Explicit contract file** (`--contract-file`, JSON) + inline `--criteria` +
    `--done-when` shell predicate.
 2. **Auto-detected repo checks** — e.g. a `go.mod` adds `DefaultGoChecks()`
-   (build/test/vet) plus a `no-new-todos` diff guard.
+   (build/test/vet) plus a `no-new-todos` diff guard. The SIN-Code Loop System
+   adds more here:
+   - `new-test-coverage` (loop-002): changed non-test Go packages must ship a
+     new/updated `_test.go`. Disable with `NoTestCriterion`.
+   - `changelog-updated` + `doc-md-freshness` (loop-006): CHANGELOG and sibling
+     `*.doc.md` files must move with production code. Disable with `NoDocCriterion`.
+   - Always-on **semantic criteria** for tests (`-race`), README/AGENTS, and
+     CHANGELOG, plus a decomposition criterion when `Prompt` carries large-scope
+     signals (loop-005).
+   - **Post-completion goals** (loop-001): CHANGELOG/MASTER_TODO/`doc.md`
+     follow-ups in `PostCompletionGoals`, spawned by the daemon after verify.
+     Disable with `NoPostGoals` / `DisablePostGoals`.
 3. **Verify-cmd fallback** — only when nothing else produced a deterministic
    check, the `--verify-cmd` becomes the single predicate.
 
@@ -54,3 +65,8 @@ satisfied — not when the model stops emitting tool calls.
   the stop-gate, semantic criteria are skipped (deterministic checks still run).
 - **`no-new-todos` compares against `HEAD`.** Uncommitted baseline TODOs already
   in the tree are not flagged — only diff-introduced ones.
+- **Loop predicate scripts count untracked files** (`git ls-files --others`) so a
+  brand-new package with no commit yet is still covered; they exit 0 outside a
+  git repo (cannot judge → never block).
+- **`new-test-coverage` checks for a test *file* in the package, not assertion
+  quality.** The semantic criterion (LLM judge) covers happy-path/error-case depth.

@@ -19,6 +19,19 @@ This directory contains **active and historical issues** for the sin-code bundle
 | [st-cov1](done/st-cov1-coverage-80-percent.md) | Raise internal/ test coverage to ≥80% | P2 | **done** | (none) | v2.6.0 |
 | [st-bug1](done/st-bug1-dogfooding-bugs.md) | Dogfooding-discovered bugs (scout/adw/poc/oracle/map) | P1 | **done** (4/5 fixed) | (none) | v2.5.0 |
 
+### SIN-Code Loop System (self-finishing goals)
+
+| ID | Title | Priority | Status | Notes |
+|----|-------|----------|--------|-------|
+| [loop-001](issue-loop-001-post-completion-doc-update.md) | Post-completion doc/changelog goals | P1 | **done** | daemon spawns CHANGELOG/MASTER_TODO/doc.md children |
+| [loop-002](issue-loop-002-test-write-criterion.md) | Auto-injected test-write criterion | P1 | **done** | `new-test-coverage` check + `-race` semantic criterion |
+| [loop-003](issue-loop-003-github-issue-discovery.md) | GitHub issue discovery | P2 | **done** | `goal discover --github-issues` + trigger |
+| [loop-004](issue-loop-004-status-dashboard.md) | Loop status dashboard | P2 | **done** | `sin-code status [--json]` + `ledger.Recent` |
+| [loop-005](issue-loop-005-proactive-decomposition.md) | Proactive decomposition | P1 | **done** | autonomous-execution directive + scope hints |
+| [loop-006](issue-loop-006-doc-freshness-criterion.md) | Doc freshness criterion | P1 | **done** | `changelog-updated` + `doc-md-freshness` checks |
+| [loop-007](issue-loop-007-auto-commit.md) | Auto-commit verified work | P2 | **done** | `internal/gitops` + `daemon --auto-commit/--push-remote/--open-pr` |
+| [loop-008](issue-loop-008-ci-failure-discovery.md) | CI failure discovery | P2 | **done** | `goal discover --ci-checks` |
+
 ## Priority Legend
 
 - **P0** — Blocks next minor release (v2.5.0)

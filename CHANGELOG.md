@@ -4,6 +4,44 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased]
 
+### Added — SIN-Code Loop System (self-finishing goals, loop-001…008)
+The loop now closes the "necessary adjacent work" gap: once a goal is given,
+tests, docs, CHANGELOG/MASTER_TODO, decomposition, commits, and follow-up work
+happen automatically — no human ever has to tell an agent to "also write tests"
+or "update the README".
+- **Auto-injected test criterion** (`goalcontract`, loop-002): Go workspaces get
+  a `new-test-coverage` deterministic check (changed non-test packages must ship
+  a new/updated `_test.go`) plus a semantic criterion requiring happy-path +
+  error-case tests passing under `go test -race`. Opt-out: `--no-test-criterion`
+  equivalent via `ResolveOptions.NoTestCriterion`.
+- **Doc/changelog freshness gates** (`goalcontract`, loop-006): `changelog-updated`
+  (CHANGELOG touched when production Go changes) and `doc-md-freshness` (a package's
+  sibling `*.doc.md` must move with its code) predicate checks, plus README/AGENTS
+  semantic criteria. Untracked files are counted, so brand-new code is covered.
+- **Post-completion goals** (`goalcontract` + daemon, loop-001): after a goal
+  verifies, the daemon auto-spawns child goals to update CHANGELOG.md,
+  MASTER_TODO.md, and affected `doc.md` files (templated with the parent result,
+  gated by `OnlyIfChanged` globs against the last commit). The parent finalizes
+  only once these verify. Disable per-goal with `goal add --no-post-goals` or
+  globally with `daemon --no-post-goals`.
+- **Proactive decomposition** (daemon, loop-005): fresh top-level goals are
+  prefixed with an autonomous-execution protocol that forces scope assessment +
+  `spawn_subgoal` up front and declares tests/build/docs non-negotiable; large
+  scope signals in the prompt inject a decomposition semantic criterion.
+- **GitHub-native discovery** (`autonomy/discover_github.go`, loop-003): the
+  `discover` trigger and `goal discover --github-issues [--github-labels …]` drain
+  open GitHub issues into deduplicated goals (REST API, auto-detected owner/repo
+  from the git remote, `GH_TOKEN`/`GITHUB_TOKEN`).
+- **CI failure discovery** (`autonomy/discover_ci.go`, loop-008): `goal discover
+  --ci-checks [--ci-branch …]` turns failing check runs on a commit into
+  high-priority fix-goals carrying the failing check names.
+- **Auto-commit / push / PR** (`internal/gitops`, loop-007): `daemon --auto-commit`
+  (or `SIN_AUTO_COMMIT=1`) commits each verified goal with a structured message;
+  `--push-remote` pushes and `--open-pr` opens a GitHub PR. Non-fatal on failure.
+- **Loop status dashboard** (`status` command + `ledger.Recent`, loop-004):
+  `sin-code status [--json]` renders the queue tree (pending/running/blocked/
+  verified/failed/exhausted), recent ledger events, and recent failures.
+
 ### Added — Loop Engineering (decoupled completion authority)
 - **Stop-gate harness** (`internal/stopgate`): an independent completion
   authority consulted after the verify-gate passes. Hybrid mode runs
