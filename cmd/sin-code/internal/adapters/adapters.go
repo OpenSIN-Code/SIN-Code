@@ -14,6 +14,18 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 )
 
+var (
+	// chatHook lets coverage tests stub the outbound LLM call.
+	chatHook = func(ctx context.Context, c *llm.Client, req llm.ChatRequest) (*llm.ChatResponse, error) {
+		return c.Chat(ctx, req)
+	}
+
+	// memoryAddHook lets coverage tests stub the memory store write.
+	memoryAddHook = func(s *memory.Store, m *memory.Memory) error {
+		return s.Add(m)
+	}
+)
+
 // VerifyGate adapts the real verify.Gate to the hooklife.Verifier
 // interface. Uses the gate's Run(ctx, workdir) -> Result contract
 // (passed bool, report string, err error).
@@ -42,7 +54,7 @@ func (b MemoryBridge) RecordInstinct(_ context.Context, trigger, action, domain 
 	if b.Store == nil {
 		return nil
 	}
-	return b.Store.Add(&memory.Memory{
+	return memoryAddHook(b.Store, &memory.Memory{
 		Insight: "instinct: " + trigger + " -> " + action,
 		Tags:    []string{"instinct", domain, "confidence:" + ftoa2(confidence)},
 	})
@@ -66,7 +78,7 @@ func (c BackgroundCompleter) Complete(ctx context.Context, system, user string) 
 	if model == "" {
 		model = "anthropic/claude-haiku-4-5"
 	}
-	resp, err := c.Client.Chat(ctx, llm.ChatRequest{
+	resp, err := chatHook(ctx, c.Client, llm.ChatRequest{
 		Model: model,
 		Messages: []llm.Message{
 			{Role: "system", Content: system},

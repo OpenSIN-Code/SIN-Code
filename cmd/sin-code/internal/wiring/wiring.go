@@ -17,6 +17,18 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 )
 
+// Package-level hooks let coverage tests inject failures without
+// touching the filesystem or network. They follow the pattern used
+// elsewhere in the codebase (e.g. cmd/sin-code/internal/todo/todo.go).
+var (
+	learningNewHook = func(opts learning.Options) (*learning.Learner, error) {
+		return learning.New(opts)
+	}
+	buildDispatcherHook = func(assetBase string, prompts dispatch.PromptSink, agents dispatch.SubagentRunner) (*dispatch.Dispatcher, error) {
+		return BuildDispatcher(assetBase, prompts, agents)
+	}
+)
+
 // Deps is the full set of optional subsystems the wiring layer
 // can plug into. Any field may be nil — wiring degrades to no-op
 // for that subsystem.
@@ -45,7 +57,7 @@ type Bundle struct {
 
 // Build constructs the full Bundle.
 func Build(d Deps) (*Bundle, error) {
-	l, err := learning.New(learning.Options{
+	l, err := learningNewHook(learning.Options{
 		Workdir:    d.Workdir,
 		LLM:        d.LLM,
 		Model:      d.LLMModel,
@@ -57,7 +69,7 @@ func Build(d Deps) (*Bundle, error) {
 		return nil, err
 	}
 
-	disp, err := BuildDispatcher("./skills/imported", d.Prompts, d.Subagents)
+	disp, err := buildDispatcherHook("./skills/imported", d.Prompts, d.Subagents)
 	if err != nil {
 		// Soft-fail: dispatcher can be nil if no skill dir exists yet.
 		disp = &dispatch.Dispatcher{Prompts: d.Prompts, Agents: d.Subagents}

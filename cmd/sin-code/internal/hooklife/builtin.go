@@ -14,6 +14,10 @@ import (
 	"strings"
 )
 
+// execCommandContext is overridable in tests so the error branch of
+// PostEditFormat is deterministic without touching real formatters.
+var execCommandContext = exec.CommandContext
+
 // --- block-no-verify: refuse commits that skip verification ---
 
 type BlockNoVerify struct{}
@@ -85,7 +89,7 @@ func (f PostEditFormat) Run(ctx context.Context, ev Event) Decision {
 	if len(parts) == 0 {
 		return Decision{Verdict: Allow}
 	}
-	if err := exec.CommandContext(ctx, parts[0], parts[1:]...).Run(); err != nil {
+	if err := execCommandContext(ctx, parts[0], parts[1:]...).Run(); err != nil {
 		return Decision{Verdict: Warn, Message: "format failed for " + path + ": " + err.Error()}
 	}
 	return Decision{Verdict: Allow}
