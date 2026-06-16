@@ -961,6 +961,34 @@ even with hundreds of rules in a repo.
   separate PR against `internal/agentloop/loop.go` to keep this
   PR focused on the surface + algorithm.
 
+### Added — `internal/sandbox/seatbelt.go` + `--sandbox` flag (issue #199)
+macOS Seatbelt backend for `internal/sandbox`, mirroring Claude
+Code's `seatbelt` backend (Anthropic release v2.1, 2026-01-22).
+The pre-existing `internal/sandbox` package already supports
+Landlock on Linux; this plugin adds:
+- `SeatbeltBackend` / `SeatbeltPolicy` types (typed, deterministic).
+- `DefaultSeatbeltPolicy(workdir, tmp, allowNet)` returns a
+  profile matching the project-wide convention: RW=workdir+tmp,
+  RO=stdlib (`/usr/lib`, `/usr/share`, `/System/Library`),
+  deny-`~/.ssh|~/.aws|~/.gnupg|~/.netrc` (always).
+- `Policy.Profile()` renders the SBPL string byte-stable for
+  golden testing (TestDefaultSeatbeltPolicyByteStable pins it).
+- `Backend.Exec(ctx, *exec.Cmd, workdir)` wraps any subprocess
+  with `sandbox-exec -p <profile>`. Exit code 71 + stderr "deny"
+  → typed `ErrSeatbeltDenied` so callers can retry under a
+  relaxed profile or abort the operation (fail-closed default).
+- `teeWriter` mirrors subprocess stderr to both the caller's
+  writer and a local buffer for the deny-detection heuristic.
+- `cmd/sin-code/chat_cmd.go` adds `--sandbox=<backend>` flag
+  accepting `landlock|seatbelt|bubblewrap|none`; empty value
+  picks the platform-native default (Landlock on Linux, Seatbelt
+  on Darwin). bubblewrap backend lands in a follow-up PR.
+
+Tests: 6 race-clean golden tests covering byte-stable profile
+output, network allow toggling, sorted path emission, sandbox-exec
+PATH look-up, sentinel error typing, and self-consistent input
+ordering. Total runtime ~1s under `-race`.
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added

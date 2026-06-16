@@ -64,6 +64,14 @@ type chatOptions struct {
 	// independently. Mirrors Claude Code's headless --from-pr
 	// rerun-on-checkpoint pattern.
 	rewind string
+	// sandbox selects the syscall-filter backend used to wrap every
+	// `sin_bash` invocation in this chat session.
+	//   landlock    — Linux-only, kernel-level (default when on Linux)
+	//   seatbelt    — macOS sandbox-exec SBPL profile (default on Darwin)
+	//   bubblewrap  — Linux bwrap(1) wrapper
+	//   none        — disable syscall filtering entirely (debugging only)
+	// Empty value picks the platform default at startup.
+	sandbox string
 }
 
 func NewChatCmd() *cobra.Command {
@@ -82,7 +90,8 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --no-trigger             disable prompt-phrase activation
   sin-code chat --mode plan|acceptEdits|bypass  session-wide permission mode (issue #193)
   sin-code chat --worktree <name>        run inside a git worktree (issue #194 part 2)
-  sin-code chat --rewind <checkpoint>    restore workspace to a checkpoint before running`,
+  sin-code chat --rewind <checkpoint>    restore workspace to a checkpoint before running
+  sin-code chat --sandbox <backend>      landlock|seatbelt|bubblewrap|none (issue #199)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context(), opts)
 		},
@@ -104,6 +113,7 @@ func NewChatCmd() *cobra.Command {
 	f.StringVar(&opts.mode, "mode", "", "permission mode: default|plan|acceptEdits|bypass (issue #193)")
 	f.StringVar(&opts.worktree, "worktree", "", "run inside a fresh git worktree at .sin-code/worktrees/<name> (issue #194)")
 	f.StringVar(&opts.rewind, "rewind", "", "restore workspace to the named checkpoint before the chat starts")
+	f.StringVar(&opts.sandbox, "sandbox", "", "sandbox backend: landlock|seatbelt|bubblewrap|none (default: platform-native)")
 	return cmd
 }
 
