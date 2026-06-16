@@ -4,6 +4,7 @@
 package goalcontract
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -168,5 +169,53 @@ func TestResolveMissingContractFile(t *testing.T) {
 		ContractFile: "nope.json",
 	}); err == nil {
 		t.Fatal("expected error for missing contract file")
+	}
+}
+
+func TestMarshalError(t *testing.T) {
+	old := jsonMarshal
+	jsonMarshal = func(v any) ([]byte, error) {
+		return nil, errors.New("marshal boom")
+	}
+	defer func() { jsonMarshal = old }()
+	c := &GoalContract{SemanticCriteria: []string{"x"}}
+	if _, err := c.Marshal(); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestResolveContractFileMaxLinesChanged(t *testing.T) {
+	ws := t.TempDir()
+	file := filepath.Join(ws, "contract.json")
+	raw := `{"semantic_criteria":["from file"],"max_files_changed":3,"max_lines_changed":99}`
+	if err := os.WriteFile(file, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Resolve(ResolveOptions{
+		Workspace:    ws,
+		ContractFile: "contract.json",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.MaxFilesChanged != 3 {
+		t.Errorf("max_files_changed: %d", c.MaxFilesChanged)
+	}
+	if c.MaxLinesChanged != 99 {
+		t.Errorf("max_lines_changed: %d", c.MaxLinesChanged)
+	}
+}
+
+func TestResolveInvalidContractFile(t *testing.T) {
+	ws := t.TempDir()
+	file := filepath.Join(ws, "contract.json")
+	if err := os.WriteFile(file, []byte("not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Resolve(ResolveOptions{
+		Workspace:    ws,
+		ContractFile: "contract.json",
+	}); err == nil {
+		t.Fatal("expected error for invalid contract file")
 	}
 }

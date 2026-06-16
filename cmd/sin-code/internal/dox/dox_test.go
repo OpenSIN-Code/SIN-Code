@@ -8,6 +8,7 @@
 package dox
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -667,5 +668,398 @@ func TestHasStandaloneTODO(t *testing.T) {
 		if got := hasStandaloneTODO(c.line); got != c.want {
 			t.Errorf("hasStandaloneTODO(%q) = %v, want %v", c.line, got, c.want)
 		}
+	}
+}
+
+// ── Depth ─────────────────────────────────────────────────────────────
+
+func TestNodeDepth(t *testing.T) {
+	root := &Node{Name: "root"}
+	child := &Node{Name: "child", Parent: root}
+	grand := &Node{Name: "grand", Parent: child}
+	if root.Depth() != 0 || child.Depth() != 1 || grand.Depth() != 2 {
+		t.Fatalf("Depth values wrong")
+	}
+}
+
+// ── Build error paths ─────────────────────────────────────────────────
+
+func TestBuild_AbsError(t *testing.T) {
+	orig := fsAbsPath
+	fsAbsPath = func(path string) (string, error) { return "", errors.New("abs boom") }
+	defer func() { fsAbsPath = orig }()
+	if _, err := Build("/some/path"); err == nil || !strings.Contains(err.Error(), "abs boom") {
+		t.Fatalf("expected abs error, got %v", err)
+	}
+}
+
+func TestBuild_MissingDir(t *testing.T) {
+	if _, err := Build(filepath.Join(t.TempDir(), "missing")); err == nil {
+		t.Fatal("expected error for missing dir")
+	}
+}
+
+func TestBuild_ReadDirError(t *testing.T) {
+	orig := fsReadDir
+	fsReadDir = func(name string) ([]os.DirEntry, error) {
+		return nil, errors.New("read boom")
+	}
+	defer func() { fsReadDir = orig }()
+	if _, err := Build(t.TempDir()); err == nil || !strings.Contains(err.Error(), "read boom") {
+		t.Fatalf("expected read error, got %v", err)
+	}
+}
+
+// ── buildNode edge cases ──────────────────────────────────────────────
+
+func TestBuild_TitleReadError(t *testing.T) {
+	dir := t.TempDir()
+	// Create a symlink candidate that points nowhere so ReadFile returns an error.
+	if err := os.Symlink("/no/such/file", filepath.Join(dir, "README.md")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Build(dir); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBuild_DotDirSkipped(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".hidden"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# Root\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tree, err := Build(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tree.Children) != 0 {
+		t.Fatalf("expected dot-dir skipped, got %d children", len(tree.Children))
+	}
+}
+
+func TestBuild_ChildReadDirError(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte("# Root\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "child"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	orig := fsReadDir
+	fsReadDir = func(name string) ([]os.DirEntry, error) {
+		if strings.HasSuffix(name, "child") {
+			return nil, errors.New("child read boom")
+		}
+		return orig(name)
+	}
+	defer func() { fsReadDir = orig }()
+	if _, err := Build(dir); err == nil || !strings.Contains(err.Error(), "child read boom") {
+		t.Fatalf("expected child read error, got %v", err)
+	}
+}
+
+// ── Check edge cases ──────────────────────────────────────────────────
+
+func TestCheck_BuildError(t *testing.T) {
+	if _, err := Check(filepath.Join(t.TempDir(), "missing")); err == nil {
+		t.Fatal("expected build error")
+	}
+}
+
+func TestCheck_ChildWithAgentsOnly(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, AgentsFileName), []byte("# Root\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	child := filepath.Join(dir, "has-agents")
+	if err := os.MkdirAll(child, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(child, AgentsFileName), []byte("# Child\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := Check(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range findings {
+		if f.Path == child && f.Kind == "orphan" {
+			t.Fatalf("child with AGENTS.md should not be orphan: %+v", f)
+		}
+	}
+}
+
+func TestCheck_LinkVariants(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, AgentsFileName), []byte(
+		"# Root\n\n"+
+			"- [http](https://example.com)\n"+
+			"- [anchor](real.md#x)\n"+
+			"- [empty]()\n"+
+			"- [broken](missing.md)\n",
+	), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "real.md"), []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := Check(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var broken []string
+	for _, f := range findings {
+		if f.Kind == "broken-link" {
+			broken = append(broken, f.Message)
+		}
+	}
+	if len(broken) != 1 || !strings.Contains(broken[0], "missing.md") {
+		t.Fatalf("expected only broken-link for missing.md, got %v", broken)
+	}
+}
+
+// ── extractMarkdownLinks variants ─────────────────────────────────────
+
+func TestExtractMarkdownLinks_Variants(t *testing.T) {
+	if got := len(extractMarkdownLinks("no brackets")); got != 0 {
+		t.Fatalf("expected 0 links, got %d", got)
+	}
+	if got := extractMarkdownLinks("[text"); len(got) != 0 {
+		t.Fatalf("expected 0 links for unclosed bracket, got %v", got)
+	}
+	if got := extractMarkdownLinks("[text]("); len(got) != 0 {
+		t.Fatalf("expected 0 links for unclosed paren, got %v", got)
+	}
+}
+
+// ── InjectRoot error paths ─────────────────────────────────────────────
+
+func TestInjectRoot_ReadError(t *testing.T) {
+	if err := InjectRoot(t.TempDir(), "body"); err == nil {
+		t.Fatal("expected error when agentsPath is a directory")
+	}
+}
+
+// ── RemoveBlock edge cases ─────────────────────────────────────────────
+
+func TestRemoveBlock_EmptyPath(t *testing.T) {
+	if _, err := RemoveBlock(""); err == nil {
+		t.Fatal("expected error for empty path")
+	}
+}
+
+func TestRemoveBlock_MissingFile(t *testing.T) {
+	n, err := RemoveBlock(filepath.Join(t.TempDir(), "AGENTS.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("expected 0, got %d", n)
+	}
+}
+
+func TestRemoveBlock_ReadError(t *testing.T) {
+	if _, err := RemoveBlock(t.TempDir()); err == nil {
+		t.Fatal("expected error when path is a directory")
+	}
+}
+
+func TestRemoveBlock_WriteError(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "AGENTS.md")
+	if err := InjectRoot(p, "body"); err != nil {
+		t.Fatal(err)
+	}
+	orig := fsWriteFile
+	fsWriteFile = func(name string, data []byte, perm os.FileMode) error {
+		return errors.New("write boom")
+	}
+	defer func() { fsWriteFile = orig }()
+	if _, err := RemoveBlock(p); err == nil || !strings.Contains(err.Error(), "write boom") {
+		t.Fatalf("expected write error, got %v", err)
+	}
+}
+
+func TestRemoveBlock_EndBeforeBegin(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "AGENTS.md")
+	if err := os.WriteFile(p, []byte("x"+EndMarker+BeginMarker+"y\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	n, err := RemoveBlock(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("expected 0, got %d", n)
+	}
+}
+
+func TestRemoveBlock_NoEndMarker(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "AGENTS.md")
+	if err := os.WriteFile(p, []byte(BeginMarker+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	n, err := RemoveBlock(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 0 {
+		t.Fatalf("expected 0, got %d", n)
+	}
+}
+
+// ── Scaffold edge cases ───────────────────────────────────────────────
+
+func TestScaffold_EmptyPath(t *testing.T) {
+	if _, err := Scaffold("", "x", "X"); err == nil {
+		t.Fatal("expected error for empty parent")
+	}
+	if _, err := Scaffold(t.TempDir(), "", "X"); err == nil {
+		t.Fatal("expected error for empty name")
+	}
+}
+
+func TestScaffold_AbsError(t *testing.T) {
+	orig := fsAbsPath
+	fsAbsPath = func(path string) (string, error) { return "", errors.New("abs boom") }
+	defer func() { fsAbsPath = orig }()
+	if _, err := Scaffold(t.TempDir(), "x", "X"); err == nil || !strings.Contains(err.Error(), "abs boom") {
+		t.Fatalf("expected abs error, got %v", err)
+	}
+}
+
+func TestScaffold_ParentNotDir(t *testing.T) {
+	f := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Scaffold(f, "x", "X"); err == nil {
+		t.Fatal("expected error for non-directory parent")
+	}
+}
+
+func TestScaffold_TitleFallback(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, AgentsFileName), []byte("# Root\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	child, err := Scaffold(dir, "foo", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := os.ReadFile(filepath.Join(child, AgentsFileName))
+	if !strings.Contains(string(body), "# foo") {
+		t.Fatalf("title fallback missing: %s", string(body))
+	}
+}
+
+func TestScaffold_MkdirError(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, AgentsFileName), []byte("# Root\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := fsMkdirAll
+	fsMkdirAll = func(path string, perm os.FileMode) error { return errors.New("mkdir boom") }
+	defer func() { fsMkdirAll = orig }()
+	if _, err := Scaffold(dir, "foo", "Foo"); err == nil || !strings.Contains(err.Error(), "mkdir boom") {
+		t.Fatalf("expected mkdir error, got %v", err)
+	}
+}
+
+func TestScaffold_WriteChildError(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, AgentsFileName), []byte("# Root\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := fsWriteFile
+	fsWriteFile = func(name string, data []byte, perm os.FileMode) error {
+		if strings.Contains(name, "AGENTS.md") {
+			return errors.New("write child boom")
+		}
+		return orig(name, data, perm)
+	}
+	defer func() { fsWriteFile = orig }()
+	if _, err := Scaffold(dir, "foo", "Foo"); err == nil || !strings.Contains(err.Error(), "write child boom") {
+		t.Fatalf("expected write child error, got %v", err)
+	}
+}
+
+func TestScaffold_RegisterError(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, AgentsFileName), []byte("# Root\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := fsWriteFile
+	fsWriteFile = func(name string, data []byte, perm os.FileMode) error {
+		if strings.Contains(name, "AGENTS.md") && !strings.Contains(name, "foo") {
+			return errors.New("register boom")
+		}
+		return orig(name, data, perm)
+	}
+	defer func() { fsWriteFile = orig }()
+	path, err := Scaffold(dir, "foo", "Foo")
+	if err == nil || !strings.Contains(err.Error(), "register boom") {
+		t.Fatalf("expected register error, got %v, path=%s", err, path)
+	}
+}
+
+// ── registerInParent edge cases ─────────────────────────────────────────
+
+func TestRegisterInParent_AlreadyRegistered(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, AgentsFileName), []byte("# Root\n\n- [foo](foo/AGENTS.md) — Foo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := registerInParent(dir, "foo", "Foo"); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := os.ReadFile(filepath.Join(dir, AgentsFileName))
+	if strings.Count(string(body), "[foo]") != 1 {
+		t.Fatalf("registration duplicated: %s", string(body))
+	}
+}
+
+func TestRegisterInParent_NoNewline(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, AgentsFileName), []byte("# Root"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := registerInParent(dir, "foo", "Foo"); err != nil {
+		t.Fatal(err)
+	}
+	body, _ := os.ReadFile(filepath.Join(dir, AgentsFileName))
+	if !strings.HasSuffix(string(body), "\n") {
+		t.Fatal("expected newline appended")
+	}
+}
+
+func TestRegisterInParent_ReadError(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, AgentsFileName), []byte("# Root\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	orig := fsReadFile
+	fsReadFile = func(name string) ([]byte, error) {
+		if strings.Contains(name, AgentsFileName) {
+			return nil, errors.New("read boom")
+		}
+		return orig(name)
+	}
+	defer func() { fsReadFile = orig }()
+	if err := registerInParent(dir, "foo", "Foo"); err == nil || !strings.Contains(err.Error(), "read boom") {
+		t.Fatalf("expected read error, got %v", err)
+	}
+}
+
+// ── RenderTree error path ──────────────────────────────────────────────
+
+func TestRenderTree_BuildError(t *testing.T) {
+	if _, err := RenderTree(filepath.Join(t.TempDir(), "missing")); err == nil {
+		t.Fatal("expected build error")
 	}
 }

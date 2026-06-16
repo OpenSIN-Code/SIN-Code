@@ -13,6 +13,13 @@ import (
 	"strings"
 )
 
+// package-level hooks to make import error branches testable.
+var (
+	osMkdirAllHook      = os.MkdirAll
+	osWriteFileHook     = os.WriteFile
+	loadSourceSkillsHook = loadSourceSkills
+)
+
 // ImportOptions controls a skill harvest from a vendored source repo.
 type ImportOptions struct {
 	SourceBase     string   // root of the cloned source repo (e.g. ./vendor/ecc)
@@ -48,7 +55,7 @@ func DefaultExclusions() []string {
 // filters, stamps attribution, and writes survivors to DestDir.
 func ImportSkills(opts ImportOptions) (ImportReport, error) {
 	var rep ImportReport
-	skills, err := loadSourceSkills(opts.SourceBase)
+	skills, err := loadSourceSkillsHook(opts.SourceBase)
 	if err != nil {
 		return rep, err
 	}
@@ -56,7 +63,7 @@ func ImportSkills(opts ImportOptions) (ImportReport, error) {
 	includeDom := opts.IncludeDomains
 
 	if !opts.DryRun && opts.DestDir != "" {
-		if err := os.MkdirAll(opts.DestDir, 0o755); err != nil {
+		if err := osMkdirAllHook(opts.DestDir, 0o755); err != nil {
 			return rep, err
 		}
 	}
@@ -94,10 +101,10 @@ func ImportSkills(opts ImportOptions) (ImportReport, error) {
 			return rep, err
 		}
 		dst := filepath.Join(opts.DestDir, a.Name, "SKILL.md")
-		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		if err := osMkdirAllHook(filepath.Dir(dst), 0o755); err != nil {
 			return rep, err
 		}
-		if err := os.WriteFile(dst, data, 0o644); err != nil {
+		if err := osWriteFileHook(dst, data, 0o644); err != nil {
 			return rep, err
 		}
 	}

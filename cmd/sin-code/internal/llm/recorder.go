@@ -19,13 +19,16 @@ import (
 	"sync"
 )
 
+// randRead is a test seam around crypto/rand.Read.
+var randRead = rand.Read
+
 // randomSessionID returns a hex-encoded 64-bit random session id.
 // Generated once per process; cached for the lifetime of the
 // binary so every LLM call within the same process shares the
 // default id.
 func randomSessionID() string {
 	var b [8]byte
-	if _, err := rand.Read(b[:]); err != nil {
+	if _, err := randRead(b[:]); err != nil {
 		// crypto/rand should never fail on a sane OS, but if it
 		// does we fall back to a fixed sentinel. The Recorder
 		// contract is best-effort; a missing session id is

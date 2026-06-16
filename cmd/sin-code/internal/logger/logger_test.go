@@ -4,6 +4,7 @@ package logger
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -87,5 +88,52 @@ func TestLoggerTimeFormat(t *testing.T) {
 	}
 	if !strings.Contains(entry.Time, "T") {
 		t.Errorf("expected RFC3339 format, got %q", entry.Time)
+	}
+}
+
+func TestDefault(t *testing.T) {
+	l := Default()
+	if l == nil {
+		t.Fatal("Default() returned nil")
+	}
+}
+
+func TestLevelStringUnknown(t *testing.T) {
+	if got := Level(99).String(); got != "UNKNOWN" {
+		t.Errorf("expected UNKNOWN, got %q", got)
+	}
+}
+
+func TestLevelStrings(t *testing.T) {
+	for level, want := range map[Level]string{
+		LevelDebug: "DEBUG",
+		LevelInfo:  "INFO",
+		LevelWarn:  "WARN",
+		LevelError: "ERROR",
+	} {
+		if got := level.String(); got != want {
+			t.Errorf("Level(%d).String() = %q, want %q", level, got, want)
+		}
+	}
+}
+
+func TestGetOutputNil(t *testing.T) {
+	l := &Logger{}
+	if got := l.getOutput(); got != os.Stderr {
+		t.Errorf("expected os.Stderr for nil output, got %v", got)
+	}
+}
+
+func TestLogMarshalError(t *testing.T) {
+	var buf bytes.Buffer
+	SetOutput(&buf)
+	defer SetOutput(nil)
+
+	SetLevel(LevelInfo)
+	Info("marshal error", map[string]any{"ch": make(chan int)})
+
+	output := buf.String()
+	if !strings.Contains(output, "logger marshal failed") {
+		t.Errorf("expected marshal failure log, got %q", output)
 	}
 }

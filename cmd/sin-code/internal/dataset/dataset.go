@@ -26,6 +26,15 @@ import (
 	"time"
 )
 
+// Filesystem hooks for deterministic error-path testing (kept
+// package-local so the public API is unchanged). Set only in tests.
+var (
+	filepathAbs     = filepath.Abs
+	osReadFile      = os.ReadFile
+	osStat          = os.Stat
+	filepathWalkDir = filepath.WalkDir
+)
+
 // Dataset is a deployable, versioned collection of TestCase items.
 // Version is opaque — JSON schema treats it as a free-form string so it
 // can also hold semver-with-prefix strings ("v1.0.0", "1.0.0-rc1").
@@ -80,11 +89,11 @@ func LoadDataset(path string) (*Dataset, error) {
 	if path == "" {
 		return nil, errors.New("dataset: empty path")
 	}
-	abs, err := filepath.Abs(path)
+	abs, err := filepathAbs(path)
 	if err != nil {
 		return nil, fmt.Errorf("dataset: absolute path for %q: %w", path, err)
 	}
-	raw, err := os.ReadFile(abs)
+	raw, err := osReadFile(abs)
 	if err != nil {
 		return nil, fmt.Errorf("dataset: read %q: %w", abs, err)
 	}
@@ -178,17 +187,17 @@ func ListDatasets(dir string) ([]string, error) {
 	if dir == "" {
 		dir = "evals"
 	}
-	abs, err := filepath.Abs(dir)
+	abs, err := filepathAbs(dir)
 	if err != nil {
 		return nil, fmt.Errorf("dataset: absolute path for %q: %w", dir, err)
 	}
-	if info, err := os.Stat(abs); err != nil {
+	if info, err := osStat(abs); err != nil {
 		return nil, fmt.Errorf("dataset: stat %q: %w", abs, err)
 	} else if !info.IsDir() {
 		return nil, fmt.Errorf("dataset: %q is not a directory", abs)
 	}
 	var out []string
-	err = filepath.WalkDir(abs, func(path string, d fs.DirEntry, walkErr error) error {
+	err = filepathWalkDir(abs, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}

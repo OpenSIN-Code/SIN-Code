@@ -301,3 +301,15 @@ func gitCommit(t *testing.T, ws, msg string) {
 		t.Fatalf("git commit: %v: %s", err, out)
 	}
 }
+
+func TestJoinWorkspace(t *testing.T) {
+	if got := joinWorkspace("", "x"); got != "x" {
+		t.Errorf("empty workspace: %q", got)
+	}
+	if got := joinWorkspace("/ws", "x"); got != "/ws/x" {
+		t.Errorf("no trailing slash: %q", got)
+	}
+	if got := joinWorkspace("/ws/", "x"); got != "/ws/x" {
+		t.Errorf("trailing slash: %q", got)
+	}
+}

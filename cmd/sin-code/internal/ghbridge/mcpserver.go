@@ -200,8 +200,11 @@ func (s *Server) dispatch(ctx context.Context, req *jsonRPCRequest) *jsonRPCResp
 	}
 }
 
+// jsonMarshal is a test seam around json.Marshal.
+var jsonMarshal = json.Marshal
+
 func (s *Server) result(req *jsonRPCRequest, v any) *jsonRPCResponse {
-	data, err := json.Marshal(v)
+	data, err := jsonMarshal(v)
 	if err != nil {
 		return &jsonRPCResponse{
 			JSONRPC: "2.0",
@@ -335,7 +338,7 @@ func dispatch(s *Server, ctx context.Context, req *jsonRPCRequest, tool string, 
 // shape), we fall back to a JSON-RPC error so the call still closes
 // cleanly.
 func mustMarshal(req *jsonRPCRequest, v toolResult) json.RawMessage {
-	data, err := json.Marshal(v)
+	data, err := jsonMarshal(v)
 	if err != nil {
 		// Unreachable in practice — the shape is static. We return a
 		// valid (if empty) result so the call does not hang.
@@ -399,6 +402,9 @@ func (s *Server) toolList() []toolSpec {
 
 // ── RegisterMCP ───────────────────────────────────────────────────────
 
+// userHomeDir is a test seam around os.UserHomeDir.
+var userHomeDir = os.UserHomeDir
+
 // MCPConfigPath is where the gh-bridge MCP server is registered.
 // Matches the convention used by vane.MCPConfigPath() and
 // superpowers.MCPConfigPath() so a single $SIN_CODE_HOME override
@@ -407,7 +413,7 @@ func MCPConfigPath() string {
 	if v := os.Getenv("SIN_CODE_HOME"); v != "" {
 		return filepath.Join(v, "mcp.json")
 	}
-	if h, err := os.UserHomeDir(); err == nil {
+	if h, err := userHomeDir(); err == nil {
 		return filepath.Join(h, ".local", "share", "sin-code", "mcp.json")
 	}
 	return filepath.Join(".", ".sin-code-home", "mcp.json")
@@ -417,11 +423,14 @@ func MCPConfigPath() string {
 // MCPConfigPath() if empty). Idempotent: existing entries with the
 // same command + args are left untouched. Preserves every other key
 // in the file (notably pre-existing "superpowers", "vane" entries).
+// osExecutable is a test seam around os.Executable.
+var osExecutable = os.Executable
+
 func RegisterMCP(mcpPath string) (string, error) {
 	if mcpPath == "" {
 		mcpPath = MCPConfigPath()
 	}
-	exe, err := os.Executable()
+	exe, err := osExecutable()
 	if err != nil {
 		return mcpPath, fmt.Errorf("ghbridge: resolve executable: %w", err)
 	}
@@ -451,11 +460,17 @@ func RegisterMCP(mcpPath string) (string, error) {
 	return mcpPath, writeJSONAtomic(mcpPath, cfg)
 }
 
+// ioCopy is a test seam around io.Copy.
+var ioCopy = io.Copy
+
+// closeFile is a test seam around (*os.File).Close.
+var closeFile = (*os.File).Close
+
 // writeJSONAtomic marshals v and writes to path via a temp-file +
 // rename so a crash mid-write cannot corrupt the existing file. Parent
 // directories are created on demand. Mirrors vane.writeJSONAtomic.
 func writeJSONAtomic(path string, v any) error {
-	data, err := json.MarshalIndent(v, "", "  ")
+	data, err := jsonMarshal(v)
 	if err != nil {
 		return err
 	}
@@ -468,12 +483,13 @@ func writeJSONAtomic(path string, v any) error {
 	}
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName)
-	if _, err := io.Copy(tmp, strings.NewReader(string(data)+"\n")); err != nil {
-		tmp.Close()
+	if _, err := ioCopy(tmp, strings.NewReader(string(data)+"\n")); err != nil {
+		closeFile(tmp)
 		return err
 	}
-	if err := tmp.Close(); err != nil {
+	if err := closeFile(tmp); err != nil {
 		return err
 	}
 	return os.Rename(tmpName, path)
 }
+

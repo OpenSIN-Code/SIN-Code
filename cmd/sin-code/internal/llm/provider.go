@@ -97,6 +97,9 @@ func (c *Client) BreakerStats() *circuitbreaker.Stats {
 	return &s
 }
 
+// jsonMarshal is a test seam around json.Marshal.
+var jsonMarshal = json.Marshal
+
 func (c *Client) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, error) {
 	// Belt-and-suspenders: if the caller left Model empty, try to discover a
 	// default. Order of preference: explicit env override -> /v1/models probe
@@ -109,7 +112,7 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, erro
 		}
 		req.Model = resolved
 	}
-	body, err := json.Marshal(req)
+	body, err := jsonMarshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}

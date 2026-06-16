@@ -12,6 +12,9 @@ import (
 	"strings"
 )
 
+// osReadFileHook is swapable for testing the Load error branch.
+var osReadFileHook = os.ReadFile
+
 type Command struct {
 	Name        string
 	Description string
@@ -36,7 +39,7 @@ func Load(projectDir string) (map[string]Command, error) {
 			if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
 				continue
 			}
-			raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+			raw, err := osReadFileHook(filepath.Join(dir, e.Name()))
 			if err != nil {
 				continue
 			}

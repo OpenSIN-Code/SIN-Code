@@ -175,3 +175,12 @@ func TestProviderFromConfigTimeout(t *testing.T) {
 func TestProviderAPICallTimeout(t *testing.T) {
 	_ = os.Getenv("DUMMY")
 }
+
+func TestProviderFromConfigMissingBaseURL(t *testing.T) {
+	// "custom" provider has no base URL; without env override it should error.
+	t.Setenv("SIN_LLM_BASE_URL", "")
+	_, err := ProviderFromConfig("custom", "", "", "", 0)
+	if err == nil {
+		t.Fatal("expected error for missing base URL")
+	}
+}

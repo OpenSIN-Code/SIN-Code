@@ -11,12 +11,18 @@ import (
 	"strings"
 )
 
+// package-level hooks to make filesystem error branches testable.
+var (
+	walkDirHook  = filepath.WalkDir
+	osReadFileHook = os.ReadFile
+)
+
 // LoadDir walks a directory tree and loads every *.md file as the
 // given kind. Skills are expected as <dir>/<name>/SKILL.md; agents
 // and commands as flat *.md.
 func LoadDir(root string, kind Kind) ([]*Asset, error) {
 	var out []*Asset
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	err := walkDirHook(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -30,7 +36,7 @@ func LoadDir(root string, kind Kind) ([]*Asset, error) {
 		if kind == KindSkill && name != "skill.md" {
 			return nil // skills live in SKILL.md only
 		}
-		data, err := os.ReadFile(path)
+		data, err := osReadFileHook(path)
 		if err != nil {
 			return err
 		}
