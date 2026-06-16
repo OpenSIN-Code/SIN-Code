@@ -852,6 +852,50 @@ subagent fan-out integration lands in part 3.
   main-worktree-refuses, `HasUncommitted`, non-repo-error,
   Lock/Unlock round-trip. Total runtime ~6s under `-race`.
 
+### Added — `internal/auto_mem` + `sin-code memory auto-*` (issue #192 followup, M3-safe)
+Mirrors Claude-Code's CLAUDE.md → MEMORY.md Auto-Memory surface
+(Anthropic release v2.1.59, 2026-02-26) **without** the silent-
+LLM-write hazard. Every SIN-Code auto-memory write is **deterministic
+and visible** (sources: `verify-fail`, `tool-error`, `lesson-derived`,
+`manual`); the verifying-gate-sacred mandate M3 forbids implicit
+state changes that the agent could later mislead itself about
+(see Apr-23-Postmortem for what Anthropic's silent model-driven
+compaction did to coding quality).
+- **New package `cmd/sin-code/internal/auto_mem`**:
+  - `Open(homeDir, projectKey) (*Store, error)` opens a strictly-
+    hashed subdirectory at
+    `~/.local/share/sin-code/memory/<sha256-prefix-12>/memory/`.
+    The hash makes the directory path byte-stable and free of
+    collisions for any project key.
+  - `Store.Append(Entry)` adds or replaces a topic by normalised
+    heading (case-folding, underscore/dash-equivalence,
+    whitespace-stripping). On-disk format is fenced by
+    `<!-- SIN-CODE-AUTO-MEMORY-START -->` /
+    `<!-- SIN-CODE-AUTO-MEMORY-END -->` markers so manual edits
+    outside the surface remain feasible.
+  - `Index()` returns the sorted heading list.
+  - `IndexBytes()` returns a byte-stable fragment capped at first
+    **25 KB OR 200 lines** (whichever is reached first, mirrors
+    Claude Code's 2026-03-26 fix).
+  - `ReadTopic(heading)`, `Remove(heading)`, and `Rotate(max)`
+    round out the surface.
+  - Atomic write via tmpfile + fsync + rename (defensive
+    against crashes mid-flush; will not leave a torn MEMORY.md).
+  - **Errors are typed** (`ErrNoSuchTopic`) for `errors.As`.
+- **CLI surface**: `sin-code memory auto-list|auto-show|auto-append|
+  auto-rm|auto-gc` registered under the existing `sin-code memory`
+  command. The `auto-*` namespace keeps the byte-stable markdown
+  layer cleanly distinct from the existing bbolt-backed episodic
+  memory (issue #44).
+- **Tests** (`cmd/sin-code/internal/auto_mem/auto_mem_test.go`):
+  12 race-clean tests covering Open/Append/Index/Read/Remove/
+  Rotate, byte-stable IndexBytes, 25 KB cap enforcement,
+  heading normalisation, error typing. Total runtime ~2s.
+- **No chat auto-injection in this PR.** The system-prompt hook
+  that reads IndexBytes on SessionStart lands separately
+  (issue #176 followup) so we keep this PR focused on the
+  byte-stable surface and tuning the on-disk format.
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added

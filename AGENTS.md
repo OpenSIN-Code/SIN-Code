@@ -366,6 +366,7 @@ SIN-Code/
 │   │       ├── skillmgr/      ← v3.5.0: install/verify skills
 │   │       ├── skilldist/     ← v3.18.0: marker-fenced skill distribution (issue #169)
 │   │       ├── isolation/     ← v3.20.0: git-worktree primitives (issue #194 part 2)
+│   │       ├── auto_mem/      ← v3.20.0: byte-stable MEMORY.md (Claude-Auto-Memory parity, M3-safe)
 │   │       ├── loopbuilder/   ← v3.4.0: shared factory (DRY)
 │   │       ├── vane/          ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (internal/vane)
 │   │       ├── stack/         ← v3.8.0: unified install/doctor across 3 layers
@@ -458,6 +459,14 @@ the parser is dependency-free (M2). Manage it with `sin-code config`:
 `init`, `show`, `validate`, `get`, `set`, `list`, `path`. Secrets are masked
 in `show` unless `--plain` is passed. See `cmd/sin-code/internal/config.go`
 and `config.doc.md` for the full schema and validation rules.
+
+Agent profiles (`profiles/*.toml`) are copied/symlinked into
+`~/.config/sin-code/agents/<name>/agent.toml`. The bundled `fireworks` and
+`qwen-relay` profiles set `tools_allow` to the full SIN tool surface and all
+registered MCP prefixes (issue #249). Destructive SIN builtins (`sin_bash`,
+`sin_git_commit`, `sin_test_generate`, `sin_browser_navigate`) are intentionally
+omitted from the profile allow list so they remain at the default "ask" tier and
+are still gated by the permission engine in headless mode (mandate M4).
 
 Session DB: `~/.local/share/sin-code/sessions.db` (SQLite, modernc).
 Schema: `sessions(id, created_at, updated_at, title, parent_id)` with
