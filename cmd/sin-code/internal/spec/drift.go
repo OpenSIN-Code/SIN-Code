@@ -17,13 +17,14 @@ import (
 	"strings"
 )
 
-// signaturePattern matches a Go function signature in backticks inside
-// a spec requirement. Captures the name, parameter list (in
-// parentheses), and an optional return list (after the closing
-// paren). The return list is allowed to be empty for void functions
-// like `Bar()`. Whitespace and line breaks inside the signature
-// are tolerated by the canonicalize() step, not the regex.
-var signaturePattern = regexp.MustCompile("`([A-Za-z_][A-Za-z0-9_]*)\\s*\\(([^)]*)\\)\\s*([^`]*)`")
+// signaturePattern matches a Go function signature in backticks
+// inside a spec requirement. The name can be a plain identifier
+// (`Foo`), a method receiver (`Receiver.Method`), a pointer
+// receiver (`*Receiver.Method`), or a generic type or method
+// (`Box[T]`, `Box[T].Get`). Captures the parameter list (in
+// parentheses) and an optional return list (after the closing
+// paren).
+var signaturePattern = regexp.MustCompile("`(\\*?[A-Za-z_][A-Za-z0-9_]*(?:\\[[^]]+\\])?(?:\\.[A-Za-z_][A-Za-z0-9_]*(?:\\[[^]]+\\])?)?)\\s*\\(([^)]*)\\)\\s*([^`]*)`")
 
 // pySignaturePattern matches a Python function signature in backticks
 // (e.g. `def foo(x: int, y: str) -> str`). Captures the function
@@ -180,7 +181,7 @@ func (s *Spec) DetectSignatureDriftWithPython(root, pythonBin string) (*DriftRep
 			}
 			matched := false
 			for _, f := range jsonfiles {
-				if ok, note := jsonMatch(j.Shape, f.Value); ok {
+				if ok, note := jsonMatch(j.Shape, f.Value, j.Strict); ok {
 					jhit.MatchedFile = f.Path
 					jhit.Match = true
 					matched = true
@@ -247,6 +248,10 @@ type goFunc struct {
 // result canonicalized). The walk is recursive and skips
 // auto-generated files and test files (best-effort; we don't
 // fail the whole drift check on a single unparseable file).
+// parseGoFuncs walks the Go source tree and returns a map keyed by
+// function name (plain) or "Receiver.Method" (methods). Pointer
+// receivers get a "*Receiver" qualifier; value receivers use the bare
+// type name.
 func parseGoFuncs(root string) (map[string][]goFunc, error) {
 	out := map[string][]goFunc{}
 	fset := token.NewFileSet()
@@ -257,13 +262,21 @@ func parseGoFuncs(root string) (map[string][]goFunc, error) {
 		}
 		ast.Inspect(f, func(n ast.Node) bool {
 			fn, ok := n.(*ast.FuncDecl)
-			if !ok || fn.Recv != nil { // skip methods (this is the v0; method support is PR 3)
+			if !ok || fn.Name == nil {
 				return true
 			}
-			if fn.Name == nil {
-				return true
+			name := fn.Name.Name
+			if fn.Recv != nil && len(fn.Recv.List) > 0 {
+				// Method: qualify with the receiver type. Pointer
+				// receivers are written "*T.Method", value receivers
+				// are "T.Method". This matches the canonical Go
+				// calling convention used in spec requirements.
+				recvType := receiverTypeName(fn.Recv.List[0].Type)
+				if recvType != "" {
+					name = recvType + "." + name
+				}
 			}
-			out[fn.Name.Name] = append(out[fn.Name.Name], goFunc{
+			out[name] = append(out[name], goFunc{
 				params:  canonicalFieldList(fn.Type.Params),
 				results: canonicalFieldList(fn.Type.Results),
 				code:    renderFuncLine(fset, fn),
@@ -272,6 +285,21 @@ func parseGoFuncs(root string) (map[string][]goFunc, error) {
 		})
 	})
 	return out, err
+}
+
+// receiverTypeName extracts a readable name from a method receiver's
+// type expression. Returns "" for anonymous or unparseable receivers.
+func receiverTypeName(expr ast.Expr) string {
+	switch v := expr.(type) {
+	case *ast.Ident:
+		return v.Name
+	case *ast.StarExpr:
+		return "*" + receiverTypeName(v.X)
+	case *ast.IndexExpr:
+		// Generic receiver: T[int] -> "T[int]"
+		return exprText(v.X) + "[" + exprText(v.Index) + "]"
+}
+	return ""
 }
 
 // canonicalFieldList renders an AST FieldList as the canonical

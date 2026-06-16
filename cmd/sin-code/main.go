@@ -26,7 +26,7 @@ var rootCmd = &cobra.Command{
 	Use:   "sin-code",
 	Short: "SIN-Code unified analysis & manipulation toolchain",
 	Long: `sin-code is the unified Go binary for the SIN-Code tool suite.
-It consolidates 39+ subcommands into a single cobra-based CLI:
+It consolidates 44+ subcommands into a single cobra-based CLI:
 
   Core analysis:    discover, execute, map, grasp, scout, harvest, orchestrate
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
@@ -35,7 +35,8 @@ It consolidates 39+ subcommands into a single cobra-based CLI:
                     vane, stack, gh, hub, ledger, summary
   Other:            completion, read, write, edit, lsp, plugin, index,
                     orchestrator-run, orchestrator-agents, orchestrator-plan,
-                    todo, notifications, memory
+                    todo, notifications, memory, assets, evalset, hooks,
+                    instinct, prp, skills
 
 Each subcommand is also a thin pass-through to the standalone tool repos
 for backwards compatibility — the standalone binaries are still maintained

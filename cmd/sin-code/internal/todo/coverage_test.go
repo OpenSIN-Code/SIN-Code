@@ -577,14 +577,26 @@ func TestGetHookConfigWarning(t *testing.T) {
 
 func TestFireHooks(t *testing.T) {
 	s := tempStore(t)
+	orig := loadHookConfigFn
+	defer func() { loadHookConfigFn = orig }()
+
 	// nil config branch
 	hookConfigOnce = sync.Once{}
-	hookConfig = nil
+	loadHookConfigFn = func(string) (*HookConfig, error) { return nil, nil }
+	fireHooks(s, EventPostAdd, &Todo{ID: "st-1", Title: "A"}, "", "", "")
+
+	// success branch (r.Err == nil → continue)
+	hookConfigOnce = sync.Once{}
+	loadHookConfigFn = func(string) (*HookConfig, error) {
+		return &HookConfig{Hooks: map[HookEvent][]Hook{EventPostAdd: {{Command: "true", OnError: "warn"}}}}, nil
+	}
 	fireHooks(s, EventPostAdd, &Todo{ID: "st-1", Title: "A"}, "", "", "")
 
 	// warning branch
 	hookConfigOnce = sync.Once{}
-	hookConfig = &HookConfig{Hooks: map[HookEvent][]Hook{EventPostAdd: {{Command: "false", OnError: "warn"}}}}
+	loadHookConfigFn = func(string) (*HookConfig, error) {
+		return &HookConfig{Hooks: map[HookEvent][]Hook{EventPostAdd: {{Command: "false", OnError: "warn"}}}}, nil
+	}
 	out := captureStderr(t, func() {
 		fireHooks(s, EventPostAdd, &Todo{ID: "st-1", Title: "A"}, "", "", "")
 	})
@@ -594,7 +606,9 @@ func TestFireHooks(t *testing.T) {
 
 	// fail branch
 	hookConfigOnce = sync.Once{}
-	hookConfig = &HookConfig{Hooks: map[HookEvent][]Hook{EventPostAdd: {{Command: "false", OnError: "fail"}}}}
+	loadHookConfigFn = func(string) (*HookConfig, error) {
+		return &HookConfig{Hooks: map[HookEvent][]Hook{EventPostAdd: {{Command: "false", OnError: "fail"}}}}, nil
+	}
 	out = captureStderr(t, func() {
 		fireHooks(s, EventPostAdd, &Todo{ID: "st-1", Title: "A"}, "", "", "")
 	})
@@ -604,7 +618,9 @@ func TestFireHooks(t *testing.T) {
 
 	// ignore branch
 	hookConfigOnce = sync.Once{}
-	hookConfig = &HookConfig{Hooks: map[HookEvent][]Hook{EventPostAdd: {{Command: "false", OnError: "ignore"}}}}
+	loadHookConfigFn = func(string) (*HookConfig, error) {
+		return &HookConfig{Hooks: map[HookEvent][]Hook{EventPostAdd: {{Command: "false", OnError: "ignore"}}}}, nil
+	}
 	out = captureStderr(t, func() {
 		fireHooks(s, EventPostAdd, &Todo{ID: "st-1", Title: "A"}, "", "", "")
 	})

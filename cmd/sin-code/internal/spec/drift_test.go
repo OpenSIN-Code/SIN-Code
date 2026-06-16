@@ -137,7 +137,8 @@ func TestDrift_MethodAndTestFilesSkipped(t *testing.T) {
 
 func Public() {}
 `)
-	// Methods on receivers: must be skipped in v0.
+	// Methods on receivers: PR 4 supports them via the qualified
+	// `Type.Method` lookup. The spec uses the same qualifier.
 	writeGoFile(t, root, "method.go", `package x
 
 type S struct{}
@@ -160,22 +161,22 @@ func AutoGen() {}
 		Title: "demo",
 		Requirements: []Requirement{
 			{ID: "R1", Text: "`Public()` is in the public API", Priority: Must},
-			{ID: "R2", Text: "`Method()` is in the public API", Priority: Must},
+			// PR 4: methods are addressed via "Receiver.Method".
+			{ID: "R2", Text: "`S.Method()` is in the public API", Priority: Must},
 			{ID: "R3", Text: "`TestThing()` is in the public API", Priority: Must},
 			{ID: "R4", Text: "`AutoGen()` is in the public API", Priority: Must},
 		},
 	}
 	rep, _ := s.DetectSignatureDrift(root)
-	// Only R1 should match. R2 (method), R3 (test), R4 (generated)
-	// are all skipped or unsupported in v0.
+	// R1 + R2 match. R3 (test) + R4 (generated) are skipped.
 	if len(rep.Hits) != 4 {
 		t.Fatalf("expected 4 hits, got %d", len(rep.Hits))
 	}
 	if !rep.Hits[0].Match {
 		t.Errorf("R1 should match: %s", rep.Hits[0].Note)
 	}
-	if rep.Hits[1].Match {
-		t.Error("R2 (method) should NOT match in v0")
+	if !rep.Hits[1].Match {
+		t.Errorf("R2 (method) should now match in PR 4: %s", rep.Hits[1].Note)
 	}
 	if rep.Hits[2].Match {
 		t.Error("R3 (test file) should NOT match")

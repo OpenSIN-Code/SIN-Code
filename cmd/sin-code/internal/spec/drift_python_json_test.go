@@ -286,7 +286,7 @@ func TestJSONMatch_TypeVariants(t *testing.T) {
 		if err := json.Unmarshal([]byte(c.doc), &v); err != nil {
 			t.Fatalf("unmarshal %q: %v", c.doc, err)
 		}
-		ok, _ := jsonMatch(map[string]string{"k": c.want}, map[string]any{"k": v})
+		ok, _ := jsonMatch(map[string]string{"k": c.want}, map[string]any{"k": v}, false)
 		if ok != c.ok {
 			t.Errorf("doc=%s want=%s: got ok=%v, want %v", c.doc, c.want, ok, c.ok)
 		}

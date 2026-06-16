@@ -30,14 +30,17 @@ type jsonShape map[string]string
 
 // jsonPattern matches a backtick-wrapped JSON object literal. Allows
 // nested objects and arrays in the value position via a single
-// level of nesting (the v0 limit).
-var jsonPattern = regexp.MustCompile("`(\\{(?:[^{}]|\\{[^{}]*\\})*\\})`")
+// level of nesting (the v0 limit). The `}` inside the pattern is
+// followed by `[^`]*` to allow a trailing "strict!" marker (or any
+// other spec-level annotation) before the closing backtick.
+var jsonPattern = regexp.MustCompile("`(\\{(?:[^{}]|\\{[^{}]*\\})*\\}(?:[^`]*))`")
 
 // jsonFunc is a normalized view of one JSON shape requirement.
 type jsonFunc struct {
 	Shape    jsonShape
 	Raw      string // the original spec text
 	Required bool   // true if the shape is required (vs optional)
+	Strict   bool   // true if the JSON must not have keys beyond Shape
 }
 
 // parseJSONFiles walks the .json files under root and returns a flat
@@ -78,10 +81,12 @@ type jsonFile struct {
 }
 
 // jsonMatch reports whether a JSON file's top-level object matches
-// the spec's shape. Every key in the spec shape must exist in the
-// JSON object with a compatible type; the JSON object may have
-// additional keys (non-strict mode).
-func jsonMatch(spec jsonShape, doc any) (bool, string) {
+// the spec's shape. In non-strict mode (the default), every key in
+// the spec shape must exist in the JSON object with a compatible
+// type; the JSON object may have additional keys. In strict mode,
+// the JSON object must not have any key that is not in the spec
+// shape (extras are reported as drift).
+func jsonMatch(spec jsonShape, doc any, strict bool) (bool, string) {
 	obj, ok := doc.(map[string]any)
 	if !ok {
 		return false, "top-level value is not a JSON object"
@@ -93,6 +98,19 @@ func jsonMatch(spec jsonShape, doc any) (bool, string) {
 		}
 		if !typeCompatible(want, got) {
 			return false, fmt.Sprintf("key %q: spec type %q, got %T", k, want, got)
+		}
+	}
+	if strict {
+		// Build a set of spec keys for O(1) lookup.
+		specSet := make(map[string]bool, len(spec))
+		for k := range spec {
+			specSet[k] = true
+		}
+		// Report the first extra key (cheaper than listing all).
+		for k := range obj {
+			if !specSet[k] {
+				return false, fmt.Sprintf("strict mode: extra key %q not in spec", k)
+			}
 		}
 	}
 	return true, ""
@@ -144,16 +162,28 @@ func typeCompatible(want string, got any) bool {
 
 // extractJSONShapes scans the spec for backtick-wrapped JSON
 // object literals in requirements and returns them as jsonFunc
-// records.
+// records. The strict mode is set per-shape via a trailing
+// "strict!" marker inside the body, e.g.:
+//   `{"name": str, "id": int} strict!`
+// (Useful for hand-edited specs that need extras forbidden.)
 func extractJSONShapes(text string) []jsonFunc {
 	var out []jsonFunc
 	for _, m := range jsonPattern.FindAllStringSubmatch(text, -1) {
-		body := m[1]
+		body := strings.TrimSpace(m[1])
+		strict := false
+		// The "strict!" marker is a single trailing token inside
+		// the body, recognized only when surrounded by whitespace.
+		// We strip it before JSON-parse so the body remains a
+		// valid JSON object literal.
+		if strings.HasSuffix(body, "strict!") {
+			strict = true
+			body = strings.TrimSpace(strings.TrimSuffix(body, "strict!"))
+		}
 		shape, err := parseShapeBody(body)
 		if err != nil {
 			continue
 		}
-		out = append(out, jsonFunc{Shape: shape, Raw: m[0], Required: true})
+		out = append(out, jsonFunc{Shape: shape, Raw: m[0], Required: true, Strict: strict})
 	}
 	return out
 }
