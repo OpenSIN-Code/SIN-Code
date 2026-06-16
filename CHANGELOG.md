@@ -814,6 +814,44 @@ This plugin closes that gap and adds a real DAG primitive.
   `TestOpenIdempotentMigration`. All race-clean under
   `go test -race -count=1`.
 
+### Added — `internal/isolation` + `sin-code chat --worktree` (issue #194 part 2)
+Brings the Claude-Code-equivalent of `claude --worktree <name>` to the
+SIN-Code chat path. Parity feature against Anthropic's `isolation:
+worktree` subagent frontmatter — the wired portion lands here, the
+subagent fan-out integration lands in part 3.
+- **New package `cmd/sin-code/internal/isolation`** with a strict,
+  race-clean git-worktree surface:
+  - `Create(repoRoot, name) (path, error)` provisions
+    `<root>/.sin-code/worktrees/<name>` on a fresh branch
+    `worktree-<name>` from HEAD and auto-locks it (claude-code's
+    "agent runs → cannot be removed by cleanup timer" pattern).
+  - `List(cwd) ([]Info, error)` parses `git worktree list
+    --porcelain` into structured records (path/branch/commit/locked).
+  - `Remove(cwd, path, force=false) error` refuses when dirty or
+    locked; `force=true` passes `--force --force` to override both
+    (mirrors `git worktree remove -f -f`).
+  - `Lock` / `Unlock` / `HasUncommitted` round out the surface.
+  - **Defense-in-depth**: `sanitizeName` rejects empty/dot/dotdot/
+    slash/backslash/colon/leading-hyphen/non-printable inputs;
+    `samePath` uses `filepath.EvalSymlinks` so macOS's
+    `/var → /private/var` alias can't smuggle past the
+    "refuses main worktree" check. All errors are typed
+    (`ErrNotARepo`, `ErrInvalidName`, `ErrAlreadyExists`,
+    `ErrRefusal`) so callers can `errors.As` cleanly.
+- **`sin-code chat --worktree <name>`** flag:
+  - Provisions the worktree before the agent loop starts.
+  - `os.Chdir` into it; everything (plan, tools, verify-cmd,
+    hooks, MCP clients) operates from inside the worktree path.
+  - The worktree path is printed to **stderr** so the user
+    sees the exact cwd the agent sees — M3 mandate: never silent
+    cwd mutation.
+- **Tests** (`cmd/sin-code/internal/isolation/worktree_test.go`):
+  10 race-clean tests covering create+list, name validation
+  (9 invalid names), idempotent re-create, clean remove (after
+  Unlock), locked-refuses-non-force, dirty-refuses-non-force,
+  main-worktree-refuses, `HasUncommitted`, non-repo-error,
+  Lock/Unlock round-trip. Total runtime ~6s under `-race`.
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added

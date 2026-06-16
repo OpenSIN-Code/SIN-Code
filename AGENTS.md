@@ -365,6 +365,7 @@ SIN-Code/
 │   │       ├── autonomy/      ← v3.5.0: goal queue + triggers
 │   │       ├── skillmgr/      ← v3.5.0: install/verify skills
 │   │       ├── skilldist/     ← v3.18.0: marker-fenced skill distribution (issue #169)
+│   │       ├── isolation/     ← v3.20.0: git-worktree primitives (issue #194 part 2)
 │   │       ├── loopbuilder/   ← v3.4.0: shared factory (DRY)
 │   │       ├── vane/          ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (internal/vane)
 │   │       ├── stack/         ← v3.8.0: unified install/doctor across 3 layers

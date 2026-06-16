@@ -23,6 +23,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife/autoactivate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/isolation"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
@@ -49,6 +50,12 @@ type chatOptions struct {
 	activate  string
 	noTrigger bool
 	mode      string
+	// worktree provisions a git-worktree at .sin-code/worktrees/<name>
+	// for the chat session and runs the entire agent loop from inside
+	// it. The worktree is auto-locked while the chat runs and is left
+	// intact on exit (use `sin-code sessions rm` or `git worktree
+	// remove --force` to clean up). Issue #194 part 2.
+	worktree string
 }
 
 func NewChatCmd() *cobra.Command {
@@ -65,7 +72,8 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --yolo                   bypass 'ask' permissions (M4)
   sin-code chat --activate terse,skill-x auto-activate the named rules (issue #176)
   sin-code chat --no-trigger             disable prompt-phrase activation
-  sin-code chat --mode plan|acceptEdits|bypass  session-wide permission mode (issue #193)`,
+  sin-code chat --mode plan|acceptEdits|bypass  session-wide permission mode (issue #193)
+  sin-code chat --worktree <name>        run inside a git worktree (issue #194 part 2)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context(), opts)
 		},
@@ -85,6 +93,7 @@ func NewChatCmd() *cobra.Command {
 	f.StringVar(&opts.activate, "activate", "", "comma-separated rule names to auto-activate for this session (issue #176)")
 	f.BoolVar(&opts.noTrigger, "no-trigger", false, "disable prompt-phrase activation (issue #176)")
 	f.StringVar(&opts.mode, "mode", "", "permission mode: default|plan|acceptEdits|bypass (issue #193)")
+	f.StringVar(&opts.worktree, "worktree", "", "run inside a fresh git worktree at .sin-code/worktrees/<name> (issue #194)")
 	return cmd
 }
 
@@ -120,6 +129,25 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	workspace, err := os.Getwd()
 	if err != nil {
 		return err
+	}
+	// --- worktree isolation (issue #194 part 2) --------------------------
+	// If --worktree=<name> is set, provision a fresh git worktree from
+	// HEAD and run the entire session from inside it. The worktree is
+	// auto-locked while the chat runs so any cleanup timer refuses it.
+	// M3 mandate: we never change CWD silently — the agent always sees
+	// the worktree path printed to stderr so the user can verify what is
+	// running, and the JSON contract's `summary` includes the worktree
+	// path so headless consumers can pipe it for bookkeeping.
+	if opts.worktree != "" {
+		wt, werr := isolation.Create(workspace, opts.worktree)
+		if werr != nil {
+			return fmt.Errorf("chat: --worktree=%s: %w", opts.worktree, werr)
+		}
+		fmt.Fprintf(os.Stderr, "sin-code chat: worktree provisioned at %s\n", wt)
+		if werr := os.Chdir(wt); werr != nil {
+			return fmt.Errorf("chat: chdir into worktree: %w", werr)
+		}
+		workspace = wt
 	}
 	hookEngine := hooks.New(loadHooks(workspace))
 
