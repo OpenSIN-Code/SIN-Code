@@ -20,6 +20,29 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 - **`triage.doc.md`** — design doc with the scoring table, the
   per-bucket ordering rule, and the deferred-items list.
 
+### Added — `sin-code catalog` (issue #163, hub-assets merge)
+- **`cmd/sin-code/catalog_cmd.go`** — new subcommand `sin-code catalog`
+  (`list | search | info`) with `--kind=agent|command|skill|hub` and
+  `--format=text|json`. The unified tool catalog that operators have
+  been asking for: "do I have a tool for this?" — not "do I want the
+  hub or the assets?".
+- **`cmd/sin-code/internal/catalog/`** — new package, 4 source files
+  (`catalog.go`, `source_hub.go`, `source_assets.go`, `catalog_test.go`)
+  + 21 race-clean unit tests. The `Source` interface (Name + List +
+  Get) is the abstraction that lets the catalog walk both backends.
+  Adding a new source (e.g. a remote registry) is one file.
+- **Merge de-duplication rule** — first source to provide a
+  `(kind, name)` pair wins; subsequent duplicates are dropped. The
+  source name is intentionally not part of the dedup key, so a
+  hub.Tool and an assets.Asset with the same name are merged into
+  one catalog entry (the SOTA choice for the operator's mental model).
+- **Search ranking** — name +4, short +2, description +1, tag +1;
+  ties break by name ascending. Transparent, auditable, deterministic.
+- **`catalog.doc.md`** — design doc with the de-dup table, the
+  scoring heuristic, the deprecation plan for `sin-code hub`, and
+  the known build issue (Chromedp API mismatch in PR #201, not
+  in this PR).
+
 ### Added — `sin-code install` + one-line curl|bash installer (issue #170)
 - **`cmd/sin-code/install_cmd.go`** — new 40th subcommand `sin-code install`
   (and `install --auto`). Downloads the latest GitHub release asset,

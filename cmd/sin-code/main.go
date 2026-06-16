@@ -89,6 +89,7 @@ func init() {
 		NewSpecCmd(),                                                                                   // Spec-Layer: *.spec.md contracts (issue #122)
 		NewInstallCmd(),                                                                                // v3.18.0: `sin-code install` — single-binary installer entrypoint (issue #170)
 		NewTriageCmd(),                                                                                 // v3.18.0: `sin-code triage` — backlog auto-prioritizer via gh (issue #162)
+		NewCatalogCmd(),                                                                                // v3.18.0: `sin-code catalog` — unified tool catalog (issue #163, supersedes `hub` + `assets`)
 		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + eval + prp workflow
 	)
 
