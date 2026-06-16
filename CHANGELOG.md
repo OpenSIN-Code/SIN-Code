@@ -560,9 +560,17 @@ reports them; `debt check` gates them.
   `sin assets list|validate|show|import`.
 - **`internal/evalharness/`** — eval-driven development. `EvalSet` /
   `Run` / `Result` types, pluggable `Scorer`s (exact, contains-all,
-  success-flag, LLM-judge, composite), per-case timeout, JSONL run
-  history, and `Compare` for case-by-case regression detection with
-  `--fail-on-regress` as a CI gate. CLI: `sin eval run|list|compare`.
+  success-flag, LLM-judge, composite, **CompileAndRun**), per-case
+  timeout, JSONL run history, and `Compare` for case-by-case regression
+  detection with `--fail-on-regress` as a CI gate. CLI:
+  `sin eval run|list|compare`.
+- **`CompileAndRun` scorer** (issue #181) — ponytail `correctness.js`
+  analog for SIN-Code. Extracts fenced code from model output, compiles
+  it (`go`/`python`/`javascript`/`bash`), and runs a sandboxed self-check.
+  Returns 1.0 only when compile + run pass; `skip_test` mode accepts
+  trivial one-liners after compile-only (YAGNI for tests). Wired into
+  `sin-code eval run` via `--scorer compile-and-run --language <lang>`
+  and into Golden Datasets via `test_cases[].scorer`.
 - **`internal/dispatch/`** — turns loaded command and agent assets
   into executable actions. ECC-style placeholder substitution
   (`$ARGUMENTS`, `$1..$9`, `$@`, `${flag}`), `Dispatcher` routes

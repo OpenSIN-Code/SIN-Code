@@ -13,6 +13,26 @@ implementation it uses.
 | `SuccessFlag` | use the subject's own pass/fail boolean (verify gate) |
 | `LLMJudge` | delegate to a model via the `Judge` function field |
 | `Composite` | weighted average of multiple scorers |
+| `CompileAndRun` | extract, compile, and run a self-check on generated code |
+
+## `CompileAndRun`
+
+`CompileAndRun` is the SIN-Code equivalent of ponytail's `correctness.js`
+gate. It extracts the first fenced code block from the model output,
+compiles it, and runs a self-check in a sandboxed subprocess.
+
+Supported languages: `go`, `python`, `javascript`, `bash`.
+
+Score semantics:
+- No code block → `0.0` / fail.
+- Compile failure → `0.0` / fail.
+- `SkipTest=true` and compile passes → `1.0` / pass (YAGNI for trivial
+  one-liners).
+- Compile passes but no `SelfCheck` and `SkipTest=false` → `0.5` / fail.
+- Compile + self-check pass → `1.0` / pass.
+
+The default timeout is 30 seconds; set `Timeout` to override.
+`Binary` optionally pins the compiler/interpreter executable.
 
 ## `LLMJudge` and circularity
 
