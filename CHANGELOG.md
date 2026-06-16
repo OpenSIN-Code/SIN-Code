@@ -322,6 +322,48 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   lessons.db / ledger.db per AGENTS.md §7.
 
 ### Added — Loop Engineering (decoupled completion authority)
+### Added — MCP tool-manifest compression (issue #173, v3.19.0)
+- **`internal/mcpcompress/`** — ponytail-tag compressor for
+  `sin-code serve --compress-tools` (issue #173). Five canonical tags
+  drive five byte-stable Rules:
+  - `delete` → `DeleteHedges` drops pleasantries / hedge adverbs
+    ("safely", "carefully", …).
+  - `stdlib` → `StdlibPatterns` drops redundant stdlib
+    parentheticals ("(via stdlib)", `Go stdlib …`).
+  - `native` → `DropTrimEncouragement` drops M6 tail clauses
+    `Always prefer over native X` / `Prefer sin_X over native Y`
+    (the M6 mandate is internal-only, not for the model).
+  - `yagni` → `YagniPatterns` drops speculative
+    `(experimental)` / `(TBD)` / `(reserved)` parentheticals.
+  - `shrink` → `ShrinkExamples` drops redundant
+    `(e.g. …)` / `(such as …)` parenthetical examples.
+- **Three new `serve` flags**:
+  - `--compress-tools` — apply the full default ponytail tag set
+    (`delete|stdlib|native|yagni|shrink`) before registration.
+  - `--compress-tags <csv>` — override the active tag set
+    (e.g. `--compress-tags "delete,yagni,shrink"`). Unknown tags
+    are silently dropped; the active set is logged via `--print-stats`.
+  - `--print-stats` — emit a left-aligned text table to stderr
+    (tool / orig / comp / saved / ratio + TOTAL row + active rules).
+- **Tool names unchanged.** The compressor mutates only `Description`;
+  the 47 MCP tool `Name` fields (public API per AGENTS.md §10)
+  are never modified. `TestCompressSpec_NameMutable` guards this.
+- **Byte-stable per `(tool_spec, ruleset)`** — every Rule, the
+  Pipeline, and the post-pipeline `Normalize` are deterministic and
+  idempotent. The `compressor_test.go` golden suite is the single
+  source of truth — any Rule regex / declaration-order change must
+  update the gold expectations in the same PR. Prerequisite for the
+  system-prompt hash metric (issue #2).
+- **Real-world savings.** Smoke test against the 47-tool registry:
+  `sin_execute` 80→73 bytes (-7, 8.8%); `sin_read` 200→167 bytes
+  (-33, 16.5%); `sin_write` 194→160 bytes (-34, 17.5%);
+  `sin_edit` 474→441 bytes (-33, 7.0%). TOTAL 3977→3870 bytes
+  saved across 4 affected tools (-107 bytes / 2.7%); the other 43
+  tools' descriptions don't match any of the conservative patterns
+  and stay byte-identical. Per-tool `--print-stats` output is
+  deterministic across runs (no time, no random).
+
+### Added — Loop Engineering (decoupled completion authority)### Added — Loop Engineering (decoupled completion authority)
 - **Stop-gate harness** (`internal/stopgate`): an independent completion
   authority consulted after the verify-gate passes. Hybrid mode runs
   deterministic checks first (fail-closed) then a strong/equal LLM judge
