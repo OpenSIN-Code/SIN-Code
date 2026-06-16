@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Purpose: Spec↔Code signature drift. Reads the Go source tree with
 // go/parser, finds the functions named in the spec's backtick-wrapped
-// signature requirements, and reports any drift. PR 2 covers Go only;
-// Python (via subprocess) and JSON Schema are deferred to PR 3.
+// signature requirements, and reports any drift. PR 3 adds Python
+// (via python3 + ast subprocess) and JSON (structural shape match).
 // Docs: docs/SPEC-LAYER.md §"Drift detection (the hardening)"
 package spec
 
 import (
+	"context"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -24,21 +25,41 @@ import (
 // are tolerated by the canonicalize() step, not the regex.
 var signaturePattern = regexp.MustCompile("`([A-Za-z_][A-Za-z0-9_]*)\\s*\\(([^)]*)\\)\\s*([^`]*)`")
 
-// SignatureHit is one requirement that names a Go function signature.
+// pySignaturePattern matches a Python function signature in backticks
+// (e.g. `def foo(x: int, y: str) -> str`). Captures the function
+// name, parameter list, and optional return-list. Mirrors the Go
+// pattern's shape.
+var pySignaturePattern = regexp.MustCompile("`def\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*\\(([^)]*)\\)(?:\\s*->\\s*([^`]+))?`")
+
+// SignatureHit is one requirement that names a function signature.
+// Kind discriminates Go vs Python (JSON shapes use JSONShapeHit
+// instead because their structure is different).
 type SignatureHit struct {
-	RequirementID string // e.g. "R1"
-	FuncName      string // e.g. "Foo"
-	RawParamText  string // exact text of the param list, as captured
-	RawResultText string // exact text of the result list
-	Code         string // the matching code line, "" if not found
-	Match        bool   // true if the code matches the spec
-	Note         string // human-readable drift message if any
+	Kind         string // "go" or "python"
+	RequirementID string
+	FuncName      string
+	RawParamText  string
+	RawResultText string
+	Code         string
+	Match        bool
+	Note         string
+}
+
+// JSONShapeHit is one requirement that names a JSON object shape
+// (e.g. `{"name": str, "id": int}`).
+type JSONShapeHit struct {
+	RequirementID string
+	ShapeText     string // the spec shape, as written
+	MatchedFile   string // path of a JSON file that matched, "" if none
+	Match         bool   // true if any JSON file satisfies the shape
+	Note          string
 }
 
 // DriftReport aggregates signature hits across the spec.
 type DriftReport struct {
 	SpecPath string
 	Hits     []SignatureHit
+	JSON     []JSONShapeHit
 }
 
 // HasFailures reports whether any signature requirement was not
@@ -49,39 +70,68 @@ func (d *DriftReport) HasFailures() bool {
 			return true
 		}
 	}
+	for _, j := range d.JSON {
+		if !j.Match {
+			return true
+		}
+	}
 	return false
 }
 
 // DetectSignatureDrift walks the spec's requirements, extracts
-// backtick-wrapped Go signatures, and checks each one against the
-// Go source tree under root. Returns a report with one hit per
-// matched requirement; unmatched requirements have Match=false.
+// backtick-wrapped Go/Python signatures and JSON shapes, and
+// checks each one against the source tree under root. Returns a
+// report with one hit per matched requirement; unmatched
+// requirements have Match=false.
 func (s *Spec) DetectSignatureDrift(root string) (*DriftReport, error) {
+	return s.DetectSignatureDriftWithPython(root, "")
+}
+
+// DetectSignatureDriftWithPython is the same as DetectSignatureDrift
+// but lets the caller override the python3 binary path (used by
+// tests on minimal images that have only `python`, not `python3`).
+func (s *Spec) DetectSignatureDriftWithPython(root, pythonBin string) (*DriftReport, error) {
 	rep := &DriftReport{SpecPath: s.Path}
 
-	// 1. Build a function lookup: name -> [{params, results, code}]
-	funcs, err := parseGoFuncs(root)
+	// 1. Build the function lookups.
+	gofuncs, err := parseGoFuncs(root)
 	if err != nil {
 		return nil, fmt.Errorf("spec: drift: %w", err)
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var pyfuncs map[string][]pyFunc
+	if hasPySigs(s) || hasJSONShapes(s) {
+		pyfuncs, err = parsePythonFuncs(ctx, root, pythonBin)
+		if err != nil {
+			// Don't hard-fail: a missing python3 just means we
+			// can't check Python signatures. Surface as a Note on
+			// the relevant hits.
+			pyfuncs = nil
+		}
+	}
+	var jsonfiles []jsonFile
+	if hasJSONShapes(s) {
+		jsonfiles, _ = parseJSONFiles(root)
+	}
 
-	// 2. For each requirement, try to extract a signature.
+	// 2. For each requirement, extract every signature/shape.
 	for _, r := range s.Requirements {
+		// 2a. Go signatures.
 		for _, m := range signaturePattern.FindAllStringSubmatch(r.Text, -1) {
 			hit := SignatureHit{
-				RequirementID: r.ID,
-				FuncName:      m[1],
-				RawParamText:  strings.TrimSpace(m[2]),
-				RawResultText: strings.TrimSpace(m[3]),
+				Kind:           "go",
+				RequirementID:  r.ID,
+				FuncName:       m[1],
+				RawParamText:   strings.TrimSpace(m[2]),
+				RawResultText:  strings.TrimSpace(m[3]),
 			}
-			// 3. Look up the function and compare.
-			candidates, ok := funcs[hit.FuncName]
+			candidates, ok := gofuncs[hit.FuncName]
 			if !ok {
 				hit.Note = "function not found in source tree"
 				rep.Hits = append(rep.Hits, hit)
 				continue
 			}
-			// Pick the first candidate whose signature matches the spec.
 			matched := false
 			for _, c := range candidates {
 				if signatureEqual(hit.RawParamText, hit.RawResultText, c.params, c.results) {
@@ -92,23 +142,96 @@ func (s *Spec) DetectSignatureDrift(root string) (*DriftReport, error) {
 				}
 			}
 			if !matched {
-				// Report the first candidate as the closest match.
 				hit.Code = candidates[0].code
-				hit.Note = fmt.Sprintf("signature drift: spec is `%s(%s) %s`, code is `%s`",
+				hit.Note = fmt.Sprintf("Go signature drift: spec is `%s(%s) %s`, code is `%s`",
 					hit.FuncName, hit.RawParamText, hit.RawResultText, candidates[0].code)
 			}
 			rep.Hits = append(rep.Hits, hit)
 		}
+		// 2b. Python signatures.
+		for _, m := range pySignaturePattern.FindAllStringSubmatch(r.Text, -1) {
+			hit := SignatureHit{
+				Kind:           "python",
+				RequirementID:  r.ID,
+				FuncName:       m[1],
+				RawParamText:   strings.TrimSpace(m[2]),
+				RawResultText:  strings.TrimSpace(m[3]),
+			}
+			if pyfuncs == nil {
+				hit.Note = "python3 not available; skipping Python signature check"
+				rep.Hits = append(rep.Hits, hit)
+				continue
+			}
+			candidates, ok := pyfuncs[hit.FuncName]
+			if !ok {
+				hit.Note = "Python function not found in source tree"
+				rep.Hits = append(rep.Hits, hit)
+				continue
+			}
+			hit.Code = candidates[0].Code
+			hit.Match = true // v0: presence is enough; full param match is PR 4
+			rep.Hits = append(rep.Hits, hit)
+		}
+		// 2c. JSON shapes.
+		for _, j := range extractJSONShapes(r.Text) {
+			jhit := JSONShapeHit{
+				RequirementID: r.ID,
+				ShapeText:     j.Raw,
+			}
+			matched := false
+			for _, f := range jsonfiles {
+				if ok, note := jsonMatch(j.Shape, f.Value); ok {
+					jhit.MatchedFile = f.Path
+					jhit.Match = true
+					matched = true
+					break
+				} else {
+					jhit.Note = note
+				}
+			}
+			if !matched {
+				if jhit.Note == "" {
+					jhit.Note = "no JSON file matches this shape"
+				}
+			}
+			rep.JSON = append(rep.JSON, jhit)
+		}
 	}
 
-	// Stable order for tests and human reading.
 	sort.SliceStable(rep.Hits, func(i, j int) bool {
+		if rep.Hits[i].Kind != rep.Hits[j].Kind {
+			return rep.Hits[i].Kind < rep.Hits[j].Kind
+		}
 		if rep.Hits[i].RequirementID != rep.Hits[j].RequirementID {
 			return rep.Hits[i].RequirementID < rep.Hits[j].RequirementID
 		}
 		return rep.Hits[i].FuncName < rep.Hits[j].FuncName
 	})
+	sort.SliceStable(rep.JSON, func(i, j int) bool { return rep.JSON[i].RequirementID < rep.JSON[j].RequirementID })
 	return rep, nil
+}
+
+// hasPySigs reports whether any requirement contains a Python
+// `def f(...)` signature. Cheaper than re-running the regex on
+// every drift check.
+func hasPySigs(s *Spec) bool {
+	for _, r := range s.Requirements {
+		if pySignaturePattern.MatchString(r.Text) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasJSONShapes reports whether any requirement contains a
+// backtick-wrapped JSON object literal.
+func hasJSONShapes(s *Spec) bool {
+	for _, r := range s.Requirements {
+		if jsonPattern.MatchString(r.Text) {
+			return true
+		}
+	}
+	return false
 }
 
 // --- Go AST helpers -------------------------------------------------------

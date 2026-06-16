@@ -10,13 +10,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/spec"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/wiring"
 )
 
 // NewSpecCmd builds the `spec` cobra subcommand (validate + show).
@@ -304,14 +307,17 @@ func renderCheckReport(w io.Writer, rep *spec.CheckReport) {
 }
 
 // newSpecAuthorCmd is the self-authoring mode (issue #157). It runs
-// a Planner LLM call to produce a *.spec.md, an Implementer call to
-// write the code, and a drift check. On mismatch, retry up to 3
+// a Planner LLM call to produce a *.spec.md, an Implementer call
+// to write the code, and a drift check. On mismatch, retry up to 3
 // times. With --apply, opens a PR via gh.
 func newSpecAuthorCmd() *cobra.Command {
 	var (
-		outFile string
-		apply   bool
-		model   string
+		outFile    string
+		apply      bool
+		model      string
+		dryRun     bool
+		maxRetries int
+		workdir    string
 	)
 	c := &cobra.Command{
 		Use:   "author <description>",
@@ -323,26 +329,78 @@ retries up to 3 times on mismatch. With --apply, opens a PR via gh.
 
 This is the SOTA self-authoring mode. It requires a model client
 configured in .sin-code.yml (model.default) and the gh CLI on PATH
-when --apply is set.`,
+when --apply is set. With --dry-run, no LLM is contacted; a
+stub spec is returned for end-to-end testing of the pipeline.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			desc := strings.Join(args, " ")
+			if workdir == "" {
+				workdir, _ = os.Getwd()
+			}
+
+			// Build a Completer. If the user passed --dry-run or no
+			// model client is configured, leave the Completer nil
+			// — the spec loop handles nil as a stub.
+			var completer spec.Completer
+			if !dryRun {
+				// The wiring layer injects a real llm.Client. In
+				// the headless CLI we use a nil Completer unless
+				// SIN_SPEC_LLM_BASEURL is set (env var the
+				// operator can use to point at a local model).
+				if base := os.Getenv("SIN_SPEC_LLM_BASEURL"); base != "" {
+					apiKey := os.Getenv("SIN_SPEC_LLM_API_KEY")
+					completer = wiring.NewSpecCompleter(llm.NewClient(base, apiKey), model)
+					if completer == nil {
+						return fmt.Errorf("spec author: model client failed to initialize")
+					}
+				} else if !dryRun {
+					fmt.Fprintln(cmd.OutOrStdout(),
+						"no model client configured; set SIN_SPEC_LLM_BASEURL or pass --dry-run")
+				}
+			}
+
+			res, err := wiring.AuthorSpec(context.Background(), desc, wiring.SpecAuthorOptions{
+				Completer:  completer,
+				Model:      model,
+				MaxRetries: maxRetries,
+				Workdir:    workdir,
+			})
+			if err != nil {
+				return err
+			}
+			if res.Spec == nil {
+				return fmt.Errorf("spec author: gave up after %d attempts; see Trace", len(res.Trace))
+			}
+
+			// Write the spec to --out.
+			body, err := spec.Marshal(res.Spec)
+			if err != nil {
+				return err
+			}
+			if err := os.WriteFile(outFile, body, 0o644); err != nil {
+				return err
+			}
 			fmt.Fprintf(cmd.OutOrStdout(),
-				"authoring spec for: %s\n  model:  %s\n  out:    %s\n  apply:  %v\n",
-				desc, model, outFile, apply)
-			// The full implementation requires a model client wired
-			// into internal/learning or a new internal/spec/author.go.
-			// For PR 1, we ship the scaffolding and a no-op
-			// placeholder; PR 2 adds the LLM loop.
-			fmt.Fprintln(cmd.OutOrStdout(),
-				"\n[not yet implemented — see docs/SPEC-LAYER.md §\"Self-authoring\"]")
-			fmt.Fprintln(cmd.OutOrStdout(),
-				"PR 1 ships the parser, check, and CLI. PR 2 adds the LLM loop.")
+				"wrote spec to %s (%d requirements, %d criteria, %d attempts)\n",
+				outFile, len(res.Spec.Requirements), len(res.Spec.Criteria), res.Attempts)
+
+			// With --apply, branch + commit + PR via gh.
+			if apply {
+				branch := "spec/" + res.Spec.ID
+				fmt.Fprintf(cmd.OutOrStdout(),
+					"\n--apply: would create branch %q and open a PR (not yet implemented; see docs/SPEC-LAYER.md)\n",
+					branch)
+				fmt.Fprintln(cmd.OutOrStdout(),
+					"  To enable: wire spec.ApplyPR() into ghbridge.OpenPR() — tracked as a follow-up.")
+			}
 			return nil
 		},
 	}
 	c.Flags().StringVarP(&outFile, "out", "o", "spec.spec.md", "output path for the generated spec")
 	c.Flags().BoolVar(&apply, "apply", false, "open a PR via gh after authoring")
 	c.Flags().StringVar(&model, "model", "anthropic/claude-haiku-4-5", "model for the Planner/Implementer calls")
+	c.Flags().BoolVar(&dryRun, "dry-run", false, "skip the LLM call; return a stub spec")
+	c.Flags().IntVar(&maxRetries, "retries", 3, "max retry attempts on drift")
+	c.Flags().StringVarP(&workdir, "workdir", "C", "", "working directory (default: current dir)")
 	return c
 }
