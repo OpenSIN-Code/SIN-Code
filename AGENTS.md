@@ -350,6 +350,9 @@ SIN-Code/
 │   │       ├── llm/           ← provider layer
 │   │       ├── style/         ← v3.17.0: verbosity / compression mode system-prompt renderer (issue #167)
 │   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
+│   │       ├── orchestrator/  ← DAG, critic, adversary, governor,
+│   │       │                   cartographer; caveman-style output
+│   │       │                   contracts (issue #174)
 │   │       ├── memory/        ← (existing) store/search/embed
 │   │       ├── lsp/, notifications/, todo/, plugins/, sandbox/, attachments/, webui/
 │   ├── sin-tui/               ← standalone TUI binary
@@ -373,6 +376,50 @@ SIN-Code/
 ├── tests/                     ← Go + Python tests
 └── scripts/                   ← org-cleanup.sh, promote-to-sin-code.sh, validate_skill.py
 ```
+
+### 6.1 Orchestrator output contracts (issue #174)
+
+The four orchestrator sub-agents — `Critic`, `Adversary`, `Governor`,
+`Cartographer` — emit caveman-style one-liners via `Finding` structs in
+`cmd/sin-code/internal/orchestrator/output_contract.go`. The contract is
+the prose layer; the structured result types (e.g. `AdversaryResult.Attacks`)
+are unchanged.
+
+**One-liner shape** (byte-stable, em-dash U+2014 separator):
+
+```
+<path>:<line> — <symbol> — <tag> — <hint> # c=<confidence>
+```
+
+**5 closed tags** (parallel to JuliusBrussee/ponytail):
+
+| Tag       | Meaning                                          |
+| --------- | ------------------------------------------------ |
+| `delete`  | remove this code / path / symbol                 |
+| `simplify`| inline, collapse, reduce                         |
+| `rebuild` | rewrite from scratch                             |
+| `risk`    | blast radius, regression source                  |
+| `verify`  | needs human verification                         |
+
+**Hedging forbidden** in `Hint` (closed set, case-folded):
+`you might`, `perhaps`, `could consider`, `maybe`, `i think`, `i would`,
+`sort of`, `kind of`, `tends to`, `should probably`, `i'd suggest`,
+`we should`. `VerifyFindings` rejects every finding whose hint contains
+any of these — the sub-agent loses the entire batch, not silently
+passes.
+
+**Wired into**: `CriticResult.Findings` (parsed from the last attempt's
+prose; `CriticResult.ParseErrors` carries the per-line rejection trace),
+`AdversaryResult.Findings` (derived from each Attack), `GovernorResult.Findings`
+(one per Escalation, anchored at `task://<ID>`), `Cartographer.Findings(k)`
+(top-k by PageRank, opt-in — k ≤ 0 yields empty). Byte-stability is a hard
+prerequisite for downstream consumers (issue #168 ledger hashing,
+orchestrator re-ingestion cost).
+
+This file is distinct from `contract.go`, which owns the **Intent Contract**
+(task-scope: allowed globs, frozen globs, forbidden patterns, blast radius).
+Output-contract is the **prose-shape** contract; the two have no shared
+types and no shared parser.
 
 ---
 

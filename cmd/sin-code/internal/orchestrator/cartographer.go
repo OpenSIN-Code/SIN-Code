@@ -147,6 +147,58 @@ func (c *Cartographer) SymbolCount() int {
 	return len(c.symbols)
 }
 
+// Findings produces the caveman-style one-liner view of the index.
+// Top-`k` symbols (by current PageRank) become Finding structs tagged
+// `verify` — a surface-area list, not a defect list. The Cartographer
+// never claims "this is wrong"; it surfaces "this exists, look at it".
+// `k=0` returns the empty slice — the cartographer is opt-in, never
+// floods the orchestrator's re-ingestion stream.
+func (c *Cartographer) Findings(k int) []Finding {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if k <= 0 || len(c.symbols) == 0 {
+		return nil
+	}
+	type scored struct {
+		sym *Symbol
+		rg  float64
+	}
+	all := make([]scored, 0, len(c.symbols))
+	for _, s := range c.symbols {
+		all = append(all, scored{s, s.Rank})
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].rg > all[j].rg })
+	if k > len(all) {
+		k = len(all)
+	}
+	out := make([]Finding, 0, k)
+	for _, sc := range all[:k] {
+		out = append(out, Finding{
+			Tag:        TagVerify,
+			Symbol:     sc.sym.Key,
+			Path:       sc.sym.File,
+			Line:       sc.sym.Line,
+			Confidence: clamp(sc.sym.Rank),
+			Hint:       "rank:" + fmt.Sprintf("%.3f", sc.sym.Rank),
+		})
+	}
+	return out
+}
+
+// clamp mirrors `normalize` but clamps to [0,1] without the silent
+// collapse that `normalize` does for negatives (Rank can never be
+// negative here; we keep them anyway for defense-in-depth).
+func clamp(x float64) float64 {
+	if x > 1 {
+		return 1
+	}
+	if x < 0 {
+		return 0
+	}
+	return x
+}
+
 func (c *Cartographer) indexFile(absPath string) error {
 	if c.repoRoot == "" {
 		return fmt.Errorf("no repo root")
