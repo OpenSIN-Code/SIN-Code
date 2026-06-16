@@ -114,3 +114,20 @@ func TestEngine_ModeYoloBypassesAsk(t *testing.T) {
 		t.Errorf("yolo: Ask should resolve to Allow, got %s", e.Check("Bash"))
 	}
 }
+
+func TestPolicyString(t *testing.T) {
+	cases := []struct {
+		p    Policy
+		want string
+	}{
+		{Allow, "allow"},
+		{Ask, "ask"},
+		{Deny, "deny"},
+		{Policy(99), "deny"},
+	}
+	for _, c := range cases {
+		if got := c.p.String(); got != c.want {
+			t.Errorf("%v.String() = %q, want %q", c.p, got, c.want)
+		}
+	}
+}

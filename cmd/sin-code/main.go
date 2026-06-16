@@ -32,7 +32,8 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
   Utility commands: security, sbom, config, self-update, tui, serve, update
   Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, superpowers,
-                    vane, stack, gh, hub, ledger, summary, install, compress
+                    vane, stack, gh, hub, ledger, summary, install, compress,
+                    cover
   Other:            completion, read, write, edit, lsp, plugin, index,
                     orchestrator-run, orchestrator-agents, orchestrator-plan,
                     todo, notifications, memory, assets, evalset, hooks,
@@ -86,7 +87,7 @@ func init() {
 		NewReviewCmd(),              // v3.19.0 — review --complexity (issue #179)
 		NewSkillsCmd(),              // bundled project-local agent skills
 		NewEvalCmd(), NewTraceCmd(), // v3.18.0: Eval & Observability System (issue #75)
-		NewProfileCmd(),                 // v3.18.0: single-source-of-truth per-agent profile renderer (issue #175)
+		NewProfileCmd(),                 // v3.18.0 — single-source-of-truth per-agent profile renderer (issue #175)
 		NewRtkCmd(),                     // rtk (Rust Token Killer) bridge (issue #123)
 		NewCodeGraphCmd(),               // CodeGraph multi-language analysis bridge (issue #126)
 		NewSpecCmd(),                    // Spec-Layer: *.spec.md contracts (issue #122)
@@ -95,11 +96,12 @@ func init() {
 		NewCatalogCmd(),                 // v3.18.0 — unified tool catalog (issue #163, supersedes hub + assets)
 		NewCompileSpecCmd(),             // v3.21.0 — declarative .sin-code.yml compiler (issue #164)
 		NewGrillCmd(),                   // v3.18.0 — native adversarial design-review (issue #141 fusion)
-		NewSubagentCmd(),                 // v3.18.0 — isolated-context sub-agent (issue #192, wraps #153)
-		NewAutoPRCmd(),                   // v3.18.0 — self-healing pipeline (issue #158)
+		NewSubagentCmd(),                // v3.18.0 — isolated-context sub-agent (issue #192, wraps #153)
+		NewAutoPRCmd(),                  // v3.18.0 — self-healing pipeline (issue #158)
 		NewCheckpointCmd(), NewRewindCmd(), // v3.20.0 — workspace checkpointing + rewind (issue #194)
 		NewDebtCmd(),                    // v3.18.0 — sin-debt marker manager (issue #177)
 		NewAuditCmd(), NewCEOAUDITCmd(), // v3.18.0 — complexity audit (issue #180) + 48-gate CEO audit
+		NewCoverCmd(),                   // Coverage-Drohne: scan, check, gaps, generate, hook
 		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + evalset + prp workflow
 	)
 
