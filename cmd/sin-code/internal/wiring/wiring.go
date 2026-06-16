@@ -28,6 +28,10 @@ type Deps struct {
 	Verify    *verify.Gate
 	Prompts   dispatch.PromptSink
 	Subagents dispatch.SubagentRunner
+	// Style passes through into the learning bridge so the system
+	// prompt emitted by Learner.BeforeTurn carries the user's chosen
+	// verbosity mode (issue #167). Empty == default == no rules.
+	Style string
 }
 
 // Bundle is the fully-wired graph. The caller (chat command,
@@ -47,6 +51,7 @@ func Build(d Deps) (*Bundle, error) {
 		Model:      d.LLMModel,
 		Memory:     d.Memory,
 		VerifyGate: d.Verify,
+		Style:      d.Style,
 	})
 	if err != nil {
 		return nil, err

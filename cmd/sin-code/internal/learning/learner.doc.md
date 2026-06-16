@@ -28,6 +28,13 @@ downgrades what you don't. `LLM: nil` → heuristic-only extractor.
 `Memory: nil` → no mirror. `VerifyGate: nil` → no quality-gate
 hook. This keeps the binary usable in tests and on small machines.
 
+`Style string` (issue #167) is the verbosity mode fed into the
+system prompt assembled by `BeforeTurn`. Allowed values:
+`default`, `verbose`, `normal`, `terse`, `ultra`. Empty == default.
+See `internal/style/style.doc.md` for the ruleset semantics; runtime
+changes go through `Learner.SetStyle(level)` which is guarded by a
+per-instance `sync.RWMutex` (mandate M7, race-free).
+
 ## Why no in-place mutation of `agentloop.Loop`
 
 `agentloop.Loop` is constructed by the chat command and has its

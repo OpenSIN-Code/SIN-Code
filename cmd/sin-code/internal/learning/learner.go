@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/adapters"
@@ -18,6 +19,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 )
 
@@ -29,6 +31,10 @@ type Options struct {
 	Model      string // background model for LLMExtractor; default haiku
 	Memory     *memory.Store
 	VerifyGate *verify.Gate
+	// Style (issue #167) is the verbosity mode for the system
+	// prompt emitted by BeforeTurn (default, normal, terse, ultra).
+	// Empty == default == pass-through.
+	Style string
 }
 
 // Learner is the single entry point for the agent loop. It owns
@@ -37,6 +43,7 @@ type Options struct {
 // loop calls around its main Run.
 type Learner struct {
 	opts    Options
+	styleMu sync.RWMutex // protects opts.Style only (mandate M7)
 	manager *instinct.Manager
 	obs     *instinct.Observer
 	hooks   *hooklife.Registry
@@ -102,9 +109,42 @@ func (l *Learner) Hooks() *hooklife.Registry { return l.hooks }
 // BeforeTurn returns the active-instinct system-prompt block to
 // prepend to the model's context. Returns "" when no instincts are
 // active.
+//
+// Issue #167: when opts.Style is a non-default verbosity mode, the
+// matching style ruleset is appended after the instinct list
+// (stable order: instincts → style). Output is still byte-stable for
+// any fixed (active-instincts, opts.Style) pair so the system-prompt
+// hash metric (issue #2) can lock it down.
 func (l *Learner) BeforeTurn(_ context.Context, _ *session.Session) string {
-	block, _ := l.manager.SystemBlockForProject(15)
-	return block
+	return l.beforeTurnWithStyle("")
+}
+
+// beforeTurnWithStyle is the same as BeforeTurn but allows callers to
+// pass a per-turn override (skillBody) that is rendered alongside the
+// style ruleset. Empty skillBody preserves the legacy behavior.
+func (l *Learner) beforeTurnWithStyle(skillBody string) string {
+	l.styleMu.RLock()
+	level := l.opts.Style
+	l.styleMu.RUnlock()
+
+	active, err := l.manager.Active()
+	if err != nil {
+		// On error, fall back to the bare renderer so the model still
+		// gets the style block alone — never silently suppress verbosity.
+		return style.RenderRules(style.ParseMode(level), skillBody)
+	}
+	return instinct.RenderSystemBlockWithVerbosity(active, 15, level, skillBody)
+}
+
+// SetStyle updates the verbosity mode used by BeforeTurn at runtime
+// (e.g. when a slash command toggles /terse /verbose mid-session).
+// Pass empty to revert to the default pass-through. Update is
+// guarded by a small RWMutex so callers from multiple goroutines do
+// not race the read in BeforeTurn (mandate M7).
+func (l *Learner) SetStyle(level string) {
+	l.styleMu.Lock()
+	l.opts.Style = level
+	l.styleMu.Unlock()
 }
 
 // BeforeTool runs the PreToolUse hook chain. Returns (allowed, message).

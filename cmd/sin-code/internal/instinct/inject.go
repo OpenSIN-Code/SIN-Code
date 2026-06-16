@@ -5,7 +5,11 @@
 // Docs: inject.doc.md
 package instinct
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
+)
 
 // RenderSystemBlock produces a compact, deterministic block of active
 // instincts to prepend/append to the agent's system prompt. Returns ""
@@ -47,6 +51,32 @@ func RenderSystemBlock(active []*Instinct, max int) string {
 	return b.String()
 }
 
+// RenderSystemBlockWithVerbosity (issue #167) is RenderSystemBlock plus
+// a verbosity ruleset appended after the instinct list.
+//
+// The mode parameter is canonical: empty, "default", or "verbose"
+// produces exactly the RenderSystemBlock output (instincts alone).
+// Any non-default mode appends the matching style block via
+// `style.RenderRules` (which also embeds skillBody verbatim when
+// non-empty). Order is stable: instincts first, then style. The two
+// segments are separated by exactly one blank line; the skill body's
+// own trailing newlines are preserved so downstream Markdown linters
+// do not need to re-add them.
+//
+// Output is byte-stable for any fixed (active, max, mode, skillBody)
+// input; this is the prerequisite for the system-prompt hash metric.
+func RenderSystemBlockWithVerbosity(active []*Instinct, max int, mode string, skillBody string) string {
+	raw := RenderSystemBlock(active, max)
+	styleBlock := style.RenderRules(style.ParseMode(mode), skillBody)
+	if raw == "" {
+		return styleBlock
+	}
+	if styleBlock == "" {
+		return raw
+	}
+	return strings.TrimRight(raw, "\n") + "\n\n" + styleBlock
+}
+
 // SystemBlockForProject is the convenience entry point used by the
 // agent loop.
 func (m *Manager) SystemBlockForProject(max int) (string, error) {
@@ -55,6 +85,18 @@ func (m *Manager) SystemBlockForProject(max int) (string, error) {
 		return "", err
 	}
 	return RenderSystemBlock(active, max), nil
+}
+
+// SystemBlockForProjectWithStyle is the verbosity-aware convenience
+// entry point. Pass the user-configured style level (e.g. from
+// `llm.style` or the chat --style flag) and any skill body the caller
+// has pulled from disk. Returns the composed system-prompt fragment.
+func (m *Manager) SystemBlockForProjectWithStyle(max int, mode, skillBody string) (string, error) {
+	active, err := m.Active()
+	if err != nil {
+		return "", err
+	}
+	return RenderSystemBlockWithVerbosity(active, max, mode, skillBody), nil
 }
 
 func ftoaShort(f float64) string {

@@ -17,29 +17,47 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
 )
+
+// isValidStyle reports whether s is one of the legal verbosity levels.
+// Empty is rejected here so setConfigValueIn surfaces user error
+// clearly; ParseMode in the style package treats empty as default.
+func isValidStyle(s string) bool {
+	switch s {
+	case string(style.ModeDefault), string(style.ModeVerbose),
+		string(style.ModeNormal), string(style.ModeTerse), string(style.ModeUltra):
+		return true
+	}
+	return false
+}
 
 // SinCodeConfig is the unified configuration model. Fields are flat with
 // namespaced keys (e.g. llm.base_url) for simple TOML-like parsing without
 // adding a parser dependency.
 type SinCodeConfig struct {
-	Theme            string   `toml:"theme"`
-	DefaultTimeout   int      `toml:"default_timeout"`
-	DefaultFormat    string   `toml:"default_format"`
-	MCPServerEnabled bool     `toml:"mcp_server_enabled"`
-	LLMBaseURL       string   `toml:"llm.base_url"`
-	LLMAPIKey        string   `toml:"llm.api_key"`
-	LLMModel         string   `toml:"llm.model"`
-	LLMMaxTokens     int      `toml:"llm.max_tokens"`
-	LLMTemperature   float64  `toml:"llm.temperature"`
-	AgentVerifyMode  string   `toml:"agent.verify_mode"`
-	AgentMaxTurns    int      `toml:"agent.max_turns"`
-	AgentHeadless    bool     `toml:"agent.headless"`
-	AgentYolo        bool     `toml:"agent.yolo"`
-	ToolsAllow       []string `toml:"permissions.tools_allow"`
-	ToolsDeny        []string `toml:"permissions.tools_deny"`
-	PathsMCPConfig   string   `toml:"paths.mcp_config"`
-	PathsSkillsDir   string   `toml:"paths.skills_dir"`
+	Theme            string  `toml:"theme"`
+	DefaultTimeout   int     `toml:"default_timeout"`
+	DefaultFormat    string  `toml:"default_format"`
+	MCPServerEnabled bool    `toml:"mcp_server_enabled"`
+	LLMBaseURL       string  `toml:"llm.base_url"`
+	LLMAPIKey        string  `toml:"llm.api_key"`
+	LLMModel         string  `toml:"llm.model"`
+	LLMMaxTokens     int     `toml:"llm.max_tokens"`
+	LLMTemperature   float64 `toml:"llm.temperature"`
+	// LLMStyle (issue #167) controls the verbosity mode injected into
+	// the agent's system prompt: "default", "verbose", "normal",
+	// "terse", "ultra". Empty == "default" == pass-through.
+	LLMStyle        string   `toml:"llm.style"`
+	AgentVerifyMode string   `toml:"agent.verify_mode"`
+	AgentMaxTurns   int      `toml:"agent.max_turns"`
+	AgentHeadless   bool     `toml:"agent.headless"`
+	AgentYolo       bool     `toml:"agent.yolo"`
+	ToolsAllow      []string `toml:"permissions.tools_allow"`
+	ToolsDeny       []string `toml:"permissions.tools_deny"`
+	PathsMCPConfig  string   `toml:"paths.mcp_config"`
+	PathsSkillsDir  string   `toml:"paths.skills_dir"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -53,6 +71,7 @@ func defaultConfig() SinCodeConfig {
 		LLMModel:         "",
 		LLMMaxTokens:     8192,
 		LLMTemperature:   0.0,
+		LLMStyle:         "default",
 		AgentVerifyMode:  "poc",
 		AgentMaxTurns:    80,
 		AgentHeadless:    false,
@@ -344,6 +363,13 @@ llm.model = %q
 llm.max_tokens = %d
 llm.temperature = %v
 
+# Agent output verbosity (issue #167):
+#   "default"|"verbose" = no ruleset injected (legacy behavior)
+#   "normal"            = drop pleasantries + tool narration
+#   "terse"             = caveman-`+"`full`"+` analog
+#   "ultra"             = caveman-`+"`ultra`"+` analog (tightest valid compression)
+llm.style = %q
+
 agent.verify_mode = %q
 agent.max_turns = %d
 agent.headless = %v
@@ -356,6 +382,7 @@ paths.mcp_config = %q
 paths.skills_dir = %q
 `, cfg.Theme, cfg.DefaultTimeout, cfg.DefaultFormat, cfg.MCPServerEnabled,
 		cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMMaxTokens, cfg.LLMTemperature,
+		cfg.LLMStyle,
 		cfg.AgentVerifyMode, cfg.AgentMaxTurns, cfg.AgentHeadless, cfg.AgentYolo,
 		strings.Join(cfg.ToolsAllow, ","), strings.Join(cfg.ToolsDeny, ","),
 		cfg.PathsMCPConfig, cfg.PathsSkillsDir)
@@ -408,6 +435,8 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%d", cfg.LLMMaxTokens), nil
 	case "llm.temperature":
 		return fmt.Sprintf("%v", cfg.LLMTemperature), nil
+	case "llm.style":
+		return cfg.LLMStyle, nil
 	case "agent.verify_mode":
 		return cfg.AgentVerifyMode, nil
 	case "agent.max_turns":
@@ -478,6 +507,11 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 			return fmt.Errorf("llm.temperature must be between 0 and 2, got %q", value)
 		}
 		cfg.LLMTemperature = v
+	case "llm.style":
+		if !isValidStyle(value) {
+			return fmt.Errorf("llm.style must be one of default|verbose|normal|terse|ultra, got %q", value)
+		}
+		cfg.LLMStyle = value
 	case "agent.verify_mode":
 		if value != "off" && value != "poc" && value != "oracle" {
 			return fmt.Errorf("agent.verify_mode must be 'off', 'poc', or 'oracle', got %q", value)
@@ -523,6 +557,7 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"llm.model", cfg.LLMModel},
 		{"llm.max_tokens", fmt.Sprintf("%d", cfg.LLMMaxTokens)},
 		{"llm.temperature", fmt.Sprintf("%v", cfg.LLMTemperature)},
+		{"llm.style", cfg.LLMStyle},
 		{"agent.verify_mode", cfg.AgentVerifyMode},
 		{"agent.max_turns", fmt.Sprintf("%d", cfg.AgentMaxTurns)},
 		{"agent.headless", fmt.Sprintf("%v", cfg.AgentHeadless)},
@@ -579,6 +614,7 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 			"model":       cfg.LLMModel,
 			"max_tokens":  cfg.LLMMaxTokens,
 			"temperature": cfg.LLMTemperature,
+			"style":       cfg.LLMStyle,
 		},
 		"agent": map[string]any{
 			"verify_mode": cfg.AgentVerifyMode,
@@ -609,6 +645,7 @@ func showTOML(cfg SinCodeConfig, mask bool) error {
 		Theme: cfg.Theme, DefaultTimeout: cfg.DefaultTimeout, DefaultFormat: cfg.DefaultFormat,
 		MCPServerEnabled: cfg.MCPServerEnabled, LLMBaseURL: cfg.LLMBaseURL, LLMAPIKey: apiKey,
 		LLMModel: cfg.LLMModel, LLMMaxTokens: cfg.LLMMaxTokens, LLMTemperature: cfg.LLMTemperature,
+		LLMStyle:        cfg.LLMStyle,
 		AgentVerifyMode: cfg.AgentVerifyMode, AgentMaxTurns: cfg.AgentMaxTurns,
 		AgentHeadless: cfg.AgentHeadless, AgentYolo: cfg.AgentYolo,
 		ToolsAllow: cfg.ToolsAllow, ToolsDeny: cfg.ToolsDeny,
@@ -635,6 +672,9 @@ func validateConfig(cfg SinCodeConfig) []string {
 	}
 	if cfg.LLMTemperature < 0 || cfg.LLMTemperature > 2 {
 		issues = append(issues, fmt.Sprintf("llm.temperature must be in [0,2], got %v", cfg.LLMTemperature))
+	}
+	if !isValidStyle(cfg.LLMStyle) {
+		issues = append(issues, fmt.Sprintf("llm.style must be one of default|verbose|normal|terse|ultra, got %q", cfg.LLMStyle))
 	}
 	if cfg.AgentVerifyMode != "off" && cfg.AgentVerifyMode != "poc" && cfg.AgentVerifyMode != "oracle" {
 		issues = append(issues, fmt.Sprintf("agent.verify_mode must be 'off', 'poc', or 'oracle', got %q", cfg.AgentVerifyMode))
@@ -671,6 +711,8 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 		case "llm.temperature":
 			v, _ := strconv.ParseFloat(val, 64)
 			cfg.LLMTemperature = v
+		case "llm.style":
+			cfg.LLMStyle = val
 		case "agent.verify_mode":
 			cfg.AgentVerifyMode = val
 		case "agent.max_turns":

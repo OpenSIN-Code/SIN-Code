@@ -28,6 +28,7 @@ validation.
 | `llm.model` | string | `""` | any string |
 | `llm.max_tokens` | int | `8192` | > 0 |
 | `llm.temperature` | float | `0.0` | `[0.0, 2.0]` |
+| `llm.style` | string | `default` | `default`, `verbose`, `normal`, `terse`, `ultra` (issue #167) |
 | `agent.verify_mode` | string | `poc` | `off`, `poc`, `oracle` |
 | `agent.max_turns` | int | `80` | > 0 |
 | `agent.headless` | bool | `false` | `true`, `false` |
@@ -63,6 +64,7 @@ sin-code config init
 # Set a value (validates the value and saves atomically)
 sin-code config set theme light
 sin-code config set llm.api_key sk-...
+sin-code config set llm.style terse   # issue #167: caveman-`full` analog
 
 # Show merged config, masking secrets
 sin-code config show
