@@ -88,6 +88,28 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   checkboxes, and the deferred-items list (GOAP Planner,
   Federation, real ONNX implementation).
 
+### Added — `sin-code compile-spec` (issue #164, v0 spike)
+- **`cmd/sin-code/internal/spec/compiler/`** — new package, 4 source
+  files (`schema.go`, `parse.go`, `validate.go`, `emit.go`) + 24
+  race-clean unit tests. Round-trip test (`TestRoundTrip`) is the
+  load-bearing guarantee: parse → emit → parse → emit must produce
+  identical bytes.
+- **`cmd/sin-code/compile_spec_cmd.go`** — new subcommand
+  `sin-code compile-spec` with `--init`, `--check`, `--out <dir>`,
+  `--dry-run` flags. Atomic writes (temp + rename) so a crash
+  mid-write never leaves a half-written file behind.
+- **Four derived JSON outputs** (contract defined; engines not
+  yet wired — that is v1.1):
+  - `.sin/hooks.json`
+  - `internal/verify/config.json`
+  - `internal/permission/policies.json`
+  - `.sin/loop.json` (parsed but not consumed — migration path
+    for issue #155)
+- **`SPEC-COMPILER.md`** — design doc with the schema, the
+  mandate-compliance analysis, the deferred-items list (engine
+  wiring, remote spec inheritance, spec testing), and the
+  relationship to issue #155.
+
 ### Added — `sin-code install` + one-line curl|bash installer (issue #170)
 - **`cmd/sin-code/install_cmd.go`** — new 40th subcommand `sin-code install`
   (and `install --auto`). Downloads the latest GitHub release asset,

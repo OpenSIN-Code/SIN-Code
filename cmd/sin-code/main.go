@@ -90,6 +90,7 @@ func init() {
 		NewInstallCmd(),                                                                                // v3.18.0: `sin-code install` — single-binary installer entrypoint (issue #170)
 		NewTriageCmd(),                                                                                 // v3.18.0: `sin-code triage` — backlog auto-prioritizer via gh (issue #162)
 		NewCatalogCmd(),                                                                                // v3.18.0: `sin-code catalog` — unified tool catalog (issue #163, supersedes `hub` + `assets`)
+		NewCompileSpecCmd(),                                                                            // v3.21.0: `sin-code compile-spec` — declarative .sin-code.yml → hooks/verify/perm (issue #164)
 		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + eval + prp workflow
 	)
 
