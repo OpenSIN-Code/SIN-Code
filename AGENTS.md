@@ -268,6 +268,7 @@ SIN-Code/
 │   │       ├── lessons/       ← v3.4.0: closed learning loop
 │   │       ├── autonomy/      ← v3.5.0: goal queue + triggers
 │   │       ├── skillmgr/      ← v3.5.0: install/verify skills
+│   │       ├── skilldist/     ← v3.18.0: marker-fenced skill distribution (issue #169)
 │   │       ├── loopbuilder/   ← v3.4.0: shared factory (DRY)
 │   │       ├── vane/          ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (internal/vane)
 │   │       ├── stack/         ← v3.8.0: unified install/doctor across 3 layers
@@ -395,6 +396,44 @@ Each skill **must** contain:
 
 Skills ported from external repos (e.g. `Infra-SIN-OpenCode-Stack`) must include
 `lifecycle: external` and `sources:` in their metadata.
+
+### Skill distribution to external agents (issue #169)
+
+`sin-code skill install <name> --agent <target>` distributes a bundled
+Skill artifact to one of eight registered agent families. The single
+source of truth is `cmd/sin-code/internal/skilldist/Targets`:
+
+| Target | Format | Install path template (relative to `$SIN_CODE_HOME`) |
+|---|---|---|
+| `claude-code` | `dir` | `.claude/skills/<skill>` |
+| `opencode` | `dir` | `.config/opencode/skills/<skill>` |
+| `gemini` | `dir` | `.gemini/skills/<skill>` |
+| `codex` | `rule` | `.codex/rules/<skill>.md` |
+| `cursor` | `rule` | `.cursor/rules/<skill>.mdc` |
+| `windsurf` | `rule` | `.windsurf/rules/<skill>.md` |
+| `cline` | `rule` | `.clinerules/<skill>.md` |
+| `copilot` | `marker` | `.github/copilot-instructions.md` |
+
+**Marker-fence contract.** Every write for `rule` and `marker` Formats
+goes through `ParseMarkers` so a subsequent install with the same
+`(target, skill)` pair replaces the previously written block in place:
+
+```
+<!-- SIN-CODE-SKILL-START: <skill> -->
+… rendered body …
+<!-- SIN-CODE-SKILL-END:   <skill> -->
+```
+
+The leading/trailing ASCII prefix `SIN-CODE-SKILL` is the rg-friendly
+anchor. The trailing whitespace before `<skill>` on the END marker is
+visual alignment only — `ParseMarkers` strips it on lookup, so any
+strict matcher outside this package works too.
+
+**Public API surface.** `(Target.Name, Target.DisplayName)` is exposed
+via the `--agent <name>` flag. Adding a target is non-breaking; renaming
+or removing one is a major bump. The `sin-code skill list --json`
+output schema is also a public API — preferred-format changes go through
+the same major-bump policy.
 
 ### CLI subcommands (verified `cmd/sin-code/main.go`, v3.5.0)
 

@@ -4,6 +4,42 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — Skill distribution to external agents (issue #169)
+- **`internal/skilldist/`** — first-party registry of supported agent
+  families (Claude Code, Codex, Gemini, opencode, Cursor, Windsurf, Cline,
+  GitHub Copilot) and marker-fenced install/uninstall. Single source of
+  truth for "how to drop a SIN-Code bundled Skill into each agent's
+  expected location" (closes #169). One package, three `Format`s:
+  - `dir`    — copy the Skill dir into `<home>/<InstallPath>` (Claude,
+               opencode, Gemini).
+  - `rule`   — `.md` / `.mdc` rule file with a marker fence (Codex,
+               Cursor, Windsurf, Cline).
+  - `marker` — single shared agent instructions file with one fenced
+               block per Skill (Copilot's `copilot-instructions.md`).
+- **`sin-code skill install <name> --agent <target>`** — extended
+  the existing `skill install` grammar with a `--agent` flag. Values:
+  `claude-code | codex | gemini | opencode | cursor | windsurf | cline |
+  copilot | all`. Default falls through to the legacy v3.5.0
+  ecosystem-skill installer (no behaviour change for existing scripts).
+  `$SIN_CODE_AGENT` is honoured when the flag is absent.
+- **`sin-code skill list [--installed] [--agent <target>] [--json]`** —
+  new subcommand. Default view is the bundled-skill × agent-family
+  matrix (✓ / —). `--installed` filters out rows with zero installs;
+  `--agent <target>` filters the column set; `---json` emits one JSON
+  object per skill (`{skill, targets, has_any}`).
+- **`sin-code skill uninstall <name> --agent <target>`** — reverse
+  the install via the marker-fence remover. Idempotent: a second
+  invocation is a no-op.
+- **Marker fence format** (rg-friendly):
+  `<!-- SIN-CODE-SKILL-START: <skill> --> … <!-- SIN-CODE-SKILL-END:   <skill> -->`
+  — leading `SIN-CODE-SKILL` ASCII prefix makes `grep -n` trivial; the
+  trailing whitespace on the END marker is visual alignment and is
+  stripped by `ParseMarkers` on lookup so strict regex matchers still
+  work outside the package. Re-running the install replaces the block
+  in place — no concatenation, no duplicate fences, no unbounded growth.
+- Documented in `cmd/sin-code/internal/skilldist/skilldist.doc.md` and
+  AGENTS.md §10 (Skill distribution to external agents).
+
 ### Added — Loop Engineering (decoupled completion authority)
 - **Stop-gate harness** (`internal/stopgate`): an independent completion
   authority consulted after the verify-gate passes. Hybrid mode runs
