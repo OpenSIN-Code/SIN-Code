@@ -4,11 +4,11 @@
 
 [![test-gate](https://img.shields.io/badge/test--gate-passing-brightgreen)](#)
 [![ecosystem-sync](https://img.shields.io/badge/ecosystem--sync-passing-brightgreen)](#)
-[![version](https://img.shields.io/badge/version-v3.15.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
+[![version](https://img.shields.io/badge/version-v3.17.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
 
 ## Status
 
-- **Version**: [v3.15.0](https://github.com/OpenSIN-Code/SIN-Code/releases/tag/v3.15.0)
+- **Version**: [v3.17.0](https://github.com/OpenSIN-Code/SIN-Code/releases/tag/v3.17.0)
 - **Maturity**: Production
 - **Language**: Go (single static binary) + Python companion package
 - **Tests**: 200+ tests across Go and Python; `go test ./... -race -count=1` is the gate
@@ -50,7 +50,7 @@ swarm mode, skill bootstrapping, and methodology skills.
 ## MCP Integration
 
 - **MCP Server**: Go — `sin-code serve` (main binary, 44+ tools); Python legacy — `src/sin_code_bundle/mcp_server.py`
-- **Tools**: 39 subcommands, 12 ecosystem skill servers, and external MCP servers (websearch, browser, symfony-lens, etc.)
+- **Tools**: 39 subcommands, 34 bundled skills, 12 ecosystem skill servers, and external MCP servers (websearch, browser, symfony-lens, etc.)
 - **Register**: Add `sin-code serve` to your MCP client config (see `docs/mcp.json.example`), or register the legacy Python server via `sin mcp register sin-serve src/sin_code_bundle/mcp_server.py`
 
 ## Development
@@ -82,6 +82,33 @@ swarm mode, skill bootstrapping, and methodology skills.
 **Methodology Skills (v3.7.0):** `sin-code superpowers` integrates obra/superpowers (MIT) — the TDD/debugging/planning workflow library. Skills are pinned to a reviewed upstream SHA, overlaid with SIN-Code tool mappings (sin_bash, sin_preflight, orchestrate, etc.), and served as MCP tools. `sin-code superpowers update` shows the upstream skill diff before applying — review-before-trust, because skill content flows into your agent context.
 
 **Go-Native SCA (v3.15.0):** `sin security` now uses a native Go SCA client for Go projects, parsing `go.mod` and invoking `grype` JSON output directly.
+
+## Bundled Skills (v3.17.0)
+
+SIN-Code ships **34 bundled skills** embedded in the binary, installable via `sin-code skills list|install`. Skills are organized into category directories and follow a unified naming convention `skill-<category>-<name>`.
+
+```bash
+sin-code skills list          # list all bundled skills
+sin-code skills install skill-code-audit  # install a skill to ~/.config/opencode/skills
+```
+
+**Categories:**
+
+| Category | Example skills |
+|---|---|
+| `browser-skills` | `skill-browser-tools` |
+| `code-skills` | `skill-code-audit`, `skill-code-build`, `skill-code-codocs`, `skill-code-create`, `skill-code-docs`, `skill-code-mcp-builder`, `skill-code-plan`, `skill-code-refactor`, `skill-code-spec` |
+| `debug-skills` | `skill-debug-deep` |
+| `design-skills` | `skill-design-frontend`, `skill-design-image` |
+| `ecosystem-skills` | `skill-ecosystem-context`, `skill-ecosystem-marketplace` |
+| `github-skills` | `skill-github-account`, `skill-github-actions`, `skill-github-app`, `skill-github-governance` |
+| `infrastructure-skills` | `skill-infrastructure-cloudflare`, `skill-infrastructure-oci-vm`, `skill-infrastructure-supabase` |
+| `memory-skills` | `skill-memory-honcho`, `skill-memory-honcho-rollback`, `skill-memory-infisical` |
+| `planning-skills` | `skill-planning-enterprise` |
+| `process-skills` | `skill-process-goal`, `skill-process-grill`, `skill-process-scheduler` |
+| `shop-skills` | `skill-shop-cj-dropshipping`, `skill-shop-stripe`, `skill-shop-tiktok` |
+
+Each skill contains `SKILL.md`, `context/`, `frameworks/`, `tasks/`, `templates/`, and a `LICENSE` file. External skills copied from `Infra-SIN-OpenCode-Stack` are tagged with `lifecycle: external` and `sources` in their metadata.
 
 ## Quick Start
 
