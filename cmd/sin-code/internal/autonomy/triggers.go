@@ -54,6 +54,8 @@ func (r *Runner) Run(ctx context.Context) error {
 			go r.runCron(ctx, t)
 		case "watch":
 			go r.runWatch(ctx, t)
+		case "discover":
+			go r.runDiscover(ctx, t)
 		default:
 			fmt.Fprintf(os.Stderr, "warn: unknown trigger type %q\n", t.Type)
 		}
@@ -78,6 +80,42 @@ func (r *Runner) runCron(ctx context.Context, t Trigger) {
 			if _, err := r.Queue.Add(ctx, t.Prompt, r.Workspace, t.Priority, 1); err != nil {
 				fmt.Fprintf(os.Stderr, "warn: cron enqueue failed: %v\n", err)
 			}
+		}
+	}
+}
+
+// runDiscover periodically scans the workspace for latent work (TODO/FIXME
+// markers, unchecked MASTER_TODO items) and enqueues deduplicated goals — the
+// agent finds its own backlog instead of waiting for a human prompt.
+func (r *Runner) runDiscover(ctx context.Context, t Trigger) {
+	interval, err := time.ParseDuration(t.Every)
+	if err != nil || interval < time.Minute {
+		fmt.Fprintf(os.Stderr, "warn: discover trigger needs every >= 1m, got %q\n", t.Every)
+		return
+	}
+	scan := func() {
+		findings, derr := Discover(DiscoverConfig{
+			Workspace:    r.Workspace,
+			ScanComments: true,
+			ScanMaster:   true,
+		})
+		if derr != nil {
+			fmt.Fprintf(os.Stderr, "warn: discover scan failed: %v\n", derr)
+			return
+		}
+		if _, eerr := EnqueueFindings(ctx, r.Queue, r.Workspace, findings, 3); eerr != nil {
+			fmt.Fprintf(os.Stderr, "warn: discover enqueue failed: %v\n", eerr)
+		}
+	}
+	scan() // initial scan on startup
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			scan()
 		}
 	}
 }

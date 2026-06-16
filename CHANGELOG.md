@@ -2,6 +2,38 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [Unreleased]
+
+### Added — Loop Engineering (decoupled completion authority)
+- **Stop-gate harness** (`internal/stopgate`): an independent completion
+  authority consulted after the verify-gate passes. Hybrid mode runs
+  deterministic checks first (fail-closed) then a strong/equal LLM judge
+  (`SIN_EVALUATOR_MODEL`) for non-mechanical criteria; a green judge can never
+  override a red deterministic check. Rejection forces the loop to keep working
+  with the open criteria injected back in. 92.5% test coverage.
+- **Goal contracts / Definition-of-Done** (`internal/goalcontract`): machine-
+  checkable acceptance criteria per goal, layered resolution (explicit file +
+  inline `--criteria` + `--done-when`, auto-detected Go checks incl. a
+  `no-new-todos` diff guard, verify-cmd fallback). Persisted in the queue's
+  `contract` column. `goal add --criteria/--contract-file`. 94.5% coverage.
+- **Continuation instead of hard abort** (`agentloop`): with `AllowContinuation`,
+  hitting `max-turns` now checkpoints and returns a resumable `Result`
+  (`Continuation=true`) instead of erroring. The daemon re-enqueues via
+  `queue.Continue` (refunds the attempt, bumps a `continuations` counter)
+  bounded by `--max-continuations`. Long tasks never need a human restart.
+- **Recursive goal decomposition** (`autonomy.Queue`): `parent_id`/`depth`
+  columns, `AddSub`, depth-first draining (a parent only finalizes once every
+  child verifies, via `Complete`→`blocked`→`TryFinalize`/`bubbleUp`). The daemon
+  exposes a `spawn_subgoal` tool bounded by `--max-depth`.
+- **Autonomous backlog discovery** (`autonomy/discover.go`): scans TODO/FIXME/
+  XXX/HACK markers and unchecked `MASTER_TODO.md` items into deduplicated goals
+  (`AddDiscovered` with a `dedup_key`). Exposed as a `discover` trigger type and
+  the `goal discover [--dry-run]` command — the agent finds its own work.
+
+### Notes
+- All loop-engineering features are opt-in and fail-safe: a nil stop-gate /
+  empty contract / `AllowContinuation=false` preserves exact legacy behavior.
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added

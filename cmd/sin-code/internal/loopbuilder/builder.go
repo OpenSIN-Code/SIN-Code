@@ -16,6 +16,8 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/eval"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
@@ -23,6 +25,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/stopgate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
 )
@@ -43,6 +46,14 @@ type Config struct {
 	LocalSpec   []agentloop.ToolSpec
 	ToolFactory func(*mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec)
 	SkipMCP     bool
+
+	// Contract, when non-nil and non-empty, activates the stop-gate: the
+	// worker's "done" is confirmed against this Definition-of-Done by an
+	// independent hybrid evaluator before the loop returns DONE.
+	Contract *goalcontract.GoalContract
+	// AllowContinuation switches the maxTurns outcome from a hard error to a
+	// resumable checkpoint (used by the daemon).
+	AllowContinuation bool
 }
 
 // Build constructs a fully wired agentloop.Loop with all mandates applied
@@ -114,6 +125,30 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		Ask:        cfg.AskFunc,
 		Lessons:    memStore,
 		Ledger:     ledgerStore,
+	}
+
+	// Stop-gate (anti-babysitting): when a Definition-of-Done contract is
+	// supplied, completion authority is taken away from the worker. The
+	// hybrid gate runs deterministic checks first, then a strong/equal LLM
+	// judge (SIN_EVALUATOR_MODEL, falling back to the worker model) for the
+	// non-mechanical criteria. Without a contract the loop is unchanged.
+	loop.AllowContinuation = cfg.AllowContinuation
+	if cfg.Contract != nil && !cfg.Contract.IsEmpty() {
+		var gateOpts []stopgate.Option
+		evalModel := firstNonEmpty(os.Getenv("SIN_EVALUATOR_MODEL"), model)
+		if len(cfg.Contract.SemanticCriteria) > 0 && evalModel != "" {
+			evalClient := client
+			if base := os.Getenv("SIN_EVALUATOR_BASE_URL"); base != "" {
+				evalClient = llm.NewClient(base, firstNonEmpty(os.Getenv("SIN_EVALUATOR_API_KEY"), apiKey))
+			}
+			if judge, jerr := eval.NewJudge(eval.JudgeConfig{Model: evalModel, Strict: true}, evalClient); jerr == nil {
+				gateOpts = append(gateOpts, stopgate.WithJudge(judge))
+			} else {
+				fmt.Fprintf(os.Stderr, "warn: stop-gate semantic judge disabled: %v\n", jerr)
+			}
+		}
+		gate := stopgate.New(cfg.Workspace, gateOpts...)
+		loop.StopGate = gate.LoopGate(*cfg.Contract)
 	}
 
 	// Headroom context compression (issue #118): opt-in via HEADROOM_ENABLED.

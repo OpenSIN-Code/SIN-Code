@@ -45,6 +45,12 @@ const (
 	VerifyPass = "verify.pass"
 	VerifyFail = "verify.fail"
 
+	// Stop-gate: completion authority decoupled from the worker. StopEval
+	// fires whenever the gate is consulted; StopContinue fires when the gate
+	// rejects a proposed completion and forces the loop to keep working.
+	StopEval     = "stop.eval"
+	StopContinue = "stop.continue"
+
 	AgentSpawn       = "agent.spawn"
 	AgentComplete    = "agent.complete"
 	CriticReject     = "critic.reject"
