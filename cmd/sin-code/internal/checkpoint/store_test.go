@@ -17,11 +17,13 @@ func TestStore_CaptureRestoreRoundTrip(t *testing.T) {
 	}
 	defer st.Close()
 
+	// Create a file with original content.
 	original := []byte("original content\n")
 	if err := os.WriteFile(filepath.Join(ws, "a.txt"), original, 0o644); err != nil {
 		t.Fatal(err)
 	}
 
+	// Snapshot it.
 	id, err := st.Capture(context.Background(), ws, "sess-1", "before-edit", []string{"a.txt"})
 	if err != nil {
 		t.Fatal(err)
@@ -30,14 +32,17 @@ func TestStore_CaptureRestoreRoundTrip(t *testing.T) {
 		t.Fatal("expected non-empty id")
 	}
 
+	// Mutate it.
 	if err := os.WriteFile(filepath.Join(ws, "a.txt"), []byte("changed\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
+	// Rewind.
 	if err := st.Restore(context.Background(), ws, id); err != nil {
 		t.Fatal(err)
 	}
 
+	// Verify content.
 	got, err := os.ReadFile(filepath.Join(ws, "a.txt"))
 	if err != nil {
 		t.Fatal(err)
@@ -55,15 +60,18 @@ func TestStore_TombstoneRemovesNewFile(t *testing.T) {
 	}
 	defer st.Close()
 
+	// File does not exist at snapshot time — tombstone.
 	id, err := st.Capture(context.Background(), ws, "sess-1", "no-file-yet", []string{"ghost.txt"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Create the file after the snapshot.
 	if err := os.WriteFile(filepath.Join(ws, "ghost.txt"), []byte("spooky"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
+	// Rewind — file should be removed.
 	if err := st.Restore(context.Background(), ws, id); err != nil {
 		t.Fatal(err)
 	}
@@ -81,6 +89,7 @@ func TestStore_BlobDedup(t *testing.T) {
 	defer st.Close()
 
 	content := []byte("hello world")
+	// Create two files with the same content.
 	if err := os.WriteFile(filepath.Join(ws, "a.txt"), content, 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -88,11 +97,13 @@ func TestStore_BlobDedup(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// Capture both.
 	if _, err := st.Capture(context.Background(), ws, "s1", "dup",
 		[]string{"a.txt", "b.txt"}); err != nil {
 		t.Fatal(err)
 	}
 
+	// Count blobs in the blob dir.
 	blobs, err := os.ReadDir(filepath.Join(ws, ".sin-code", "checkpoints", "blobs"))
 	if err != nil {
 		t.Fatal(err)
@@ -110,6 +121,9 @@ func TestStore_ListNewestFirst(t *testing.T) {
 	}
 	defer st.Close()
 
+	// Capture three snapshots with no sleep — they may share the
+	// same nanosecond on fast hardware. Use distinct files to
+	// ensure ordering is content-based.
 	_ = os.WriteFile(filepath.Join(ws, "a.txt"), []byte("1"), 0o644)
 	id1, err := st.Capture(context.Background(), ws, "sess-1", "first", []string{"a.txt"})
 	if err != nil {
@@ -134,7 +148,7 @@ func TestStore_ListNewestFirst(t *testing.T) {
 		t.Fatalf("expected 3 snapshots, got %d", len(list))
 	}
 	if list[0].ID != id3 || list[2].ID != id1 {
-		t.Errorf("expected newest-first [id3, id2, id1], got [%s, %s, %s]",
+		t.Errorf("expected newest-first order [id3, id2, id1], got [%s, %s, %s]",
 			list[0].ID, list[1].ID, list[2].ID)
 	}
 	_ = id2

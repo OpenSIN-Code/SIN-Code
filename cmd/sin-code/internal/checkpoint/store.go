@@ -177,6 +177,8 @@ func (s *Store) List(ctx context.Context, sessionID string, limit int) ([]Snapsh
 	return out, nil
 }
 
+// Prune deletes the blob file for the given hash. Used by GC after
+// the last snapshot referencing a hash has been removed.
 func (s *Store) Prune(hash string) error {
 	if hash == "" {
 		return nil

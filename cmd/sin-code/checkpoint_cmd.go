@@ -90,19 +90,20 @@ func NewRewindCmd() *cobra.Command {
 }
 
 // dirtyPaths returns the workspace-relative list of files that exist
-// under the workspace, excluding .sin-code/, .git/, and node_modules.
-// v0: we snapshot every regular file. v1 should integrate with the
+// under the workspace, excluding .sin-code/, .git/, and the
+// checkpoint store itself. This is a conservative v0: we snapshot
+// every regular file we can find. v1 should integrate with the
 // existing change detector (LSP / git status).
 func dirtyPaths(workspace string) ([]string, error) {
 	var paths []string
 	skip := map[string]bool{
-		".sin-code":    true,
-		".git":         true,
+		".sin-code": true,
+		".git":      true,
 		"node_modules": true,
 	}
 	err := filepath.Walk(workspace, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return nil
+			return nil // skip unreadable entries
 		}
 		if info.IsDir() {
 			if skip[info.Name()] {
@@ -114,6 +115,7 @@ func dirtyPaths(workspace string) ([]string, error) {
 		if err != nil {
 			return nil
 		}
+		// Skip the checkpoint store itself (recursion guard).
 		if len(rel) >= 11 && rel[:11] == ".sin-code/c" {
 			return nil
 		}
