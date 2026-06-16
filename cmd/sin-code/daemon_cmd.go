@@ -266,11 +266,11 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 			persisted = &goalcontract.GoalContract{}
 		}
 		resolved, rerr := goalcontract.Resolve(goalcontract.ResolveOptions{
-			Workspace:    goal.Workspace,
-			GoalID:       fmt.Sprintf("%d", goal.ID),
-			Criteria:     persisted.SemanticCriteria,
-			VerifyCmd:    opt.verifyCmd,
-			AutoDetect:   true,
+			Workspace:  goal.Workspace,
+			GoalID:     fmt.Sprintf("%d", goal.ID),
+			Criteria:   persisted.SemanticCriteria,
+			VerifyCmd:  opt.verifyCmd,
+			AutoDetect: true,
 		})
 		if rerr != nil {
 			fmt.Fprintf(os.Stderr, "daemon: goal %d contract resolve failed: %v\n", goal.ID, rerr)

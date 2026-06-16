@@ -18,7 +18,7 @@ var (
 
 	// testHookExecLookPath and testHookHTTPNewRequest allow tests to simulate
 	// missing macOS tooling or webhook request construction failures.
-	testHookExecLookPath = exec.LookPath
+	testHookExecLookPath   = exec.LookPath
 	testHookHTTPNewRequest = http.NewRequest
 )
 
