@@ -11,6 +11,11 @@
 > `required_approving_review_count: 0` for solo-maintainer workflow.
 > `sin-code install` (issue #170) — new 40th subcommand; root `install.sh`
 > rewritten to a 27-line curl|bash shim; matching `install.ps1` for Windows.
+> `sin-code compress` (issue #172): deterministic + LLM compaction for
+> lessons / instincts / summaries / memory / AGENTS.md; snapshot+rollback
+> for lossless Apply; 39 → 40 subcommands. Branch protection on `main`
+> permanently relaxed to `required_approving_review_count: 0` for
+> solo-maintainer workflow.
 
 ---
 
@@ -149,7 +154,8 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code hub           ← v3.12.0: tool catalog hub
   ├─ sin-code ledger        ← v3.13.0: semantic session ledger
   ├─ sin-code summary       ← v3.13.0: session auto-summary
-  └─ 39 subcommands
+  ├─ sin-code compress      ← v3.18.0: deterministic + LLM compaction (issue #172)
+  └─ 40 subcommands
 
          │
          ▼
@@ -262,6 +268,10 @@ SIN-Code/
 │   │   ├── install_cmd.go       ← v3.18.0: `sin-code install` (issue #170, single-binary installer)
 │   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
 │   │   └── internal/          ← 18 packages (v3.18.0)
+  │   │   ├── summary_cmd.go       ← v3.13.0: summary builder subcommand
+  │   │   ├── compress_cmd.go       ← v3.18.0: sin-code compress subcommand (plan/apply/rollback, issue #172)
+  │   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
+│   │   └── internal/          ← 17 packages (v3.8.0)
 │   │       ├── agentloop/     ← PLAN→ACT→VERIFY→DONE loop
 │   │       ├── session/       ← SQLite-backed resumable sessions
 │   │       ├── permission/    ← allow/ask/deny engine
@@ -299,9 +309,10 @@ SIN-Code/
 │   │       ├── loopbuilder/   ← v3.4.0: shared factory (DRY)
 │   │       ├── vane/          ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (internal/vane)
 │   │       ├── stack/         ← v3.8.0: unified install/doctor across 3 layers
-│   │       ├── hub/           ← v3.12.0: static tool catalog
-│   │       ├── ledger/        ← v3.13.0: semantic session ledger (SQLite)
-│   │       ├── summary/       ← v3.13.0: deterministic session summary builder
+  │   │       ├── hub/           ← v3.12.0: static tool catalog
+  │   │       ├── ledger/        ← v3.13.0: semantic session ledger (SQLite)
+  │   │       ├── summary/       ← v3.13.0: deterministic session summary builder
+  │   │       ├── compress/      ← v3.18.0: deterministic + LLM compaction (issue #172)
 │   │       ├── llm/           ← provider layer
 │   │       ├── style/         ← v3.17.0: verbosity / compression mode system-prompt renderer (issue #167)
 │   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
@@ -346,6 +357,10 @@ Lessons DB: `~/.local/share/sin-code/lessons.db` (SQLite, modernc).
 Goal Queue DB: `~/.local/share/sin-code/goals.db` (SQLite, modernc).
 Ledger DB: `~/.local/share/sin-code/ledger.db` (SQLite, modernc), overridable
 via `SIN_CODE_LEDGER`.
+Compress snapshots: `~/.local/share/sin-code/compress-snapshots/<plan-id>.json`
+(JSON, one file per Apply), overridable via `SIN_CODE_SNAPSHOT_DIR`. Each
+snapshot is content-addressed (Plan.ID is `plan-<sha256-prefix>`) and is
+the rollback artifact for `sin-code compress rollback <id>` (issue #172).
 
 ### Verbosity / compression mode (issue #167)
 
@@ -394,6 +409,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.14.0 | ✅ SHIPPED | Unified config subsystem (#34): `sin-code config init/show/validate`, expanded TOML schema, user + project deep merge, atomic writes, secret masking, 39 subcommands |
 | v3.15.0 | ✅ SHIPPED | Go-native SCA Phase 1 (#41), race-flake hardening (#59) |
 | v3.16.0 | ✅ SHIPPED | Forge integration (#37): `sin forge` command, `sin status` detection, 16th MCP tool in `mcp_config` |
+| v3.18.0 | ✅ SHIPPED | Memory compaction (`internal/compress/`, `compress_cmd.go`, issue #172): deterministic dedupe + byte-budget + sort, optional LLM summarization (`--strategy llm|hybrid`) with byte-preservation validation, snapshot+rollback for lossless Apply, `compress__plan/apply/rollback` permission defaults (ask-only on `apply`). Closes #172. |
 
 | v3.18.0 | ACTIVE | `sin-code install` + curl|bash shim + PowerShell (issue #170): new 40th subcommand + internal/install/ package, 27-line install.sh mirror + 35-line install.ps1, SHA256-verified single-binary downloads from goreleaser assets |
 | (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
@@ -498,6 +514,8 @@ Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
            config, self-update, hub, ledger, summary
 ``` (v3.18.0: 40 subcommands; `install` is the v3.18.0 single-binary installer from issue #170)
+           config, self-update, hub, ledger, summary, compress
+``` (v3.18.0: 40 subcommands, up from 39 in v3.13.0)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 
