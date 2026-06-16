@@ -87,6 +87,7 @@ func init() {
 		NewCodeGraphCmd(), // CodeGraph multi-language analysis bridge (issue #126)
 		NewSpecCmd(),      // Spec-Layer: *.spec.md contracts (issue #122)
 		NewStatusCmd(),    // loop-004: autonomous loop health dashboard
+		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + eval + prp workflow
 	)
 
 	// Pass build-time version to self-update module.

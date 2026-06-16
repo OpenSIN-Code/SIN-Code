@@ -99,10 +99,16 @@ func (bl *Blamer) checkAt(ctx context.Context, log *EditLog, sha string, c Check
 	return v.Passed, nil
 }
 
-func (bl *Blamer) git(ctx context.Context, dir string, args ...string) error {
+// blameGitCmd runs git in a directory. Tests override this hook to avoid
+// spawning real subprocesses.
+var blameGitCmd = func(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
-	if out, err := cmd.CombinedOutput(); err != nil {
+	return cmd.CombinedOutput()
+}
+
+func (bl *Blamer) git(ctx context.Context, dir string, args ...string) error {
+	if out, err := blameGitCmd(ctx, dir, args...); err != nil {
 		return fmt.Errorf("git %v: %s: %w", args, string(out), err)
 	}
 	return nil

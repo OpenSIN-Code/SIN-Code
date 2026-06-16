@@ -29,6 +29,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.44.0
 	golang.org/x/mod v0.37.0
 	golang.org/x/sys v0.46.0
+	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.52.0
 )
 

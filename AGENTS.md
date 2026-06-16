@@ -4,9 +4,11 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** v3.14.0 in progress (2026-06-13) —
-> unified config subsystem (#34). Tool inventory and repo layout in sections 6 and
-> 10 are sourced from `go test ./...` and `cmd/sin-code/main.go` AddCommand list.
+> **Last verified against main:** v3.17.0 (2026-06-16) —
+> bundled skills reorganized into category directories and renamed to
+> `skill-<category>-<name>`; `github-skills/` category added; 34 bundled skills
+> embedded in the binary. Branch protection on `main` permanently relaxed to
+> `required_approving_review_count: 0` for solo-maintainer workflow.
 
 ---
 
@@ -307,8 +309,20 @@ SIN-Code/
 │       SIN-Code-SCA-Tool-Go, SIN-Code-Secrets-Scanner
 │
 ├── src/sin_code_bundle/       ← Python companion: `sin` CLI + `sin-serve`
+├── skills/                    ← 34 bundled skills in category directories
+│   ├── browser-skills/
+│   ├── code-skills/
+│   ├── debug-skills/
+│   ├── design-skills/
+│   ├── ecosystem-skills/
+│   ├── github-skills/
+│   ├── infrastructure-skills/
+│   ├── memory-skills/
+│   ├── planning-skills/
+│   ├── process-skills/
+│   └── shop-skills/
 ├── tests/                     ← Go + Python tests
-└── scripts/                   ← org-cleanup.sh, promote-to-sin-code.sh
+└── scripts/                   ← org-cleanup.sh, promote-to-sin-code.sh, validate_skill.py
 ```
 
 ---
@@ -385,6 +399,27 @@ updates `homebrew-sin` formula, and ships to GitHub Releases.
   (e.g. `websearch__search`, `browser__navigate`).
 - The string "SIN-Code-Bundle" may only appear in CHANGELOG history and
   migration notes — never in code, config, or new docs (mandate M5).
+
+### Bundled skill naming rules
+
+All bundled skills live under `skills/<category>-skills/` and are named
+`skill-<category>-<descriptive-name>`. Examples:
+
+| Category | Directory | Skill name |
+|---|---|---|
+| Code | `code-skills/` | `skill-code-audit`, `skill-code-build`, `skill-code-create` |
+| GitHub | `github-skills/` | `skill-github-actions`, `skill-github-account`, `skill-github-app` |
+| Memory | `memory-skills/` | `skill-memory-honcho`, `skill-memory-infisical` |
+| Process | `process-skills/` | `skill-process-goal`, `skill-process-grill` |
+| Shop | `shop-skills/` | `skill-shop-cj-dropshipping`, `skill-shop-stripe` |
+
+Each skill **must** contain:
+- `SKILL.md` with frontmatter (`name`, `description`, `license`, `compatibility`, `metadata`)
+- `context/`, `frameworks/`, `tasks/`, `templates/` directories
+- `LICENSE` file
+
+Skills ported from external repos (e.g. `Infra-SIN-OpenCode-Stack`) must include
+`lifecycle: external` and `sources:` in their metadata.
 
 ### CLI subcommands (verified `cmd/sin-code/main.go`, v3.5.0)
 

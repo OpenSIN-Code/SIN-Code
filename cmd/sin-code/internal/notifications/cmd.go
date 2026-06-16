@@ -3,6 +3,7 @@
 package notifications
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -19,6 +20,9 @@ var (
 	notifTTL      time.Duration
 	notifNoMac    bool
 	notifNoStderr bool
+
+	// testHookOpenStore lets command tests inject a closed/broken store.
+	testHookOpenStore = Open
 )
 
 var NotificationsCmd = &cobra.Command{
@@ -55,7 +59,7 @@ func init() {
 }
 
 func openStore() (*Store, error) {
-	return Open(notifDBPath)
+	return testHookOpenStore(notifDBPath)
 }
 
 func printJSON(v interface{}) error {
@@ -168,12 +172,23 @@ var listenCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ch := TUIBroadcaster()
 		enc := json.NewEncoder(os.Stdout)
-		for n := range ch {
-			if err := enc.Encode(n); err != nil {
-				return err
+		ctx := cmd.Context()
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		for {
+			select {
+			case n, ok := <-ch:
+				if !ok {
+					return nil
+				}
+				if err := enc.Encode(n); err != nil {
+					return err
+				}
+			case <-ctx.Done():
+				return nil
 			}
 		}
-		return nil
 	},
 }
 
