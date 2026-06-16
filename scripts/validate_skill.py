@@ -30,7 +30,12 @@ REQUIRED_DIRS = ("context", "frameworks", "tasks", "templates")
 RECOMMENDED_DIRS = ("scripts", "tests", "lib")
 
 # Frontmatter keys required by OpenCode / SIN-Code.
+# `lifecycle` (issue #139) is enforced only in --strict mode so
+# the validator remains backward-compatible with skills that have
+# not yet been migrated. The migration path is `scripts/sync_lifecycle.py`.
 REQUIRED_FRONTMATTER = ("name", "description")
+STRICT_FRONTMATTER = ("lifecycle",)
+VALID_LIFECYCLES = ("native", "external", "deprecated")
 
 # Pattern for valid skill names (OpenCode spec).
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
@@ -109,6 +114,18 @@ class SkillValidator:
         for key in REQUIRED_FRONTMATTER:
             if key not in front or not front[key]:
                 self.add("error", f"Missing or empty frontmatter key: {key}", skill_md)
+
+        # Strict-mode checks (issue #139): enforce `lifecycle` and a
+        # valid value. Strict mode is the operator's explicit signal
+        # that the migration is complete; non-strict mode leaves
+        # legacy skills untouched.
+        if self.strict:
+            for key in STRICT_FRONTMATTER:
+                if key not in front or not front[key]:
+                    self.add("error", f"Missing or empty frontmatter key (strict): {key}", skill_md)
+            lc = front.get("lifecycle", "")
+            if lc and lc not in VALID_LIFECYCLES:
+                self.add("error", f"Invalid lifecycle {lc!r} (expected one of {VALID_LIFECYCLES})", skill_md)
 
         name = front.get("name")
         if name and not NAME_RE.match(name):

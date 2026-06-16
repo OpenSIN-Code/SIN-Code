@@ -1,0 +1,147 @@
+# Skill lifecycle mapping (issue #139)
+#
+# This file is the single source of truth for the lifecycle status
+# of every bundled skill. The `sync_lifecycle.py` script reads this
+# file and applies the lifecycle field to the SKILL.md frontmatter.
+#
+# Values:
+#   native      — implemented in the sin-code binary (a subcommand or
+#                 a Go-native package; the skill is documentation, not
+#                 the implementation).
+#   external    — implemented in a separate repo (Python MCP server or
+#                 Go bundle); the bundled SKILL.md is a discovery copy.
+#   deprecated  — the upstream is archived; the bundled SKILL.md exists
+#                 only so old configs don't break.
+#
+# Adding a skill to this table is the contract for "this skill is
+# officially supported by the sin-code binary." Skills not in the
+# table are caught by validate_skill.py in --strict mode.
+#
+# Update policy: when a skill's lifecycle changes, edit this file and
+# run `python3 scripts/sync_lifecycle.py --apply`. CI runs the script
+# in --check mode to ensure the frontmatter matches the table.
+
+skills:
+  # ── process / agent coordination (issue #140, #141 fusion track) ──
+  - name: skill-process-goal
+    lifecycle: native
+    canonical: sin-code goal
+  - name: skill-process-scheduler
+    lifecycle: external
+    canonical: SIN-Code-Scheduler-Skill
+  - name: skill-process-grill
+    lifecycle: external
+    canonical: SIN-Code-Grill-Me-Skill
+
+  # ── shop / commerce (issue #142 fusion track) ──
+  - name: skill-shop-cj-dropshipping
+    lifecycle: external
+    canonical: cj-dropshipping-skill + SIN-Shop-Center/SIN-CJDropshipping-Bundle
+  - name: skill-shop-stripe
+    lifecycle: external
+    canonical: SIN-Shop-Center/SIN-Stripe-Bundle
+  - name: skill-shop-tiktok
+    lifecycle: external
+    canonical: SIN-Shop-Center/SIN-eCommerce-Scraper-Bundle
+
+  # ── ecosystem / external services ──
+  - name: skill-ecosystem-marketplace
+    lifecycle: external
+    canonical: SIN-Code-Marketplace-Skill
+  - name: skill-ecosystem-context
+    lifecycle: external
+    canonical: SIN-Code-Context-Bridge-Skill
+
+  # ── memory ──
+  - name: skill-memory-honcho
+    lifecycle: external
+    canonical: SIN-Code-Honcho-Skill
+  - name: skill-memory-honcho-rollback
+    lifecycle: external
+    canonical: SIN-Code-Honcho-Rollback-Skill
+  - name: skill-memory-infisical
+    lifecycle: external
+    canonical: SIN-Code-Infisical-Skill
+
+  # ── infrastructure ──
+  - name: skill-infrastructure-cloudflare
+    lifecycle: external
+    canonical: cloudflare (opencode bundled)
+  - name: skill-infrastructure-oci-vm
+    lifecycle: external
+    canonical: oci-vm (opencode bundled)
+  - name: skill-infrastructure-supabase
+    lifecycle: external
+    canonical: supabase (opencode bundled)
+
+  # ── design ──
+  - name: skill-design-image
+    lifecycle: native
+    canonical: sin-image-generator
+  - name: skill-design-frontend
+    lifecycle: external
+    canonical: SIN-Code-Frontend-Design-Skill
+
+  # ── github ──
+  - name: skill-github-actions
+    lifecycle: native
+    canonical: sin-code gh (issue #159 bridge)
+  - name: skill-github-app
+    lifecycle: native
+    canonical: sin-code gh (issue #159 bridge)
+  - name: skill-github-governance
+    lifecycle: native
+    canonical: sin-code gh (issue #159 bridge)
+  - name: skill-github-account
+    lifecycle: native
+    canonical: sin-code gh (issue #159 bridge)
+
+  # ── code / dev workflow ──
+  - name: skill-code-mcp-builder
+    lifecycle: external
+    canonical: SIN-Code-MCP-Server-Builder-Skill
+  - name: skill-code-build
+    lifecycle: native
+    canonical: sin-code install
+  - name: skill-code-create
+    lifecycle: native
+    canonical: internal skill-create
+  - name: skill-code-preview
+    lifecycle: native
+    canonical: sin-preview (opencode bundled)
+  - name: skill-code-plan
+    lifecycle: native
+    canonical: sin-plan (opencode bundled)
+  - name: skill-code-docs
+    lifecycle: external
+    canonical: SIN-Code-Doc-Coauthoring-Skill
+  - name: skill-code-add-endpoint
+    lifecycle: native
+    canonical: sin-code scaffold
+  - name: skill-code-spec
+    lifecycle: native
+    canonical: sin-code spec (issue #122)
+  - name: skill-code-codocs
+    lifecycle: external
+    canonical: SIN-Code-Codocs-Skill
+  - name: skill-code-ceo-audit
+    lifecycle: native
+    canonical: sin-code ceo-audit (ceo-audit skill)
+  - name: skill-code-refactor
+    lifecycle: native
+    canonical: sin-code scout + refactor
+
+  # ── debug ──
+  - name: skill-debug-deep
+    lifecycle: native
+    canonical: sin-code scout
+
+  # ── planning ──
+  - name: skill-planning-enterprise
+    lifecycle: native
+    canonical: sin-code gsd-phase + gsd-plan-phase
+
+  # ── browser ──
+  - name: skill-browser-tools
+    lifecycle: external
+    canonical: SIN-Browser-Tools

@@ -2,12 +2,9 @@
 name: skill-memory-honcho
 description: Behavioral memory layer for opencode agents. Stores conversations, preferences, and peer models across sessions with graceful degradation.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: external
 ---
 
 # skill-memory-honcho

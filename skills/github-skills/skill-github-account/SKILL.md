@@ -2,12 +2,9 @@
 name: skill-github-account
 description: GitHub Account Registrierung via Google OAuth mit Fallback.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: OpenSIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: native
 ---
 
 # skill-github-account

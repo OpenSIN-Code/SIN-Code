@@ -4,6 +4,27 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — Skill lifecycle markers (issue #139)
+- **`scripts/lifecycle_map.yaml`** — single source of truth for the
+  lifecycle of every bundled skill. Maps each of the 34 skills to
+  one of `native | external | deprecated` with a `canonical:` field
+  pointing to the upstream implementation.
+- **`scripts/sync_lifecycle.py`** — stdlib-only Python script. Three
+  modes: `--check` (CI: exit 1 if any drift), `--apply` (write
+  changes), `--diff` (show what would change). Hand-rolled YAML
+  parser for the map file (no PyYAML dep).
+- **`scripts/validate_skill.py` strict mode** — now requires the
+  `lifecycle` frontmatter key in `--strict` mode and validates the
+  value. Non-strict mode remains backward-compatible.
+- **`sin-code skill list`** now prints a `LIFECYCLE` column with
+  `[native]`, `[external]`, `[deprecated]`, or `[unknown]` markers.
+  A new `parseLifecycleFromFrontmatter` helper extracts the field
+  from the embedded SKILL.md without a yaml dep.
+- **`docs/SKILLS.md`** — design doc with the value table, the
+  workflow, and the migration path.
+- **All 34 SKILL.md files migrated** — 28 skills received the
+  `lifecycle:` field; 6 were already in sync. Total: 34/34.
+
 ### Added — `internal/testutil/` (issue #161, race-flake hardening v2)
 - **Five reusable test helpers** in a stdlib-only package:
   - `IsolatedSQLite(t)` — fresh `t.TempDir()`-backed `*sql.DB`, auto-closed

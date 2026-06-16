@@ -2,12 +2,9 @@
 name: skill-process-goal
 description: Track long-running goals with subtasks, dependencies, checkpoints, and rollback. Use when work spans multiple sessions or subtasks.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: native
 ---
 
 # skill-process-goal

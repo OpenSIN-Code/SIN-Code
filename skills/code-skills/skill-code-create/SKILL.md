@@ -2,12 +2,9 @@
 name: skill-code-create
 description: Creates and validates new SIN-Code / OpenCode skills. Use when the user says "create skill", "new skill", "skill-code-create", "/skill-code-create", or asks how to build a skill.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 1.1.0
+compatibility: 
+metadata: 
+lifecycle: native
 ---
 
 # skill-code-create

@@ -2,12 +2,9 @@
 name: skill-ecosystem-context
 description: Unified context bridge that queries SCKG, sin-brain, GitNexus, and local SQLite in a single MCP call.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: SIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: external
 ---
 
 # skill-ecosystem-context

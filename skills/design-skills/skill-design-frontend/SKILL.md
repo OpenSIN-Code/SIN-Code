@@ -2,12 +2,9 @@
 name: skill-design-frontend
 description: SOTA frontend design system and philosophy. Loads typography, color, spacing, motion tokens; generates button/input/card/modal specs; scaffolds pages; runs WCAG 2.2 AA checks. v0-pool integration when available.
 license: MIT
-compatibility:
-  - opencode
-  - sin-code
-metadata:
-  author: OpenSIN-Code
-  version: 1.0.0
+compatibility: 
+metadata: 
+lifecycle: external
 ---
 
 # skill-design-frontend
