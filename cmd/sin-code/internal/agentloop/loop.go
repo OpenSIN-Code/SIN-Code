@@ -78,6 +78,20 @@ type StopDecision struct {
 // A nil StopGate preserves the legacy behavior exactly.
 type StopGate func(ctx context.Context, snap StopSnapshot) StopDecision
 
+// Reflection is the worker's self-critique of a proposed completion. Issues
+// non-empty means the agent found problems in its own work and should fix
+// them before the stop-gate is consulted.
+type Reflection struct {
+	Issues []string
+	Notes  string
+}
+
+// Reflector performs a self-critique pass on a proposed completion. Returning
+// a Reflection with non-empty Issues forces one more work turn. A nil
+// Reflector disables the reflection step (legacy behavior).
+// Issue #152.
+type Reflector func(ctx context.Context, snap StopSnapshot) Reflection
+
 type Loop struct {
 	Gate      *verify.Gate
 	LocalTool LocalToolFunc
@@ -118,6 +132,13 @@ type Loop struct {
 	// BudgetWarnRatio, if set, fires hooks.BudgetWarn once when token usage
 	// crosses this fraction of MaxTokens (e.g. 0.8). Useful for alerting.
 	BudgetWarnRatio float64
+
+	// Reflector, if set, runs a self-critique pass right BEFORE the stop-gate.
+	// If it returns issues, the loop injects them and continues working — a
+	// cheap quality lift that reduces stop-gate rejections. Runs at most once
+	// per proposed completion to avoid infinite self-doubt loops.
+	// Issue #152.
+	Reflector Reflector
 
 	// AllowContinuation switches the maxTurns outcome from a hard error to a
 	// checkpointed, resumable Result (Continuation=true). Daemons set this so
@@ -283,6 +304,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	stallCount := 0
 	totalTokens := 0      // issue #151: cumulative tokens across the run
 	warnedBudget := false // fires hooks.BudgetWarn once per run
+	reflectedThisProposal := false
 	toolsSeen := map[string]bool{}
 	var toolsUsed []string
 
@@ -386,6 +408,37 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			})
 			l.record(ctx, ledger.TypeVerifyPass, map[string]any{"mode": string(res.Mode)}, "verification passed ("+string(res.Mode)+")")
 
+			// Self-reflection: one cheap self-critique pass before the
+			// independent stop-gate. Reset the flag whenever the worker did
+			// real work (tool calls) in between, so each fresh proposal gets
+			// exactly one reflection. Issue #152.
+			if l.Reflector != nil && !reflectedThisProposal {
+				reflectedThisProposal = true
+				ref := l.Reflector(ctx, StopSnapshot{
+					Prompt: prompt, FinalOutput: resp.Text, Turns: turn + 1,
+					ToolsUsed: toolsUsed, VerifyPassed: res.Passed, SessionID: sess.ID,
+				})
+				if len(ref.Issues) > 0 {
+					l.fire(ctx, hooks.ReflectIssues, "", map[string]any{"issues": ref.Issues})
+					l.record(ctx, ledger.TypeReflection,
+						map[string]any{"issues": ref.Issues},
+						"self-reflection found issues; continuing")
+					var b strings.Builder
+					b.WriteString("SELF-REVIEW found issues to fix before completing:\n")
+					for i, is := range ref.Issues {
+						fmt.Fprintf(&b, "  %d. %s\n", i+1, is)
+					}
+					if strings.TrimSpace(ref.Notes) != "" {
+						b.WriteString("Notes: " + ref.Notes + "\n")
+					}
+					msgs = append(msgs, session.Message{Role: "user", Content: b.String()})
+					if err := sess.SaveHistory(msgs); err != nil {
+						return nil, err
+					}
+					continue
+				}
+			}
+
 			// Stop-gate: completion authority is decoupled from the worker.
 			// The verify-gate passing is necessary but not sufficient — an
 			// independent evaluator confirms the goal contract is satisfied
@@ -483,6 +536,9 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 		}
 
 		for _, tc := range resp.ToolCalls {
+			// Real work happened in this turn — reset the reflection
+			// flag so a fresh proposal can be re-evaluated.
+			reflectedThisProposal = false
 			if !toolsSeen[tc.Name] {
 				toolsSeen[tc.Name] = true
 				toolsUsed = append(toolsUsed, tc.Name)

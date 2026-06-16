@@ -56,6 +56,9 @@ const (
 	// Token budget lifecycle (issue #151).
 	BudgetWarn      = "budget.warn"
 	BudgetExhausted = "budget.exhausted"
+	// ReflectIssues fires when the self-reflection pass finds problems the
+	// worker must fix before completion is evaluated.
+	ReflectIssues = "reflect.issues"
 
 	AgentSpawn       = "agent.spawn"
 	AgentComplete    = "agent.complete"
