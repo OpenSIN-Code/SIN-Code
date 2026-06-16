@@ -8,6 +8,14 @@
 > bundled skills reorganized into category directories and renamed to
 > `skill-<category>-<name>`; `github-skills/` category added; 34 bundled skills
 > embedded in the binary. Branch protection on `main` permanently relaxed to
+> **Last verified against main:** v3.19.0 (2026-06-16) —
+> `sin-code serve --compress-tools` wired (issue #173): ponytail-tag
+> compressor `cmd/sin-code/internal/mcpcompress/` shrinks the 47-tool
+> manifest on the wire (delete|stdlib|native|yagni|shrink tags,
+> byte-stable per `(tool_spec, ruleset)`). Bundled skills reorganized
+> into category directories and renamed to `skill-<category>-<name>`;
+> `github-skills/` category added; 34 bundled skills embedded in the
+> binary. Branch protection on `main` permanently relaxed to
 > `required_approving_review_count: 0` for solo-maintainer workflow.
 > `sin-code install` (issue #170) — new 40th subcommand; root `install.sh`
 > rewritten to a 27-line curl|bash shim; matching `install.ps1` for Windows.
@@ -290,6 +298,7 @@ SIN-Code/
 │   │       ├── ledger/        ← v3.13.0: semantic session ledger (SQLite)
 │   │       ├── summary/       ← v3.13.0: deterministic session summary builder
 │   │       ├── install/       ← v3.18.0: pure-stdlib release install + SHA256 verify + atomic place (issue #170)
+│   │       ├── mcpcompress/   ← v3.19.0: ponytail-tag compressor for `serve --compress-tools`
 │   │       ├── llm/           ← provider layer
 │   │       ├── style/         ← v3.17.0: verbosity / compression mode system-prompt renderer (issue #167)
 │   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
@@ -413,6 +422,7 @@ Headless JSON contract (stable API — never break without major bump):
 
 | v3.18.0 | ACTIVE | `sin-code install` + curl|bash shim + PowerShell (issue #170): new 40th subcommand + internal/install/ package, 27-line install.sh mirror + 35-line install.ps1, SHA256-verified single-binary downloads from goreleaser assets |
 | (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
+| v3.19.0 | ✅ SHIPPED | `sin-code serve --compress-tools` (issue #173): ponytail-tag compressor in `internal/mcpcompress/` shrinks the 47-tool manifest on the wire. Tag set `delete|stdlib|native|yagni|shrink`, subset via `--compress-tags`, savings reported via `--print-stats`. Tool names, schemas, and behavior are unchanged (AGENTS.md §10). Closing #173. |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -526,6 +536,39 @@ Utility:   read, write, edit, lsp, plugin, index, security, sbom,
 `push.pre`, `task.{complete,abort}`, `compaction.pre`,
 `goal.{enqueued,started,verified,exhausted}` (v3.5.0),
 `trigger.fired` (v3.5.0), `skill.{installed,failed}` (v3.5.0).
+
+### Ponytail tag set — MCP-tool-description compressor (issue #173, v3.19.0)
+
+`cmd/sin-code/internal/mcpcompress/` (introduced in v3.19.0) is the
+canonical ponytail-tag compressor for `sin-code serve --compress-tools`.
+The five canonical tags control which rules run:
+
+| Tag | Rule | Drops |
+|---|---|---|
+| `delete` | `DeleteHedges` | pleasantries / hedge adverbs ("safely", "carefully", "thoroughly", "robustly", "elegantly", "gracefully", "seamlessly", "effortlessly", "smoothly", "meticulously") |
+| `stdlib` | `StdlibPatterns` | redundant `(via stdlib)` parentheticals; "Go stdlib" / "Python stdlib" / "Rust stdlib" / "Java stdlib" / "JavaScript stdlib" / "TypeScript stdlib" adjectives |
+| `native` | `DropTrimEncouragement` | M6 tail clauses `Always prefer over native X` / `Prefer sin_X over native Y`; leading `Use sin_X when possible, …` encouragements |
+| `yagni` | `YagniPatterns` | speculative `(experimental)` / `(TBD)` / `(TBA)` / `(reserved)` / `(may be deprecated …)` parentheticals; bare `TBD` / `TBA` words |
+| `shrink` | `ShrinkExamples` | redundant `(e.g. …)` / `(such as …)` parenthetical examples |
+
+**Public API contract.** The five tag strings are part of the public
+configuration surface; renaming any is a major bump. The five `Rule`
+constructor types (`RuleDeleteHedges`, `RuleStdlibPatterns`,
+`RuleDropTrimEncouragement`, `RuleYagniPatterns`, `RuleShrinkExamples`)
+are part of the public Go surface for downstream embeds; renaming is a
+major bump. Adding a sixth rule is non-breaking. The `sin-code serve
+--print-stats` text-table format is part of the documented telemetry
+surface — additions are non-breaking, removals/reorderings are major.
+
+**Byte-stability.** Every Rule and the Pipeline are byte-stable per
+`(input, Pipeline)` pair. The `compressor_test.go` golden suite is the
+single source of truth — any rule regex / order change must update the
+golden expectations in the same commit. This is a prerequisite for the
+system-prompt hash metric (issue #2).
+
+**Names are immutable.** The 44+ MCP tool `Name` field is public API
+(§10). The compressor mutates `Description` only. `CompressSpec`
+asserts this in `TestCompressSpec_NameMutable`.
 
 ---
 

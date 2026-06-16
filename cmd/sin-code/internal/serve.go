@@ -20,12 +20,16 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/apiweb"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpcompress"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 )
 
 var (
-	serveTransport string
-	servePort      int
+	serveTransport     string
+	servePort          int
+	serveCompressTools bool
+	servePrintStats    bool
+	serveCompressTags  string
 )
 
 // ServerVersion is set at build time via -ldflags "-X github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal.ServerVersion=..."
@@ -96,6 +100,17 @@ sin_security_scan, sin_sbom_generate as MCP tools.`,
 func init() {
 	ServeCmd.Flags().StringVarP(&serveTransport, "transport", "t", "stdio", "Transport: stdio (default) or http (mounts /api/v1/* WebUI v2 endpoints)")
 	ServeCmd.Flags().IntVarP(&servePort, "port", "p", 0, "Port (unused for stdio)")
+	ServeCmd.Flags().BoolVar(&serveCompressTools, "compress-tools", false,
+		"Compress MCP tool descriptions on the wire using the ponytail tag set "+
+			"(delete|stdlib|native|yagni|shrink). Tool names, schemas, and behaviour "+
+			"are unchanged (AGENTS.md §10). Saved bytes show up as less input per turn.")
+	ServeCmd.Flags().StringVar(&serveCompressTags, "compress-tags", "",
+		"Override the default ponytail tag set for --compress-tools (comma-separated, "+
+			"e.g. \"delete,yagni,shrink\"). Unknown tags are dropped silently; use --print-stats "+
+			"to see the active set per tool.")
+	ServeCmd.Flags().BoolVar(&servePrintStats, "print-stats", false,
+		"Print per-tool compression statistics to stderr (implies --compress-tools). "+
+			"Format: name | original_bytes | compressed_bytes | bytes_saved | ratio.")
 }
 
 func registerAllMCPTools(server *mcp.Server) {
@@ -689,6 +704,31 @@ func registerAllMCPTools(server *mcp.Server) {
 		},
 	}
 
+	// Apply the ponytail-tag compressor (issue #173) before registration
+	// if any of --compress-tools / --print-stats / --compress-tags is set.
+	// Tool names are public API (AGENTS.md §10) and are NEVER modified —
+	// only the Description byte field is shrunk.
+	if serveCompressTools || servePrintStats || serveCompressTags != "" {
+		var pipeline mcpcompress.Pipeline
+		if serveCompressTags != "" {
+			pipeline = mcpcompress.Selected(mcpcompress.FromCSV(serveCompressTags).List())
+		} else {
+			pipeline = mcpcompress.All()
+		}
+		specs := make([]mcpcompress.Spec, len(tools))
+		stats := make([]mcpcompress.Stats, len(tools))
+		for i := range tools {
+			specs[i] = mcpcompress.Spec{Name: tools[i].name, Description: tools[i].description}
+			comp, st := mcpcompress.CompressSpec(specs[i], pipeline)
+			tools[i].description = comp.Description
+			stats[i] = st
+			specs[i] = comp
+		}
+		if servePrintStats {
+			printCompressionStats(os.Stderr, pipeline, stats)
+		}
+	}
+
 	for _, t := range tools {
 		tool := t
 		server.AddTool(&mcp.Tool{
@@ -718,6 +758,51 @@ func registerAllMCPTools(server *mcp.Server) {
 	registerPluginMCPTools(server)
 }
 
+// printCompressionStats writes per-tool byte budgets to w. Output is a
+// left-aligned text table — deterministic across runs (no time, no
+// timestamp). Used by --print-stats.
+//
+// The "active rules" line makes the active pipeline transparent so the
+// caller can correlate the savings with the ruleset they asked for.
+func printCompressionStats(w *os.File, p mcpcompress.Pipeline, stats []mcpcompress.Stats) {
+	var totalOrig, totalComp int
+	for _, s := range stats {
+		totalOrig += s.Original
+		totalComp += s.Compressed
+	}
+	saved := totalOrig - totalComp
+	if saved < 0 {
+		saved = 0
+	}
+	ratio := 0.0
+	if totalOrig > 0 {
+		ratio = float64(saved) / float64(totalOrig)
+	}
+	rules := make([]string, len(p))
+	for i, r := range p {
+		rules[i] = r.Name()
+	}
+	fmt.Fprintf(w, "mcpcompress: active rules = [%s]\n", strings.Join(rules, ","))
+	fmt.Fprintf(w, "mcpcompress: ponytail tags = [%s]\n\n", strings.Join(tagNames(p.Tags()), ","))
+	fmt.Fprintf(w, "  %-32s  %7s  %7s  %7s  %6s\n", "tool", "orig", "comp", "saved", "ratio")
+	fmt.Fprintf(w, "  %-32s  %7s  %7s  %7s  %6s\n", strings.Repeat("-", 32), "------", "------", "------", "------")
+	for _, s := range stats {
+		fmt.Fprintf(w, "  %-32s  %7d  %7d  %7d  %5.1f%%\n",
+			s.Name, s.Original, s.Compressed, s.BytesSaved, 100*s.Ratio)
+	}
+	fmt.Fprintf(w, "  %-32s  %7s  %7s  %7s  %6s\n", strings.Repeat("-", 32), "------", "------", "------", "------")
+	fmt.Fprintf(w, "  %-32s  %7d  %7d  %7d  %5.1f%%\n",
+		"TOTAL", totalOrig, totalComp, saved, 100*ratio)
+}
+
+func tagNames(tags []mcpcompress.Tag) []string {
+	out := make([]string, len(tags))
+	for i, t := range tags {
+		out[i] = string(t)
+	}
+	return out
+}
+
 func registerPluginMCPTools(server *mcp.Server) {
 	reg := plugins.NewRegistry()
 	_ = reg.LoadFromDir("")
@@ -725,8 +810,24 @@ func registerPluginMCPTools(server *mcp.Server) {
 }
 
 func registerPluginMCPToolsWithReg(server *mcp.Server, reg *plugins.Registry) {
+	// Plugin tools share the same compression pipeline (issue #173).
+	// Compressed descriptions only — schema is untouched.
+	var pipeline mcpcompress.Pipeline
+	if serveCompressTools || servePrintStats || serveCompressTags != "" {
+		if serveCompressTags != "" {
+			pipeline = mcpcompress.Selected(mcpcompress.FromCSV(serveCompressTags).List())
+		} else {
+			pipeline = mcpcompress.All()
+		}
+	}
+
 	for _, pt := range reg.MCPTools() {
 		pt := pt
+		if pipeline != nil {
+			compressed, _ := mcpcompress.CompressSpec(
+				mcpcompress.Spec{Name: pt.Name, Description: pt.Description}, pipeline)
+			pt.Description = compressed.Description
+		}
 		server.AddTool(&mcp.Tool{
 			Name:        pt.Name,
 			Description: pt.Description,
