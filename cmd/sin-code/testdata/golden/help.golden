@@ -63,6 +63,7 @@ Available Commands:
   orchestrator-run    Run a prompt through the multi-agent orchestrator (Pre-LLM router → planner → parallel agents)
   plugin              Manage user-installed plugins (subcommands, agents, tools, hooks)
   poc                 Proof-of-Correctness — verify code satisfies its specification
+  profile             Render & verify the single-source-of-truth agent profile (issue #175)
   prp                 Product Requirement Prompt workflow (plan→implement→verify→pr)
   read                Read files with hashline anchors, outline, and size guards
   rtk                 Bridge to rtk (Rust Token Killer) to cut LLM token usage 60-90%

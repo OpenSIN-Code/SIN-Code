@@ -240,7 +240,7 @@ SIN-Code/
 ├── go.mod                     ← module github.com/OpenSIN-Code/SIN-Code
 ├── .goreleaser.yaml
 ├── .github/workflows/
-│   ├── ceo-audit.yml          ← n8n delegation (mandate M1)
+│   ├── ceo-audit.yml          ← n8n delegation (mandate M1) + profile-verify job (issue #175)
 │   ├── sin-code-release.yml   ← goreleaser + brew tap
 │   └── ecosystem-sync.yml     ← prevents registry/permission/ECOSYSTEM drift
 ├── install.sh                    ← 27-line curl|bash shim → `sin-code install` (issue #170)
@@ -252,7 +252,9 @@ SIN-Code/
 │   ├── HOOKS.md
 │   ├── LEARNING.md
 │   ├── WEBUI.md                ← WebUI-v2 backend contract
-│   └── mcp.json.example
+│   ├── mcp.json.example
+│   └── agent-profiles/
+│       └── sin-profile.md      ← v3.18.0: single-source-of-truth per-agent profile (issue #175)
 │
 ├── cmd/
 │   ├── sin-code/              ← MAIN BINARY (40 subcommands — v3.18.0)
@@ -280,6 +282,10 @@ SIN-Code/
   │   │   ├── compress_cmd.go       ← v3.18.0: sin-code compress subcommand (plan/apply/rollback, issue #172)
   │   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
 │   │   └── internal/          ← 17 packages (v3.8.0)
+│   │   ├── install_cmd.go       ← v3.18.0: sin-code install (issue #170)
+│   │   ├── profile_cmd.go       ← v3.18.0: single-source-of-truth profile renderer (issue #175)
+│   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
+│   │   └── internal/          ← 18 packages (v3.18.0)
 │   │       ├── agentloop/     ← PLAN→ACT→VERIFY→DONE loop
 │   │       ├── session/       ← SQLite-backed resumable sessions
 │   │       ├── permission/    ← allow/ask/deny engine
@@ -299,6 +305,8 @@ SIN-Code/
 │   │       ├── summary/       ← v3.13.0: deterministic session summary builder
 │   │       ├── install/       ← v3.18.0: pure-stdlib release install + SHA256 verify + atomic place (issue #170)
 │   │       ├── mcpcompress/   ← v3.19.0: ponytail-tag compressor for `serve --compress-tools`
+│   │       ├── install/       ← v3.18.0: pure-stdlib release install + SHA256 verify (issue #170)
+│   │       ├── profile/       ← v3.18.0: single-source-of-truth per-agent renderer (issue #175)
 │   │       ├── llm/           ← provider layer
 │   │       ├── style/         ← v3.17.0: verbosity / compression mode system-prompt renderer (issue #167)
 │   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
@@ -518,6 +526,7 @@ Core:      discover, execute, map, grasp, scout, harvest, orchestrate,
            ibd, poc, sckg, adw, oracle, efm
 Agents:    chat, sessions, mcp, goal, daemon, skill, superpowers,
            vane, stack, gh, install
+           vane, stack, gh, install, profile
 Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
            orchestrator_agents, orchestrator_plan, update
@@ -526,6 +535,42 @@ Utility:   read, write, edit, lsp, plugin, index, security, sbom,
 ``` (v3.18.0: 40 subcommands; `install` is the v3.18.0 single-binary installer from issue #170)
            config, self-update, hub, ledger, summary, compress
 ``` (v3.18.0: 40 subcommands, up from 39 in v3.13.0)
+``` (v3.18.0: 40 subcommands, up from 39 in v3.16.0;
+`install` is the v3.18.0 single-binary installer from issue #170;
+`profile` is the v3.18.0 single-source-of-truth per-agent renderer
+from issue #175.)
+
+### Per-agent profile distribution (issue #175)
+
+`sin-code profile` renders the single in-repo source
+(`docs/agent-profiles/sin-profile.md`, ≤80 lines, KISS) into every
+per-host-agent mirror file. The render is **byte-stable** per
+`(target, source)` pair; the verify gate (`sin-code profile verify`)
+refuses to pass whenever any mirror drifts off the source SHA. Adding
+a target is non-breaking; renaming or removing one is a major bump.
+The single source of truth for the table is
+`cmd/sin-code/internal/profile/target.go` — keep the AGENTS.md row in
+sync if the table moves.
+
+| Target        | Format  | Install path (relative to repo root)                       |
+| ------------- | ------- | ----------------------------------------------------------- |
+| claude-code   | dir     | `.claude/skills/sin-code/SKILL.md`                          |
+| opencode      | dir     | `.config/opencode/skills/sin-code/SKILL.md`                 |
+| gemini        | dir     | `.gemini/skills/sin-code/SKILL.md`                          |
+| codex         | rule    | `.codex/rules/sin-code.md`                                  |
+| cursor        | rule    | `.cursor/rules/sin-code.mdc`                                |
+| windsurf      | rule    | `.windsurf/rules/sin-code.md`                               |
+| cline         | rule    | `.clinerules/sin-code.md`                                   |
+| copilot       | marker  | `.github/copilot-instructions.md`                           |
+
+The four marker-fence outputs (`rule` + `marker`) wrap the body in
+`<!-- SIN-CODE-SKILL-START: sin-code -->` … `<!-- SIN-CODE-SKILL-END:   sin-code -->`
+inside the file. The fence is **byte-identical** to the one
+`internal/skilldist` uses (issue #169): the two systems share the
+same anchor (`SIN-CODE-SKILL`) so a downstream parser finds both
+per-skill bundles and per-profile mirrors with one regex. Profile
+renders are idempotent (rerun with unchanged source = byte-identical
+output), exactly as skilldist demands.
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 
