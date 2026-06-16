@@ -17,6 +17,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ghbridge"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/spec"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/wiring"
@@ -257,6 +258,103 @@ func renderDriftReport(w io.Writer, dr *spec.DriftReport) {
 	}
 }
 
+// applySpecAsPR is the --apply path: commit the generated spec and
+// open a PR via the gh CLI bridge. The branch is named
+// `spec/<id>` to keep spec-related work grouped.
+//
+// The PR body includes the spec's Objective and the verify: command
+// summary so reviewers can see the contract at a glance.
+//
+// On any failure (no git repo, no gh, no network), the operator gets
+// a clear error and the spec file is left in place for manual work.
+func applySpecAsPR(stdout, stderr io.Writer, specPath string, s *spec.Spec) error {
+	if s == nil {
+		return fmt.Errorf("apply: nil spec")
+	}
+	branch := "spec/" + s.ID
+	commitMsg := fmt.Sprintf("spec: %s\n\nSelf-authored via `sin spec author --apply`.\n\nSee %s for the contract.", s.Title, specPath)
+
+	// Step 1: create + switch to the branch.
+	fmt.Fprintf(stdout, "\n--apply: creating branch %q\n", branch)
+	if out, err := exec.Command("git", "checkout", "-b", branch).CombinedOutput(); err != nil {
+		fmt.Fprintf(stderr, "git checkout -b: %v\n%s\n", err, string(out))
+		return fmt.Errorf("apply: git checkout failed")
+	}
+
+	// Step 2: stage + commit the spec file.
+	if out, err := exec.Command("git", "add", specPath).CombinedOutput(); err != nil {
+		fmt.Fprintf(stderr, "git add: %v\n%s\n", err, string(out))
+		return fmt.Errorf("apply: git add failed")
+	}
+	if out, err := exec.Command("git", "commit", "-m", commitMsg).CombinedOutput(); err != nil {
+		fmt.Fprintf(stderr, "git commit: %v\n%s\n", err, string(out))
+		return fmt.Errorf("apply: git commit failed")
+	}
+	fmt.Fprintf(stdout, "--apply: committed %s on %s\n", specPath, branch)
+
+	// Step 3: push the branch (may fail in offline mode; we
+	// surface the error and let the operator retry).
+	if out, err := exec.Command("git", "push", "-u", "origin", branch).CombinedOutput(); err != nil {
+		fmt.Fprintf(stderr, "git push: %v\n%s\n", err, string(out))
+		return fmt.Errorf("apply: git push failed (branch %s is committed but not pushed; push manually)", branch)
+	}
+
+	// Step 4: open a PR via ghbridge. We use the existing Tier
+	// classifier to make sure pr-create is on the mutating tier
+	// (the operator must have allowed it in their session).
+	bridge := ghbridge.New()
+	prArgs := []string{
+		"pr", "create",
+		"--base", "main",
+		"--head", branch,
+		"--title", "spec: " + s.Title,
+		"--body", prBodyForSpec(s, specPath),
+	}
+	if _, _, err := bridge.Execute(context.Background(), prArgs); err != nil {
+		return fmt.Errorf("apply: gh pr create failed: %w (branch %s is pushed; open the PR manually with: gh pr create --head %s)", err, branch, branch)
+	}
+	fmt.Fprintf(stdout, "--apply: PR opened for %s\n", branch)
+	return nil
+}
+
+// prBodyForSpec renders a human-readable PR body from a spec. The
+// body includes the Objective, the criteria list (so reviewers
+// know what to verify), and a link to the spec file.
+func prBodyForSpec(s *spec.Spec, specPath string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "## %s\n\n", s.Title)
+	if s.Objective != "" {
+		fmt.Fprintf(&b, "### Objective\n\n%s\n\n", s.Objective)
+	}
+	if len(s.Requirements) > 0 {
+		b.WriteString("### Requirements\n\n")
+		for _, r := range s.Requirements {
+			fmt.Fprintf(&b, "- [%s] %s: %s\n", r.Priority, r.ID, r.Text)
+		}
+		b.WriteString("\n")
+	}
+	if len(s.Criteria) > 0 {
+		b.WriteString("### Acceptance Criteria\n\n")
+		for _, c := range s.Criteria {
+			if c.Verify != "" {
+				fmt.Fprintf(&b, "- %s: %s  `verify: %s`\n", c.ID, c.Text, c.Verify)
+			} else {
+				fmt.Fprintf(&b, "- %s: %s\n", c.ID, c.Text)
+			}
+		}
+		b.WriteString("\n")
+	}
+	if len(s.Invariants) > 0 {
+		b.WriteString("### Invariants\n\n")
+		for _, inv := range s.Invariants {
+			fmt.Fprintf(&b, "- %s\n", inv)
+		}
+		b.WriteString("\n")
+	}
+	fmt.Fprintf(&b, "_Self-authored via `sin spec author --apply`. Spec file: `%s`._\n", specPath)
+	return b.String()
+}
+
 // collectSpecPaths returns the list of *.spec.md files to check.
 // With `all`, it uses `git ls-files` to find them. With an explicit
 // arg, it returns [arg]. With neither, it returns an error.
@@ -386,12 +484,9 @@ stub spec is returned for end-to-end testing of the pipeline.`,
 
 			// With --apply, branch + commit + PR via gh.
 			if apply {
-				branch := "spec/" + res.Spec.ID
-				fmt.Fprintf(cmd.OutOrStdout(),
-					"\n--apply: would create branch %q and open a PR (not yet implemented; see docs/SPEC-LAYER.md)\n",
-					branch)
-				fmt.Fprintln(cmd.OutOrStdout(),
-					"  To enable: wire spec.ApplyPR() into ghbridge.OpenPR() — tracked as a follow-up.")
+				if err := applySpecAsPR(cmd.OutOrStdout(), cmd.ErrOrStderr(), outFile, res.Spec); err != nil {
+					return err
+				}
 			}
 			return nil
 		},
