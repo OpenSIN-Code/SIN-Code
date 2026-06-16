@@ -28,6 +28,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/stopgate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
+	"github.com/OpenSIN-Code/SIN-Code/internal/repoconfig"
 )
 
 type Config struct {
@@ -125,6 +126,30 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		Ask:        cfg.AskFunc,
 		Lessons:    memStore,
 		Ledger:     ledgerStore,
+	}
+
+	// Per-repo configuration (.sin-code.yml): committed budgets / gate mode
+	// override defaults. Only non-zero fields win, so CLI flags and built-in
+	// defaults still apply for anything the repo leaves unset. A missing file
+	// is a zero Config (no-op), preserving backward compatibility.
+	if rc, rcErr := repoconfig.Load(cfg.Workspace); rcErr == nil {
+		if rc.MaxTurns > 0 {
+			loop.MaxTurns = rc.MaxTurns
+		}
+		if rc.MaxStopRejects > 0 {
+			loop.MaxStopRejects = rc.MaxStopRejects
+		}
+		if rc.StallThreshold > 0 {
+			loop.StallThreshold = rc.StallThreshold
+		}
+		if rc.MaxTokens > 0 {
+			loop.MaxTokens = rc.MaxTokens
+		}
+		if rc.VerifyMode != "" {
+			gate.SetMode(verify.Mode(rc.VerifyMode))
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "warn: ignoring invalid %s: %v\n", repoconfig.FileName, rcErr)
 	}
 
 	// Stop-gate (anti-babysitting): when a Definition-of-Done contract is

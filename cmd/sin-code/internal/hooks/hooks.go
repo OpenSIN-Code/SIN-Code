@@ -51,6 +51,18 @@ const (
 	StopEval     = "stop.eval"
 	StopContinue = "stop.continue"
 
+	// StopStalled fires when the stop-gate returns identical open criteria
+	// StallThreshold turns in a row (no-progress escalation).
+	StopStalled = "stop.stalled"
+
+	// ReflectIssues fires when the self-reflection pass finds problems the
+	// worker must fix before completion is evaluated.
+	ReflectIssues = "reflect.issues"
+
+	// Token budget lifecycle.
+	BudgetWarn      = "budget.warn"
+	BudgetExhausted = "budget.exhausted"
+
 	AgentSpawn       = "agent.spawn"
 	AgentComplete    = "agent.complete"
 	CriticReject     = "critic.reject"

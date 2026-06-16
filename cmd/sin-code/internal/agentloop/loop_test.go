@@ -6,11 +6,38 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 )
+
+func TestTokenBudget_Exhausts(t *testing.T) {
+	s := setupSession(t)
+	loop := &Loop{
+		Gate: verify.NewGate("poc",
+			func(ctx context.Context, ws string) (bool, string, error) { return true, "ok", nil }, nil),
+		Workspace: "/tmp",
+		MaxTokens: 100,
+		Completion: func(ctx context.Context, msgs []session.Message, tools []ToolSpec) (*Completion, error) {
+			// Each turn requests a tool so the loop never "completes", and
+			// reports 60 tokens — exceeds 100 on the 2nd turn.
+			return &Completion{
+				ToolCalls: []ToolCall{{ID: "1", Name: "noop"}},
+				Usage:     Usage{TotalTokens: 60},
+				Raw:       session.Message{Role: "assistant", Content: ""},
+			}, nil
+		},
+		LocalTool: func(ctx context.Context, name string, args map[string]any) (string, error) {
+			return "ok", nil
+		},
+	}
+	_, err := loop.Run(context.Background(), s, "spend")
+	if err == nil || !strings.Contains(err.Error(), "token budget exhausted") {
+		t.Fatalf("expected token budget error, got: %v", err)
+	}
+}
 
 func setupSession(t *testing.T) *session.Session {
 	t.Helper()

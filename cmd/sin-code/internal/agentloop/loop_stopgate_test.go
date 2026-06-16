@@ -7,6 +7,7 @@ package agentloop
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -143,5 +144,90 @@ func TestNilStopGate_LegacyBehavior(t *testing.T) {
 	}
 	if !res.Verified || res.Turns != 1 {
 		t.Fatalf("nil stop-gate should behave like legacy, got %+v", res)
+	}
+}
+
+// Stall detection fires before MaxStopRejects when criteria never change.
+func TestStopGate_Stall_EscalatesEarly(t *testing.T) {
+	s := setupSession(t)
+	calls := 0
+	loop := &Loop{
+		Gate:           passGate(),
+		Workspace:      "/tmp",
+		MaxStopRejects: 100, // high — must NOT be the trigger
+		StallThreshold: 3,
+		StopGate: func(ctx context.Context, snap StopSnapshot) StopDecision {
+			calls++
+			return StopDecision{Complete: false, OpenCriteria: []string{"SAME_CRIT"}}
+		},
+		Completion: func(ctx context.Context, msgs []session.Message, tools []ToolSpec) (*Completion, error) {
+			return &Completion{Text: "done", Raw: session.Message{Role: "assistant", Content: "done"}}, nil
+		},
+	}
+	_, err := loop.Run(context.Background(), s, "stall")
+	if err == nil || !strings.Contains(err.Error(), "stalled") {
+		t.Fatalf("expected stall escalation, got: %v", err)
+	}
+	if calls != 3 {
+		t.Fatalf("expected escalation at StallThreshold=3, got %d calls", calls)
+	}
+}
+
+// MaxStopRejects caps total rejects even when the criteria keep changing
+// (so the stall guard never trips).
+func TestStopGate_MaxRejects_Escalates(t *testing.T) {
+	s := setupSession(t)
+	calls := 0
+	loop := &Loop{
+		Gate:           passGate(),
+		Workspace:      "/tmp",
+		MaxStopRejects: 3,
+		StopGate: func(ctx context.Context, snap StopSnapshot) StopDecision {
+			calls++
+			return StopDecision{Complete: false, OpenCriteria: []string{fmt.Sprintf("crit-%d", calls)}}
+		},
+		Completion: func(ctx context.Context, msgs []session.Message, tools []ToolSpec) (*Completion, error) {
+			return &Completion{Text: "done", Raw: session.Message{Role: "assistant", Content: "done"}}, nil
+		},
+	}
+	_, err := loop.Run(context.Background(), s, "reject")
+	if err == nil || !strings.Contains(err.Error(), "rejected completion") {
+		t.Fatalf("expected max-rejects escalation, got: %v", err)
+	}
+	if calls != 3 {
+		t.Fatalf("expected escalation at MaxStopRejects=3, got %d calls", calls)
+	}
+}
+
+// Reflector with issues forces one corrective turn, then completes.
+func TestReflector_ForcesCorrectionThenCompletes(t *testing.T) {
+	s := setupSession(t)
+	reflectCalls := 0
+	loop := &Loop{
+		Gate:      passGate(),
+		Workspace: "/tmp",
+		Reflector: func(ctx context.Context, snap StopSnapshot) Reflection {
+			reflectCalls++
+			if reflectCalls == 1 {
+				return Reflection{Issues: []string{"missing error handling"}}
+			}
+			return Reflection{} // clean on 2nd pass
+		},
+		StopGate: func(ctx context.Context, snap StopSnapshot) StopDecision {
+			return StopDecision{Complete: true}
+		},
+		Completion: func(ctx context.Context, msgs []session.Message, tools []ToolSpec) (*Completion, error) {
+			return &Completion{Text: "done", Raw: session.Message{Role: "assistant", Content: "done"}}, nil
+		},
+	}
+	res, err := loop.Run(context.Background(), s, "reflect")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.Verified {
+		t.Fatal("expected verified completion after reflection cleared")
+	}
+	if reflectCalls < 2 {
+		t.Fatalf("expected at least 2 reflection passes, got %d", reflectCalls)
 	}
 }

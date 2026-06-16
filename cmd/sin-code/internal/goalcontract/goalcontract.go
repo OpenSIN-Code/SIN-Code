@@ -167,12 +167,12 @@ func Resolve(opts ResolveOptions) (*GoalContract, error) {
 }
 
 // autoDetectChecks returns deterministic checks inferred from the workspace
-// contents. Today this covers Go repositories; the list is intentionally
-// easy to extend per ecosystem.
+// contents. Detection is polyglot (Go, Node, Rust, Python, …) via
+// orchestrator.DetectChecks; Go-only repos additionally get the no-new-todos
+// guard. Empty/unknown workspaces fall back to the Go suite.
 func autoDetectChecks(workspace string) []orchestrator.Check {
-	var checks []orchestrator.Check
+	checks := orchestrator.DetectChecks(workspace)
 	if fileExists(filepath.Join(workspace, "go.mod")) {
-		checks = append(checks, orchestrator.DefaultGoChecks()...)
 		// "No new TODO/FIXME/XXX in the working tree diff" — a cheap guard
 		// against the agent leaving its work half-finished and declaring done.
 		checks = append(checks, orchestrator.Check{

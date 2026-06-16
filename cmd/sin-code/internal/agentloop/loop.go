@@ -23,11 +23,33 @@ type ToolCall struct {
 	Args map[string]any
 }
 
+// Usage carries token accounting returned by the model provider. All fields
+// optional; zero values mean "unknown" and never trigger the budget guard.
+type Usage struct {
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
+}
+
 type Completion struct {
 	Text      string
 	ToolCalls []ToolCall
 	Raw       session.Message
+	Usage     Usage // provider token accounting (optional)
 }
+
+// Reflection is the worker's self-critique of a proposed completion. Issues
+// non-empty means the agent found problems in its own work and should fix
+// them before the stop-gate is consulted.
+type Reflection struct {
+	Issues []string
+	Notes  string
+}
+
+// Reflector performs a self-critique pass on a proposed completion. Returning
+// a Reflection with non-empty Issues forces one more work turn. A nil
+// Reflector disables the reflection step (legacy behavior).
+type Reflector func(ctx context.Context, snap StopSnapshot) Reflection
 
 type ToolSpec struct {
 	Name        string
@@ -85,6 +107,31 @@ type Loop struct {
 	// loop re-injects the open criteria and keeps working instead of
 	// returning DONE. Optional — nil keeps the legacy single-gate behavior.
 	StopGate StopGate
+
+	// MaxStopRejects caps how many times the stop-gate may reject a proposed
+	// completion before the run escalates (error, or checkpoint when
+	// AllowContinuation is set). Zero disables the cap (legacy behavior).
+	MaxStopRejects int
+
+	// StallThreshold escalates early when the stop-gate returns the SAME set
+	// of open criteria this many times consecutively (no progress). Zero
+	// disables stall detection. Recommended: 3. Independent of MaxStopRejects.
+	StallThreshold int
+
+	// MaxTokens is a hard cap on cumulative tokens (prompt+completion) across
+	// the whole run. Zero means unlimited. When exceeded the run checkpoints
+	// (if AllowContinuation) or errors, rather than continuing to spend.
+	MaxTokens int
+
+	// BudgetWarnRatio, if set (e.g. 0.8), fires hooks.BudgetWarn once when
+	// cumulative token usage crosses that fraction of MaxTokens.
+	BudgetWarnRatio float64
+
+	// Reflector, if set, runs a self-critique pass right BEFORE the stop-gate.
+	// If it returns issues, the loop injects them and continues working — a
+	// cheap quality lift that reduces stop-gate rejections. Runs at most once
+	// per proposed completion to avoid infinite self-doubt loops.
+	Reflector Reflector
 
 	// AllowContinuation switches the maxTurns outcome from a hard error to a
 	// checkpointed, resumable Result (Continuation=true). Daemons set this so
@@ -235,10 +282,21 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	toolsSeen := map[string]bool{}
 	var toolsUsed []string
 
+	stopRejects := 0 // how many times the stop-gate rejected completion
+	lastCritFingerprint := ""
+	stallCount := 0
+	totalTokens := 0
+	warnedBudget := false
+	reflectedThisProposal := false
+
 	for turn := 0; turn < maxTurns; turn++ {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+		// Each turn yields a fresh completion (a new proposal), so it gets
+		// exactly one self-reflection pass — the flag guards against
+		// re-reflecting within a single proposal, never across proposals.
+		reflectedThisProposal = false
 		if len(pendingInjects) > 0 {
 			msgs = append(msgs, session.Message{
 				Role:    "user",
@@ -257,6 +315,41 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			return nil, fmt.Errorf("turn %d: %w", turn, err)
 		}
 		msgs = append(msgs, resp.Raw)
+
+		// Token budget accounting. Provider usage is optional; if zero we
+		// simply skip the guard for that turn (backward compatible).
+		if u := resp.Usage.TotalTokens; u > 0 {
+			totalTokens += u
+		} else {
+			totalTokens += resp.Usage.PromptTokens + resp.Usage.CompletionTokens
+		}
+		if l.MaxTokens > 0 {
+			if !warnedBudget && l.BudgetWarnRatio > 0 &&
+				float64(totalTokens) >= l.BudgetWarnRatio*float64(l.MaxTokens) {
+				warnedBudget = true
+				l.fire(ctx, hooks.BudgetWarn, "", map[string]any{
+					"total_tokens": totalTokens, "max_tokens": l.MaxTokens,
+				})
+			}
+			if totalTokens >= l.MaxTokens {
+				if serr := sess.SaveHistory(msgs); serr != nil {
+					return nil, serr
+				}
+				l.fire(ctx, hooks.BudgetExhausted, "", map[string]any{
+					"total_tokens": totalTokens, "max_tokens": l.MaxTokens,
+				})
+				l.record(ctx, ledger.TypeTokenBudgetExhausted,
+					map[string]any{"total_tokens": totalTokens, "max_tokens": l.MaxTokens},
+					fmt.Sprintf("token budget exhausted: %d/%d", totalTokens, l.MaxTokens))
+				if l.AllowContinuation {
+					return &Result{
+						SessionID: sess.ID, Summary: lastText, Verified: false,
+						Turns: turn + 1, Continuation: true, OpenCriteria: lastOpen,
+					}, nil
+				}
+				return nil, fmt.Errorf("token budget exhausted: %d/%d tokens used", totalTokens, l.MaxTokens)
+			}
+		}
 
 		if len(resp.ToolCalls) == 0 {
 			vpre := l.fire(ctx, hooks.VerifyPre, "", nil)
@@ -301,6 +394,37 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			})
 			l.record(ctx, ledger.TypeVerifyPass, map[string]any{"mode": string(res.Mode)}, "verification passed ("+string(res.Mode)+")")
 
+			// Self-reflection: one cheap self-critique pass before the
+			// independent stop-gate. The flag is reset whenever the worker
+			// did real work (tool calls) in between, so each fresh proposal
+			// gets exactly one reflection (no infinite self-doubt loop).
+			if l.Reflector != nil && !reflectedThisProposal {
+				reflectedThisProposal = true
+				ref := l.Reflector(ctx, StopSnapshot{
+					Prompt: prompt, FinalOutput: resp.Text, Turns: turn + 1,
+					ToolsUsed: toolsUsed, VerifyPassed: res.Passed, SessionID: sess.ID,
+				})
+				if len(ref.Issues) > 0 {
+					l.fire(ctx, hooks.ReflectIssues, "", map[string]any{"issues": ref.Issues})
+					l.record(ctx, ledger.TypeReflection,
+						map[string]any{"issues": ref.Issues},
+						"self-reflection found issues; continuing")
+					var b strings.Builder
+					b.WriteString("SELF-REVIEW found issues to fix before completing:\n")
+					for i, is := range ref.Issues {
+						fmt.Fprintf(&b, "  %d. %s\n", i+1, is)
+					}
+					if strings.TrimSpace(ref.Notes) != "" {
+						b.WriteString("Notes: " + ref.Notes + "\n")
+					}
+					msgs = append(msgs, session.Message{Role: "user", Content: b.String()})
+					if err := sess.SaveHistory(msgs); err != nil {
+						return nil, err
+					}
+					continue
+				}
+			}
+
 			// Stop-gate: completion authority is decoupled from the worker.
 			// The verify-gate passing is necessary but not sufficient — an
 			// independent evaluator confirms the goal contract is satisfied
@@ -321,6 +445,59 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				})
 				if !dec.Complete {
 					lastOpen = dec.OpenCriteria
+					stopRejects++
+
+					// Stagnation guard: identical open criteria across
+					// consecutive rejects means the worker is stuck. Escalate
+					// early instead of burning the full reject budget.
+					fp := strings.Join(dec.OpenCriteria, "\x1f")
+					if fp != "" && fp == lastCritFingerprint {
+						stallCount++
+					} else {
+						stallCount = 1
+						lastCritFingerprint = fp
+					}
+					if l.StallThreshold > 0 && stallCount >= l.StallThreshold {
+						if serr := sess.SaveHistory(msgs); serr != nil {
+							return nil, serr
+						}
+						l.fire(ctx, hooks.StopStalled, "", map[string]any{
+							"stall_count": stallCount, "open_criteria": lastOpen,
+						})
+						l.record(ctx, ledger.TypeStallDetected,
+							map[string]any{"stall_count": stallCount, "open_criteria": lastOpen},
+							fmt.Sprintf("no progress: identical open criteria %d turns in a row; escalating", stallCount))
+						return nil, fmt.Errorf(
+							"stop-gate stalled: identical open criteria %d turns in a row "+
+								"(StallThreshold=%d); open criteria: %s",
+							stallCount, l.StallThreshold, strings.Join(lastOpen, "; "),
+						)
+					}
+
+					// Reject budget guard: cap how many times the stop-gate
+					// may reject before escalating (checkpoint or error).
+					if l.MaxStopRejects > 0 && stopRejects >= l.MaxStopRejects {
+						if serr := sess.SaveHistory(msgs); serr != nil {
+							return nil, serr
+						}
+						l.record(ctx, ledger.TypeTaskAbort,
+							map[string]any{"reason": "max stop rejects exceeded", "stop_rejects": stopRejects, "open_criteria": lastOpen},
+							fmt.Sprintf("stop-gate rejected %d times; escalating", stopRejects))
+						l.fire(ctx, hooks.TaskAbort, "", map[string]any{
+							"reason": "max stop rejects exceeded", "continuation": l.AllowContinuation,
+						})
+						if l.AllowContinuation {
+							return &Result{
+								SessionID: sess.ID, Summary: lastText, Verified: false,
+								Turns: turn + 1, Continuation: true, OpenCriteria: lastOpen,
+							}, nil
+						}
+						return nil, fmt.Errorf(
+							"stop-gate rejected completion %d times (MaxStopRejects=%d); open criteria: %s",
+							stopRejects, l.MaxStopRejects, strings.Join(lastOpen, "; "),
+						)
+					}
+
 					l.fire(ctx, hooks.StopContinue, "", map[string]any{
 						"open_criteria": dec.OpenCriteria, "report": dec.Report,
 					})
