@@ -40,6 +40,8 @@ func (d *Dispatcher) Dispatch(ctx context.Context, plan *Plan) error {
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, d.maxPar)
+
+	// sin-debt: global mutex on plan-level state, upgrade: per-task mutex map when plan count > 200
 	errCh := make(chan error, len(tasks))
 
 	for {

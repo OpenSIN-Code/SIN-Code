@@ -24,6 +24,10 @@
 > for lossless Apply; 39 → 40 subcommands. Branch protection on `main`
 > permanently relaxed to `required_approving_review_count: 0` for
 > solo-maintainer workflow.
+> `sin-code debt` (issue #177) — sin-debt marker convention
+> (`// sin-debt: <ceiling>, upgrade: <trigger>`) adopted from ponytail;
+> 41st subcommand, `cmd/sin-code/internal/sindept/` package with byte-stable
+> scanner + aggregator + report + policy gate.
 
 ---
 
@@ -307,6 +311,12 @@ SIN-Code/
 │   │       ├── mcpcompress/   ← v3.19.0: ponytail-tag compressor for `serve --compress-tools`
 │   │       ├── install/       ← v3.18.0: pure-stdlib release install + SHA256 verify (issue #170)
 │   │       ├── profile/       ← v3.18.0: single-source-of-truth per-agent renderer (issue #175)
+│   │       ├── eval/          ← v3.18.0: issue #75 eval + observability
+│   │       ├── dataset/       ← v3.18.0: golden-dataset JSON parser
+│   │       ├── trace/         ← v3.18.0: OpenTelemetry TracerProvider
+│   │       ├── evalharness/   ← v3.18.0: 4-arm comparator (issue #171)
+│   │       ├── install/       ← v3.18.0: pure-stdlib install + SHA256 (issue #170)
+│   │       ├── sindept/       ← v3.18.0: // sin-debt: marker scanner/reporter (issue #177)
 │   │       ├── llm/           ← provider layer
 │   │       ├── style/         ← v3.17.0: verbosity / compression mode system-prompt renderer (issue #167)
 │   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
@@ -432,6 +442,9 @@ Headless JSON contract (stable API — never break without major bump):
 | (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
 | v3.19.0 | ✅ SHIPPED | `sin-code serve --compress-tools` (issue #173): ponytail-tag compressor in `internal/mcpcompress/` shrinks the 47-tool manifest on the wire. Tag set `delete|stdlib|native|yagni|shrink`, subset via `--compress-tags`, savings reported via `--print-stats`. Tool names, schemas, and behavior are unchanged (AGENTS.md §10). Closing #173. |
 
+| v3.18.0 | ACTIVE | `sin-code debt` (issue #177) — `// sin-debt: <ceiling>, upgrade: <trigger>` marker convention (ponytail adoption), byte-stable `internal/sindept/` scanner + report, policy gate via `sin-code debt check`, 41st subcommand; alongside `sin-code install` (issue #170), `eval` / `trace` (issue #75), `evalset` / `prp` / `instinct` / `assets` / `hooks` / `rtk` / `codegraph` / `spec` v0 work |
+| (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
+
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
 
@@ -539,6 +552,7 @@ Core:      discover, execute, map, grasp, scout, harvest, orchestrate,
 Agents:    chat, sessions, mcp, goal, daemon, skill, superpowers,
            vane, stack, gh, install
            vane, stack, gh, install, profile
+           vane, stack, gh, debt
 Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
            orchestrator_agents, orchestrator_plan, update
@@ -583,6 +597,7 @@ same anchor (`SIN-CODE-SKILL`) so a downstream parser finds both
 per-skill bundles and per-profile mirrors with one regex. Profile
 renders are idempotent (rerun with unchanged source = byte-identical
 output), exactly as skilldist demands.
+``` (v3.18.0: 41 subcommands — `debt` is issue #177, sin-debt markers; `install` is issue #170; `eval`, `evalset`, `prp`, `instinct`, `assets`, `hooks`, `rtk`, `codegraph`, `spec` follow)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 
@@ -626,6 +641,30 @@ system-prompt hash metric (issue #2).
 **Names are immutable.** The 44+ MCP tool `Name` field is public API
 (§10). The compressor mutates `Description` only. `CompressSpec`
 asserts this in `TestCompressSpec_NameMutable`.
+### sin-debt marker convention (issue #177)
+
+Every **intentional** shortcut in source code is marked in-line with:
+
+```
+// sin-debt: <ceiling>, upgrade: <trigger>
+// sin-debt: <ceiling>            # upgrade clause is OPTIONAL but RECOMMENDED
+```
+
+- Recognised comment families: `//`, `#`, `--`, `/* … */`, `<!-- … -->`.
+- The `upgrade:` clause names the trigger to revisit; markers without it
+  are **rot-risk** and surface in the `debt stats` rot-risk table.
+- Authoring template: prefer the canonical reasons catalogued in
+  `cmd/sin-code/internal/sindept/policy.go` (`DefaultReasons`) and the
+  upgrade triggers in `UpgradeTriggers`. Free-form text is allowed;
+  pick from the catalogue when possible.
+- The scanner (`internal/sindept`) and CLI (`sin-code debt`) read this
+  format; the complexity auditor (issue #179) and audit-engine
+  (issue #180) recognise it as an "approved shortcut" tag.
+- Byte-stable: the same source tree emits byte-identical reports
+  (`sin-code debt stats`) so the four-arm comparator (issue #171)
+  can pin its golden snapshot.
+- Policy file: `.sin-code/debt-policy.toml` (see
+  `cmd/sin-code/debt_cmd.doc.md`).
 
 ---
 

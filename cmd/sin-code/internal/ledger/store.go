@@ -170,6 +170,7 @@ func (s *Store) QueryByType(ctx context.Context, sessionID string, t EntryType, 
 	return scanRows(rows)
 }
 
+// sin-debt: DISTINCT query scans entire ledger, upgrade: maintain session_id index table when ledger entries > 1M
 // Sessions returns all distinct session IDs, newest first.
 func (s *Store) Sessions(ctx context.Context, limit int) ([]string, error) {
 	if limit <= 0 {

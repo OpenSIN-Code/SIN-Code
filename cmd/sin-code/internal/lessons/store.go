@@ -170,6 +170,7 @@ WHERE occurrences = 1 AND last_seen < ?
 	return int(n), nil
 }
 
+// sin-debt: 16-hex (64-bit) fingerprint — collision risk at ~4B entries, upgrade: switch to full 64-hex sha256 + collision check when lesson count > 100k
 // Fingerprint is the stable identity of a lesson (type+workspace+context).
 func Fingerprint(t EntryType, ws string, ctx map[string]any) string {
 	data, _ := json.Marshal(map[string]any{"type": t, "ws": ws, "ctx": ctx})
@@ -177,6 +178,7 @@ func Fingerprint(t EntryType, ws string, ctx map[string]any) string {
 	return hex.EncodeToString(h[:])[:16]
 }
 
+// sin-debt: linear scan over all lessons per briefing call, upgrade: switch to top-K precomputed index when entry count > 10k
 // Briefing renders the top workspace lessons as a compact prompt prefix.
 // Only entries with occurrences >= 2 qualify (repetition is signal, single
 // is noise). Capped at 10 lessons / ~2KB to protect the context window.
