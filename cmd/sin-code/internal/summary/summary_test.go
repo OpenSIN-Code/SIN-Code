@@ -6,6 +6,7 @@ package summary
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -71,6 +72,152 @@ func TestBuildSummaryNoEntries(t *testing.T) {
 	_, err := Build(ctx, s, "missing")
 	if err == nil {
 		t.Fatal("expected error for missing session")
+	}
+}
+
+func TestBuildSummaryStoreError(t *testing.T) {
+	ctx := context.Background()
+	// Close the ledger immediately so List returns an error.
+	s, err := ledger.Open(filepath.Join(t.TempDir(), "ledger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = s.Close()
+	_, err = Build(ctx, s, "x")
+	if err == nil {
+		t.Fatal("expected error from closed ledger")
+	}
+}
+
+func TestBuildFromEntriesEarlierCreatedAt(t *testing.T) {
+	base := time.Now()
+	entries := []ledger.Entry{
+		{SessionID: "s1", Type: ledger.TypeUserPrompt, Data: map[string]any{"content": "x"}, CreatedAt: base.Add(time.Minute)},
+		{SessionID: "s1", Type: ledger.TypeToolCall, Data: map[string]any{"tool": "a"}, CreatedAt: base.Add(-time.Minute)},
+	}
+	s, err := buildFromEntries(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !s.CreatedAt.Equal(base.Add(-time.Minute)) {
+		t.Fatalf("CreatedAt should be the earliest entry, got %s", s.CreatedAt.Format(time.RFC3339))
+	}
+}
+
+func TestBuildFromEntriesEmptyUserPrompt(t *testing.T) {
+	entries := []ledger.Entry{
+		{SessionID: "s1", Type: ledger.TypeUserPrompt, Data: map[string]any{"content": ""}, CreatedAt: time.Now()},
+	}
+	s, err := buildFromEntries(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.UserPrompts) != 0 {
+		t.Fatalf("expected empty user prompts, got %v", s.UserPrompts)
+	}
+}
+
+func TestBuildFromEntriesNoToolName(t *testing.T) {
+	entries := []ledger.Entry{
+		{SessionID: "s1", Type: ledger.TypeToolCall, Data: map[string]any{}, CreatedAt: time.Now()},
+	}
+	s, err := buildFromEntries(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Turns != 1 {
+		t.Fatalf("expected 1 turn, got %d", s.Turns)
+	}
+	if len(s.ToolsUsed) != 0 {
+		t.Fatalf("expected no tool name, got %v", s.ToolsUsed)
+	}
+}
+
+func TestBuildFromEntriesVerifyFail(t *testing.T) {
+	entries := []ledger.Entry{
+		{SessionID: "s1", Type: ledger.TypeVerifyFail, Data: map[string]any{"mode": "poc"}, CreatedAt: time.Now()},
+	}
+	s, err := buildFromEntries(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Verified {
+		t.Fatal("expected not verified")
+	}
+	if s.Verification != "poc (failed)" {
+		t.Fatalf("expected verification failure text, got %q", s.Verification)
+	}
+}
+
+func TestBuildFromEntriesVerifyFailNoMode(t *testing.T) {
+	entries := []ledger.Entry{
+		{SessionID: "s1", Type: ledger.TypeVerifyFail, Data: map[string]any{}, CreatedAt: time.Now()},
+	}
+	s, err := buildFromEntries(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Verification != "not verified" {
+		t.Fatalf("expected not verified, got %q", s.Verification)
+	}
+}
+
+func TestBuildFromEntriesVerifyPassNoMode(t *testing.T) {
+	entries := []ledger.Entry{
+		{SessionID: "s1", Type: ledger.TypeVerifyPass, Data: map[string]any{}, CreatedAt: time.Now()},
+	}
+	s, err := buildFromEntries(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !s.Verified {
+		t.Fatal("expected verified")
+	}
+	if s.Verification != "unknown mode" {
+		t.Fatalf("expected unknown mode, got %q", s.Verification)
+	}
+}
+
+func TestBuildFromEntriesTaskCompleteNoSummary(t *testing.T) {
+	entries := []ledger.Entry{
+		{SessionID: "s1", Type: ledger.TypeTaskComplete, Data: map[string]any{}, CreatedAt: time.Now()},
+	}
+	s, err := buildFromEntries(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.OneLiner != "" {
+		t.Fatalf("expected empty one-liner, got %q", s.OneLiner)
+	}
+}
+
+func TestBuildFromEntriesLongPromptBecomesOneLiner(t *testing.T) {
+	long := strings.Repeat("a", 90)
+	entries := []ledger.Entry{
+		{SessionID: "s1", Type: ledger.TypeUserPrompt, Data: map[string]any{"content": long}, CreatedAt: time.Now()},
+	}
+	s, err := buildFromEntries(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := long[:80] + "…"
+	if s.OneLiner != want {
+		t.Fatalf("expected truncated one-liner, got %q", s.OneLiner)
+	}
+}
+
+func TestBuildFromEntriesLongPromptDoesNotOverwriteSummary(t *testing.T) {
+	long := strings.Repeat("b", 90)
+	entries := []ledger.Entry{
+		{SessionID: "s1", Type: ledger.TypeUserPrompt, Data: map[string]any{"content": long}, CreatedAt: time.Now()},
+		{SessionID: "s1", Type: ledger.TypeTaskComplete, Data: map[string]any{"summary": "done"}, CreatedAt: time.Now()},
+	}
+	s, err := buildFromEntries(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.OneLiner != "done" {
+		t.Fatalf("expected one-liner from task complete, got %q", s.OneLiner)
 	}
 }
 

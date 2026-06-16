@@ -5,8 +5,12 @@ package summary
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
 )
 
 type fakeTokenSrc struct {
@@ -102,12 +106,84 @@ func TestHumanInt(t *testing.T) {
 // BuildWithTokens swallows errors from the token source (best-effort). Make
 // sure a broken source still produces a Summary keyed off Ledger entries.
 func TestBuildWithTokensSwallowsSrcError(t *testing.T) {
-	// Use a stub that always errors. Build path doesn't use ledger here; we
-	// only check the contract by calling BuildWithTokens with a nil store,
-	// which returns an error – so we instead verify the contract directly:
+	s := testStore(t)
+	ctx := context.Background()
+	sid := "tokens-err"
+	if _, err := s.Record(ctx, ledger.Entry{SessionID: sid, Type: ledger.TypeUserPrompt, Data: map[string]any{"content": "x"}, CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
 	src := &fakeTokenSrc{err: errors.New("disk full")}
-	_, _, _, _, _, err := src.SessionTokens(context.Background(), "x")
+	sum, err := BuildWithTokens(ctx, s, sid, src)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sum.HasUsage {
+		t.Fatal("expected no usage when token source errors")
+	}
+}
+
+func TestBuildWithTokensNilSrc(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	sid := "tokens-nil"
+	if _, err := s.Record(ctx, ledger.Entry{SessionID: sid, Type: ledger.TypeUserPrompt, Data: map[string]any{"content": "x"}, CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	sum, err := BuildWithTokens(ctx, s, sid, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sum.HasUsage {
+		t.Fatal("expected no usage with nil token source")
+	}
+}
+
+func TestBuildWithTokensFillsFromSource(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	sid := "tokens-ok"
+	if _, err := s.Record(ctx, ledger.Entry{SessionID: sid, Type: ledger.TypeUserPrompt, Data: map[string]any{"content": "x"}, CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	src := &fakeTokenSrc{in: 10, out: 20, total: 30, events: 1, cost: 0.0012}
+	sum, err := BuildWithTokens(ctx, s, sid, src)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sum.InputTokens != 10 || sum.OutputTokens != 20 || sum.TokensUsed != 30 || sum.TokenCount != 1 || sum.CostUSD != 0.0012 {
+		t.Fatalf("unexpected token fields: %+v", sum)
+	}
+	if !sum.HasUsage {
+		t.Fatal("expected HasUsage true")
+	}
+}
+
+func TestBuildWithTokensZeroTotalLeavesHasUsageFalse(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	sid := "tokens-zero"
+	if _, err := s.Record(ctx, ledger.Entry{SessionID: sid, Type: ledger.TypeUserPrompt, Data: map[string]any{"content": "x"}, CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	src := &fakeTokenSrc{in: 0, out: 0, total: 0, events: 0, cost: 0}
+	sum, err := BuildWithTokens(ctx, s, sid, src)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if sum.HasUsage {
+		t.Fatal("expected HasUsage false when total is zero")
+	}
+}
+
+func TestBuildWithTokensBuildError(t *testing.T) {
+	ctx := context.Background()
+	s, err := ledger.Open(filepath.Join(t.TempDir(), "ledger.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = s.Close()
+	_, err = BuildWithTokens(ctx, s, "x", &fakeTokenSrc{})
 	if err == nil {
-		t.Fatal("expected error from fake")
+		t.Fatal("expected error from Build path")
 	}
 }

@@ -5,18 +5,25 @@ package catalog
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/assets"
 )
 
 // fakeSource is a minimal Source implementation for tests.
 type fakeSource struct {
-	name   string
-	assets []*Asset
+	name    string
+	assets  []*Asset
+	listErr error
 }
 
 func (f *fakeSource) Name() string { return f.name }
 func (f *fakeSource) List(_ context.Context, kind Kind) ([]*Asset, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
 	if kind == "" {
 		// Filter out nils so callers don't have to.
 		out := make([]*Asset, 0, len(f.assets))
@@ -325,10 +332,9 @@ func TestSearch_StableOrderOnTie(t *testing.T) {
 func TestMerge_NilAssetSkipped(t *testing.T) {
 	// A Source that returns a nil entry in the slice must not crash
 	// the merger. The catalog's contract is to skip nil entries.
-	src := &fakeSource{
-		name:   "a",
-		assets: []*Asset{{Kind: KindCommand, Name: "ok"}, nil},
-	}
+	// Use a custom source that does NOT filter nils so the nil reaches
+	// Merge's own skip logic.
+	src := &nilSource{assets: []*Asset{{Kind: KindCommand, Name: "ok"}, nil}}
 	got, err := Merge(context.Background(), []Source{src})
 	if err != nil {
 		t.Fatal(err)
@@ -336,6 +342,16 @@ func TestMerge_NilAssetSkipped(t *testing.T) {
 	if len(got) != 1 {
 		t.Errorf("expected 1 (nil skipped), got %d", len(got))
 	}
+}
+
+type nilSource struct{ assets []*Asset }
+
+func (n *nilSource) Name() string { return "nil-src" }
+func (n *nilSource) List(_ context.Context, _ Kind) ([]*Asset, error) {
+	return n.assets, nil
+}
+func (n *nilSource) Get(_ context.Context, _ Kind, _ string) (*Asset, bool, error) {
+	return nil, false, nil
 }
 
 func TestMerge_SearchEndToEnd(t *testing.T) {
@@ -417,5 +433,186 @@ func TestMerge_OutputFormat(t *testing.T) {
 	}
 	if !strings.Contains(merged[0].Source, "hub") {
 		t.Errorf("expected source=hub, got %s", merged[0].Source)
+	}
+}
+
+func TestMerge_SourceError(t *testing.T) {
+	errSrc := &fakeSource{
+		name: "err",
+		listErr: errors.New("boom"),
+	}
+	_, err := Merge(context.Background(), []Source{errSrc})
+	if err == nil {
+		t.Fatal("expected error from Source.List")
+	}
+}
+
+func TestHubSource_Name(t *testing.T) {
+	if got := (HubSource{}).Name(); got != "hub" {
+		t.Errorf("expected hub, got %s", got)
+	}
+}
+
+func TestHubSource_GetWrongKind(t *testing.T) {
+	_, ok, err := HubSource{}.Get(context.Background(), KindAgent, "chat")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Error("expected not-found for non-hub kind")
+	}
+}
+
+func TestAssetsSource_Name(t *testing.T) {
+	if got := NewAssetsSource(nil).Name(); got != "assets" {
+		t.Errorf("expected assets, got %s", got)
+	}
+}
+
+func TestAssetsSource_ListAndGet(t *testing.T) {
+	reg := assets.NewRegistry()
+	reg.Add(&assets.Asset{Kind: assets.KindCommand, Name: "read", Description: "read files", Domain: "io"})
+	reg.Add(&assets.Asset{Kind: assets.KindAgent, Name: "go-reviewer", Description: "review", Domain: "go"})
+	reg.Add(&assets.Asset{Kind: assets.KindSkill, Name: "lazy", Description: "lazy skill", Domain: "code"})
+
+	src := NewAssetsSource(reg)
+
+	all, err := src.List(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 3 {
+		t.Errorf("expected 3 assets, got %d", len(all))
+	}
+
+	agents, err := src.List(context.Background(), KindAgent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(agents) != 1 || agents[0].Name != "go-reviewer" {
+		t.Errorf("expected 1 agent, got %+v", agents)
+	}
+
+	skills, err := src.List(context.Background(), KindSkill)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(skills) != 1 || skills[0].Name != "lazy" {
+		t.Errorf("expected 1 skill, got %+v", skills)
+	}
+
+	cmds, err := src.List(context.Background(), KindCommand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cmds) != 1 || cmds[0].Name != "read" {
+		t.Errorf("expected 1 command, got %+v", cmds)
+	}
+
+	got, ok, err := src.Get(context.Background(), KindCommand, "read")
+	if err != nil || !ok {
+		t.Fatalf("expected read, got ok=%v err=%v", ok, err)
+	}
+	if got.Name != "read" || got.Source != "assets" || got.Domain != "io" {
+		t.Errorf("unexpected asset: %+v", got)
+	}
+
+	_, ok, err = src.Get(context.Background(), KindCommand, "missing")
+	if err != nil || ok {
+		t.Errorf("expected not-found")
+	}
+
+	_, ok, err = src.Get(context.Background(), KindHub, "read")
+	if err != nil || ok {
+		t.Errorf("expected not-found for non-mapped kind")
+	}
+
+	_, ok, err = src.Get(context.Background(), KindAgent, "go-reviewer")
+	if err != nil || !ok {
+		t.Errorf("expected agent, got ok=%v err=%v", ok, err)
+	}
+
+	_, ok, err = src.Get(context.Background(), KindSkill, "lazy")
+	if err != nil || !ok {
+		t.Errorf("expected skill, got ok=%v err=%v", ok, err)
+	}
+}
+
+func TestAssetsSource_GetNilRegistry(t *testing.T) {
+	src := NewAssetsSource(nil)
+	_, ok, err := src.Get(context.Background(), KindCommand, "x")
+	if err != nil || ok {
+		t.Errorf("expected not-found from nil registry")
+	}
+}
+
+func TestConvertAllAndConvertOne(t *testing.T) {
+	all := convertAll([]*assets.Asset{
+		nil,
+		{Kind: assets.KindCommand, Name: "ok", Description: "ok"},
+	})
+	if len(all) != 2 || all[0] != nil || all[1].Name != "ok" {
+		t.Errorf("convertAll did not preserve nil: %+v", all)
+	}
+	if convertOne(nil) != nil {
+		t.Error("convertOne(nil) should be nil")
+	}
+}
+
+func TestKindMap(t *testing.T) {
+	cases := []struct {
+		in   assets.Kind
+		want Kind
+	}{
+		{assets.KindAgent, KindAgent},
+		{assets.KindCommand, KindCommand},
+		{assets.KindSkill, KindSkill},
+		{assets.Kind("unknown"), ""},
+	}
+	for _, c := range cases {
+		if got := kindMap(c.in); got != c.want {
+			t.Errorf("kindMap(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestFilterByKind_NoMatch(t *testing.T) {
+	assets := []*Asset{{Kind: KindCommand, Name: "a"}}
+	got := FilterByKind(assets, KindSkill)
+	if len(got) != 0 {
+		t.Errorf("expected 0, got %d", len(got))
+	}
+}
+
+func TestSearch_DescriptionMatch(t *testing.T) {
+	assets := []*Asset{
+		{Name: "x", Description: "find me"},
+		{Name: "y", Description: "other"},
+	}
+	got := Search(assets, "find")
+	if len(got) != 1 || got[0].Name != "x" {
+		t.Errorf("expected x by description, got %+v", got)
+	}
+}
+
+func TestSearch_ShortMatch(t *testing.T) {
+	assets := []*Asset{
+		{Name: "x", Short: "shorty"},
+		{Name: "y", Short: "other"},
+	}
+	got := Search(assets, "short")
+	if len(got) != 1 || got[0].Name != "x" {
+		t.Errorf("expected x by short, got %+v", got)
+	}
+}
+
+func TestSearch_OnlyTags(t *testing.T) {
+	assets := []*Asset{
+		{Name: "x", Tags: []string{"go"}},
+		{Name: "y", Tags: []string{"rust"}},
+	}
+	got := Search(assets, "go")
+	if len(got) != 1 || got[0].Name != "x" {
+		t.Errorf("expected x by tag, got %+v", got)
 	}
 }

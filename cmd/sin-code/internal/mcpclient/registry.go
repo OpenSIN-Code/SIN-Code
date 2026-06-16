@@ -10,6 +10,12 @@ import (
 	"path/filepath"
 )
 
+var (
+	// userHomeDirHook lets tests force the default skills-dir path to empty
+	// so the PATH fallback branches in DefaultServers are exercised.
+	userHomeDirHook = os.UserHomeDir
+)
+
 // DefaultServers returns the ecosystem registry. Server names double as
 // tool-name prefixes ("websearch__search", "browser__navigate", ...), which
 // the permission matrix gates via the "mcp" policy class.
@@ -96,6 +102,9 @@ func skillsDirOrDefault() string {
 	if d := os.Getenv("SIN_SKILLS_DIR"); d != "" {
 		return d
 	}
-	home, _ := os.UserHomeDir()
+	home, err := userHomeDirHook()
+	if err != nil || home == "" {
+		return ""
+	}
 	return filepath.Join(home, ".local", "share", "sin-code", "skills")
 }

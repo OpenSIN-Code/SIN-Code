@@ -102,6 +102,15 @@ func TestAllModes_ReturnsAllCanonical(t *testing.T) {
 	}
 }
 
+func TestRulesForDefaultReturnsEmpty(t *testing.T) {
+	t.Parallel()
+	for _, m := range []Mode{ModeDefault, ModeVerbose, Mode("loud")} {
+		if got := rulesFor(m); got != "" {
+			t.Errorf("rulesFor(%q) should be empty, got %q", m, got)
+		}
+	}
+}
+
 func TestMode_String(t *testing.T) {
 	t.Parallel()
 	if (Mode("")).String() != string(ModeDefault) {

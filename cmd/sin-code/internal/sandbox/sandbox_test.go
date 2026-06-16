@@ -5,6 +5,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -76,5 +77,15 @@ func TestExisting_FiltersMissingPaths(t *testing.T) {
 	}
 	if got[0] != present {
 		t.Errorf("expected %q, got %q", present, got[0])
+	}
+}
+
+func TestApplyAndExec_NonLinux_ReturnsError(t *testing.T) {
+	err := ApplyAndExec()
+	if err == nil {
+		t.Fatal("ApplyAndExec() = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "non-Linux") {
+		t.Errorf("ApplyAndExec() err = %q, want non-Linux error", err.Error())
 	}
 }

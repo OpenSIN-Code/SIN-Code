@@ -14,6 +14,10 @@ import (
 // readFile is swappable for tests that exercise ParseGoMod.
 var readFile = os.ReadFile
 
+// modfileParse is swappable for tests that exercise the defensive
+// nil/empty require branch.
+var modfileParse = modfile.Parse
+
 // ParseGoMod reads go.mod in projectPath and returns direct and indirect
 // module dependencies as Go-ecosystem packages.
 func ParseGoMod(projectPath string) ([]Package, error) {
@@ -27,7 +31,7 @@ func ParseGoMod(projectPath string) ([]Package, error) {
 
 // parseGoModBytes parses go.mod content using golang.org/x/mod/modfile.
 func parseGoModBytes(data []byte) ([]Package, error) {
-	f, err := modfile.Parse("go.mod", data, nil)
+	f, err := modfileParse("go.mod", data, nil)
 	if err != nil {
 		return nil, fmt.Errorf("parse go.mod: %w", err)
 	}

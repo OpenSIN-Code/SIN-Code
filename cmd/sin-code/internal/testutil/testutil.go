@@ -28,6 +28,11 @@ import (
 	_ "modernc.org/sqlite" // pure-Go SQLite, M2 (CGO_ENABLED=0)
 )
 
+// sqlOpen and dbPing are package-level hooks so tests can exercise the
+// error paths of IsolatedSQLite without mocking the database/sql driver.
+var sqlOpen = sql.Open
+var dbPing = func(db *sql.DB) error { return db.Ping() }
+
 // IsolatedSQLite returns a *sql.DB opened in t.TempDir(), automatically
 // closed at test end via t.Cleanup. The DB is created in a fresh
 // temp directory per call, so concurrent tests cannot share state.
@@ -39,11 +44,11 @@ func IsolatedSQLite(t *testing.T) *sql.DB {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.db")
-	db, err := sql.Open("sqlite", path)
+	db, err := sqlOpen("sqlite", path)
 	if err != nil {
 		t.Fatalf("IsolatedSQLite: open: %v", err)
 	}
-	if err := db.Ping(); err != nil {
+	if err := dbPing(db); err != nil {
 		t.Fatalf("IsolatedSQLite: ping: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
@@ -57,11 +62,13 @@ func IsolatedSQLite(t *testing.T) *sql.DB {
 //	t.Cleanup(func() { os.Setenv(k, prev) })
 //
 // pattern that is easy to get wrong (esp. when the prev value is "").
+var setenv = os.Setenv
+
 func CleanEnv(t *testing.T, kv map[string]string) {
 	t.Helper()
 	for k, v := range kv {
 		prev, had := os.LookupEnv(k)
-		if err := os.Setenv(k, v); err != nil {
+		if err := setenv(k, v); err != nil {
 			t.Fatalf("CleanEnv: setenv %s: %v", k, err)
 		}
 		k, v, prev, had := k, v, prev, had // capture

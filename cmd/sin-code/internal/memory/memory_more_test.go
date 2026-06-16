@@ -1,5 +1,4 @@
 // SPDX-License-Identifier: MIT
-//go:build coverage
 // Purpose: targeted coverage tests for the memory package. These hit the
 // error branches and edge cases that require package-level hooks.
 // Docs: memory.doc.md

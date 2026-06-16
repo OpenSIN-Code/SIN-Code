@@ -67,6 +67,38 @@ func TestIsolatedSQLite_ClosesOnCleanup(t *testing.T) {
 	_ = db2
 }
 
+func TestIsolatedSQLite_OpenError(t *testing.T) {
+	prev := sqlOpen
+	sqlOpen = func(driverName, dataSourceName string) (*sql.DB, error) {
+		return nil, errors.New("open failed")
+	}
+	defer func() { sqlOpen = prev }()
+	done := make(chan bool)
+	go func() {
+		ft := &testing.T{}
+		defer func() { done <- ft.Failed() }()
+		_ = IsolatedSQLite(ft)
+	}()
+	if failed := <-done; !failed {
+		t.Error("expected failure when sqlOpen errors")
+	}
+}
+
+func TestIsolatedSQLite_PingError(t *testing.T) {
+	prev := dbPing
+	dbPing = func(db *sql.DB) error { return errors.New("ping failed") }
+	defer func() { dbPing = prev }()
+	done := make(chan bool)
+	go func() {
+		ft := &testing.T{}
+		defer func() { done <- ft.Failed() }()
+		_ = IsolatedSQLite(ft)
+	}()
+	if failed := <-done; !failed {
+		t.Error("expected failure when dbPing errors")
+	}
+}
+
 // ── CleanEnv ──────────────────────────────────────────────────────────
 
 func TestCleanEnv_SetsAndRestores(t *testing.T) {
@@ -105,6 +137,21 @@ func TestCleanEnv_HandlesEmptyPrevious(t *testing.T) {
 	CleanEnv(t, map[string]string{k: "x"})
 	if v := os.Getenv(k); v != "x" {
 		t.Errorf("expected x, got %q", v)
+	}
+}
+
+func TestCleanEnv_SetenvError(t *testing.T) {
+	prev := setenv
+	setenv = func(k, v string) error { return errors.New("setenv failed") }
+	defer func() { setenv = prev }()
+	done := make(chan bool)
+	go func() {
+		ft := &testing.T{}
+		defer func() { done <- ft.Failed() }()
+		CleanEnv(ft, map[string]string{"_TESTUTIL_X": "y"})
+	}()
+	if failed := <-done; !failed {
+		t.Error("expected failure when setenv errors")
 	}
 }
 
@@ -170,6 +217,50 @@ func TestWithTimeout_PanicPropagates(t *testing.T) {
 	WithTimeout(t, 1*time.Second, func(_ context.Context) {
 		panic("intentional")
 	})
+}
+
+func TestWithTimeout_PanicAfterDeadline(t *testing.T) {
+	// If fn panics *after* the context deadline has already fired,
+	// WithTimeout must still propagate the panic via the second
+	// select-case.
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("expected panic to propagate after deadline")
+		}
+	}()
+	WithTimeout(t, 1*time.Millisecond, func(_ context.Context) {
+		time.Sleep(20 * time.Millisecond)
+		panic("late panic")
+	})
+}
+
+func TestWithTimeout_FiresAndFails(t *testing.T) {
+	// The timeout branch is only reachable when fn does not return
+	// before the deadline. Use a fake T in a goroutine so the fatal
+	// exit does not kill the parent test. The fn is blocked on a stop
+	// channel so we can clean up the leaked goroutine after observing
+	// the failure.
+	done := make(chan bool)
+	stop := make(chan struct{})
+	go func() {
+		ft := &testing.T{}
+		defer func() { done <- ft.Failed() }()
+		WithTimeout(ft, 1*time.Millisecond, func(_ context.Context) {
+			<-stop
+		})
+	}()
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		close(stop)
+	}()
+	select {
+	case failed := <-done:
+		if !failed {
+			t.Error("expected WithTimeout to fail the fake T")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for WithTimeout result")
+	}
 }
 
 // ── GoroutineLeakCheck ────────────────────────────────────────────────

@@ -5,6 +5,7 @@ package usage
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -621,4 +622,365 @@ func absFloat(f float64) float64 {
 		return -f
 	}
 	return f
+}
+
+func TestDefaultPath_NoHome(t *testing.T) {
+	prev := userHomeDir
+	userHomeDir = func() (string, error) { return "", nil }
+	defer func() { userHomeDir = prev }()
+	t.Setenv("SIN_CODE_TOKENS_DB", "")
+	t.Setenv("XDG_DATA_HOME", "")
+	if got := DefaultPath(); got != "tokens.db" {
+		t.Errorf("expected fallback tokens.db, got %q", got)
+	}
+}
+
+func TestOpen_MkdirError(t *testing.T) {
+	prev := mkdirAll
+	mkdirAll = func(path string, perm os.FileMode) error { return fmt.Errorf("mkdir denied") }
+	defer func() { mkdirAll = prev }()
+	_, err := Open("/some/path/tokens.db")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestOpen_SqlOpenError(t *testing.T) {
+	prev := sqlOpen
+	sqlOpen = func(driverName, dataSourceName string) (*sql.DB, error) {
+		return nil, fmt.Errorf("driver broken")
+	}
+	defer func() { sqlOpen = prev }()
+	_, err := Open(t.TempDir() + "/tokens.db")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestOpen_MigrateError(t *testing.T) {
+	prev := migrateExec
+	migrateExec = func(db *sql.DB, schema string) error { return fmt.Errorf("migration failed") }
+	defer func() { migrateExec = prev }()
+	_, err := Open(t.TempDir() + "/tokens.db")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestOpenWithPricing_Nil(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "tokens.db")
+	s, err := OpenWithPricing(path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	if _, ok := s.Pricing()["gpt-4o"]; !ok {
+		t.Error("OpenWithPricing(nil) should keep defaults")
+	}
+}
+
+func TestClose_Nil(t *testing.T) {
+	var s *Store
+	if err := s.Close(); err != nil {
+		t.Errorf("nil Close should return nil, got %v", err)
+	}
+}
+
+func TestClose_NilDB(t *testing.T) {
+	s := &Store{}
+	if err := s.Close(); err != nil {
+		t.Errorf("Close with nil db should return nil, got %v", err)
+	}
+}
+
+func TestComputeCost_SubstringFallback(t *testing.T) {
+	// A model that does not have an exact match but contains a known
+	// substring ("llama-3.3-70b") should use the substring rate.
+	s, cleanup := tempStore(t)
+	defer cleanup()
+	e := Event{Model: "my-custom-llama-3.3-70b-thing", Source: SourceChat, TotalTokens: 1000}
+	if err := s.Record(context.Background(), e); err != nil {
+		t.Fatal(err)
+	}
+	tail, _ := s.Tail(context.Background(), Filter{}, 1)
+	want := 1000.0 * 0.0009 / 1000.0
+	if len(tail) != 1 || absFloat(tail[0].CostUSD-want) > 1e-9 {
+		t.Errorf("substring cost: got %v, want %v", tail[0].CostUSD, want)
+	}
+}
+
+func TestBuildWhere_SourceAndModel(t *testing.T) {
+	where, args := buildWhere(Filter{Source: SourceChat, Model: "gpt-4o"})
+	if where == "" {
+		t.Fatal("expected WHERE clause")
+	}
+	if len(args) != 2 || args[0] != string(SourceChat) || args[1] != "gpt-4o" {
+		t.Errorf("unexpected args: %v", args)
+	}
+}
+
+func TestAggregate_FilterBySourceAndModel(t *testing.T) {
+	s, cleanup := tempStore(t)
+	defer cleanup()
+	_ = s.Record(context.Background(), Event{Source: SourceChat, Model: "gpt-4o", TotalTokens: 100})
+	_ = s.Record(context.Background(), Event{Source: SourceJudge, Model: "gpt-4o", TotalTokens: 50})
+	_ = s.Record(context.Background(), Event{Source: SourceChat, Model: "claude-sonnet-4", TotalTokens: 200})
+	top, _, err := s.Aggregate(context.Background(), Filter{Source: SourceChat, Model: "gpt-4o"}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if top.TotalTokens != 100 {
+		t.Errorf("expected 100 tokens, got %d", top.TotalTokens)
+	}
+	if top.EventCount != 1 {
+		t.Errorf("expected 1 event, got %d", top.EventCount)
+	}
+}
+
+func TestAggregate_EmptyStore(t *testing.T) {
+	s, cleanup := tempStore(t)
+	defer cleanup()
+	top, subs, err := s.Aggregate(context.Background(), Filter{}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if top.EventCount != 0 || top.TotalTokens != 0 {
+		t.Errorf("expected empty aggregate: %+v", top)
+	}
+	if subs != nil {
+		t.Errorf("expected nil subs, got %d", len(subs))
+	}
+}
+
+func TestAggregate_BadDateParse(t *testing.T) {
+	s, cleanup := tempStore(t)
+	defer cleanup()
+	// Insert a raw row with an unparseable created_at to exercise the
+	// parse-fallback path.
+	_, err := s.db.Exec(`INSERT INTO usage_events (id, created_at) VALUES (?, ?)`, "bad-date", "not-a-date")
+	if err != nil {
+		t.Fatal(err)
+	}
+	top, _, err := s.Aggregate(context.Background(), Filter{}, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !top.FirstEvent.IsZero() || !top.LastEvent.IsZero() {
+		t.Errorf("bad dates should leave FirstEvent/LastEvent zero: %+v", top)
+	}
+}
+
+func TestTail_ScanError(t *testing.T) {
+	s, cleanup := tempStore(t)
+	defer cleanup()
+	// Insert a raw row that violates the total_tokens type so Scan fails.
+	_, err := s.db.Exec(`INSERT INTO usage_events (id, session_id, model, source, input_tokens, output_tokens, total_tokens, cost_usd, created_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, "bad", "s", "m", "chat", 0, 0, "not-an-int", 0, "2026-06-16T12:00:00Z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.Tail(context.Background(), Filter{}, 10)
+	if err == nil {
+		t.Fatal("expected scan error from corrupt total_tokens")
+	}
+}
+
+func TestCount_WithFilter(t *testing.T) {
+	s, cleanup := tempStore(t)
+	defer cleanup()
+	_ = s.Record(context.Background(), Event{Source: SourceChat, Model: "gpt-4o", TotalTokens: 100})
+	_ = s.Record(context.Background(), Event{Source: SourceJudge, Model: "gpt-4o", TotalTokens: 50})
+	n, err := s.Count(context.Background(), Filter{Source: SourceChat})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Errorf("expected 1 chat event, got %d", n)
+	}
+}
+
+func TestDefaultPath_HomeFallback(t *testing.T) {
+	prev := userHomeDir
+	userHomeDir = func() (string, error) { return "/tmp/home", nil }
+	defer func() { userHomeDir = prev }()
+	t.Setenv("SIN_CODE_TOKENS_DB", "")
+	t.Setenv("XDG_DATA_HOME", "")
+	got := DefaultPath()
+	want := filepath.Join("/tmp/home", ".local", "share", "sin-code", "tokens.db")
+	if got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+func TestOpen_EmptyPath(t *testing.T) {
+	prev := userHomeDir
+	userHomeDir = func() (string, error) { return t.TempDir(), nil }
+	defer func() { userHomeDir = prev }()
+	t.Setenv("SIN_CODE_TOKENS_DB", "")
+	t.Setenv("XDG_DATA_HOME", "")
+	s, err := Open("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+}
+
+func TestAggregate_QueryError(t *testing.T) {
+	s, cleanup := tempStore(t)
+	cleanup() // close DB
+	_, _, err := s.Aggregate(context.Background(), Filter{}, "")
+	if err == nil {
+		t.Fatal("expected error on closed DB")
+	}
+}
+
+func TestCount_Error(t *testing.T) {
+	s, cleanup := tempStore(t)
+	cleanup() // close DB
+	_, err := s.Count(context.Background(), Filter{})
+	if err == nil {
+		t.Fatal("expected error on closed DB")
+	}
+}
+
+func TestScanBreakdowns_QueryError(t *testing.T) {
+	s, cleanup := tempStore(t)
+	defer cleanup()
+
+	prev := queryRows
+	defer func() { queryRows = prev }()
+
+	queryRows = func(ctx context.Context, db *sql.DB, query string, args ...any) (*sql.Rows, error) {
+		return nil, fmt.Errorf("query failed")
+	}
+	err := scanBreakdowns(context.Background(), s.db, Filter{}, "", nil, &Aggregation{ByModel: map[string]int{}, BySource: map[string]int{}})
+	if err == nil {
+		t.Fatal("expected query error")
+	}
+}
+
+func TestScanBreakdowns_RowsCloseError(t *testing.T) {
+	s, cleanup := tempStore(t)
+	defer cleanup()
+
+	prev := rowsClose
+	defer func() { rowsClose = prev }()
+
+	rowsClose = func(r *sql.Rows) error { return fmt.Errorf("close failed") }
+	err := scanBreakdowns(context.Background(), s.db, Filter{}, "", nil, &Aggregation{ByModel: map[string]int{}, BySource: map[string]int{}})
+	if err == nil {
+		t.Fatal("expected close error")
+	}
+}
+
+func TestScanBreakdowns_ScanError(t *testing.T) {
+	s, cleanup := tempStore(t)
+	defer cleanup()
+
+	prev := queryRows
+	defer func() { queryRows = prev }()
+
+	calls := 0
+	queryRows = func(ctx context.Context, db *sql.DB, query string, args ...any) (*sql.Rows, error) {
+		calls++
+		if calls == 1 {
+			return db.QueryContext(ctx, "SELECT 'm', 0")
+		}
+		// Return rows whose second column is text, so Scan into int fails.
+		return db.QueryContext(ctx, "SELECT 's', 'bad'")
+	}
+	err := scanBreakdowns(context.Background(), s.db, Filter{}, "", nil, &Aggregation{ByModel: map[string]int{}, BySource: map[string]int{}})
+	if err == nil {
+		t.Fatal("expected scan error")
+	}
+}
+
+func TestScanBreakdowns_FirstScanError(t *testing.T) {
+	s, cleanup := tempStore(t)
+	defer cleanup()
+
+	prev := queryRows
+	defer func() { queryRows = prev }()
+
+	queryRows = func(ctx context.Context, db *sql.DB, query string, args ...any) (*sql.Rows, error) {
+		return db.QueryContext(ctx, "SELECT 'm', 'bad'")
+	}
+	err := scanBreakdowns(context.Background(), s.db, Filter{}, "", nil, &Aggregation{ByModel: map[string]int{}, BySource: map[string]int{}})
+	if err == nil {
+		t.Fatal("expected scan error")
+	}
+}
+
+func TestScanBreakdowns_SecondQueryError(t *testing.T) {
+	s, cleanup := tempStore(t)
+	defer cleanup()
+
+	prev := queryRows
+	defer func() { queryRows = prev }()
+
+	calls := 0
+	queryRows = func(ctx context.Context, db *sql.DB, query string, args ...any) (*sql.Rows, error) {
+		calls++
+		if calls == 1 {
+			return db.QueryContext(ctx, "SELECT 'm', 0")
+		}
+		return nil, fmt.Errorf("second query failed")
+	}
+	err := scanBreakdowns(context.Background(), s.db, Filter{}, "", nil, &Aggregation{ByModel: map[string]int{}, BySource: map[string]int{}})
+	if err == nil {
+		t.Fatal("expected second query error")
+	}
+}
+
+func TestAggregate_SubQueryError(t *testing.T) {
+	s, cleanup := tempStore(t)
+	defer cleanup()
+	_ = s.Record(context.Background(), Event{Source: SourceChat, TotalTokens: 100})
+
+	prev := aggregateQuery
+	defer func() { aggregateQuery = prev }()
+
+	aggregateQuery = func(ctx context.Context, db *sql.DB, query string, args ...any) (*sql.Rows, error) {
+		return nil, fmt.Errorf("sub-query failed")
+	}
+	_, _, err := s.Aggregate(context.Background(), Filter{}, "day")
+	if err == nil {
+		t.Fatal("expected sub-query error")
+	}
+}
+
+func TestAggregate_SubScanError(t *testing.T) {
+	s, cleanup := tempStore(t)
+	defer cleanup()
+	_ = s.Record(context.Background(), Event{Source: SourceChat, TotalTokens: 100})
+
+	prev := aggregateQuery
+	defer func() { aggregateQuery = prev }()
+
+	aggregateQuery = func(ctx context.Context, db *sql.DB, query string, args ...any) (*sql.Rows, error) {
+		return db.QueryContext(ctx, "SELECT 'g', 'bad', 0, 0, 0, 0, '', ''")
+	}
+	_, _, err := s.Aggregate(context.Background(), Filter{}, "day")
+	if err == nil {
+		t.Fatal("expected sub-scan error")
+	}
+}
+
+func TestTail_QueryError(t *testing.T) {
+	s, cleanup := tempStore(t)
+	cleanup() // close DB
+	_, err := s.Tail(context.Background(), Filter{}, 10)
+	if err == nil {
+		t.Fatal("expected query error")
+	}
+}
+
+func TestOpenWithPricing_Error(t *testing.T) {
+	prev := mkdirAll
+	mkdirAll = func(path string, perm os.FileMode) error { return fmt.Errorf("mkdir denied") }
+	defer func() { mkdirAll = prev }()
+	_, err := OpenWithPricing("/some/path/tokens.db", nil)
+	if err == nil {
+		t.Fatal("expected error")
+	}
 }
