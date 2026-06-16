@@ -7,25 +7,24 @@ import (
 	"testing"
 )
 
-const sample = `# Faster JSON Encoder
-
-# Objective
-Replace the reflection-based encoder with a code-generated one so the hot
-path no longer allocates.
-
-# Requirements
-- [must] R1: encode must be allocation-free on the steady-state path
-- [should] support nested structs
-- May: expose a streaming API
-
-# Acceptance Criteria
-- A1: benchmark shows 0 allocs/op  verify: go test -run=NONE -bench=Encode -benchmem ./...
-- A2: existing encoder tests still pass  verify: go test ./encoder/...
-
-# Invariants
-- Public API of encoder package must not change
-- No new third-party dependencies
-`
+const sample = "# Faster JSON Encoder\n" +
+	"\n" +
+	"# Objective\n" +
+	"Replace the reflection-based encoder with a code-generated one so the hot\n" +
+	"path no longer allocates.\n" +
+	"\n" +
+	"# Requirements\n" +
+	"- [must] R1: encode must be allocation-free on the steady-state path\n" +
+	"- [should] support nested structs\n" +
+	"- May: expose a streaming API\n" +
+	"\n" +
+	"# Acceptance Criteria\n" +
+	"- A1: benchmark shows 0 allocs/op  `verify: go test -run=NONE -bench=Encode -benchmem ./...`\n" +
+	"- A2: existing encoder tests still pass  `verify: go test ./encoder/...`\n" +
+	"\n" +
+	"# Invariants\n" +
+	"- Public API of encoder package must not change\n" +
+	"- No new third-party dependencies\n"
 
 func TestParseFull(t *testing.T) {
 	s, err := Parse(sample)

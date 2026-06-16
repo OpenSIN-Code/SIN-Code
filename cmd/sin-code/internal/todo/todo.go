@@ -1334,9 +1334,11 @@ func notify(nt notifications.Type, todoID, title, message, actor string) {
 var hookConfigOnce sync.Once
 var hookConfig *HookConfig
 
+var loadHookConfigFn = LoadHooksConfig
+
 func getHookConfig() *HookConfig {
 	hookConfigOnce.Do(func() {
-		hc, err := LoadHooksConfig("")
+		hc, err := loadHookConfigFn("")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: failed to load hooks: %v\n", err)
 			hc = &HookConfig{Hooks: map[HookEvent][]Hook{}}

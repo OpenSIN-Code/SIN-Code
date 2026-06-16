@@ -107,6 +107,61 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   dependencies (`gopkg.in/yaml.v3` was already transitively present in
   `go.sum`).
 
+### Added — Spec-Layer (issue #157)
+The Spec-Layer is the bridge between human intent and machine-checkable
+verification. A `*.spec.md` file captures a change's contract as
+`Requirements` + `Acceptance Criteria` (each with an optional `verify:`
+shell command) + `Invariants`. The agent and CI can then run those
+checks, and the drift checker verifies the code still matches the
+spec's signatures.
+
+- **`internal/spec/`** — the Spec-Layer core (issue #122, hardened by
+  #157). Parses `*.spec.md` files; `Spec.Marshal` writes them back in
+  canonical form. `Spec.Check(ctx, timeout)` runs every criterion's
+  `verify:` shell command and aggregates per-criterion results into a
+  `CheckReport` with `HasFailures()` for the CI gate. `Spec.Author(ctx,
+  desc, opts)` runs the LLM Planner → Implementer → Drift-check loop
+  with up to 3 retries on drift. `Spec.DetectSignatureDrift(root)`
+  walks the source tree and compares backtick-wrapped Go/Python
+  function signatures and JSON object shapes against the spec. ~3700
+  LOC, 22+ tests, race-clean.
+- **Python signature matching** via subprocess to `python3` + `ast`
+  (`internal/spec/python.go`). Embedded extractor script as a const
+  string; no separate `.py` file to ship. Top-level functions only in
+  v0; method-on-receiver deferred to PR 4.
+- **JSON shape matching** (`internal/spec/json.go`). Structural type
+  check: every spec key must exist in a JSON file with a compatible
+  type (`string`/`int`/`bool`/`array`/`object`/`null`, with `[]T`
+  and `{}` as sugar). No new deps (M2).
+- **LLM wiring** (`internal/wiring/spec.go`). `NewSpecCompleter` adapts
+  `llm.Client` to `spec.Completer` so `sin spec author` can drive the
+  end-to-end loop. Env var `SIN_SPEC_LLM_BASEURL` is the v0 hook for a
+  local model; `--dry-run` is the no-LLM path that returns a stub
+  spec for end-to-end testing.
+- **CLI**: `sin spec validate|show|check|author`. New flags:
+  `check --drift` runs the spec↔code drift; `check --root <dir>`
+  scopes the walk; `author --dry-run --out <file>` writes a stub spec;
+  `author --apply` opens a PR via `gh` (scaffolded, wired in PR 4).
+- **Pre-commit hook** (`scripts/spec-drift-check.sh`): runs
+  `sin spec check --all` on every commit. Override path is
+  `git commit --no-verify` per M3.
+- **CI workflow** (`.github/workflows/spec-ci.yml`): runs the spec
+  check on every PR and push to main. A must-priority failure
+  blocks the merge. M1-compliant (n8n-delegated).
+- **Spec format change**: the `verify:` annotation now requires
+  backtick-wrapping (`` `verify: cmd` ``) so the parser doesn't
+  misread plain prose as a verify command. Existing pre-v3.18 spec
+  files need a one-time `sed` pass; the migration is documented in
+  `docs/spec-layer.md`.
+- **Tests**: 22+ tests in `internal/spec/`, race-clean. Cover the
+  parser, the verify:-runner, the LLM loop (with a stub
+  `Completer`), Go/Python/JSON drift, type compatibility, and
+  persistence.
+- **Docs**: `docs/spec-layer.md` is the canonical reference; it
+  supersedes the older `docs/spec-layer.md` content (the file is
+  extended, not replaced). `docs/SPEC-LAYER.md` is the design spec
+  for the hardening pass.
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added
