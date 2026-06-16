@@ -53,6 +53,9 @@ const (
 	// StopStalled fires when the stop-gate returns identical open criteria
 	// StallThreshold turns in a row (no-progress escalation).
 	StopStalled = "stop.stalled"
+	// Token budget lifecycle (issue #151).
+	BudgetWarn      = "budget.warn"
+	BudgetExhausted = "budget.exhausted"
 
 	AgentSpawn       = "agent.spawn"
 	AgentComplete    = "agent.complete"

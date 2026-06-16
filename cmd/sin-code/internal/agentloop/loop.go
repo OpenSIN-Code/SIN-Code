@@ -27,6 +27,18 @@ type Completion struct {
 	Text      string
 	ToolCalls []ToolCall
 	Raw       session.Message
+	// Usage carries token accounting returned by the model provider. All
+	// fields optional; zero values mean "unknown" and never trigger the
+	// budget guard (issue #151).
+	Usage Usage
+}
+
+// Usage carries token accounting returned by the model provider. All fields
+// optional; zero values mean "unknown" and never trigger the budget guard.
+type Usage struct {
+	PromptTokens     int
+	CompletionTokens int
+	TotalTokens      int
 }
 
 type ToolSpec struct {
@@ -96,6 +108,16 @@ type Loop struct {
 	// of open criteria this many times consecutively (no progress). Zero
 	// disables stall detection. Recommended: 3. Independent of MaxStopRejects.
 	StallThreshold int
+
+	// MaxTokens is a hard cap on cumulative tokens (prompt+completion) across
+	// the whole run. Zero means unlimited. When exceeded the run checkpoints
+	// (if AllowContinuation) or errors, rather than continuing to spend.
+	// Issue #151.
+	MaxTokens int
+
+	// BudgetWarnRatio, if set, fires hooks.BudgetWarn once when token usage
+	// crosses this fraction of MaxTokens (e.g. 0.8). Useful for alerting.
+	BudgetWarnRatio float64
 
 	// AllowContinuation switches the maxTurns outcome from a hard error to a
 	// checkpointed, resumable Result (Continuation=true). Daemons set this so
@@ -259,6 +281,8 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	stopRejects := 0 // tracks how many times the stop-gate rejected completion
 	lastCritFingerprint := ""
 	stallCount := 0
+	totalTokens := 0      // issue #151: cumulative tokens across the run
+	warnedBudget := false // fires hooks.BudgetWarn once per run
 	toolsSeen := map[string]bool{}
 	var toolsUsed []string
 
@@ -284,6 +308,40 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			return nil, fmt.Errorf("turn %d: %w", turn, err)
 		}
 		msgs = append(msgs, resp.Raw)
+		// Token budget accounting (issue #151). Provider usage is optional;
+		// if zero we simply skip the guard for that turn.
+		if u := resp.Usage.TotalTokens; u > 0 {
+			totalTokens += u
+		} else {
+			totalTokens += resp.Usage.PromptTokens + resp.Usage.CompletionTokens
+		}
+		if l.MaxTokens > 0 {
+			if !warnedBudget && l.BudgetWarnRatio > 0 &&
+				float64(totalTokens) >= l.BudgetWarnRatio*float64(l.MaxTokens) {
+				warnedBudget = true
+				l.fire(ctx, hooks.BudgetWarn, "", map[string]any{
+					"total_tokens": totalTokens, "max_tokens": l.MaxTokens,
+				})
+			}
+			if totalTokens >= l.MaxTokens {
+				if serr := sess.SaveHistory(msgs); serr != nil {
+					return nil, serr
+				}
+				l.fire(ctx, hooks.BudgetExhausted, "", map[string]any{
+					"total_tokens": totalTokens, "max_tokens": l.MaxTokens,
+				})
+				l.record(ctx, ledger.TypeTokenBudgetExhausted,
+					map[string]any{"total_tokens": totalTokens, "max_tokens": l.MaxTokens},
+					fmt.Sprintf("token budget exhausted: %d/%d", totalTokens, l.MaxTokens))
+				if l.AllowContinuation {
+					return &Result{
+						SessionID: sess.ID, Summary: lastText, Verified: false,
+						Turns: turn + 1, Continuation: true, OpenCriteria: lastOpen,
+					}, nil
+				}
+				return nil, fmt.Errorf("token budget exhausted: %d/%d tokens used", totalTokens, l.MaxTokens)
+			}
+		}
 
 		if len(resp.ToolCalls) == 0 {
 			vpre := l.fire(ctx, hooks.VerifyPre, "", nil)
