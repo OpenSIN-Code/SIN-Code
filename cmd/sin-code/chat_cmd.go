@@ -48,6 +48,7 @@ type chatOptions struct {
 	// a project-local .sin-code/autoactivate.toml may still apply.
 	activate  string
 	noTrigger bool
+	mode      string
 }
 
 func NewChatCmd() *cobra.Command {
@@ -63,7 +64,8 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --agent <name>           use a specific agent profile
   sin-code chat --yolo                   bypass 'ask' permissions (M4)
   sin-code chat --activate terse,skill-x auto-activate the named rules (issue #176)
-  sin-code chat --no-trigger             disable prompt-phrase activation`,
+  sin-code chat --no-trigger             disable prompt-phrase activation
+  sin-code chat --mode plan|acceptEdits|bypass  session-wide permission mode (issue #193)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context(), opts)
 		},
@@ -82,6 +84,7 @@ func NewChatCmd() *cobra.Command {
 	f.StringVar(&opts.dbPath, "db", "", "sessions db path (default ~/.local/share/sin-code/sessions.db)")
 	f.StringVar(&opts.activate, "activate", "", "comma-separated rule names to auto-activate for this session (issue #176)")
 	f.BoolVar(&opts.noTrigger, "no-trigger", false, "disable prompt-phrase activation (issue #176)")
+	f.StringVar(&opts.mode, "mode", "", "permission mode: default|plan|acceptEdits|bypass (issue #193)")
 	return cmd
 }
 
@@ -108,6 +111,11 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	perm := permission.New(internal.RulesForAgent(agentCfg))
 	perm.Yolo = opts.yolo
 	perm.Headless = headless
+	if opts.mode != "" {
+		if err := perm.SetMode(permission.Mode(opts.mode)); err != nil {
+			return fmt.Errorf("chat: --mode: %w", err)
+		}
+	}
 
 	workspace, err := os.Getwd()
 	if err != nil {
