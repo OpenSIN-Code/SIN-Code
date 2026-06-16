@@ -45,6 +45,14 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "sin_bash", Policy: "ask"},
 		{Tool: "sin_sbom_generate", Policy: "allow"},
 		{Tool: "sin_security_scan", Policy: "allow"},
+		// v3.18+: Browser CDP tools.
+		// sin_browser_navigate drives headless Chrome — it can load arbitrary
+		// URLs so it requires explicit user confirmation (ask).
+		// sin_browser_findings and sin_browser_snapshot only read the already-
+		// captured in-memory event slice; no network calls, no side effects.
+		{Tool: "sin_browser_navigate", Policy: "ask"},
+		{Tool: "sin_browser_findings", Policy: "allow"},
+		{Tool: "sin_browser_snapshot", Policy: "allow"},
 
 		// v3.16.0: autodev-cli bridge (Bridged-External + autodev-mcp stdio MCP).
 		// Qualified name = server-name + "__" + tool-name (registry.go "autodev" + autodev-mcp tools).
