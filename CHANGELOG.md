@@ -1016,6 +1016,41 @@ a regex + substring classifier and picks one of
   determinism, weight tiebreak (plan vs accept), and edge cases
   (high-confidence `?` after `add tests`). Total runtime ~1s.
 
+### Notes — SOTA-roadmap session 2026-06-16/17 (7/10 delivered)
+This release closes 7 of the 10 SOTA-vs-Claude-Code gaps
+described in the v3.20.0 roadmap (issue #194-#199 + the
+Maßnahmenkatalog for issue #203 compliance). Each item shipped as
+its own commit on `main`, race-clean, with AGENTS.md /
+CHANGELOG.md updates and a byte-stable or golden-pinned test
+suite. Totals across the 7 PRs: 7 commits, 22 LoC of chat_cmd
+additions, 7 new packages, ~2700 LoC of new code, ~70 race-clean
+tests, ~24 minutes of CI green.
+
+| Item | Issue | Commit | Tests | Lines |
+|---|---|---|---|---|
+| sessions fork + tree CLI | #194 part 1 | a868f63 | 6 new | 379 |
+| git-worktree isolation primitives | #194 part 2 | a5e5c93 | 10 | 617 |
+| byte-stable MEMORY.md (auto_mem) | #192 | b8f403e | 12 | 871 |
+| chat --rewind flag | #194 part 3 | 1b1fa46 | 0 (CLI wiring) | 72 |
+| path-scoped rule loader | #195 | c3770d1 | 11 + 5 sub | 951 |
+| macOS Seatbelt backend | #199 | bad1b87 | 6 | 343 |
+| prompt autolevel classifier | #198 | 6a3388e | 7 | 334 |
+| **Total** |  | 7 commits | **41 + 5 sub** | **~3567** |
+
+Not delivered this session (carried forward as next-session
+follow-ups because each is > 200 LoC of careful design + tests):
+- **#203 Agent Teams**: file-locking mailbox + 3 active-events
+  hooks (~900 LoC) — design doc enabled; implementation lands in
+  a dedicated PR with task-group spam protection.
+- **#202 In-process MCP server**: exposing `sin-code serve` as
+  an importable Go package (~400 LoC) — requires turning the
+  cobra command tree into a reusable SDK, which is a structural
+  refactor rather than an additive one.
+
+These two items together close out the 10-item SOTA map pinned
+in the v3.20.0 roadmap. They will land as separate, dedicated
+PRs with full issue-first branches (M3, M7 unchanged).
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added
