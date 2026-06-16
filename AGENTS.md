@@ -81,10 +81,25 @@ check. Rejection re-injects the open criteria and forces continued work. All of
 this is opt-in and fail-safe: nil stop-gate / empty contract / no contract flag
 preserves exact legacy single-gate behavior.
 
+**SinCode Loop System — always-on Definition-of-Done baseline
+(`internal/goalcontract/baseline.go`):** every resolved contract is additively
+merged (and deduped) with a baseline DoD so the "self-evident" follow-through is
+implicit for every goal — agents are never told to write tests, debug, remove
+scaffolding, or update docs again. Deterministic predicate checks: tests touched
+in the diff, `CHANGELOG.md` touched, a `.doc.md` CoDoc beside each changed `.go`
+file. Semantic criteria (LLM-judged): tests cover new behavior, no debug
+leftovers, goal fully addressed, README/CHANGELOG/AGENTS/MASTER_TODO/CoDocs kept
+in sync. The same criteria are injected into the worker prompt up front
+(`goalcontract.Preamble` → `agentloop.Loop.Preamble`) so they are handled on the
+first pass. ON by default in `daemon` and `auto run`; escape with `--no-baseline`
+or `SIN_BASELINE=off` (`goalcontract.BaselineEnabled`). Fail-open outside a git
+repo. See `cmd/sin-code/internal/goalcontract/baseline.doc.md`.
+
 **Daemon loop-engineering flags:** `--max-continuations` (checkpoint+resume past
 `--max-turns` instead of aborting, bounded), `--max-depth` (sub-goal nesting via
 the `spawn_subgoal` tool), `--no-contract` (disable Definition-of-Done, revert to
-single verify-gate). Discovery: `goal discover [--dry-run]` and the `discover`
+single verify-gate), `--no-baseline` (disable the always-on baseline DoD; also
+`SIN_BASELINE=off`). Discovery: `goal discover [--dry-run]` and the `discover`
 trigger type turn TODO/FIXME markers and `MASTER_TODO.md` items into deduplicated
 goals. Env vars: `SIN_EVALUATOR_MODEL`, `SIN_EVALUATOR_BASE_URL`,
 `SIN_EVALUATOR_API_KEY`.
@@ -155,7 +170,7 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   │  • Permission engine (allow/ask/deny)    │
   │  • Hook engine (24 lifecycle events)     │
   │  • Verify Gate (PoC/Oracle, M3)          │
-  │  • Sessions: SQLite, resumable           │
+  │  �� Sessions: SQLite, resumable           │
   │  • Lessons: closed learning loop (v3.4)  │
   │  • MCP-Client: external servers           │
   └──────────────────────────────────────────┘

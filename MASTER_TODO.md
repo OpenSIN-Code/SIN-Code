@@ -144,3 +144,26 @@
 ---
 
 *Last updated: 2026-06-02*
+
+---
+
+## SinCode Loop System — always-on Definition-of-Done (2026-06-16)
+
+- [x] Baseline DoD module (`internal/goalcontract/baseline.go`) — deterministic
+  predicate checks (tests touched, CHANGELOG touched, `.doc.md` CoDoc per changed
+  Go file) + semantic criteria (tests cover new behavior, no debug leftovers,
+  goal fully addressed, docs in sync).
+- [x] Additive, deduped merge into `goalcontract.Resolve` via `IncludeBaseline`.
+- [x] DoD preamble injected into the worker prompt (`goalcontract.Preamble` →
+  `agentloop.Loop.Preamble`, wired in `loopbuilder.Build`).
+- [x] ON by default in `daemon` and `auto run`; `--no-baseline` / `SIN_BASELINE=off`.
+- [x] Tests: `baseline_test.go` (23 cases incl. real-git predicate execution) +
+  `loop_preamble_test.go`. Docs synced: CHANGELOG, AGENTS.md, CoDocs, this file.
+
+### Follow-ups / backlog
+- [ ] Extend baseline predicates beyond Go (per-language test-file detection).
+- [ ] Make the CoDoc/CHANGELOG predicates configurable per repo (opt-out subsets).
+- [ ] Apply the baseline to interactive surfaces (swarm/serve) once they gain a
+  completion gate.
+
+*Loop-system update: 2026-06-16*

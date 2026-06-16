@@ -25,14 +25,22 @@ satisfied — not when the model stops emitting tool calls.
    `--done-when` shell predicate.
 2. **Auto-detected repo checks** — e.g. a `go.mod` adds `DefaultGoChecks()`
    (build/test/vet) plus a `no-new-todos` diff guard.
+2b. **Always-on baseline** (`IncludeBaseline`, default ON) — the SinCode Loop
+   System Definition-of-Done from `baseline.go` is merged in additively and
+   deduped: deterministic predicate checks (tests touched, CHANGELOG touched,
+   `.doc.md` CoDoc per changed Go file) + semantic criteria (tests cover new
+   behavior, no debug leftovers, goal fully addressed, docs in sync). Gated by
+   `BaselineEnabled(--no-baseline)` / `SIN_BASELINE=off`. See `baseline.doc.md`.
 3. **Verify-cmd fallback** — only when nothing else produced a deterministic
    check, the `--verify-cmd` becomes the single predicate.
 
 ## Files that import / touch it
 
+- `cmd/sin-code/internal/goalcontract/baseline.go` — the always-on baseline DoD merged by `Resolve` and rendered by `Preamble`.
 - `cmd/sin-code/internal/stopgate/stopgate.go` — consumes the contract to decide completion.
-- `cmd/sin-code/internal/loopbuilder/builder.go` — attaches a resolved contract to the loop's stop-gate.
-- `cmd/sin-code/daemon_cmd.go` — resolves per-goal contracts before running.
+- `cmd/sin-code/internal/loopbuilder/builder.go` — attaches a resolved contract to the loop's stop-gate and sets the loop's `Preamble`.
+- `cmd/sin-code/daemon_cmd.go` — resolves per-goal contracts (baseline on by default, `--no-baseline`) before running.
+- `cmd/sin-code/auto_cmd.go` — resolves a session-wide baseline contract for `auto run`.
 - `cmd/sin-code/goal_cmd.go` — `goal add --criteria/--contract-file` builds & persists contracts.
 
 ## Important values & limits
