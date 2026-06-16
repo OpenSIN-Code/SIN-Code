@@ -431,6 +431,38 @@ reports them; `debt check` gates them.
 - Tests: 35 race-safe unit tests + 8 chat-wiring integration tests, 91.5%
   statement coverage on the autoactivate package. New package follows
   the existing `hooklife` Phase contract; no new external deps.
+### Added — Orchestrator output contracts (issue #174)
+- **Caveman-style output contract** for the four orchestrator sub-agents
+  (`internal/orchestrator/output_contract.go`). Every Finding renders to ONE
+  byte-stable line: `<path>:<line> — <symbol> — <tag> — <hint> # c=<confidence>`.
+  Five closed tags (parallel to `JuliusBrussee/ponytail`): `delete | simplify |
+  rebuild | risk | verify`. Em-dash U+2014 separator; no prose, no pleasantries,
+  no hedging (`you might`, `perhaps`, `could consider`, `maybe`, `i think`,
+  `sort of`, `should probably`, … — closed set of 12 phrases, case-folded).
+- **`Finding` struct** (`internal/orchestrator`) and `ParseFinding` /
+  `ParseFindings` regex parsers with strict byte-stability. `Render()` is
+  fully deterministic — `Finding{...}` → `Render()` → `ParseFinding()` →
+  equal struct, every byte counted (verified by `TestParseFinding_RoundTrip`).
+- **`VerifyFindings`** runs the full contract: structural (`Path != ""`,
+  `Tag ∈ {delete, simplify, rebuild, risk, verify}`), lexical (zero hedging,
+  hint ≤ 240 chars, no trailing punctuation), and emits per-Finding error
+  strings — never silent drops.
+- **Wired into the four sub-agents**:
+  - `Critic.Drive` parses the LAST attempt's prose into `CriticResult.Findings`
+    and surfaces `CriticResult.ParseErrors` for the orchestrator to re-inject
+    as retry feedback (mirrors the `verify.fail` flow).
+  - `Adversary.Review` derives Findings from the structured `Attack` slice
+    (landed → `risk`, cleared → `verify`); the `CounterexampleBrief` free-
+    form prose is preserved as the audit trail.
+  - `Governor.Execute` derives one `risk` Finding per `Escalation` (Path =
+    `task://<ID>`, Symbol = `<from>-><to>`); the prose `Reason` stays on
+    Escalation for the audit log.
+  - `Cartographer.Findings(k)` exposes the PageRank-sorted top-k as
+    `verify`-tagged Findings (opt-in: k ≤ 0 yields the empty slice).
+- **Byte-stable golden tests** (`output_contract_test.go` and
+  `output_contract_integration_test.go`) pin one fixture per agent;
+  rendering drift breaks the build (the prerequisite for issue #168's
+  ledger-level token-cost hashing).
 
 ### Added — Loop Engineering (decoupled completion authority)
 ### Added — MCP tool-manifest compression (issue #173, v3.19.0)

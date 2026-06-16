@@ -33,12 +33,19 @@ type Escalation struct {
 	At       time.Time
 }
 
+// GovernorResult is the bounded ladder outcome. Findings carries the
+// caveman-style one-liners derived from each Escalation; the
+// prose Reason strings remain on Escalation (free-form audit trail)
+// and Findings is the structured prose layer the orchestrator
+// re-ingests. Each escalation becomes ONE Finding tagged `risk` (the
+// blast radius of staying at the lower rung).
 type GovernorResult struct {
 	Passed      bool
 	FinalRung   string
 	Verdict     *Verdict
 	Escalations []Escalation
 	TotalRounds int
+	Findings    []Finding
 }
 
 type AgentFactory func(rung Rung) []Agent
@@ -80,6 +87,7 @@ func (g *Governor) Execute(ctx context.Context, task *Task, scratch *Scratchpad)
 		verdict, rounds, err := g.runRung(rctx, rung, task, scratch)
 		cancel()
 		if err != nil {
+			collectGovernorFindings(res, task)
 			return res, fmt.Errorf("rung %q: %w", rung.Name, err)
 		}
 		res.TotalRounds += rounds
@@ -88,10 +96,51 @@ func (g *Governor) Execute(ctx context.Context, task *Task, scratch *Scratchpad)
 
 		if verdict != nil && verdict.Passed {
 			res.Passed = true
+			collectGovernorFindings(res, task)
 			return res, nil
 		}
 	}
+	collectGovernorFindings(res, task)
 	return res, nil
+}
+
+// collectGovernorFindings derives caveman-style Findings from each
+// Escalation. Every climb is a single `risk` Finding — the lower rung
+// ended red, so the orchestrator's blast radius is "task needs another
+// rung". The Governor is the only sub-agent whose Findings are
+// file-level (Path = task.ID, Line=0) because the rung ladder doesn't
+// own a file location.
+func collectGovernorFindings(res *GovernorResult, task *Task) {
+	if res == nil {
+		return
+	}
+	res.Findings = make([]Finding, 0, len(res.Escalations))
+	taskPath := "task://orphan"
+	if task != nil && task.ID != "" {
+		taskPath = "task://" + task.ID
+	}
+	for _, e := range res.Escalations {
+		res.Findings = append(res.Findings, Finding{
+			Tag:        TagRisk,
+			Symbol:     e.FromRung + "->" + e.ToRung,
+			Path:       taskPath,
+			Line:       0,
+			Confidence: 1.0,
+			Hint:       truncateGovernorHint(e.Reason),
+		})
+	}
+}
+
+// truncateGovernorHint keeps the Finding Hint under the 240-char
+// caveman one-liner ceiling. The Escalation.Reason is the audit-trail
+// free-form string and may be longer; the Finding only carries the
+// first 200 chars + a tail marker.
+func truncateGovernorHint(reason string) string {
+	const max = 200
+	if len(reason) <= max {
+		return reason
+	}
+	return reason[:max] + "... [truncated]"
 }
 
 func (g *Governor) runRung(ctx context.Context, rung Rung, task *Task, scratch *Scratchpad) (*Verdict, int, error) {
