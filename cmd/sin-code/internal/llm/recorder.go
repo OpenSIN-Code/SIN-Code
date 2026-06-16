@@ -117,8 +117,8 @@ type sessionIDKey struct{}
 // callers that don't set one explicitly. This is purely defensive:
 // every well-behaved caller should set its own via WithSessionID.
 var (
-	muSessionID      sync.Mutex
-	fallbackSession  string
+	muSessionID     sync.Mutex
+	fallbackSession string
 )
 
 // DefaultSessionID returns a stable, process-unique session

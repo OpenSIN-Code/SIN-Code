@@ -85,7 +85,7 @@ type fakeRecorder struct {
 }
 
 type fakeEvent struct {
-	SessionID, Model, Source string
+	SessionID, Model, Source  string
 	Prompt, Completion, Total int
 }
 
