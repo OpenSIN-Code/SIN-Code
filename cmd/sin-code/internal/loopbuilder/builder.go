@@ -61,6 +61,11 @@ type Config struct {
 	// tool. Pass the same session store the daemon uses so sub-agents get
 	// their own isolated sessions. Nil disables delegation.
 	SubagentStore *session.Store
+
+	// Replanner, when set, enables adaptive re-planning on stall (#010): the
+	// loop asks for a fresh strategy before aborting. Nil keeps the legacy
+	// abort-on-stall behavior.
+	Replanner agentloop.Replanner
 }
 
 // Build constructs a fully wired agentloop.Loop with all mandates applied
@@ -135,6 +140,13 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		// Delegation: when a session store is provided, the worker may spawn
 		// isolated sub-agents via the built-in spawn_subagent tool.
 		SubagentStore: cfg.SubagentStore,
+		// Diff-based stall detection (#011): the default git probe is
+		// best-effort (no-op outside a git repo), so it is always safe to set.
+		ProgressProbe: agentloop.GitProgressProbe,
+		// Adaptive re-planning (#010): the daemon may inject a Replanner; the
+		// builder leaves it nil by default (legacy abort-on-stall) unless the
+		// caller wires one via cfg.Replanner.
+		Replanner: cfg.Replanner,
 	}
 
 	// Per-repo configuration (.sin-code.yml): committed budgets / gate mode
@@ -153,6 +165,12 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		}
 		if rc.MaxTokens > 0 {
 			loop.MaxTokens = rc.MaxTokens
+		}
+		if rc.ReplanBudget > 0 {
+			loop.ReplanBudget = rc.ReplanBudget
+		}
+		if rc.NoProgressThreshold > 0 {
+			loop.NoProgressThreshold = rc.NoProgressThreshold
 		}
 		if rc.VerifyMode != "" {
 			gate.SetMode(verify.Mode(rc.VerifyMode))

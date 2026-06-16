@@ -1,8 +1,9 @@
 # [loop-011] Diff-based progress score — detect *real* stagnation, not just identical criteria text
 
+**Status:** ✅ Implemented (loop-issues)
 **Labels:** `loop-system` `robustness` `p1`
 **Branch:** `loop-issues`
-**Affects:** `agentloop/loop.go`, new `agentloop/progress.go`, `ledger/store.go`
+**Affects:** `agentloop/loop.go`, new `agentloop/progress.go`, `ledger/store.go`, `loopbuilder/builder.go`, `repoconfig/config.go`
 **Tier:** 1
 **Depends on:** #150 (stall detection — done), complements #010
 

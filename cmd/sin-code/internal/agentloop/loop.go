@@ -51,6 +51,26 @@ type Reflection struct {
 // Reflector disables the reflection step (legacy behavior).
 type Reflector func(ctx context.Context, snap StopSnapshot) Reflection
 
+// StallSnapshot is the context handed to a Replanner when progress stalls —
+// either because the stop-gate keeps returning the same open criteria (#150)
+// or because the workspace stopped changing (#011).
+type StallSnapshot struct {
+	Prompt       string
+	OpenCriteria []string // criteria stuck unchanged
+	StallCount   int
+	Turns        int
+	ToolsUsed    []string
+	SessionID    string
+	Reason       string // human-readable stall cause
+}
+
+// Replanner proposes a fresh strategy when the loop stalls. Returning a
+// non-empty directive injects it as a user message and resets stall tracking,
+// granting the agent another attempt with new guidance. Returning an empty
+// string lets the loop escalate (abort/checkpoint) as before. A nil Replanner
+// preserves the legacy abort-on-stall behavior exactly.
+type Replanner func(ctx context.Context, snap StallSnapshot) string
+
 type ToolSpec struct {
 	Name        string
 	Description string
@@ -138,6 +158,25 @@ type Loop struct {
 	// loop's wiring but get their own session from this store. Nil disables
 	// delegation entirely (the tool is neither advertised nor accepted).
 	SubagentStore *session.Store
+
+	// Replanner, if set, is consulted on stall BEFORE escalation. It returns
+	// a new strategy directive; an empty return means "no new idea, escalate".
+	// Limited to ReplanBudget attempts per run to avoid infinite re-planning.
+	Replanner Replanner
+
+	// ReplanBudget caps how many stall-triggered re-plans a single run may
+	// use. 0 -> default 1. Each successful re-plan resets stall tracking once.
+	ReplanBudget int
+
+	// ProgressProbe, if set, augments text-based stall detection with a
+	// measure of real workspace change. When the probe reports an identical
+	// diff hash for NoProgressThreshold consecutive stop-gate rejects, the run
+	// is considered stalled even if the criteria text changed. Nil disables it.
+	ProgressProbe ProgressProbe
+
+	// NoProgressThreshold: consecutive identical-diff rejects before a hard
+	// stall. 0 -> default 3.
+	NoProgressThreshold int
 
 	// AllowContinuation switches the maxTurns outcome from a hard error to a
 	// checkpointed, resumable Result (Continuation=true). Daemons set this so
@@ -309,6 +348,72 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	totalTokens := 0
 	warnedBudget := false
 	reflectedThisProposal := false
+	replansUsed := 0   // stall-triggered strategy changes consumed (#010)
+	lastDiffHash := "" // last workspace diff hash for progress detection (#011)
+	noProgressCount := 0
+
+	// escalateStall is the shared stall handler for both the textual-fingerprint
+	// signal (#150) and the diff-based no-progress signal (#011). It first tries
+	// the Replanner (#010): if that injects a new strategy it returns
+	// replanned=true and the caller continues the loop with a clean stall slate.
+	// Otherwise it persists history, records the stall, and returns a terminal
+	// outcome (checkpoint Result when AllowContinuation, else an error) that the
+	// caller must return. Run-local state is captured by reference so resets and
+	// message appends are visible to the main loop.
+	escalateStall := func(turn int, reason string, openCrit []string, sc int) (replanned bool, res *Result, err error) {
+		budget := l.ReplanBudget
+		if budget == 0 {
+			budget = 1
+		}
+		if l.Replanner != nil && replansUsed < budget {
+			directive := l.Replanner(ctx, StallSnapshot{
+				Prompt: prompt, OpenCriteria: openCrit, StallCount: sc,
+				Turns: turn + 1, ToolsUsed: toolsUsed, SessionID: sess.ID, Reason: reason,
+			})
+			if strings.TrimSpace(directive) != "" {
+				replansUsed++
+				// Give the new strategy a clean slate across both signals.
+				stallCount = 0
+				lastCritFingerprint = ""
+				lastDiffHash = ""
+				noProgressCount = 0
+				l.fire(ctx, hooks.Replan, "", map[string]any{
+					"replans_used": replansUsed, "open_criteria": openCrit, "reason": reason,
+				})
+				l.record(ctx, ledger.TypeReplan,
+					map[string]any{"replans_used": replansUsed, "open_criteria": openCrit, "reason": reason},
+					"stall recovered via re-plan; new strategy injected")
+				msgs = append(msgs, session.Message{
+					Role: "user",
+					Content: "STRATEGY CHANGE — the current approach is not making " +
+						"progress. Abandon it and try a different decomposition:\n\n" + directive,
+				})
+				if serr := sess.SaveHistory(msgs); serr != nil {
+					return false, nil, serr
+				}
+				return true, nil, nil
+			}
+		}
+		// No replanner, exhausted budget, or no new idea -> escalate.
+		if serr := sess.SaveHistory(msgs); serr != nil {
+			return false, nil, serr
+		}
+		l.fire(ctx, hooks.StopStalled, "", map[string]any{
+			"stall_count": sc, "open_criteria": openCrit, "reason": reason,
+		})
+		l.record(ctx, ledger.TypeStallDetected,
+			map[string]any{"stall_count": sc, "open_criteria": openCrit, "reason": reason, "replans_used": replansUsed},
+			fmt.Sprintf("%s; escalating after %d re-plan(s)", reason, replansUsed))
+		if l.AllowContinuation {
+			return false, &Result{
+				SessionID: sess.ID, Summary: lastText, Verified: false,
+				Turns: turn + 1, Continuation: true, OpenCriteria: openCrit,
+			}, nil
+		}
+		return false, nil, fmt.Errorf(
+			"stop-gate stalled (%s) after %d re-plan(s); open criteria: %s",
+			reason, replansUsed, strings.Join(openCrit, "; "))
+	}
 
 	for turn := 0; turn < maxTurns; turn++ {
 		if err := ctx.Err(); err != nil {
@@ -468,9 +573,44 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 					lastOpen = dec.OpenCriteria
 					stopRejects++
 
-					// Stagnation guard: identical open criteria across
-					// consecutive rejects means the worker is stuck. Escalate
-					// early instead of burning the full reject budget.
+					// Diff-based progress guard (#011): robust to the stop-gate
+					// rephrasing its criteria. If the workspace stopped changing
+					// across consecutive rejects, that is a true stall even when
+					// the criteria text differs each turn.
+					if l.ProgressProbe != nil {
+						sig := l.ProgressProbe(ctx, l.Workspace)
+						threshold := l.NoProgressThreshold
+						if threshold == 0 {
+							threshold = 3
+						}
+						if sig.DiffHash != "" && sig.DiffHash == lastDiffHash {
+							noProgressCount++
+						} else {
+							noProgressCount = 0
+							lastDiffHash = sig.DiffHash
+						}
+						if noProgressCount >= threshold {
+							l.record(ctx, ledger.TypeNoProgress,
+								map[string]any{"no_progress_count": noProgressCount, "lines_changed": sig.LinesChanged},
+								fmt.Sprintf("no workspace change for %d rejects", noProgressCount))
+							replanned, res, eerr := escalateStall(turn,
+								fmt.Sprintf("no workspace change for %d consecutive rejects", noProgressCount),
+								lastOpen, noProgressCount)
+							if eerr != nil {
+								return nil, eerr
+							}
+							if replanned {
+								continue
+							}
+							if res != nil {
+								return res, nil
+							}
+						}
+					}
+
+					// Stagnation guard (#150): identical open criteria across
+					// consecutive rejects means the worker is stuck. Try a
+					// re-plan (#010) before burning the full reject budget.
 					fp := strings.Join(dec.OpenCriteria, "\x1f")
 					if fp != "" && fp == lastCritFingerprint {
 						stallCount++
@@ -479,20 +619,18 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 						lastCritFingerprint = fp
 					}
 					if l.StallThreshold > 0 && stallCount >= l.StallThreshold {
-						if serr := sess.SaveHistory(msgs); serr != nil {
-							return nil, serr
+						replanned, res, eerr := escalateStall(turn,
+							fmt.Sprintf("identical open criteria %d turns in a row (StallThreshold=%d)", stallCount, l.StallThreshold),
+							lastOpen, stallCount)
+						if eerr != nil {
+							return nil, eerr
 						}
-						l.fire(ctx, hooks.StopStalled, "", map[string]any{
-							"stall_count": stallCount, "open_criteria": lastOpen,
-						})
-						l.record(ctx, ledger.TypeStallDetected,
-							map[string]any{"stall_count": stallCount, "open_criteria": lastOpen},
-							fmt.Sprintf("no progress: identical open criteria %d turns in a row; escalating", stallCount))
-						return nil, fmt.Errorf(
-							"stop-gate stalled: identical open criteria %d turns in a row "+
-								"(StallThreshold=%d); open criteria: %s",
-							stallCount, l.StallThreshold, strings.Join(lastOpen, "; "),
-						)
+						if replanned {
+							continue
+						}
+						if res != nil {
+							return res, nil
+						}
 					}
 
 					// Reject budget guard: cap how many times the stop-gate

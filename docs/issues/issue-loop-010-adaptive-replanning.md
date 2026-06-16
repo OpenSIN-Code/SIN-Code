@@ -1,8 +1,9 @@
 # [loop-010] Adaptive re-planning on stall — turn stagnation into a new strategy, not an abort
 
+**Status:** ✅ Implemented (loop-issues)
 **Labels:** `loop-system` `autonomy` `p1`
 **Branch:** `loop-issues`
-**Affects:** `agentloop/loop.go`, `hooks/hooks.go`, `ledger/store.go`
+**Affects:** `agentloop/loop.go`, `hooks/hooks.go`, `ledger/store.go`, `loopbuilder/builder.go`, `repoconfig/config.go`
 **Tier:** 1
 **Depends on:** #150 (stall detection — done)
 

@@ -13,12 +13,14 @@ import (
 
 // Config mirrors .sin-code.yml. All fields optional; zero means "use default".
 type Config struct {
-	MaxTurns       int      `yaml:"max_turns"`
-	MaxStopRejects int      `yaml:"max_stop_rejects"`
-	StallThreshold int      `yaml:"stall_threshold"`
-	MaxTokens      int      `yaml:"max_tokens"`
-	VerifyMode     string   `yaml:"verify_mode"`    // poc|oracle|off
-	DisableChecks  []string `yaml:"disable_checks"` // check names to skip, e.g. ["go vet"]
+	MaxTurns            int      `yaml:"max_turns"`
+	MaxStopRejects      int      `yaml:"max_stop_rejects"`
+	StallThreshold      int      `yaml:"stall_threshold"`
+	MaxTokens           int      `yaml:"max_tokens"`
+	ReplanBudget        int      `yaml:"replan_budget"`         // stall-triggered re-plans per run (#010)
+	NoProgressThreshold int      `yaml:"no_progress_threshold"` // identical-diff rejects before stall (#011)
+	VerifyMode          string   `yaml:"verify_mode"`           // poc|oracle|off
+	DisableChecks       []string `yaml:"disable_checks"`        // check names to skip, e.g. ["go vet"]
 }
 
 // FileName is the conventional per-repo config filename.

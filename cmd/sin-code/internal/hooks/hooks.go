@@ -55,6 +55,10 @@ const (
 	// StallThreshold turns in a row (no-progress escalation).
 	StopStalled = "stop.stalled"
 
+	// Replan fires when a stall triggers a strategy change (adaptive recovery)
+	// instead of an immediate abort.
+	Replan = "loop.replan"
+
 	// ReflectIssues fires when the self-reflection pass finds problems the
 	// worker must fix before completion is evaluated.
 	ReflectIssues = "reflect.issues"

@@ -46,6 +46,15 @@ const (
 	// TypeReflection records a self-critique pass that found issues and forced
 	// another work turn before stop-gate evaluation.
 	TypeReflection EntryType = "reflection"
+
+	// TypeReplan records a stall-triggered strategy change: instead of
+	// aborting, the loop injected a fresh decomposition and tried again.
+	TypeReplan EntryType = "replan"
+
+	// TypeNoProgress records a diff-based stall: the working tree stopped
+	// changing across consecutive stop-gate rejects (robust to criteria
+	// rephrasing).
+	TypeNoProgress EntryType = "no_progress"
 )
 
 // Entry is one row in the ledger.
