@@ -112,15 +112,22 @@ func NewGoalCmd() *cobra.Command {
 
 	var dryRun bool
 	var discoverRetries int
+	var githubIssues, ciChecks bool
+	var githubLabels []string
+	var ciBranch string
 	discoverCmd := &cobra.Command{
 		Use:   "discover",
-		Short: "Scan the repo for latent work (TODO/FIXME, MASTER_TODO) and enqueue goals",
+		Short: "Scan for latent work (TODO/FIXME, MASTER_TODO, GitHub issues, failing CI) and enqueue goals",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ws, _ := os.Getwd()
 			findings, err := autonomy.Discover(autonomy.DiscoverConfig{
-				Workspace:    ws,
-				ScanComments: true,
-				ScanMaster:   true,
+				Workspace:        ws,
+				ScanComments:     true,
+				ScanMaster:       true,
+				ScanGitHubIssues: githubIssues,
+				GitHubLabels:     githubLabels,
+				ScanCIChecks:     ciChecks,
+				CIBranch:         ciBranch,
 			})
 			if err != nil {
 				return err
@@ -151,6 +158,10 @@ func NewGoalCmd() *cobra.Command {
 	}
 	discoverCmd.Flags().BoolVar(&dryRun, "dry-run", false, "list findings without enqueueing")
 	discoverCmd.Flags().IntVar(&discoverRetries, "retries", 3, "retry budget for enqueued goals")
+	discoverCmd.Flags().BoolVar(&githubIssues, "github-issues", false, "also drain open GitHub issues into goals (loop-003)")
+	discoverCmd.Flags().StringSliceVar(&githubLabels, "github-labels", nil, "issue labels to scan (default: bug, help wanted, good first issue)")
+	discoverCmd.Flags().BoolVar(&ciChecks, "ci-checks", false, "also turn failing CI check runs into fix goals (loop-008)")
+	discoverCmd.Flags().StringVar(&ciBranch, "ci-branch", "", "branch to inspect for CI failures (default: current branch)")
 
 	cmd.AddCommand(addCmd, listCmd, discoverCmd)
 	return cmd

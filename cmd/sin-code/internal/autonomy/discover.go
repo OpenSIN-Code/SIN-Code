@@ -13,11 +13,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Finding is one unit of discovered work.
 type Finding struct {
-	Source   string // "todo" | "fixme" | "master_todo"
+	Source   string // "todo" | "fixme" | "master_todo" | "github_issue" | "ci_check"
 	Prompt   string // instruction handed to a worker
 	DedupKey string // stable identity so re-scans don't duplicate
 	Priority int
@@ -30,6 +31,22 @@ type DiscoverConfig struct {
 	ScanMaster   bool // scan MASTER_TODO.md for unchecked items
 	MaxFindings  int  // cap per scan (0 = default 50)
 	MaxRetries   int  // retry budget for enqueued goals (0 = default 3)
+
+	// GitHub-native discovery (loop-003): drain open issues as goals.
+	ScanGitHubIssues bool
+	GitHubLabels     []string // empty = ["bug","help wanted","good first issue"]
+	GitHubMaxIssues  int      // cap per scan (0 = default 20)
+
+	// CI failure discovery (loop-008): turn failing check runs into fix-goals.
+	ScanCIChecks  bool
+	CIBranch      string // branch to inspect (empty = current branch)
+	CIMaxFailures int    // cap per scan (0 = default 5)
+
+	// Shared GitHub connection fields (auto-detected from git remote / env
+	// when empty). Used by both the issue and CI scanners.
+	GitHubOwner string
+	GitHubRepo  string
+	GitHubToken string // GH_TOKEN / GITHUB_TOKEN env fallback
 }
 
 // codeExts is the set of source extensions scanned for TODO/FIXME markers.
@@ -65,6 +82,22 @@ func Discover(cfg DiscoverConfig) ([]Finding, error) {
 		if err := scanMasterTodo(cfg.Workspace, add); err != nil {
 			return nil, err
 		}
+	}
+	if cfg.ScanGitHubIssues {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		if err := scanGitHubIssues(ctx, cfg, add); err != nil {
+			fmt.Fprintf(os.Stderr, "warn: github issues scan failed: %v\n", err)
+			// non-fatal: local findings are still returned
+		}
+		cancel()
+	}
+	if cfg.ScanCIChecks {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		if err := scanCICheckRuns(ctx, cfg, add); err != nil {
+			fmt.Fprintf(os.Stderr, "warn: CI check scan failed: %v\n", err)
+			// non-fatal
+		}
+		cancel()
 	}
 	return out, nil
 }

@@ -19,6 +19,16 @@ type Trigger struct {
 	Debounce string `json:"debounce"`
 	Prompt   string `json:"prompt"`
 	Priority int    `json:"priority"`
+
+	// discover-trigger source toggles (loop-003/008). When none of the
+	// scan_* fields are set on a discover trigger, comments + master default
+	// to on for backward compatibility.
+	ScanComments     *bool    `json:"scan_comments,omitempty"`
+	ScanMaster       *bool    `json:"scan_master,omitempty"`
+	ScanGitHubIssues bool     `json:"scan_github_issues,omitempty"`
+	GitHubLabels     []string `json:"github_labels,omitempty"`
+	ScanCIChecks     bool     `json:"scan_ci_checks,omitempty"`
+	CIBranch         string   `json:"ci_branch,omitempty"`
 }
 
 // LoadTriggers reads .sin-code/triggers.json from the workspace.
@@ -93,11 +103,24 @@ func (r *Runner) runDiscover(ctx context.Context, t Trigger) {
 		fmt.Fprintf(os.Stderr, "warn: discover trigger needs every >= 1m, got %q\n", t.Every)
 		return
 	}
+	// Default the local scanners on unless explicitly toggled, so existing
+	// discover triggers keep working while new GitHub/CI sources are opt-in.
+	scanComments, scanMaster := true, true
+	if t.ScanComments != nil {
+		scanComments = *t.ScanComments
+	}
+	if t.ScanMaster != nil {
+		scanMaster = *t.ScanMaster
+	}
 	scan := func() {
 		findings, derr := Discover(DiscoverConfig{
-			Workspace:    r.Workspace,
-			ScanComments: true,
-			ScanMaster:   true,
+			Workspace:        r.Workspace,
+			ScanComments:     scanComments,
+			ScanMaster:       scanMaster,
+			ScanGitHubIssues: t.ScanGitHubIssues,
+			GitHubLabels:     t.GitHubLabels,
+			ScanCIChecks:     t.ScanCIChecks,
+			CIBranch:         t.CIBranch,
 		})
 		if derr != nil {
 			fmt.Fprintf(os.Stderr, "warn: discover scan failed: %v\n", derr)
