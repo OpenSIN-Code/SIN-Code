@@ -691,6 +691,8 @@ func newEvalDiffCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("snapshot")
 	_ = cmd.MarkFlagRequired("snapshot-b")
 	return cmd
+}
+
 // buildScorer constructs an evalharness.Scorer from the CLI flags.
 // Supported types: compile_and_run, exact, contains.
 func buildScorer(typ, lang, selfCheck string, skipTest bool, binary string) (evalharness.Scorer, error) {
