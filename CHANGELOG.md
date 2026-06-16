@@ -4,6 +4,27 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — `sin-code goal` fusion (issue #140, v0.5)
+- **Four new subcommands** under `sin-code goal` (issue #140 fusion
+  with the external `SIN-Code-Goal-Mode-Skill` Python MCP server):
+  - `goal status <id>` — show one goal with subtasks (children)
+  - `goal complete <id>` — mark a goal as verified/done
+  - `goal subtask <parent-id> <prompt>` — add a subtask
+  - `goal report [--format md|json]` — progress report
+- **Mapping to the 8 external tools** (issue body):
+  - `goal_start` → existing `goal add`
+  - `goal_status` → NEW `goal status`
+  - `goal_list` → existing `goal list`
+  - `goal_complete` → NEW `goal complete`
+  - `goal_subtask` → NEW `goal subtask`
+  - `goal_report` → NEW `goal report`
+  - `goal_checkpoint` / `goal_rollback` — **deferred to v1** (no
+    storage yet; the Queue has no `Checkpoint` table)
+- **`parseGoalID` helper** — accepts both `42` and `#42` (with
+  optional whitespace); used by all four new subcommands
+- **11 tests** (1 unit test for `parseGoalID`, all autonomy
+  tests pass under `go test -race -count=1`)
+
 ### Added — Skill lifecycle markers (issue #139)
 - **`scripts/lifecycle_map.yaml`** — single source of truth for the
   lifecycle of every bundled skill. Maps each of the 34 skills to
