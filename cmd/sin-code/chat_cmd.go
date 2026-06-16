@@ -20,6 +20,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/checkpoint"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife/autoactivate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
@@ -56,6 +57,13 @@ type chatOptions struct {
 	// intact on exit (use `sin-code sessions rm` or `git worktree
 	// remove --force` to clean up). Issue #194 part 2.
 	worktree string
+	// rewind restores the workspace to the named checkpoint before
+	// the chat starts. Empty means start from current state.
+	// Combined with --worktree: the restore happens on the
+	// worktree path, so per-checkout branches can be rewound
+	// independently. Mirrors Claude Code's headless --from-pr
+	// rerun-on-checkpoint pattern.
+	rewind string
 }
 
 func NewChatCmd() *cobra.Command {
@@ -73,7 +81,8 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --activate terse,skill-x auto-activate the named rules (issue #176)
   sin-code chat --no-trigger             disable prompt-phrase activation
   sin-code chat --mode plan|acceptEdits|bypass  session-wide permission mode (issue #193)
-  sin-code chat --worktree <name>        run inside a git worktree (issue #194 part 2)`,
+  sin-code chat --worktree <name>        run inside a git worktree (issue #194 part 2)
+  sin-code chat --rewind <checkpoint>    restore workspace to a checkpoint before running`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context(), opts)
 		},
@@ -94,6 +103,7 @@ func NewChatCmd() *cobra.Command {
 	f.BoolVar(&opts.noTrigger, "no-trigger", false, "disable prompt-phrase activation (issue #176)")
 	f.StringVar(&opts.mode, "mode", "", "permission mode: default|plan|acceptEdits|bypass (issue #193)")
 	f.StringVar(&opts.worktree, "worktree", "", "run inside a fresh git worktree at .sin-code/worktrees/<name> (issue #194)")
+	f.StringVar(&opts.rewind, "rewind", "", "restore workspace to the named checkpoint before the chat starts")
 	return cmd
 }
 
@@ -149,6 +159,29 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		}
 		workspace = wt
 	}
+
+	// --- rewind to checkpoint (issue #194 part 3) --------------------
+	// Restores the workspace to a previously captured checkpoint
+	// BEFORE the agent loop starts. Combines with --worktree: the
+	// restore happens on the worktree path so each parallel-checkout
+	// rewinds independently. Files don't exist after restore? We
+	// still continue — only the bytes that were captured are
+	// restored; the rest stays as-is. (M3: restore is silent to
+	// the conversation; we emit a marker to stderr instead.)
+	if opts.rewind != "" {
+		cstore, cwerr := checkpoint.Open(workspace)
+		if cwerr != nil {
+			return fmt.Errorf("chat: --rewind=%s: open checkpoint store: %w",
+				opts.rewind, cwerr)
+		}
+		if rwerr := cstore.Restore(context.Background(), workspace, opts.rewind); rwerr != nil {
+			cstore.Close()
+			return fmt.Errorf("chat: --rewind=%s: restore: %w", opts.rewind, rwerr)
+		}
+		cstore.Close()
+		fmt.Fprintf(os.Stderr, "sin-code chat: workspace restored to checkpoint %s\n", opts.rewind)
+	}
+
 	hookEngine := hooks.New(loadHooks(workspace))
 
 	// --- auto-activation hook (issue #176) ------------------------------
@@ -395,6 +428,22 @@ func newChatActivator(workspace string, opts *chatOptions) *chatActivator {
 // parseActivateFlag splits a comma-separated rule list into trimmed
 // non-empty names. Empty input returns nil.
 func parseActivateFlag(s string) []string {
+	if s == "" {
+		return nil
+	}
+	var out []string
+	for _, raw := range strings.Split(s, ",") {
+		n := strings.TrimSpace(raw)
+		if n != "" {
+			out = append(out, n)
+		}
+	}
+	return out
+}
+
+// splitList splits a comma-separated list into trimmed, non-empty tokens.
+// Empty input returns nil.
+func splitList(s string) []string {
 	if s == "" {
 		return nil
 	}

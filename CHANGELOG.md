@@ -896,6 +896,28 @@ compaction did to coding quality).
   (issue #176 followup) so we keep this PR focused on the
   byte-stable surface and tuning the on-disk format.
 
+### Added — `sin-code chat --rewind <checkpoint-id>` (issue #194 part 3)
+Headless equivalent of Claude Code's `/rewind` and `--from-pr
+--rewind`: the chat session restores the workspace to a previously
+captured checkpoint *before* the agent loop starts. Pairs with:
+- `sin-code checkpoint [label]` (already shipped in v3.20.0) — captures
+  the current workspace state.
+- `sin-code rewind [checkpoint-id]` (already shipped) — restores.
+- The new `--rewind` flag runs that same restore automatically
+  at chat-init time, so an operator doesn't have to shell out.
+
+Acceptance criteria (issue #194 part 3):
+- [x] `sin-code chat --rewind=<id>` succeeds end-to-end against a
+      previously-captured checkpoint.
+- [x] The restore happens **before** session.Open / agentloop.New so
+      the loop sees the rewound state on turn 1 (not mid-loop).
+- [x] Stderr message names the checkpoint id so headless CI can
+      audit which restore ran.
+- [x] Combine with `--worktree` works: each parallel-checkout
+      rewinds its own copy.
+- [x] Restore failures return a wrapped error (`chat: --rewind=...: ...`)
+      that is operator-actionable.
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added
