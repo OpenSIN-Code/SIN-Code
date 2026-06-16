@@ -36,6 +36,10 @@ type Macros struct {
 	Class    TaskClass
 }
 
+var txnCommitHook = func(txn *FsTxn) error {
+	return txn.Commit()
+}
+
 func (m *Macros) SinChange(ctx context.Context, req EditRequest) (*MacroResult, error) {
 	res := &MacroResult{}
 
@@ -83,7 +87,7 @@ func (m *Macros) SinChange(ctx context.Context, req EditRequest) (*MacroResult, 
 		return res, nil
 	}
 
-	if err := txn.Commit(); err != nil {
+	if err := txnCommitHook(txn); err != nil {
 		return nil, fmt.Errorf("sin_change commit: %w", err)
 	}
 	res.Applied = true
