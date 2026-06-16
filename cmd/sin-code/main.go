@@ -32,7 +32,7 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
   Utility commands: security, sbom, config, self-update, tui, serve, update
   Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, superpowers,
-                    vane, stack, gh, hub, ledger, summary, install
+                    vane, stack, gh, hub, ledger, summary, install, compress
   Other:            completion, read, write, edit, lsp, plugin, index,
                     orchestrator-run, orchestrator-agents, orchestrator-plan,
                     todo, notifications, memory, assets, evalset, hooks,
@@ -82,6 +82,7 @@ func init() {
 		NewGoalCmd(), NewDaemonCmd(), NewSkillCmd(), NewSwarmCmd(), NewSuperpowersCmd(), NewDoxCmd(),
 		NewVaneCmd(), NewStackCmd(), NewGhCmd(), NewHubCmd(),
 		NewLedgerCmd(), NewSummaryCmd(), NewAutodevCmd(), // v3.4.0 + v3.5.0 + v3.6.0 + v3.7.0 + v3.8.0 + v3.9.0 + v3.12.0 + v3.13.0 + autodev-bridge (Python MIT v0.4.0, stdio MCP via autodev-mcp)
+		NewCompressCmd(),            // v3.18.0 — deterministic + LLM compaction (issue #172)
 		NewSkillsCmd(),              // bundled project-local agent skills
 		NewEvalCmd(), NewTraceCmd(), // v3.18.0: Eval & Observability System (issue #75)
 		NewRtkCmd(),                                                                                    // rtk (Rust Token Killer) bridge (issue #123)

@@ -270,6 +270,56 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   `cmd/sin-code/internal/config.doc.md` updated (table + example),
   `cmd/sin-code/internal/learning/learner.doc.md` updated (Style
   field), `AGENTS.md` §6 + §7 cross-references.
+### Added — `sin-code compress` (issue #172, deterministic + LLM compaction)
+- **`internal/compress/`** — first-party package implementing the
+  caveman-compress pattern (`JuliusBrussee/caveman`) for SIN-Code's
+  long-lived stores. Public API: `BuildPlan`, `Apply`, `Rollback`;
+  three strategies (`deterministic` default, `llm`, `hybrid`)
+  targeting four surfaces (`lessons`, `instincts`, `summaries`,
+  `memory`, `agents_md`) plus an aggregate `all`. Plan is read-only
+  and content-addressed (`PlanHash` covers Entries+Drops+Merges);
+  Apply is atomic (snapshot written to `.partial` then renamed before
+  any source rewrite) and lossless (dropped entries are preserved
+  verbatim under `~/.local/share/sin-code/compress-snapshots/<plan-id>.json`).
+- **Deterministic pass** (`compressor.go` + `deterministic.go`):
+  SHA-256 dedupe + utility-sorted (recency × inverse-size) keep-recent
+  with byte-budget cap. Algorithm pins `time.Now()` for tests via
+  `PlanOptions.UseStableTime` so two plans built from identical inputs
+  agree byte-for-byte regardless of wall clock. Stable-time pins are
+  verified by `TestPlanDeterministicIdempotent`.
+- **LLM summarization pass** (`llm.go`): caveman-style compress prompt
+  that preserves code fences, URLs, file paths, commands, and headings
+  byte-for-byte. Validates the response with a line-based check;
+  retries up to 2 with a targeted patch prompt on validation failure
+  (`MaxRetries`, configurable). Falls back to deterministic on
+  exhausted retries or when no provider is configured.
+- **Atomic snapshot+rollback**: Apply writes a `.partial` snapshot
+  first; `Rollback(<plan-id>)` reads the snapshot, refuses to consume
+  any in-flight `.partial`, and restores the originals via per-target
+  re-apply. `TestApplyIsAtomicAndLossless` covers one round-trip.
+- **CLI surface** (`compress_cmd.go`, 41st subcommand = 40th
+  registered cobra verb because `internal.InstinctCmd` etc. are
+  in-package additions):
+  - `sin-code compress plan [--target all] [--strategy deterministic]
+     [--keep-bytes 4096] [--keep N] [--recent-days N] [--json]`
+  - `sin-code compress apply [--dry-run] [--no-llm] [--target ...]
+     [--strategy ...] [--keep-bytes ...] [--json]`
+  - `sin-code compress rollback <snapshot-id>`
+- **Permission policy** (`permission_defaults.go`):
+  `{Tool: "compress__plan", Policy: "allow"}`,
+  `{Tool: "compress__apply", Policy: "ask"}` (M4 — destructive),
+  `{Tool: "compress__rollback", Policy: "allow"}` (restorative only).
+  Wired so any future agent-loop surface that exposes the compressor
+  via MCP is gated correctly.
+- **Regression tests** (`compress_test.go` + `testhelpers_test.go`):
+  hash determinism, plan idempotence, byte-budget enforcement, dedupe
+  invariance, atomic-write contract, dry-run no-touching-nothing,
+  partial-marker rollback refusal, preservation line scoping (heading,
+  code fence, URL, file path, command line), snapshot JSON round-trip.
+  Passes `go test -race -count=1 ./cmd/sin-code/internal/compress/`.
+- **Snapshot dir**: `~/.local/share/sin-code/compress-snapshots/`
+  (overridable via `SIN_CODE_SNAPSHOT_DIR`). Same form factor as
+  lessons.db / ledger.db per AGENTS.md §7.
 
 ### Added — Loop Engineering (decoupled completion authority)
 - **Stop-gate harness** (`internal/stopgate`): an independent completion

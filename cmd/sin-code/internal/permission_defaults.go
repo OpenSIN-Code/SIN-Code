@@ -82,6 +82,13 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "install__verify_only", Policy: "allow"},
 		{Tool: "install__run", Policy: "ask"},
 		{Tool: "install__dry_run", Policy: "allow"},
+		// v3.18.0: Compress (issue #172). compress is a first-party
+		// CLI verb that mutates the on-disk memory stores; the
+		// policy below mirrors eval__run (ask): a destructive
+		// operation gated on user confirmation.
+		{Tool: "compress__plan", Policy: "allow"},     // read-only projection
+		{Tool: "compress__apply", Policy: "ask"},      // rewrites + LLM call
+		{Tool: "compress__rollback", Policy: "allow"}, // restorative — never destructive
 		// Backstop catch-all (mirrors sin_bash default at line 44 for unmatched prefixes).
 		{Tool: "autodev__*", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},
