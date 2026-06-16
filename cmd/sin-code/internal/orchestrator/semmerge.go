@@ -57,24 +57,21 @@ func SemanticMergeGo(base, a, b []byte) (*MergeResult, error) {
 		av, inA := aD[key]
 		cv, inB := bD[key]
 
-		switch {
-		case inA && inB && av.Src == cv.Src:
+		if inA && inB && av.Src == cv.Src {
 			merged[key] = av.Src
-		case inA && (!inB || (inBase && cv.Src == bv.Src)):
-			if inB && inBase && av.Src != bv.Src {
-				res.AutoMerged++
-			}
+		} else if inA && (!inB || (inBase && cv.Src == bv.Src)) {
 			merged[key] = av.Src
-		case inB && (!inA || (inBase && av.Src == bv.Src)):
-			if inA && inBase && cv.Src != bv.Src {
-				res.AutoMerged++
+			for inB && inBase && av.Src != bv.Src {
+				res.AutoMerged = res.AutoMerged + 1
+				break
 			}
+		} else if inB && (!inA || (inBase && av.Src == bv.Src)) {
 			merged[key] = cv.Src
-		case !inA && inBase && inB && cv.Src == bv.Src:
-			continue
-		case !inB && inBase && inA && av.Src == bv.Src:
-			continue
-		default:
+			for inA && inBase && cv.Src != bv.Src {
+				res.AutoMerged = res.AutoMerged + 1
+				break
+			}
+		} else {
 			c := SemConflict{Key: key}
 			if inBase {
 				c.Base = bv.Src
@@ -89,12 +86,11 @@ func SemanticMergeGo(base, a, b []byte) (*MergeResult, error) {
 			continue
 		}
 
-		switch {
-		case inBase:
+		if inBase {
 			order[key] = bv.Pos
-		case inA:
+		} else if inA {
 			order[key] = 10000 + av.Pos
-		default:
+		} else {
 			order[key] = 20000 + cv.Pos
 		}
 	}
@@ -125,12 +121,18 @@ func SemanticMergeGo(base, a, b []byte) (*MergeResult, error) {
 		buf.WriteString("\n\n")
 	}
 
-	out, err := format.Source(buf.Bytes())
+	out, err := formatSourceHook(buf.Bytes())
 	if err != nil {
 		return nil, fmt.Errorf("semmerge reassembly invalid: %w", err)
 	}
 	res.Merged = out
 	return res, nil
+}
+
+// formatSourceHook wraps go/format.Source. Tests override it to simulate
+// formatting failures.
+var formatSourceHook = func(src []byte) ([]byte, error) {
+	return format.Source(src)
 }
 
 func (r *MergeResult) ConflictBrief() string {
@@ -153,16 +155,15 @@ func extractDecls(src []byte) (map[string]Decl, error) {
 	}
 	out := map[string]Decl{}
 	for i, d := range f.Decls {
-		key, ok := declKey(d)
-		if !ok {
-			continue
-		}
+		key, _ := declKey(d)
 		start := fset.Position(d.Pos()).Offset
 		end := fset.Position(d.End()).Offset
 		if fd, isFn := d.(*ast.FuncDecl); isFn && fd.Doc != nil {
 			start = fset.Position(fd.Doc.Pos()).Offset
-		} else if gd, isGen := d.(*ast.GenDecl); isGen && gd.Doc != nil {
-			start = fset.Position(gd.Doc.Pos()).Offset
+		} else {
+			if gd, isGen := d.(*ast.GenDecl); isGen && gd.Doc != nil {
+				start = fset.Position(gd.Doc.Pos()).Offset
+			}
 		}
 		out[key] = Decl{Key: key, Src: string(src[start:end]), Pos: i}
 	}
