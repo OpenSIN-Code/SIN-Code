@@ -19,6 +19,13 @@ set -euo pipefail
 # see the right tree.
 cd "$(git rev-parse --show-toplevel)"
 
+# Policy: SIN_SPEC_DRIFT env var overrides the default (error).
+#   off   — never block (developers opt-in)
+#   warn  — print warnings, never block
+#   error — block on must-failures (CI gate mode; default)
+: "${SIN_SPEC_DRIFT:=error}"
+export SIN_SPEC_DRIFT
+
 # Locate the sin-code binary. Prefer the user's PATH; fall back to the
 # locally-built binary at ./sin-code (dev workflow).
 SIN_BIN="${SIN_BIN:-sin-code}"
