@@ -63,6 +63,31 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   the known build issue (Chromedp API mismatch in PR #201, not
   in this PR).
 
+### Added — `internal/rag/` (issue #160, RAG over instinct store)
+- **New package** `cmd/sin-code/internal/rag/` with 4 source files
+  (`embedder.go`, `embedder_hash.go`, `embedder_onnx.go`,
+  `index.go`, `worker.go`, `retriever.go`) + 24 race-clean tests.
+  - `Embedder` interface + `HashEmbedder` (default, deterministic,
+    dependency-free, 384-dim L2-normalized) + ONNXRuntimeEmbedder
+    and HTTPEmbedder as documented stubs.
+  - `Index` with optional `Persister` interface; the instinct
+    subsystem uses a `jsonPersister` writing to
+    `$SIN_CODE_HOME/instinct-embeddings.json`.
+  - `WorkerPool` (bounded-concurrency, M7) for async embedding
+    so the agent loop never blocks.
+  - `Retriever` (high-level: Embedder + Index → top-N IDs).
+- **`sin instinct search "<query>"`** — top-5 cosine-similarity
+  search over the active instincts. Reindexes on every call
+  (cheap at <100 active) and persists to disk. Renders the hits
+  as `id — trigger` lines with the action underneath.
+- **8 race-clean tests** in `internal/instinct/search_test.go`
+  for the JSON persister round-trip, the path-overriding
+  env var, the atomic-write behavior, and the trim helper.
+- **`rag.doc.md`** — design doc with the mandate-compliance
+  analysis, the Embedder interface, the acceptance-criteria
+  checkboxes, and the deferred-items list (GOAP Planner,
+  Federation, real ONNX implementation).
+
 ### Added — `sin-code install` + one-line curl|bash installer (issue #170)
 - **`cmd/sin-code/install_cmd.go`** — new 40th subcommand `sin-code install`
   (and `install --auto`). Downloads the latest GitHub release asset,
