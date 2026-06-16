@@ -30,6 +30,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/resource"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
+	"github.com/OpenSIN-Code/SIN-Code/internal/repoconfig"
 )
 
 // daemonOptions bundles the parsed CLI flags so the worker pool and
@@ -265,12 +266,16 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 			fmt.Fprintf(os.Stderr, "daemon: goal %d has invalid contract, ignoring: %v\n", goal.ID, perr)
 			persisted = &goalcontract.GoalContract{}
 		}
+		// Per-repo .sin-code.yml may disable specific checks; a missing or
+		// invalid file yields a zero Config (no checks disabled).
+		repoCfg, _ := repoconfig.Load(goal.Workspace)
 		resolved, rerr := goalcontract.Resolve(goalcontract.ResolveOptions{
-			Workspace:  goal.Workspace,
-			GoalID:     fmt.Sprintf("%d", goal.ID),
-			Criteria:   persisted.SemanticCriteria,
-			VerifyCmd:  opt.verifyCmd,
-			AutoDetect: true,
+			Workspace:     goal.Workspace,
+			GoalID:        fmt.Sprintf("%d", goal.ID),
+			Criteria:      persisted.SemanticCriteria,
+			VerifyCmd:     opt.verifyCmd,
+			AutoDetect:    true,
+			DisableChecks: repoCfg.DisableChecks,
 		})
 		if rerr != nil {
 			fmt.Fprintf(os.Stderr, "daemon: goal %d contract resolve failed: %v\n", goal.ID, rerr)
@@ -290,6 +295,7 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 		Headless:          true,
 		Contract:          contract,
 		AllowContinuation: opt.maxContinuations > 0,
+		SubagentStore:     store,
 		ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
 			baseTool := combinedTool(goal.Workspace, mgr)
 			baseSpecs := combinedSpecs(mgr)

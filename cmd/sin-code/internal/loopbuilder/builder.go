@@ -26,6 +26,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/stopgate"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
 	"github.com/OpenSIN-Code/SIN-Code/internal/repoconfig"
@@ -55,6 +56,11 @@ type Config struct {
 	// AllowContinuation switches the maxTurns outcome from a hard error to a
 	// resumable checkpoint (used by the daemon).
 	AllowContinuation bool
+
+	// SubagentStore, when set, enables the built-in spawn_subagent delegation
+	// tool. Pass the same session store the daemon uses so sub-agents get
+	// their own isolated sessions. Nil disables delegation.
+	SubagentStore *session.Store
 }
 
 // Build constructs a fully wired agentloop.Loop with all mandates applied
@@ -126,6 +132,9 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		Ask:        cfg.AskFunc,
 		Lessons:    memStore,
 		Ledger:     ledgerStore,
+		// Delegation: when a session store is provided, the worker may spawn
+		// isolated sub-agents via the built-in spawn_subagent tool.
+		SubagentStore: cfg.SubagentStore,
 	}
 
 	// Per-repo configuration (.sin-code.yml): committed budgets / gate mode

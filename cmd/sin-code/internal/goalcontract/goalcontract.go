@@ -92,6 +92,10 @@ type ResolveOptions struct {
 	// AutoDetect enables language/repo auto-detection (Go repo -> go build/
 	// test/vet plus a "no new TODO/FIXME" guard). Defaults on via Resolve.
 	AutoDetect bool
+	// DisableChecks lists deterministic check names to drop from the resolved
+	// contract (e.g. from a repo's .sin-code.yml). Applied last so it can
+	// remove auto-detected, inline, and file-loaded checks alike.
+	DisableChecks []string
 }
 
 // Resolve builds a GoalContract from the configured sources, in priority
@@ -161,6 +165,22 @@ func Resolve(opts ResolveOptions) (*GoalContract, error) {
 			Cmd:     []string{"sh", "-c", opts.VerifyCmd},
 			Timeout: 10 * time.Minute,
 		})
+	}
+
+	// (4) Per-repo opt-outs: drop any checks the repo disabled (.sin-code.yml).
+	// Applied last so it overrides every source above.
+	if len(opts.DisableChecks) > 0 {
+		disabled := make(map[string]bool, len(opts.DisableChecks))
+		for _, n := range opts.DisableChecks {
+			disabled[n] = true
+		}
+		kept := c.DeterministicChecks[:0]
+		for _, ck := range c.DeterministicChecks {
+			if !disabled[ck.Name] {
+				kept = append(kept, ck)
+			}
+		}
+		c.DeterministicChecks = kept
 	}
 
 	return c, nil

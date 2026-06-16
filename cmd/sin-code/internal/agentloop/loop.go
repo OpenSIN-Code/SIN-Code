@@ -133,6 +133,12 @@ type Loop struct {
 	// per proposed completion to avoid infinite self-doubt loops.
 	Reflector Reflector
 
+	// SubagentStore, when set, enables the built-in spawn_subagent tool: the
+	// worker can delegate isolated subtasks to child loops that share this
+	// loop's wiring but get their own session from this store. Nil disables
+	// delegation entirely (the tool is neither advertised nor accepted).
+	SubagentStore *session.Store
+
 	// AllowContinuation switches the maxTurns outcome from a hard error to a
 	// checkpointed, resumable Result (Continuation=true). Daemons set this so
 	// a long task is re-enqueued and resumed rather than abandoned; one-shot
@@ -169,7 +175,13 @@ type Result struct {
 	OpenCriteria []string `json:"open_criteria,omitempty"`
 }
 
-func (l *Loop) tools() []ToolSpec { return l.LocalSpec }
+func (l *Loop) tools() []ToolSpec {
+	if !l.subagentEnabled() {
+		return l.LocalSpec
+	}
+	// Advertise the built-in delegation tool alongside the wired tools.
+	return append(append([]ToolSpec(nil), l.LocalSpec...), subagentSpec)
+}
 
 func (l *Loop) record(ctx context.Context, typ ledger.EntryType, data map[string]any, summary string) {
 	if l.Ledger == nil || l.SessionID == "" {
@@ -221,6 +233,15 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 			}
 		case permission.Allow:
 		}
+	}
+
+	// Built-in delegation tool: handled by the loop itself (spawns a child
+	// loop) rather than the user-supplied LocalTool dispatcher.
+	if tc.Name == SpawnSubagentTool && l.subagentEnabled() {
+		out := l.handleSpawnSubagent(ctx, tc.Args)
+		l.fire(ctx, hooks.ToolPost, tc.Name, map[string]any{"output_bytes": len(out)})
+		l.record(ctx, ledger.TypeToolCall, map[string]any{"tool": tc.Name}, "tool call: "+tc.Name)
+		return out, injects
 	}
 
 	if l.LocalTool == nil {

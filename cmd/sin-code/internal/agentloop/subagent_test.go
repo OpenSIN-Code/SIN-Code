@@ -6,6 +6,7 @@ package agentloop
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
@@ -59,4 +60,74 @@ func TestSpawnSubagent_IsolatedSession(t *testing.T) {
 		t.Fatalf("parent session mutated by subagent: %q", loop.SessionID)
 	}
 	_ = subSessionID
+}
+
+// The spawn_subagent spec is advertised only when a SubagentStore is wired.
+func TestSubagentSpec_AdvertisedOnlyWhenEnabled(t *testing.T) {
+	off := &Loop{}
+	for _, ts := range off.tools() {
+		if ts.Name == SpawnSubagentTool {
+			t.Fatal("spawn_subagent must not be advertised without SubagentStore")
+		}
+	}
+	on := &Loop{SubagentStore: newTestSessionStore(t)}
+	found := false
+	for _, ts := range on.tools() {
+		if ts.Name == SpawnSubagentTool {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("spawn_subagent must be advertised when SubagentStore is set")
+	}
+}
+
+// End-to-end: the worker emits a spawn_subagent tool call; the loop intercepts
+// it, runs a child loop, and feeds the JSON summary back as the tool result.
+func TestSpawnSubagent_ToolCallIntercepted(t *testing.T) {
+	store := newTestSessionStore(t)
+	parentSess, err := store.StartOrResume("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	loop := &Loop{
+		Gate:          passGate(),
+		Workspace:     "/tmp",
+		SubagentStore: store,
+		Completion: func(ctx context.Context, msgs []session.Message, tools []ToolSpec) (*Completion, error) {
+			calls++
+			if calls == 1 {
+				// First turn: delegate.
+				return &Completion{
+					ToolCalls: []ToolCall{{ID: "1", Name: SpawnSubagentTool, Args: map[string]any{"goal": "child task", "max_turns": float64(2)}}},
+					Raw:       session.Message{Role: "assistant", Content: ""},
+				}, nil
+			}
+			// Later turns (parent + child): just finish.
+			return &Completion{Text: "all done", Raw: session.Message{Role: "assistant", Content: "all done"}}, nil
+		},
+	}
+	res, err := loop.Run(context.Background(), parentSess, "delegate please")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !res.Verified {
+		t.Fatalf("expected verified result, got %+v", res)
+	}
+	// The child loop must have produced its own assistant turn (calls >= 3:
+	// parent delegate, child work, parent finish).
+	if calls < 3 {
+		t.Fatalf("expected child loop to run (>=3 completions), got %d", calls)
+	}
+}
+
+// A delegated tool call with no goal returns an error string, not a Go error.
+func TestSpawnSubagent_MissingGoal(t *testing.T) {
+	store := newTestSessionStore(t)
+	loop := &Loop{Workspace: "/tmp", SubagentStore: store}
+	out := loop.handleSpawnSubagent(context.Background(), map[string]any{})
+	if !strings.Contains(out, "SUBAGENT ERROR") {
+		t.Fatalf("expected error string for missing goal, got %q", out)
+	}
 }

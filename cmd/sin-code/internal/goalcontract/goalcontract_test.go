@@ -170,3 +170,30 @@ func TestResolveMissingContractFile(t *testing.T) {
 		t.Fatal("expected error for missing contract file")
 	}
 }
+
+// DisableChecks (from .sin-code.yml) drops named checks from the resolved
+// contract, including auto-detected ones.
+func TestResolveDisableChecks(t *testing.T) {
+	ws := t.TempDir()
+	if err := os.WriteFile(filepath.Join(ws, "go.mod"), []byte("module x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Resolve(ResolveOptions{
+		Workspace:     ws,
+		AutoDetect:    true,
+		DisableChecks: []string{"go vet", "no-new-todos"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasCheckNamed(c.DeterministicChecks, "go vet") {
+		t.Fatal("go vet should have been disabled")
+	}
+	if hasCheckNamed(c.DeterministicChecks, "no-new-todos") {
+		t.Fatal("no-new-todos should have been disabled")
+	}
+	// Non-disabled checks survive.
+	if !hasCheckNamed(c.DeterministicChecks, "go build") {
+		t.Fatal("go build should remain")
+	}
+}
