@@ -2,7 +2,7 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
-## [Unreleased]
+## [Unreleased] - 2026-06-16
 
 ### Added — Loop Engineering (decoupled completion authority)
 - **Stop-gate harness** (`internal/stopgate`): an independent completion
@@ -30,9 +30,82 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   (`AddDiscovered` with a `dedup_key`). Exposed as a `discover` trigger type and
   the `goal discover [--dry-run]` command — the agent finds its own work.
 
+### Added — Learning Subsystem (continuous learning in Go)
+- **`internal/instinct/`** — continuous-learning subsystem (port of the
+  `continuous-learning-v2` homunculus model in a clean-room Go
+  reimplementation). Project-scoped + global Markdown-with-frontmatter
+  store, confidence 0.3–0.9, Reinforce/Contradict/Decay math with
+  `atomic.Value`-backed env-overridable tuning, heuristic + LLM-backed
+  extractors (with graceful fallback), cross-project promotion, cluster
+  evolution into Skill/Command/Agent proposals, and a system-prompt
+  block renderer that closes the learning loop. CLI: `sin instinct
+  status|projects|evolve|promote|prune|export|import|show|forget|history`.
+  Storage: `$SIN_INSTINCT_DIR | $XDG_DATA_HOME/sin-code/instinct |
+  ~/.local/share/sin-code/instinct`.
+- **`internal/hooklife/`** — native Go lifecycle-hook system (no Node
+  dependency). Phases: `PreToolUse`, `PostToolUse`, `Stop`,
+  `SessionStart`, `SessionEnd`, `PreCompact`, `UserPrompt`. `PreToolUse`
+  may `Block` (ECC exit-code-2 equivalent); other phases aggregate
+  warnings. Per-hook timeout, panic recovery. Built-in hooks:
+  `block-no-verify`, `config-protection`, `post-edit-format`,
+  `quality-gate` (against the real `verify.Gate`), `cost-tracker`,
+  `suggest-compact`. CLI: `sin hooks list|test`.
+- **`internal/assets/`** — harvested agent/command/skill loader with
+  schema validation (port of ECC CI validators, including unsafe-unicode
+  and duplicate detection), `Selector` for domain+keyword-based
+  ranking, and an `import` subcommand that harvests skills from a
+  vendored source repo with origin/license attribution. CLI:
+  `sin assets list|validate|show|import`.
+- **`internal/evalharness/`** — eval-driven development. `EvalSet` /
+  `Run` / `Result` types, pluggable `Scorer`s (exact, contains-all,
+  success-flag, LLM-judge, composite), per-case timeout, JSONL run
+  history, and `Compare` for case-by-case regression detection with
+  `--fail-on-regress` as a CI gate. CLI: `sin eval run|list|compare`.
+- **`internal/dispatch/`** — turns loaded command and agent assets
+  into executable actions. ECC-style placeholder substitution
+  (`$ARGUMENTS`, `$1..$9`, `$@`, `${flag}`), `Dispatcher` routes
+  slash-commands to `PromptSink` and agent requests to
+  `SubagentRunner`. Closes the load → select → dispatch → run
+  pipeline.
+- **`internal/prp/`** — Product Requirement Prompt workflow. Persistent
+  reviewable plans under `.sin/prp/<id>.md` driven through phases
+  (draft → planned → implementing → verifying → ready → shipped).
+  Each step persists, so a run is interruptible and resumable.
+  Verification failure kicks the PRP back to `implementing`. CLI:
+  `sin prp new|run|status|plan|implement|verify|pr`.
+- **`internal/adapters/`** — concrete adapters that implement the
+  abstract `hooklife.Verifier`, `instinct.MemorySink`, and
+  `instinct.Completer` interfaces against the real SIN-Code
+  subsystems (`verify.Gate`, `memory.Store`, `llm.Client`). Fail-soft:
+  missing subsystems degrade to no-ops, never block startup.
+- **`internal/learning/`** — bridge package between
+  `agentloop.Loop` and the new subsystems. `Learner` exposes
+  `BeforeTurn` (prepends active-instinct system block), `BeforeTool`
+  (PreToolUse dispatch, may veto), `AfterTool` (PostToolUse + observer
+  feed), `EndTurn` (observer flush), `PreCompact` (flush + hook
+  dispatch). Built once at startup via `learning.New(Options)`.
+- **`internal/wiring/`** — `Build(Deps)` assembles the full
+  `Bundle{Learner, Dispatch, Eval factory, PRP deps}` in one call.
+- **`examples/eval-sets/`** — `go-quality.json` (build, vet, test,
+  secrets scan) and `instinct-behavior.json` (end-to-end learning
+  loop validation).
+- **Five new top-level subcommands** wired into `cmd/sin-code/main.go`:
+  `sin instinct`, `sin hooks`, `sin assets`, `sin evalset`, `sin prp`.
+  (The existing `sin eval` — Golden-Dataset runner from issue #75 — is
+  preserved unchanged; the new harness lives at `sin evalset` to avoid
+  a cobra `Use:` collision.)
+
 ### Notes
 - All loop-engineering features are opt-in and fail-safe: a nil stop-gate /
   empty contract / `AllowContinuation=false` preserves exact legacy behavior.
+- The learning subsystem is additive — it does not modify the existing
+  `internal/agentloop` package. The chat command can opt into the learner by
+  calling `learning.New(...)` and invoking the lifecycle methods around its
+  loop run; the default is "no learning wired" so the chat behavior is
+  unchanged for existing users.
+- `go test -race` clean across the new learning packages. No new third-party
+  dependencies (`gopkg.in/yaml.v3` was already transitively present in
+  `go.sum`).
 
 ## [v3.17.0] - 2026-06-13
 
