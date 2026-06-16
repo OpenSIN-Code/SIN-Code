@@ -553,9 +553,14 @@ and inspect trajectories visually (Langfuse / Jaeger / Arize Phoenix).
 | `cmd/sin-code/internal/dataset/runner.go` | Executes TestCases against the existing `agentloop.Loop` |
 | `cmd/sin-code/internal/eval/judge.go` | LLM-as-a-Judge via `internal/llm.Client` |
 | `cmd/sin-code/internal/eval/metrics.go` | Summary aggregation + JSON envelope for CI |
-| `cmd/sin-code/eval_cmd.go` | `sin-code eval run` + `sin-code eval list` |
+| `cmd/sin-code/internal/evalharness/arms.go` | v3.18.0 four-arm constructors (baseline / terse / lazy / `<skill>`) for issue #171 |
+| `cmd/sin-code/internal/evalharness/comparator.go` | v3.18.0 `Compare` runner producing per-arm aggregates |
+| `cmd/sin-code/internal/evalharness/prices.go` | v3.18.0 self-pricing price book (USD/1k tokens per model) |
+| `cmd/sin-code/internal/evalharness/snapshot.go` | v3.18.0 deterministic snapshot round-trip (caveman evals/README.md §3) |
+| `cmd/sin-code/eval_cmd.go` | `sin-code eval run` + `eval compare` + `eval snapshot` + `eval diff` (issue #171) |
 | `cmd/sin-code/trace_cmd.go` | `sin-code trace doctor` — exporter-only sanity check |
 | `evals/critical.json` | Example Golden Dataset (3 cases, no LLM needed) |
+| `evals/three-arm-example.json` | v3.18.0 four-arm bench, 3 cases (issue #171) |
 
 ### CLI surface
 
@@ -573,9 +578,50 @@ sin-code eval run --dataset evals/critical.json \
 sin-code eval run --dataset evals/critical.json \
     --judge-model gpt-4o --judge-endpoint https://api.openai.com/v1
 
+# Four-arm comparator (issue #171) — baseline / terse / lazy_skill / <user-skill>
+sin-code eval run --dataset evals/three-arm-example.json \
+    --arm baseline,terse,lazy_skill,skill-code-create
+sin-code eval compare --dataset evals/three-arm-example.json
+sin-code eval snapshot --dataset evals/three-arm-example.json --out /tmp/snap.json
+sin-code eval diff --snapshot /tmp/snap-base.json --snapshot-b /tmp/snap-head.json
+
 # Sanity-check the OTel exporter setup without a full eval
 sin-code trace doctor --exporter stdout --emit-sample-span
 ```
+
+### 12.1 Four-arm comparator (issue #171)
+
+The comparator runs the same dataset against the four arms
+identified in the issue body:
+
+| Arm | Reserved ID | SystemPrompt |
+|---|---|---|
+| baseline | `__baseline__` | empty (legacy single-arm behaviour) |
+| terse | `__terse__` | `"Answer concisely."` |
+| lazy skill | `__lazy_skill__` | terse-prefixed body of `skill-code-lazy` (issue #178) |
+| user skill | `<user-supplied>` | terse-prefixed body of the bundled skill named by `--skill` |
+
+The **honest delta** between any candidate arm and the `terse`
+arm is what reviewers grade on. Comparing a skill directly to the
+baseline conflates the skill's content with the generic "be
+terse" instruction; the four-arm harness isolates them.
+
+The output matrix mirrors ponytail's
+`benchmarks/README.md:34-58`:
+
+| column | meaning |
+|---|---|
+| `pass_rate` | `Passed / TotalCases` |
+| `med_LOC` | median lines of output across cases |
+| `med_latency_ms` | median wall-clock per (case, arm) |
+| `med_usd` | median USD cost (using `prices.go` price book) |
+| `med_tokens` | median prompt + completion tokens |
+| `med_score` | median `Result.Score` per arm |
+
+Snapshots are deterministic JSON: the comparator sorts every arm,
+median-recomputes every cell, and writes the same bytes for the
+same input on every CI run (caveman evals/README.md §3 promise:
+"snapshot committed to git so CI runs are deterministic and free").
 
 ### Hard mandates honored
 
@@ -589,7 +635,7 @@ sin-code trace doctor --exporter stdout --emit-sample-span
   `github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/...` everywhere.
   No `SIN-Code-Bundle` references.
 - **M7 (race-free):** every new test passes
-  `go test -race -count=1 ./cmd/sin-code/internal/{trace,dataset,eval}/...`.
+  `go test -race -count=1 ./cmd/sin-code/internal/{trace,dataset,eval,evalharness}/...`.
 
 ### Reference documentation
 
@@ -606,4 +652,8 @@ sin-code trace doctor --exporter stdout --emit-sample-span
   vs reference `Loop.Run(ctx, sessID, prompt, RunOptions)`).
 - `cmd/sin-code/internal/eval/eval.doc.md` — judge prompt + JSON
   contract; `JudgeResult` schema.
+- `cmd/sin-code/internal/evalharness/comparator.doc.md` — four-arm
+  `Compare` runner, arm constructors, snapshot round-trip (issue #171).
+- `cmd/sin-code/internal/evalharness/snapshot.doc.md` — deterministic
+  matrix + diff (issue #171).
 

@@ -46,7 +46,7 @@ func TestContainsAllScorer(t *testing.T) {
 func TestCompareDetectsRegression(t *testing.T) {
 	base := Run{ID: "base", Results: []Result{{CaseID: "a", Score: 1, Weight: 1}, {CaseID: "b", Score: 1, Weight: 1}}}
 	cand := Run{ID: "cand", Results: []Result{{CaseID: "a", Score: 1, Weight: 1}, {CaseID: "b", Score: 0, Weight: 1}}}
-	cmp := Compare(base, cand, 0.001)
+	cmp := CompareRuns(base, cand, 0.001)
 	if cmp.Regressed != 1 {
 		t.Fatalf("expected 1 regression, got %d", cmp.Regressed)
 	}
@@ -58,7 +58,7 @@ func TestCompareDetectsRegression(t *testing.T) {
 func TestCompareDetectsImprovement(t *testing.T) {
 	base := Run{ID: "base", Results: []Result{{CaseID: "a", Score: 0, Weight: 1}}}
 	cand := Run{ID: "cand", Results: []Result{{CaseID: "a", Score: 1, Weight: 1}}}
-	cmp := Compare(base, cand, 0.001)
+	cmp := CompareRuns(base, cand, 0.001)
 	if cmp.Improved != 1 || cmp.HasRegressions() {
 		t.Fatalf("expected improvement, got improved=%d regressed=%d", cmp.Improved, cmp.Regressed)
 	}
