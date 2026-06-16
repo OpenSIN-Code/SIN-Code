@@ -37,6 +37,9 @@ const (
 	// criteria StallThreshold times in a row — the worker is not making
 	// progress and the run escalates early instead of burning the full budget.
 	TypeStallDetected EntryType = "stall_detected"
+	// TypeTokenBudgetExhausted is recorded when cumulative token usage exceeds
+	// MaxTokens and the run stops spending (issue #151).
+	TypeTokenBudgetExhausted EntryType = "token_budget_exhausted"
 )
 
 // Entry is one row in the ledger.
