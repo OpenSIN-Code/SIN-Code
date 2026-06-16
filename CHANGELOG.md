@@ -4,6 +4,32 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — `sin-code grill` (issue #141 fusion, native implementation)
+- **New package** `cmd/sin-code/internal/grill/` with 4 source
+  files (`types.go`, `catalog.go`, `manager.go`, `grill_test.go`)
+  + 14 race-clean unit tests. The native Go implementation of
+  the external `SIN-Code-Grill-Me-Skill` Python MCP server
+  (38 KB). Ships in v0 with JSON-file storage; SQLite session
+  storage is a v1 follow-up.
+- **New subcommand** `sin-code grill` (5 subcommands):
+  - `grill start <topic>` — begin a grilling session, print the id
+  - `grill next <id>` — ask the next adversarial question
+  - `grill answer <id> <d-id> <text>` — record the response
+    (use "done" to resolve a decision)
+  - `grill status <id>` — show resolved + open decisions
+  - `grill synthesize <id> [--json]` — produce a structured
+    summary of decisions, assumptions, and open questions
+- **Question catalog** — 8 seed anti-patterns (Hidden
+  Assumptions, Rollback Plan, Failure Modes, Operator Cost,
+  Premature Optimization, Scope Creep, Single Point of Failure,
+  Verification Gap). Each has 2-3 example questions. The CLI
+  picks one per `grill next` call (hash-seeded for determinism).
+- **Storage** — `$SIN_CODE_HOME/grill/<id>.json`, atomic writes
+  (temp + rename). v1 will migrate to SQLite via the existing
+  `internal/session/store`.
+- **14 race-clean tests** covering the full flow (Start → Next →
+  Answer → Synthesize → round-trip across restarts).
+
 ### Added — `sin-code goal` fusion (issue #140, v0.5)
 - **Four new subcommands** under `sin-code goal` (issue #140 fusion
   with the external `SIN-Code-Goal-Mode-Skill` Python MCP server):
