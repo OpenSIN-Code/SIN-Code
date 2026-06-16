@@ -1,0 +1,70 @@
+{
+  "name": "Three-Arm Eval (issue #171)",
+  "version": "0.1.0",
+  "description": "Canonical three-arm bench — baseline / terse / lazy_skill / <user-skill>. Mirrors ponytail's benchmarks/README.md:34-58 (LOC, USD, latency, correctness). Two cases are LOC-countable (deterministic), one needs an LLM judge (best-quality variant).",
+  "test_cases": [
+    {
+      "id": "explain_x_short",
+      "prompt": "Explain what Goroutines are in two sentences.",
+      "description": "LOC-countable answer. The terse arm should produce ≤ 2 lines; the skill arm should produce ≥ 2 but provide citations.",
+      "tags": ["loc", "explain", "go"],
+      "constraints": {
+        "max_turns": 2,
+        "timeout": "30s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["goroutine"],
+        "output_avoids": ["panic", "fatal"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "loc-countable",
+        "metric_locus": "lines"
+      }
+    },
+    {
+      "id": "reverse_string_golang",
+      "prompt": "Write a Go function that reverses a UTF-8 string without allocating a new buffer.",
+      "description": "LOC-countable code generation. Honest delta vs terse should be measurable.",
+      "tags": ["loc", "code", "go"],
+      "constraints": {
+        "max_turns": 3,
+        "timeout": "30s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["func"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "loc-countable",
+        "metric_locus": "lines"
+      }
+    },
+    {
+      "id": "judge_task_lossy_compare",
+      "prompt": "Compare the loss characteristics of LZ4 vs zstd for cold-storage workloads (3 sentences max).",
+      "description": "LLM-judge case. Pass-rate flips on judged quality, not just keyword match.",
+      "tags": ["judge", "explain"],
+      "constraints": {
+        "max_turns": 2,
+        "timeout": "30s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["lz4", "zstd"],
+        "min_quality": 0.0,
+        "custom_criteria": "Correctness: explicit ratio or qualitative comparison; Honesty: no hallucinated benchmark numbers; Brevity: ≤ 3 sentences."
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "judge-only",
+        "metric_locus": "judge"
+      }
+    }
+  ]
+}

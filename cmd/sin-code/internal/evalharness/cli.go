@@ -89,7 +89,7 @@ func NewCommand(subjectFactory func(name string) (Subject, Scorer, error)) *cobr
 			if err != nil {
 				return err
 			}
-			cmp := Compare(base, cand, 0.001)
+			cmp := CompareRuns(base, cand, 0.001)
 			fmt.Printf("score: %.3f -> %.3f  (improved=%d regressed=%d)\n", cmp.OldScore, cmp.NewScore, cmp.Improved, cmp.Regressed)
 			for _, d := range cmp.Deltas {
 				if d.Kind == "improved" || d.Kind == "regressed" {

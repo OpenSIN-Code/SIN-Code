@@ -24,8 +24,12 @@ type Comparison struct {
 	Regressed    int
 }
 
-// Compare diffs two runs case-by-case. epsilon ignores tiny float noise.
-func Compare(baseline, candidate Run, epsilon float64) Comparison {
+// CompareRuns diffs two runs case-by-case. epsilon ignores tiny float noise.
+//
+// Renamed from Compare → CompareRuns in issue #171 to free the
+// Compare name for the new four-arm (baseline / terse / lazy /
+// <skill>) comparator. The old signature is preserved verbatim.
+func CompareRuns(baseline, candidate Run, epsilon float64) Comparison {
 	if epsilon <= 0 {
 		epsilon = 0.001
 	}

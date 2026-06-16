@@ -162,6 +162,58 @@ spec's signatures.
   extended, not replaced). `docs/SPEC-LAYER.md` is the design spec
   for the hardening pass.
 
+### Added — Four-arm Eval Comparator (issue #171)
+- **`internal/evalharness/arms.go`** — built-in `Arm` constructors
+  for the canonical four-arm harness: `__baseline__` (no system
+  prompt), `__terse__` (`"Answer concisely."`), `__lazy_skill__`
+  (`skill-code-lazy` body issued from issue #178), and the
+  `<user-skill>` arm named by `--skill`. Skill discovery is
+  best-effort and falls back to a byte-stable `[skill unavailable]`
+  placeholder so snapshots remain diff-clean.
+- **`internal/evalharness/comparator.go`** — `Compare(ctx, EvalSet,
+  []Arm, CompareOptions)` runner. The outer loop is per-arm, the
+  inner loop per-case; per-(case, arm) results are aggregated into
+  TotalsByArm per arm. `NoOpSubject` and `SetDefaultSubject` keep
+  the harness honest for offline / stub CI runs.
+- **`internal/evalharness/prices.go`** — self-pricing price book
+  (USD per 1k prompt + completion tokens) keyed by `Arm.PricingName`.
+  Known models: `stub`, `gpt-4o`, `gpt-4o-mini`,
+  `claude-3.5-sonnet`, `fireworks-qwen2.5-7b`,
+  `fireworks-llama-3.1-70b`. Unknown names produce a warning in
+  `CompareReport.Warnings` and zero USD (so the harness never
+  silently under-reports cost).
+- **`internal/evalharness/snapshot.go`** — deterministic snapshot
+  round-trip. `BuildSnapshot` sorts rows by `ArmID`, takes medians
+  across all per-case values, and emits byte-stable JSON.
+  `WriteSnapshotFile`/`LoadSnapshotFile` round-trip disk I/O.
+  `DiffSnapshots` produces row-level deltas with the
+  `changed-skill-body` signal for SKILL.md drift.
+- **Result/Output extensions**: `Result` carries `ArmID`,
+  `PromptTokens`, `CompletionTokens`, `TotalTokens`, `LOC`, `USD`
+  (all `omitempty` for backward compatibility). `Output` carries
+  an optional `USD` for Subject authors that compute cost at the
+  source.
+- **`cmd/sin-code/eval_cmd.go` extensions** — three new
+  subcommands: `eval compare`, `eval snapshot`, `eval diff`.
+  `eval run --arm baseline,terse,lazy_skill,<skill>` opts into
+  the comparator path; without `--arm` the legacy Golden-Dataset
+  path is preserved unchanged. The four-arm matrix output mirrors
+  ponytail's `benchmarks/README.md:34-58` columns (LOC, USD,
+  latency, correctness).
+- **`evals/three-arm-example.json`** — canonical example dataset
+  with 3 cases: 2 LOC-countable (gopher explain + reverse Go
+  function), 1 LLM-judge (lz4 vs zstd).
+- **Comparator test coverage** — 11 new tests pass with
+  `go test -race -count=1`. Median aggregation, 4-arm matrix,
+  snapshot byte-round-trip, schema-version rejection, late-write
+  warnings, parallel-vs-serial equivalence (race-detector safe).
+- **`Compare` renamed in `regression.go`**: `Compare(base, cand,
+  eps)` → `CompareRuns(base, cand, eps)` to free the bare name
+  for the new multi-arm comparator (issue #171). All three call
+  sites (`cli.go`, `evalharness_test.go`) updated.
+- **`AGENTS.md` §12.1** added documenting the four-arm comparator
+  contract: the honest delta = `<user-skill>` − `__terse__`, not
+  the inflated `<user-skill>` − `__baseline__`.
 ## [v3.17.0] - 2026-06-13
 
 ### Added
