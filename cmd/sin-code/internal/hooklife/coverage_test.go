@@ -4,10 +4,12 @@ package hooklife
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -542,5 +544,189 @@ func TestCLITest(t *testing.T) {
 	})
 	if !strings.Contains(out, "verdict=block") {
 		t.Errorf("expected block verdict, got %q", out)
+	}
+}
+
+// --- auto-coverage ---
+
+func TestAutoCoverageIDAndPhases(t *testing.T) {
+	a := AutoCoverage{}
+	if a.ID() != "auto-coverage" {
+		t.Errorf("ID = %q, want auto-coverage", a.ID())
+	}
+	phases := a.Phases()
+	if len(phases) != 1 || phases[0] != PostToolUse {
+		t.Errorf("Phases = %v, want [PostToolUse]", phases)
+	}
+}
+
+func TestAutoCoverageDisabled(t *testing.T) {
+	a := AutoCoverage{Enabled: false}
+	d := a.Run(context.Background(), Event{Tool: "Write", Args: map[string]string{"path": "x.go"}})
+	if d.Verdict != Allow {
+		t.Errorf("verdict = %v, want Allow", d.Verdict)
+	}
+}
+
+func TestAutoCoverageIgnoresNonGo(t *testing.T) {
+	a := AutoCoverage{Enabled: true}
+	d := a.Run(context.Background(), Event{Tool: "Write", Args: map[string]string{"path": "x.md"}})
+	if d.Verdict != Allow {
+		t.Errorf("verdict = %v, want Allow", d.Verdict)
+	}
+}
+
+func TestAutoCoverageIgnoresNonEditTools(t *testing.T) {
+	a := AutoCoverage{Enabled: true}
+	d := a.Run(context.Background(), Event{Tool: "Bash", Args: map[string]string{"path": "x.go"}})
+	if d.Verdict != Allow {
+		t.Errorf("verdict = %v, want Allow", d.Verdict)
+	}
+}
+
+func TestAutoCoverageQueuesRequest(t *testing.T) {
+	tmp := t.TempDir()
+	a := AutoCoverage{
+		Enabled: true,
+		PackagePath: func(root, file string) string {
+			if root != tmp {
+				t.Errorf("root = %q, want %q", root, tmp)
+			}
+			if file != "x.go" {
+				t.Errorf("file = %q, want x.go", file)
+			}
+			return "example.com/demo/cmd/foo"
+		},
+	}
+	d := a.Run(context.Background(), Event{Tool: "Write", Workdir: tmp, Args: map[string]string{"path": "x.go"}})
+	if d.Verdict != Warn {
+		t.Errorf("verdict = %v, want Warn", d.Verdict)
+	}
+	if !strings.Contains(d.Message, "example.com/demo/cmd/foo") {
+		t.Errorf("message = %q, want import path", d.Message)
+	}
+	dest := filepath.Join(tmp, RequestDir, "example.com--demo--cmd--foo.json")
+	data, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "example.com/demo/cmd/foo") {
+		t.Errorf("request = %q, want import path", data)
+	}
+}
+
+func TestAutoCoverageDefaultHooks(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/demo\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a := AutoCoverage{Enabled: true}
+	path := filepath.Join(tmp, "x.go")
+	d := a.Run(context.Background(), Event{Tool: "Write", Workdir: tmp, Args: map[string]string{"path": path}})
+	if d.Verdict != Warn {
+		t.Errorf("verdict = %v, want Warn", d.Verdict)
+	}
+	dest := filepath.Join(tmp, RequestDir, "example.com--demo.json")
+	if _, err := os.Stat(dest); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAutoCoverageEmptyWorkdir(t *testing.T) {
+	a := AutoCoverage{
+		Enabled: true,
+		PackagePath: func(_, _ string) string { return "pkg" },
+		mkdirAll: func(dir string, _ os.FileMode) error {
+			if dir != RequestDir {
+				t.Errorf("dir = %q, want %q", dir, RequestDir)
+			}
+			return nil
+		},
+		writeFile: func(name string, _ []byte, _ os.FileMode) error {
+			want := filepath.Join(RequestDir, "pkg.json")
+			if name != want {
+				t.Errorf("name = %q, want %q", name, want)
+			}
+			return nil
+		},
+	}
+	d := a.Run(context.Background(), Event{Tool: "Write", Args: map[string]string{"path": "x.go"}})
+	if d.Verdict != Warn {
+		t.Errorf("verdict = %v, want Warn", d.Verdict)
+	}
+}
+
+func TestAutoCoverageRequestDirOverride(t *testing.T) {
+	tmp := t.TempDir()
+	a := AutoCoverage{
+		Enabled:    true,
+		RequestDir: "custom-queue",
+		PackagePath: func(_, _ string) string { return "pkg" },
+		mkdirAll: func(dir string, _ os.FileMode) error {
+			want := filepath.Join(tmp, "custom-queue")
+			if dir != want {
+				t.Errorf("dir = %q, want %q", dir, want)
+			}
+			return nil
+		},
+		writeFile: func(name string, _ []byte, _ os.FileMode) error { return nil },
+	}
+	d := a.Run(context.Background(), Event{Tool: "Write", Workdir: tmp, Args: map[string]string{"path": "x.go"}})
+	if d.Verdict != Warn {
+		t.Errorf("verdict = %v, want Warn", d.Verdict)
+	}
+}
+
+func TestAutoCoverageMkdirError(t *testing.T) {
+	a := AutoCoverage{
+		Enabled: true,
+		PackagePath: func(_, _ string) string { return "pkg" },
+		mkdirAll: func(_ string, _ os.FileMode) error { return fmt.Errorf("mkdir err") },
+	}
+	d := a.Run(context.Background(), Event{Tool: "Write", Args: map[string]string{"path": "x.go"}})
+	if d.Verdict != Warn || !strings.Contains(d.Message, "mkdir err") {
+		t.Errorf("decision = %+v, want mkdir error", d)
+	}
+}
+
+func TestAutoCoverageWriteError(t *testing.T) {
+	a := AutoCoverage{
+		Enabled: true,
+		PackagePath: func(_, _ string) string { return "pkg" },
+		mkdirAll: func(_ string, _ os.FileMode) error { return nil },
+		writeFile: func(_ string, _ []byte, _ os.FileMode) error { return fmt.Errorf("write err") },
+	}
+	d := a.Run(context.Background(), Event{Tool: "Write", Args: map[string]string{"path": "x.go"}})
+	if d.Verdict != Warn || !strings.Contains(d.Message, "write err") {
+		t.Errorf("decision = %+v, want write error", d)
+	}
+}
+
+func TestAutoCoverageMarshalError(t *testing.T) {
+	jsonMarshalIndentHook = func(_ any, _, _ string) ([]byte, error) {
+		return nil, fmt.Errorf("marshal err")
+	}
+	defer func() { jsonMarshalIndentHook = json.MarshalIndent }()
+	a := AutoCoverage{
+		Enabled: true,
+		PackagePath: func(_, _ string) string { return "pkg" },
+		mkdirAll: func(_ string, _ os.FileMode) error { return nil },
+	}
+	d := a.Run(context.Background(), Event{Tool: "Write", Args: map[string]string{"path": "x.go"}})
+	if d.Verdict != Warn || !strings.Contains(d.Message, "marshal err") {
+		t.Errorf("decision = %+v, want marshal error", d)
+	}
+}
+
+func TestCoverageRequestDirWithOverride(t *testing.T) {
+	if got := coverageRequestDirWithOverride("", "override"); got != "override" {
+		t.Errorf("empty workdir = %q, want override", got)
+	}
+	want := filepath.Join("work", "override")
+	if got := coverageRequestDirWithOverride("work", "override"); got != want {
+		t.Errorf("workdir = %q, want %q", got, want)
+	}
+	if got := coverageRequestDirWithOverride("work", ""); got != filepath.Join("work", RequestDir) {
+		t.Errorf("default = %q, want %q", got, filepath.Join("work", RequestDir))
 	}
 }

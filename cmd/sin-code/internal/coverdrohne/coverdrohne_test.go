@@ -934,3 +934,37 @@ func TestRunCoverageProfileDefaultPackages(t *testing.T) {
 	}
 }
 
+func TestPackageImportPath(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/demo\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	pkg := filepath.Join(tmp, "cmd", "foo", "bar.go")
+	if got := PackageImportPath(tmp, pkg); got != "example.com/demo/cmd/foo" {
+		t.Errorf("PackageImportPath = %q, want example.com/demo/cmd/foo", got)
+	}
+	root := filepath.Join(tmp, "main.go")
+	if got := PackageImportPath(tmp, root); got != "example.com/demo" {
+		t.Errorf("PackageImportPath root = %q, want example.com/demo", got)
+	}
+}
+
+func TestPackageImportPathNoGoMod(t *testing.T) {
+	tmp := t.TempDir()
+	pkg := filepath.Join(tmp, "cmd", "foo", "bar.go")
+	if got := PackageImportPath(tmp, pkg); got != pkg {
+		t.Errorf("PackageImportPath = %q, want %q", got, pkg)
+	}
+}
+
+func TestPackageImportPathOutsideRoot(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/demo\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(tmp, "..", "other", "bar.go")
+	if got := PackageImportPath(tmp, outside); got != outside {
+		t.Errorf("PackageImportPath = %q, want %q", got, outside)
+	}
+}
+

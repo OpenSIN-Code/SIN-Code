@@ -32,11 +32,31 @@ func modulePath(root string) string {
 		if strings.HasPrefix(line, "module ") {
 			fields := strings.Fields(line)
 			if len(fields) >= 2 {
-				return strings.Trim(fields[1], "\"'`")
+				return strings.Trim(fields[1], "\"'")
 			}
 		}
 	}
 	return ""
+}
+
+// PackageImportPath returns the Go import path for the package containing
+// file, relative to root. If root has no go.mod, file is returned unchanged.
+// This is a lightweight helper used by hooklife to map a written/edited .go
+// file to the package that should be covered.
+func PackageImportPath(root, file string) string {
+	mod := modulePath(root)
+	rel, err := filepath.Rel(root, file)
+	if err != nil || strings.HasPrefix(rel, "..") {
+		return file
+	}
+	if mod == "" {
+		return file
+	}
+	dir := filepath.Dir(rel)
+	if dir == "." {
+		return mod
+	}
+	return mod + "/" + filepath.ToSlash(dir)
 }
 
 // profileFileToLocal converts a coverprofile file path (module import path)

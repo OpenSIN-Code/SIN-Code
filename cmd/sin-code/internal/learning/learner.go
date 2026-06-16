@@ -23,6 +23,11 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 )
 
+// AutoCoverage controls whether the coverage-driven test-generation
+// PostToolUse hook is registered. Default true for the SIN-Code repo
+// so every .go edit produces a coverage request.
+var AutoCoverage = true
+
 // Options configures a Learner. The zero value is fully usable:
 // all subsystems are wired to safe no-op defaults.
 type Options struct {
@@ -85,6 +90,7 @@ func New(opts Options) (*Learner, error) {
 		reg.Register(hooklife.QualityGate{Verifier: adapters.VerifyGate{Gate: opts.VerifyGate}})
 	}
 	reg.Register(hooklife.SuggestCompact{Threshold: 150000})
+	reg.Register(hooklife.AutoCoverage{Enabled: AutoCoverage})
 
 	runner := hooklife.NewRunner(reg).WithTimeout(10 * time.Second)
 
