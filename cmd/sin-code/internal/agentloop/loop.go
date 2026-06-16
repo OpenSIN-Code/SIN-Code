@@ -92,6 +92,13 @@ type Loop struct {
 	// CLI callers leave it false to preserve the legacy error.
 	AllowContinuation bool
 
+	// Preamble, if set, is injected as a user message before the goal prompt.
+	// The SinCode Loop System uses it to state the Definition-of-Done up front
+	// (write tests, no debug leftovers, finish the job, keep docs in sync) so
+	// the worker does that work proactively instead of waiting to be told. It
+	// is advisory; the stop-gate independently enforces the same contract.
+	Preamble string
+
 	// CompressMessages, if set, is invoked on the message history before
 	// every model request to reduce token usage (e.g. via Headroom). It
 	// returns a possibly-rewritten history; on error or nil result the
@@ -211,6 +218,12 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	}
 	l.record(ctx, ledger.TypeUserPrompt, map[string]any{"content": prompt}, "user prompt")
 	msgs := sess.History()
+	// SinCode Loop System: state the Definition-of-Done before the goal so the
+	// worker addresses tests/debug/docs/completeness proactively. Enforcement
+	// still lives in the stop-gate; this only improves first-pass quality.
+	if strings.TrimSpace(l.Preamble) != "" {
+		msgs = append(msgs, session.Message{Role: "user", Content: l.Preamble})
+	}
 	msgs = append(msgs, session.Message{Role: "user", Content: prompt})
 
 	// Learning loop closed: inject accumulated workspace lessons before the
