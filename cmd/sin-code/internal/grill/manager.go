@@ -19,7 +19,7 @@ import (
 // `grill answer` in parallel from a TUI shell, for example).
 type Manager struct {
 	mu       sync.Mutex
-	dir      string            // JSON file directory (e.g. ~/.local/share/sin-code/grill)
+	dir      string              // JSON file directory (e.g. ~/.local/share/sin-code/grill)
 	sessions map[string]*Session // keyed by ID
 }
 
@@ -109,11 +109,11 @@ func (m *Manager) Next(id string) (decision Decision, parentID string, err error
 			// Append a sub-question from the catalog.
 			q := catalogQuestion(s.Topic, len(s.Decisions))
 			child := Decision{
-				ID:        fmt.Sprintf("d%d", len(s.Decisions)),
-				ParentID:  d.ID,
-				Question:  q,
-				Status:    "open",
-				AskedAt:   time.Now().UTC(),
+				ID:       fmt.Sprintf("d%d", len(s.Decisions)),
+				ParentID: d.ID,
+				Question: q,
+				Status:   "open",
+				AskedAt:  time.Now().UTC(),
 			}
 			s.Decisions = append(s.Decisions, child)
 			s.UpdatedAt = child.AskedAt

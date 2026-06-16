@@ -67,11 +67,11 @@ type StopDecision struct {
 type StopGate func(ctx context.Context, snap StopSnapshot) StopDecision
 
 type Loop struct {
-	Gate       *verify.Gate
-	LocalTool  LocalToolFunc
-	LocalSpec  []ToolSpec
-	Workspace  string
-	MaxTurns   int
+	Gate      *verify.Gate
+	LocalTool LocalToolFunc
+	LocalSpec []ToolSpec
+	Workspace string
+	MaxTurns  int
 	// MaxStopRejects caps how many times the stop-gate can reject
 	// completion before the run errors. Zero falls back to the
 	// default of 3. Independent of StallThreshold (issue #150):

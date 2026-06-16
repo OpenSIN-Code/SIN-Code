@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: MIT
 //go:build coverage
+
+// SPDX-License-Identifier: MIT
 // Purpose: targeted coverage tests for remaining uncovered statements in the
 // orchestrator package. Uses the package-level test hooks added to files that
 // call external subprocesses.
@@ -4503,7 +4504,9 @@ func TestGovernorRunRungSpecRunError(t *testing.T) {
 		Ladder:   []Rung{{Name: "multi", Agents: 2, RepairRounds: 1, Timeout: time.Second}},
 		Verifier: NewVerifier(t.TempDir()),
 		Checks:   []Check{{Kind: CheckBuild, Name: "c", Cmd: []string{"true"}}},
-		Factory:  func(rung Rung) []Agent { return []Agent{stcovAgent{name: "a1", out: "ok"}, stcovAgent{name: "a2", out: "ok"}} },
+		Factory: func(rung Rung) []Agent {
+			return []Agent{stcovAgent{name: "a1", out: "ok"}, stcovAgent{name: "a2", out: "ok"}}
+		},
 	}
 	res, err := g.Execute(context.Background(), &Task{ID: "t"}, NewScratchpad())
 	if err == nil || !strings.Contains(err.Error(), "spec run fail") {
@@ -4522,7 +4525,9 @@ func TestGovernorRunRungNoWinner(t *testing.T) {
 		Ladder:   []Rung{{Name: "multi", Agents: 2, RepairRounds: 1, Timeout: time.Second}},
 		Verifier: NewVerifier(t.TempDir()),
 		Checks:   []Check{{Kind: CheckBuild, Name: "c", Cmd: []string{"true"}}},
-		Factory:  func(rung Rung) []Agent { return []Agent{stcovAgent{name: "a1", out: "ok"}, stcovAgent{name: "a2", out: "ok"}} },
+		Factory: func(rung Rung) []Agent {
+			return []Agent{stcovAgent{name: "a1", out: "ok"}, stcovAgent{name: "a2", out: "ok"}}
+		},
 	}
 	res, err := g.Execute(context.Background(), &Task{ID: "t"}, NewScratchpad())
 	if err != nil {

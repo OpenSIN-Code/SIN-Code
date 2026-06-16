@@ -223,8 +223,8 @@ source tree under --root (default: current dir).
 				// union type would need a discriminator. PR 3 adds
 				// the JSON envelope if a downstream tool needs it.
 				if err := enc.Encode(struct {
-					Path  string               `json:"-"`
-					Files []*spec.CheckReport  `json:"files"`
+					Path  string              `json:"-"`
+					Files []*spec.CheckReport `json:"files"`
 				}{Files: nil}); err != nil {
 					return err
 				}

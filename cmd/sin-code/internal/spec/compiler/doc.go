@@ -3,9 +3,9 @@
 // Reads a single .sin-code.yml and produces the three derived
 // artifacts the SIN-Code binary needs:
 //
-//   .sin/hooks.json               for internal/hooks/
-//   internal/verify/config.json   for internal/verify/
-//   internal/permission/policies.json for internal/permission/
+//	.sin/hooks.json               for internal/hooks/
+//	internal/verify/config.json   for internal/verify/
+//	internal/permission/policies.json for internal/permission/
 //
 // v0 scope (this PR):
 //   - schema + parser + validator + 3 output emitters

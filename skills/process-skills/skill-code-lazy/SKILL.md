@@ -7,6 +7,7 @@ description: >-
   Triggers include: be lazy, lazy mode, minimal solution, yagni,
   simplest, do less, ship the lazy version.
 license: MIT
+lifecycle: external
 compatibility:
   - opencode
   - sin-code
@@ -16,7 +17,6 @@ metadata:
   ponytail-version: 1.0
   derived_from: github.com/DietrichGebert/ponytail
   ponytail-anchor: skills/ponytail/SKILL.md:1-80
-  lifecycle: external
   sources:
     - https://github.com/DietrichGebert/ponytail/blob/main/skills/ponytail/SKILL.md
   sin-mandate: M3 (verification gate is sacred)

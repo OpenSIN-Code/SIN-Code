@@ -19,12 +19,12 @@ import (
 
 // Filesystem hooks for deterministic error-path testing. Set only in tests.
 var (
-	fsReadFile = os.ReadFile
+	fsReadFile  = os.ReadFile
 	fsWriteFile = os.WriteFile
-	fsStat     = os.Stat
-	fsMkdirAll = os.MkdirAll
-	fsReadDir  = os.ReadDir
-	fsAbsPath  = filepath.Abs
+	fsStat      = os.Stat
+	fsMkdirAll  = os.MkdirAll
+	fsReadDir   = os.ReadDir
+	fsAbsPath   = filepath.Abs
 )
 
 // ── Markers ────────────────────────────────────────────────────────────

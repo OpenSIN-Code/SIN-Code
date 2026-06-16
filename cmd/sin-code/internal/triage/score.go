@@ -16,15 +16,15 @@ import (
 // (not config) so they are auditable and reviewable like the rest of
 // the agent.
 const (
-	wEpic         = 10
-	wBlocked      = 5
-	wAcceptance   = 3
-	wNoV0         = 5
-	wGoodFirst    = -3
-	wStale30d     = -2
-	wFresh7d      = 1
-	wLoopSystem   = 4
-	wFusion       = 2
+	wEpic          = 10
+	wBlocked       = 5
+	wAcceptance    = 3
+	wNoV0          = 5
+	wGoodFirst     = -3
+	wStale30d      = -2
+	wFresh7d       = 1
+	wLoopSystem    = 4
+	wFusion        = 2
 	wMemoryOrSkill = 2
 )
 

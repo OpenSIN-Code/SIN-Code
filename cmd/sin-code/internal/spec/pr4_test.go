@@ -167,8 +167,8 @@ func TestDrift_JSONNonStrictIgnoresExtras(t *testing.T) {
 
 func TestExtractJSONShapes_StrictMarker(t *testing.T) {
 	cases := []struct {
-		text     string
-		wantKeys int  // how many shapes to extract
+		text       string
+		wantKeys   int // how many shapes to extract
 		wantStrict bool
 	}{
 		{`{"name": "str", "id": "int"} strict!`, 1, true},

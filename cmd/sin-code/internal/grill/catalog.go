@@ -6,9 +6,9 @@
 //
 // The catalog is intentionally a Go slice (not a YAML file) so
 // that:
-//   1. The CLI has zero file-deps for `grill next`.
-//   2. The questions are typed (no string-template magic).
-//   3. Operators can grep the binary for the question set.
+//  1. The CLI has zero file-deps for `grill next`.
+//  2. The questions are typed (no string-template magic).
+//  3. Operators can grep the binary for the question set.
 package grill
 
 // AntiPattern is one entry in the catalog: the "what to look for"

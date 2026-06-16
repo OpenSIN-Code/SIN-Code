@@ -15,8 +15,8 @@ import (
 
 // package-level hooks to make import error branches testable.
 var (
-	osMkdirAllHook      = os.MkdirAll
-	osWriteFileHook     = os.WriteFile
+	osMkdirAllHook       = os.MkdirAll
+	osWriteFileHook      = os.WriteFile
 	loadSourceSkillsHook = loadSourceSkills
 )
 

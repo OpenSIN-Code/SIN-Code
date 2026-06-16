@@ -25,10 +25,10 @@ type Completer interface {
 // with safe defaults; production wires a real Completer and a longer
 // timeout.
 type AuthorOptions struct {
-	Completer Completer    // nil = dry-run (returns a stub spec for testing)
-	Timeout   time.Duration // per-call; default 60s
-	MaxRetries int         // default 3
-	Workdir   string       // for the working tree the implementer sees
+	Completer  Completer     // nil = dry-run (returns a stub spec for testing)
+	Timeout    time.Duration // per-call; default 60s
+	MaxRetries int           // default 3
+	Workdir    string        // for the working tree the implementer sees
 }
 
 // AuthorResult is the outcome of one Author call. Either the loop
@@ -41,20 +41,20 @@ type AuthorResult struct {
 
 // AuthorStep is one iteration of the loop.
 type AuthorStep struct {
-	Attempt     int
-	PlannerOut  string // raw planner output (for debugging)
+	Attempt        int
+	PlannerOut     string // raw planner output (for debugging)
 	ImplementerOut string
-	Drift       *CheckReport // nil if the implementer didn't change the tree
-	Verdict     string       // "ok" | "drift" | "planner-empty" | "implementer-empty"
+	Drift          *CheckReport // nil if the implementer didn't change the tree
+	Verdict        string       // "ok" | "drift" | "planner-empty" | "implementer-empty"
 }
 
 // Author runs the self-authoring loop for desc. The loop:
 //
-//	1. Planner LLM call: produce a *.spec.md from desc
-//	2. Implementer LLM call: write code that satisfies the spec
-//	3. Drift check: run every criterion's verify: command
-//	4. On must-priority failure: feed the failing criterion back to
-//	   the Implementer LLM and retry (up to MaxRetries).
+//  1. Planner LLM call: produce a *.spec.md from desc
+//  2. Implementer LLM call: write code that satisfies the spec
+//  3. Drift check: run every criterion's verify: command
+//  4. On must-priority failure: feed the failing criterion back to
+//     the Implementer LLM and retry (up to MaxRetries).
 //
 // The returned Spec is the version that passed. Trace is non-nil even
 // on failure so the operator can see what the loop tried.

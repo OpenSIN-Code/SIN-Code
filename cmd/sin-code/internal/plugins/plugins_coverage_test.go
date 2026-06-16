@@ -1,5 +1,6 @@
-// SPDX-License-Identifier: MIT
 //go:build coverage
+
+// SPDX-License-Identifier: MIT
 // Purpose: targeted coverage tests for the remaining error branches in the
 // plugin manifest and registry packages.
 package plugins

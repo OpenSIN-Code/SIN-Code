@@ -6,11 +6,11 @@
 //
 // Subcommands:
 //
-//   sin-code grill start <topic>     begin a grilling session
-//   sin-code grill next <id>         ask the next adversarial question
-//   sin-code grill answer <id> <d-id> <text>   record the operator's response
-//   sin-code grill status <id>      show resolved + open decision branches
-//   sin-code grill synthesize <id>  produce a summary of decisions
+//	sin-code grill start <topic>     begin a grilling session
+//	sin-code grill next <id>         ask the next adversarial question
+//	sin-code grill answer <id> <d-id> <text>   record the operator's response
+//	sin-code grill status <id>      show resolved + open decision branches
+//	sin-code grill synthesize <id>  produce a summary of decisions
 //
 // Sessions are stored in $SIN_CODE_HOME/grill/<id>.json as
 // content-addressed JSON files. v0 ships in-memory + JSON storage;

@@ -22,8 +22,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/OpenSIN-Code/SIN-Code/pkg/browser/cdp"
 	"github.com/chromedp/chromedp"
+
+	"github.com/OpenSIN-Code/SIN-Code/pkg/browser/cdp"
 )
 
 const (
@@ -362,12 +363,12 @@ func toolBrowserSnapshot() (string, error) {
 	}
 
 	snap := map[string]interface{}{
-		"total_events":  len(events),
-		"first_wall":    events[0].WallTime,
-		"last_wall":     events[len(events)-1].WallTime,
-		"event_counts":  counts,
-		"report":        report,
-		"jsonl":         browserSession.jsonlPath,
+		"total_events": len(events),
+		"first_wall":   events[0].WallTime,
+		"last_wall":    events[len(events)-1].WallTime,
+		"event_counts": counts,
+		"report":       report,
+		"jsonl":        browserSession.jsonlPath,
 	}
 	b, err := json.MarshalIndent(snap, "", "  ")
 	if err != nil {
