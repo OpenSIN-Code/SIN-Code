@@ -486,6 +486,7 @@ func TestSubmitSyncReturnsResult(t *testing.T) {
 
 func TestSubmitSyncBusy(t *testing.T) {
 	r := newTestRunner(t, Config{Workspace: t.TempDir()})
+	defer r.Close()
 	hold := make(chan struct{})
 	r.SetCompletion(func(ctx context.Context, history []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error) {
 		<-hold
