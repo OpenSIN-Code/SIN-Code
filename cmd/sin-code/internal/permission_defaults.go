@@ -62,6 +62,11 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "eval__list", Policy: "allow"},
 		{Tool: "eval__run", Policy: "ask"}, // may invoke real verification + LLM
 		{Tool: "trace__doctor", Policy: "allow"},
+		// v3.17.0 (issue #168): Token-usage ledger (tokens show/tail/aggregate).
+		// These only read the local `tokens.db`; no network, no mutation.
+		{Tool: "tokens__show", Policy: "allow"},
+		{Tool: "tokens__tail", Policy: "allow"},
+		{Tool: "tokens__aggregate", Policy: "allow"},
 		// Backstop catch-all (mirrors sin_bash default at line 44 for unmatched prefixes).
 		{Tool: "autodev__*", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},

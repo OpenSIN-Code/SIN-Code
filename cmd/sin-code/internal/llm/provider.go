@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Purpose: generic OpenAI-compatible LLM client. Single-shot chat completion
 // request with bearer auth, JSON marshaling, and typed response decoding.
+// Persists parsed tool-usage via a pluggable Recorder (issue #168).
 package llm
 
 import (
@@ -57,6 +58,12 @@ type Client struct {
 	// in tests that hand-build the struct (HTTP roundtrips still work,
 	// just without breaker protection).
 	breaker *circuitbreaker.Breaker
+
+	// Recorder persists parsed ChatResponse.Usage on every successful
+	// call. Defaults to NopRecorder (drained) when wired via NewClient.
+	// Issue #168: previously the Usage block was parsed but dropped at
+	// provider.go:42-46; it now flows through a pluggable recorder.
+	Recorder Recorder
 }
 
 func NewClient(baseURL, apiKey string) *Client {
@@ -74,7 +81,8 @@ func NewClient(baseURL, apiKey string) *Client {
 			Timeout:   120 * time.Second,
 			Transport: circuitbreaker.RoundTripper(http.DefaultTransport, br),
 		},
-		breaker: br,
+		breaker:  br,
+		Recorder: NopRecorder{},
 	}
 }
 
@@ -125,6 +133,16 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, erro
 	var out ChatResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	// Issue #168: persist parsed Usage. Best-effort — a recorder failure
+	// never blocks the caller. SessionID comes from the context (set by
+	// agentloop.Loop, the tui/chat runner, or the spec author).
+	if c.Recorder != nil && (out.Usage.PromptTokens != 0 || out.Usage.CompletionTokens != 0 || out.Usage.TotalTokens != 0) {
+		if recErr := c.Recorder.RecordUsage(ctx, SessionIDFromContext(ctx),
+			req.Model, SourceAdHoc,
+			out.Usage.PromptTokens, out.Usage.CompletionTokens, out.Usage.TotalTokens); recErr != nil {
+			fmt.Fprintf(os.Stderr, "warn: usage recorder: %v\n", recErr)
+		}
 	}
 	return &out, nil
 }

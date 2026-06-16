@@ -23,23 +23,24 @@ import (
 // namespaced keys (e.g. llm.base_url) for simple TOML-like parsing without
 // adding a parser dependency.
 type SinCodeConfig struct {
-	Theme            string   `toml:"theme"`
-	DefaultTimeout   int      `toml:"default_timeout"`
-	DefaultFormat    string   `toml:"default_format"`
-	MCPServerEnabled bool     `toml:"mcp_server_enabled"`
-	LLMBaseURL       string   `toml:"llm.base_url"`
-	LLMAPIKey        string   `toml:"llm.api_key"`
-	LLMModel         string   `toml:"llm.model"`
-	LLMMaxTokens     int      `toml:"llm.max_tokens"`
-	LLMTemperature   float64  `toml:"llm.temperature"`
-	AgentVerifyMode  string   `toml:"agent.verify_mode"`
-	AgentMaxTurns    int      `toml:"agent.max_turns"`
-	AgentHeadless    bool     `toml:"agent.headless"`
-	AgentYolo        bool     `toml:"agent.yolo"`
-	ToolsAllow       []string `toml:"permissions.tools_allow"`
-	ToolsDeny        []string `toml:"permissions.tools_deny"`
-	PathsMCPConfig   string   `toml:"paths.mcp_config"`
-	PathsSkillsDir   string   `toml:"paths.skills_dir"`
+	Theme            string             `toml:"theme"`
+	DefaultTimeout   int                `toml:"default_timeout"`
+	DefaultFormat    string             `toml:"default_format"`
+	MCPServerEnabled bool               `toml:"mcp_server_enabled"`
+	LLMBaseURL       string             `toml:"llm.base_url"`
+	LLMAPIKey        string             `toml:"llm.api_key"`
+	LLMModel         string             `toml:"llm.model"`
+	LLMMaxTokens     int                `toml:"llm.max_tokens"`
+	LLMTemperature   float64            `toml:"llm.temperature"`
+	LLMPricingPer1K  map[string]float64 `toml:"llm.pricing_per_1k"`
+	AgentVerifyMode  string             `toml:"agent.verify_mode"`
+	AgentMaxTurns    int                `toml:"agent.max_turns"`
+	AgentHeadless    bool               `toml:"agent.headless"`
+	AgentYolo        bool               `toml:"agent.yolo"`
+	ToolsAllow       []string           `toml:"permissions.tools_allow"`
+	ToolsDeny        []string           `toml:"permissions.tools_deny"`
+	PathsMCPConfig   string             `toml:"paths.mcp_config"`
+	PathsSkillsDir   string             `toml:"paths.skills_dir"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -53,6 +54,7 @@ func defaultConfig() SinCodeConfig {
 		LLMModel:         "",
 		LLMMaxTokens:     8192,
 		LLMTemperature:   0.0,
+		LLMPricingPer1K:  nil,
 		AgentVerifyMode:  "poc",
 		AgentMaxTurns:    80,
 		AgentHeadless:    false,
@@ -687,6 +689,18 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.PathsMCPConfig = val
 		case "paths.skills_dir":
 			cfg.PathsSkillsDir = val
+		default:
+			// llm.pricing_per_1k.KEY = F  (issue #168).
+			if strings.HasPrefix(key, "llm.pricing_per_1k.") {
+				mk := strings.TrimPrefix(key, "llm.pricing_per_1k.")
+				mk = strings.Trim(mk, `"`) // accept both quoted and unquoted keys
+				if cfg.LLMPricingPer1K == nil {
+					cfg.LLMPricingPer1K = map[string]float64{}
+				}
+				if v, err := strconv.ParseFloat(val, 64); err == nil && mk != "" {
+					cfg.LLMPricingPer1K[mk] = v
+				}
+			}
 		}
 	}
 }

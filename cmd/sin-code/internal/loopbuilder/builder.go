@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Purpose: shared loop factory — eliminates duplication of provider /
 // permission / hooks / gate / mcp / memory setup across chat / swarm /
-// serve (issue #64, DRY refactor).
+// serve (issue #64, DRY refactor). Wires token-usage recorder (issue #168).
 package loopbuilder
 
 import (
@@ -26,6 +26,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/stopgate"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/usage"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
 )
@@ -75,6 +76,14 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	model := firstNonEmpty(cfg.Model, agentCfg.Model, os.Getenv("SIN_LLM_MODEL"))
 	client := llm.NewClient(baseURL, apiKey)
 	completion := agentloop.NewProviderCompletion(client, model, agentCfg.MaxTokens, agentCfg.Temperature)
+
+	// Issue #168: wire the token-usage recorder. Opens the store lazily so
+	// test commands without a writable data dir still succeed.
+	if store, err := usage.Open(usage.DefaultPath()); err == nil {
+		client.Recorder = &usageRecorder{store: store}
+		defer func() { _ = store.Close() }()
+		completion = agentloop.NewProviderCompletion(client, model, agentCfg.MaxTokens, agentCfg.Temperature)
+	}
 
 	perm := permission.New(internal.RulesForAgent(agentCfg))
 	perm.Yolo = cfg.Yolo
@@ -216,4 +225,13 @@ func commandRunner(command string) verify.Runner {
 		}
 		return true, report, nil
 	}
+}
+
+// usageRecorder adapts internal/usage.Store to the llm.Recorder interface.
+// Best-effort: failures are returned (the LLM client logs them via os.Stderr
+// and never bubbles up).
+type usageRecorder struct{ store *usage.Store }
+
+func (r *usageRecorder) RecordUsage(ctx context.Context, sessionID, model string, source llm.Source, input, output, total int) error {
+	return r.store.RecordFromChatUsage(ctx, sessionID, model, usage.Source(source), input, output, total)
 }

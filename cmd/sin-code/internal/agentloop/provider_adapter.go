@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Purpose: bridges internal/llm.Client (STRUCT) to the agentloop.Completion
 // func signature via a func-closure (issue #44). Adds OpenAI-compatible
-// tool calling on top of the plain-chat client.
+// tool calling on top of the plain-chat client. Persists parsed token usage
+// via the client Recorder (issue #168).
 package agentloop
 
 import (
@@ -11,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
@@ -53,6 +55,14 @@ type wireResponse struct {
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
+	// Issue #168: persist parsed Usage. Same shape as
+	// internal/llm.ChatResponse.Usage; kept local to avoid an import
+	// cycle (agentloop has no direct dep on llm.ChatResponse).
+	Usage struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage"`
 }
 
 func NewProviderCompletion(c *llm.Client, model string, maxTokens int, temperature float64) func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
@@ -93,6 +103,16 @@ func NewProviderCompletion(c *llm.Client, model string, maxTokens int, temperatu
 		var out wireResponse
 		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 			return nil, fmt.Errorf("decode completion response: %w", err)
+		}
+		// Issue #168: persist parsed Usage via the client's Recorder so
+		// the agentloop completion path (which bypasses Client.Chat)
+		// captures the same Usage block. SessionID flows in via ctx.
+		if c.Recorder != nil && (out.Usage.PromptTokens != 0 || out.Usage.CompletionTokens != 0 || out.Usage.TotalTokens != 0) {
+			if recErr := c.Recorder.RecordUsage(ctx, llm.SessionIDFromContext(ctx),
+				model, llm.SourceChat,
+				out.Usage.PromptTokens, out.Usage.CompletionTokens, out.Usage.TotalTokens); recErr != nil {
+				fmt.Fprintf(os.Stderr, "warn: usage recorder: %v\n", recErr)
+			}
 		}
 		if len(out.Choices) == 0 {
 			return nil, fmt.Errorf("LLM returned no choices")

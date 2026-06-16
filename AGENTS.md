@@ -271,10 +271,11 @@ SIN-Code/
 │   │       ├── loopbuilder/   ← v3.4.0: shared factory (DRY)
 │   │       ├── vane/          ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (internal/vane)
 │   │       ├── stack/         ← v3.8.0: unified install/doctor across 3 layers
-│   │       ├── hub/           ← v3.12.0: static tool catalog
-│   │       ├── ledger/        ← v3.13.0: semantic session ledger (SQLite)
-│   │       ├── summary/       ← v3.13.0: deterministic session summary builder
-│   │       ├── llm/           ← provider layer
+ │   │       ├── hub/           ← v3.12.0: static tool catalog
+ │   │       ├── ledger/        ← v3.13.0: semantic session ledger (SQLite)
+ │   │       ├── summary/       ← v3.13.0: deterministic session summary builder
+ │   │       ├── usage/         ← v3.17.0 (#168): LLM token-usage persistence + aggregation
+ │   │       ├── llm/           ← provider layer (+ Recorder interface, #168)
 │   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
 │   │       ├── memory/        ← (existing) store/search/embed
 │   │       ├── lsp/, notifications/, todo/, plugins/, sandbox/, attachments/, webui/
@@ -317,6 +318,11 @@ Lessons DB: `~/.local/share/sin-code/lessons.db` (SQLite, modernc).
 Goal Queue DB: `~/.local/share/sin-code/goals.db` (SQLite, modernc).
 Ledger DB: `~/.local/share/sin-code/ledger.db` (SQLite, modernc), overridable
 via `SIN_CODE_LEDGER`.
+Token Usage DB: `~/.local/share/sin-code/tokens.db` (SQLite, modernc,
+issue #168), overridable via `SIN_CODE_TOKENS_DB`. Stores one row per LLM
+call with prompt/completion/total tokens, model, source, session, and a
+USD cost derived from `llm.pricing_per_1k.*` overrides or the built-in
+price table (`internal/usage.DefaultPricing`).
 
 Headless JSON contract (stable API — never break without major bump):
 
@@ -346,6 +352,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.14.0 | ✅ SHIPPED | Unified config subsystem (#34): `sin-code config init/show/validate`, expanded TOML schema, user + project deep merge, atomic writes, secret masking, 39 subcommands |
 | v3.15.0 | ✅ SHIPPED | Go-native SCA Phase 1 (#41), race-flake hardening (#59) |
 | v3.16.0 | ✅ SHIPPED | Forge integration (#37): `sin forge` command, `sin status` detection, 16th MCP tool in `mcp_config` |
+| v3.17.0 | ✅ SHIPPED | Token-usage persistence (#168): `internal/usage/` SQLite store + `internal/llm.Recorder` interface + `tokens show/tail/aggregate` CLI + `tokens.db` at `$XDG_DATA_HOME/sin-code/`. `sin-code summary` now ends with a `Tokens: N (in X / out Y) · est. cost: $Z` line. No fake numbers (session is silent until the first call). Hardcoded built-in price table for NIM/Anthropic/OpenAI/Fireworks; configurable per-model via `llm.pricing_per_1k."org/model" = USD` in `~/.config/sin/sin-code.toml`. |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -396,7 +403,7 @@ Each skill **must** contain:
 Skills ported from external repos (e.g. `Infra-SIN-OpenCode-Stack`) must include
 `lifecycle: external` and `sources:` in their metadata.
 
-### CLI subcommands (verified `cmd/sin-code/main.go`, v3.5.0)
+### CLI subcommands (verified `cmd/sin-code/main.go`, v3.13.0+ #168)
 
 ```
 Core:      discover, execute, map, grasp, scout, harvest, orchestrate,
@@ -407,8 +414,8 @@ Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
            orchestrator_agents, orchestrator_plan, update
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
-           config, self-update, hub, ledger, summary
-``` (v3.13.0: 39 subcommands, up from 36 in v3.9.0)
+           config, self-update, hub, ledger, summary, tokens
+``` (v3.17.0: 40 subcommands, up from 39 in v3.13.0)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 
@@ -441,6 +448,7 @@ The Go binary writes SQLite DBs to two distinct on-disk locations:
 | Lessons log      | `cmd/sin-code/tui/.sin-code/lessons.db`            | `internal/lessons/store.go`        | #62    |
 | Session store    | `cmd/sin-code/tui/.sin-code/sessions.db`           | `internal/session/store.go`        | #62    |
 | Code index       | `cmd/sin-code/internal/.sin-code/index.bin`        | `internal/index_store.go`          | c06cf18 |
+| Token usage      | `$XDG_DATA_HOME/sin-code/tokens.db` (or `~/.local/share/sin-code/tokens.db`) | `internal/usage/store.go`    | #168   |
 
 These are ignored by `.gitignore` (lines 64–65). Do not `git add` them
 under any circumstances; the proper fix is to migrate to

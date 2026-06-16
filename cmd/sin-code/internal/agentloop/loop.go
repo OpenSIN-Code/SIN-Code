@@ -12,6 +12,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
@@ -252,7 +253,10 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				reqMsgs = compressed
 			}
 		}
-		resp, err := l.Completion(ctx, reqMsgs, tools)
+		// Issue #168: thread SessionID through ctx so the LLM client / the
+		// adapter capture the right session ID on every chat completion.
+		turnCtx := llm.WithSessionID(ctx, sess.ID)
+		resp, err := l.Completion(turnCtx, reqMsgs, tools)
 		if err != nil {
 			return nil, fmt.Errorf("turn %d: %w", turn, err)
 		}

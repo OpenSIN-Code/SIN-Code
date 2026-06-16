@@ -4,6 +4,42 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — Token-Usage Observability (issue #168)
+- **`internal/usage/`** — SQLite-backed token-usage ledger (CGo-free,
+  `modernc.org/sqlite`, single-writer via internal mutex, race-safe). One
+  row per LLM call with `session_id`, `model`, `source` ("chat" | "verify"
+  | "judge" | "summary" | "plan" | "adhoc"), `input_tokens`,
+  `output_tokens`, `total_tokens`, `cost_usd` (derived at write time from
+  `llm.pricing_per_1k` overrides or the built-in price table), and
+  `created_at`. DB lives at `$XDG_DATA_HOME/sin-code/tokens.db` (override
+  via `SIN_CODE_TOKENS_DB`) — never in a gitignored subdir.
+- **`internal/llm.Recorder` interface** — pluggable persistence surface
+  the LLM client invokes on every successful `Chat` (and on every
+  `provider_adapter` completion that bypasses `Client.Chat`).
+  `NopRecorder` is the default; `loopbuilder` wires the SQLite-backed
+  recorder once `usage.Open` succeeds. Threading: SessionID flows via
+  `context.Context` (`llm.SessionIDContextKey{}`) — agentloop sets it;
+  the LLM client reads it.
+- **`sin-code tokens`** (new subcommand, 39 → 40, issue #168):
+  - `tokens show [--session ID] [--today] [--month] [--cost] [--share] [--json]`
+  - `tokens tail [--session ID] [-n 20]`
+  - `tokens aggregate [--by day|month|model|source|session] [--json]`
+- **One-liner in `sin-code summary`** — every summary now ends with
+  `Tokens: N (in X / out Y)` and `Estimated cost: $Z` when usage has been
+  recorded (caveman discipline: absent until the first call — never fake
+  a number).
+- **`llm.pricing_per_1k`** config key — flat map for per-model
+  USD-per-1k-tokens. Both quoted and unquoted model keys accepted
+  (`llm.pricing_per_1k."gpt-4o" = 0.0050` or
+  `llm.pricing_per_1k.gpt-4o = 0.0050`). Built-in price table covers
+  NIM (NVIDIA, llama-3.3-70b etc.), Anthropic (claude-sonnet-4,
+  claude-opus-4, claude-haiku-4), OpenAI (gpt-4o, gpt-4o-mini, o1),
+  Fireworks (`fireworks/llama-3.3-70b`, developer-opencode
+  `accounts/fireworks/models/minimax-m3`).
+- **Default permission rules** — `tokens__show`, `tokens__tail`,
+  `tokens__aggregate` all default to `allow` (read-only local DB; no
+  network, no mutation). Fits M4.
+
 ### Added — Loop Engineering (decoupled completion authority)
 - **Stop-gate harness** (`internal/stopgate`): an independent completion
   authority consulted after the verify-gate passes. Hybrid mode runs
