@@ -35,6 +35,8 @@
 > race-safe per-session state (mandate M7). Branch protection on `main`
 > permanently relaxed to `required_approving_review_count: 0` for solo-
 > maintainer workflow.
+> `sin-code audit` + `sin-code ceo-audit` added (issue #180): complexity-audit
+> engine in `cmd/sin-code/internal/audit/`, 48th CEO-audit gate.
 
 ---
 
@@ -175,7 +177,17 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code summary       ← v3.13.0: session auto-summary
   ├─ sin-code compress      ← v3.18.0: deterministic + LLM compaction (issue #172)
   └─ 40 subcommands
+  ├─ sin-code audit         ← v3.18.0: repo-wide complexity audit (issue #180)
+  ├─ sin-code ceo-audit     ← v3.18.0: 48-gate CEO audit with complexity gate (issue #180)
+  └─ 41 subcommands
 
+         │
+         ▼
+  ┌──────────────────────────────────────────┐
+  │      AUDIT LAYER (v3.18.0)               │
+  │  • complexity — static + LLM judge (M3)    │
+  │  • ceo-audit — 48 gates incl. complexity   │
+  └──────────────────────────────────────────┘
          │
          ▼
   ┌──────────────────────────────────────────┐
@@ -653,6 +665,8 @@ per-skill bundles and per-profile mirrors with one regex. Profile
 renders are idempotent (rerun with unchanged source = byte-identical
 output), exactly as skilldist demands.
 ``` (v3.18.0: 41 subcommands — `debt` is issue #177, sin-debt markers; `install` is issue #170; `eval`, `evalset`, `prp`, `instinct`, `assets`, `hooks`, `rtk`, `codegraph`, `spec` follow)
+Audit:     audit, ceo-audit
+``` (v3.18.0: 41 subcommands, up from 39 in v3.13.0)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 

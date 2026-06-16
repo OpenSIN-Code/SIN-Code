@@ -99,6 +99,10 @@ func init() {
 		NewCodeGraphCmd(),                                                                              // CodeGraph multi-language analysis bridge (issue #126)
 		NewSpecCmd(),                                                                                   // Spec-Layer: *.spec.md contracts (issue #122)
 		NewDebtCmd(),                                                                                   // issue #177: sin-debt marker manager (`// sin-debt: <ceiling>, upgrade: <trigger>`)
+		NewRtkCmd(),                     // rtk (Rust Token Killer) bridge (issue #123)
+		NewCodeGraphCmd(),               // CodeGraph multi-language analysis bridge (issue #126)
+		NewSpecCmd(),                    // Spec-Layer: *.spec.md contracts (issue #122)
+		NewAuditCmd(), NewCEOAUDITCmd(), // v3.18.0: complexity audit (issue #180) + 48-gate CEO audit
 		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + eval + prp workflow
 	)
 

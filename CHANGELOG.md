@@ -597,6 +597,20 @@ reports them; `debt check` gates them.
   preserved unchanged; the new harness lives at `sin evalset` to avoid
   a cobra `Use:` collision.)
 
+### Added — Complexity Audit (issue #180)
+- **`sin-code audit complexity`** — repo-wide ponytail-audit analog. Five tags
+  (`delete`, `stdlib`, `native`, `yagni`, `shrink`), deterministic static pass
+  (single-impl interfaces, single-product factories, wrapper functions,
+  one-export files, dead flags/config, hand-rolled stdlib), optional LLM judge
+  for top-N findings. Output: one-liner per finding ending with
+  `net: -<N> lines, -<M> deps possible.` or `Lean already. Ship.`.
+- **`cmd/sin-code/internal/audit/`** — new `Auditor`, `Finding`, `Result` types;
+  `// sin-debt:` markers approve findings and exclude them from the net total.
+- **`sin-code ceo-audit`** — new 48-gate CEO-grade audit. The 48th gate is the
+  complexity audit; score contribution is `+1` per 100 removable lines.
+- **Docs** `docs/complexity-audit.md` and **tests** `complexity_test.go` +
+  `audit_cmd_test.go` with race-free coverage.
+
 ### Notes
 - All loop-engineering features are opt-in and fail-safe: a nil stop-gate /
   empty contract / `AllowContinuation=false` preserves exact legacy behavior.
