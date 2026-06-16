@@ -45,6 +45,11 @@ type GoalContract struct {
 	// telling the LLM judge to confirm a large goal was decomposed into at
 	// least this many child goals when the scope warranted it (loop-005).
 	MinSubGoals int `json:"min_sub_goals,omitempty"`
+
+	// DisablePostGoals persists a per-goal opt-out of auto-spawned
+	// post-completion doc/changelog goals (loop-001), set via
+	// `goal add --no-post-goals`.
+	DisablePostGoals bool `json:"disable_post_goals,omitempty"`
 }
 
 // PostGoal is one automatically spawned follow-up goal (loop-001).
@@ -69,7 +74,8 @@ func (c *GoalContract) IsEmpty() bool {
 	}
 	return len(c.DeterministicChecks) == 0 && len(c.SemanticCriteria) == 0 &&
 		c.MaxFilesChanged == 0 && c.MaxLinesChanged == 0 &&
-		len(c.PostCompletionGoals) == 0 && c.MinSubGoals == 0
+		len(c.PostCompletionGoals) == 0 && c.MinSubGoals == 0 &&
+		!c.DisablePostGoals
 }
 
 // Marshal serializes the contract to a compact JSON string for persistence in

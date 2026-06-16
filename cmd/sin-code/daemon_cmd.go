@@ -15,13 +15,18 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/gitops"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
@@ -45,6 +50,10 @@ type daemonOptions struct {
 	maxContinuations int
 	maxDepth         int
 	noContract       bool
+	noPostGoals      bool
+	autoCommit       bool
+	pushRemote       string
+	openPR           bool
 }
 
 func NewDaemonCmd() *cobra.Command {
@@ -52,7 +61,8 @@ func NewDaemonCmd() *cobra.Command {
 	var verifyCmd string
 	var maxTurns, concurrency, maxProcs int
 	var maxContinuations, maxDepth int
-	var noContract bool
+	var noContract, noPostGoals, autoCommit, openPR bool
+	var pushRemote string
 	var repos []string
 	var maxMemory, minDisk string
 	cmd := &cobra.Command{
@@ -85,6 +95,10 @@ func NewDaemonCmd() *cobra.Command {
 				maxContinuations: maxContinuations,
 				maxDepth:         maxDepth,
 				noContract:       noContract,
+				noPostGoals:      noPostGoals,
+				autoCommit:       autoCommit || os.Getenv("SIN_AUTO_COMMIT") == "1",
+				pushRemote:       pushRemote,
+				openPR:           openPR,
 			})
 		},
 	}
@@ -100,6 +114,10 @@ func NewDaemonCmd() *cobra.Command {
 	cmd.Flags().IntVar(&maxContinuations, "max-continuations", 5, "max times a goal may checkpoint+resume past max-turns before failing (0 = disabled)")
 	cmd.Flags().IntVar(&maxDepth, "max-depth", 3, "max sub-goal nesting depth an agent may spawn via spawn_subgoal")
 	cmd.Flags().BoolVar(&noContract, "no-contract", false, "disable Definition-of-Done contracts (revert to single verify-gate)")
+	cmd.Flags().BoolVar(&noPostGoals, "no-post-goals", false, "disable auto-spawned post-completion doc/changelog goals (loop-001)")
+	cmd.Flags().BoolVar(&autoCommit, "auto-commit", false, "automatically git commit verified work (env: SIN_AUTO_COMMIT=1) (loop-007)")
+	cmd.Flags().StringVar(&pushRemote, "push-remote", "", "git remote to push to after commit (e.g. origin); empty = no push")
+	cmd.Flags().BoolVar(&openPR, "open-pr", false, "open a GitHub PR after push (requires GH_TOKEN, implies --push-remote=origin)")
 	return cmd
 }
 
@@ -266,11 +284,13 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 			persisted = &goalcontract.GoalContract{}
 		}
 		resolved, rerr := goalcontract.Resolve(goalcontract.ResolveOptions{
-			Workspace:    goal.Workspace,
-			GoalID:       fmt.Sprintf("%d", goal.ID),
-			Criteria:     persisted.SemanticCriteria,
-			VerifyCmd:    opt.verifyCmd,
-			AutoDetect:   true,
+			Workspace:   goal.Workspace,
+			GoalID:      fmt.Sprintf("%d", goal.ID),
+			Prompt:      goal.Prompt,
+			Criteria:    persisted.SemanticCriteria,
+			VerifyCmd:   opt.verifyCmd,
+			AutoDetect:  true,
+			NoPostGoals: opt.noPostGoals || persisted.DisablePostGoals,
 		})
 		if rerr != nil {
 			fmt.Fprintf(os.Stderr, "daemon: goal %d contract resolve failed: %v\n", goal.ID, rerr)
@@ -302,7 +322,17 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 	}
 	defer cleanup()
 
-	res, err := loop.Run(ctx, sess, goal.Prompt)
+	// Pre-flight decomposition directive (loop-005): for a fresh, top-level
+	// goal, prepend the autonomous-execution protocol so the agent decomposes
+	// large scope up front and treats tests/docs/build as non-negotiable —
+	// instead of discovering spawn_subgoal mid-run after hitting max-turns.
+	effectivePrompt := goal.Prompt
+	if goal.Depth == 0 && goal.Attempts <= 1 && len(sess.History()) == 0 {
+		effectivePrompt = buildDecompositionDirective(opt.maxDepth) +
+			"\n\n---\nORIGINAL GOAL:\n" + goal.Prompt
+	}
+
+	res, err := loop.Run(ctx, sess, effectivePrompt)
 	if err != nil {
 		_ = queue.Fail(ctx, goal.ID, sess.ID, err.Error())
 		hookEngine.Fire(ctx, hooks.Payload{Event: hooks.GoalExhausted, Data: map[string]any{"goal_id": goal.ID, "error": err.Error()}})
@@ -329,10 +359,152 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 		return
 	}
 
+	// Auto-commit the verified work first (loop-007) so the post-completion
+	// doc/changelog goals can diff against a clean baseline (HEAD~1..HEAD) and
+	// the human never has to run git by hand. Non-fatal on failure.
+	if opt.autoCommit {
+		commitMsg := fmt.Sprintf(
+			"feat(agent): complete goal #%d in %d turns\n\n%s\n\n[sin-code goal-id: %d]",
+			goal.ID, res.Turns, res.Summary, goal.ID)
+		remote := opt.pushRemote
+		if opt.openPR && remote == "" {
+			remote = "origin"
+		}
+		if cerr := gitops.AutoCommit(ctx, gitops.CommitOptions{
+			Workspace:  goal.Workspace,
+			Message:    commitMsg,
+			PushRemote: remote,
+			CreatePR:   opt.openPR,
+			PRTitle:    fmt.Sprintf("Agent: goal #%d — %s", goal.ID, truncatePrompt(goal.Prompt, 60)),
+			PRBody:     "Autonomously completed by SIN-Code daemon.\n\n" + res.Summary,
+		}); cerr != nil {
+			fmt.Fprintf(os.Stderr, "warn: auto-commit failed: %v\n", cerr)
+		}
+	}
+
+	// Spawn post-completion doc/changelog/MASTER_TODO goals (loop-001). These
+	// run as tree children, so queue.Complete marks the parent blocked until
+	// every doc goal is verified — the loop can never leave docs stale.
+	if !opt.noContract && contract != nil && len(contract.PostCompletionGoals) > 0 {
+		spawnPostGoals(ctx, queue, goal, res, contract.PostCompletionGoals)
+	}
+
 	_ = queue.Complete(ctx, goal.ID, sess.ID)
 	hookEngine.Fire(ctx, hooks.Payload{Event: hooks.GoalVerified, Data: map[string]any{
 		"goal_id": goal.ID, "turns": res.Turns, "session_id": sess.ID}})
 	fmt.Printf("daemon: goal %d VERIFIED in %d turns (session %s)\n", goal.ID, res.Turns, sess.ID)
+}
+
+// spawnPostGoals enqueues each post-completion follow-up as a child of the
+// parent goal, rendering its prompt template with the parent Result and
+// honouring OnlyIfChanged globs against the last commit's diff (loop-001).
+func spawnPostGoals(ctx context.Context, q *autonomy.Queue,
+	parent *autonomy.Goal, res *agentloop.Result, posts []goalcontract.PostGoal) {
+
+	data := map[string]any{
+		"Summary":   res.Summary,
+		"SessionID": res.SessionID,
+		"Turns":     res.Turns,
+	}
+	for _, pg := range posts {
+		if pg.OnlyIfChanged != "" && !changedFilesMatch(parent.Workspace, pg.OnlyIfChanged) {
+			continue
+		}
+		prompt, err := renderTemplate(pg.PromptTemplate, data)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warn: post-goal template error: %v\n", err)
+			continue
+		}
+		var contractJSON string
+		if len(pg.Criteria) > 0 {
+			c := &goalcontract.GoalContract{SemanticCriteria: pg.Criteria}
+			contractJSON, _ = c.Marshal()
+		}
+		id, err := q.AddSub(ctx, parent.ID, prompt, parent.Priority, parent.MaxRetries, contractJSON)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "warn: could not spawn post-goal: %v\n", err)
+			continue
+		}
+		fmt.Printf("daemon: spawned post-completion goal %d (docs/changelog) under goal %d\n", id, parent.ID)
+	}
+}
+
+// renderTemplate renders a Go text/template with data.
+func renderTemplate(tmpl string, data map[string]any) (string, error) {
+	t, err := template.New("postgoal").Parse(tmpl)
+	if err != nil {
+		return "", err
+	}
+	var sb strings.Builder
+	if err := t.Execute(&sb, data); err != nil {
+		return "", err
+	}
+	return sb.String(), nil
+}
+
+// changedFilesMatch reports whether any file changed in the last commit
+// matches the glob pattern. Fail-open: when the diff can't be read (no prior
+// commit, not a git repo), it returns true so the post-goal still runs.
+func changedFilesMatch(workspace, pattern string) bool {
+	cmd := exec.Command("git", "diff", "--name-only", "HEAD~1", "HEAD")
+	cmd.Dir = workspace
+	out, err := cmd.Output()
+	if err != nil {
+		return true
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line == "" {
+			continue
+		}
+		if ok, _ := filepath.Match(pattern, filepath.Base(line)); ok {
+			return true
+		}
+		if ok, _ := filepath.Match(pattern, line); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// buildDecompositionDirective returns the autonomous-execution protocol that is
+// prepended to fresh top-level goals (loop-005).
+func buildDecompositionDirective(maxDepth int) string {
+	return fmt.Sprintf(`AUTONOMOUS EXECUTION PROTOCOL — read before starting:
+
+You are an autonomous coding agent. Your job is to FULLY complete the goal
+below without any human intervention. Before writing a single line of code:
+
+1. ASSESS SCOPE: Estimate how many distinct units of work this goal requires.
+   - If it requires changes in 3+ independent packages or concerns: USE spawn_subgoal
+     to decompose it into child goals FIRST, then work on each child.
+   - If it is a single self-contained change: proceed directly.
+
+2. FOR EVERY CODE CHANGE YOU MAKE, the following are NON-NEGOTIABLE:
+   a. Write or update _test.go files for every changed package.
+   b. Ensure go build ./... passes.
+   c. Ensure go test -race ./... passes.
+   d. Ensure go vet ./... is clean.
+   e. Remove any TODO/FIXME you introduced.
+   f. Update README, CHANGELOG, AGENTS.md, and affected doc.md files.
+
+3. DON'T STOP EARLY. The stop-gate is independent of you. Even if you think
+   you're done, continue working until it confirms completion.
+
+4. spawn_subgoal is available (max depth %d). Use it freely for independent
+   units of work — child goals run in parallel and are verified independently.
+
+5. When ALL work is done: summarize exactly what changed and why.`, maxDepth)
+}
+
+// truncatePrompt shortens s to n runes with an ellipsis for PR titles.
+func truncatePrompt(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	if n <= 3 {
+		return s[:n]
+	}
+	return s[:n-3] + "..."
 }
 
 // wrapWithSpawn augments the daemon toolset with `spawn_subgoal`, letting the

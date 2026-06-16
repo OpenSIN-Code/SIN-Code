@@ -22,6 +22,7 @@ func NewGoalCmd() *cobra.Command {
 	var priority, retries int
 	var criteria []string
 	var contractFile string
+	var noPostGoals bool
 	addCmd := &cobra.Command{
 		Use:   "add <prompt>",
 		Short: "Enqueue a goal for the daemon",
@@ -48,9 +49,12 @@ func NewGoalCmd() *cobra.Command {
 					return fmt.Errorf("invalid contract file: %w", perr)
 				}
 				c.SemanticCriteria = append(c.SemanticCriteria, criteria...)
+				if noPostGoals {
+					c.DisablePostGoals = true
+				}
 				contractJSON, _ = c.Marshal()
-			} else if len(criteria) > 0 {
-				c := &goalcontract.GoalContract{SemanticCriteria: criteria}
+			} else if len(criteria) > 0 || noPostGoals {
+				c := &goalcontract.GoalContract{SemanticCriteria: criteria, DisablePostGoals: noPostGoals}
 				contractJSON, _ = c.Marshal()
 			}
 
@@ -75,6 +79,7 @@ func NewGoalCmd() *cobra.Command {
 	addCmd.Flags().IntVar(&retries, "retries", 3, "retry budget")
 	addCmd.Flags().StringArrayVar(&criteria, "criteria", nil, "acceptance criterion the stop-gate evaluator must confirm (repeatable)")
 	addCmd.Flags().StringVar(&contractFile, "contract-file", "", "path to a JSON Definition-of-Done contract")
+	addCmd.Flags().BoolVar(&noPostGoals, "no-post-goals", false, "disable auto-spawned post-completion doc/changelog goals for this goal (loop-001)")
 
 	var status string
 	var jsonOut bool

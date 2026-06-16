@@ -151,6 +151,25 @@ func (s *Store) List(ctx context.Context, sessionID string, limit int) ([]Entry,
 	return scanRows(rows)
 }
 
+// Recent returns the most recent n entries across all sessions, newest first.
+// Used by `sin-code status` to surface the latest loop activity (loop-004).
+func (s *Store) Recent(ctx context.Context, n int) ([]Entry, error) {
+	if n <= 0 {
+		n = 10
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, session_id, type, data, summary, created_at
+		FROM ledger
+		ORDER BY created_at DESC
+		LIMIT ?
+	`, n)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanRows(rows)
+}
+
 // QueryByType returns entries for a session filtered by type.
 func (s *Store) QueryByType(ctx context.Context, sessionID string, t EntryType, limit int) ([]Entry, error) {
 	if limit <= 0 {

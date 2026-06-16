@@ -86,6 +86,7 @@ func init() {
 		NewRtkCmd(),       // rtk (Rust Token Killer) bridge (issue #123)
 		NewCodeGraphCmd(), // CodeGraph multi-language analysis bridge (issue #126)
 		NewSpecCmd(),      // Spec-Layer: *.spec.md contracts (issue #122)
+		NewStatusCmd(),    // loop-004: autonomous loop health dashboard
 	)
 
 	// Pass build-time version to self-update module.
