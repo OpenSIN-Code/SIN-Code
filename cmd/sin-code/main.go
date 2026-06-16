@@ -36,7 +36,7 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
   Other:            completion, read, write, edit, lsp, plugin, index,
                     orchestrator-run, orchestrator-agents, orchestrator-plan,
                     todo, notifications, memory, assets, evalset, hooks,
-                    instinct, prp, skills
+                    instinct, prp, skills, catalog, compile-spec, triage
 
 Each subcommand is also a thin pass-through to the standalone tool repos
 for backwards compatibility — the standalone binaries are still maintained

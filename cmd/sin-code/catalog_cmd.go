@@ -167,7 +167,7 @@ func renderCatalog(w io.Writer, assets []*catalog.Asset, format string) error {
 			line := fmt.Sprintf("%-7s %-20s %s",
 				strings.ToUpper(string(a.Kind)),
 				a.Name,
-				firstLine(a.Description))
+				catalogFirstLine(a.Description))
 			if a.Short != "" && a.Short != firstWord(a.Description) {
 				line = fmt.Sprintf("%-7s %-20s %s",
 					strings.ToUpper(string(a.Kind)),
@@ -181,7 +181,7 @@ func renderCatalog(w io.Writer, assets []*catalog.Asset, format string) error {
 }
 
 // firstLine returns the first non-empty line of s, trimmed.
-func firstLine(s string) string {
+func catalogFirstLine(s string) string {
 	for _, line := range strings.Split(s, "\n") {
 		line = strings.TrimSpace(line)
 		if line != "" {

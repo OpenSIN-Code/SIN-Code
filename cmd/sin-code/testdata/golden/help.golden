@@ -5,11 +5,11 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
   Utility commands: security, sbom, config, self-update, tui, serve, update
   Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, superpowers,
-                    vane, stack, gh, hub, ledger, summary
+                    vane, stack, gh, hub, ledger, summary, install
   Other:            completion, read, write, edit, lsp, plugin, index,
                     orchestrator-run, orchestrator-agents, orchestrator-plan,
                     todo, notifications, memory, assets, evalset, hooks,
-                    instinct, prp, skills
+                    instinct, prp, skills, catalog, compile-spec, triage
 
 Each subcommand is also a thin pass-through to the standalone tool repos
 for backwards compatibility — the standalone binaries are still maintained
@@ -23,8 +23,10 @@ Available Commands:
   assets              Manage harvested agents/commands/skills
   auto                Ultra-autonomous mode: pursue a program.md objective on your behalf
   autodev             Bridge to OpenSIN-Code/autodev-cli (Python autoresearch loop, never vendored)
+  catalog             Unified tool catalog (hub + assets, one CLI)
   chat                Run the SIN-Code agent loop (interactive REPL or headless one-shot)
   codegraph           Bridge to CodeGraph for multi-language code analysis
+  compile-spec        Compile .sin-code.yml into the four derived JSON artifacts
   completion          Generate the autocompletion script for the specified shell
   config              View and manage sin-code configuration
   daemon              Run the autonomous worker: lease goals, execute, verify, learn
@@ -45,6 +47,7 @@ Available Commands:
   hub                 Tool catalog and landing page for sin-code
   ibd                 Intent-Based Diffing — compare code changes against stated intent
   index               Manage persistent incremental code index
+  install             Install or verify the sin-code single-binary release
   instinct            Manage learned instincts (continuous learning)
   ledger              Query the semantic session ledger
   lsp                 LSP (Language Server Protocol) — IDE-grade code intelligence
@@ -78,6 +81,7 @@ Available Commands:
   swarm               Race N agent profiles on the same prompt (first verified wins)
   todo                Issue tracker with dependencies, audit log, and project namespaces
   trace               Configure + verify OpenTelemetry tracer setup
+  triage              Read the open issue backlog via gh, score, group, and render
   tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
   update              Update SIN-Code stack (Python packages, Go binaries, skills)
   vane                Bridge to a self-hosted Vane answering engine (citation-backed research)
