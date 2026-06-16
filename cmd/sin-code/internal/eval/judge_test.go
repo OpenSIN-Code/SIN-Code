@@ -3,6 +3,7 @@
 package eval
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -244,4 +245,153 @@ func floatNear(a, b, tol float64) bool {
 		d = -d
 	}
 	return d <= tol
+}
+
+func TestEvaluate_NilContext(t *testing.T) {
+	j, _ := NewJudge(JudgeConfig{Model: "gpt-test"}, llm.NewClient("http://x", "k"))
+	_, err := j.Evaluate(nil, Trajectory{})
+	if err == nil || !strings.Contains(err.Error(), "nil context") {
+		t.Fatalf("expected nil context error, got %v", err)
+	}
+}
+
+func TestEvaluate_NoChoices(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(chatWire{ID: "x"})
+	}))
+	defer srv.Close()
+	j, _ := NewJudge(JudgeConfig{Model: "gpt-test"}, llm.NewClient(srv.URL, "k"))
+	_, err := j.Evaluate(context.Background(), Trajectory{})
+	if err == nil || !strings.Contains(err.Error(), "no choices") {
+		t.Fatalf("expected no choices error, got %v", err)
+	}
+}
+
+func TestEvaluateBatch_Success(t *testing.T) {
+	srv := serveChat(t, `{"pass":true,"score":0.8,"reason":"ok"}`)
+	j, _ := NewJudge(JudgeConfig{Model: "gpt-test"}, llm.NewClient(srv.URL, "k"))
+	res, err := j.EvaluateBatch(context.Background(), []Trajectory{{Prompt: "a"}, {Prompt: "b"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res) != 2 || !res[0].Pass || !res[1].Pass {
+		t.Fatalf("unexpected batch result: %+v", res)
+	}
+}
+
+func TestBuildSystemPrompt_Strict(t *testing.T) {
+	j, _ := NewJudge(JudgeConfig{Model: "m", Strict: true}, llm.NewClient("http://x", "k"))
+	prompt := j.buildSystemPrompt(Trajectory{})
+	if !strings.Contains(prompt, "STRICT MODE") {
+		t.Fatalf("expected strict clause in prompt: %s", prompt)
+	}
+}
+
+func TestBuildUserPrompt_ToolsAndCriteria(t *testing.T) {
+	j, _ := NewJudge(JudgeConfig{Model: "m"}, llm.NewClient("http://x", "k"))
+	prompt := j.buildUserPrompt(Trajectory{
+		Prompt: "x", ToolsUsed: []string{"Read", "Write"}, FinalOutput: "ok",
+		CustomCriteria: "must be fast",
+	})
+	if !strings.Contains(prompt, "Tools used: Read, Write") {
+		t.Fatalf("missing tools line: %s", prompt)
+	}
+	if !strings.Contains(prompt, "Custom criteria: must be fast") {
+		t.Fatalf("missing custom criteria: %s", prompt)
+	}
+}
+
+func TestTruncate(t *testing.T) {
+	if truncate("short", 100) != "short" {
+		t.Fatalf("short string should be unchanged")
+	}
+	long := strings.Repeat("a", 200)
+	got := truncate(long, 100)
+	if !strings.HasSuffix(got, "…(truncated)") || len(got) <= 100 {
+		t.Fatalf("unexpected truncation: len=%d", len(got))
+	}
+}
+
+// ── Metrics ───────────────────────────────────────────────────────────
+
+func TestSummarise_Empty(t *testing.T) {
+	s := Summarise(nil, 0.5)
+	if s.Total != 0 || s.PassRate != 1.0 {
+		t.Fatalf("unexpected empty summary: %+v", s)
+	}
+}
+
+func TestSummarise_NoJudgeNoDuration(t *testing.T) {
+	rs := []dataset.RunResult{
+		{TestCaseID: "a", Success: true, Turns: 1},
+	}
+	s := Summarise(rs, 0.5)
+	if s.MeanJudge != 0 || s.MeanDurMS != 0 {
+		t.Fatalf("expected zero means, got %+v", s)
+	}
+}
+
+func TestSummarise_FailureWithoutError(t *testing.T) {
+	rs := []dataset.RunResult{
+		{TestCaseID: "b", Success: false},
+	}
+	s := Summarise(rs, 0.5)
+	if len(s.Failures) != 1 || s.Failures[0] != "b" {
+		t.Fatalf("expected failure label only, got %+v", s.Failures)
+	}
+}
+
+func TestNewReport(t *testing.T) {
+	ds := &dataset.Dataset{Name: "d", Version: "1.0"}
+	start := time.Now()
+	end := start.Add(time.Minute)
+	r := NewReport(ds, "p", 0.8, []dataset.RunResult{{TestCaseID: "a", Success: true}}, start, end)
+	if r.Dataset != "d" || r.Version != "1.0" || r.Profile != "p" || r.MinRate != 0.8 || r.Started != start || r.Finished != end {
+		t.Fatalf("unexpected report fields: %+v", r)
+	}
+}
+
+func TestWriteJSON_Nil(t *testing.T) {
+	if err := WriteJSON(&bytes.Buffer{}, nil); err == nil {
+		t.Fatal("expected error for nil report")
+	}
+}
+
+func TestWriteJSON_RoundTrip(t *testing.T) {
+	r := &Report{Dataset: "d", Version: "1.0", Summary: Summary{Total: 1, Passed: 1}}
+	var buf bytes.Buffer
+	if err := WriteJSON(&buf, r); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "dataset") {
+		t.Fatalf("unexpected JSON: %s", buf.String())
+	}
+}
+
+func TestBelowMinRate_Error(t *testing.T) {
+	err := &BelowMinRate{PassRate: 0.5, Minimum: 0.9}
+	if !strings.Contains(err.Error(), "50.00%") || !strings.Contains(err.Error(), "90.00%") {
+		t.Fatalf("unexpected error string: %s", err.Error())
+	}
+}
+
+func TestFormatHuman(t *testing.T) {
+	s := Summary{
+		Total: 4, Passed: 2, Failed: 2, PassRate: 0.5, MinRequired: 0.9,
+		Timeouts: 1, MeanJudge: 0.75,
+		Failures: []string{"a: boom", "b"},
+	}
+	out := FormatHuman(s)
+	for _, want := range []string{"Total: 4", "Pass Rate: 50.00%", "Timeouts: 1", "Mean judge score: 0.75", "a: boom", "b"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("output missing %q: %s", want, out)
+		}
+	}
+}
+
+func TestRoundPassRate(t *testing.T) {
+	if got := RoundPassRate(0.123456789); got != 0.1235 {
+		t.Fatalf("RoundPassRate: got %v", got)
+	}
 }

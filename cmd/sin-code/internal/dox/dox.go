@@ -17,6 +17,16 @@ import (
 	"strings"
 )
 
+// Filesystem hooks for deterministic error-path testing. Set only in tests.
+var (
+	fsReadFile = os.ReadFile
+	fsWriteFile = os.WriteFile
+	fsStat     = os.Stat
+	fsMkdirAll = os.MkdirAll
+	fsReadDir  = os.ReadDir
+	fsAbsPath  = filepath.Abs
+)
+
 // ── Markers ────────────────────────────────────────────────────────────
 //
 // The dox block lives between BeginMarker / EndMarker HTML-comment
@@ -135,11 +145,11 @@ func Build(root string) (*Node, error) {
 	if root == "" {
 		return nil, ErrEmptyPath
 	}
-	abs, err := filepath.Abs(root)
+	abs, err := fsAbsPath(root)
 	if err != nil {
 		return nil, err
 	}
-	info, err := os.Stat(abs)
+	info, err := fsStat(abs)
 	if err != nil {
 		return nil, err
 	}
@@ -150,7 +160,7 @@ func Build(root string) (*Node, error) {
 }
 
 func buildNode(dir string, parent *Node) (*Node, error) {
-	entries, err := os.ReadDir(dir)
+	entries, err := fsReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +171,7 @@ func buildNode(dir string, parent *Node) (*Node, error) {
 	}
 	// Title: prefer frontmatter title from AGENTS.md / INDEX.md.
 	for _, candidate := range []string{AgentsFileName, IndexFileName, "README.md"} {
-		body, err := os.ReadFile(filepath.Join(dir, candidate))
+		body, err := fsReadFile(filepath.Join(dir, candidate))
 		if err != nil {
 			continue
 		}
@@ -240,7 +250,7 @@ func Check(root string) ([]Finding, error) {
 func checkNode(n *Node, isRoot bool, out *[]Finding) {
 	// Root must have an AGENTS.md.
 	if isRoot {
-		if _, err := os.Stat(filepath.Join(n.Path, AgentsFileName)); err != nil {
+		if _, err := fsStat(filepath.Join(n.Path, AgentsFileName)); err != nil {
 			*out = append(*out, Finding{
 				Path:     n.Path,
 				Kind:     "missing-agents",
@@ -253,7 +263,7 @@ func checkNode(n *Node, isRoot bool, out *[]Finding) {
 		hasIndex := false
 		hasAgents := false
 		for _, name := range []string{IndexFileName, AgentsFileName} {
-			if _, err := os.Stat(filepath.Join(n.Path, name)); err == nil {
+			if _, err := fsStat(filepath.Join(n.Path, name)); err == nil {
 				if name == IndexFileName {
 					hasIndex = true
 				}
@@ -274,7 +284,7 @@ func checkNode(n *Node, isRoot bool, out *[]Finding) {
 	// Scan the body of AGENTS.md / INDEX.md for TODO sentinels and
 	// broken markdown links.
 	for _, candidate := range []string{AgentsFileName, IndexFileName} {
-		body, err := os.ReadFile(filepath.Join(n.Path, candidate))
+		body, err := fsReadFile(filepath.Join(n.Path, candidate))
 		if err != nil {
 			continue
 		}
@@ -311,7 +321,7 @@ func checkNode(n *Node, isRoot bool, out *[]Finding) {
 				continue
 			}
 			full := filepath.Join(n.Path, target)
-			if _, err := os.Stat(full); err != nil {
+			if _, err := fsStat(full); err != nil {
 				*out = append(*out, Finding{
 					Path:     filepath.Join(n.Path, candidate),
 					Kind:     "broken-link",
@@ -419,7 +429,7 @@ func InjectRoot(agentsPath, body string) error {
 	// body ensure the block is visually separated from surrounding
 	// text in the rendered markdown.
 	block := BeginMarker + "\n" + body + "\n" + EndMarker + "\n"
-	existing, err := os.ReadFile(agentsPath)
+	existing, err := fsReadFile(agentsPath)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
@@ -442,7 +452,7 @@ func InjectRoot(agentsPath, body string) error {
 	}
 	trimmed += "\n"
 	content = trimmed + block
-	return os.WriteFile(agentsPath, []byte(content), DefaultFileMode)
+	return fsWriteFile(agentsPath, []byte(content), DefaultFileMode)
 }
 
 // RemoveBlock strips the dox block from `agentsPath` (no-op if the
@@ -451,7 +461,7 @@ func RemoveBlock(agentsPath string) (int, error) {
 	if agentsPath == "" {
 		return 0, ErrEmptyPath
 	}
-	existing, err := os.ReadFile(agentsPath)
+	existing, err := fsReadFile(agentsPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return 0, nil
@@ -474,7 +484,7 @@ func RemoveBlock(agentsPath string) (int, error) {
 	}
 	removed := end - i
 	newContent := content[:i] + content[end:]
-	if err := os.WriteFile(agentsPath, []byte(newContent), DefaultFileMode); err != nil {
+	if err := fsWriteFile(agentsPath, []byte(newContent), DefaultFileMode); err != nil {
 		return 0, err
 	}
 	return removed, nil
@@ -494,18 +504,18 @@ func Scaffold(parent, name, title string) (string, error) {
 	if parent == "" || name == "" {
 		return "", ErrEmptyPath
 	}
-	absParent, err := filepath.Abs(parent)
+	absParent, err := fsAbsPath(parent)
 	if err != nil {
 		return "", err
 	}
-	if info, err := os.Stat(absParent); err != nil || !info.IsDir() {
+	if info, err := fsStat(absParent); err != nil || !info.IsDir() {
 		return "", fmt.Errorf("%w: %s", ErrNotADirectory, absParent)
 	}
 	child := filepath.Join(absParent, name)
-	if info, err := os.Stat(child); err == nil && info.IsDir() {
+	if info, err := fsStat(child); err == nil && info.IsDir() {
 		return "", fmt.Errorf("%w: %s", ErrAlreadyExists, child)
 	}
-	if err := os.MkdirAll(child, DefaultDirMode); err != nil {
+	if err := fsMkdirAll(child, DefaultDirMode); err != nil {
 		return "", err
 	}
 	if title == "" {
@@ -521,7 +531,7 @@ func Scaffold(parent, name, title string) (string, error) {
 	if isRootSibling(absParent) {
 		target = AgentsFileName
 	}
-	if err := os.WriteFile(filepath.Join(child, target), []byte(body), DefaultFileMode); err != nil {
+	if err := fsWriteFile(filepath.Join(child, target), []byte(body), DefaultFileMode); err != nil {
 		return "", err
 	}
 	// Register the child in the parent's index. We append (not
@@ -537,7 +547,7 @@ func Scaffold(parent, name, title string) (string, error) {
 // AGENTS.md when the parent itself is a root, so nested trees stay
 // pure.
 func isRootSibling(parent string) bool {
-	_, err := os.Stat(filepath.Join(parent, AgentsFileName))
+	_, err := fsStat(filepath.Join(parent, AgentsFileName))
 	return err == nil
 }
 
@@ -558,7 +568,7 @@ func registerInParent(parent, name, title string) error {
 	}
 	indexPath := filepath.Join(parent, target)
 	linkNeedle := "[" + name + "](" + name + "/" + childFile + ")"
-	existing, err := os.ReadFile(indexPath)
+	existing, err := fsReadFile(indexPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			// No index yet — create a minimal one with this child.
@@ -566,7 +576,7 @@ func registerInParent(parent, name, title string) error {
 				"# " + filepath.Base(parent) + "\n\n" +
 				"## Children\n\n" +
 				"- " + linkNeedle + " — " + title + "\n"
-			return os.WriteFile(indexPath, []byte(seed), DefaultFileMode)
+			return fsWriteFile(indexPath, []byte(seed), DefaultFileMode)
 		}
 		return err
 	}
@@ -584,7 +594,7 @@ func registerInParent(parent, name, title string) error {
 	b.WriteString(" — ")
 	b.WriteString(title)
 	b.WriteByte('\n')
-	return os.WriteFile(indexPath, []byte(b.String()), DefaultFileMode)
+	return fsWriteFile(indexPath, []byte(b.String()), DefaultFileMode)
 }
 
 // ── Renderer ───────────────────────────────────────────────────────────

@@ -4,6 +4,8 @@ package hooks
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -55,6 +57,16 @@ func TestFailingHookDegradesToWarning(t *testing.T) {
 	}
 }
 
+func TestCommandHookSuccess(t *testing.T) {
+	e := New([]Hook{
+		{Event: "session.start", Type: "command", Command: `echo "ok"`},
+	})
+	res := e.Fire(context.Background(), Payload{Event: SessionStart})
+	if res.Blocked {
+		t.Fatal("exit 0 must not block")
+	}
+}
+
 func TestPromptHookCollects(t *testing.T) {
 	e := New([]Hook{
 		{Event: "session.start", Type: "prompt", Text: "first"},
@@ -89,6 +101,36 @@ func TestWebhookFiresWithoutBlocking(t *testing.T) {
 	res := e.Fire(context.Background(), Payload{Event: TaskComplete})
 	if res.Blocked {
 		t.Fatal("webhook must never block (best-effort)")
+	}
+}
+
+func TestWebhookSuccess(t *testing.T) {
+	called := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	e := New([]Hook{
+		{Event: "task.complete", Type: "webhook", URL: srv.URL},
+	})
+	res := e.Fire(context.Background(), Payload{Event: TaskComplete})
+	if res.Blocked {
+		t.Fatal("webhook must never block")
+	}
+	if !called {
+		t.Fatal("webhook server was not called")
+	}
+}
+
+func TestWebhookInvalidURL(t *testing.T) {
+	e := New([]Hook{
+		{Event: "task.complete", Type: "webhook", URL: "://invalid"},
+	})
+	res := e.Fire(context.Background(), Payload{Event: TaskComplete})
+	if res.Blocked {
+		t.Fatal("invalid webhook URL must not block")
 	}
 }
 

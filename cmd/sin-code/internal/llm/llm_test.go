@@ -6,6 +6,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -261,4 +262,94 @@ func TestClientChatContextCancel(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected context error")
 	}
+}
+
+func TestBreakerStats(t *testing.T) {
+	if NewClient("https://x", "k").BreakerStats() == nil {
+		t.Fatal("expected non-nil stats for NewClient")
+	}
+	var c *Client
+	if c.BreakerStats() != nil {
+		t.Fatal("nil client should return nil stats")
+	}
+	c = &Client{}
+	if c.BreakerStats() != nil {
+		t.Fatal("client without breaker should return nil stats")
+	}
+}
+
+func TestClientChatRecorderError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"id": "x", "object": "chat.completion", "created": 1, "model": "m",
+			"choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
+			"usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
+		}`))
+	}))
+	defer srv.Close()
+
+	c := NewClient(srv.URL, "k")
+	c.Recorder = &fakeRecorder{failOn: 1}
+	_, err := c.Chat(context.Background(), ChatRequest{Model: "m", Messages: []Message{{Role: "user", Content: "x"}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRandomSessionIDFallback(t *testing.T) {
+	old := randRead
+	randRead = func(b []byte) (int, error) {
+		return 0, errors.New("rand fail")
+	}
+	defer func() { randRead = old }()
+	if got := randomSessionID(); got != "session-fallback" {
+		t.Errorf("expected fallback, got %q", got)
+	}
+}
+
+func TestChatMarshalError(t *testing.T) {
+	old := jsonMarshal
+	jsonMarshal = func(v any) ([]byte, error) {
+		return nil, errors.New("marshal boom")
+	}
+	defer func() { jsonMarshal = old }()
+	c := NewClient("https://x", "k")
+	_, err := c.Chat(context.Background(), ChatRequest{Model: "m", Messages: []Message{{Role: "user", Content: "x"}}})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestChatInvalidBaseURL(t *testing.T) {
+	c := NewClient("http://[invalid", "k")
+	_, err := c.Chat(context.Background(), ChatRequest{Model: "m", Messages: []Message{{Role: "user", Content: "x"}}})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestResolveEmptyModelInvalidBaseURL(t *testing.T) {
+	c := NewClient("http://[invalid", "k")
+	_, err := c.Chat(context.Background(), ChatRequest{Model: "", Messages: []Message{{Role: "user", Content: "x"}}})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestResolveEmptyModelDoError(t *testing.T) {
+	c := NewClient("https://example.com", "k")
+	c.HTTP = &http.Client{Transport: &errorRoundTripper{err: errors.New("net fail")}}
+	_, err := c.Chat(context.Background(), ChatRequest{Model: "", Messages: []Message{{Role: "user", Content: "x"}}})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+type errorRoundTripper struct {
+	err error
+}
+
+func (e *errorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, e.err
 }

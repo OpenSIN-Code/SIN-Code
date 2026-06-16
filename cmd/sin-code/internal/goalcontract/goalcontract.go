@@ -46,13 +46,16 @@ func (c *GoalContract) IsEmpty() bool {
 		c.MaxFilesChanged == 0 && c.MaxLinesChanged == 0
 }
 
+// jsonMarshal is a test seam around json.Marshal.
+var jsonMarshal = json.Marshal
+
 // Marshal serializes the contract to a compact JSON string for persistence in
 // the goal queue. An empty contract marshals to "".
 func (c *GoalContract) Marshal() (string, error) {
 	if c.IsEmpty() {
 		return "", nil
 	}
-	b, err := json.Marshal(c)
+	b, err := jsonMarshal(c)
 	if err != nil {
 		return "", fmt.Errorf("goalcontract: marshal: %w", err)
 	}

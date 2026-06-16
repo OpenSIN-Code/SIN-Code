@@ -168,7 +168,7 @@ func (b *Bridge) Execute(ctx context.Context, args []string) (string, Tier, erro
 	if b == nil || b.Run == nil {
 		return "", TierForbidden, errors.New("ghbridge: nil bridge or runner")
 	}
-	tier, err := Classify(args)
+	tier, err := classifyFunc(args)
 	if err != nil {
 		// Defense in depth: classification failures are hard-stops.
 		// The runner MUST NOT be invoked.
@@ -274,6 +274,16 @@ var forbiddenTokens = map[string]bool{
 	"transfer":  true,
 }
 
+// classifyFunc is the runtime classifier used by Execute. It defaults
+// to Classify but can be swapped in tests to exercise defense-in-depth
+// branches that are otherwise unreachable.
+var classifyFunc = Classify
+
+// classifySkipForbiddenScan is a test seam. When true, the forbidden-token
+// scan in Classify is bypassed so the defensive verb-slot re-check can be
+// covered. Defaults to false, so production behavior is unchanged.
+var classifySkipForbiddenScan bool
+
 // Classify inspects a gh arg list and returns its Tier plus an error
 // describing WHY a call is rejected. The function is FAIL-CLOSED:
 // unknown input → TierForbidden with an explanatory error. Callers
@@ -296,8 +306,11 @@ func Classify(args []string) (Tier, error) {
 	}
 	// Step 2: scan every position for a forbidden token. This catches
 	// `gh issue list delete` and `gh repo view --json api` alike.
+	// classifySkipForbiddenScan is a test seam that lets tests exercise the
+	// defensive re-check on the verb slot (line below) without weakening the
+	// real classifier. It defaults to false.
 	for _, a := range args {
-		if forbiddenTokens[a] {
+		if !classifySkipForbiddenScan && forbiddenTokens[a] {
 			return TierForbidden, fmt.Errorf("ghbridge: forbidden token %q in args", a)
 		}
 	}

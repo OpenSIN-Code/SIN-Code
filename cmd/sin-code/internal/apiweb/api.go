@@ -21,6 +21,22 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
 
+// package-level hooks to make error branches testable without relying on
+// real SQLite failures or full stack wiring.
+var (
+	sessionOpenHook = session.Open
+	lessonsOpenHook = lessons.Open
+
+	sessionListHook          = func(s *session.Store) ([]session.Info, error) { return s.List() }
+	sessionStartOrResumeHook = func(s *session.Store, id string) (*session.Session, error) { return s.StartOrResume(id) }
+	sessionDeleteHook        = func(s *session.Store, id string) error { return s.Delete(id) }
+	sessionForkHook          = func(s *session.Store, src string, turn int) (*session.Session, error) { return s.Fork(src, turn) }
+
+	lessonsQueryHook = func(s *lessons.Store, ctx context.Context, workspace string, limit int) ([]lessons.Entry, error) {
+		return s.Query(ctx, workspace, limit)
+	}
+)
+
 // chatRequest is the body for POST /api/v1/chat.
 type chatRequest struct {
 	Prompt    string `json:"prompt"`
@@ -135,7 +151,7 @@ func (a *APIServer) stores() (*session.Store, *lessons.Store, error) {
 	if sessPath == "" {
 		sessPath = session.DefaultPath()
 	}
-	sstore, err := session.Open(sessPath)
+	sstore, err := sessionOpenHook(sessPath)
 	if err != nil {
 		return nil, nil, fmt.Errorf("open sessions: %w", err)
 	}
@@ -143,7 +159,7 @@ func (a *APIServer) stores() (*session.Store, *lessons.Store, error) {
 	if lessPath == "" {
 		lessPath = lessons.DefaultPath()
 	}
-	lstore, err := lessons.Open(lessPath)
+	lstore, err := lessonsOpenHook(lessPath)
 	if err != nil {
 		_ = sstore.Close()
 		return nil, nil, fmt.Errorf("open lessons: %w", err)
@@ -162,7 +178,7 @@ func (a *APIServer) handleListSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	defer sstore.Close()
 	defer lstore.Close()
-	infos, err := sstore.List()
+	infos, err := sessionListHook(sstore)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -188,7 +204,7 @@ func (a *APIServer) handleShowSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer sstore.Close()
-	sess, err := sstore.StartOrResume(id)
+	sess, err := sessionStartOrResumeHook(sstore, id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -214,7 +230,7 @@ func (a *APIServer) handleDeleteSession(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	defer sstore.Close()
-	if err := sstore.Delete(id); err != nil {
+	if err := sessionDeleteHook(sstore, id); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -245,7 +261,7 @@ func (a *APIServer) handleForkSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer sstore.Close()
-	forked, err := sstore.Fork(id, body.Turn)
+	forked, err := sessionForkHook(sstore, id, body.Turn)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err.Error())
 		return
@@ -274,7 +290,7 @@ func (a *APIServer) handleKnowledge(w http.ResponseWriter, r *http.Request) {
 			limit = n
 		}
 	}
-	entries, err := lstore.Query(r.Context(), a.Workspace, limit)
+	entries, err := lessonsQueryHook(lstore, r.Context(), a.Workspace, limit)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -340,7 +356,7 @@ func (a *APIServer) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer sstore.Close()
-	sess, err := sstore.StartOrResume(body.SessionID)
+	sess, err := sessionStartOrResumeHook(sstore, body.SessionID)
 	if err != nil {
 		writeSSE(w, flusher, sseEvent{Event: "error", Data: map[string]string{"error": err.Error()}})
 		return

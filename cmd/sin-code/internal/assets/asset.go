@@ -12,6 +12,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// yamlMarshalHook is swapable for testing the Render error branch.
+var yamlMarshalHook = yaml.Marshal
+
 // Kind distinguishes the asset families harvested from ECC.
 type Kind string
 
@@ -63,7 +66,7 @@ func ParseAsset(kind Kind, path string, data []byte) (*Asset, error) {
 
 // Render reassembles the asset back into canonical Markdown (for re-export).
 func (a *Asset) Render() ([]byte, error) {
-	fm, err := yaml.Marshal(a)
+	fm, err := yamlMarshalHook(a)
 	if err != nil {
 		return nil, err
 	}

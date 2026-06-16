@@ -1118,3 +1118,476 @@ func parseAllResponses(t *testing.T, out *bytes.Buffer) []*jsonRPCResponse {
 	}
 	return resp
 }
+
+// ── 100% coverage completion tests ─────────────────────────────────────
+
+// fakeGhDir creates a fake `gh` binary in a temp directory and returns
+// the directory. The binary is a shell script that prints "ok" for auth
+// status and echoes its arguments for everything else.
+func fakeGhDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	gh := filepath.Join(dir, "gh")
+	script := `#!/bin/sh
+if [ "$1" = "auth" ] && [ "$2" = "status" ]; then
+  echo "Logged in"
+  exit 0
+fi
+echo "out: $*"
+exit 0
+`
+	if err := os.WriteFile(gh, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return dir
+}
+
+func TestExecRunnerCapturesOutput(t *testing.T) {
+	dir := fakeGhDir(t)
+	t.Setenv("PATH", dir)
+	stdout, stderr, err := ExecRunner(context.Background(), []string{"issue", "list"})
+	if err != nil {
+		t.Fatalf("ExecRunner: %v", err)
+	}
+	if !strings.Contains(stdout, "issue list") {
+		t.Errorf("stdout: %q", stdout)
+	}
+	if stderr != "" {
+		t.Errorf("stderr: %q", stderr)
+	}
+}
+
+func TestExecRunnerExitError(t *testing.T) {
+	dir := t.TempDir()
+	gh := filepath.Join(dir, "gh")
+	if err := os.WriteFile(gh, []byte("#!/bin/sh\necho err >&2; exit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+	_, stderr, err := ExecRunner(context.Background(), []string{"issue", "list"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(stderr, "err") {
+		t.Errorf("stderr: %q", stderr)
+	}
+}
+
+func TestNewServer(t *testing.T) {
+	s := NewServer()
+	if s == nil {
+		t.Fatal("NewServer returned nil")
+	}
+}
+
+func TestLazyBridgeNoGh(t *testing.T) {
+	t.Setenv("PATH", "")
+	srv := NewServerWithIO(&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{})
+	_, err := srv.lazyBridge()
+	if err == nil {
+		t.Fatal("expected error when gh is missing")
+	}
+	// Errors are sticky.
+	_, err2 := srv.lazyBridge()
+	if err2.Error() != err.Error() {
+		t.Fatalf("sticky error mismatch: %v vs %v", err, err2)
+	}
+}
+
+func TestLazyBridgeSuccess(t *testing.T) {
+	dir := fakeGhDir(t)
+	t.Setenv("PATH", dir)
+	srv := NewServerWithIO(&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{})
+	b, err := srv.lazyBridge()
+	if err != nil {
+		t.Fatalf("lazyBridge: %v", err)
+	}
+	if b == nil {
+		t.Fatal("lazyBridge returned nil bridge")
+	}
+}
+
+func TestHealthNoGh(t *testing.T) {
+	b := New()
+	t.Setenv("PATH", "")
+	if err := b.Health(context.Background()); err == nil {
+		t.Fatal("expected error when gh not in PATH")
+	}
+}
+
+func TestHealthSuccessWithFakeGh(t *testing.T) {
+	dir := fakeGhDir(t)
+	t.Setenv("PATH", dir)
+	b := New()
+	if err := b.Health(context.Background()); err != nil {
+		t.Fatalf("Health: %v", err)
+	}
+}
+
+func TestExecuteStdoutFallbackOnError(t *testing.T) {
+	fake := newFakeRunner(fakeResponse{stdout: "stdout hint", stderr: "", err: errors.New("exit 1")})
+	b := NewWithRunner(runForBridge(fake), time.Second)
+	_, _, err := b.Execute(context.Background(), []string{"issue", "list"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "stdout hint") {
+		t.Errorf("error should surface stdout when stderr empty: %v", err)
+	}
+}
+
+func TestExecuteForbiddenUnreachableBranch(t *testing.T) {
+	old := classifyFunc
+	classifyFunc = func(args []string) (Tier, error) {
+		return TierForbidden, nil
+	}
+	defer func() { classifyFunc = old }()
+	fake := newFakeRunner()
+	b := NewWithRunner(runForBridge(fake), time.Second)
+	out, tier, err := b.Execute(context.Background(), []string{"anything"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if tier != TierForbidden {
+		t.Errorf("tier: %s", tier)
+	}
+	if out != "" {
+		t.Errorf("stdout: %q", out)
+	}
+	if fake.callCount() != 0 {
+		t.Fatal("runner should not be invoked")
+	}
+}
+
+func TestMCPConfigPathUserHomeDirError(t *testing.T) {
+	t.Setenv("SIN_CODE_HOME", "")
+	old := userHomeDir
+	userHomeDir = func() (string, error) {
+		return "", errors.New("no home")
+	}
+	defer func() { userHomeDir = old }()
+	p := MCPConfigPath()
+	if !strings.HasSuffix(p, ".sin-code-home/mcp.json") {
+		t.Errorf("fallback path: %q", p)
+	}
+}
+
+func TestRegisterMCPExecutableError(t *testing.T) {
+	old := osExecutable
+	osExecutable = func() (string, error) {
+		return "", errors.New("no exe")
+	}
+	defer func() { osExecutable = old }()
+	_, err := RegisterMCP(filepath.Join(t.TempDir(), "mcp.json"))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestWriteJSONAtomicMkdirAllError(t *testing.T) {
+	dir := t.TempDir()
+	// Create a file where the parent directory is expected.
+	badParent := filepath.Join(dir, "parent")
+	if err := os.WriteFile(badParent, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(badParent, "mcp.json")
+	if err := writeJSONAtomic(path, map[string]any{"x": 1}); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestWriteJSONAtomicCreateTempError(t *testing.T) {
+	dir := t.TempDir()
+	// Create a subdirectory with no write permission so CreateTemp fails.
+	ro := filepath.Join(dir, "ro")
+	if err := os.Mkdir(ro, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(ro, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chmod(ro, 0o755)
+	path := filepath.Join(ro, "mcp.json")
+	if err := writeJSONAtomic(path, map[string]any{"x": 1}); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestWriteJSONAtomicRenameError(t *testing.T) {
+	dir := t.TempDir()
+	// Make the target path a directory so rename fails.
+	path := filepath.Join(dir, "mcp.json")
+	if err := os.Mkdir(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeJSONAtomic(path, map[string]any{"x": 1}); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestResultMarshalError(t *testing.T) {
+	old := jsonMarshal
+	jsonMarshal = func(v any) ([]byte, error) {
+		return nil, errors.New("marshal boom")
+	}
+	defer func() { jsonMarshal = old }()
+	s := NewServerWithIO(&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{})
+	req := &jsonRPCRequest{JSONRPC: "2.0", ID: mustRawID("1")}
+	resp := s.result(req, map[string]any{"x": 1})
+	if resp.Error == nil {
+		t.Fatal("expected JSON-RPC error when marshal fails")
+	}
+}
+
+func TestMustMarshalError(t *testing.T) {
+	req := &jsonRPCRequest{JSONRPC: "2.0", ID: mustRawID("1")}
+	resp := mustMarshal(req, toolResult{Content: []toolContent{{Type: "text", Text: "x"}}})
+	if string(resp) == "" {
+		t.Fatal("expected result for valid input")
+	}
+	old := jsonMarshal
+	jsonMarshal = func(v any) ([]byte, error) {
+		return nil, errors.New("marshal boom")
+	}
+	defer func() { jsonMarshal = old }()
+	bad := mustMarshal(req, toolResult{Content: []toolContent{{Type: "text", Text: "x"}}})
+	if string(bad) != `{"content":[],"isError":true}` {
+		t.Errorf("fallback: %q", string(bad))
+	}
+}
+
+func TestCallHealthBridgeInitFailure(t *testing.T) {
+	in := &bytes.Buffer{}
+	out := &bytes.Buffer{}
+	errW := &bytes.Buffer{}
+	srv := NewServerWithIO(in, out, errW)
+	t.Setenv("PATH", "")
+
+	writeReq(t, in, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      mustRawID("1"),
+		Method:  "tools/call",
+		Params:  mustMarshalParams(t, "gh_health", nil),
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := srv.Serve(ctx); err != nil && !errors.Is(err, io.EOF) {
+		t.Fatalf("Serve: %v", err)
+	}
+	resp := firstResponse(t, out)
+	var result toolResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("result: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected isError=true")
+	}
+}
+
+func TestDispatchBridgeInitFailure(t *testing.T) {
+	in := &bytes.Buffer{}
+	out := &bytes.Buffer{}
+	errW := &bytes.Buffer{}
+	srv := NewServerWithIO(in, out, errW)
+	t.Setenv("PATH", "")
+
+	writeReq(t, in, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      mustRawID("1"),
+		Method:  "tools/call",
+		Params:  mustMarshalParams(t, "gh_query", map[string]any{"args": []string{"issue", "list"}}),
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := srv.Serve(ctx); err != nil && !errors.Is(err, io.EOF) {
+		t.Fatalf("Serve: %v", err)
+	}
+	resp := firstResponse(t, out)
+	var result toolResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("result: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected isError=true")
+	}
+	if !strings.Contains(result.Content[0].Text, "bridge init failed") {
+		t.Errorf("error content: %q", result.Content[0].Text)
+	}
+}
+
+func TestServeScannerError(t *testing.T) {
+	in := &errReader{err: errors.New("boom")}
+	out := &bytes.Buffer{}
+	srv := NewServerWithIO(in, out, &bytes.Buffer{})
+	if err := srv.Serve(context.Background()); err == nil {
+		t.Fatal("expected scanner error")
+	}
+}
+
+func TestServeEncodeError(t *testing.T) {
+	in := &bytes.Buffer{}
+	// Write a valid request, but the response cannot be encoded.
+	writeReq(t, in, jsonRPCRequest{JSONRPC: "2.0", ID: mustRawID("1"), Method: "ping"})
+	// Replace stdout with a writer that fails on Encode.
+	srv := NewServerWithIO(in, &errWriter{err: errors.New("encode boom")}, &bytes.Buffer{})
+	if err := srv.Serve(context.Background()); err == nil {
+		t.Fatal("expected encode error")
+	}
+}
+
+func TestClassifyForbiddenVerbRecheck(t *testing.T) {
+	classifySkipForbiddenScan = true
+	defer func() { classifySkipForbiddenScan = false }()
+	_, err := Classify([]string{"issue", "delete"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "forbidden verb") {
+		t.Errorf("expected forbidden verb error, got: %v", err)
+	}
+}
+
+func TestHealthErrorWithEmptyStreams(t *testing.T) {
+	fake := newFakeRunner(fakeResponse{stdout: "", stderr: "", err: errors.New("auth failed")})
+	b := NewWithRunner(runForBridge(fake), time.Second)
+	err := b.Health(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "auth failed") {
+		t.Errorf("expected error to fall back to err.Error(), got: %v", err)
+	}
+}
+
+func TestServeContextCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	srv := NewServerWithIO(strings.NewReader("line1\n"), &bytes.Buffer{}, &bytes.Buffer{})
+	if err := srv.Serve(ctx); err != context.Canceled {
+		t.Fatalf("expected context.Canceled, got %v", err)
+	}
+}
+
+func TestExecuteErrorWithEmptyStreams(t *testing.T) {
+	fake := newFakeRunner(fakeResponse{stdout: "", stderr: "", err: errors.New("auth failed")})
+	b := NewWithRunner(runForBridge(fake), time.Second)
+	_, _, err := b.Execute(context.Background(), []string{"issue", "list"})
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !strings.Contains(err.Error(), "auth failed") {
+		t.Errorf("expected error to fall back to runErr.Error(), got: %v", err)
+	}
+}
+
+func TestServeEmptyLine(t *testing.T) {
+	in := &bytes.Buffer{}
+	out := &bytes.Buffer{}
+	// Empty line then a ping.
+	in.WriteString("\n")
+	writeReq(t, in, jsonRPCRequest{JSONRPC: "2.0", ID: mustRawID("1"), Method: "ping"})
+	srv := NewServerWithIO(in, out, &bytes.Buffer{})
+	if err := srv.Serve(context.Background()); err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+	resp := firstResponse(t, out)
+	if resp.Error != nil {
+		t.Fatalf("unexpected error: %v", resp.Error)
+	}
+}
+
+func TestDispatchNotificationInitialized(t *testing.T) {
+	s := NewServerWithIO(&bytes.Buffer{}, &bytes.Buffer{}, &bytes.Buffer{})
+	req := &jsonRPCRequest{JSONRPC: "2.0", ID: mustRawID("1"), Method: "notifications/initialized"}
+	if resp := s.dispatch(context.Background(), req); resp != nil {
+		t.Fatal("expected nil response for notification")
+	}
+}
+
+func TestDispatchNoDeadlineAndExecuteError(t *testing.T) {
+	in := &bytes.Buffer{}
+	out := &bytes.Buffer{}
+	errW := &bytes.Buffer{}
+	srv := NewServerWithIO(in, out, errW)
+	fake := newFakeRunner(fakeResponse{stderr: "boom", err: errors.New("exit 1")})
+	srv.bridgeOnce.Do(func() {
+		srv.bridge = NewWithRunner(runForBridge(fake), time.Second)
+	})
+
+	writeReq(t, in, jsonRPCRequest{
+		JSONRPC: "2.0",
+		ID:      mustRawID("1"),
+		Method:  "tools/call",
+		Params:  mustMarshalParams(t, "gh_execute", map[string]any{"args": []string{"issue", "create", "--title", "x"}}),
+	})
+	// Use a context without a deadline to exercise the DefaultExecuteTimeout branch.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := srv.Serve(ctx); err != nil && !errors.Is(err, io.EOF) {
+		t.Fatalf("Serve: %v", err)
+	}
+	resp := firstResponse(t, out)
+	var result toolResult
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		t.Fatalf("result: %v", err)
+	}
+	if !result.IsError {
+		t.Fatal("expected isError=true")
+	}
+	if !strings.Contains(result.Content[0].Text, "boom") {
+		t.Errorf("error content: %q", result.Content[0].Text)
+	}
+}
+
+func TestWriteJSONAtomicMarshalError(t *testing.T) {
+	old := jsonMarshal
+	jsonMarshal = func(v any) ([]byte, error) {
+		return nil, errors.New("marshal boom")
+	}
+	defer func() { jsonMarshal = old }()
+	if err := writeJSONAtomic(filepath.Join(t.TempDir(), "x.json"), 1); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestWriteJSONAtomicCopyError(t *testing.T) {
+	old := ioCopy
+	ioCopy = func(dst io.Writer, src io.Reader) (int64, error) {
+		return 0, errors.New("copy boom")
+	}
+	defer func() { ioCopy = old }()
+	if err := writeJSONAtomic(filepath.Join(t.TempDir(), "x.json"), map[string]any{"x": 1}); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestWriteJSONAtomicCloseError(t *testing.T) {
+	old := closeFile
+	closeFile = func(f *os.File) error {
+		return errors.New("close boom")
+	}
+	defer func() { closeFile = old }()
+	if err := writeJSONAtomic(filepath.Join(t.TempDir(), "x.json"), map[string]any{"x": 1}); err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+// errReader returns a fixed error.
+type errReader struct {
+	err error
+}
+
+func (e *errReader) Read([]byte) (int, error) {
+	return 0, e.err
+}
+
+// errWriter returns a fixed error.
+type errWriter struct {
+	err error
+}
+
+func (e *errWriter) Write([]byte) (int, error) {
+	return 0, e.err
+}
+
