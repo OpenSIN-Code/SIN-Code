@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/evalharness"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 )
@@ -58,9 +59,10 @@ type RunnerConfig struct {
 // are created in the supplied store; if store is nil the runner
 // panics — that is a user bug, not a graceful degradation case.
 type Runner struct {
-	cfg   RunnerConfig
-	loop  *agentloop.Loop
-	store *session.Store
+	cfg    RunnerConfig
+	loop   *agentloop.Loop
+	store  *session.Store
+	Scorer evalharness.Scorer // optional override scorer applied to every case
 }
 
 // NewRunner constructs a Runner. Zero-value fields get sensible
@@ -155,7 +157,9 @@ func (r *Runner) RunCase(ctx context.Context, tc *TestCase) RunResult {
 	res.VerifyPassed = loopRes.Verified
 	res.FinalOutput = loopRes.Summary
 	res.Success = loopRes.Verified
-	return r.applyRules(tc, &res)
+	r.applyRules(tc, &res)
+	r.applyScorer(tc, &res)
+	return res
 }
 
 // applyRules evaluates Constraints + Expected; if any rule fails the
@@ -212,6 +216,39 @@ func (r *Runner) applyRules(tc *TestCase, res *RunResult) RunResult {
 		}
 	}
 	return *res
+}
+
+// applyScorer evaluates a configured or override scorer against the
+// model's final output. If the scorer fails, res.Success flips to false.
+func (r *Runner) applyScorer(tc *TestCase, res *RunResult) {
+	var scorer evalharness.Scorer
+	var cfg map[string]any
+	if r.Scorer != nil {
+		scorer = r.Scorer
+	} else if tc.Scorer.Type != "" {
+		cfg = tc.Scorer.ToEvalharnessConfig()
+		var err error
+		scorer, err = evalharness.ScorerFromConfig(cfg)
+		if err != nil {
+			res.Success = false
+			if res.Error == "" {
+				res.Error = "scorer: " + err.Error()
+			}
+			return
+		}
+	}
+	if scorer == nil {
+		return
+	}
+	score, passed, detail := scorer.Score(evalharness.EvalCase{
+		ID:     tc.ID,
+		Prompt: tc.Prompt,
+		Scorer: cfg,
+	}, evalharness.Output{Text: res.FinalOutput, Success: res.VerifyPassed})
+	res.Success = res.Success && passed
+	if res.Error == "" && !passed {
+		res.Error = fmt.Sprintf("scorer: score=%.2f detail=%s", score, detail)
+	}
 }
 
 // contains is a small linear scan; test cases are tiny (≤ 100 tools).

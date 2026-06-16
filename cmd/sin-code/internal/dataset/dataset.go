@@ -56,6 +56,7 @@ type TestCase struct {
 	Expected    Expected          `json:"expected,omitempty"`
 	VerifyCmd   string            `json:"verify_cmd,omitempty"`
 	Metadata    map[string]string `json:"metadata,omitempty"`
+	Scorer      ScorerConfig      `json:"scorer,omitempty"`
 }
 
 // Constraints holds hard rules. All fields are optional; Validate
@@ -80,6 +81,19 @@ type Expected struct {
 	OutputAvoids     []string `json:"output_avoids,omitempty"`
 	MinQuality       float64  `json:"min_quality,omitempty"`
 	CustomCriteria   string   `json:"custom_criteria,omitempty"`
+}
+
+// ScorerConfig selects a scorer and its parameters. It is the dataset
+// representation of an evalharness.Scorer; the runner resolves it when
+// applying post-hoc output gates.
+type ScorerConfig struct {
+	Type          string  `json:"type,omitempty"`           // "compile_and_run" | "exact" | "contains"
+	Language      string  `json:"language,omitempty"`       // language for compile_and_run
+	SelfCheck     string  `json:"self_check,omitempty"`     // self-check code
+	SkipTest      bool    `json:"skip_test,omitempty"`      // YAGNI mode for trivial one-liners
+	Timeout       string  `json:"timeout,omitempty"`        // e.g. "30s"
+	Binary        string  `json:"binary,omitempty"`         // explicit compiler/interpreter
+	PassThreshold float64 `json:"pass_threshold,omitempty"` // threshold for contains scorer
 }
 
 // LoadDataset reads + validates a single JSON file. Returns the
@@ -150,8 +164,74 @@ func (ds *Dataset) Validate() error {
 				return fmt.Errorf("test_cases[%s]: invalid timeout %q: %v", tc.ID, tc.Constraints.Timeout, err)
 			}
 		}
+		if err := tc.Scorer.Validate(); err != nil {
+			return fmt.Errorf("test_cases[%s]: scorer: %w", tc.ID, err)
+		}
 	}
 	return nil
+}
+
+// Validate checks a ScorerConfig for consistency.
+func (sc ScorerConfig) Validate() error {
+	if sc.Type == "" {
+		return nil
+	}
+	switch sc.Type {
+	case "compile_and_run":
+		if !isCompileAndRunLanguage(sc.Language) {
+			return fmt.Errorf("unsupported compile_and_run language %q", sc.Language)
+		}
+	case "exact", "contains":
+		// no extra fields required
+	default:
+		return fmt.Errorf("unknown scorer type %q", sc.Type)
+	}
+	if sc.Timeout != "" {
+		if _, err := time.ParseDuration(sc.Timeout); err != nil {
+			return fmt.Errorf("invalid timeout %q: %v", sc.Timeout, err)
+		}
+	}
+	return nil
+}
+
+// isCompileAndRunLanguage is a local copy of the evalharness allow-list
+// to avoid importing the package here and creating a cycle.
+func isCompileAndRunLanguage(lang string) bool {
+	switch lang {
+	case "go", "python", "javascript", "bash":
+		return true
+	}
+	return false
+}
+
+// ToEvalharnessConfig converts ScorerConfig to the map[string]any format
+// consumed by evalharness.ScorerFromConfig.
+func (sc ScorerConfig) ToEvalharnessConfig() map[string]any {
+	if sc.Type == "" {
+		return nil
+	}
+	cfg := map[string]any{
+		"type": sc.Type,
+	}
+	if sc.Language != "" {
+		cfg["language"] = sc.Language
+	}
+	if sc.SelfCheck != "" {
+		cfg["self_check"] = sc.SelfCheck
+	}
+	if sc.SkipTest {
+		cfg["skip_test"] = true
+	}
+	if sc.Timeout != "" {
+		cfg["timeout"] = sc.Timeout
+	}
+	if sc.Binary != "" {
+		cfg["binary"] = sc.Binary
+	}
+	if sc.PassThreshold != 0 {
+		cfg["pass_threshold"] = sc.PassThreshold
+	}
+	return cfg
 }
 
 // FilterByTag returns a copy of ds that contains only TestCases whose

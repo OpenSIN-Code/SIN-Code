@@ -743,6 +743,9 @@ and inspect trajectories visually (Langfuse / Jaeger / Arize Phoenix).
 | `cmd/sin-code/internal/evalharness/prices.go` | v3.18.0 self-pricing price book (USD/1k tokens per model) |
 | `cmd/sin-code/internal/evalharness/snapshot.go` | v3.18.0 deterministic snapshot round-trip (caveman evals/README.md §3) |
 | `cmd/sin-code/eval_cmd.go` | `sin-code eval run` + `eval compare` + `eval snapshot` + `eval diff` (issue #171) |
+| `cmd/sin-code/internal/evalharness/scorer.go` | Scorers: exact, contains, success, LLM-judge, composite, **CompileAndRun** |
+| `cmd/sin-code/internal/evalharness/runner_extras.go` | Compile-and-run helpers (code extraction, sandboxed compile/run) |
+| `cmd/sin-code/eval_cmd.go` | `sin-code eval run` + `sin-code eval list` |
 | `cmd/sin-code/trace_cmd.go` | `sin-code trace doctor` — exporter-only sanity check |
 | `evals/critical.json` | Example Golden Dataset (3 cases, no LLM needed) |
 | `evals/three-arm-example.json` | v3.18.0 four-arm bench, 3 cases (issue #171) |
@@ -769,6 +772,14 @@ sin-code eval run --dataset evals/three-arm-example.json \
 sin-code eval compare --dataset evals/three-arm-example.json
 sin-code eval snapshot --dataset evals/three-arm-example.json --out /tmp/snap.json
 sin-code eval diff --snapshot /tmp/snap-base.json --snapshot-b /tmp/snap-head.json
+# Compile-and-run scorer (ponytail correctness.js analog)
+sin-code eval run --dataset evals/coding.json \
+    --scorer compile-and-run --language python \
+    --self-check "assert fizzbuzz(15) == 'FizzBuzz'"
+
+# YAGNI mode: trivial one-liners accepted after compile-only
+sin-code eval run --dataset evals/trivial.json \
+    --scorer compile-and-run --language python --skip-test
 
 # Sanity-check the OTel exporter setup without a full eval
 sin-code trace doctor --exporter stdout --emit-sample-span
@@ -841,4 +852,8 @@ same input on every CI run (caveman evals/README.md §3 promise:
   `Compare` runner, arm constructors, snapshot round-trip (issue #171).
 - `cmd/sin-code/internal/evalharness/snapshot.doc.md` — deterministic
   matrix + diff (issue #171).
+- `cmd/sin-code/internal/evalharness/scorer.doc.md` — scorer interface
+  and built-in scorers (including `CompileAndRun`).
+- `cmd/sin-code/internal/evalharness/runner_extras.doc.md` — code-block
+  extraction, per-language compile, and sandboxed self-check execution.
 

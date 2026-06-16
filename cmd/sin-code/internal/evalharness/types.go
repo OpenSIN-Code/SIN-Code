@@ -18,6 +18,12 @@ type EvalCase struct {
 	Tags     []string          `json:"tags,omitempty"`     // e.g. ["go","refactor"]
 	Weight   float64           `json:"weight,omitempty"`   // default 1.0
 	Meta     map[string]string `json:"meta,omitempty"`
+
+	// Scorer is an optional machine-readable scorer configuration.
+	// Recognized keys depend on the scorer type; e.g.:
+	//   {"type": "compile_and_run", "language": "python", "self_check": "..."}
+	// When empty the runner defaults to SuccessFlag.
+	Scorer map[string]any `json:"scorer,omitempty"`
 }
 
 // EvalSet is a named collection of cases.

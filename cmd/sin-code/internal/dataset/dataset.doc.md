@@ -15,7 +15,8 @@ A Golden Dataset is one JSON file under `evals/*.json`:
       "id": "auth_refactor",
       "prompt": "Refactor the auth system…",
       "constraints": {"must_use_tools": ["sin_edit"], "max_turns": 10},
-      "expected": {"contains_keywords": ["argon2"], "min_quality": 0.8}
+      "expected": {"contains_keywords": ["argon2"], "min_quality": 0.8},
+      "scorer": {"type": "compile_and_run", "language": "go", "self_check": "assert foo() == 1"}
     }
   ]
 }
@@ -39,6 +40,9 @@ A Golden Dataset is one JSON file under `evals/*.json`:
 - `require_verify=true` requires a non-empty `verify_cmd`.
 - `min_quality` and `max_tokens` are bounded; out-of-range values
   fail validation at load time.
+- `scorer` selects a post-hoc output scorer. `type: compile_and_run`
+  requires a supported `language` (`go`, `python`, `javascript`, `bash`)
+  and optionally `self_check`, `skip_test`, `timeout`, and `binary`.
 
 ## Without the issue's reference library
 
