@@ -14,13 +14,23 @@ func TestPermissionDefaultRules(t *testing.T) {
 		t.Fatal("expected default rules")
 	}
 	hasRead := false
+	hasProfileRender := false
 	for _, r := range rules {
 		if r.Tool == "sin_read" && r.Policy == "allow" {
 			hasRead = true
 		}
+		// v3.18.0 (issue #175): profile renderer surfaced to agents.
+		// The render verb touches per-agent dotdirs so must default
+		// to "ask"; show/list/verify are pure reads.
+		if r.Tool == "profile__render" && r.Policy == "ask" {
+			hasProfileRender = true
+		}
 	}
 	if !hasRead {
 		t.Errorf("expected sin_read allow rule, got %+v", rules)
+	}
+	if !hasProfileRender {
+		t.Errorf("expected profile__render ask rule (issue #175), got %+v", rules)
 	}
 }
 

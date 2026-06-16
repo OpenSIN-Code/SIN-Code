@@ -224,3 +224,66 @@ jobs:
           sarif_file: ${{ github.workspace }}/ceo-audit-output/report.sarif
           category: ceo-audit
         continue-on-error: true
+
+  # ─── Profile mirror drift gate (issue #175) ────────────────────────────
+  # Builds the Go binary from the same commit under audit and runs
+  # `sin-code profile verify`. If the on-disk per-agent mirrors under
+  # .claude/, .codex/, .cursor/, .github/, etc. have drifted off the
+  # single source `docs/agent-profiles/sin-profile.md`, the job fails
+  # the same way the verify-gate fails in `internal/verify` (M3).
+  #
+  # CEO audit (above) runs concurrently because both jobs share no
+  # state. This job does NOT intend to gate on per-machine Python
+  # skills — it strictly mirrors the byte-stable contract of
+  # internal/profile.Verify.
+  profile-verify:
+    name: Profile verify (issue #175)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Build sin-code
+        run: go build -o /tmp/sin-code ./cmd/sin-code
+
+      # Render the mirrors if absent or stale. `render all` is
+      # idempotent (byte-identical on unchanged source), so the
+      # call is also a self-test for the byte-stable contract.
+      - name: Render per-agent profile mirrors
+        run: /tmp/sin-code profile render all
+
+      - name: Verify mirrors match source SHA
+        run: |
+          /tmp/sin-code profile verify
+          STATUS=$?
+          if [ $STATUS -ne 0 ]; then
+            echo "::error::sin-code profile verify failed (exit=$STATUS); mirrors drifted off docs/agent-profiles/sin-profile.md"
+            exit 1
+          fi
+          echo "::notice::Profile mirrors byte-stable; verify gate passed."
+
+      - name: Upload rendered mirrors as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: profile-mirrors-${{ github.run_id }}
+          path: |
+            .claude/skills/sin-code/SKILL.md
+            .codex/rules/sin-code.md
+            .config/opencode/skills/sin-code/SKILL.md
+            .cursor/rules/sin-code.mdc
+            .gemini/skills/sin-code/SKILL.md
+            .windsurf/rules/sin-code.md
+            .clinerules/sin-code.md
+            .github/copilot-instructions.md
+          retention-days: 14
+          if-no-files-found: warn

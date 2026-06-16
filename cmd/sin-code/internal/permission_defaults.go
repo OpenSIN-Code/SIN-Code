@@ -89,6 +89,13 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "compress__plan", Policy: "allow"},     // read-only projection
 		{Tool: "compress__apply", Policy: "ask"},      // rewrites + LLM call
 		{Tool: "compress__rollback", Policy: "allow"}, // restorative — never destructive
+		// v3.18.0: profile renderer (issue #175). Read-only
+		// (show/list/verify/dry-run) is allow; the writing `render`
+		// surface is `ask` because it touches per-agent dotdirs.
+		{Tool: "profile__show", Policy: "allow"},
+		{Tool: "profile__list", Policy: "allow"},
+		{Tool: "profile__verify", Policy: "allow"},
+		{Tool: "profile__render", Policy: "ask"},
 		// Backstop catch-all (mirrors sin_bash default at line 44 for unmatched prefixes).
 		{Tool: "autodev__*", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},

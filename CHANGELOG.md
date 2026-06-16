@@ -320,6 +320,36 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 - **Snapshot dir**: `~/.local/share/sin-code/compress-snapshots/`
   (overridable via `SIN_CODE_SNAPSHOT_DIR`). Same form factor as
   lessons.db / ledger.db per AGENTS.md §7.
+### Added — Per-agent profile renderer (issue #175)
+- **Single source of truth** at `docs/agent-profiles/sin-profile.md`
+  (≤80 lines, KISS, hard mandates + working style + subagent contracts +
+  per-agent notes, edits roll out everywhere).
+- **`internal/profile`** package: targets map mirroring AGENTS.md §10
+  (`claude-code`, `opencode`, `gemini`, `codex`, `cursor`, `windsurf`,
+  `cline`, `copilot`); per-format writers (`dir`, `rule`, `marker`); a
+  byte-stable `Render(tgt, body)`; a `Verify(base, body)` SHA-256
+  drift gate; idempotent marker-fence envelopes byte-identical to
+  `internal/skilldist` (issue #169 covenants preserved).
+- **`sin-code profile` subcommand** with four verbs:
+  - `profile show`               — print the source markdown
+  - `profile list`               — print the supported target table (text + `--json`)
+  - `profile render <target|all>` — write one or all mirrors (idempotent;
+    supports `--dry-run` for byte/audit preview without touching disk)
+  - `profile verify`             — CI gate: refuse on missing/drift;
+    surfaces a 12-char-row table or a JSON envelope for `--json`
+- **Permission engine**: `profile__show` / `list` / `verify` are
+  registered as `allow`; `profile__render` is `ask` because it
+  touches per-agent dotdirs (mandate M4).
+- **CI sync**: `.github/workflows/ceo-audit.yml` grew a parallel
+  `profile-verify` job that builds `sin-code`, runs
+  `profile render all && profile verify`, uploads the rendered
+  mirrors as artifacts, and fails the build if any drift surfaces.
+  Mirrors AGENTS.md §6 + §10 — single source of truth in
+  `internal/profile/target.go`.
+- **Test coverage**: 22 race-tested Go tests pinning the byte-stable
+  contract (golden render, marker-fence idempotency, marker-Fence
+  covenant, `Verify` pass / missing / drift, write-after-write SHA
+  equality, replace-not-append for stale mirrors).
 
 ### Added — Loop Engineering (decoupled completion authority)
 ### Added — MCP tool-manifest compression (issue #173, v3.19.0)
