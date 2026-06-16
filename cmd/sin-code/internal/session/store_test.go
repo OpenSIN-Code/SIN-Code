@@ -201,3 +201,165 @@ func TestForkNotFound(t *testing.T) {
 		t.Fatal("want error for missing source")
 	}
 }
+
+func TestForkRecordsParentID(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := Open(filepath.Join(dir, "s.db"))
+	defer store.Close()
+	src, _ := store.StartOrResume("")
+	if err := src.SaveHistory([]Message{
+		{Role: "user", Content: "u1"},
+		{Role: "assistant", Content: "a1"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	child, err := store.Fork(src.ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	infos, err := store.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var c *Info
+	var p *Info
+	for i := range infos {
+		switch infos[i].ID {
+		case child.ID:
+			c = &infos[i]
+		case src.ID:
+			p = &infos[i]
+		}
+	}
+	if c == nil {
+		t.Fatalf("forked session missing from list")
+	}
+	if c.ParentID != src.ID {
+		t.Fatalf("parent_id: want %q got %q", src.ID, c.ParentID)
+	}
+	if p != nil && p.ParentID != "" {
+		t.Fatalf("root session must have empty parent_id, got %q", p.ParentID)
+	}
+}
+
+func TestForkExTitle(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := Open(filepath.Join(dir, "s.db"))
+	defer store.Close()
+	src, _ := store.StartOrResume("")
+	if err := src.SaveHistory([]Message{{Role: "user", Content: "x"}}); err != nil {
+		t.Fatal(err)
+	}
+	child, err := store.ForkEx(src.ID, -1, "experiment-A")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hist := child.History()
+	if len(hist) != 1 {
+		t.Fatalf("ForkEx with turn=-1 must copy full history; got %d", len(hist))
+	}
+	// Title must be persisted; we re-Open the store to make sure it's
+	// not just an in-memory artifact of the freshly returned Session.
+	store.Close()
+	reopened, err := Open(filepath.Join(dir, "s.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	infos, _ := reopened.List()
+	var childInfo *Info
+	for i := range infos {
+		if infos[i].ID == child.ID {
+			childInfo = &infos[i]
+		}
+	}
+	if childInfo == nil {
+		t.Fatal("child missing after reopen")
+	}
+	if childInfo.Title != "experiment-A" {
+		t.Fatalf("title: want experiment-A got %q", childInfo.Title)
+	}
+	if childInfo.ParentID != src.ID {
+		t.Fatalf("parent_id: want %q got %q", src.ID, childInfo.ParentID)
+	}
+}
+
+func TestTreeAncestry(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := Open(filepath.Join(dir, "s.db"))
+	defer store.Close()
+	a, _ := store.StartOrResume("")
+	if err := a.SaveHistory([]Message{{Role: "user", Content: "a"}}); err != nil {
+		t.Fatal(err)
+	}
+	b, err := store.Fork(a.ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := store.Fork(b.ID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chain, err := store.Tree(c.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chain) != 3 {
+		t.Fatalf("want 3 nodes (root a, child b, self c), got %d", len(chain))
+	}
+	if chain[0].ID != a.ID {
+		t.Fatalf("chain[0]: want %q got %q", a.ID, chain[0].ID)
+	}
+	if chain[1].ID != b.ID {
+		t.Fatalf("chain[1]: want %q got %q", b.ID, chain[1].ID)
+	}
+	if chain[2].ID != c.ID {
+		t.Fatalf("chain[2]: want %q got %q", c.ID, chain[2].ID)
+	}
+}
+
+func TestTreeMissingSession(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := Open(filepath.Join(dir, "s.db"))
+	defer store.Close()
+	if _, err := store.Tree("nonexistent"); err == nil {
+		t.Fatal("want error for missing session")
+	} else if _, ok := err.(ErrSessionNotFound); !ok {
+		t.Fatalf("want ErrSessionNotFound, got %T: %v", err, err)
+	}
+}
+
+func TestTreeCycleSafety(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := Open(filepath.Join(dir, "s.db"))
+	defer store.Close()
+	sess, _ := store.StartOrResume("")
+	// Defensively introduce a self-referential cycle: parent_id == self.
+	if _, err := store.db.Exec(
+		`UPDATE sessions SET parent_id = ? WHERE id = ?`, sess.ID, sess.ID); err != nil {
+		t.Fatal(err)
+	}
+	chain, err := store.Tree(sess.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(chain) != 1 {
+		t.Fatalf("cycle must terminate at 1 node, got %d", len(chain))
+	}
+}
+
+func TestOpenIdempotentMigration(t *testing.T) {
+	// Open() must be safely re-runnable on the same DB path. This
+	// exercises the ALTER TABLE migration resilience (the "duplicate
+	// column" swallow path).
+	dir := t.TempDir()
+	p := filepath.Join(dir, "s.db")
+	s1, err := Open(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s1.Close()
+	if _, err := Open(p); err != nil {
+		t.Fatalf("second Open on same db must succeed; got %v", err)
+	}
+}

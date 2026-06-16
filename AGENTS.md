@@ -165,7 +165,7 @@ SIN-Code-WebUI-v2 (separate repo, Next.js 16)
   ▼
 SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code chat          ← interactive REPL + headless one-shot
-  ├─ sin-code sessions      ← list/show/rm/fork resumable sessions
+  ├─ sin-code sessions      ← list/show/rm/fork/tree resumable sessions (parent_id lineage)
   ├─ sin-code mcp           ← list|status|call (debug ecosystem skills)
   ├─ sin-code goal          ← enqueue autonomous goals (v3.5.0)
   ├─ sin-code daemon        ← autonomous worker: lease → verify → learn
@@ -296,7 +296,7 @@ SIN-Code/
 │   │   ├── chat_tools.go      ← builtin toolset
 │   │   ├── chat_tools_extra.go ← v3.5.0: sin_git_*, sin_test, sin_http_get
 │   │   ├── chat_mcp.go        ← combinedTool/combinedSpecs
-│   │   ├── session_cmd.go     ← sessions list/show/rm/fork
+│   │   ├── session_cmd.go     ← sessions list/show/rm/fork/tree (issue #194)
 │   │   ├── mcp_cmd.go         ← mcp list|status|call (debug)
 │   │   ├── goal_cmd.go        ← v3.5.0: goal add|list
 │   │   ├── daemon_cmd.go      ← v3.5.0: autonomous worker
@@ -459,6 +459,10 @@ in `show` unless `--plain` is passed. See `cmd/sin-code/internal/config.go`
 and `config.doc.md` for the full schema and validation rules.
 
 Session DB: `~/.local/share/sin-code/sessions.db` (SQLite, modernc).
+Schema: `sessions(id, created_at, updated_at, title, parent_id)` with
+`parent_id TEXT REFERENCES sessions(id) ON DELETE SET NULL` (issue #194) —
+recorded automatically by every `Store.Fork`/`ForkEx` invocation and walked
+upward by `Store.Tree`. Idempotent `ALTER TABLE` migration for pre-#194 DBs.
 Lessons DB: `~/.local/share/sin-code/lessons.db` (SQLite, modernc).
 Goal Queue DB: `~/.local/share/sin-code/goals.db` (SQLite, modernc).
 Ledger DB: `~/.local/share/sin-code/ledger.db` (SQLite, modernc), overridable
@@ -636,6 +640,7 @@ Agents:    chat, sessions, mcp, goal, daemon, skill, superpowers,
            vane, stack, gh, install
            vane, stack, gh, install, profile
            vane, stack, gh, debt
+           (sessions: list|show|rm|fork|tree, issue #194)
 Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
            orchestrator_agents, orchestrator_plan, update

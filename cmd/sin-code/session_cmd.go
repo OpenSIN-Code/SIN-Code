@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
-// Purpose: `sin-code sessions` — list/show/rm for persisted agent sessions
-// stored in ~/.local/share/sin-code/sessions.db (issue #44, mandate C2).
+// Purpose: `sin-code sessions` — list/show/rm/fork/tree for persisted
+// agent sessions stored in ~/.local/share/sin-code/sessions.db
+// (issue #44, mandate C2; fork + tree CLI surface added in issue #194).
 package main
 
 import (
@@ -53,9 +54,13 @@ func NewSessionsCmd() *cobra.Command {
 				fmt.Println("no sessions")
 				return nil
 			}
-			fmt.Printf("%-28s %-22s %-22s %s\n", "ID", "CREATED", "UPDATED", "TITLE")
+			fmt.Printf("%-28s %-22s %-22s %-22s %s\n", "ID", "CREATED", "UPDATED", "PARENT", "TITLE")
 			for _, i := range infos {
-				fmt.Printf("%-28s %-22s %-22s %s\n", i.ID, i.CreatedAt, i.UpdatedAt, i.Title)
+				parent := i.ParentID
+				if parent == "" {
+					parent = "-"
+				}
+				fmt.Printf("%-28s %-22s %-22s %-22s %s\n", i.ID, i.CreatedAt, i.UpdatedAt, parent, i.Title)
 			}
 			return nil
 		},
@@ -105,6 +110,84 @@ func NewSessionsCmd() *cobra.Command {
 		},
 	}
 
-	cmd.AddCommand(listCmd, showCmd, rmCmd)
+	var forkTurn int
+	var forkTitle string
+	forkCmd := &cobra.Command{
+		Use:   "fork <src-session-id>",
+		Short: "Fork a session. Clones the first N (or all) messages and records parent_id lineage.",
+		Long: "Fork a session at message N. Default --turn=-1 means \"copy entire history\" " +
+			"(equivalent to clamping to len(history)). Records parent_id automatically so " +
+			"`sessions tree` can recover the ancestry chain. The WebUI v2 /api/v1/sessions/fork " +
+			"endpoint (issue #52) calls the same Store.Fork via sessionForkHook — both surfaces " +
+			"now share one parent-tracking contract.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := openStore()
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+			child, err := store.ForkEx(args[0], forkTurn, forkTitle)
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(struct {
+					ParentID     string `json:"parent_id"`
+					ID           string `json:"id"`
+					ForkedAtTurn int    `json:"forked_at_turn"`
+					Title        string `json:"title,omitempty"`
+				}{args[0], child.ID, forkTurn, forkTitle})
+			}
+			fmt.Printf("forked %s → %s  (parent=%s, turn=%d)\n", args[0], child.ID, args[0], forkTurn)
+			return nil
+		},
+	}
+	forkCmd.Flags().IntVar(&forkTurn, "turn", -1, "fork at message N (negative = end-of-history)")
+	forkCmd.Flags().StringVar(&forkTitle, "title", "", "optional title for the forked session")
+
+	treeCmd := &cobra.Command{
+		Use:   "tree <session-id>",
+		Short: "Walk the parent_id chain upward; emit root → ... → self.",
+		Long: "Print the lineage of a session as a tree walk following parent_id links. " +
+			"Terminates on missing parent, empty parent_id (root reached), cycle break, " +
+			"or self-reference. Useful for `--json` piping into further analysis.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := openStore()
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+			chain, err := store.Tree(args[0])
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(chain)
+			}
+			for i, n := range chain {
+				prefix := "  "
+				marker := "└─"
+				label := fmt.Sprintf("%s [%s] %q", n.ID, n.UpdatedAt, n.Title)
+				if i == 0 {
+					fmt.Printf("root: %s [%s] %q\n", n.ID, n.CreatedAt, n.Title)
+					continue
+				}
+				if i == len(chain)-1 {
+					fmt.Printf("%s%s self: %s\n", prefix, marker, label)
+				} else {
+					fmt.Printf("%s%s %s\n", prefix, marker, label)
+				}
+			}
+			return nil
+		},
+	}
+
+	cmd.AddCommand(listCmd, showCmd, rmCmd, forkCmd, treeCmd)
 	return cmd
 }

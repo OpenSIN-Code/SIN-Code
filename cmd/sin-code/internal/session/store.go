@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -36,6 +37,11 @@ type Info struct {
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 	Title     string `json:"title"`
+	// ParentID is the source-session id this session was forked from.
+	// Empty for root sessions. Persisted via issue #194 (sessions fork CLI
+	// surface + lineage tracking). Cross-references the source row via
+	// ON DELETE SET NULL so deleting the parent does not orphan history.
+	ParentID string `json:"parent_id,omitempty"`
 }
 
 func DefaultPath() string {
@@ -55,7 +61,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   id         TEXT PRIMARY KEY,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  title      TEXT NOT NULL DEFAULT ''
+  title      TEXT NOT NULL DEFAULT '',
+  parent_id  TEXT REFERENCES sessions(id) ON DELETE SET NULL
 );
 CREATE TABLE IF NOT EXISTS messages (
   session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
@@ -65,6 +72,15 @@ CREATE TABLE IF NOT EXISTS messages (
 );`
 	if _, err := db.Exec(schema); err != nil {
 		return nil, fmt.Errorf("migrate sessions db: %w", err)
+	}
+	// Idempotent column migration for DBs created before issue #194
+	// (parent_id did not exist in v3.19.x sessions DBs). SQLite returns
+	// "duplicate column name: parent_id" when the column already exists;
+	// we swallow that case and propagate any other error.
+	if _, err := db.Exec(`ALTER TABLE sessions ADD COLUMN parent_id TEXT REFERENCES sessions(id) ON DELETE SET NULL`); err != nil {
+		if !strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
+			return nil, fmt.Errorf("migrate parent_id column: %w", err)
+		}
 	}
 	return &Store{db: db}, nil
 }
@@ -161,7 +177,7 @@ func (sess *Session) SaveHistory(msgs []Message) error {
 
 func (s *Store) List() ([]Info, error) {
 	rows, err := s.db.Query(
-		`SELECT id, created_at, updated_at, title FROM sessions ORDER BY updated_at DESC`)
+		`SELECT id, created_at, updated_at, title, COALESCE(parent_id, '') FROM sessions ORDER BY updated_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +185,7 @@ func (s *Store) List() ([]Info, error) {
 	var out []Info
 	for rows.Next() {
 		var i Info
-		if err := rows.Scan(&i.ID, &i.CreatedAt, &i.UpdatedAt, &i.Title); err != nil {
+		if err := rows.Scan(&i.ID, &i.CreatedAt, &i.UpdatedAt, &i.Title, &i.ParentID); err != nil {
 			return nil, err
 		}
 		out = append(out, i)
@@ -229,8 +245,8 @@ func (s *Store) Fork(src string, turn int) (*Session, error) {
 	child := &Session{ID: newID(), store: s, history: forked}
 	now := time.Now().UTC().Format(time.RFC3339)
 	if _, err := s.db.Exec(
-		`INSERT INTO sessions (id, created_at, updated_at) VALUES (?, ?, ?)`,
-		child.ID, now, now); err != nil {
+		`INSERT INTO sessions (id, created_at, updated_at, parent_id) VALUES (?, ?, ?, ?)`,
+		child.ID, now, now, src); err != nil {
 		return nil, err
 	}
 	if err := child.SaveHistory(forked); err != nil {
@@ -238,3 +254,65 @@ func (s *Store) Fork(src string, turn int) (*Session, error) {
 	}
 	return child, nil
 }
+
+// ForkEx is Fork with an optional title applied to the new session. The
+// parent_id lineage is recorded automatically (issue #194).
+//
+// CLI convention: turn < 0 means "copy entire history" (resolves to a
+// value that gets clamped to len(history) inside Fork itself). Fork()
+// alone still clamps negative turn to 0 for the existing WebUI hook
+// caller (apiweb/api.go:33) — its contract predates the CLI.
+func (s *Store) ForkEx(src string, turn int, title string) (*Session, error) {
+	if turn < 0 {
+		turn = 1 << 30 // clamps to len(history) inside Fork
+	}
+	child, err := s.Fork(src, turn)
+	if err != nil {
+		return nil, err
+	}
+	if title != "" {
+		if _, err := s.db.Exec(
+			`UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?`,
+			title, time.Now().UTC().Format(time.RFC3339), child.ID); err != nil {
+			return nil, fmt.Errorf("set fork title: %w", err)
+		}
+	}
+	return child, nil
+}
+
+// Tree returns the ancestry chain for a session, ordered root → ... → self.
+// Walks parent_id upward and terminates on missing parent, empty parent,
+// cycle (defensive), or self-reference. Returns ErrSessionNotFound when
+// the queried id does not exist.
+func (s *Store) Tree(id string) ([]Info, error) {
+	var exists int
+	if err := s.db.QueryRow(
+		`SELECT COUNT(1) FROM sessions WHERE id = ?`, id,
+	).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if exists == 0 {
+		return nil, ErrSessionNotFound{id: id}
+	}
+	seen := map[string]bool{}
+	chain := []Info{}
+	cur := id
+	for cur != "" && !seen[cur] {
+		seen[cur] = true
+		var i Info
+		if err := s.db.QueryRow(
+			`SELECT id, created_at, updated_at, title, COALESCE(parent_id, '') FROM sessions WHERE id = ?`, cur,
+		).Scan(&i.ID, &i.CreatedAt, &i.UpdatedAt, &i.Title, &i.ParentID); err != nil {
+			return nil, err
+		}
+		chain = append([]Info{i}, chain...)
+		cur = i.ParentID
+	}
+	return chain, nil
+}
+
+// ErrSessionNotFound is returned by Tree when the queried session id is
+// not present in the store.
+type ErrSessionNotFound struct{ id string }
+
+func (e ErrSessionNotFound) Error() string { return fmt.Sprintf("session %q not found", e.id) }

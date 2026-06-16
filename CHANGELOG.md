@@ -775,6 +775,45 @@ spec's signatures.
 - **Tests**: `cmd/sin-code/internal/complexity/complexity_test.go` + golden file,
   race-clean.
 
+### Added — `sin-code sessions fork` + `tree` (issue #194, plugin #1)
+The previous AGENTS.md §10 claim that the `sessions` subcommand exposed `fork`
+was truthful-in-spirit only: `internal/session.Store.Fork(src, turn)` had
+existed (and been unit-tested) since v3.6.0 for the WebUI-v2 fork endpoint
+(issue #52), but the **CLI surface** never registered the matching subcommand.
+This plugin closes that gap and adds a real DAG primitive.
+- **`parent_id` schema column** on the `sessions` table
+  (`REFERENCES sessions(id) ON DELETE SET NULL`). Added via idempotent
+  `ALTER TABLE` migration so any pre-#194 sessions DB upgrades in place;
+  the "duplicate column" error from SQLite is swallowed and any other
+  error propagates verbatim.
+- **`Store.ForkEx(src, turn, title)`** — CLI-convention fork that translates
+  `turn < 0` (the shell flag default) to "copy entire history"
+  (channeling 2^30 through the existing clamp path so the underlying
+  `Store.Fork` is unchanged for the WebUI hook caller at
+  `apiweb/api.go:33`).
+- **`Store.Tree(id) ([]Info, error)`** — walks the `parent_id` chain upward
+  until missing parent, empty parent, or self-reference/cycle
+  (defensive). Returns `ErrSessionNotFound` for missing roots.
+- **`sin-code sessions fork <src-id> [--turn N] [--title <t>]`** —
+  new CLI subcommand registered alongside `list|show|rm`. The hook
+  behaviour makes the same WebUI-v2 fork endpoint and the new CLI
+  share **one** parent-tracking contract; lineage is now visible
+  from both surfaces.
+- **`sin-code sessions tree <sid>`** — new subcommand that prints
+  the lineage chain as `root → ... → self` (text) or full JSON
+  (pipe-friendly). Both `fork` and `tree` honour `--json`.
+- **`Info.ParentID`** added to the list/show JSON schema, with
+  `omitempty` so root sessions still serialise cleanly.
+- **`sessions list`** text output now includes a `PARENT` column
+  (`-` for roots) so the lineage is obvious without an extra command.
+- **Tests** (`cmd/sin-code/internal/session/store_test.go`):
+  `TestForkRecordsParentID`, `TestForkExTitle` (incl. reopen-roundtrip
+  to prove persistence is not just an in-memory artifact),
+  `TestTreeAncestry`, `TestTreeMissingSession`,
+  `TestTreeCycleSafety` (defensive self-cycle terminates at 1 node),
+  `TestOpenIdempotentMigration`. All race-clean under
+  `go test -race -count=1`.
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added
