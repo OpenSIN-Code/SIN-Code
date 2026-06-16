@@ -281,29 +281,29 @@ func TestValidate_AllIssueBranches(t *testing.T) {
 			want: 1,
 		},
 		{
-			name: "short body",
+			name:  "short body",
 			asset: &Asset{Kind: KindSkill, Name: "n", Description: "d", Path: "x.md", Body: "short"},
-			want: 2,
+			want:  2,
 		},
 		{
-			name: "agent no model",
+			name:  "agent no model",
 			asset: &Asset{Kind: KindAgent, Name: "n", Description: "d", Path: "x.md", Body: strings.Repeat("x", 20)},
-			want: 2,
+			want:  2,
 		},
 		{
-			name: "command no dollar",
+			name:  "command no dollar",
 			asset: &Asset{Kind: KindCommand, Name: "n", Description: "d", Path: "x.md", Argument: "arg", Body: "no placeholder"},
-			want: 2,
+			want:  2,
 		},
 		{
-			name: "skill no sections",
+			name:  "skill no sections",
 			asset: &Asset{Kind: KindSkill, Name: "n", Description: "d", Path: "x.md", Body: strings.Repeat("x", 20)},
-			want: 1,
+			want:  1,
 		},
 		{
-			name: "unsafe unicode",
+			name:  "unsafe unicode",
 			asset: &Asset{Kind: KindSkill, Name: "n", Description: "d", Path: "x.md", Body: "## S\n" + "\u200B"},
-			want: 2,
+			want:  2,
 		},
 	}
 	for _, tc := range cases {

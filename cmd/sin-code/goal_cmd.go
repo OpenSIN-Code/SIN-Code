@@ -291,9 +291,9 @@ func NewGoalCmd() *cobra.Command {
 			switch reportFormat {
 			case "json":
 				payload := map[string]any{
-					"total":      len(goals),
-					"by_status":  byStatus,
-					"goals":      goals,
+					"total":     len(goals),
+					"by_status": byStatus,
+					"goals":     goals,
 				}
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")

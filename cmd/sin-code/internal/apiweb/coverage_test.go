@@ -24,7 +24,7 @@ type nonFlusherRecorder struct {
 	rec *httptest.ResponseRecorder
 }
 
-func (n nonFlusherRecorder) Header() http.Header     { return n.rec.Header() }
+func (n nonFlusherRecorder) Header() http.Header         { return n.rec.Header() }
 func (n nonFlusherRecorder) Write(b []byte) (int, error) { return n.rec.Write(b) }
 func (n nonFlusherRecorder) WriteHeader(code int)        { n.rec.WriteHeader(code) }
 

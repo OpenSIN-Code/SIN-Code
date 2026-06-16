@@ -30,9 +30,9 @@ type HookEntry struct {
 
 // VerifyOutput is the contract for internal/verify/config.json.
 type VerifyOutput struct {
-	Version    int                 `json:"version"`
-	Mode       string              `json:"mode"`
-	Predicates []VerifyPredicate   `json:"predicates"`
+	Version    int               `json:"version"`
+	Mode       string            `json:"mode"`
+	Predicates []VerifyPredicate `json:"predicates"`
 }
 
 // VerifyPredicate is one predicate in the verify contract.

@@ -37,12 +37,12 @@ type Session struct {
 //   - "resolved"  — operator is satisfied, the decision is final
 //   - "deferred"  — operator wants to come back later
 type Decision struct {
-	ID        string    `json:"id"`
-	ParentID  string    `json:"parent_id,omitempty"`
-	Question  string    `json:"question"`
-	Answer    string    `json:"answer,omitempty"`
-	Status    string    `json:"status"`
-	AskedAt   time.Time `json:"asked_at"`
+	ID         string    `json:"id"`
+	ParentID   string    `json:"parent_id,omitempty"`
+	Question   string    `json:"question"`
+	Answer     string    `json:"answer,omitempty"`
+	Status     string    `json:"status"`
+	AskedAt    time.Time `json:"asked_at"`
 	ResolvedAt time.Time `json:"resolved_at,omitempty"`
 }
 
@@ -51,8 +51,8 @@ type Decision struct {
 // during the interview. The CLI emits this in both human-readable
 // text and JSON.
 type Synthesize struct {
-	Resolved []string `json:"resolved"`
-	Open     []string `json:"open"`
+	Resolved    []string `json:"resolved"`
+	Open        []string `json:"open"`
 	Assumptions []string `json:"assumptions"`
 }
 

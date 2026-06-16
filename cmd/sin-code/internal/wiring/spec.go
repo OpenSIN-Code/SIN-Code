@@ -69,11 +69,11 @@ func NewSpecCompleter(client *llm.Client, model string) spec.Completer {
 // loop; with nil, the CLI runs in dry-run mode (stubs out the
 // spec).
 type SpecAuthorOptions struct {
-	Completer spec.Completer
-	Model     string
-	Timeout   time.Duration
+	Completer  spec.Completer
+	Model      string
+	Timeout    time.Duration
 	MaxRetries int
-	Workdir   string
+	Workdir    string
 }
 
 // AuthorSpec is a thin wrapper that runs spec.Author with the
