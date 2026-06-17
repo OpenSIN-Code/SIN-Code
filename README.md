@@ -50,7 +50,7 @@ swarm mode, skill bootstrapping, and methodology skills.
 ## MCP Integration
 
 - **MCP Server**: Go — `sin-code serve` (main binary, 44+ tools); Python legacy — `src/sin_code_bundle/mcp_server.py`
-- **Tools**: 40 subcommands, 34 bundled skills, 12 ecosystem skill servers, and external MCP servers (websearch, browser, symfony-lens, etc.)
+- **Tools**: 42 subcommands, 37 bundled skills, 12 ecosystem skill servers, and external MCP servers (websearch, browser, symfony-lens, etc.)
 - **Register**: Add `sin-code serve` to your MCP client config (see `docs/mcp.json.example`), or register the legacy Python server via `sin mcp register sin-serve src/sin_code_bundle/mcp_server.py`
 
 ## Development
@@ -87,7 +87,7 @@ swarm mode, skill bootstrapping, and methodology skills.
 
 ## Bundled Skills (v3.17.0)
 
-SIN-Code ships **34 bundled skills** embedded in the binary, installable via `sin-code skills list|install`. Skills are organized into category directories and follow a unified naming convention `skill-<category>-<name>`.
+SIN-Code ships **37 bundled skills** embedded in the binary, installable via `sin-code skills list|install`. Skills are organized into category directories and follow a unified naming convention `skill-<category>-<name>`.
 
 ```bash
 sin-code skills list          # list all bundled skills

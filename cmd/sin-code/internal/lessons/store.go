@@ -107,6 +107,8 @@ CREATE TABLE IF NOT EXISTS lessons (
 CREATE INDEX IF NOT EXISTS idx_lessons_workspace ON lessons(workspace);
 CREATE INDEX IF NOT EXISTS idx_lessons_type ON lessons(type);
 CREATE INDEX IF NOT EXISTS idx_lessons_occurrences ON lessons(occurrences DESC);
+
+PRAGMA user_version = 2;
 `
 		_, err = db.Exec(schema)
 	}
@@ -114,7 +116,58 @@ CREATE INDEX IF NOT EXISTS idx_lessons_occurrences ON lessons(occurrences DESC);
 		_ = db.Close()
 		return nil, err
 	}
-	return &Store{db: db}, nil
+	s := &Store{db: db}
+	if err := s.migrateFingerprints(); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
+	return s, nil
+}
+
+// migrateFingerprints rewrites any 16-hex (64-bit) fingerprints to full 64-hex
+// SHA-256 fingerprints. Idempotent: only rows with exactly 16 hex chars are touched.
+func (s *Store) migrateFingerprints() error {
+	rows, err := s.db.Query(`SELECT id, type, workspace, context, lesson, occurrences, first_seen, last_seen FROM lessons WHERE LENGTH(id) = 16`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	type oldRow struct {
+		id, typ, ws, ctx, lesson, first, last string
+		occurrences                           int
+	}
+	var toMigrate []oldRow
+	for rows.Next() {
+		var r oldRow
+		if err := rows.Scan(&r.id, &r.typ, &r.ws, &r.ctx, &r.lesson, &r.occurrences, &r.first, &r.last); err != nil {
+			return err
+		}
+		toMigrate = append(toMigrate, r)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if len(toMigrate) == 0 {
+		return nil
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	for _, r := range toMigrate {
+		var ctxMap map[string]any
+		if err := json.Unmarshal([]byte(r.ctx), &ctxMap); err != nil {
+			ctxMap = nil
+		}
+		newID := Fingerprint(EntryType(r.typ), r.ws, ctxMap)
+		if _, err := tx.Exec(`
+			UPDATE lessons SET id = ? WHERE id = ?
+		`, newID, r.id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (s *Store) Close() error {
@@ -125,6 +178,8 @@ func (s *Store) Close() error {
 }
 
 // Record upserts a lesson — same fingerprint increments the count.
+// If a collision is detected (same fingerprint but different content),
+// a deterministic variant ID is used so the distinct lesson is preserved.
 func (s *Store) Record(ctx context.Context, e Entry) error {
 	if e.ID == "" {
 		e.ID = Fingerprint(e.Type, e.Workspace, e.Context)
@@ -134,15 +189,49 @@ func (s *Store) Record(ctx context.Context, e Entry) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx, `
-INSERT INTO lessons (id, type, workspace, context, lesson, first_seen, last_seen)
-VALUES (?, ?, ?, ?, ?, ?, ?)
-ON CONFLICT(id) DO UPDATE SET
-  occurrences = occurrences + 1,
-  last_seen = excluded.last_seen,
-  lesson = excluded.lesson
-`, e.ID, e.Type, e.Workspace, ctxJSON, e.Lesson, now, now)
-	return err
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	id := e.ID
+	for attempt := 0; attempt < 10; attempt++ {
+		var existing struct {
+			typ, ws, ctx, lesson string
+		}
+		err := tx.QueryRowContext(ctx, `
+			SELECT type, workspace, context, lesson FROM lessons WHERE id = ?
+		`, id).Scan(&existing.typ, &existing.ws, &existing.ctx, &existing.lesson)
+		if err == sql.ErrNoRows {
+			// Insert new lesson.
+			_, err = tx.ExecContext(ctx, `
+				INSERT INTO lessons (id, type, workspace, context, lesson, first_seen, last_seen)
+				VALUES (?, ?, ?, ?, ?, ?, ?)
+			`, id, e.Type, e.Workspace, ctxJSON, e.Lesson, now, now)
+			if err != nil {
+				return err
+			}
+			return tx.Commit()
+		}
+		if err != nil {
+			return err
+		}
+		// Collision check: compare canonical content.
+		if existing.typ == string(e.Type) && existing.ws == e.Workspace && existing.ctx == string(ctxJSON) && existing.lesson == e.Lesson {
+			_, err = tx.ExecContext(ctx, `
+				UPDATE lessons SET occurrences = occurrences + 1, last_seen = ? WHERE id = ?
+			`, now, id)
+			if err != nil {
+				return err
+			}
+			return tx.Commit()
+		}
+		// True collision: try a variant ID.
+		id = fmt.Sprintf("%s:%d", e.ID, attempt+1)
+	}
+	return errors.New("too many fingerprint collisions")
 }
 
 // Query returns relevant lessons for a workspace, ordered by frequency.
@@ -200,12 +289,12 @@ WHERE occurrences = 1 AND last_seen < ?
 	return int(n), nil
 }
 
-// sin-debt: 16-hex (64-bit) fingerprint — collision risk at ~4B entries, upgrade: switch to full 64-hex sha256 + collision check when lesson count > 100k
 // Fingerprint is the stable identity of a lesson (type+workspace+context).
+// Uses full 64-hex SHA-256 to avoid 64-bit birthday collisions.
 func Fingerprint(t EntryType, ws string, ctx map[string]any) string {
 	data, _ := json.Marshal(map[string]any{"type": t, "ws": ws, "ctx": ctx})
 	h := sha256.Sum256(data)
-	return hex.EncodeToString(h[:])[:16]
+	return hex.EncodeToString(h[:])
 }
 
 // sin-debt: linear scan over all lessons per briefing call, upgrade: switch to top-K precomputed index when entry count > 10k

@@ -413,7 +413,7 @@ SIN-Code/
 │       SIN-Code-SCA-Tool-Go, SIN-Code-Secrets-Scanner
 │
 ├── src/sin_code_bundle/       ← Python companion: `sin` CLI + `sin-serve`
-├── skills/                    ← 35 bundled skills in category directories
+├── skills/                    ← 37 bundled skills in category directories
 │   ├── browser-skills/
 │   ├── code-skills/
 │   ├── debug-skills/
@@ -621,7 +621,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.18.0 | ✅ SHIPPED | `sin-code install` single-binary installer (issue #170), curl/bash + PowerShell shims, SHA256-verified release downloads |
 | v3.19.0 | ✅ SHIPPED | `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format (`delete`, `stdlib`, `native`, `yagni`, `shrink`), `// sin-debt:` marker support (issue #177), text/json/markdown output, race-clean tests |
 | v3.20.0 | ✅ SHIPPED | Tool coverage, M6 enforcement, catalog, telemetry (issues #249, #253, #248, #250, #252, #251): agent profiles expose full `sin_*` + MCP prefix surface; system prompt injects SIN-tool preference fragment; runtime `ToolCoverageEnforcer` rejects missing/forbidden tool usage; `ledger tools` heatmap/coverage/unused; orchestrator planner emits mandatory `ToolChain` per intent; `sin-code catalog` unifies 46+ MCP tools, 17+ chat tools, and 14+ external MCP prefixes. |
-| v3.20.0 | ✅ SHIPPED | `sin-code image-graph` — SOTA ECharts chart generation (bar/line/pie/area); `skill-github-readme` bundled as 35th skill. 42 subcommands, 35 bundled skills. |
+| v3.20.0 | ✅ SHIPPED | `sin-code image-graph` — SOTA ECharts chart generation (bar/line/pie/area); `skill-github-readme` bundled. 42 subcommands, 37 bundled skills. |
 | v3.21.0 | ✅ SHIPPED | Test-First Verify-Loop (RFC-test-automation.md): `sin_test` + `sin_test_generate` + `sin_quality_gate` + `sin_mutation` + `sin_fuzz` + `sin_property`; `tool.post` hook payload path; `test.*` config keys; `evals/test-generation.json` golden dataset. |
 | v3.22.0 | ACTIVE | SIN Fusion v1: Verify-Tournament (issue #290) — multi-model fan-out on verify.fail, Fireworks pool (6 models), thinking mode, cost-governor, difficulty gate, PoC-only |
 
