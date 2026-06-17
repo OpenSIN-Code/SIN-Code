@@ -30,6 +30,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/isolation"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/loopbuilder"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
@@ -106,6 +107,9 @@ type chatOptions struct {
 	// M3 is honoured: every mode pick is operator-visible.
 	autolevel bool
 	lazyTools bool
+	fusionOnVerifyFail bool
+	fusionProviders    string
+	fusionMaxCost      float64
 }
 
 func NewChatCmd() *cobra.Command {
@@ -127,7 +131,10 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --rewind <checkpoint>    restore workspace to a checkpoint before running
   sin-code chat --sandbox <backend>      landlock|seatbelt|bubblewrap|none (issue #199)
   sin-code chat --autolevel              prompt-intent based permission auto-classifier (issue #198)
-  sin-code chat --lazy-tools             lazy tool loading via tool_search (issue #270)`,
+  sin-code chat --lazy-tools             lazy tool loading via tool_search (issue #270)
+  sin-code chat --fusion-on-verify-fail  enable SIN Fusion verify-tournament on verify.fail (issue #290)
+  sin-code chat --fusion-providers <list> override Fireworks models for the tournament (comma-separated)
+  sin-code chat --fusion-max-cost <usd>   USD kill-switch per tournament invocation (default 5.0)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context(), opts)
 		},
@@ -152,6 +159,9 @@ func NewChatCmd() *cobra.Command {
 	f.StringVar(&opts.sandbox, "sandbox", "", "sandbox backend: landlock|seatbelt|bubblewrap|none (default: platform-native)")
 	f.BoolVar(&opts.autolevel, "autolevel", false, "auto-classify permission mode from prompt intent (issue #198)")
 	f.BoolVar(&opts.lazyTools, "lazy-tools", false, "enable lazy tool loading: send only tool_search meta-tool instead of all tools (issue #270)")
+	f.BoolVar(&opts.fusionOnVerifyFail, "fusion-on-verify-fail", false, "enable SIN Fusion verify-tournament on verify.fail (issue #290)")
+	f.StringVar(&opts.fusionProviders, "fusion-providers", "", "comma-separated Fireworks model names for the tournament (e.g. minimax-m3,kimi-k2p7-code,glm-5p2)")
+	f.Float64Var(&opts.fusionMaxCost, "fusion-max-cost", 5.0, "USD kill-switch per tournament invocation (issue #290)")
 	return cmd
 }
 
@@ -341,6 +351,33 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		loader := mcpclient.NewLazyToolLoader(allSpecsAsMCPClient(mcpMgr))
 		loop.LocalSpec = lazyCombinedSpecs()
 		loop.LocalTool = lazyCombinedTool(workspace, mcpMgr, loader, loop)
+	}
+
+	if opts.fusionOnVerifyFail {
+		fusionCfg := loopbuilder.Config{
+			FusionEnabled:    true,
+			FusionProviders:  splitList(opts.fusionProviders),
+			FusionMaxCostUSD: opts.fusionMaxCost,
+			Workspace:        workspace,
+			SessionID:        sess.ID,
+			SessionStore:     store,
+		}
+		if sinCfg, err := internal.LoadMergedConfig(); err == nil {
+			if fusionCfg.FusionMinQuorum == 0 {
+				fusionCfg.FusionMinQuorum = sinCfg.FusionMinQuorum
+			}
+			if fusionCfg.FusionPerProviderTimeoutS == 0 {
+				fusionCfg.FusionPerProviderTimeoutS = sinCfg.FusionPerProviderTimeoutS
+			}
+			fusionCfg.FusionDifficultyGate = sinCfg.FusionDifficultyGate
+		}
+		if fusionCfg.FusionMinQuorum == 0 {
+			fusionCfg.FusionMinQuorum = 2
+		}
+		if fusionCfg.FusionPerProviderTimeoutS == 0 {
+			fusionCfg.FusionPerProviderTimeoutS = 120
+		}
+		loopbuilder.WireFusion(loop, fusionCfg, gate, client, nil, nil, hookEngine)
 	}
 
 	dispatchUserPrompt := func(prompt string) {

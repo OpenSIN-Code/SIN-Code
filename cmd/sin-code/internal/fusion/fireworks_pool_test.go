@@ -21,7 +21,7 @@ func TestLoadFireworksPool_AllModels(t *testing.T) {
 		if p.Model == "" {
 			t.Errorf("model %s: empty model slug", p.Name)
 		}
-		if p.PricePer1MTok <= 0 {
+		if p.InputPer1M <= 0 || p.OutputPer1M <= 0 {
 			t.Errorf("model %s: zero price", p.Name)
 		}
 	}
@@ -48,7 +48,7 @@ func TestLoadFireworksPool_Filtered(t *testing.T) {
 
 func TestLoadFireworksPool_CustomLineup(t *testing.T) {
 	custom := []FireworksModel{
-		{Name: "test-model", Slug: "accounts/fireworks/models/test", PricePer1MT: 2.0, ContextLen: 131072},
+		{Name: "test-model", Slug: "accounts/fireworks/models/test", InputPer1M: 1.0, OutputPer1M: 2.0, ContextLen: 131072},
 	}
 	pool := LoadFireworksPool(custom, nil)
 	if len(pool) != 1 {

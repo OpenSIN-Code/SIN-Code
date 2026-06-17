@@ -62,6 +62,7 @@ type daemonOptions struct {
 	noBaseline       bool
 	requireTools     string
 	forbidTools      string
+	fusionOnVerifyFail bool
 }
 
 func NewDaemonCmd() *cobra.Command {
@@ -69,7 +70,7 @@ func NewDaemonCmd() *cobra.Command {
 	var verifyCmd string
 	var maxTurns, concurrency, maxProcs int
 	var maxContinuations, maxDepth int
-	var noContract, noBaseline bool
+	var noContract, noBaseline, fusionOnVerifyFail bool
 	var repos []string
 	var maxMemory, minDisk string
 	var requireTools, forbidTools string
@@ -102,10 +103,11 @@ func NewDaemonCmd() *cobra.Command {
 				limits:           limits,
 				maxContinuations: maxContinuations,
 				maxDepth:         maxDepth,
-				noContract:       noContract,
-				noBaseline:       noBaseline,
-				requireTools:     requireTools,
-				forbidTools:      forbidTools,
+			noContract:       noContract,
+			noBaseline:       noBaseline,
+			requireTools:     requireTools,
+			forbidTools:      forbidTools,
+			fusionOnVerifyFail: fusionOnVerifyFail,
 			})
 		},
 	}
@@ -124,6 +126,7 @@ func NewDaemonCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&noBaseline, "no-baseline", false, "disable the always-on SinCode loop baseline (tests/debug/docs/completeness DoD); also via SIN_BASELINE=off")
 	cmd.Flags().StringVar(&requireTools, "require-tools", "", "comma-separated tool names the model must invoke before completion (issue #248)")
 	cmd.Flags().StringVar(&forbidTools, "forbid-tools", "", "comma-separated tool names that block completion if invoked (issue #248)")
+	cmd.Flags().BoolVar(&fusionOnVerifyFail, "fusion-on-verify-fail", false, "enable SIN Fusion verify-tournament on verify.fail (issue #290)")
 	return cmd
 }
 
@@ -318,6 +321,7 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 		AllowContinuation:      opt.maxContinuations > 0,
 		CoverageRequiredTools:  splitList(opt.requireTools),
 		CoverageForbiddenTools: splitList(opt.forbidTools),
+		FusionEnabled:          opt.fusionOnVerifyFail,
 		ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
 			baseTool := combinedTool(goal.Workspace, mgr)
 			baseSpecs := combinedSpecs(mgr)

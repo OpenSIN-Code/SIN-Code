@@ -240,7 +240,7 @@ func TestTournament_CostCeilingExceeded(t *testing.T) {
 	}
 
 	tournament := &Tournament{
-		Providers:       []ProviderConfig{{Name: "expensive", PricePer1MTok: 10.0}},
+		Providers:       []ProviderConfig{{Name: "expensive", InputPer1M: 5.0, OutputPer1M: 5.0}},
 		RunFunc:         makeRunFunc(providers, vs),
 		ForkFunc:        makeForkFunc(),
 		VerifyFn:        makeVerifyFn(vs, "CORRECT"),

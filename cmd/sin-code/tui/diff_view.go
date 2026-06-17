@@ -3,9 +3,11 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
 
@@ -238,4 +240,54 @@ func RenderDiffInline(diffs []DiffEntry, styles Styles, width int) string {
 	}
 
 	return panelStyle.Render(b.String())
+}
+
+type DiffAcceptMsg struct{}
+type DiffRejectMsg struct{}
+
+func HandleDiffAccept() tea.Cmd {
+	return func() tea.Msg { return DiffAcceptMsg{} }
+}
+
+func HandleDiffReject() tea.Cmd {
+	return func() tea.Msg { return DiffRejectMsg{} }
+}
+
+type DiffWindowState struct {
+	Pending    bool
+	FilePath   string
+	OldContent string
+	NewContent string
+}
+
+var (
+	pendingDiff   DiffWindowState
+	pendingDiffMu sync.Mutex
+)
+
+func SetPendingDiff(entry DiffEntry) {
+	pendingDiffMu.Lock()
+	defer pendingDiffMu.Unlock()
+	pendingDiff = DiffWindowState{
+		Pending:    true,
+		FilePath:   entry.Path,
+		OldContent: entry.Before,
+		NewContent: entry.After,
+	}
+}
+
+func ClearPendingDiff() {
+	pendingDiffMu.Lock()
+	defer pendingDiffMu.Unlock()
+	pendingDiff = DiffWindowState{}
+}
+
+func PendingDiff() DiffWindowState {
+	pendingDiffMu.Lock()
+	defer pendingDiffMu.Unlock()
+	return pendingDiff
+}
+
+func ApplyDiff(filePath, newContent string) error {
+	return os.WriteFile(filePath, []byte(newContent), 0o644)
 }

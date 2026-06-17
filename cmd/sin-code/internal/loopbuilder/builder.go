@@ -26,6 +26,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/stopgate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
@@ -62,6 +63,8 @@ type Config struct {
 	// run. It is forwarded into ledger tool-usage records.
 	GoalID string
 
+	SessionStore *session.Store
+
 	// CoverageRequiredTools and CoverageForbiddenTools are passed through
 	// to the agent loop's tool-coverage enforcer (issue #248).
 	CoverageRequiredTools  []string
@@ -93,6 +96,41 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 			if len(cfg.CoverageForbiddenTools) == 0 {
 				cfg.CoverageForbiddenTools = sinCfg.AgentLoopForbiddenTools
 			}
+		}
+	}
+
+	// Apply config-file defaults for SIN Fusion v1 (issue #290).
+	if !cfg.FusionEnabled {
+		if sinCfg, err := internal.LoadMergedConfig(); err == nil {
+			cfg.FusionEnabled = sinCfg.FusionEnabled
+		}
+	}
+	if cfg.FusionEnabled {
+		if sinCfg, err := internal.LoadMergedConfig(); err == nil {
+			if len(cfg.FusionProviders) == 0 {
+				cfg.FusionProviders = sinCfg.FusionProviders
+			}
+			if cfg.FusionMaxCostUSD == 0 {
+				cfg.FusionMaxCostUSD = sinCfg.FusionMaxCostUSD
+			}
+			if cfg.FusionMinQuorum == 0 {
+				cfg.FusionMinQuorum = sinCfg.FusionMinQuorum
+			}
+			if cfg.FusionPerProviderTimeoutS == 0 {
+				cfg.FusionPerProviderTimeoutS = sinCfg.FusionPerProviderTimeoutS
+			}
+			if !cfg.FusionDifficultyGate {
+				cfg.FusionDifficultyGate = sinCfg.FusionDifficultyGate
+			}
+		}
+		if cfg.FusionMaxCostUSD == 0 {
+			cfg.FusionMaxCostUSD = 5.0
+		}
+		if cfg.FusionMinQuorum == 0 {
+			cfg.FusionMinQuorum = 2
+		}
+		if cfg.FusionPerProviderTimeoutS == 0 {
+			cfg.FusionPerProviderTimeoutS = 120
 		}
 	}
 
@@ -206,34 +244,7 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	}
 
 	// SIN Fusion v1 (issue #290): wire verify-tournament when enabled.
-	// Only active in PoC mode (not oracle — load-bearing risk: oracle
-	// "first to pass" is selection on judge noise, not correctness).
-	//
-	// Provider pool: uses the Fireworks multi-model pool — all models
-	// share the same base URL + API key (SINator pool router handles
-	// key rotation). Diversity comes from different model architectures
-	// (MiniMax M3, Kimi K2.7, DeepSeek V4 Pro, Qwen 3.7, GLM 5.2), not
-	// different providers.
-	if cfg.FusionEnabled && gate.Mode() == verify.ModePoC {
-		providers := fusion.LoadFireworksPool(nil, cfg.FusionProviders)
-		if len(providers) >= 2 {
-			tournament := &fusion.Tournament{
-				Providers:          providers,
-				MaxCostUSD:         cfg.FusionMaxCostUSD,
-				MinQuorum:          cfg.FusionMinQuorum,
-				PerProviderTimeout: time.Duration(cfg.FusionPerProviderTimeoutS) * time.Second,
-				Workspace:          cfg.Workspace,
-				Lessons:            memStore,
-				Ledger:             ledgerStore,
-				Hooks:              hookEngine,
-				HookSessionID:      cfg.SessionID,
-				VerifyFn:           func(ctx context.Context, ws string) verify.Result { return gate.Run(ctx, ws) },
-				ForkFunc:           nil,
-				RunFunc:            nil,
-			}
-			loop.TournamentRunner = &fusionAdapter{t: tournament, gate: gate, cfg: cfg, client: client, memStore: memStore}
-		}
-	}
+	WireFusion(loop, cfg, gate, client, memStore, ledgerStore, hookEngine)
 
 	cleanup := func() error {
 		mcpMgr.Close()
@@ -244,6 +255,67 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		return nil
 	}
 	return loop, cleanup, nil
+}
+
+// WireFusion wires a SIN Fusion v1 verify-tournament (issue #290) into
+// an existing agentloop.Loop. It is extracted from Build so callers that
+// construct their loop manually (e.g. chat_cmd.go) can opt into fusion
+// without duplicating the wiring logic.
+//
+// Only active when cfg.FusionEnabled is true and the gate is in PoC mode
+// (not oracle — load-bearing risk: oracle "first to pass" is selection on
+// judge noise, not correctness). Requires >=2 providers from the Fireworks
+// pool; otherwise the call is a no-op and the loop keeps legacy behavior.
+func WireFusion(loop *agentloop.Loop, cfg Config, gate *verify.Gate, client *llm.Client,
+	memStore *lessons.Store, ledgerStore *ledger.Store, hookEngine *hooks.Engine) {
+	if !cfg.FusionEnabled || gate.Mode() != verify.ModePoC {
+		return
+	}
+	providers := fusion.LoadFireworksPool(nil, cfg.FusionProviders)
+	if len(providers) < 2 {
+		return
+	}
+	forkFunc := fusion.ForkFunc(nil)
+	runFunc := fusion.RunFunc(nil)
+	if cfg.SessionStore != nil {
+		forkFunc = func(srcSessionID string, turn int) (*session.Session, error) {
+			return cfg.SessionStore.Fork(srcSessionID, turn)
+		}
+		runFunc = func(ctx context.Context, prov fusion.ProviderConfig, sess *session.Session, prompt string) (*agentloop.Result, error) {
+			provClient := llm.NewClient(prov.BaseURL, prov.APIKey)
+			provCompletion := agentloop.NewProviderCompletion(provClient, prov.Model, prov.MaxTokens, 0)
+			provLoop := &agentloop.Loop{
+				Gate:         gate,
+				LocalTool:    loop.LocalTool,
+				LocalSpec:    loop.LocalSpec,
+				Workspace:    loop.Workspace,
+				MaxTurns:     loop.MaxTurns,
+				SessionID:    sess.ID,
+				SystemPrompt: loop.SystemPrompt,
+				Completion:   provCompletion,
+				Hooks:        hookEngine,
+				Perm:         loop.Perm,
+				Lessons:      memStore,
+				Ledger:       ledgerStore,
+			}
+			return provLoop.Run(ctx, sess, prompt)
+		}
+	}
+	tournament := &fusion.Tournament{
+		Providers:          providers,
+		MaxCostUSD:         cfg.FusionMaxCostUSD,
+		MinQuorum:          cfg.FusionMinQuorum,
+		PerProviderTimeout: time.Duration(cfg.FusionPerProviderTimeoutS) * time.Second,
+		Workspace:          cfg.Workspace,
+		Lessons:            memStore,
+		Ledger:             ledgerStore,
+		Hooks:              hookEngine,
+		HookSessionID:      cfg.SessionID,
+		VerifyFn:           func(ctx context.Context, ws string) verify.Result { return gate.Run(ctx, ws) },
+		ForkFunc:           forkFunc,
+		RunFunc:            runFunc,
+	}
+	loop.TournamentRunner = &fusionAdapter{t: tournament, gate: gate, cfg: cfg, client: client, memStore: memStore}
 }
 
 func firstNonEmpty(vals ...string) string {

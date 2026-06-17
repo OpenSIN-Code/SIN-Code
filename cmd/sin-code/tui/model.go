@@ -214,6 +214,9 @@ type Model struct {
 	// Verification gate panel
 	VerifyPanel VerifyPanel
 
+	// LSP diagnostics
+	LSPState LSPState
+
 	// Tool call tree
 	ToolTree *ToolCallTree
 

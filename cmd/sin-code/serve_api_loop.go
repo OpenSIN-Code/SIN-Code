@@ -16,6 +16,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/loopbuilder"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
 
 // newAPILoop is the production loop factory. It opens a fresh lessons
@@ -27,17 +28,30 @@ func newAPILoop(ctx context.Context, sessionID, workspace string) (*agentloop.Lo
 	if err != nil {
 		return nil, nil, fmt.Errorf("open lessons: %w", err)
 	}
-	return loopbuilder.Build(ctx, loopbuilder.Config{
-		Workspace: workspace,
-		SessionID: sessionID,
-		Headless:  true,
-		MaxTurns:  80,
-		// chat_mcp.go merges builtin local tools with the
-		// loopbuilder-managed external MCP servers.
+	sessStore, err := session.Open(session.DefaultPath())
+	if err != nil {
+		_ = memStore.Close()
+		return nil, nil, fmt.Errorf("open sessions: %w", err)
+	}
+	loop, cleanup, err := loopbuilder.Build(ctx, loopbuilder.Config{
+		Workspace:    workspace,
+		SessionID:    sessionID,
+		Headless:     true,
+		MaxTurns:     80,
+		SessionStore: sessStore,
 		ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
 			return combinedTool(workspace, mgr), combinedSpecs(mgr)
 		},
 	}, memStore)
+	if err != nil {
+		_ = sessStore.Close()
+		_ = memStore.Close()
+		return nil, nil, err
+	}
+	return loop, func() error {
+		_ = sessStore.Close()
+		return cleanup()
+	}, nil
 }
 
 // newAPIServerForServe is the construction point used by serve.go when

@@ -327,6 +327,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.SessionTree = BuildSessionTree(msg.Sessions)
 		return m, nil
 
+	case LSPDiagnosticsMsg:
+		HandleLSPDiagnostics(&m.LSPState, msg)
+		return m, nil
+
+	case DiffAcceptMsg:
+		st := PendingDiff()
+		if st.Pending {
+			_ = ApplyDiff(st.FilePath, st.NewContent)
+		}
+		ClearPendingDiff()
+		m.DiffPopupOpen = false
+		return m, nil
+
+	case DiffRejectMsg:
+		ClearPendingDiff()
+		m.DiffPopupOpen = false
+		return m, nil
+
 	case tea.KeyPressMsg:
 		// Ctrl+X and Ctrl+C quit immediately from any view/mode
 		if msg.Code == 'x' && msg.Mod&tea.ModCtrl != 0 {
@@ -343,6 +361,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			k := msg.String()
 			if k == "o" || k == "d" || k == "n" {
 				return m.handleKey(msg)
+			}
+		}
+		if m.DiffPopupOpen {
+			k := msg.String()
+			if k == "y" {
+				return m, HandleDiffAccept()
+			}
+			if k == "n" {
+				return m, HandleDiffReject()
 			}
 		}
 		if m.Mode != ModeNormal {
@@ -834,6 +861,8 @@ func (m *Model) View() tea.View {
 		content = RenderContextVizView(m.ContextState, m.Styles, m.contentWidth(), contentHeight)
 	case ViewAgentDashboard:
 		content = RenderAgentDashboardView(m.AgentDashboardState, m.Styles, m.contentWidth(), contentHeight)
+	case ViewLSP:
+		content = RenderLSPView(m.LSPState, m.Styles, m.contentWidth(), contentHeight)
 	}
 
 	if m.NotificationBanner != nil {

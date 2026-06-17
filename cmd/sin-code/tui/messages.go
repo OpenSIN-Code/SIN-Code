@@ -15,9 +15,10 @@ const (
 	ViewDAG
 	ViewContextViz
 	ViewAgentDashboard
+	ViewLSP
 )
 
-const viewCount = 10
+const viewCount = 11
 
 func (v ViewKind) String() string {
 	switch v {
@@ -41,6 +42,8 @@ func (v ViewKind) String() string {
 		return "Context"
 	case ViewAgentDashboard:
 		return "Dashboard"
+	case ViewLSP:
+		return "LSP"
 	}
 	return "Unknown"
 }
@@ -67,6 +70,8 @@ func (v ViewKind) Short() string {
 		return "9·Context"
 	case ViewAgentDashboard:
 		return "0·Dashboard"
+	case ViewLSP:
+		return "L·LSP"
 	}
 	return "?·"
 }

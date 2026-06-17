@@ -251,26 +251,24 @@ func emitSwarm(opts *swarmOptions, report *swarmReport) error {
 // <workspace>/.sin-code/swarm/ so concurrent agents never share a
 // *session.Session (mandate M7).
 func defaultAgentRunner(ctx context.Context, agentName, workspace string) (*agentloop.Loop, *session.Session, func() error, error) {
-	loop, cleanup, err := loopbuilder.Build(ctx, loopbuilder.Config{
-		Workspace: workspace,
-		AgentName: agentName,
-		MaxTurns:  swarmDefaultTurns,
-		// Hard mandates: headless, no yolo. The swarm sets these again
-		// post-Build as defense in depth.
-		Headless: true,
-		Yolo:     false,
-	}, nil)
-	if err != nil {
-		return nil, nil, nil, err
-	}
 	dbPath, err := perAgentDBPath(workspace, agentName)
 	if err != nil {
-		_ = cleanup()
 		return nil, nil, nil, err
 	}
 	store, err := session.Open(dbPath)
 	if err != nil {
-		_ = cleanup()
+		return nil, nil, nil, err
+	}
+	loop, cleanup, err := loopbuilder.Build(ctx, loopbuilder.Config{
+		Workspace:    workspace,
+		AgentName:    agentName,
+		MaxTurns:     swarmDefaultTurns,
+		Headless:     true,
+		Yolo:         false,
+		SessionStore: store,
+	}, nil)
+	if err != nil {
+		_ = store.Close()
 		return nil, nil, nil, err
 	}
 	sess, err := store.StartOrResume("")

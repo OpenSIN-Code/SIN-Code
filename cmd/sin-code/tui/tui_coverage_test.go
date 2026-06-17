@@ -1944,8 +1944,8 @@ func TestPrevView(t *testing.T) {
 	m := NewModel()
 	m.ViewKind = ViewTools
 	m.PrevView()
-	if m.ViewKind != ViewAgentDashboard {
-		t.Errorf("PrevView = %v, want Dashboard", m.ViewKind)
+	if m.ViewKind != ViewLSP {
+		t.Errorf("PrevView = %v, want LSP", m.ViewKind)
 	}
 }
 
@@ -2225,8 +2225,8 @@ func TestPreviousViewCoverage(t *testing.T) {
 	m := NewModel()
 	m.ViewKind = ViewTools
 	m.PreviousView()
-	if m.ViewKind != ViewAgentDashboard {
-		t.Errorf("PreviousView = %v, want Dashboard", m.ViewKind)
+	if m.ViewKind != ViewLSP {
+		t.Errorf("PreviousView = %v, want LSP", m.ViewKind)
 	}
 }
 

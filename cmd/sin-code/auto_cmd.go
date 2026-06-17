@@ -177,18 +177,19 @@ func newAutoRunCmd() *cobra.Command {
 				if err != nil {
 					return autopilot.LoopResult{}, "", err
 				}
-				loop, cleanup, err := autoHookVars.buildLoop(ctx, loopbuilder.Config{
-					Workspace:  workspace,
-					SessionID:  sess.ID,
-					MaxTurns:   maxTurns,
-					VerifyMode: "poc",
-					VerifyCmd:  verifyCmd,
-					Headless:   true,
-					Contract:   autoContract,
-					ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
-						return combinedTool(workspace, mgr), combinedSpecs(mgr)
-					},
-				}, lessonStore)
+			loop, cleanup, err := autoHookVars.buildLoop(ctx, loopbuilder.Config{
+				Workspace:    workspace,
+				SessionID:    sess.ID,
+				MaxTurns:     maxTurns,
+				VerifyMode:   "poc",
+				VerifyCmd:    verifyCmd,
+				Headless:     true,
+				Contract:     autoContract,
+				SessionStore: sessStore,
+				ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
+					return combinedTool(workspace, mgr), combinedSpecs(mgr)
+				},
+			}, lessonStore)
 				if err != nil {
 					return autopilot.LoopResult{}, "", err
 				}
