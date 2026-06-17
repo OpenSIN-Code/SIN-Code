@@ -1,0 +1,76 @@
+{
+  "name": "Skill Eval: code-skills (issue #171)",
+  "version": "0.1.0",
+  "description": "Four-arm eval for code-skills (build, refactor, plan, create). Measures skill-vs-terse delta for code generation tasks. Run with: sin-code eval run --dataset evals/skill-code.json --arm baseline,terse,lazy_skill,skill-code-build",
+  "test_cases": [
+    {
+      "id": "skill_build_write_function",
+      "prompt": "Write a Go function `SafeDivide(a, b float64) (float64, error)` that returns an error on division by zero. Include a test.",
+      "description": "skill-code-build should produce code + test + verify. Baseline may skip test.",
+      "tags": ["code", "go", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["func", "SafeDivide", "error"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "code-generation",
+        "metric_locus": "lines",
+        "target_skill": "skill-code-build",
+        "expected_tools": ["sin_edit", "sin_test"]
+      }
+    },
+    {
+      "id": "skill_refactor_extract_function",
+      "prompt": "Given a function with inline validation logic, extract the validation into a separate function. Show the before and after.",
+      "description": "skill-code-refactor should use sin_sckg for impact analysis and sin_oracle for behavior preservation.",
+      "tags": ["code", "refactor", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["func", "extract"],
+        "output_avoids": ["panic"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "code-refactor",
+        "metric_locus": "lines",
+        "target_skill": "skill-code-refactor",
+        "expected_tools": ["sin_sckg", "sin_oracle"]
+      }
+    },
+    {
+      "id": "skill_plan_break_down_feature",
+      "prompt": "Break down a feature 'add user registration with email verification' into implementation tasks.",
+      "description": "skill-code-plan should produce structured tasks with dependencies.",
+      "tags": ["planning", "loc"],
+      "constraints": {
+        "max_turns": 3,
+        "timeout": "45s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["task", "register", "email"],
+        "output_avoids": ["TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "planning",
+        "metric_locus": "lines",
+        "target_skill": "skill-code-plan",
+        "expected_tools": ["sin_sckg"]
+      }
+    }
+  ]
+}

@@ -2,8 +2,18 @@
 name: skill-debug-deep
 description: Ultimate enterprise debugging workflow — facts-first RCA, cross-tool intent discovery, parallel subagents, web validation, minimal safe fix, and persistent knowledge flush.
 license: MIT
-compatibility: 
-metadata: 
+compatibility:
+  - sin-code
+  - opencode
+  - claude-code
+  - codex
+metadata:
+  author: SIN-Code
+  version: 3.20.0
+required_tools:
+  - sin_scout
+  - sin_grasp
+  - sin_poc
 lifecycle: native
 sources: 
 ---

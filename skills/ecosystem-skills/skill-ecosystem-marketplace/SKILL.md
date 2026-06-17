@@ -2,8 +2,14 @@
 name: skill-ecosystem-marketplace
 description: Manage the SIN-Code skill marketplace. Search, install, update, and remove skills from the catalog.
 license: MIT
-compatibility: 
-metadata: 
+compatibility:
+  - sin-code
+  - opencode
+  - claude-code
+  - codex
+metadata:
+  author: SIN-Code
+  version: 3.20.0
 lifecycle: external
 ---
 

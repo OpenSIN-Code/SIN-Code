@@ -3,8 +3,10 @@ name: skill-shop-tiktok
 description: TikTok Shop automation and scraper skill for SIN-Code agents — product discovery, listing sync, order tracking, and trend analytics.
 license: MIT
 compatibility:
-  - opencode
   - sin-code
+  - opencode
+  - claude-code
+  - codex
 metadata:
   author: SIN-Code
   version: 1.0.0

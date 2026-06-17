@@ -5,6 +5,8 @@ license: MIT
 compatibility:
   - opencode
   - sin-code
+  - claude-code
+  - codex
 metadata:
   audience: all-engineering-levels
   mode: autonomous-visual-enhancement
@@ -13,8 +15,8 @@ metadata:
   integrates_with: sin-code image-graph
   version: "4.0"
   last_updated: "2026-06-17"
-  lifecycle: external
   sources: "OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/visual-repo"
+lifecycle: external
 ---
 
 > SIN-Code Bundled Skill v4.0 — SOTA README Standard. Based on research of 5 top GitHub repos (Anthropic SDK 3.6k stars, OpenAI Python 31k stars, Vercel Next.js 140k stars, tldraw 48k stars, screenshot-to-code 73k stars). Macht JEDES Repo visuell verstaendlich, AI-discoverable, und professionell.

@@ -2,8 +2,14 @@
 name: skill-planning-enterprise
 description: Agent-first enterprise planning skill with a strict JSON CLI, deterministic validation, idempotent execution, and governance-aware rollback.
 license: MIT
-compatibility: 
-metadata: 
+compatibility:
+  - sin-code
+  - opencode
+  - claude-code
+  - codex
+metadata:
+  author: SIN-Code
+  version: 3.20.0
 lifecycle: native
 sources: 
 ---

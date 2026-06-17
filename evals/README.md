@@ -13,6 +13,9 @@ Versioned JSON datasets for `sin-code eval` (see `docs/eval.md`).
 | `property.json` | — | compile_and_run | Generating property-based checks |
 | `quality-gate.json` | — | contains | `sin_quality_gate` invocation and report |
 | `three-arm-example.json` | 3 | comparator | Four-arm bench (baseline/terse/lazy/skill) |
+| `skill-code.json` | 3 | comparator | Four-arm eval for code-skills (build, refactor, plan). Run with `--arm baseline,terse,lazy_skill,skill-code-build` |
+| `skill-debug.json` | 2 | comparator | Four-arm eval for debug-skills (deep RCA). Run with `--arm baseline,terse,lazy_skill,skill-debug-deep` |
+| `skill-github.json` | 2 | comparator | Four-arm eval for github-skills (actions, readme). Run with `--arm baseline,terse,lazy_skill,skill-github-actions` |
 
 Run `sin-code eval list --dir evals` to discover datasets programmatically.
 

@@ -2,8 +2,17 @@
 name: skill-code-spec
 description: Author a technical specification for a feature or change. Use when the user has an idea but no written spec yet.
 license: MIT
-compatibility: 
-metadata: 
+compatibility:
+  - sin-code
+  - opencode
+  - claude-code
+  - codex
+metadata:
+  author: SIN-Code
+  version: 3.20.0
+required_tools:
+  - sin_sckg
+  - sin_grasp
 lifecycle: native
 ---
 

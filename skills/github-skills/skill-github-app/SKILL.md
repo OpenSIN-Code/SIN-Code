@@ -2,8 +2,14 @@
 name: skill-github-app
 description: Automate GitHub App creation for OpenSIN organization using browser automation.
 license: MIT
-compatibility: 
-metadata: 
+compatibility:
+  - sin-code
+  - opencode
+  - claude-code
+  - codex
+metadata:
+  author: SIN-Code
+  version: 3.20.0
 lifecycle: native
 ---
 

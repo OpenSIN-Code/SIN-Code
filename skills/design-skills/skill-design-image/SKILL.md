@@ -2,8 +2,14 @@
 name: skill-design-image
 description: Generate, edit, and inspect images for the project. Create diagrams, screenshots, or artwork.
 license: MIT
-compatibility: 
-metadata: 
+compatibility:
+  - sin-code
+  - opencode
+  - claude-code
+  - codex
+metadata:
+  author: SIN-Code
+  version: 3.20.0
 lifecycle: native
 ---
 

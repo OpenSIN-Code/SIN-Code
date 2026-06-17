@@ -2,8 +2,14 @@
 name: skill-code-docs
 description: Collaborative document coauthoring for READMEs, ADRs, specs, design docs, RFCs, API docs, and changelogs via MCP. Use for structured document workflows with the user.
 license: MIT
-compatibility: 
-metadata: 
+compatibility:
+  - sin-code
+  - opencode
+  - claude-code
+  - codex
+metadata:
+  author: SIN-Code
+  version: 3.20.0
 lifecycle: external
 ---
 

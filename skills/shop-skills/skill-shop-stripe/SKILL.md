@@ -3,8 +3,10 @@ name: skill-shop-stripe
 description: Stripe payment and payout automation skill for SIN-Code agents — checkout, webhooks, payment links, instant payouts, and subscription management.
 license: MIT
 compatibility:
-  - opencode
   - sin-code
+  - opencode
+  - claude-code
+  - codex
 metadata:
   author: SIN-Code
   version: 1.0.0

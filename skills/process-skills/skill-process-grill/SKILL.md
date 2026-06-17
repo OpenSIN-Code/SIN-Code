@@ -2,8 +2,14 @@
 name: skill-process-grill
 description: Adversarial design-review interview. Relentlessly questions plans to surface hidden assumptions before implementation.
 license: MIT
-compatibility: 
-metadata: 
+compatibility:
+  - sin-code
+  - opencode
+  - claude-code
+  - codex
+metadata:
+  author: SIN-Code
+  version: 3.20.0
 lifecycle: external
 ---
 

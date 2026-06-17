@@ -9,8 +9,10 @@ description: >-
 license: MIT
 lifecycle: external
 compatibility:
-  - opencode
   - sin-code
+  - opencode
+  - claude-code
+  - codex
 metadata:
   author: SIN-Code
   version: 1.0.0

@@ -143,6 +143,24 @@ var Targets = map[string]Target{
 		InstallPath: ".github/copilot-instructions.md",
 		Format:      FormatMarker,
 	},
+	"aider": {
+		Name:        "aider",
+		DisplayName: "Aider",
+		InstallPath: ".aider/conventions/sin-code.md",
+		Format:      FormatRule,
+	},
+	"continue": {
+		Name:        "continue",
+		DisplayName: "Continue",
+		InstallPath: ".continue/rules/sin-code.md",
+		Format:      FormatRule,
+	},
+	"zed": {
+		Name:        "zed",
+		DisplayName: "Zed",
+		InstallPath: ".zed/rules/sin-code.md",
+		Format:      FormatRule,
+	},
 }
 
 // TargetNames returns every registered id in deterministic (alphabetical)

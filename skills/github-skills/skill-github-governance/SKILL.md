@@ -5,10 +5,12 @@ license: MIT
 compatibility:
   - opencode
   - sin-code
+  - claude-code
+  - codex
 metadata:
-  lifecycle: external
   coupled_with: skill-github-readme
   sources: "OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/sovereign-repo-governance"
+lifecycle: external
 ---
 
 # skill-github-governance

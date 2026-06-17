@@ -14,6 +14,10 @@ Default datasets:
 - `evals/fuzzing.json`
 - `evals/property.json`
 - `evals/quality-gate.json`
+- `evals/three-arm-example.json` — canonical four-arm bench (issue #171)
+- `evals/skill-code.json` — four-arm eval for code-skills (build, refactor, plan)
+- `evals/skill-debug.json` — four-arm eval for debug-skills (deep RCA)
+- `evals/skill-github.json` — four-arm eval for github-skills (actions, readme)
 
 ## Trigger
 
@@ -35,7 +39,7 @@ Default datasets:
   "sha": "<commit-sha>",
   "repo": "OpenSIN-Code/SIN-Code",
   "actor": "<github-user>",
-  "datasets": "evals/critical.json,evals/test-generation.json,evals/mutation.json,evals/fuzzing.json,evals/property.json,evals/quality-gate.json",
+  "datasets": "evals/critical.json,evals/test-generation.json,evals/mutation.json,evals/fuzzing.json,evals/property.json,evals/quality-gate.json,evals/three-arm-example.json,evals/skill-code.json,evals/skill-debug.json,evals/skill-github.json",
   "min_pass_rate": "0.8"
 }
 ```
