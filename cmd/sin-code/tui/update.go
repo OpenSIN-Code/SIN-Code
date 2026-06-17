@@ -524,6 +524,18 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.BannerNext()
 		}
 		return m, nil
+	case "+":
+		if m.ViewKind == ViewSessions {
+			m.Tabs.Add("")
+			m.AppendHistory(ViewSessions.String(), "session-add", "", true)
+		}
+		return m, nil
+	case "-":
+		if m.ViewKind == ViewSessions {
+			m.Tabs.Close(m.Tabs.ActiveIdx)
+			m.AppendHistory(ViewSessions.String(), "session-close", "", true)
+		}
+		return m, nil
 	}
 
 	return m, nil
@@ -646,11 +658,13 @@ func (m *Model) View() tea.View {
 	if m.Quitting {
 		v := tea.NewView("")
 		v.AltScreen = true
+		v.WindowTitle = "sin-code tui"
 		return v
 	}
 	if m.Width < 20 || m.Height < 6 {
 		v := tea.NewView(m.Styles.Muted.Render("Terminal too small — resize to at least 20x6."))
 		v.AltScreen = true
+		v.WindowTitle = "sin-code tui"
 		return v
 	}
 
@@ -727,6 +741,9 @@ func (m *Model) View() tea.View {
 
 	v := tea.NewView(layout)
 	v.AltScreen = true
+	v.WindowTitle = "sin-code tui"
+	v.ReportFocus = true
+	v.MouseMode = tea.MouseModeCellMotion
 	return v
 }
 

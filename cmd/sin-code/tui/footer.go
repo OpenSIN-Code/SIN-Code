@@ -24,10 +24,13 @@ type Footer struct {
 	HintKeys    []HintPair
 	Loading     bool
 	Spinner     Spinner
-	TodoOpen    int
-	TodoBlocked int
-	TodoOverdue int
-	TodoReady   int
+	TodoOpen        int
+	TodoBlocked     int
+	TodoOverdue     int
+	TodoReady       int
+	GitBranch       string
+	EstimatedCost   float64
+	EstimatedTokens int
 }
 
 type HintPair struct {
@@ -121,6 +124,19 @@ func (f *Footer) AgentName() string {
 	return AgentNames[f.AgentIndex]
 }
 
+func (f *Footer) EstimateCost(inputTokens int) {
+	f.EstimatedTokens = inputTokens
+	outputTokens := inputTokens / 2
+	f.EstimatedCost = float64(inputTokens)*0.0000005 + float64(outputTokens)*0.0000015
+}
+
+func formatEstimatedCost(cost float64) string {
+	if cost < 0.01 {
+		return "<$0.01"
+	}
+	return fmt.Sprintf("$%.2f", cost)
+}
+
 func (f Footer) ProgressBar(width int) string {
 	if width <= 0 {
 		return ""
@@ -161,10 +177,21 @@ func (f Footer) renderChatFooter(styles Styles) string {
 		parts = append(parts, styles.FooterKey.Render(agent))
 	}
 
+	if f.GitBranch != "" {
+		parts = append(parts, styles.Muted.Render(f.GitBranch))
+	}
+
 	parts = append(parts, styles.Muted.Render(fmt.Sprintf("%d tokens", f.Tokens)))
 
 	if f.Cost != "" && f.Cost != "$0.00" {
 		parts = append(parts, styles.Muted.Render(f.Cost))
+	}
+
+	if !f.Streaming && f.EstimatedTokens > 0 {
+		parts = append(parts, styles.Muted.Render(fmt.Sprintf("~%s", formatTokens(f.EstimatedTokens))))
+		if f.EstimatedCost > 0.01 {
+			parts = append(parts, styles.Muted.Render(fmt.Sprintf("~$%.2f", f.EstimatedCost)))
+		}
 	}
 
 	line := strings.Join(parts, styles.Muted.Render(" · "))
@@ -185,6 +212,11 @@ func (f Footer) renderClassicFooter(styles Styles) string {
 		left.WriteString(styles.Muted.Render("(no selection)"))
 	}
 	left.WriteString(" ")
+
+	if f.GitBranch != "" {
+		left.WriteString(" ")
+		left.WriteString(styles.Muted.Render(f.GitBranch))
+	}
 
 	agent := f.AgentName()
 	if f.Streaming {
