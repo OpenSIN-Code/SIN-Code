@@ -59,6 +59,14 @@ type Task struct {
 	Completed   *time.Time `json:"completed,omitempty"`
 	TokensUsed  int        `json:"tokens_used"`
 	Cost        float64    `json:"cost"`
+	// Probability is the predicted likelihood that this task will be
+	// needed (0.0-1.0). Set by the DeepPlanner (issue #282). Tasks with
+	// P > prewarm_threshold are pre-warmed before their dependencies
+	// complete (issue #285).
+	Probability float64 `json:"probability,omitempty"`
+	// ExpectedOutput is a short description of what the task should
+	// produce. Used by the verify gate and the TUI DAG visualizer.
+	ExpectedOutput string `json:"expected_output,omitempty"`
 }
 
 type ToolChain struct {
