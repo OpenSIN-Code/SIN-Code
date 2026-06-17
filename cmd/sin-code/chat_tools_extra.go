@@ -19,11 +19,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/chromedp/chromedp"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgen"
 	"github.com/OpenSIN-Code/SIN-Code/pkg/browser/cdp"
 )
@@ -63,6 +65,14 @@ func extraSpecs() []agentloopToolSpecAlias {
 				"package":   str("package pattern to generate tests for (default ./..., ignored if file is set)"),
 				"overwrite": str("replace existing test files (default false)"),
 				"llm":       str("use LLM to fill test cases (default false)"),
+			})},
+		{Name: "sin_quality_gate", Description: "Run the quality gate pipeline: go build, go vet, go test -race -cover, and optional staticcheck/gosec/govulncheck if on PATH. Returns a structured PASS/FAIL report with coverage. Set json=true for machine-readable output.",
+			InputSchema: obj(map[string]any{
+				"coverage":  str("minimum coverage percent required (default 0 = disabled)"),
+				"timeout":   str("pipeline timeout, e.g. 5m (default 5m)"),
+				"json":      str("emit structured JSON instead of plain text (default false)"),
+				"steps":     str("comma-separated steps to run (default all: build,vet,test,staticcheck,gosec,govulncheck)"),
+				"race":      str("run go test with -race (default true)"),
 			})},
 		// Browser CDP tools — headless Chrome via Chrome DevTools Protocol.
 		// sin_browser_navigate starts a fresh recording session; subsequent
@@ -120,6 +130,8 @@ func extraTool(ctx context.Context, name string, args map[string]any) (string, e
 		return toolTest(ctx, args)
 	case "sin_test_generate":
 		return toolTestGenerate(ctx, args)
+	case "sin_quality_gate":
+		return toolQualityGate(ctx, args)
 	case "sin_browser_navigate":
 		return toolBrowserNavigate(ctx, argStr(args, "url"), argStr(args, "step"), argStr(args, "wait_sec"), argStr(args, "save_baseline"))
 	case "sin_browser_findings":
@@ -282,6 +294,72 @@ func toolTestGenerate(ctx context.Context, args map[string]any) (string, error) 
 		return "", err
 	}
 	return string(b), nil
+}
+
+func toolQualityGate(ctx context.Context, args map[string]any) (string, error) {
+	covStr := argStr(args, "coverage")
+	var threshold float64
+	if covStr != "" {
+		v, err := strconv.ParseFloat(covStr, 64)
+		if err != nil {
+			return "", fmt.Errorf("sin_quality_gate: invalid coverage %q", covStr)
+		}
+		threshold = v
+	}
+
+	timeout := argStr(args, "timeout")
+	if timeout == "" {
+		timeout = "5m"
+	}
+	dur, err := time.ParseDuration(timeout)
+	if err != nil {
+		return "", fmt.Errorf("sin_quality_gate: invalid timeout %q", timeout)
+	}
+
+	var steps []testgate.StepKind
+	if raw := argStr(args, "steps"); raw != "" {
+		for _, p := range strings.Split(raw, ",") {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
+			}
+			steps = append(steps, testgate.StepKind(p))
+		}
+	}
+
+	report := testgate.Run(ctx, testgate.Config{
+		Workdir:           ".",
+		Timeout:           dur,
+		CoverageThreshold: threshold,
+		Race:              argBool(args, "race", true),
+		Steps:             steps,
+	})
+
+	jsonOut := argBool(args, "json", false)
+	if jsonOut {
+		b, err := json.MarshalIndent(report, "", "  ")
+		if err != nil {
+			return "", err
+		}
+		return string(b), nil
+	}
+
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "QUALITY GATE %s (coverage=%s, threshold=%.1f%%)\n", report.Status, report.Coverage, report.Threshold)
+	for _, s := range report.Steps {
+		fmt.Fprintf(&sb, "\n[%s] %s (%s)\n", s.Status, s.Name, s.Duration)
+		if s.Error != "" {
+			fmt.Fprintf(&sb, "ERROR: %s\n", s.Error)
+		}
+		if s.Output != "" {
+			out := s.Output
+			if len(out) > maxToolOutput {
+				out = out[:maxToolOutput] + "\n[... truncated]"
+			}
+			fmt.Fprint(&sb, out)
+		}
+	}
+	return sb.String(), nil
 }
 
 // extractCoverage tries to pull the total coverage line from `go test -cover` output.

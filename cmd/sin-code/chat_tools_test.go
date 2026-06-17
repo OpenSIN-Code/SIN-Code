@@ -180,3 +180,42 @@ func TestToolWriteAutoGenerate(t *testing.T) {
 		t.Fatalf("expected write_test.go to be generated: %v", err)
 	}
 }
+
+func TestToolQualityGate(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/qg\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "qg.go"), []byte("package qg\n\nfunc Answer() int { return 42 }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "qg_test.go"), []byte("package qg\n\nimport \"testing\"\n\nfunc TestAnswer(t *testing.T) {\n\tif Answer() != 42 {\n\t\tt.Fatal(\"expected 42\")\n\t}\n}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origDir)
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := toolQualityGate(context.Background(), map[string]any{
+		"steps":    "build,vet,test",
+		"race":     "false",
+		"json":     "true",
+		"timeout":  "30s",
+		"coverage": "0",
+	})
+	if err != nil {
+		t.Fatalf("toolQualityGate: %v", err)
+	}
+	if !strings.Contains(out, "\"status\": \"PASS\"") {
+		t.Fatalf("expected PASS status, got: %s", out)
+	}
+	if !strings.Contains(out, "\"name\": \"test\"") {
+		t.Fatalf("expected test step in output, got: %s", out)
+	}
+}

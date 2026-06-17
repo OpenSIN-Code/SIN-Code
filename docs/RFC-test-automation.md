@@ -121,7 +121,7 @@ cmd/sin-code/internal/testgate/
 |------|--------|-------------|
 | `sin_test` | Extend | Run tests with `-race`, `-cover`, `-count=1`, `-timeout`, and emit structured JSON. |
 | `sin_test_generate` | New | Generate table-driven Go tests for a file or package. Uses `gotests` if available; otherwise pure-stdlib scaffolding. Optional LLM fills in test cases. |
-| `sin_quality_gate` | Future | Pipeline: build → test → vet → staticcheck → gosec → govulncheck → coverage threshold. |
+| `sin_quality_gate` | ✅ Implemented | Pipeline: build → test → vet → staticcheck → gosec → govulncheck → coverage threshold. |
 | `sin_mutation` | Future | Wrap `gremlins unleash` and enforce mutation score threshold. |
 | `sin_fuzz` | Future | Generate / run `go test -fuzz` targets. |
 | `sin_property` | Future | Generate property-based tests via `rapid` or `testing/quick`. |
@@ -278,8 +278,8 @@ This is already possible; the RFC standardises the JSON schema.
 ### Phase 2 — Hook Automation (in progress)
 
 - [x] Add `tool.post` auto-trigger for `sin_write`/`sin_edit` (via `SIN_AUTO_GENERATE_TESTS=1`).
+- [x] Implement `sin_quality_gate` as verify runner.
 - [ ] Add `tool.post` hook payload support for `sin_edit`/`sin_write` through `hooks.json`.
-- [ ] Implement `sin_quality_gate` as verify runner.
 - [ ] Add `.sin-code/hooks.yaml` example.
 
 ### Phase 3 — Advanced Gates
