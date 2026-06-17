@@ -18,6 +18,10 @@
 //   → review (P=0.30, deps=[all code tasks])
 package orchestrator
 
+import (
+	"context"
+)
+
 // TaskPrediction holds the predicted properties of a task in the DAG.
 type TaskPrediction struct {
 	Type           TaskType
@@ -31,8 +35,9 @@ type TaskPrediction struct {
 // probability scores. It uses the Router for intent classification
 // but builds a DAG instead of a linear chain.
 type DeepPlanner struct {
-	Router *Router
-	Agents []AgentConfig
+	Router   *Router
+	Agents   []AgentConfig
+	Patterns *PatternDB // optional: learned patterns from past sessions (issue #288)
 }
 
 func NewDeepPlanner(agents []AgentConfig) *DeepPlanner {
@@ -42,10 +47,17 @@ func NewDeepPlanner(agents []AgentConfig) *DeepPlanner {
 	}
 }
 
+// SetPatternDB injects a PatternDB so the planner can use learned
+// task-sequence patterns to refine probability scores.
+func (p *DeepPlanner) SetPatternDB(pdb *PatternDB) {
+	p.Patterns = pdb
+}
+
 // BuildDAGPlan analyzes the prompt, classifies intents, and produces a
 // Plan with a parallel DAG of tasks. Each task has a Probability score
 // and ExpectedOutput. Independent tasks have no DependsOn and will run
-// concurrently when dispatched.
+// concurrently when dispatched. If a PatternDB is attached, probability
+// scores are refined using data from past sessions (issue #288).
 func (p *DeepPlanner) BuildDAGPlan(prompt string) *Plan {
 	intent := p.Router.Classify(prompt)
 	subIntents := p.Router.SubIntents(prompt)
@@ -54,6 +66,24 @@ func (p *DeepPlanner) BuildDAGPlan(prompt string) *Plan {
 	}
 
 	predictions := p.predictTasks(prompt, subIntents)
+
+	// Refine probabilities with learned patterns (issue #288).
+	if p.Patterns != nil {
+		pred, err := p.Patterns.MatchPrompt(context.Background(), prompt)
+		if err == nil && pred != nil && pred.MatchCount > 0 {
+			patternMap := map[TaskType]float64{}
+			for _, pat := range pred.Patterns {
+				patternMap[pat.TaskType] = pat.Probability
+			}
+			for i := range predictions {
+				if learnedProb, ok := patternMap[predictions[i].Type]; ok {
+					// Blend: 70% heuristic, 30% learned.
+					// As more data accumulates, learned patterns gain weight.
+					predictions[i].Probability = 0.7*predictions[i].Probability + 0.3*learnedProb
+				}
+			}
+		}
+	}
 
 	// Build tasks from predictions, resolving type-deps to IDs.
 	typeToID := map[TaskType]string{}
