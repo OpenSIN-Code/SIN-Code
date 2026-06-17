@@ -1,10 +1,14 @@
 ---
 name: skill-github-governance
-description: "Autonomous repository management: internal governance (Zeus & Hermes) and external bug-hunter outreach."
+description: "Autonomous repository management: internal governance (Zeus & Hermes) and external bug-hunter outreach. Coupled with skill-github-readme for visual enhancement."
 license: MIT
-compatibility: 
-metadata: 
-lifecycle: native
+compatibility:
+  - opencode
+  - sin-code
+metadata:
+  lifecycle: external
+  coupled_with: skill-github-readme
+  sources: "OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/sovereign-repo-governance"
 ---
 
 # skill-github-governance
@@ -195,4 +199,18 @@ This clones the wiki, scaffolds the correct `.md` files and the `_Sidebar.md`, a
 ## Lifecycle
 
 - **lifecycle:** external
-- **sources:** `OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/sovereign-repo-governance`
+- **sources:** `OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/skill-github-governance`
+
+## Coupling
+
+**IMMER mit `skill-github-readme` verwenden!** Governance verwaltet Tasks (Issues,
+Roadmaps, Dispatch), `skill-github-readme` macht das Repo optisch verständlich
+(README, Diagramme, Badges, llms.txt). Beide zusammen = vollständiges Repo-Setup.
+
+```
+skill-github-governance  →  "Was muss gemacht werden?"
+        ↓ coupled
+skill-github-readme      →  "Wie sieht es aus?"
+        ↓ can embed
+sin-image-graph          →  "Daten visualisieren" (sin-code image-graph)
+```
