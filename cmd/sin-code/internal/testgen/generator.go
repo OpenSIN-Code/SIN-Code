@@ -560,8 +560,9 @@ func zeroValue(t string) string {
 }
 
 // jsonLiteral renders a JSON-decoded value as a Go struct/array/map
-// literal. Supported types: nil, bool, float64, int, string, []any,
-// map[string]any. Unsupported types fall back to nil so a bad field
+// literal. Supported types: nil, bool, float64, float32, int, int64,
+// string, []any, map[string]any, json.Number, time.Time, time.Duration,
+// []byte (base64). Unsupported types fall back to nil so a bad field
 // never breaks the entire generated test.
 func jsonLiteral(v any) string {
 	switch x := v.(type) {
@@ -587,6 +588,30 @@ func jsonLiteral(v any) string {
 		return fmt.Sprintf("%d", x)
 	case string:
 		return fmt.Sprintf("%q", x)
+	case json.Number:
+		// json.Number carries the original text; emit it as an int when
+		// it fits, else as a float literal so the generated test does
+		// not lossy-convert.
+		s := x.String()
+		if i, err := x.Int64(); err == nil {
+			return fmt.Sprintf("%d", i)
+		}
+		if f, err := x.Float64(); err == nil {
+			if float64(int64(f)) == f {
+				return fmt.Sprintf("%d", int64(f))
+			}
+			return fmt.Sprintf("%v", f)
+		}
+		return fmt.Sprintf("%q", s)
+	case time.Time:
+		// ISO-RFC3339 in UTC keeps generated tests deterministic.
+		return "time.Date(" + timeFormat(x) + ")"
+	case time.Duration:
+		return fmt.Sprintf("%v*time.Nanosecond", int64(x))
+	case []byte:
+		// Encode as a string literal; tests that need []byte decode it
+		// back via []byte("…").
+		return fmt.Sprintf("[]byte(%q)", string(x))
 	case []any:
 		parts := make([]string, 0, len(x))
 		for _, e := range x {
@@ -608,6 +633,14 @@ func jsonLiteral(v any) string {
 	default:
 		return "nil"
 	}
+}
+
+// timeFormat returns the year/month/day/h/m/s/n,location arguments for
+// time.Date() from a time.Time. Centralised so the unit test and the
+// generator agree on byte-stable output.
+func timeFormat(t time.Time) string {
+	return fmt.Sprintf("%d, time.%s, %d, %d, %d, %d, %d, time.UTC",
+		t.Year(), t.Month().String(), t.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond())
 }
 
 // testKey is the map key used to look up per-function LLM cases. It

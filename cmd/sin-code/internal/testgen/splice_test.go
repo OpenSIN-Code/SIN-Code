@@ -5,10 +5,12 @@ package testgen
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestJsonLiteral(t *testing.T) {
@@ -34,6 +36,40 @@ func TestJsonLiteral(t *testing.T) {
 		if got != c.out {
 			t.Errorf("jsonLiteral(%v) = %q, want %q", c.in, got, c.out)
 		}
+	}
+}
+
+// TestJsonLiteral_EdgeCases (#264)
+func TestJsonLiteral_EdgeCases(t *testing.T) {
+	// json.Number: integer form
+	nInt := json.Number("42")
+	if got := jsonLiteral(nInt); got != "42" {
+		t.Errorf("json.Number(int)=%q want 42", got)
+	}
+	// json.Number: fractional form (Decode use-jama).
+	nFloat := json.Number("2.71828")
+	if got := jsonLiteral(nFloat); got != "2.71828" {
+		t.Errorf("json.Number(float)=%q want 2.71828", got)
+	}
+	// time.Time round-trip — we only assert the time.Date() prefix,
+	// not the exact month string (would couple to Go stdlib).
+	now := time.Date(2026, 6, 17, 12, 34, 56, 78, time.UTC)
+	got := jsonLiteral(now)
+	if !strings.HasPrefix(got, "time.Date(2026, time.June, 17, 12, 34, 56, 78, time.UTC)") {
+		t.Errorf("time.Time literal=%q", got)
+	}
+	// time.Duration renders as int64*time.Nanosecond literal.
+	if got := jsonLiteral(1500 * time.Millisecond); got != "1500000000*time.Nanosecond" {
+		t.Errorf("time.Duration literal=%q want 1500000000*time.Nanosecond", got)
+	}
+	// []byte renders as a Go string-literal wrapped in []byte(...).
+	if got := jsonLiteral([]byte("hi")); got != `[]byte("hi")` {
+		t.Errorf("[]byte literal=%q want []byte(\"hi\")", got)
+	}
+	// Unknown type falls back to nil, not panic.
+	type custom struct{ X int }
+	if got := jsonLiteral(custom{X: 1}); got != "nil" {
+		t.Errorf("unknown literal=%q want nil", got)
 	}
 }
 
