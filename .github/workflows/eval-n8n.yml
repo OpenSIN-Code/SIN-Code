@@ -1,0 +1,58 @@
+# Purpose: Run the first-party eval golden dataset via the n8n delegator.
+# Docs: docs/RFC-test-automation.md, cmd/sin-code/internal/eval/eval.doc.md
+# n8n-delegated per mandate M1 (see AGENTS.md §M1).
+name: eval-n8n
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'evals/**'
+      - 'cmd/sin-code/internal/eval/**'
+      - 'cmd/sin-code/internal/evalharness/**'
+      - 'cmd/sin-code/internal/dataset/**'
+      - 'cmd/sin-code/eval_cmd.go'
+      - '.github/workflows/eval-n8n.yml'
+  pull_request:
+    paths:
+      - 'evals/**'
+      - 'cmd/sin-code/internal/eval/**'
+      - 'cmd/sin-code/internal/evalharness/**'
+      - 'cmd/sin-code/internal/dataset/**'
+      - 'cmd/sin-code/eval_cmd.go'
+  workflow_dispatch:
+    inputs:
+      dataset:
+        description: 'Dataset path to run (default: evals/test-generation.json)'
+        required: false
+        default: 'evals/test-generation.json'
+      min_pass_rate:
+        description: 'Minimum pass rate (0.0..1.0)'
+        required: false
+        default: '0.8'
+
+jobs:
+  delegate:
+    name: Delegate eval run to n8n
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger n8n webhook
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
+        run: |
+          if [[ -z "$N8N_CI_WEBHOOK_URL" ]]; then
+            echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
+            exit 1
+          fi
+          curl -fsS -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"workflow":"eval-n8n","ref":"${{ github.ref }}","sha":"${{ github.sha }}","repo":"${{ github.repository }}","actor":"${{ github.actor }}","dataset":"${{ inputs.dataset || 'evals/test-generation.json' }}","min_pass_rate":"${{ inputs.min_pass_rate || '0.8' }}"}' \
+            "$N8N_CI_WEBHOOK_URL"
+      - name: Echo local pre-checks
+        run: |
+          go version
+          go vet ./cmd/sin-code/internal/eval/...
+          go vet ./cmd/sin-code/internal/evalharness/...
+          go vet ./cmd/sin-code/internal/dataset/...
+          echo "Heavy eval work delegated to n8n."
