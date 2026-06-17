@@ -196,6 +196,24 @@ type Loop struct {
 	// WebUI v2 chat API (issue #52) so tests can swap in a
 	// deterministic result without wiring a real LLM.
 	RunOverride func(ctx context.Context, sess *session.Session, prompt string) (*Result, error)
+
+	// TournamentRunner, if set, is invoked on verify.fail instead of
+	// the legacy same-model retry. It fans the task out to N providers
+	// in parallel; the first to pass the verify-gate wins. Optional —
+	// nil preserves exact legacy behavior. Only active when verify_mode
+	// == "poc" (issue #290).
+	TournamentRunner TournamentRunner
+}
+
+// TournamentRunner is the interface for fusion verify-tournaments (issue
+// #290). The loop calls ShouldRun to check if a verify-fail warrants a
+// tournament fan-out, and Run to execute it. On success, Run returns the
+// winner's output and token count. On failure, the loop falls back to
+// the legacy same-model retry. Defined here (not in internal/fusion) to
+// avoid a circular import (fusion imports agentloop for Result).
+type TournamentRunner interface {
+	ShouldRun(vr verify.Result) bool
+	Run(ctx context.Context) (output string, tokens int, err error)
 }
 
 // saveHistoryHook is a test seam for injecting a mock around session
@@ -473,6 +491,39 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 						Lesson:    "Verification failed (" + string(res.Mode) + "): " + res.Report,
 					})
 				}
+
+				// SIN Fusion v1: if a TournamentRunner is wired and the
+				// failure is structural, fan out to N providers instead
+				// of retrying with the same model. First PoC-pass wins.
+				// Only active in PoC mode (not oracle — load-bearing risk:
+				// oracle "first to pass" is selection on judge noise).
+				if l.TournamentRunner != nil && l.Gate.Mode() == verify.ModePoC &&
+					l.TournamentRunner.ShouldRun(res) {
+					output, tokens, terr := l.TournamentRunner.Run(ctx)
+					if terr == nil && output != "" {
+						l.fire(ctx, hooks.VerifyPass, "", map[string]any{
+							"mode": "poc", "report": "fusion tournament: winner passed verify-gate",
+						})
+						l.record(ctx, ledger.TypeVerifyPass,
+							map[string]any{"mode": "poc", "fusion": true},
+							"fusion tournament winner passed verify-gate")
+						totalTokens += tokens
+						result := &Result{
+							SessionID: sess.ID, Summary: output,
+							Verified: true, Turns: turn + 1,
+							Tokens: totalTokens,
+						}
+						l.fire(ctx, hooks.TaskComplete, "", map[string]any{
+							"summary": result.Summary, "turns": result.Turns,
+							"verified": true, "fusion": true,
+						})
+						l.record(ctx, ledger.TypeTaskComplete,
+							map[string]any{"summary": result.Summary, "fusion": true},
+							"fusion tournament task complete")
+						return result, nil
+					}
+				}
+
 				msgs = append(msgs, session.Message{
 					Role:    "user",
 					Content: "VERIFICATION FAILED (" + string(res.Mode) + ") — fix before claiming completion:\n" + res.Report,

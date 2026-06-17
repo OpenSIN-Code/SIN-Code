@@ -35,5 +35,11 @@ func ResolveModel(name string) string {
 	if id, ok := NIMModelAliases[name]; ok {
 		return id
 	}
+	switch name {
+	case "fable", "fable5":
+		return ClaudeFable5Model
+	case "mythos", "mythos5":
+		return ClaudeMythos5Model
+	}
 	return name
 }

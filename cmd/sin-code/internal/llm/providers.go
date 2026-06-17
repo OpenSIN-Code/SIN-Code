@@ -20,6 +20,51 @@ type Provider struct {
 	Description  string
 }
 
+const (
+	ClaudeFable5Model   = "claude-fable-5"
+	ClaudeMythos5Model  = "claude-mythos-5"
+	ClaudeFable5Context = 200_000
+	ClaudeMythos5Context = 500_000
+	ClaudeFable5MaxOut  = 128_000
+	ClaudeMythos5MaxOut = 128_000
+)
+
+type ModelInfo struct {
+	Name         string
+	Provider     string
+	MaxContext   int
+	MaxOutput    int
+	InputPer1M   float64
+	OutputPer1M  float64
+	RequiresThinking bool
+}
+
+var ModelRegistry = map[string]ModelInfo{
+	ClaudeFable5Model: {
+		Name:             ClaudeFable5Model,
+		Provider:         "fable",
+		MaxContext:       ClaudeFable5Context,
+		MaxOutput:        ClaudeFable5MaxOut,
+		InputPer1M:       10.0,
+		OutputPer1M:      50.0,
+		RequiresThinking: true,
+	},
+	ClaudeMythos5Model: {
+		Name:             ClaudeMythos5Model,
+		Provider:         "mythos",
+		MaxContext:       ClaudeMythos5Context,
+		MaxOutput:        ClaudeMythos5MaxOut,
+		InputPer1M:       10.0,
+		OutputPer1M:      50.0,
+		RequiresThinking: true,
+	},
+}
+
+func LookupModel(name string) (ModelInfo, bool) {
+	info, ok := ModelRegistry[name]
+	return info, ok
+}
+
 var Providers = map[string]Provider{
 	"nim": {
 		Name:         "nim",
@@ -41,6 +86,20 @@ var Providers = map[string]Provider{
 		APIKeyEnv:    "ANTHROPIC_API_KEY",
 		DefaultModel: "claude-sonnet-4-5",
 		Description:  "Anthropic — Claude (via OpenAI-compatible proxy or direct)",
+	},
+	"fable": {
+		Name:         "fable",
+		BaseURL:      "https://api.anthropic.com/v1",
+		APIKeyEnv:    "ANTHROPIC_API_KEY",
+		DefaultModel: ClaudeFable5Model,
+		Description:  "Anthropic Claude Fable 5 — strongest coding model (80.3% SWE-bench Pro)",
+	},
+	"mythos": {
+		Name:         "mythos",
+		BaseURL:      "https://api.anthropic.com/v1",
+		APIKeyEnv:    "ANTHROPIC_API_KEY",
+		DefaultModel: ClaudeMythos5Model,
+		Description:  "Anthropic Claude Mythos 5 — unrestricted-access variant of Fable 5",
 	},
 	"ollama": {
 		Name:         "ollama",

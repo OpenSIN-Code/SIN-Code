@@ -51,6 +51,7 @@ type wireUsage struct {
 }
 
 type wireResponse struct {
+	ID      string `json:"id,omitempty"`
 	Choices []struct {
 		Message struct {
 			Role      string         `json:"role"`
@@ -74,6 +75,10 @@ func marshalToolCalls(v any) ([]byte, error) {
 }
 
 func NewProviderCompletion(c *llm.Client, model string, maxTokens int, temperature float64) func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
+	return NewProviderCompletionWithCache(c, model, maxTokens, temperature, nil)
+}
+
+func NewProviderCompletionWithCache(c *llm.Client, model string, maxTokens int, temperature float64, cache *llm.PromptCache) func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
 	return func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
 		wt := make([]wireTool, 0, len(tools))
 		for _, t := range tools {
@@ -99,6 +104,23 @@ func NewProviderCompletion(c *llm.Client, model string, maxTokens int, temperatu
 		if c.APIKey != "" {
 			httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
 		}
+		var cacheKey string
+		if cache != nil && llm.SupportsCaching(model) {
+			var systemPrompt, firstUser string
+			for _, m := range history {
+				if m.Role == "system" && systemPrompt == "" {
+					systemPrompt = m.Content
+				}
+				if m.Role == "user" && firstUser == "" {
+					firstUser = m.Content
+				}
+			}
+			cacheKey = llm.CacheKey(systemPrompt, firstUser)
+			if prefixID, ok := cache.Get(cacheKey); ok {
+				httpReq.Header.Set("X-SIN-Cache-Prefix-ID", prefixID)
+			}
+			httpReq.Header.Set("X-SIN-Cache-Key", cacheKey)
+		}
 		resp, err := c.HTTP.Do(httpReq)
 		if err != nil {
 			return nil, err
@@ -114,6 +136,13 @@ func NewProviderCompletion(c *llm.Client, model string, maxTokens int, temperatu
 		}
 		if len(out.Choices) == 0 {
 			return nil, fmt.Errorf("LLM returned no choices")
+		}
+		if cache != nil && cacheKey != "" {
+			if prefixID := resp.Header.Get("X-SIN-Cache-Prefix-ID"); prefixID != "" {
+				cache.Set(cacheKey, prefixID)
+			} else if out.ID != "" {
+				cache.Set(cacheKey, out.ID)
+			}
 		}
 		msg := out.Choices[0].Message
 

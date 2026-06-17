@@ -184,3 +184,121 @@ func TestProviderFromConfigMissingBaseURL(t *testing.T) {
 		t.Fatal("expected error for missing base URL")
 	}
 }
+
+func TestFable5ProviderEntry(t *testing.T) {
+	p, ok := Providers["fable"]
+	if !ok {
+		t.Fatal("missing 'fable' provider entry")
+	}
+	if p.DefaultModel != ClaudeFable5Model {
+		t.Errorf("fable default model: got %s, want %s", p.DefaultModel, ClaudeFable5Model)
+	}
+	if p.BaseURL != "https://api.anthropic.com/v1" {
+		t.Errorf("fable base URL: %s", p.BaseURL)
+	}
+	if p.APIKeyEnv != "ANTHROPIC_API_KEY" {
+		t.Errorf("fable API key env: %s", p.APIKeyEnv)
+	}
+}
+
+func TestMythos5ProviderEntry(t *testing.T) {
+	p, ok := Providers["mythos"]
+	if !ok {
+		t.Fatal("missing 'mythos' provider entry")
+	}
+	if p.DefaultModel != ClaudeMythos5Model {
+		t.Errorf("mythos default model: got %s, want %s", p.DefaultModel, ClaudeMythos5Model)
+	}
+	if p.BaseURL != "https://api.anthropic.com/v1" {
+		t.Errorf("mythos base URL: %s", p.BaseURL)
+	}
+	if p.APIKeyEnv != "ANTHROPIC_API_KEY" {
+		t.Errorf("mythos API key env: %s", p.APIKeyEnv)
+	}
+}
+
+func TestModelRegistryFable5(t *testing.T) {
+	info, ok := LookupModel(ClaudeFable5Model)
+	if !ok {
+		t.Fatalf("model %s not in registry", ClaudeFable5Model)
+	}
+	if info.MaxContext != ClaudeFable5Context {
+		t.Errorf("fable max context: got %d, want %d", info.MaxContext, ClaudeFable5Context)
+	}
+	if info.MaxOutput != ClaudeFable5MaxOut {
+		t.Errorf("fable max output: got %d, want %d", info.MaxOutput, ClaudeFable5MaxOut)
+	}
+	if !info.RequiresThinking {
+		t.Error("fable 5 should require extended thinking")
+	}
+	if info.InputPer1M != 10.0 || info.OutputPer1M != 50.0 {
+		t.Errorf("fable pricing: input=%.1f output=%.1f", info.InputPer1M, info.OutputPer1M)
+	}
+}
+
+func TestModelRegistryMythos5(t *testing.T) {
+	info, ok := LookupModel(ClaudeMythos5Model)
+	if !ok {
+		t.Fatalf("model %s not in registry", ClaudeMythos5Model)
+	}
+	if info.MaxContext != ClaudeMythos5Context {
+		t.Errorf("mythos max context: got %d, want %d", info.MaxContext, ClaudeMythos5Context)
+	}
+	if info.MaxOutput != ClaudeMythos5MaxOut {
+		t.Errorf("mythos max output: got %d, want %d", info.MaxOutput, ClaudeMythos5MaxOut)
+	}
+	if !info.RequiresThinking {
+		t.Error("mythos 5 should require extended thinking")
+	}
+}
+
+func TestResolveModelFableAliases(t *testing.T) {
+	for _, alias := range []string{"fable", "fable5"} {
+		if got := ResolveModel(alias); got != ClaudeFable5Model {
+			t.Errorf("alias %q: got %q, want %q", alias, got, ClaudeFable5Model)
+		}
+	}
+}
+
+func TestResolveModelMythosAliases(t *testing.T) {
+	for _, alias := range []string{"mythos", "mythos5"} {
+		if got := ResolveModel(alias); got != ClaudeMythos5Model {
+			t.Errorf("alias %q: got %q, want %q", alias, got, ClaudeMythos5Model)
+		}
+	}
+}
+
+func TestProviderFromConfigFable(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "test-key")
+	c, err := ProviderFromConfig("fable", "", "", "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(c.BaseURL, "api.anthropic.com") {
+		t.Errorf("fable base URL: %s", c.BaseURL)
+	}
+	if c.APIKey != "test-key" {
+		t.Errorf("fable api key: %s", c.APIKey)
+	}
+}
+
+func TestProviderFromConfigMythos(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "test-key")
+	c, err := ProviderFromConfig("mythos", "", "", "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(c.BaseURL, "api.anthropic.com") {
+		t.Errorf("mythos base URL: %s", c.BaseURL)
+	}
+	if c.APIKey != "test-key" {
+		t.Errorf("mythos api key: %s", c.APIKey)
+	}
+}
+
+func TestLookupModelUnknown(t *testing.T) {
+	_, ok := LookupModel("nonexistent-model")
+	if ok {
+		t.Error("expected false for unknown model lookup")
+	}
+}
