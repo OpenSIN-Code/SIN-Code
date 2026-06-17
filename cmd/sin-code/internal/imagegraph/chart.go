@@ -1,6 +1,16 @@
 // SPDX-License-Identifier: MIT
-// Purpose: SOTA chart generation with Apache ECharts (via go-echarts).
+// Purpose: SOTA chart generation with Apache ECharts (direct JSON, no wrapper).
 // Outputs interactive HTML (opens in browser) + optional PNG via headless Chrome.
+//
+// go-echarts wrapper was removed because it cannot express:
+//   - LinearGradient objects on bar/area fills
+//   - shadowBlur glow effects
+//   - emphasis.focus = 'series' (dim others on hover)
+//   - borderRadius on bars
+//   - staggered animationDelay functions
+//   - axisPointer type 'shadow' / 'cross'
+//
+// Direct JSON generation gives 100% ECharts feature access.
 package imagegraph
 
 import (
@@ -11,9 +21,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/go-echarts/go-echarts/v2/charts"
-	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
 type ChartSpec struct {
@@ -40,31 +47,89 @@ type Item struct {
 	Value float64 `json:"value"`
 }
 
-var sotaColors = []string{
-	"#6366F1", "#EC4899", "#10B981", "#F59E0B",
-	"#3B82F6", "#EF4444", "#8B5CF6", "#06B6D4",
+type jsFunc string
+
+type gradient struct {
+	Type       string        `json:"type"`
+	X          int           `json:"x"`
+	Y          int           `json:"y"`
+	X2         int           `json:"x2"`
+	Y2         int           `json:"y2"`
+	ColorStops []colorStop   `json:"colorStops"`
 }
+
+type colorStop struct {
+	Offset float64 `json:"offset"`
+	Color  string  `json:"color"`
+}
+
+var palette = [][3]string{
+	{"#818CF8", "#6366F1", "99,102,241"}, // Indigo
+	{"#F472B6", "#EC4899", "236,72,153"}, // Pink
+	{"#34D399", "#10B981", "16,185,129"}, // Emerald
+	{"#FBBF24", "#F59E0B", "245,158,11"}, // Amber
+	{"#60A5FA", "#3B82F6", "59,130,246"}, // Blue
+	{"#F87171", "#EF4444", "239,68,68"},  // Red
+	{"#A78BFA", "#8B5CF6", "139,92,246"}, // Purple
+	{"#22D3EE", "#06B6D4", "6,182,212"},  // Cyan
+}
+
+func vGradient(bright, dark string) gradient {
+	return gradient{
+		Type: "linear", X: 0, Y: 0, X2: 0, Y2: 1,
+		ColorStops: []colorStop{
+			{Offset: 0, Color: bright},
+			{Offset: 1, Color: dark},
+		},
+	}
+}
+
+func hGradient(bright, dark string) gradient {
+	return gradient{
+		Type: "linear", X: 0, Y: 0, X2: 1, Y2: 0,
+		ColorStops: []colorStop{
+			{Offset: 0, Color: dark},
+			{Offset: 1, Color: bright},
+		},
+	}
+}
+
+func areaGradient(rgb string) gradient {
+	return gradient{
+		Type: "linear", X: 0, Y: 0, X2: 0, Y2: 1,
+		ColorStops: []colorStop{
+			{Offset: 0, Color: fmt.Sprintf("rgba(%s,0.35)", rgb)},
+			{Offset: 1, Color: fmt.Sprintf("rgba(%s,0.02)", rgb)},
+		},
+	}
+}
+
+const bgColor = "#0B1120"
+const cardBg = "#1E293B"
+const borderClr = "#334155"
+const gridClr = "#1E293B"
+const textPrimary = "#F8FAFC"
+const textSecondary = "#94A3B8"
+const textMuted = "#64748B"
+const axisLabelClr = "#CBD5E1"
 
 func Render(spec ChartSpec, outputPath string) error {
 	if spec.Width == "" {
-		spec.Width = "1200px"
+		spec.Width = "1280px"
 	}
 	if spec.Height == "" {
 		spec.Height = "720px"
-	}
-	if spec.Theme == "" {
-		spec.Theme = "dark"
 	}
 
 	switch strings.ToLower(spec.Type) {
 	case "bar":
 		return renderBar(spec, outputPath)
 	case "line":
-		return renderLine(spec, outputPath)
+		return renderLine(spec, outputPath, false)
 	case "pie":
 		return renderPie(spec, outputPath)
 	case "area":
-		return renderArea(spec, outputPath)
+		return renderLine(spec, outputPath, true)
 	default:
 		return fmt.Errorf("unsupported chart type: %s (use bar, line, pie, or area)", spec.Type)
 	}
@@ -79,7 +144,7 @@ func ParseSpec(inputPath string) (ChartSpec, error) {
 		if stat.Size() == 0 {
 			return ChartSpec{}, fmt.Errorf("no input data (use --data <file>, --json, or stdin)")
 		}
-		data, err = readAll(os.Stdin)
+		data, err = io.ReadAll(os.Stdin)
 	} else {
 		data, err = os.ReadFile(inputPath)
 	}
@@ -94,110 +159,123 @@ func ParseSpec(inputPath string) (ChartSpec, error) {
 	return spec, nil
 }
 
-func titleOpts(spec ChartSpec) opts.Title {
-	return opts.Title{
-		Title:    spec.Title,
-		Subtitle: spec.Subtitle,
-		Left:     "center",
-		Top:      "5%",
-		TitleStyle: &opts.TextStyle{
-			FontSize:   24,
-			Color:      "#F8FAFC",
-			FontFamily: "Inter, -apple-system, sans-serif",
+func baseOption(spec ChartSpec) map[string]interface{} {
+	opt := map[string]interface{}{
+		"backgroundColor": bgColor,
+		"title": map[string]interface{}{
+			"text":    spec.Title,
+			"subtext": spec.Subtitle,
+			"left":    "center",
+			"top":     "4%",
+			"textStyle": map[string]interface{}{
+				"color":      textPrimary,
+				"fontSize":   26,
+				"fontWeight": "bold",
+				"fontFamily": "Inter, -apple-system, sans-serif",
+			},
+			"subtextStyle": map[string]interface{}{
+				"color":      textSecondary,
+				"fontSize":   14,
+				"fontFamily": "Inter, sans-serif",
+			},
 		},
-		SubtitleStyle: &opts.TextStyle{
-			FontSize:   14,
-			Color:      "#94A3B8",
-			FontFamily: "Inter, sans-serif",
+		"tooltip": map[string]interface{}{
+			"backgroundColor": cardBg,
+			"borderColor":     borderClr,
+			"borderWidth":     1,
+			"padding":         12,
+			"textStyle": map[string]interface{}{
+				"color":      textPrimary,
+				"fontFamily": "Inter, sans-serif",
+				"fontSize":   13,
+			},
 		},
+		"legend": map[string]interface{}{
+			"show":   true,
+			"top":    "13%",
+			"right":  "5%",
+			"icon":   "circle",
+			"itemWidth":  10,
+			"itemHeight": 10,
+			"itemGap":    20,
+			"textStyle": map[string]interface{}{
+				"color":      axisLabelClr,
+				"fontSize":   13,
+				"fontFamily": "Inter, sans-serif",
+			},
+		},
+		"toolbox": map[string]interface{}{
+			"show":    true,
+			"right":   "3%",
+			"top":     "5%",
+			"feature": map[string]interface{}{
+				"saveAsImage": map[string]interface{}{
+					"name":           spec.Title,
+					"backgroundColor": bgColor,
+					"pixelRatio":     2,
+				},
+				"restore":   map[string]interface{}{},
+				"dataView":  map[string]interface{}{"readOnly": true},
+			},
+			"iconStyle": map[string]interface{}{
+				"borderColor": textMuted,
+			},
+		},
+		"animation":        true,
+		"animationEasing":  "cubicOut",
+		"animationDuration": 1200,
 	}
+
+	return opt
 }
 
-func initOpts(spec ChartSpec) opts.Initialization {
-	return opts.Initialization{
-		Theme:           spec.Theme,
-		Width:           spec.Width,
-		Height:          spec.Height,
-		BackgroundColor: "#0F172A",
+func axisOpts(spec ChartSpec) (map[string]interface{}, map[string]interface{}) {
+	x := map[string]interface{}{
+		"type": "category",
+		"data": makeCategories(spec),
+		"name": spec.XLabel,
+		"nameTextStyle": map[string]interface{}{
+			"color":    textSecondary,
+			"fontSize": 12,
+		},
+		"axisLine": map[string]interface{}{
+			"lineStyle": map[string]interface{}{"color": borderClr},
+		},
+		"axisTick": map[string]interface{}{"show": false},
+		"axisLabel": map[string]interface{}{
+			"color":      axisLabelClr,
+			"fontSize":   12,
+			"fontFamily": "Inter, sans-serif",
+			"margin":     14,
+		},
+		"splitLine": map[string]interface{}{"show": false},
 	}
-}
 
-func tooltipAxis() opts.Tooltip {
-	return opts.Tooltip{
-		Show:           opts.Bool(true),
-		Trigger:        "axis",
-		BackgroundColor: "#1E293B",
-		BorderColor:    "#334155",
+	y := map[string]interface{}{
+		"type": "value",
+		"name": spec.YLabel,
+		"nameTextStyle": map[string]interface{}{
+			"color":    textSecondary,
+			"fontSize": 12,
+		},
+		"axisLine": map[string]interface{}{"show": false},
+		"axisTick": map[string]interface{}{"show": false},
+		"axisLabel": map[string]interface{}{
+			"color":      axisLabelClr,
+			"fontSize":   12,
+			"fontFamily": "Inter, sans-serif",
+		},
+		"splitLine": map[string]interface{}{
+			"show": true,
+			"lineStyle": map[string]interface{}{
+				"color":     gridClr,
+				"type":      "dashed",
+				"dashOffset": 5,
+			},
+		},
 	}
-}
 
-func tooltipItem() opts.Tooltip {
-	return opts.Tooltip{
-		Show:           opts.Bool(true),
-		Trigger:        "item",
-		Formatter:      "{b}: {c} ({d}%)",
-		BackgroundColor: "#1E293B",
-		BorderColor:    "#334155",
-	}
-}
-
-func legendTop() opts.Legend {
-	return opts.Legend{
-		Show:   opts.Bool(true),
-		Top:    "12%",
-		Right:  "5%",
-		Orient: "horizontal",
-		TextStyle: &opts.TextStyle{
-			Color:      "#CBD5E1",
-			FontSize:   13,
-			FontFamily: "Inter, sans-serif",
-		},
-	}
-}
-
-func legendBottom() opts.Legend {
-	return opts.Legend{
-		Show:   opts.Bool(true),
-		Bottom: "5%",
-		Orient: "horizontal",
-		TextStyle: &opts.TextStyle{
-			Color:    "#CBD5E1",
-			FontSize: 13,
-		},
-	}
-}
-
-func xAxisOpts(spec ChartSpec) opts.XAxis {
-	return opts.XAxis{
-		Name: spec.XLabel,
-		AxisLabel: &opts.AxisLabel{
-			Color:      "#CBD5E1",
-			FontSize:   12,
-			FontFamily: "Inter, sans-serif",
-		},
-		AxisLine: &opts.AxisLine{
-			LineStyle: &opts.LineStyle{Color: "#334155"},
-		},
-		SplitLine: &opts.SplitLine{Show: opts.Bool(false)},
-	}
-}
-
-func yAxisOpts(spec ChartSpec) opts.YAxis {
-	return opts.YAxis{
-		Name: spec.YLabel,
-		AxisLabel: &opts.AxisLabel{
-			Color:      "#CBD5E1",
-			FontSize:   12,
-			FontFamily: "Inter, sans-serif",
-		},
-		AxisLine: &opts.AxisLine{
-			LineStyle: &opts.LineStyle{Color: "#334155"},
-		},
-		SplitLine: &opts.SplitLine{
-			Show: opts.Bool(true),
-			LineStyle: &opts.LineStyle{Color: "#1E293B", Type: "dashed"},
-		},
-	}
+	return x, y
 }
 
 func makeCategories(spec ChartSpec) []string {
@@ -218,157 +296,272 @@ func makeCategories(spec ChartSpec) []string {
 }
 
 func renderBar(spec ChartSpec, outputPath string) error {
-	bar := charts.NewBar()
-	bar.SetGlobalOptions(
-		charts.WithTitleOpts(titleOpts(spec)),
-		charts.WithInitializationOpts(initOpts(spec)),
-		charts.WithTooltipOpts(tooltipAxis()),
-		charts.WithLegendOpts(legendTop()),
-		charts.WithXAxisOpts(xAxisOpts(spec)),
-		charts.WithYAxisOpts(yAxisOpts(spec)),
-	)
+	opt := baseOption(spec)
+	opt["tooltip"].(map[string]interface{})["trigger"] = "axis"
+	opt["tooltip"].(map[string]interface{})["axisPointer"] = map[string]interface{}{
+		"type": "shadow",
+		"shadowStyle": map[string]interface{}{
+			"color": "rgba(30,41,59,0.5)",
+		},
+	}
 
-	bar.SetXAxis(makeCategories(spec))
+	x, y := axisOpts(spec)
+	opt["xAxis"] = x
+	opt["yAxis"] = y
+	opt["grid"] = map[string]interface{}{
+		"top":         "22%",
+		"bottom":      "12%",
+		"left":        "8%",
+		"right":       "5%",
+		"containLabel": true,
+	}
 
+	seriesList := make([]map[string]interface{}, len(spec.Series))
 	for i, s := range spec.Series {
-		data := make([]opts.BarData, len(s.Values))
+		p := palette[i%len(palette)]
+		data := make([]map[string]interface{}, len(s.Values))
 		for j, v := range s.Values {
-			data[j] = opts.BarData{
-				Value:     v,
-				ItemStyle: &opts.ItemStyle{Color: sotaColors[i%len(sotaColors)]},
+			data[j] = map[string]interface{}{
+				"value": v,
+				"itemStyle": map[string]interface{}{
+					"color":           vGradient(p[0], p[1]),
+					"borderRadius":    []int{8, 8, 0, 0},
+					"shadowBlur":      12,
+					"shadowColor":     fmt.Sprintf("rgba(%s,0.25)", p[2]),
+					"shadowOffsetY":   4,
+				},
 			}
 		}
-		bar.AddSeries(s.Name, data).
-			SetSeriesOptions(
-				charts.WithBarChartOpts(opts.BarChart{
-					BarWidth: "40%",
-				}),
-				charts.WithLabelOpts(opts.Label{
-					Show:     opts.Bool(true),
-					Position: "top",
-					Color:    "#94A3B8",
-					FontSize: 11,
-				}),
-			)
-	}
 
-	return writeHTML(bar, outputPath)
+		seriesList[i] = map[string]interface{}{
+			"name":      s.Name,
+			"type":      "bar",
+			"data":      data,
+			"barWidth":  "45%",
+			"barGap":    "15%",
+			"emphasis": map[string]interface{}{
+				"focus": "series",
+				"itemStyle": map[string]interface{}{
+					"shadowBlur":  24,
+					"shadowColor": fmt.Sprintf("rgba(%s,0.5)", p[2]),
+				},
+			},
+			"label": map[string]interface{}{
+				"show":     true,
+				"position": "top",
+				"color":    textSecondary,
+				"fontSize": 11,
+				"fontFamily": "Inter, sans-serif",
+			},
+			"animationDelay":     fmt.Sprintf("@JS@function(idx){return idx*80+%d;}@JS@", i*200),
+			"animationDuration":  800,
+			"animationEasing":    "elasticOut",
+		}
+	}
+	opt["series"] = seriesList
+
+	return writeHTML(opt, spec, outputPath)
 }
 
-func renderLine(spec ChartSpec, outputPath string) error {
-	line := charts.NewLine()
-	line.SetGlobalOptions(
-		charts.WithTitleOpts(titleOpts(spec)),
-		charts.WithInitializationOpts(initOpts(spec)),
-		charts.WithTooltipOpts(tooltipAxis()),
-		charts.WithLegendOpts(legendTop()),
-		charts.WithXAxisOpts(xAxisOpts(spec)),
-		charts.WithYAxisOpts(yAxisOpts(spec)),
-	)
-
-	line.SetXAxis(makeCategories(spec))
-
-	for i, s := range spec.Series {
-		data := make([]opts.LineData, len(s.Values))
-		for j, v := range s.Values {
-			data[j] = opts.LineData{Value: v}
-		}
-		line.AddSeries(s.Name, data).
-			SetSeriesOptions(
-				charts.WithLineChartOpts(opts.LineChart{
-					Smooth: opts.Bool(true),
-				}),
-				charts.WithLineStyleOpts(opts.LineStyle{
-					Width: 3,
-					Color: sotaColors[i%len(sotaColors)],
-				}),
-				charts.WithAreaStyleOpts(opts.AreaStyle{
-					Color:   sotaColors[i%len(sotaColors)],
-					Opacity: opts.Float(0.1),
-				}),
-			)
+func renderLine(spec ChartSpec, outputPath string, area bool) error {
+	opt := baseOption(spec)
+	opt["tooltip"].(map[string]interface{})["trigger"] = "axis"
+	opt["tooltip"].(map[string]interface{})["axisPointer"] = map[string]interface{}{
+		"type": "cross",
+		"crossStyle": map[string]interface{}{
+			"color":    borderClr,
+			"width":    1,
+			"type":     "dashed",
+		},
+		"label": map[string]interface{}{
+			"backgroundColor": cardBg,
+		},
 	}
 
-	return writeHTML(line, outputPath)
-}
-
-func renderArea(spec ChartSpec, outputPath string) error {
-	area := charts.NewLine()
-	area.SetGlobalOptions(
-		charts.WithTitleOpts(titleOpts(spec)),
-		charts.WithInitializationOpts(initOpts(spec)),
-		charts.WithTooltipOpts(tooltipAxis()),
-		charts.WithLegendOpts(legendTop()),
-		charts.WithXAxisOpts(xAxisOpts(spec)),
-		charts.WithYAxisOpts(yAxisOpts(spec)),
-	)
-
-	area.SetXAxis(makeCategories(spec))
-
-	for i, s := range spec.Series {
-		data := make([]opts.LineData, len(s.Values))
-		for j, v := range s.Values {
-			data[j] = opts.LineData{Value: v}
-		}
-		area.AddSeries(s.Name, data).
-			SetSeriesOptions(
-				charts.WithLineChartOpts(opts.LineChart{
-					Smooth: opts.Bool(true),
-				}),
-				charts.WithLineStyleOpts(opts.LineStyle{
-					Width: 2.5,
-					Color: sotaColors[i%len(sotaColors)],
-				}),
-				charts.WithAreaStyleOpts(opts.AreaStyle{
-					Color:   sotaColors[i%len(sotaColors)],
-					Opacity: opts.Float(0.35),
-				}),
-			)
+	x, y := axisOpts(spec)
+	opt["xAxis"] = x
+	opt["yAxis"] = y
+	opt["grid"] = map[string]interface{}{
+		"top":          "22%",
+		"bottom":       "12%",
+		"left":         "8%",
+		"right":        "5%",
+		"containLabel":  true,
 	}
 
-	return writeHTML(area, outputPath)
+	areaOpacity := 0.0
+	if area {
+		areaOpacity = 0.35
+	}
+
+	seriesList := make([]map[string]interface{}, len(spec.Series))
+	for i, s := range spec.Series {
+		p := palette[i%len(palette)]
+		data := make([]float64, len(s.Values))
+		copy(data, s.Values)
+
+		itemStyle := map[string]interface{}{
+			"color":      vGradient(p[0], p[1]),
+			"shadowBlur": 8,
+			"shadowColor": fmt.Sprintf("rgba(%s,0.3)", p[2]),
+		}
+
+		seriesEntry := map[string]interface{}{
+			"name":       s.Name,
+			"type":       "line",
+			"data":       data,
+			"smooth":     true,
+			"smoothMonotone": "x",
+			"showSymbol": false,
+			"symbol":     "circle",
+			"symbolSize": 8,
+			"lineStyle": map[string]interface{}{
+				"width":  3,
+				"color":  hGradient(p[0], p[1]),
+				"shadowBlur":  6,
+				"shadowColor": fmt.Sprintf("rgba(%s,0.3)", p[2]),
+			},
+			"itemStyle":  itemStyle,
+			"emphasis": map[string]interface{}{
+				"focus": "series",
+				"scale": 1.5,
+			},
+			"animationDuration": 1500,
+			"animationEasing":   "cubicOut",
+			"animationDelay":    fmt.Sprintf("@JS@function(idx){return idx*60+%d;}@JS@", i*300),
+		}
+
+		if area {
+			seriesEntry["areaStyle"] = map[string]interface{}{
+				"color":    areaGradient(p[2]),
+				"opacity":  areaOpacity,
+				"shadowBlur": 20,
+				"shadowColor": fmt.Sprintf("rgba(%s,0.15)", p[2]),
+			}
+		} else {
+			seriesEntry["areaStyle"] = map[string]interface{}{
+				"color":   areaGradient(p[2]),
+				"opacity": 0,
+			}
+		}
+
+		seriesList[i] = seriesEntry
+	}
+	opt["series"] = seriesList
+
+	return writeHTML(opt, spec, outputPath)
 }
 
 func renderPie(spec ChartSpec, outputPath string) error {
-	pie := charts.NewPie()
-	pie.SetGlobalOptions(
-		charts.WithTitleOpts(titleOpts(spec)),
-		charts.WithInitializationOpts(initOpts(spec)),
-		charts.WithTooltipOpts(tooltipItem()),
-		charts.WithLegendOpts(legendBottom()),
-	)
+	opt := baseOption(spec)
+	opt["tooltip"].(map[string]interface{})["trigger"] = "item"
+	opt["tooltip"].(map[string]interface{})["formatter"] = "{b}: {c} ({d}%)"
 
-	data := make([]opts.PieData, len(spec.Items))
+	opt["legend"] = map[string]interface{}{
+		"show":       true,
+		"bottom":     "5%",
+		"orient":     "horizontal",
+		"icon":       "circle",
+		"itemWidth":  10,
+		"itemHeight": 10,
+		"itemGap":    20,
+		"textStyle": map[string]interface{}{
+			"color":      axisLabelClr,
+			"fontSize":   13,
+			"fontFamily": "Inter, sans-serif",
+		},
+	}
+
+	data := make([]map[string]interface{}, len(spec.Items))
 	for i, item := range spec.Items {
-		data[i] = opts.PieData{
-			Name:      item.Label,
-			Value:     item.Value,
-			ItemStyle: &opts.ItemStyle{Color: sotaColors[i%len(sotaColors)]},
+		p := palette[i%len(palette)]
+		data[i] = map[string]interface{}{
+			"name":  item.Label,
+			"value": item.Value,
+			"itemStyle": map[string]interface{}{
+				"color":        vGradient(p[0], p[1]),
+				"borderRadius": 6,
+				"borderColor":  bgColor,
+				"borderWidth":  4,
+				"shadowBlur":   20,
+				"shadowColor":  "rgba(0,0,0,0.3)",
+			},
 		}
 	}
 
-	pie.AddSeries("data", data).
-		SetSeriesOptions(
-			charts.WithPieChartOpts(opts.PieChart{
-				Radius: []string{"40%", "70%"},
-				Center: []string{"50%", "55%"},
-			}),
-			charts.WithLabelOpts(opts.Label{
-				Show:      opts.Bool(true),
-				Formatter: "{b}\n{d}%",
-				Color:     "#CBD5E1",
-				FontSize:  13,
-			}),
-			charts.WithItemStyleOpts(opts.ItemStyle{
-				BorderColor: "#0F172A",
-				BorderWidth: 3,
-			}),
-		)
+	opt["series"] = []map[string]interface{}{
+		{
+			"type":     "pie",
+			"radius":   []string{"42%", "70%"},
+			"center":   []string{"50%", "52%"},
+			"data":     data,
+			"roseType": "radius",
+			"label": map[string]interface{}{
+				"show":      true,
+				"formatter": "{b}\n{d}%",
+				"color":     axisLabelClr,
+				"fontSize":  13,
+				"fontFamily": "Inter, sans-serif",
+				"lineHeight": 18,
+			},
+			"labelLine": map[string]interface{}{
+				"show":     true,
+				"length":   15,
+				"length2":  20,
+				"smooth":   true,
+				"lineStyle": map[string]interface{}{
+					"color": borderClr,
+					"width": 1,
+				},
+			},
+			"emphasis": map[string]interface{}{
+				"scaleSize":  10,
+				"itemStyle": map[string]interface{}{
+					"shadowBlur":  40,
+					"shadowColor": "rgba(0,0,0,0.5)",
+				},
+				"label": map[string]interface{}{
+					"show":      true,
+					"fontSize":  15,
+					"fontWeight": "bold",
+					"color":     textPrimary,
+				},
+			},
+			"animationDuration": 1200,
+			"animationEasing":   "cubicOut",
+			"animationDelay":    "@JS@function(idx){return idx*100;}@JS@",
+		},
+	}
 
-	return writeHTML(pie, outputPath)
+	return writeHTML(opt, spec, outputPath)
 }
 
-func writeHTML(chart interface{ Render(io.Writer) error }, outputPath string) error {
+const htmlTemplate = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>%s</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:%s;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:Inter,-apple-system,sans-serif}
+#chart{width:%s;height:%s}
+</style>
+</head>
+<body>
+<div id="chart"></div>
+<script>
+var chart=echarts.init(document.getElementById('chart'),null,{renderer:'canvas'});
+var option=%s;
+chart.setOption(option);
+window.addEventListener('resize',function(){chart.resize()});
+window.addEventListener('load',function(){setTimeout(function(){document.title='CHART_READY'},500)});
+</script>
+</body>
+</html>`
+
+func writeHTML(opt map[string]interface{}, spec ChartSpec, outputPath string) error {
 	if !strings.HasSuffix(outputPath, ".html") {
 		ext := filepath.Ext(outputPath)
 		if ext != "" {
@@ -377,26 +570,49 @@ func writeHTML(chart interface{ Render(io.Writer) error }, outputPath string) er
 		outputPath += ".html"
 	}
 
+	jsonBytes, err := json.MarshalIndent(opt, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal option: %w", err)
+	}
+
+	jsonStr := string(jsonBytes)
+	jsonStr = strings.ReplaceAll(jsonStr, `"@JS@`, "")
+	jsonStr = strings.ReplaceAll(jsonStr, `@JS@"`, "")
+
+	w := spec.Width
+	if w == "" {
+		w = "1280px"
+	}
+	h := spec.Height
+	if h == "" {
+		h = "720px"
+	}
+
+	title := spec.Title
+	if title == "" {
+		title = "Chart"
+	}
+
+	html := fmt.Sprintf(htmlTemplate, title, bgColor, w, h, jsonStr)
+
 	f, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("create output: %w", err)
 	}
 	defer f.Close()
 
-	if err := chart.Render(f); err != nil {
-		return fmt.Errorf("render chart: %w", err)
+	if _, err := f.WriteString(html); err != nil {
+		return fmt.Errorf("write html: %w", err)
 	}
 
 	abs, _ := filepath.Abs(outputPath)
-
 	pngPath := strings.TrimSuffix(abs, ".html") + ".png"
-	if tryChromeScreenshot(abs, pngPath) {
-		fmt.Fprintf(os.Stdout, "✅ Chart generated: %s (HTML: %s)\n", pngPath, abs)
-		openBrowser(abs)
-		return nil
-	}
 
-	fmt.Fprintf(os.Stdout, "✅ Chart generated: %s\n", abs)
+	if tryChromeScreenshot(abs, pngPath) {
+		fmt.Fprintf(os.Stdout, "Chart generated: %s (HTML: %s)\n", pngPath, abs)
+	} else {
+		fmt.Fprintf(os.Stdout, "Chart generated: %s\n", abs)
+	}
 	openBrowser(abs)
 	return nil
 }
@@ -413,6 +629,8 @@ func tryChromeScreenshot(htmlPath, pngPath string) bool {
 		"--screenshot="+pngPath,
 		"--window-size=1280,720",
 		"--default-background-color=00000000",
+		"--virtual-time-budget=3000",
+		"--hide-scrollbars",
 		"file://"+htmlPath,
 	)
 	cmd.Stdout = nil
@@ -437,19 +655,4 @@ func findChrome() string {
 
 func openBrowser(path string) {
 	exec.Command("open", path).Start()
-}
-
-func readAll(f *os.File) ([]byte, error) {
-	var buf [4096]byte
-	var result []byte
-	for {
-		n, err := f.Read(buf[:])
-		if n > 0 {
-			result = append(result, buf[:n]...)
-		}
-		if err != nil {
-			break
-		}
-	}
-	return result, nil
 }
