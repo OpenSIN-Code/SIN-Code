@@ -29,6 +29,29 @@ func dockerAvailable() bool {
 	cmd.Stderr = nil
 	return cmd.Run() == nil
 }
+// skipIfShortDocker skips a test when -short is passed so the full
+// Docker/OrbStack-dependent suite is excluded from `go test -short`.
+// Also skips when the Docker daemon is genuinely unavailable.
+func skipIfShortDocker(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping Docker-dependent test in short mode")
+	}
+	skipIfShortDocker(t)
+}
+
+// skipIfShortNoDocker skips a test when -short is passed (so the
+// "Docker unavailable" error-path tests are also excluded from short
+// runs) and skips when Docker IS available (the test only validates
+// the no-Docker error path).
+func skipIfShortNoDocker(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping Docker-dependent test in short mode")
+	}
+	skipIfShortNoDocker(t)
+}
+
 
 func TestRunEFM_ListAction(t *testing.T) {
 	oldStdout := os.Stdout
@@ -400,9 +423,7 @@ func TestFilterServices_DifferentExtension(t *testing.T) {
 }
 
 func TestDockerComposeUp_TTLMetadata(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: nginx\n"), 0644)
@@ -430,9 +451,7 @@ func TestDockerComposeUp_TTLMetadata(t *testing.T) {
 }
 
 func TestDockerComposeUp_NoTTL(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "no-ttl-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
@@ -455,9 +474,7 @@ func TestDockerComposeUp_NoTTL(t *testing.T) {
 }
 
 func TestDockerComposeDown_RemovesMetadata(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: nginx\n"), 0644)
@@ -482,9 +499,7 @@ func TestDockerComposeDown_RemovesMetadata(t *testing.T) {
 }
 
 func TestListDockerContainers_DockerNotAvailable(t *testing.T) {
-	if dockerAvailable() {
-		t.Skip("Docker daemon is available, skipping unavailable-path test")
-	}
+	skipIfShortNoDocker(t)
 	_, err := listDockerContainers(testRuntime)
 	if err == nil {
 		t.Error("expected error when Docker is not available")
@@ -492,9 +507,7 @@ func TestListDockerContainers_DockerNotAvailable(t *testing.T) {
 }
 
 func TestDockerComposeUp_DockerAvailable(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: hello-world\n"), 0644)
@@ -506,9 +519,7 @@ func TestDockerComposeUp_DockerAvailable(t *testing.T) {
 }
 
 func TestDockerComposeDown_DockerAvailable(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: hello-world\n"), 0644)
@@ -520,9 +531,7 @@ func TestDockerComposeDown_DockerAvailable(t *testing.T) {
 }
 
 func TestDockerComposeStatus_DockerAvailable(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: hello-world\n"), 0644)
@@ -887,9 +896,7 @@ func TestRunEFM_AllActions_JSON(t *testing.T) {
 }
 
 func TestRunEFM_ListAction_DockerUnavailable(t *testing.T) {
-	if dockerAvailable() {
-		t.Skip("Docker daemon available, skipping unavailable-path test")
-	}
+	skipIfShortNoDocker(t)
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
@@ -1010,9 +1017,7 @@ func TestRunEFM_UpWithExistingStack_TTLZero(t *testing.T) {
 }
 
 func TestDockerComposeUp_SuccessWithTTL(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
@@ -1043,9 +1048,7 @@ func TestDockerComposeUp_SuccessWithTTL(t *testing.T) {
 }
 
 func TestRunEFM_UpSuccess(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
@@ -1082,9 +1085,7 @@ func TestRunEFM_UpSuccess(t *testing.T) {
 }
 
 func TestRunEFM_UpSuccess_Text(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
@@ -1117,9 +1118,7 @@ func TestRunEFM_UpSuccess_Text(t *testing.T) {
 }
 
 func TestDockerComposeStatus_AllRunning(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
@@ -1141,9 +1140,7 @@ func TestDockerComposeStatus_AllRunning(t *testing.T) {
 }
 
 func TestDockerComposeStatus_NoContainers(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
@@ -1158,9 +1155,7 @@ func TestDockerComposeStatus_NoContainers(t *testing.T) {
 }
 
 func TestRunEFM_StatusWithStack_Success(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
@@ -1199,9 +1194,7 @@ func TestRunEFM_StatusWithStack_Success(t *testing.T) {
 }
 
 func TestRunEFM_DownSuccess(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
@@ -1238,9 +1231,7 @@ func TestRunEFM_DownSuccess(t *testing.T) {
 }
 
 func TestListDockerContainers_Parsing(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	services, err := listDockerContainers(testRuntime)
 	if err != nil {
 		t.Fatalf("listDockerContainers failed: %v", err)
@@ -1256,9 +1247,7 @@ func TestListDockerContainers_Parsing(t *testing.T) {
 }
 
 func TestRunEFM_ListWithDockerRunning(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	defer r.Close()
@@ -1286,9 +1275,7 @@ func TestRunEFM_ListWithDockerRunning(t *testing.T) {
 }
 
 func TestRunEFM_StatusNoStackWithDockerRunning(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	defer r.Close()
@@ -1349,9 +1336,7 @@ func TestDockerComposeStatus_AbsPathError(t *testing.T) {
 }
 
 func TestDockerComposeStatus_PartialState(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "compose-partial.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n  broken:\n    image: nonexistent-image-xyz:latest\n"), 0644)
@@ -1371,9 +1356,7 @@ func TestDockerComposeStatus_PartialState(t *testing.T) {
 }
 
 func TestRunEFM_UpWithStartedStatus(t *testing.T) {
-	if !dockerAvailable() {
-		t.Skip("Docker daemon not available")
-	}
+	skipIfShortDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "compose-started.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)

@@ -129,8 +129,8 @@ func TestRunSubcommandRaw_VersionFlag(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(result, "test") && !strings.Contains(result, "version") {
-		t.Errorf("expected version output, got: %s", result)
+	if !strings.Contains(result, "sin-code") {
+		t.Errorf("expected 'sin-code' in version output, got: %s", result)
 	}
 }
 
