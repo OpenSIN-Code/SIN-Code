@@ -662,8 +662,14 @@ func TestInputViewMultipleAttachments(t *testing.T) {
 	i.AttachBytes([]byte("a"), "a.txt")
 	i.AttachBytes([]byte("b"), "b.txt")
 	view := i.View()
-	if !strings.Contains(view, "a.txt, b.txt") {
-		t.Errorf("expected comma-separated names, got %q", view)
+	if !strings.Contains(view, "a.txt (1B)") {
+		t.Errorf("expected a.txt chip, got %q", view)
+	}
+	if !strings.Contains(view, "b.txt (1B)") {
+		t.Errorf("expected b.txt chip, got %q", view)
+	}
+	if strings.Contains(view, "a.txt, b.txt") {
+		t.Errorf("old comma format should be gone, got %q", view)
 	}
 }
 

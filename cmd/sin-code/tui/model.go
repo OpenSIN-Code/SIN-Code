@@ -1,8 +1,10 @@
+// SPDX-License-Identifier: MIT
 package tui
 
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -38,10 +40,12 @@ type PaletteState struct {
 }
 
 type SessionSwitcherState struct {
-	Open    bool
-	Query   string
-	Sel     int
-	Indices []int
+	Open       bool
+	Query      string
+	Sel        int
+	Indices    []int
+	Renaming   bool
+	RenameInput textinput.Model
 }
 
 type ArgInputState struct {
@@ -56,6 +60,7 @@ type teaProgramIface interface {
 }
 
 type Model struct {
+	// Layout
 	Width    int
 	Height   int
 	ThemeIdx int
@@ -65,6 +70,7 @@ type Model struct {
 	Ready    bool
 	Loading  bool
 
+	// Subcomponents
 	Tabs       Tabs
 	Sidebar    Sidebar
 	Footer     Footer
@@ -72,6 +78,7 @@ type Model struct {
 	Styles     Styles
 	RightPanel bool
 
+	// Views
 	Palette          PaletteState
 	SessionSwitcher  SessionSwitcherState
 	ModelSelector    ModelSelectorState
@@ -91,6 +98,7 @@ type Model struct {
 	NotificationBanner *NotificationItem
 	Notifications      []NotificationItem
 
+	// Chat
 	ChatInput     *chatInput
 	ChatHistory   []ChatMessage
 	ChatViewport  viewport.Model
@@ -103,12 +111,17 @@ type Model struct {
 	SearchMatches []int
 	SearchInput   textinput.Model
 
+	// Agent runner
 	AgentRunner *agentrunner.AgentRunner
 	pendingAsk  chan bool
 
 	Workspace string
 
 	OnRun func(name string, args []string) error
+
+	// File preview
+	FilePreview     string
+	FilePreviewPath string
 }
 
 func (m *Model) ctx() context.Context {
@@ -164,6 +177,26 @@ func (m *Model) loadChatHistory() {
 		return
 	}
 	m.ChatHistory = history
+}
+
+func (m *Model) ShowFilePreview(path string) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		m.FilePreview = fmt.Sprintf("Error reading %s: %v", path, err)
+		m.FilePreviewPath = path
+		return
+	}
+	content := string(data)
+	if len(content) > 2000 {
+		content = content[:2000] + "\n... (truncated)"
+	}
+	m.FilePreview = content
+	m.FilePreviewPath = path
+}
+
+func (m *Model) ClearFilePreview() {
+	m.FilePreview = ""
+	m.FilePreviewPath = ""
 }
 
 func NewModel() *Model {

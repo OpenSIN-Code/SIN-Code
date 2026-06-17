@@ -16,6 +16,20 @@ import (
 
 var osUserHomeDirHook = os.UserHomeDir
 
+type pickerEntry struct {
+	name  string
+	isDir bool
+	isUp  bool
+}
+
+type filePickerState struct {
+	active   bool
+	items    []pickerEntry
+	selected int
+	cwd      string
+	err      error
+}
+
 type Input struct {
 	textarea      textarea.Model
 	attachments   []*attachments.Attachment
@@ -25,6 +39,7 @@ type Input struct {
 	placeholder   string
 	history       []string
 	historyCursor int
+	filePicker    filePickerState
 }
 
 func NewInput(store *attachments.Store) *Input {
@@ -93,6 +108,7 @@ func (i *Input) Attachments() []*attachments.Attachment {
 func (i *Input) Clear() {
 	i.textarea.Reset()
 	i.attachments = nil
+	i.filePicker.active = false
 }
 
 func (i *Input) Attach(path string) error {
@@ -191,6 +207,23 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 		i.handlePaste(msg.Content)
 		return nil, nil
 	case tea.KeyPressMsg:
+		if i.filePicker.active {
+			switch msg.String() {
+			case "up", "k":
+				i.movePicker(-1)
+				return nil, nil
+			case "down", "j":
+				i.movePicker(1)
+				return nil, nil
+			case "enter":
+				i.confirmPicker()
+				return nil, nil
+			case "esc":
+				i.filePicker.active = false
+				return nil, nil
+			}
+			return nil, nil
+		}
 		switch msg.String() {
 		case "ctrl+s", "ctrl+enter":
 			val := strings.TrimSpace(i.RawValue())
@@ -233,6 +266,11 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 					i.historyCursor = len(i.history)
 					i.textarea.Reset()
 				}
+				return nil, nil
+			}
+		case "tab":
+			if strings.TrimSpace(i.RawValue()) == "/attach" {
+				i.enterFilePicker()
 				return nil, nil
 			}
 		}
@@ -339,15 +377,24 @@ type SubmitMsg struct {
 func (i *Input) View() string {
 	var b strings.Builder
 	if len(i.attachments) > 0 {
-		b.WriteString("[")
-		for idx, a := range i.attachments {
-			if idx > 0 {
-				b.WriteString(", ")
-			}
-			b.WriteString(a.Name)
-		}
-		b.WriteString("]\n")
+		b.WriteString(i.renderAttachmentChips())
+		b.WriteString("\n")
 	}
+	if i.filePicker.active {
+		b.WriteString(i.filePickerView())
+		return b.String()
+	}
+	raw := i.textarea.Value()
+	lineCount := strings.Count(raw, "\n") + 1
+	b.WriteString("  ")
+	if lineCount > 1 {
+		b.WriteString(fmt.Sprintf("%d lines · ", lineCount))
+	}
+	b.WriteString(fmt.Sprintf("%d chars", len(raw)))
+	if len(i.attachments) > 0 {
+		b.WriteString(fmt.Sprintf(" · %d attach", len(i.attachments)))
+	}
+	b.WriteString("\n")
 	b.WriteString(i.textarea.View())
 	return b.String()
 }
@@ -359,3 +406,180 @@ func (i *Input) RenderStatus() string {
 	}
 	return fmt.Sprintf(" %d chars  %d attachment(s)", len(i.textarea.Value()), count)
 }
+
+func formatAttachmentSize(bytes int64) string {
+	if bytes < 1024 {
+		return fmt.Sprintf("%dB", bytes)
+	}
+	if bytes < 1024*1024 {
+		return fmt.Sprintf("%.1fKB", float64(bytes)/1024)
+	}
+	return fmt.Sprintf("%.1fMB", float64(bytes)/(1024*1024))
+}
+
+func attachmentIcon(name, mime string) string {
+	if strings.HasPrefix(mime, "image/") {
+		return "🖼"
+	}
+	if strings.HasPrefix(mime, "text/") {
+		return "📄"
+	}
+	ext := strings.ToLower(filepath.Ext(name))
+	switch ext {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg":
+		return "🖼"
+	case ".go", ".py", ".js", ".ts", ".rs", ".java", ".c", ".cpp", ".txt", ".md":
+		return "📄"
+	case ".zip", ".tar", ".gz", ".tgz", ".bin", ".exe", ".o", ".a", ".so", ".dylib", ".pdf":
+		return "📦"
+	}
+	if mime != "" {
+		return "📦"
+	}
+	return "📎"
+}
+
+func (i *Input) renderAttachmentChips() string {
+	var b strings.Builder
+	n := len(i.attachments)
+	limit := n
+	if n > 3 {
+		limit = 2
+	}
+	for idx := 0; idx < limit; idx++ {
+		if idx > 0 {
+			b.WriteString("  ")
+		}
+		a := i.attachments[idx]
+		b.WriteString(fmt.Sprintf("%s %s (%s)", attachmentIcon(a.Name, a.MIME), a.Name, formatAttachmentSize(a.Size)))
+	}
+	if n > 3 {
+		b.WriteString(fmt.Sprintf("  and %d more...", n-limit))
+	}
+	return b.String()
+}
+
+func (i *Input) enterFilePicker() {
+	i.textarea.Reset()
+	fp := &i.filePicker
+	fp.active = true
+	fp.selected = 0
+	if fp.cwd == "" {
+		if wd, err := os.Getwd(); err == nil {
+			fp.cwd = wd
+		} else {
+			fp.cwd = "."
+		}
+	}
+	i.loadPickerItems()
+}
+
+func (i *Input) loadPickerItems() {
+	fp := &i.filePicker
+	entries, err := os.ReadDir(fp.cwd)
+	if err != nil {
+		fp.items = nil
+		fp.err = err
+		return
+	}
+	fp.err = nil
+	items := make([]pickerEntry, 0, len(entries)+1)
+	if filepath.Dir(fp.cwd) != fp.cwd {
+		items = append(items, pickerEntry{name: "..", isUp: true})
+	}
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), ".") {
+			continue
+		}
+		items = append(items, pickerEntry{name: e.Name(), isDir: e.IsDir()})
+	}
+	fp.items = items
+	if fp.selected >= len(items) {
+		fp.selected = len(items) - 1
+	}
+	if fp.selected < 0 {
+		fp.selected = 0
+	}
+}
+
+func (i *Input) movePicker(delta int) {
+	n := len(i.filePicker.items)
+	if n == 0 {
+		return
+	}
+	i.filePicker.selected += delta
+	if i.filePicker.selected < 0 {
+		i.filePicker.selected = 0
+	}
+	if i.filePicker.selected >= n {
+		i.filePicker.selected = n - 1
+	}
+}
+
+func (i *Input) confirmPicker() {
+	fp := &i.filePicker
+	if fp.selected < 0 || fp.selected >= len(fp.items) {
+		fp.active = false
+		return
+	}
+	it := fp.items[fp.selected]
+	if it.isUp {
+		fp.cwd = filepath.Dir(fp.cwd)
+		fp.selected = 0
+		i.loadPickerItems()
+		return
+	}
+	if it.isDir {
+		fp.cwd = filepath.Join(fp.cwd, it.name)
+		fp.selected = 0
+		i.loadPickerItems()
+		return
+	}
+	path := filepath.Join(fp.cwd, it.name)
+	_ = i.Attach(path)
+	fp.active = false
+}
+
+func (i *Input) filePickerView() string {
+	var b strings.Builder
+	fp := &i.filePicker
+	b.WriteString("Attach a file — ↑↓ navigate · Enter select · Esc cancel\n")
+	b.WriteString(fmt.Sprintf("  %s\n", fp.cwd))
+	if fp.err != nil {
+		b.WriteString(fmt.Sprintf("  (error: %v)\n", fp.err))
+		return b.String()
+	}
+	items := fp.items
+	if len(items) == 0 {
+		b.WriteString("  (no files)\n")
+		return b.String()
+	}
+	maxRows := 12
+	if i.height > maxRows {
+		maxRows = i.height
+	}
+	start := 0
+	if fp.selected >= maxRows {
+		start = fp.selected - maxRows + 1
+	}
+	end := start + maxRows
+	if end > len(items) {
+		end = len(items)
+	}
+	for idx := start; idx < end; idx++ {
+		it := items[idx]
+		marker := "  "
+		if idx == fp.selected {
+			marker = "❯ "
+		}
+		suffix := ""
+		if it.isUp {
+			suffix = " (up)"
+		} else if it.isDir {
+			suffix = "/"
+		}
+		b.WriteString(fmt.Sprintf("%s%s%s\n", marker, it.name, suffix))
+	}
+	return b.String()
+}
+

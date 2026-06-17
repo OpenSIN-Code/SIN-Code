@@ -123,13 +123,42 @@ func RenderCommandPalette(items []string, sel int, query string, styles Styles, 
 	return styles.Popup.Render(b.String())
 }
 
+var agentIcons = []string{"🔨", "🛡", "📊"}
+var agentDescs = []string{"Default coding agent", "Security & quality review", "Metrics & analysis"}
+
 func RenderSubagentsPopup(styles Styles, width, height int) string {
+	return RenderSubagentsPopupWithAgent(styles, width, height, 0)
+}
+
+func RenderSubagentsPopupWithAgent(styles Styles, width, height int, currentAgent int) string {
 	var b strings.Builder
 	b.WriteString(styles.AccentText.Render(" Subagents"))
 	b.WriteString("\n")
-	b.WriteString(styles.Muted.Render("  (placeholder) — feature coming soon"))
+	b.WriteString(styles.Muted.Render("  " + strings.Repeat("─", max(width-6, 10))))
 	b.WriteString("\n\n")
-	b.WriteString(styles.Muted.Render("  Use ctrl+x again to close."))
+
+	for i, name := range AgentNames {
+		var icon, desc string
+		if i < len(agentIcons) {
+			icon = agentIcons[i]
+		}
+		if i < len(agentDescs) {
+			desc = agentDescs[i]
+		}
+
+		padded := padRight(name, 8)
+		if i == currentAgent {
+			line := fmt.Sprintf("▸ %s %s  — %s", icon, padded, desc)
+			b.WriteString(styles.PopupSel.Render(padRight(line, width-6)))
+		} else {
+			line := fmt.Sprintf("  %s %s  — %s", icon, padded, desc)
+			b.WriteString(styles.PopupItem.Render(padRight(line, width-6)))
+		}
+		b.WriteString("\n")
+	}
+
+	b.WriteString("\n")
+	b.WriteString(styles.Muted.Render(" ↑/↓ select · enter switch · esc close"))
 	b.WriteString("\n")
 	return styles.Popup.Render(b.String())
 }

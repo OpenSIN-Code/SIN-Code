@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 package tui
 
 import (
@@ -5,6 +6,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/bubbles/v2/textinput"
 )
 
 func RenderSessionSwitcher(state SessionSwitcherState, tabs Tabs, styles Styles, width, height int) string {
@@ -78,7 +80,14 @@ func RenderSessionSwitcher(state SessionSwitcherState, tabs Tabs, styles Styles,
 	}
 
 	b.WriteString("\n")
-	b.WriteString(styles.Muted.Render(" ↑/↓ navigate · enter select · esc close"))
+	if state.Renaming {
+		b.WriteString(styles.AccentText.Render(" ✏  Rename: "))
+		b.WriteString(state.RenameInput.View())
+		b.WriteString("\n")
+		b.WriteString(styles.Muted.Render(" enter confirm · esc cancel"))
+	} else {
+		b.WriteString(styles.Muted.Render(" ↑/↓ navigate · enter select · e/r rename · esc close"))
+	}
 	b.WriteString("\n")
 
 	return b.String()
@@ -117,12 +126,22 @@ func (m *Model) SessionSwitcherSelect() {
 	if len(m.SessionSwitcher.Indices) == 0 {
 		return
 	}
-	
+
+	// Save current chat history to the current session
+	if m.Tabs.ActiveIdx >= 0 && m.Tabs.ActiveIdx < len(m.Tabs.Sessions) {
+		m.Tabs.Sessions[m.Tabs.ActiveIdx].History = m.ChatHistory
+	}
+
 	if m.SessionSwitcher.Sel >= 0 && m.SessionSwitcher.Sel < len(m.SessionSwitcher.Indices) {
 		sessIdx := m.SessionSwitcher.Indices[m.SessionSwitcher.Sel]
 		m.Tabs.Select(sessIdx)
+		// Load the selected session's chat history
+		m.ChatHistory = m.Tabs.Sessions[sessIdx].History
+		if m.ChatHistory == nil {
+			m.ChatHistory = []ChatMessage{}
+		}
 	}
-	
+
 	m.CloseSessionSwitcher()
 }
 
@@ -149,6 +168,20 @@ func (m *Model) SessionSwitcherFilter(query string) {
 }
 
 func (m *Model) handleSessionSwitcherKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.SessionSwitcher.Renaming {
+		switch msg.String() {
+		case "enter":
+			m.SessionSwitcherConfirmRename()
+			return m, nil
+		case "esc":
+			m.SessionSwitcherCancelRename()
+			return m, nil
+		default:
+			m.SessionSwitcher.RenameInput, _ = m.SessionSwitcher.RenameInput.Update(msg)
+			return m, nil
+		}
+	}
+
 	key := msg.String()
 	switch key {
 	case "esc", "ctrl+g":
@@ -163,6 +196,9 @@ func (m *Model) handleSessionSwitcherKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "down":
 		m.SessionSwitcherNavigate(1)
 		return m, nil
+	case "e", "r":
+		m.SessionSwitcherStartRename()
+		return m, nil
 	case "backspace":
 		if len(m.SessionSwitcher.Query) > 0 {
 			m.SessionSwitcherFilter(m.SessionSwitcher.Query[:len(m.SessionSwitcher.Query)-1])
@@ -174,4 +210,40 @@ func (m *Model) handleSessionSwitcherKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+}
+
+func (m *Model) SessionSwitcherStartRename() {
+	if len(m.SessionSwitcher.Indices) == 0 {
+		return
+	}
+	if m.SessionSwitcher.Sel < 0 || m.SessionSwitcher.Sel >= len(m.SessionSwitcher.Indices) {
+		return
+	}
+	sessIdx := m.SessionSwitcher.Indices[m.SessionSwitcher.Sel]
+	ti := textinput.New()
+	ti.Placeholder = "session name..."
+	ti.CharLimit = 60
+	ti.SetWidth(40)
+	ti.SetValue(m.Tabs.Sessions[sessIdx].Name)
+	ti.Focus()
+	m.SessionSwitcher.RenameInput = ti
+	m.SessionSwitcher.Renaming = true
+}
+
+func (m *Model) SessionSwitcherConfirmRename() {
+	if !m.SessionSwitcher.Renaming {
+		return
+	}
+	if len(m.SessionSwitcher.Indices) > 0 &&
+		m.SessionSwitcher.Sel >= 0 && m.SessionSwitcher.Sel < len(m.SessionSwitcher.Indices) {
+		sessIdx := m.SessionSwitcher.Indices[m.SessionSwitcher.Sel]
+		name := m.SessionSwitcher.RenameInput.Value()
+		m.Tabs.Rename(sessIdx, name)
+	}
+	m.SessionSwitcherCancelRename()
+}
+
+func (m *Model) SessionSwitcherCancelRename() {
+	m.SessionSwitcher.Renaming = false
+	m.SessionSwitcher.RenameInput = textinput.Model{}
 }

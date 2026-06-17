@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 package tui
 
 import (
@@ -12,6 +13,7 @@ type Session struct {
 	Dirty      bool
 	Preview    string
 	LastActive time.Time
+	History    []ChatMessage
 }
 
 type Tabs struct {
@@ -43,6 +45,21 @@ func (t Tabs) Active() Session {
 }
 
 func (t *Tabs) Add(name string) {
+	if name == "" {
+		name = fmt.Sprintf("Session %d", len(t.Sessions)+1)
+	}
+	t.Sessions = append(t.Sessions, Session{Name: name, LastActive: time.Now()})
+	t.ActiveIdx = len(t.Sessions) - 1
+}
+
+func (t *Tabs) Rename(idx int, name string) {
+	if idx < 0 || idx >= len(t.Sessions) {
+		return
+	}
+	t.Sessions[idx].Name = name
+}
+
+func (t *Tabs) NamedAdd(name string) {
 	if name == "" {
 		name = fmt.Sprintf("Session %d", len(t.Sessions)+1)
 	}

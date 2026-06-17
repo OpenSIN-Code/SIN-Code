@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
 )
 
@@ -17,8 +18,15 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 		height = 6
 	}
 
-	inputHeight := 4
-	chatHeight := height - inputHeight
+	textHeight := 3
+	if m.ChatInput != nil {
+		raw := m.ChatInput.RawValue()
+		lines := strings.Count(raw, "\n") + 1
+		if lines > 3 {
+			textHeight = min(lines+2, 10)
+		}
+	}
+	chatHeight := height - textHeight - 2
 	if chatHeight < 3 {
 		chatHeight = 3
 	}
@@ -54,8 +62,10 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 	b.WriteString("\n")
 	b.WriteString(styles.Muted.Render(strings.Repeat("─", width)))
 	b.WriteString("\n")
+	b.WriteString(renderContextBar(m.Footer.Tokens, 128000, styles, width))
+	b.WriteString("\n")
 	if m.ChatInput != nil {
-		m.ChatInput.SetSize(width, 3)
+		m.ChatInput.SetSize(width, textHeight)
 		b.WriteString(m.ChatInput.View())
 	}
 
@@ -92,9 +102,12 @@ func renderChatMessageCompact(msg ChatMessage, md *markdownRenderer, styles Styl
 				b.WriteString(styles.Muted.Render(msg.ToolInput))
 				b.WriteString("\n")
 			}
-			if msg.Detail != "" {
-				b.WriteString(styles.Muted.Render("  output: "))
-				b.WriteString(styles.Muted.Render(msg.Detail))
+			output := msg.ToolOutput
+			if output == "" {
+				output = msg.Detail
+			}
+			if output != "" {
+				b.WriteString(renderToolOutput(output, styles, width))
 				b.WriteString("\n")
 			}
 		} else {
@@ -143,11 +156,7 @@ func renderChatMessageCompact(msg ChatMessage, md *markdownRenderer, styles Styl
 		b.WriteString("\n")
 
 	case chatError:
-		errText := msg.Text
-		if errText == "" && msg.Error != nil {
-			errText = msg.Error.Error()
-		}
-		b.WriteString(renderError(errText, styles))
+		b.WriteString(renderErrorExpanded(msg, styles, width))
 		b.WriteString("\n")
 
 	case chatThinking:
@@ -292,6 +301,113 @@ func renderVerification(status, message string, styles Styles) string {
 
 func renderError(err string, styles Styles) string {
 	return styles.StatusErr.Render("❌ " + err)
+}
+
+func renderErrorExpanded(msg ChatMessage, styles Styles, width int) string {
+	errText := msg.Text
+	if errText == "" && msg.Error != nil {
+		errText = msg.Error.Error()
+	}
+	if !msg.Expanded {
+		short := truncateString(errText, width-4)
+		return styles.StatusErr.Render("❌ " + short)
+	}
+
+	panelStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(c(styles.Theme.Error)).
+		Padding(0, 1).
+		Width(width - 2)
+
+	body := styles.StatusErr.Render(errText) + "\n" + styles.Muted.Render("Press enter to collapse")
+	return panelStyle.Render(body)
+}
+
+func renderContextBar(tokens int, maxTokens int, styles Styles, width int) string {
+	if width < 10 {
+		width = 10
+	}
+	if maxTokens <= 0 {
+		maxTokens = 128000
+	}
+	pct := float64(tokens) / float64(maxTokens)
+	if pct < 0 {
+		pct = 0
+	}
+	if pct > 1 {
+		pct = 1
+	}
+
+	label := fmt.Sprintf("%s/%s (%.0f%%)", formatTokens(tokens), formatTokens(maxTokens), pct*100)
+	labelWidth := lipgloss.Width(label)
+	barWidth := width - labelWidth - 3
+	if barWidth < 4 {
+		barWidth = 4
+	}
+
+	filled := int(float64(barWidth) * pct)
+	if filled > barWidth {
+		filled = barWidth
+	}
+	if filled < 0 {
+		filled = 0
+	}
+
+	var colorStr string
+	switch {
+	case pct < 0.5:
+		colorStr = styles.Theme.Success
+	case pct < 0.8:
+		colorStr = styles.Theme.Warn
+	default:
+		colorStr = styles.Theme.Error
+	}
+
+	barStyle := lipgloss.NewStyle().Foreground(c(colorStr))
+	bar := barStyle.Render(strings.Repeat("█", filled)) + styles.Muted.Render(strings.Repeat("░", barWidth-filled))
+	return bar + " " + styles.Muted.Render(label)
+}
+
+func looksLikeGoCode(s string) bool {
+	indicators := []string{"func ", "package ", "import ", "type ", "var ", "const "}
+	count := 0
+	for _, ind := range indicators {
+		if strings.Contains(s, ind) {
+			count++
+		}
+	}
+	return count >= 2 || (strings.Contains(s, "func ") && strings.Contains(s, "{"))
+}
+
+func renderToolOutput(output string, styles Styles, width int) string {
+	if output == "" {
+		return ""
+	}
+	if width < 10 {
+		width = 10
+	}
+
+	if looksLikeGoCode(output) {
+		codeBlock := "```go\n" + output + "\n```"
+		r, err := glamour.NewTermRenderer(
+			glamour.WithStandardStyle("dark"),
+			glamour.WithWordWrap(width),
+		)
+		if err == nil {
+			rendered, err := r.Render(codeBlock)
+			if err == nil {
+				return strings.TrimRight(rendered, "\n")
+			}
+		}
+	}
+
+	panelStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(c(styles.Theme.Accent)).
+		Padding(0, 1).
+		Width(width - 2)
+
+	return panelStyle.Render(styles.Content.Render(output))
 }
 
 func renderSpinner(text string, styles Styles) string {

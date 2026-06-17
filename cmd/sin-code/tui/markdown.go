@@ -8,36 +8,37 @@ import (
 )
 
 type markdownRenderer struct {
-	renderer *glamour.TermRenderer
-	styles   Styles
+	styles Styles
 }
 
 func newMarkdownRenderer(styles Styles) *markdownRenderer {
-	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
-		glamour.WithWordWrap(80),
-	)
-	if err != nil {
-		r, _ = glamour.NewTermRenderer(glamour.WithWordWrap(80))
-	}
-
 	return &markdownRenderer{
-		renderer: r,
-		styles:   styles,
+		styles: styles,
 	}
 }
 
 func (m *markdownRenderer) render(text string) string {
-	if m.renderer == nil {
-		return text
+	if text == "" {
+		return ""
 	}
 
-	rendered, err := m.renderer.Render(text)
+	width := 80
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStandardStyle("dark"),
+		glamour.WithWordWrap(width),
+	)
 	if err != nil {
-		return text
+		return strings.TrimRight(text, "\n") + "\n"
 	}
 
-	return rendered
+	rendered, err := r.Render(text)
+	if err != nil {
+		return strings.TrimRight(text, "\n") + "\n"
+	}
+
+	// Glamour adds leading/trailing newlines — trim them for compact chat display
+	rendered = strings.TrimSpace(rendered)
+	return rendered + "\n"
 }
 
 func (m *markdownRenderer) renderToolCall(toolName, args string) string {
@@ -87,15 +88,15 @@ func renderMarkdownWithWidth(text string, width int, styles Styles) string {
 		glamour.WithWordWrap(width),
 	)
 	if err != nil {
-		return text
+		return strings.TrimRight(text, "\n") + "\n"
 	}
 
 	rendered, err := r.Render(text)
 	if err != nil {
-		return text
+		return strings.TrimRight(text, "\n") + "\n"
 	}
 
-	return rendered
+	return strings.TrimSpace(rendered) + "\n"
 }
 
 func truncateString(s string, maxLen int) string {
