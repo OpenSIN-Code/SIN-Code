@@ -274,54 +274,89 @@ Most keys are suspended (431) due to Fireworks spending caps, while **43 remain 
 
 **tldraw pattern** — dual-theme SVG, funktioniert in Light und Dark mode.
 
-### 10. SIN AI Branding Footer (PFLICHT für alle SIN AI Repos)
+### 10. SIN AI Banner System (PFLICHT für alle OpenSIN AI Repos)
 
-Jedes SIN AI Repo MUSS diesen Footer haben — einzigartiges, ultra krasses Branding:
+Zwei Banner, zwei Zwecke:
+
+| Position | Zweck | Individuell? | Dateien |
+|---|---|---|---|
+| **Header** (top of README) | Repo-Hero — zeigt was DIESSES Repo macht | **JA** — pro Repo einzigartig | `hero-banner.svg` + `hero-banner-light.svg` |
+| **Footer** (bottom of README) | "Powered by OpenSIN AI" — generisches Branding | **NEIN** — gleiches Design für alle Repos | `sin-ai-banner.svg` + `sin-ai-banner-light.svg` |
+
+Beide Banner sind **custom-designed SVGs** (NICHT shields.io badges). Sie nutzen dual-mode via `<picture>` + `prefers-color-scheme`.
+
+#### 10a. Header Hero Banner (individuell pro Repo)
+
+```html
+<a name="readme-top"></a>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/hero-banner.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="./assets/hero-banner-light.svg" />
+  <img src="./assets/hero-banner.svg" alt="{{REPO_NAME}}" />
+</picture>
+```
+
+**Was das Header-Banner zeigt (pro Repo):**
+- **Repo-Name** (gross, bold, gradient) + **Subtitle** (was es ist)
+- **Tagline** (ein Satz Benefit)
+- **3 Key-Metrics** als Visual Cards (z.B. `484 Keys`, `10 Proxies`, `12 Models`)
+- **Mini-Architecture-Flow** (optional, wenn visuell sinnvoll)
+- **Quick-start hint** (ein command, monospace)
+- **Hex grid + glow effects + HUD corners** (Design Language)
+- **Logo** embedded als base64 data URI (GitHub strips relative `<image href>`)
+
+**Design-Spec Header:**
+- Format: 1200×280 px (hero format, breit)
+- Font: `ui-sans-serif, system-ui` (Stripe/Linear style, weight 500-600)
+- Dark: `#0A0E14` bg, `#00D9FF`/`#7B3FE4` accents
+- Light: `#FAFAFA` bg, `#00A8D8`/`#8B5CF6` accents
+- Logo: 60×60px, base64 embedded (8KB), `feGaussianBlur` glow
+- Metric Cards: dark cards mit accent top-bar, grossen Zahlen, kleinen Labels
+- HUD corners: L-shaped accent lines in 4 Ecken
+- Scanning line + pulse ring (subtle animation, GitHub-safe)
+
+**WICHTIG — Logo als base64:**
+GitHub sanitizes SVGs und strips `<image href="./logo.png">` mit relativen Pfaden.
+Logo MUSS als `data:image/png;base64,...` direkt im SVG eingebettet sein.
+Resize logo to 60×60 before encoding (~8KB base64).
+
+#### 10b. Footer Branding Banner (generisch für alle Repos)
 
 ```html
 ---
 
-<!-- SIN AI BRANDING -->
+<!-- OpenSIN AI BRANDING FOOTER -->
 <p align="center">
-  <a href="https://sin.ai">
-    <img src="https://img.shields.io/badge/⚡_SIN_AI-Enterprise_Agent_Platform-7B3FE4?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="SIN AI" />
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://sin.ai">
-    <img src="https://img.shields.io/badge/🌐_Website-sin.ai-00D9FF?style=flat-square&labelColor=0D1117" alt="Website" />
-  </a>
-  <a href="https://sin.ai/dashboard">
-    <img src="https://img.shields.io/badge/📊_Dashboard-Live-00D9FF?style=flat-square&labelColor=0D1117" alt="Dashboard" />
-  </a>
-  <a href="https://sin.ai/agents">
-    <img src="https://img.shields.io/badge/🤖_Agents-Autonomous-00D9FF?style=flat-square&labelColor=0D1117" alt="Agents" />
-  </a>
-  <a href="https://github.com/SIN-Rotator">
-    <img src="https://img.shields.io/badge/📦_GitHub-SIN--Rotator-00D9FF?style=flat-square&labelColor=0D1117" alt="GitHub" />
-  </a>
-</p>
-
-<p align="center">
-  <sub>Enterprise AI Agents die autonom arbeiten — powered by <a href="https://sin.ai"><strong>SIN AI</strong></a></sub>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/sin-ai-banner.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="./assets/sin-ai-banner-light.svg" />
+    <img src="./assets/sin-ai-banner.svg" alt="OpenSIN AI" />
+  </picture>
 </p>
 ```
 
-**Design-Spec:**
-- **Tier 1**: Grosses `for-the-badge` SIN AI Badge — Purple `7B3FE4` auf Dark `0D1117`, mit ⚡ Lightning Bolt
-- **Tier 2**: 4 `flat-square` Link-Badges — Cyan `00D9FF` auf Dark `0D1117`, mit Emojis (🌐 📊 🤖 📦)
-- **Tier 3**: Subtiler `<sub>` Text mit SIN AI Link
-- **Farben**: Purple = SIN AI Primary, Cyan = SIN AI Accent, Dark = GitHub Dark
-- **Separator**: `<hr>` (---) davor trennt Content vom Branding
+**Was das Footer-Banner zeigt (gleich für alle Repos):**
+- **"OpenSIN AI"** (gradient text, `ui-sans-serif, system-ui`, weight 500)
+- **Tagline**: "Enterprise AI agents that work autonomously"
+- **Repo-specific benefits** (3 Items, pipe-separated, z.B. "484 free API keys · 10-proxy auto-failover · 12 Fireworks models")
+- **OpenSIN logo** (embedded als base64 data URI, 100×100px)
+- **Hex grid + neon glow + pulse ring + scanning line** (gleiche Design Language)
 
-**WARUM das ultra krass ist:**
-- 3-Tier vertikaler Aufbau = visuell impressive wie ein Brand-Block
-- Dark LabelColor `0D1117` auf allen Badges = cohesive premium look
-- for-the-badge + flat-square Mix = Hierarchie (große Brand -> kleine Links)
-- Cyan `00D9FF` auf Dark = Neon-Glow-Feeling ohne CSS
-- ⚡ Lightning Bolt = SIN AI Brand Mark, einzigartig auf GitHub
-- Jedes Badge klickbar = echtes Navigation-Element, nicht nur Deko
+**Design-Spec Footer:**
+- Format: 1200×200 px (schmaler als Header)
+- Font: `ui-sans-serif, system-ui`, weight 500, letter-spacing 2
+- Dark: `#0B1120` bg, neon glow filters
+- Light: `#FAFAFA` bg, softer accents
+- Logo: 100×100px, base64 embedded (~18KB)
+
+**WARUM custom SVGs statt shields.io:**
+- shields.io badges sind generisch und austauschbar — jedes GitHub Repo hat sie
+- Custom SVGs sind einzigartig und wiederkennbar (wie tldraw, Anthropic)
+- Full control über Layout, Typography, Color, Animation
+- Dual-mode dark/light via `<picture>` + `prefers-color-scheme`
+- GitHub cached SVGs — einmal committed, immer da
+- Keine externen Dependencies (shields.io kann down sein)
 
 ---
 
@@ -330,12 +365,14 @@ Jedes SIN AI Repo MUSS diesen Footer haben — einzigartiges, ultra krasses Bran
 ```markdown
 <a name="readme-top"></a>
 
-<!-- HERO IMAGE (only if visual product) -->
-<p align="center">
-  <img src="./assets/hero.png" alt="{{REPO_NAME}}" />
-</p>
+<!-- HERO BANNER (custom SVG, repo-specific, dual-mode) -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/hero-banner.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="./assets/hero-banner-light.svg" />
+  <img src="./assets/hero-banner.svg" alt="{{REPO_NAME}}" />
+</picture>
 
-<!-- BADGES (max 3-4) -->
+<!-- BADGES (max 3-4, optional) -->
 <p align="center">
   <a href="https://pypi.org/project/{{PACKAGE}}/">
     <img src="https://img.shields.io/pypi/v/{{PACKAGE}}" alt="PyPI" />
@@ -428,30 +465,13 @@ Distributed under the **MIT License**. See [LICENSE](LICENSE) for details.
 
 ---
 
-<!-- SIN AI BRANDING (PFLICHT) -->
+<!-- OpenSIN AI BRANDING FOOTER (PFLICHT) -->
 <p align="center">
-  <a href="https://sin.ai">
-    <img src="https://img.shields.io/badge/⚡_SIN_AI-Enterprise_Agent_Platform-7B3FE4?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="SIN AI" />
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://sin.ai">
-    <img src="https://img.shields.io/badge/🌐_Website-sin.ai-00D9FF?style=flat-square&labelColor=0D1117" alt="Website" />
-  </a>
-  <a href="https://sin.ai/dashboard">
-    <img src="https://img.shields.io/badge/📊_Dashboard-Live-00D9FF?style=flat-square&labelColor=0D1117" alt="Dashboard" />
-  </a>
-  <a href="https://sin.ai/agents">
-    <img src="https://img.shields.io/badge/🤖_Agents-Autonomous-00D9FF?style=flat-square&labelColor=0D1117" alt="Agents" />
-  </a>
-  <a href="https://github.com/SIN-Rotator">
-    <img src="https://img.shields.io/badge/📦_GitHub-SIN--Rotator-00D9FF?style=flat-square&labelColor=0D1117" alt="GitHub" />
-  </a>
-</p>
-
-<p align="center">
-  <sub>Enterprise AI Agents die autonom arbeiten — powered by <a href="https://sin.ai"><strong>SIN AI</strong></a></sub>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/sin-ai-banner.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="./assets/sin-ai-banner-light.svg" />
+    <img src="./assets/sin-ai-banner.svg" alt="OpenSIN AI" />
+  </picture>
 </p>
 ```
 
