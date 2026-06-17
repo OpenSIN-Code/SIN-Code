@@ -1,5 +1,5 @@
-# Purpose: Run the first-party eval golden dataset via the n8n delegator.
-# Docs: docs/RFC-test-automation.md, cmd/sin-code/internal/eval/eval.doc.md
+# Purpose: Run the first-party eval golden datasets via the n8n delegator.
+# Docs: docs/eval.md, docs/RFC-test-automation.md, cmd/sin-code/internal/eval/eval.doc.md
 # n8n-delegated per mandate M1 (see AGENTS.md §M1).
 name: eval-n8n
 
@@ -22,10 +22,10 @@ on:
       - 'cmd/sin-code/eval_cmd.go'
   workflow_dispatch:
     inputs:
-      dataset:
-        description: 'Dataset path to run (default: evals/test-generation.json)'
+      datasets:
+        description: 'Comma-separated dataset paths (default: all golden datasets)'
         required: false
-        default: 'evals/test-generation.json'
+        default: 'evals/critical.json,evals/test-generation.json,evals/mutation.json,evals/fuzzing.json,evals/property.json,evals/quality-gate.json'
       min_pass_rate:
         description: 'Minimum pass rate (0.0..1.0)'
         required: false
@@ -33,7 +33,7 @@ on:
 
 jobs:
   delegate:
-    name: Delegate eval run to n8n
+    name: Delegate eval runs to n8n
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
@@ -45,9 +45,10 @@ jobs:
             echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
             exit 1
           fi
+          DATASETS="${{ inputs.datasets || 'evals/critical.json,evals/test-generation.json,evals/mutation.json,evals/fuzzing.json,evals/property.json,evals/quality-gate.json' }}"
           curl -fsS -X POST \
             -H "Content-Type: application/json" \
-            -d '{"workflow":"eval-n8n","ref":"${{ github.ref }}","sha":"${{ github.sha }}","repo":"${{ github.repository }}","actor":"${{ github.actor }}","dataset":"${{ inputs.dataset || 'evals/test-generation.json' }}","min_pass_rate":"${{ inputs.min_pass_rate || '0.8' }}"}' \
+            -d "{\"workflow\":\"eval-n8n\",\"ref\":\"${{ github.ref }}\",\"sha\":\"${{ github.sha }}\",\"repo\":\"${{ github.repository }}\",\"actor\":\"${{ github.actor }}\",\"datasets\":\"$DATASETS\",\"min_pass_rate\":\"${{ inputs.min_pass_rate || '0.8' }}\"}" \
             "$N8N_CI_WEBHOOK_URL"
       - name: Echo local pre-checks
         run: |

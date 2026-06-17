@@ -65,6 +65,10 @@ type SinCodeConfig struct {
 	TestMutationThreshold float64 `toml:"test.mutation_threshold"`
 	TestAutoGenerate      bool    `toml:"test.auto_generate"`
 	TestTimeoutSeconds    int     `toml:"test.timeout_seconds"`
+	// TestUseLLM, when true, lets sin_test_generate call the configured LLM
+	// to fill realistic test cases (otherwise it emits a table-driven
+	// scaffold with zero-value tasks). Off by default — privacy/cost.
+	TestUseLLM bool `toml:"test.use_llm"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -93,6 +97,7 @@ func defaultConfig() SinCodeConfig {
 		TestMutationThreshold:    0.0,
 		TestAutoGenerate:         false,
 		TestTimeoutSeconds:       300,
+		TestUseLLM:               false,
 	}
 }
 
@@ -421,10 +426,12 @@ paths.skills_dir = %q
 # coverage_threshold: minimum coverage percent for sin_quality_gate (0 = disabled)
 # mutation_threshold: minimum mutation score for sin_mutation (0 = disabled)
 # auto_generate: run sin_test_generate after every sin_write/sin_edit to .go files
+# use_llm: let sin_test_generate call the configured LLM to fill realistic test cases
 test.coverage_threshold = %v
 test.mutation_threshold = %v
 test.auto_generate = %v
 test.timeout_seconds = %d
+test.use_llm = %v
 `, cfg.Theme, cfg.DefaultTimeout, cfg.DefaultFormat, cfg.MCPServerEnabled,
 		cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMMaxTokens, cfg.LLMTemperature,
 		cfg.LLMStyle,
@@ -432,7 +439,7 @@ test.timeout_seconds = %d
 		strings.Join(cfg.AgentLoopRequiredTools, ","), strings.Join(cfg.AgentLoopForbiddenTools, ","),
 		strings.Join(cfg.ToolsAllow, ","), strings.Join(cfg.ToolsDeny, ","),
 		cfg.PathsMCPConfig, cfg.PathsSkillsDir,
-		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds)
+		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds, cfg.TestUseLLM)
 }
 
 func initConfig() error {
@@ -512,6 +519,8 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.TestAutoGenerate), nil
 	case "test.timeout_seconds":
 		return fmt.Sprintf("%d", cfg.TestTimeoutSeconds), nil
+	case "test.use_llm":
+		return fmt.Sprintf("%v", cfg.TestUseLLM), nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -618,6 +627,8 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 			return fmt.Errorf("test.timeout_seconds must be a positive integer, got %q", value)
 		}
 		cfg.TestTimeoutSeconds = v
+	case "test.use_llm":
+		cfg.TestUseLLM = value == "true" || value == "1"
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}
@@ -655,6 +666,7 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"test.mutation_threshold", fmt.Sprintf("%v", cfg.TestMutationThreshold)},
 		{"test.auto_generate", fmt.Sprintf("%v", cfg.TestAutoGenerate)},
 		{"test.timeout_seconds", fmt.Sprintf("%d", cfg.TestTimeoutSeconds)},
+		{"test.use_llm", fmt.Sprintf("%v", cfg.TestUseLLM)},
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Key < pairs[j].Key })
 	return pairs
@@ -846,6 +858,8 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.TestAutoGenerate = val == "true"
 		case "test.timeout_seconds":
 			_, _ = fmt.Sscanf(val, "%d", &cfg.TestTimeoutSeconds)
+		case "test.use_llm":
+			cfg.TestUseLLM = val == "true" || val == "1"
 		}
 	}
 }

@@ -1,0 +1,41 @@
+{
+  "name": "Mutation Testing Golden Dataset",
+  "version": "1.0.0",
+  "description": "Evaluates the agent's ability to invoke sin_mutation and interpret mutation scores (RFC-test-automation.md).",
+  "test_cases": [
+    {
+      "id": "mutation_threshold_check",
+      "prompt": "Use the sin_mutation tool on the current workspace and report whether the mutation score meets the configured threshold.",
+      "description": "Smoke test for sin_mutation invocation and report interpretation.",
+      "tags": ["mutation", "quality-gate"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "180s"
+      },
+      "expected": {
+        "output_contains": ["sin_mutation", "mutation score", "threshold"]
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "tool"
+      }
+    },
+    {
+      "id": "mutation_score_json",
+      "prompt": "Run mutation testing with a threshold of 0.5 using sin_mutation and return the JSON result.",
+      "description": "Checks that the agent can request structured mutation output.",
+      "tags": ["mutation", "json"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "180s"
+      },
+      "expected": {
+        "output_contains": ["sin_mutation", "threshold"]
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "tool"
+      }
+    }
+  ]
+}

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -47,30 +48,44 @@ func (r *Runner) Run(ctx context.Context) error {
 	if r.PollInterval <= 0 {
 		r.PollInterval = 10 * time.Second
 	}
+	var wg sync.WaitGroup
 	for i := range r.Triggers {
 		t := r.Triggers[i]
 		switch t.Type {
 		case "cron":
-			go r.runCron(ctx, t)
+			wg.Add(1)
+			go func(t Trigger) {
+				defer wg.Done()
+				r.runCron(ctx, t)
+			}(t)
 		case "watch":
-			go r.runWatch(ctx, t)
+			wg.Add(1)
+			go func(t Trigger) {
+				defer wg.Done()
+				r.runWatch(ctx, t)
+			}(t)
 		case "discover":
-			go r.runDiscover(ctx, t)
+			wg.Add(1)
+			go func(t Trigger) {
+				defer wg.Done()
+				r.runDiscover(ctx, t)
+			}(t)
 		default:
 			fmt.Fprintf(os.Stderr, "warn: unknown trigger type %q\n", t.Type)
 		}
 	}
 	<-ctx.Done()
+	wg.Wait()
 	return ctx.Err()
 }
 
 func (r *Runner) runCron(ctx context.Context, t Trigger) {
-	interval, err := time.ParseDuration(t.Every)
+	interval, err := _parseDuration(t.Every)
 	if err != nil || interval < time.Minute {
 		fmt.Fprintf(os.Stderr, "warn: cron trigger needs every >= 1m, got %q\n", t.Every)
 		return
 	}
-	ticker := time.NewTicker(interval)
+	ticker := _newTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -88,7 +103,7 @@ func (r *Runner) runCron(ctx context.Context, t Trigger) {
 // markers, unchecked MASTER_TODO items) and enqueues deduplicated goals — the
 // agent finds its own backlog instead of waiting for a human prompt.
 func (r *Runner) runDiscover(ctx context.Context, t Trigger) {
-	interval, err := time.ParseDuration(t.Every)
+	interval, err := _parseDuration(t.Every)
 	if err != nil || interval < time.Minute {
 		fmt.Fprintf(os.Stderr, "warn: discover trigger needs every >= 1m, got %q\n", t.Every)
 		return
@@ -108,7 +123,7 @@ func (r *Runner) runDiscover(ctx context.Context, t Trigger) {
 		}
 	}
 	scan() // initial scan on startup
-	ticker := time.NewTicker(interval)
+	ticker := _newTicker(interval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -122,13 +137,13 @@ func (r *Runner) runDiscover(ctx context.Context, t Trigger) {
 
 func (r *Runner) runWatch(ctx context.Context, t Trigger) {
 	debounce := 30 * time.Second
-	if d, err := time.ParseDuration(t.Debounce); err == nil && d > 0 {
+	if d, err := _parseDuration(t.Debounce); err == nil && d > 0 {
 		debounce = d
 	}
 	last := fingerprint(r.Workspace, t.Glob)
 	var dirtySince time.Time
 
-	ticker := time.NewTicker(r.PollInterval)
+	ticker := _newTicker(r.PollInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -138,10 +153,10 @@ func (r *Runner) runWatch(ctx context.Context, t Trigger) {
 			current := fingerprint(r.Workspace, t.Glob)
 			if current != last {
 				last = current
-				dirtySince = time.Now()
+				dirtySince = _timeNow()
 				continue
 			}
-			if !dirtySince.IsZero() && time.Since(dirtySince) >= debounce {
+			if !dirtySince.IsZero() && _timeSince(dirtySince) >= debounce {
 				dirtySince = time.Time{}
 				prompt := t.Prompt + "\n(triggered by changes matching " + t.Glob + ")"
 				if _, err := r.Queue.Add(ctx, prompt, r.Workspace, t.Priority, 1); err != nil {
@@ -172,7 +187,7 @@ func fingerprint(workspace, glob string) string {
 		if !ok && !matchDoubleStar(glob, rel) {
 			return nil
 		}
-		info, err := d.Info()
+		info, err := _dirEntryInfo(d)
 		if err != nil {
 			return nil
 		}

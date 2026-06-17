@@ -266,14 +266,14 @@ This is already possible; the RFC standardises the JSON schema.
 
 ## 7. Implementation Roadmap
 
-### Phase 1 — Foundation (implemented in current session)
+### Phase 1 — Foundation (implemented)
 
 - [x] RFC: Approve this document.
 - [x] Extend `sin_test` with race, coverage, JSON, timeout.
 - [x] Implement `sin_test_generate` prototype.
 - [x] Add unit tests for both tools.
 - [ ] Add integration testscript for `sin_test` and `sin_test_generate`.
-- [ ] Update `AGENTS.md` if behaviour changes.
+- [x] Update `AGENTS.md` if behaviour changes.
 
 ### Phase 2 — Hook Automation (completed)
 
@@ -282,17 +282,28 @@ This is already possible; the RFC standardises the JSON schema.
 - [x] Add `tool.post` hook payload support for `sin_edit`/`sin_write` through `hooks.json` / `hooks.yaml`.
 - [x] Add `.sin-code/hooks.yaml` example.
 
-### Phase 3 — Advanced Gates (in progress)
+### Phase 3 — Advanced Gates (completed)
 
 - [x] `sin_mutation` (gremlins integration).
 - [x] `sin_fuzz` (native Go fuzzing).
 - [x] `sin_property` (rapid/testing/quick).
-- [ ] Coverage + mutation thresholds in config.
+- [x] Coverage + mutation thresholds in config.
 
-### Phase 4 — Golden Dataset
+### Phase 4 — Golden Dataset (completed)
 
 - [x] Add eval cases for test generation in `evals/`.
-- [ ] Wire into CI via n8n (M1).
+- [x] Add mutation, fuzzing, property, and quality-gate datasets.
+- [x] Wire into CI via n8n (M1).
+- [x] Document dataset format in `evals/README.md`.
+
+### Phase 5 — LLM Case Filling (in progress)
+
+- [ ] Wire `sin_test_generate` to `internal/llm.Client` when `llm=true` or `test.use_llm=true`.
+- [ ] Implement prompt builder that asks the LLM for realistic test cases from a function signature.
+- [ ] Insert LLM-generated cases into the table-driven test.
+- [ ] Add generate/execute/repair loop (max 3 retries).
+- [ ] Add `test.use_llm` config key and `SIN_TEST_GENERATE_USE_LLM` env var.
+- [ ] Add unit tests for LLM case filling and fallback behaviour.
 
 ---
 

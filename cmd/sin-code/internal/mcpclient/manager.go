@@ -29,6 +29,17 @@ var (
 	// listToolsHook lets tests inject a ListTools error without building a
 	// custom transport/connection implementation.
 	listToolsHook func(ctx context.Context, sess *sdk.ClientSession) (*sdk.ListToolsResult, error)
+
+	// testConnectHook lets coverage tests bypass the real transport and SDK
+	// entirely by returning a fake session and a tool list directly.
+	testConnectHook func(ctx context.Context, client *sdk.Client, cfg ServerConfig) (session, []Tool, error)
+
+	// testTransportProvider lets coverage tests inject an in-memory transport
+	// for the real SDK connection path.
+	testTransportProvider func(cfg ServerConfig) (sdk.Transport, error)
+
+	// testListToolsErr lets coverage tests force the ListTools step to fail.
+	testListToolsErr error
 )
 
 type ServerConfig struct {
@@ -48,15 +59,31 @@ type Tool struct {
 	InputSchema map[string]any
 }
 
+type session interface {
+	CallTool(ctx context.Context, params *sdk.CallToolParams) (*sdk.CallToolResult, error)
+	Close() error
+}
+
+type realSession struct {
+	*sdk.ClientSession
+}
+
+func (r *realSession) Close() error {
+	if r.ClientSession == nil {
+		return nil
+	}
+	return r.ClientSession.Close()
+}
+
 type Manager struct {
 	configs  []ServerConfig
 	mu       sync.RWMutex
-	sessions map[string]*sdk.ClientSession
+	sessions map[string]session
 	tools    []Tool
 }
 
 func NewManager(configs []ServerConfig) *Manager {
-	return &Manager{configs: configs, sessions: map[string]*sdk.ClientSession{}}
+	return &Manager{configs: configs, sessions: map[string]session{}}
 }
 
 // ConnectAll connects to every configured server. A single failing server is
@@ -83,19 +110,39 @@ func (m *Manager) ConnectAll(ctx context.Context) error {
 }
 
 func (m *Manager) connect(ctx context.Context, client *sdk.Client, cfg ServerConfig) error {
-	var transport sdk.Transport
-	switch cfg.Transport {
-	case "stdio":
-		cmd := exec.CommandContext(ctx, cfg.Command, cfg.Args...)
-		cmd.Env = os.Environ()
-		for k, v := range cfg.Env {
-			cmd.Env = append(cmd.Env, k+"="+v)
+	if testConnectHook != nil {
+		sess, tools, err := testConnectHook(ctx, client, cfg)
+		if err != nil {
+			return err
 		}
-		transport = &sdk.CommandTransport{Command: cmd}
-	case "http":
-		transport = &sdk.StreamableClientTransport{Endpoint: cfg.URL}
-	default:
-		return fmt.Errorf("unknown transport %q", cfg.Transport)
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		m.sessions[cfg.Name] = sess
+		m.tools = append(m.tools, tools...)
+		return nil
+	}
+
+	var transport sdk.Transport
+	if testTransportProvider != nil {
+		t, err := testTransportProvider(cfg)
+		if err != nil {
+			return err
+		}
+		transport = t
+	} else {
+		switch cfg.Transport {
+		case "stdio":
+			cmd := exec.CommandContext(ctx, cfg.Command, cfg.Args...)
+			cmd.Env = os.Environ()
+			for k, v := range cfg.Env {
+				cmd.Env = append(cmd.Env, k+"="+v)
+			}
+			transport = &sdk.CommandTransport{Command: cmd}
+		case "http":
+			transport = &sdk.StreamableClientTransport{Endpoint: cfg.URL}
+		default:
+			return fmt.Errorf("unknown transport %q", cfg.Transport)
+		}
 	}
 
 	if connectTransportHook != nil {
@@ -110,6 +157,12 @@ func (m *Manager) connect(ctx context.Context, client *sdk.Client, cfg ServerCon
 	if err != nil {
 		return err
 	}
+
+	if testListToolsErr != nil {
+		_ = sess.Close()
+		return testListToolsErr
+	}
+
 	var res *sdk.ListToolsResult
 	if listToolsHook != nil {
 		res, err = listToolsHook(ctx, sess)
@@ -123,7 +176,7 @@ func (m *Manager) connect(ctx context.Context, client *sdk.Client, cfg ServerCon
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.sessions[cfg.Name] = sess
+	m.sessions[cfg.Name] = &realSession{ClientSession: sess}
 	for _, t := range res.Tools {
 		m.tools = append(m.tools, Tool{
 			Server:      cfg.Name,
@@ -180,5 +233,5 @@ func (m *Manager) Close() {
 	for _, s := range m.sessions {
 		_ = s.Close()
 	}
-	m.sessions = map[string]*sdk.ClientSession{}
+	m.sessions = map[string]session{}
 }

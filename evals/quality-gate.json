@@ -1,0 +1,41 @@
+{
+  "name": "Quality Gate Golden Dataset",
+  "version": "1.0.0",
+  "description": "Evaluates the agent's ability to run sin_quality_gate and interpret the pass/fail report (RFC-test-automation.md).",
+  "test_cases": [
+    {
+      "id": "quality_gate_run",
+      "prompt": "Run sin_quality_gate on the current workspace and report whether the gate passes or fails.",
+      "description": "Smoke test for sin_quality_gate invocation.",
+      "tags": ["quality-gate", "tool"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "120s"
+      },
+      "expected": {
+        "output_contains": ["sin_quality_gate", "passes or fails"]
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "tool"
+      }
+    },
+    {
+      "id": "quality_gate_threshold",
+      "prompt": "Use sin_quality_gate to check the current workspace with a coverage threshold of 80%. Report the JSON status and coverage value.",
+      "description": "Verifies the agent can pass a threshold to the quality gate.",
+      "tags": ["quality-gate", "json", "coverage"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "120s"
+      },
+      "expected": {
+        "output_contains": ["sin_quality_gate", "coverage threshold"]
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "tool"
+      }
+    }
+  ]
+}

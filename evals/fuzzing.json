@@ -1,0 +1,41 @@
+{
+  "name": "Fuzzing Golden Dataset",
+  "version": "1.0.0",
+  "description": "Evaluates the agent's ability to generate and reason about Go fuzz-style tests (RFC-test-automation.md).",
+  "test_cases": [
+    {
+      "id": "generate_fuzz_target",
+      "prompt": "Write a complete Go program (package main) that defines a function Add(a, b int) int and a main function that fuzz-tests it with many pseudo-random inputs, panicking if a result is wrong. Output the code in a fenced Go code block.",
+      "description": "Generates a valid Go program that demonstrates fuzz-style testing.",
+      "tags": ["fuzzing", "go", "compile_and_run"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "120s"
+      },
+      "expected": {
+        "output_contains": ["Add", "main function", "fuzz"]
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "generation"
+      }
+    },
+    {
+      "id": "fuzz_output_reasoning",
+      "prompt": "Explain how you would use sin_fuzz to discover an edge-case bug in a function that parses integers. Mention the tool name and one concrete input that would be worth fuzzing.",
+      "description": "Verifies the agent knows when to use the fuzz tool.",
+      "tags": ["fuzzing", "reasoning"],
+      "constraints": {
+        "max_turns": 3,
+        "timeout": "60s"
+      },
+      "expected": {
+        "output_contains": ["sin_fuzz", "fuzz"]
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "reasoning"
+      }
+    }
+  ]
+}

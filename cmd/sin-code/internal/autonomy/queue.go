@@ -65,7 +65,7 @@ const selectColumns = `id, prompt, workspace, priority, status, attempts, max_re
   session_id, last_error, contract, parent_id, depth, continuations, created_at, updated_at`
 
 func Open(path string) (*Queue, error) {
-	db, err := sql.Open("sqlite", path)
+	db, err := _dbOpen("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS goals (
 );
 CREATE INDEX IF NOT EXISTS idx_goals_status_priority ON goals(status, priority DESC);
 `
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := _dbExec(db, schema); err != nil {
 		return nil, err
 	}
 	q := &Queue{db: db}
@@ -110,15 +110,15 @@ func (q *Queue) migrate() error {
 		`ALTER TABLE goals ADD COLUMN dedup_key TEXT DEFAULT ''`,
 	}
 	for _, stmt := range addCols {
-		if _, err := q.db.Exec(stmt); err != nil {
+		if _, err := _dbExec(q.db, stmt); err != nil {
 			if strings.Contains(strings.ToLower(err.Error()), "duplicate column") {
 				continue
 			}
 			return fmt.Errorf("autonomy migrate: %q: %w", stmt, err)
 		}
 	}
-	_, _ = q.db.Exec(`CREATE INDEX IF NOT EXISTS idx_goals_parent ON goals(parent_id)`)
-	_, _ = q.db.Exec(`CREATE INDEX IF NOT EXISTS idx_goals_dedup ON goals(dedup_key)`)
+	_, _ = _dbExec(q.db, `CREATE INDEX IF NOT EXISTS idx_goals_parent ON goals(parent_id)`)
+	_, _ = _dbExec(q.db, `CREATE INDEX IF NOT EXISTS idx_goals_dedup ON goals(dedup_key)`)
 	return nil
 }
 
@@ -139,8 +139,8 @@ func (q *Queue) AddDiscovered(ctx context.Context, prompt, workspace, dedupKey s
 			return 0, false, nil
 		}
 	}
-	now := time.Now().UTC().Format(time.RFC3339)
-	res, err := q.db.ExecContext(ctx, `
+	now := _timeNow().UTC().Format(time.RFC3339)
+	res, err := _dbExecContext(q.db, ctx, `
 INSERT INTO goals (prompt, workspace, priority, max_retries, contract, dedup_key, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, prompt, workspace, priority, maxRetries, contract, dedupKey, now, now)
 	if err != nil {
@@ -178,8 +178,8 @@ func (q *Queue) AddSub(ctx context.Context, parentID int64, prompt string, prior
 }
 
 func (q *Queue) add(ctx context.Context, prompt, workspace string, priority, maxRetries int, contract string, parentID int64, depth int) (int64, error) {
-	now := time.Now().UTC().Format(time.RFC3339)
-	res, err := q.db.ExecContext(ctx, `
+	now := _timeNow().UTC().Format(time.RFC3339)
+	res, err := _dbExecContext(q.db, ctx, `
 INSERT INTO goals (prompt, workspace, priority, max_retries, contract, parent_id, depth, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, prompt, workspace, priority, maxRetries, contract, parentID, depth, now, now)
 	if err != nil {
@@ -193,11 +193,11 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, prompt, workspace, priority, maxRetries, co
 // parent is never finalized before its children. A goal is leasable when it is
 // pending (and has no unverified children) or a running lease has expired.
 func (q *Queue) Lease(ctx context.Context, leaseDur time.Duration) (*Goal, error) {
-	now := time.Now().UTC()
+	now := _timeNow().UTC()
 	leaseUntil := now.Add(leaseDur).Format(time.RFC3339)
 	nowStr := now.Format(time.RFC3339)
 
-	tx, err := q.db.BeginTx(ctx, nil)
+	tx, err := _dbBeginTx(q.db, ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func (q *Queue) Lease(ctx context.Context, leaseDur time.Duration) (*Goal, error
 
 	var g Goal
 	var created, updated string
-	err = tx.QueryRowContext(ctx, `
+	err = _txQueryRowContext(tx, ctx, `
 SELECT `+selectColumns+`
 FROM goals g
 WHERE (
@@ -225,12 +225,12 @@ LIMIT 1`, nowStr).Scan(scanArgs(&g, &created, &updated)...)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := tx.ExecContext(ctx, `
+	if _, err := _txExecContext(tx, ctx, `
 UPDATE goals SET status = 'running', attempts = attempts + 1, lease_until = ?, updated_at = ?
 WHERE id = ?`, leaseUntil, nowStr, g.ID); err != nil {
 		return nil, err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := _txCommit(tx); err != nil {
 		return nil, err
 	}
 	g.Status = StatusRunning
@@ -259,7 +259,7 @@ func (q *Queue) Get(ctx context.Context, id int64) (*Goal, error) {
 
 // Children returns the direct children of parentID, oldest first.
 func (q *Queue) Children(ctx context.Context, parentID int64) ([]Goal, error) {
-	rows, err := q.db.QueryContext(ctx, `SELECT `+selectColumns+` FROM goals WHERE parent_id = ? ORDER BY id ASC`, parentID)
+	rows, err := _dbQueryContext(q.db, ctx, `SELECT `+selectColumns+` FROM goals WHERE parent_id = ? ORDER BY id ASC`, parentID)
 	if err != nil {
 		return nil, err
 	}
@@ -331,8 +331,8 @@ func (q *Queue) unverifiedChildCount(ctx context.Context, id int64) (int, error)
 // Fail records a failure; the goal returns to pending until the retry
 // budget is spent, then becomes exhausted.
 func (q *Queue) Fail(ctx context.Context, id int64, sessionID, errMsg string) error {
-	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := q.db.ExecContext(ctx, `
+	now := _timeNow().UTC().Format(time.RFC3339)
+	_, err := _dbExecContext(q.db, ctx, `
 UPDATE goals SET
   status = CASE WHEN attempts >= max_retries THEN 'exhausted' ELSE 'pending' END,
   session_id = ?, last_error = ?, lease_until = '', updated_at = ?
@@ -345,8 +345,8 @@ WHERE id = ?`, sessionID, errMsg, now, id)
 // continuation counter is bumped instead. Returns the new continuation count
 // so the caller can enforce a ceiling.
 func (q *Queue) Continue(ctx context.Context, id int64, sessionID, note string) (int, error) {
-	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := q.db.ExecContext(ctx, `
+	now := _timeNow().UTC().Format(time.RFC3339)
+	_, err := _dbExecContext(q.db, ctx, `
 UPDATE goals SET
   status = 'pending',
   attempts = CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END,
@@ -362,8 +362,8 @@ WHERE id = ?`, sessionID, note, now, id)
 }
 
 func (q *Queue) setStatus(ctx context.Context, id int64, s GoalStatus, sessionID, errMsg string) error {
-	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := q.db.ExecContext(ctx, `
+	now := _timeNow().UTC().Format(time.RFC3339)
+	_, err := _dbExecContext(q.db, ctx, `
 UPDATE goals SET status = ?, session_id = ?, last_error = ?, lease_until = '', updated_at = ?
 WHERE id = ?`, s, sessionID, errMsg, now, id)
 	return err
@@ -378,7 +378,7 @@ func (q *Queue) List(ctx context.Context, status GoalStatus) ([]Goal, error) {
 		args = append(args, status)
 	}
 	query += ` ORDER BY id DESC LIMIT 200`
-	rows, err := q.db.QueryContext(ctx, query, args...)
+	rows, err := _dbQueryContext(q.db, ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -415,10 +415,10 @@ func scanGoals(rows *sql.Rows) ([]Goal, error) {
 func DefaultPath() string {
 	dir := os.Getenv("XDG_DATA_HOME")
 	if dir == "" {
-		home, _ := os.UserHomeDir()
+		home, _ := _userHomeDir()
 		dir = filepath.Join(home, ".local", "share")
 	}
 	base := filepath.Join(dir, "sin-code")
-	_ = os.MkdirAll(base, 0o755)
+	_ = _mkdirAll(base, 0o755)
 	return filepath.Join(base, "goals.db")
 }

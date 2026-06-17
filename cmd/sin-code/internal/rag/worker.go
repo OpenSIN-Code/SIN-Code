@@ -102,6 +102,13 @@ func (p *WorkerPool) Embed(ctx context.Context, text string) ([]float32, error) 
 	}
 	if workerPoolBeforeQueueHook != nil {
 		workerPoolBeforeQueueHook()
+		// The hook may have closed the pool synchronously. Recheck before
+		// sending on the queue to avoid a panic on a closed channel.
+		select {
+		case <-p.closed:
+			return nil, ErrPoolClosed
+		default:
+		}
 	}
 	j := job{ctx: ctx, text: text, done: make(chan result, workerPoolJobDoneBufferSize)}
 	select {

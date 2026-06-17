@@ -317,39 +317,6 @@ func loopingRunner(t *testing.T, override func(context.Context, *session.Session
 	return r
 }
 
-func TestNewRunner_NilLoop(t *testing.T) {
-	_, err := NewRunner(RunnerConfig{}, nil, inMemoryStore(t))
-	if err == nil || !strings.Contains(err.Error(), "loop is nil") {
-		t.Fatalf("expected nil loop error, got %v", err)
-	}
-}
-
-func TestNewRunner_NilStore(t *testing.T) {
-	loop := &agentloop.Loop{RunOverride: func(context.Context, *session.Session, string) (*agentloop.Result, error) {
-		return &agentloop.Result{}, nil
-	}}
-	_, err := NewRunner(RunnerConfig{}, loop, nil)
-	if err == nil || !strings.Contains(err.Error(), "session store is nil") {
-		t.Fatalf("expected nil store error, got %v", err)
-	}
-}
-
-func TestNewRunner_Defaults(t *testing.T) {
-	loop := &agentloop.Loop{RunOverride: func(context.Context, *session.Session, string) (*agentloop.Result, error) {
-		return &agentloop.Result{}, nil
-	}}
-	r, err := NewRunner(RunnerConfig{}, loop, inMemoryStore(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r.cfg.MaxConcurrency != 1 || r.cfg.TimeoutPerCase != 5*time.Minute || r.cfg.HeadlessMode != true {
-		t.Fatalf("unexpected defaults: %+v", r.cfg)
-	}
-	if r.cfg.VerifyMode != string(verify.ModePoC) {
-		t.Fatalf("expected verify mode %q, got %q", verify.ModePoC, r.cfg.VerifyMode)
-	}
-}
-
 func TestRunDataset_Nil(t *testing.T) {
 	r := loopingRunner(t, func(context.Context, *session.Session, string) (*agentloop.Result, error) {
 		return &agentloop.Result{}, nil

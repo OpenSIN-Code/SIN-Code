@@ -258,3 +258,272 @@ func TestAutoMem_GcCmd(t *testing.T) {
 		t.Errorf("expected gc output, got %q", out)
 	}
 }
+
+func TestAutoMem_ListCmdNonEmpty(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := autoMemDefaultHome
+	oldOpen := autoMemOpen
+	oldProject := autoMemProject
+	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
+	autoMemOpen = auto_mem.Open
+	autoMemProject = ""
+	defer func() {
+		autoMemDefaultHome = oldHome
+		autoMemOpen = oldOpen
+		autoMemProject = oldProject
+	}()
+
+	store, _, err := openAutoMem()
+	if err != nil {
+		t.Fatalf("openAutoMem: %v", err)
+	}
+	if err := store.Append(auto_mem.Entry{Heading: "topic", Body: "body"}); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+
+	out, err := captureAutoMemCmd(t, memAutoListCmd, []string{})
+	if err != nil {
+		t.Fatalf("memAutoListCmd: %v", err)
+	}
+	if !strings.Contains(out, "topic") {
+		t.Errorf("expected topic in output, got %q", out)
+	}
+}
+
+func TestAutoMem_ListCmdIndexError(t *testing.T) {
+	oldIndex := autoMemIndex
+	autoMemIndex = func(s *auto_mem.Store) ([]string, error) { return nil, errors.New("index error") }
+	defer func() { autoMemIndex = oldIndex }()
+
+	tmpDir := t.TempDir()
+	oldHome := autoMemDefaultHome
+	oldOpen := autoMemOpen
+	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
+	autoMemOpen = auto_mem.Open
+	defer func() {
+		autoMemDefaultHome = oldHome
+		autoMemOpen = oldOpen
+	}()
+
+	_, err := captureAutoMemCmd(t, memAutoListCmd, []string{})
+	if err == nil || !strings.Contains(err.Error(), "index error") {
+		t.Fatalf("expected index error, got %v", err)
+	}
+}
+
+func TestAutoMem_ShowCmdReadError(t *testing.T) {
+	oldRead := autoMemReadTopic
+	autoMemReadTopic = func(s *auto_mem.Store, heading string) ([]byte, error) { return nil, errors.New("read error") }
+	defer func() { autoMemReadTopic = oldRead }()
+
+	tmpDir := t.TempDir()
+	oldHome := autoMemDefaultHome
+	oldOpen := autoMemOpen
+	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
+	autoMemOpen = auto_mem.Open
+	defer func() {
+		autoMemDefaultHome = oldHome
+		autoMemOpen = oldOpen
+	}()
+
+	_, err := captureAutoMemCmd(t, memAutoShowCmd, []string{"topic"})
+	if err == nil || !strings.Contains(err.Error(), "read error") {
+		t.Fatalf("expected read error, got %v", err)
+	}
+}
+
+func TestAutoMem_AppendCmdSourceOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := autoMemDefaultHome
+	oldOpen := autoMemOpen
+	oldProject := autoMemProject
+	oldSource := autoMemSource
+	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
+	autoMemOpen = auto_mem.Open
+	autoMemProject = ""
+	autoMemSource = "verify-fail"
+	defer func() {
+		autoMemDefaultHome = oldHome
+		autoMemOpen = oldOpen
+		autoMemProject = oldProject
+		autoMemSource = oldSource
+	}()
+
+	out, err := captureAutoMemCmd(t, memAutoAppendCmd, []string{"heading", "body"})
+	if err != nil {
+		t.Fatalf("memAutoAppendCmd: %v", err)
+	}
+	if !strings.Contains(out, "updated MEMORY.md topic") {
+		t.Errorf("expected append output, got %q", out)
+	}
+}
+
+func TestAutoMem_AppendCmdError(t *testing.T) {
+	oldAppend := autoMemAppend
+	autoMemAppend = func(s *auto_mem.Store, e auto_mem.Entry) error { return errors.New("append error") }
+	defer func() { autoMemAppend = oldAppend }()
+
+	tmpDir := t.TempDir()
+	oldHome := autoMemDefaultHome
+	oldOpen := autoMemOpen
+	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
+	autoMemOpen = auto_mem.Open
+	defer func() {
+		autoMemDefaultHome = oldHome
+		autoMemOpen = oldOpen
+	}()
+
+	_, err := captureAutoMemCmd(t, memAutoAppendCmd, []string{"heading", "body"})
+	if err == nil || !strings.Contains(err.Error(), "append error") {
+		t.Fatalf("expected append error, got %v", err)
+	}
+}
+
+func TestAutoMem_RmCmdError(t *testing.T) {
+	oldRemove := autoMemRemove
+	autoMemRemove = func(s *auto_mem.Store, heading string) error { return errors.New("remove error") }
+	defer func() { autoMemRemove = oldRemove }()
+
+	tmpDir := t.TempDir()
+	oldHome := autoMemDefaultHome
+	oldOpen := autoMemOpen
+	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
+	autoMemOpen = auto_mem.Open
+	defer func() {
+		autoMemDefaultHome = oldHome
+		autoMemOpen = oldOpen
+	}()
+
+	_, err := captureAutoMemCmd(t, memAutoRmCmd, []string{"topic"})
+	if err == nil || !strings.Contains(err.Error(), "remove error") {
+		t.Fatalf("expected remove error, got %v", err)
+	}
+}
+
+func TestAutoMem_GcCmdError(t *testing.T) {
+	oldRotate := autoMemRotate
+	autoMemRotate = func(s *auto_mem.Store, max int) (int, error) { return 0, errors.New("rotate error") }
+	defer func() { autoMemRotate = oldRotate }()
+
+	tmpDir := t.TempDir()
+	oldHome := autoMemDefaultHome
+	oldOpen := autoMemOpen
+	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
+	autoMemOpen = auto_mem.Open
+	defer func() {
+		autoMemDefaultHome = oldHome
+		autoMemOpen = oldOpen
+	}()
+
+	_, err := captureAutoMemCmd(t, memAutoGcCmd, []string{})
+	if err == nil || !strings.Contains(err.Error(), "rotate error") {
+		t.Fatalf("expected rotate error, got %v", err)
+	}
+}
+
+func TestAutoMem_ListCmdOpenError(t *testing.T) {
+	oldOpen := autoMemOpen
+	autoMemOpen = func(string, string) (*auto_mem.Store, error) { return nil, errors.New("open error") }
+	defer func() { autoMemOpen = oldOpen }()
+
+	_, err := captureAutoMemCmd(t, memAutoListCmd, []string{})
+	if err == nil || !strings.Contains(err.Error(), "open error") {
+		t.Fatalf("expected open error, got %v", err)
+	}
+}
+
+func TestAutoMem_ShowCmdOpenError(t *testing.T) {
+	oldOpen := autoMemOpen
+	autoMemOpen = func(string, string) (*auto_mem.Store, error) { return nil, errors.New("open error") }
+	defer func() { autoMemOpen = oldOpen }()
+
+	_, err := captureAutoMemCmd(t, memAutoShowCmd, []string{"topic"})
+	if err == nil || !strings.Contains(err.Error(), "open error") {
+		t.Fatalf("expected open error, got %v", err)
+	}
+}
+
+func TestAutoMem_AppendCmdOpenError(t *testing.T) {
+	oldOpen := autoMemOpen
+	autoMemOpen = func(string, string) (*auto_mem.Store, error) { return nil, errors.New("open error") }
+	defer func() { autoMemOpen = oldOpen }()
+
+	_, err := captureAutoMemCmd(t, memAutoAppendCmd, []string{"heading", "body"})
+	if err == nil || !strings.Contains(err.Error(), "open error") {
+		t.Fatalf("expected open error, got %v", err)
+	}
+}
+
+func TestAutoMem_AppendCmdDefaultSource(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := autoMemDefaultHome
+	oldOpen := autoMemOpen
+	oldProject := autoMemProject
+	oldSource := autoMemSource
+	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
+	autoMemOpen = auto_mem.Open
+	autoMemProject = ""
+	autoMemSource = ""
+	defer func() {
+		autoMemDefaultHome = oldHome
+		autoMemOpen = oldOpen
+		autoMemProject = oldProject
+		autoMemSource = oldSource
+	}()
+
+	out, err := captureAutoMemCmd(t, memAutoAppendCmd, []string{"heading", "body"})
+	if err != nil {
+		t.Fatalf("memAutoAppendCmd: %v", err)
+	}
+	if !strings.Contains(out, "updated MEMORY.md topic") {
+		t.Errorf("expected append output, got %q", out)
+	}
+}
+
+func TestAutoMem_RmCmdOpenError(t *testing.T) {
+	oldOpen := autoMemOpen
+	autoMemOpen = func(string, string) (*auto_mem.Store, error) { return nil, errors.New("open error") }
+	defer func() { autoMemOpen = oldOpen }()
+
+	_, err := captureAutoMemCmd(t, memAutoRmCmd, []string{"topic"})
+	if err == nil || !strings.Contains(err.Error(), "open error") {
+		t.Fatalf("expected open error, got %v", err)
+	}
+}
+
+func TestAutoMem_GcCmdOpenError(t *testing.T) {
+	oldOpen := autoMemOpen
+	autoMemOpen = func(string, string) (*auto_mem.Store, error) { return nil, errors.New("open error") }
+	defer func() { autoMemOpen = oldOpen }()
+
+	_, err := captureAutoMemCmd(t, memAutoGcCmd, []string{})
+	if err == nil || !strings.Contains(err.Error(), "open error") {
+		t.Fatalf("expected open error, got %v", err)
+	}
+}
+
+func TestAutoMem_GcCmdDefaultMax(t *testing.T) {
+	tmpDir := t.TempDir()
+	oldHome := autoMemDefaultHome
+	oldOpen := autoMemOpen
+	oldProject := autoMemProject
+	oldMax := autoMemMax
+	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
+	autoMemOpen = auto_mem.Open
+	autoMemProject = ""
+	autoMemMax = 0
+	defer func() {
+		autoMemDefaultHome = oldHome
+		autoMemOpen = oldOpen
+		autoMemProject = oldProject
+		autoMemMax = oldMax
+	}()
+
+	out, err := captureAutoMemCmd(t, memAutoGcCmd, []string{})
+	if err != nil {
+		t.Fatalf("memAutoGcCmd: %v", err)
+	}
+	if !strings.Contains(out, "rotated MEMORY.md") {
+		t.Errorf("expected gc output, got %q", out)
+	}
+}

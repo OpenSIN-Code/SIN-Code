@@ -19,6 +19,9 @@ import (
 var (
 	rulesWorkspace string
 	rulesFormat    string
+
+	rulesAbs   = filepath.Abs
+	rulesGetwd = os.Getwd
 )
 
 var RulesCmd = &cobra.Command{
@@ -47,7 +50,7 @@ var rulesListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List every rule",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		abs, err := filepath.Abs(rulesWorkspace)
+		abs, err := rulesAbs(rulesWorkspace)
 		if err != nil {
 			return err
 		}
@@ -88,7 +91,7 @@ var rulesShowCmd = &cobra.Command{
 	Short: "Print a single rule",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		abs, err := filepath.Abs(rulesWorkspace)
+		abs, err := rulesAbs(rulesWorkspace)
 		if err != nil {
 			return err
 		}
@@ -126,7 +129,7 @@ var rulesPathCmd = &cobra.Command{
 	Short: "Resolve which rules match a given file path.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		abs, err := filepath.Abs(rulesWorkspace)
+		abs, err := rulesAbs(rulesWorkspace)
 		if err != nil {
 			return err
 		}
@@ -137,7 +140,7 @@ var rulesPathCmd = &cobra.Command{
 		// If the user gives a relative path, resolve against CWD.
 		target := args[0]
 		if !filepath.IsAbs(target) {
-			if cwd, cerr := os.Getwd(); cerr == nil {
+			if cwd, cerr := rulesGetwd(); cerr == nil {
 				target = filepath.Join(cwd, target)
 			}
 		}
@@ -164,7 +167,7 @@ var rulesWhereCmd = &cobra.Command{
 	Use:   "where",
 	Short: "Print the on-disk rules directory",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		abs, err := filepath.Abs(rulesWorkspace)
+		abs, err := rulesAbs(rulesWorkspace)
 		if err != nil {
 			return err
 		}

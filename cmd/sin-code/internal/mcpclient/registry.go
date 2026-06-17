@@ -14,6 +14,10 @@ var (
 	// userHomeDirHook lets tests force the default skills-dir path to empty
 	// so the PATH fallback branches in DefaultServers are exercised.
 	userHomeDirHook = os.UserHomeDir
+
+	// testSkillsDir lets coverage tests override the skills directory without
+	// touching the real filesystem or environment variables.
+	testSkillsDir *string
 )
 
 // DefaultServers returns the ecosystem registry. Server names double as
@@ -99,6 +103,9 @@ func shortName(repo string) string {
 // local share location used by skillmgr. This keeps the registry in sync
 // with where skillmgr actually installs skills.
 func skillsDirOrDefault() string {
+	if testSkillsDir != nil {
+		return *testSkillsDir
+	}
 	if d := os.Getenv("SIN_SKILLS_DIR"); d != "" {
 		return d
 	}

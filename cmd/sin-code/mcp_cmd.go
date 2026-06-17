@@ -16,6 +16,27 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 )
 
+// mcpManager is the interface used by the mcp subcommand so tests can swap
+// in a fake manager without a real network connection.
+type mcpManager interface {
+	ConnectAll(ctx context.Context) error
+	Tools() []mcpclient.Tool
+	Call(ctx context.Context, qualified string, args map[string]any) (string, error)
+	Close()
+}
+
+// mcpHookVars holds injectable dependencies for the mcp subcommand. Coverage
+// tests replace these fields to avoid real I/O or network calls.
+var mcpHookVars = struct {
+	loadConfigs func(string) []mcpclient.ServerConfig
+	newManager  func([]mcpclient.ServerConfig) mcpManager
+	getwd       func() (string, error)
+}{
+	loadConfigs: mcpclient.LoadConfigs,
+	newManager:  func(cfgs []mcpclient.ServerConfig) mcpManager { return mcpclient.NewManager(cfgs) },
+	getwd:       os.Getwd,
+}
+
 func NewMCPCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "mcp",
@@ -29,11 +50,11 @@ func NewMCPCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List effective server configs (defaults + user + workspace merge)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ws, err := os.Getwd()
+			ws, err := mcpHookVars.getwd()
 			if err != nil {
 				return err
 			}
-			cfgs := mcpclient.LoadConfigs(ws)
+			cfgs := mcpHookVars.loadConfigs(ws)
 			if jsonOut {
 				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
@@ -59,13 +80,13 @@ func NewMCPCmd() *cobra.Command {
 		Use:   "status",
 		Short: "Connect to all servers and report reachability + tool counts",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ws, err := os.Getwd()
+			ws, err := mcpHookVars.getwd()
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 			defer cancel()
-			mgr := mcpclient.NewManager(mcpclient.LoadConfigs(ws))
+			mgr := mcpHookVars.newManager(mcpHookVars.loadConfigs(ws))
 			if err := mgr.ConnectAll(ctx); err != nil {
 				return err
 			}
@@ -81,7 +102,7 @@ func NewMCPCmd() *cobra.Command {
 				Tools int    `json:"tools"`
 			}
 			var rows []row
-			for _, c := range mcpclient.LoadConfigs(ws) {
+			for _, c := range mcpHookVars.loadConfigs(ws) {
 				n := byServer[c.Name]
 				rows = append(rows, row{Name: c.Name, Up: n > 0, Tools: n})
 			}
@@ -115,13 +136,13 @@ func NewMCPCmd() *cobra.Command {
 					return fmt.Errorf("args must be a JSON object: %w", err)
 				}
 			}
-			ws, err := os.Getwd()
+			ws, err := mcpHookVars.getwd()
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 			defer cancel()
-			mgr := mcpclient.NewManager(mcpclient.LoadConfigs(ws))
+			mgr := mcpHookVars.newManager(mcpHookVars.loadConfigs(ws))
 			if err := mgr.ConnectAll(ctx); err != nil {
 				return err
 			}

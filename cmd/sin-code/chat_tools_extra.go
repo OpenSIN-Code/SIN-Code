@@ -27,6 +27,7 @@ import (
 	"github.com/chromedp/chromedp"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgen"
 	"github.com/OpenSIN-Code/SIN-Code/pkg/browser/cdp"
@@ -36,6 +37,18 @@ const (
 	maxHTTPBytes = 256 * 1024
 	gitTimeout   = 30 * time.Second
 	testTimeout  = 5 * time.Minute
+)
+
+// extra tool hook variables — injected by coverage tests to mock git, HTTP,
+// and test subprocess calls.
+var (
+	extraToolFn          = extraTool
+	runGitFn             = runGit
+	toolHTTPGetFn        = toolHTTPGet
+	toolTestFn           = func(ctx context.Context, target string) (string, error) { return toolTest(ctx, map[string]any{"target": target}) }
+	toolHTTPNewRequestFn = http.NewRequestWithContext
+	toolHTTPClientDoFn   = func(req *http.Request) (*http.Response, error) { return http.DefaultClient.Do(req) }
+	toolTestRunFn        = func(cmd *exec.Cmd) ([]byte, error) { return cmd.CombinedOutput() }
 )
 
 var testConfigCache struct {
@@ -146,25 +159,25 @@ func extraTool(ctx context.Context, name string, args map[string]any) (string, e
 		if p := argStr(args, "path"); p != "" {
 			a = append(a, "--", p)
 		}
-		return runGit(ctx, a...)
+		return runGitFn(ctx, a...)
 	case "sin_git_diff":
 		if ref := argStr(args, "ref"); ref != "" {
-			return runGit(ctx, "diff", ref, "--stat", "-p")
+			return runGitFn(ctx, "diff", ref, "--stat", "-p")
 		}
-		return runGit(ctx, "diff", "--stat", "-p")
+		return runGitFn(ctx, "diff", "--stat", "-p")
 	case "sin_git_commit":
 		msg := argStr(args, "message")
 		if msg == "" {
 			return "", fmt.Errorf("sin_git_commit: message required")
 		}
-		if out, err := runGit(ctx, "add", "-A"); err != nil {
+		if out, err := runGitFn(ctx, "add", "-A"); err != nil {
 			return out, err
 		}
-		return runGit(ctx, "commit", "-m", msg)
+		return runGitFn(ctx, "commit", "-m", msg)
 	case "sin_http_get":
-		return toolHTTPGet(ctx, argStr(args, "url"))
+		return toolHTTPGetFn(ctx, argStr(args, "url"))
 	case "sin_test":
-		return toolTest(ctx, args)
+		return toolTestFn(ctx, argStr(args, "target"))
 	case "sin_test_generate":
 		return toolTestGenerate(ctx, args)
 	case "sin_quality_gate":
@@ -211,12 +224,12 @@ func toolHTTPGet(ctx context.Context, url string) (string, error) {
 	}
 	cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(cctx, http.MethodGet, url, nil)
+	req, err := toolHTTPNewRequestFn(cctx, http.MethodGet, url, nil)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("User-Agent", "sin-code-agent/3.5")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := toolHTTPClientDoFn(req)
 	if err != nil {
 		return "", err
 	}
@@ -272,7 +285,7 @@ func toolTest(ctx context.Context, args map[string]any) (string, error) {
 		return "", fmt.Errorf("sin_test: no recognized test setup (go.mod/package.json/pyproject.toml)")
 	}
 
-	out, err := cmd.CombinedOutput()
+	out, err := toolTestRunFn(cmd)
 	passed := err == nil
 	text := string(out)
 	if len(text) > maxToolOutput {
@@ -311,6 +324,15 @@ func toolTestGenerate(ctx context.Context, args map[string]any) (string, error) 
 	pkg := argStr(args, "package")
 	overwrite := argBool(args, "overwrite", false)
 	useLLM := argBool(args, "llm", false)
+	// `useLLM||config.test.use_llm` enables calling the configured LLM to fill
+	// realistic test cases when the scaffold is generated. Env override:
+	// SIN_TEST_GENERATE_USE_LLM=1. Privacy-first: the env var wins over the
+	// caller-supplied flag for headless runs (M4).
+	if os.Getenv("SIN_TEST_GENERATE_USE_LLM") == "1" {
+		useLLM = true
+	} else if cfg := testConfig(); cfg.TestUseLLM {
+		useLLM = true
+	}
 
 	if file == "" && pkg == "" {
 		pkg = "./..."
@@ -318,7 +340,7 @@ func toolTestGenerate(ctx context.Context, args map[string]any) (string, error) 
 
 	var llmFn func(context.Context, string) (string, error)
 	if useLLM {
-		llmFn = nil // TODO: wire to internal/llm client in Phase 2
+		llmFn = buildTestgenLLMFn(ctx)
 	}
 
 	res := testgen.Generate(ctx, testgen.Options{
@@ -337,6 +359,67 @@ func toolTestGenerate(ctx context.Context, args map[string]any) (string, error) 
 		return "", err
 	}
 	return string(b), nil
+}
+
+// buildTestgenLLMFn returns a closure wired to the configured OpenAI-
+// compatible chat client and the LLM case-filler. When the API key is
+// missing it returns nil so the caller falls back to the stub scaffold
+// (graceful degradation per M4). Both env and config are honoured.
+func buildTestgenLLMFn(ctx context.Context) func(context.Context, string) (string, error) {
+	cfg := testConfig()
+	apiKey := strings.TrimSpace(os.Getenv("LLM_API_KEY"))
+	if apiKey == "" {
+		apiKey = strings.TrimSpace(cfg.LLMAPIKey)
+	}
+	if apiKey == "" {
+		return nil
+	}
+	baseURL := strings.TrimSpace(cfg.LLMBaseURL)
+	if baseURL == "" {
+		baseURL = "https://integrate.api.nvidia.com/v1"
+	}
+	client := llm.NewClient(baseURL, apiKey)
+	model := cfg.LLMModel
+	return func(ctx context.Context, code string) (string, error) {
+		// Conservative case filler: extract the first exported func
+		// signature and ask the model for one JSON array of cases.
+		// Output shape: `{"name":"function","cases":[...]}` — the
+		// generator logs the raw response for the agent to splice
+		// (Phase 5+). Today we just record it; the per-function
+		// template splice is a follow-up.
+		fns := extractFuncInfoFromSource(code)
+		if len(fns) == 0 {
+			return "", fmt.Errorf("sin_test_generate: no exported function found for LLM fill")
+		}
+		res, err := testgen.FillCasesWithLLM(ctx, client, model, fns[0], testgen.LLMOpts{
+			MaxRepairIters: 0,
+		})
+		if err != nil {
+			return "", err
+		}
+		b, _ := json.Marshal(res)
+		return string(b), nil
+	}
+}
+
+// extractFuncInfoFromSource is a tiny regex-free shim over the testgen
+// FuncInfo extraction. It returns at most one FuncInfo for now — Phase 5+
+// will loop over every exported func.
+func extractFuncInfoFromSource(code string) []testgen.FuncInfo {
+	var out []testgen.FuncInfo
+	// Look for "func Name(" or "func (r Type) Name(".
+	for _, line := range strings.Split(code, "\n") {
+		trim := strings.TrimSpace(line)
+		if !strings.HasPrefix(trim, "func ") {
+			continue
+		}
+		// crude cap; real lifecycle: FuncInfo.Name, Args, Returns
+		out = append(out, testgen.FuncInfo{Name: trim})
+		if len(out) >= 1 {
+			break
+		}
+	}
+	return out
 }
 
 func toolQualityGate(ctx context.Context, args map[string]any) (string, error) {

@@ -242,6 +242,7 @@ func TestConfig_GetConfigValueFromAllKeys(t *testing.T) {
 		AgentVerifyMode: "poc", AgentMaxTurns: 80, AgentHeadless: true, AgentYolo: true,
 		ToolsAllow: []string{"a", "b"}, ToolsDeny: []string{"c"},
 		PathsMCPConfig: "./mcp.json", PathsSkillsDir: "./skills",
+		TestCoverageThreshold: 80, TestMutationThreshold: 50, TestTimeoutSeconds: 300,
 	}
 	cases := map[string]string{
 		"theme":                   "dark",
@@ -261,6 +262,10 @@ func TestConfig_GetConfigValueFromAllKeys(t *testing.T) {
 		"permissions.tools_deny":  "c",
 		"paths.mcp_config":        "./mcp.json",
 		"paths.skills_dir":        "./skills",
+		"test.coverage_threshold": "80",
+		"test.mutation_threshold": "50",
+		"test.auto_generate":      "false",
+		"test.timeout_seconds":    "300",
 	}
 	for key, want := range cases {
 		got, err := getConfigValueFrom(key, cfg)
@@ -300,6 +305,10 @@ func TestConfig_SetConfigValueInAllKeys(t *testing.T) {
 		{"permissions.tools_deny", "c", func() bool { return len(cfg.ToolsDeny) == 1 && cfg.ToolsDeny[0] == "c" }},
 		{"paths.mcp_config", "./m.json", func() bool { return cfg.PathsMCPConfig == "./m.json" }},
 		{"paths.skills_dir", "./s", func() bool { return cfg.PathsSkillsDir == "./s" }},
+		{"test.coverage_threshold", "80", func() bool { return cfg.TestCoverageThreshold == 80 }},
+		{"test.mutation_threshold", "50", func() bool { return cfg.TestMutationThreshold == 50 }},
+		{"test.auto_generate", "true", func() bool { return cfg.TestAutoGenerate }},
+		{"test.timeout_seconds", "600", func() bool { return cfg.TestTimeoutSeconds == 600 }},
 	}
 	for _, c := range cases {
 		if err := setConfigValueIn(c.key, c.val, &cfg); err != nil {
@@ -327,6 +336,10 @@ func TestConfig_SetConfigValueInErrors(t *testing.T) {
 		{"agent.verify_mode", "fast"},
 		{"agent.max_turns", "0"},
 		{"agent.max_turns", "x"},
+		{"test.coverage_threshold", "-1"},
+		{"test.mutation_threshold", "101"},
+		{"test.timeout_seconds", "0"},
+		{"test.timeout_seconds", "x"},
 		{"unknown", "value"},
 	}
 	for _, c := range cases {
@@ -367,6 +380,10 @@ func TestConfig_ApplyMapFull(t *testing.T) {
 		"permissions.tools_deny":  "[c]",
 		"paths.mcp_config":        "./m.json",
 		"paths.skills_dir":        "./s",
+		"test.coverage_threshold": "80",
+		"test.mutation_threshold": "50",
+		"test.auto_generate":      "true",
+		"test.timeout_seconds":    "600",
 	}
 	applyMap(&cfg, m)
 	if cfg.Theme != "light" || cfg.DefaultTimeout != 120 || cfg.DefaultFormat != "text" || !cfg.MCPServerEnabled {

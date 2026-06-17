@@ -27,6 +27,19 @@ const (
 	maxSearchHits = 100
 )
 
+// tool hook variables — injected by coverage tests to mock filesystem, shell,
+// and network calls. Production defaults point to the real implementations.
+var (
+	toolReadFn           = toolRead
+	toolWriteFn          = toolWrite
+	toolEditFn           = toolEdit
+	toolBashFn           = toolBash
+	toolSearchFn         = toolSearch
+	toolBootstrapSkillFn = toolBootstrapSkill
+	toolSearchWalkErrFn  = func(_ string, err error) error { return nil }
+	metaBootstrapSkillFn = meta.BootstrapSkill
+)
+
 type agentloopToolSpecAlias = agentloop.ToolSpec
 
 func builtinSpecs() []agentloopToolSpecAlias {
@@ -59,19 +72,19 @@ func builtinSpecs() []agentloopToolSpecAlias {
 func builtinTool(ctx context.Context, workspace, name string, args map[string]any) (string, error) {
 	switch name {
 	case "sin_read":
-		return toolRead(argStr(args, "path"))
+		return toolReadFn(argStr(args, "path"))
 	case "sin_write":
-		return toolWrite(argStr(args, "path"), argStr(args, "content"))
+		return toolWriteFn(argStr(args, "path"), argStr(args, "content"))
 	case "sin_edit":
-		return toolEdit(argStr(args, "path"), argStr(args, "old"), argStr(args, "new"))
+		return toolEditFn(argStr(args, "path"), argStr(args, "old"), argStr(args, "new"))
 	case "sin_bash":
-		return toolBash(ctx, argStr(args, "command"))
+		return toolBashFn(ctx, argStr(args, "command"))
 	case "sin_search":
-		return toolSearch(argStr(args, "pattern"), argStr(args, "dir"))
+		return toolSearchFn(argStr(args, "pattern"), argStr(args, "dir"))
 	case "sin_bootstrap_skill":
-		return toolBootstrapSkill(ctx, workspace, args)
+		return toolBootstrapSkillFn(ctx, workspace, args)
 	default:
-		return extraTool(ctx, name, args)
+		return extraToolFn(ctx, name, args)
 	}
 }
 
@@ -92,7 +105,7 @@ func toolBootstrapSkill(ctx context.Context, workspace string, args map[string]a
 	if err := meta.ValidateName(name); err != nil {
 		return "", err
 	}
-	qualified, err := meta.BootstrapSkill(ctx, workspace, name, spec)
+	qualified, err := metaBootstrapSkillFn(ctx, workspace, name, spec)
 	if err != nil {
 		return "", err
 	}
@@ -205,7 +218,10 @@ func toolSearch(pattern, dir string) (string, error) {
 	}
 	var hits []string
 	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
-		if err != nil || len(hits) >= maxSearchHits {
+		if err != nil {
+			return toolSearchWalkErrFn(path, err)
+		}
+		if len(hits) >= maxSearchHits {
 			return nil
 		}
 		if d.IsDir() {

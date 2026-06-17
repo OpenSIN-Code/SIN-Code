@@ -13,9 +13,17 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 )
 
+// mcp hook variables — injected by coverage tests to mock external MCP calls.
+var (
+	mcpManagerToolsFn = func(mgr *mcpclient.Manager) []mcpclient.Tool { return mgr.Tools() }
+	mcpManagerCallFn  = func(mgr *mcpclient.Manager, ctx context.Context, name string, args map[string]any) (string, error) {
+		return mgr.Call(ctx, name, args)
+	}
+)
+
 func combinedSpecs(mgr *mcpclient.Manager) []agentloop.ToolSpec {
 	specs := builtinSpecs()
-	for _, t := range mgr.Tools() {
+	for _, t := range mcpManagerToolsFn(mgr) {
 		schema := t.InputSchema
 		if schema == nil {
 			schema = map[string]any{"type": "object", "properties": map[string]any{}}
@@ -36,7 +44,7 @@ func combinedSpecs(mgr *mcpclient.Manager) []agentloop.ToolSpec {
 func combinedTool(workspace string, mgr *mcpclient.Manager) agentloop.LocalToolFunc {
 	return func(ctx context.Context, name string, args map[string]any) (string, error) {
 		if strings.Contains(name, "__") {
-			return mgr.Call(ctx, name, args)
+			return mcpManagerCallFn(mgr, ctx, name, args)
 		}
 		return builtinTool(ctx, workspace, name, args)
 	}

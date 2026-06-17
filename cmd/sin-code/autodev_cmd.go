@@ -20,6 +20,21 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autodev"
 )
 
+// autodevHookVars holds injectable dependencies for the autodev subcommand.
+// Coverage tests replace these fields to avoid requiring a real autodev-cli
+// binary on PATH.
+var autodevHookVars = struct {
+	resolveAutodevBin func() error
+	defaultBin        func() string
+	runPassthrough    func(ctx context.Context, bin string, args ...string) error
+	version           func() (string, error)
+}{
+	resolveAutodevBin: autodev.ResolveAutodevBin,
+	defaultBin:        autodev.DefaultBin,
+	runPassthrough:    runPassthrough,
+	version:           autodev.Version,
+}
+
 // NewAutodevCmd builds the `autodev` cobra subcommand. Pattern matches
 // NewGhCmd / NewVaneCmd: returns *cobra.Command with setup / doctor /
 // version attached. All verbs are one-line shell-out via autodev-cli;
@@ -61,7 +76,7 @@ can detect partial init. Set $AUTODEV_BIN to override the binary.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
 			defer cancel()
-			return runPassthrough(ctx, autodev.DefaultBin(), "init", "--json", ".")
+			return autodevHookVars.runPassthrough(ctx, autodevHookVars.defaultBin(), "init", "--json", ".")
 		},
 	}
 }
@@ -81,7 +96,7 @@ Exit code propagates.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 			defer cancel()
-			return runPassthrough(ctx, autodev.DefaultBin(), "status", "--json")
+			return autodevHookVars.runPassthrough(ctx, autodevHookVars.defaultBin(), "status", "--json")
 		},
 	}
 }
@@ -98,7 +113,7 @@ func newAutodevVersionCmd() *cobra.Command {
 		Short: "Report upstream autodev-cli --version",
 		Long:  `Shells out to 'autodev --version' (per upstream contract) and prints the trimmed stdout line. Non-zero exit / stderr / empty stdout surface as a cobra error.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			v, err := autodev.Version()
+			v, err := autodevHookVars.version()
 			if err != nil {
 				// Surface upstream's stderr verbatim so the operator
 				// can see WHY `--version` failed (e.g. "No such

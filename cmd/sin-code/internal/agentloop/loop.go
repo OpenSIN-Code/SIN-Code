@@ -198,6 +198,19 @@ type Loop struct {
 	RunOverride func(ctx context.Context, sess *session.Session, prompt string) (*Result, error)
 }
 
+// saveHistoryHook is a test seam for injecting a mock around session
+// SaveHistory calls. When nil, the real Session.SaveHistory is used.
+// This exists so tests can force a save-history error without mocking
+// the SQLite store.
+var saveHistoryHook func(sess *session.Session, msgs []session.Message) error
+
+func (l *Loop) saveHistory(ctx context.Context, sess *session.Session, msgs []session.Message) error {
+	if saveHistoryHook != nil {
+		return saveHistoryHook(sess, msgs)
+	}
+	return sess.SaveHistory(msgs)
+}
+
 type Result struct {
 	SessionID string `json:"session_id"`
 	Summary   string `json:"summary"`
@@ -411,7 +424,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				})
 			}
 			if totalTokens >= l.MaxTokens {
-				if serr := sess.SaveHistory(msgs); serr != nil {
+				if serr := l.saveHistory(ctx, sess, msgs); serr != nil {
 					return nil, serr
 				}
 				l.fire(ctx, hooks.BudgetExhausted, "", map[string]any{
@@ -438,7 +451,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 					Role:    "user",
 					Content: "VERIFICATION BLOCKED by hook — fix before claiming completion:\n" + vpre.BlockReason,
 				})
-				if err := sess.SaveHistory(msgs); err != nil {
+				if err := l.saveHistory(ctx, sess, msgs); err != nil {
 					return nil, err
 				}
 				continue
@@ -463,7 +476,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 					Role:    "user",
 					Content: "VERIFICATION FAILED (" + string(res.Mode) + ") — fix before claiming completion:\n" + res.Report,
 				})
-				if err := sess.SaveHistory(msgs); err != nil {
+				if err := l.saveHistory(ctx, sess, msgs); err != nil {
 					return nil, err
 				}
 				continue
@@ -501,7 +514,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 						b.WriteString("Notes: " + ref.Notes + "\n")
 					}
 					msgs = append(msgs, session.Message{Role: "user", Content: b.String()})
-					if err := sess.SaveHistory(msgs); err != nil {
+					if err := l.saveHistory(ctx, sess, msgs); err != nil {
 						return nil, err
 					}
 					continue
@@ -550,7 +563,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 						lastCritFingerprint = fp
 					}
 					if l.StallThreshold > 0 && stallCount >= l.StallThreshold {
-						if serr := sess.SaveHistory(msgs); serr != nil {
+						if serr := l.saveHistory(ctx, sess, msgs); serr != nil {
 							return nil, serr
 						}
 						l.fire(ctx, hooks.StopStalled, "", map[string]any{
@@ -577,7 +590,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 						Role:    "user",
 						Content: formatStopContinue(dec),
 					})
-					if err := sess.SaveHistory(msgs); err != nil {
+					if err := l.saveHistory(ctx, sess, msgs); err != nil {
 						return nil, err
 					}
 					// Hard cap on stop-gate rejections. Independent of
@@ -595,7 +608,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				}
 			}
 
-			if err := sess.SaveHistory(msgs); err != nil {
+			if err := l.saveHistory(ctx, sess, msgs); err != nil {
 				return nil, err
 			}
 			result := &Result{
@@ -626,7 +639,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				Role: "tool", ToolCallID: tc.ID, Content: out,
 			})
 		}
-		if err := sess.SaveHistory(msgs); err != nil {
+		if err := l.saveHistory(ctx, sess, msgs); err != nil {
 			return nil, err
 		}
 	}
@@ -635,7 +648,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 		// Checkpoint instead of abandoning: persist history and hand back a
 		// resumable Result so the caller (daemon) can re-enqueue and continue
 		// with the same session — a long task never needs a human restart.
-		if err := sess.SaveHistory(msgs); err != nil {
+		if err := l.saveHistory(ctx, sess, msgs); err != nil {
 			return nil, err
 		}
 		summary := fmt.Sprintf("checkpoint after %d turns (max reached); resuming", maxTurns)

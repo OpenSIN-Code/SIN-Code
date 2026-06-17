@@ -16,7 +16,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 )
 
-func TestEvaluate_NilContext(t *testing.T) {
+func TestCoverage_Evaluate_NilContext(t *testing.T) {
 	j, _ := NewJudge(JudgeConfig{Model: "gpt-test"}, llm.NewClient("http://x", "k"))
 	if _, err := j.Evaluate(context.Background(), Trajectory{}); err == nil {
 		// Need a server to hit nil ctx, but with a real client we hit Chat error before nil ctx.
@@ -41,7 +41,7 @@ func TestEvaluate_EmptyChoices(t *testing.T) {
 	}
 }
 
-func TestEvaluateBatch_Success(t *testing.T) {
+func TestCoverage_EvaluateBatch_Success(t *testing.T) {
 	content := `{"pass":true,"score":0.8,"reason":"ok"}`
 	srv := serveChat(t, content)
 	j, _ := NewJudge(JudgeConfig{Model: "gpt-test"}, llm.NewClient(srv.URL, "k"))
@@ -54,7 +54,7 @@ func TestEvaluateBatch_Success(t *testing.T) {
 	}
 }
 
-func TestBuildSystemPrompt_Strict(t *testing.T) {
+func TestCoverage_BuildSystemPrompt_Strict(t *testing.T) {
 	j, _ := NewJudge(JudgeConfig{Model: "gpt-test", Strict: true}, llm.NewClient("http://x", "k"))
 	prompt := j.buildSystemPrompt(Trajectory{})
 	if !strings.Contains(prompt, "STRICT MODE") {
@@ -88,7 +88,7 @@ func TestTruncate_Truncates(t *testing.T) {
 	}
 }
 
-func TestSummarise_Empty(t *testing.T) {
+func TestCoverage_Summarise_Empty(t *testing.T) {
 	s := Summarise(nil, 0.5)
 	if s.Total != 0 || s.PassRate != 1.0 {
 		t.Fatalf("got %+v", s)
@@ -111,7 +111,7 @@ func TestSummarise_FailureWithIDNoError(t *testing.T) {
 	}
 }
 
-func TestNewReport(t *testing.T) {
+func TestCoverage_NewReport(t *testing.T) {
 	ds := &dataset.Dataset{Name: "ds1", Version: "1.0"}
 	start := time.Now()
 	end := start.Add(time.Second)
@@ -124,7 +124,7 @@ func TestNewReport(t *testing.T) {
 	}
 }
 
-func TestWriteJSON_Nil(t *testing.T) {
+func TestCoverage_WriteJSON_Nil(t *testing.T) {
 	if err := WriteJSON(&bytes.Buffer{}, nil); err == nil || !strings.Contains(err.Error(), "nil report") {
 		t.Fatalf("expected nil report error, got %v", err)
 	}
@@ -141,7 +141,7 @@ func TestWriteJSON_Valid(t *testing.T) {
 	}
 }
 
-func TestBelowMinRate_Error(t *testing.T) {
+func TestCoverage_BelowMinRate_Error(t *testing.T) {
 	err := &BelowMinRate{PassRate: 0.5, Minimum: 0.9}
 	if !strings.Contains(err.Error(), "50.00%") || !strings.Contains(err.Error(), "90.00%") {
 		t.Fatalf("got %q", err.Error())
@@ -163,7 +163,7 @@ func TestFormatHuman_AllBranches(t *testing.T) {
 	}
 }
 
-func TestRoundPassRate(t *testing.T) {
+func TestCoverage_RoundPassRate(t *testing.T) {
 	if got := RoundPassRate(2.0 / 3.0); got != 0.6667 {
 		t.Fatalf("got %v", got)
 	}

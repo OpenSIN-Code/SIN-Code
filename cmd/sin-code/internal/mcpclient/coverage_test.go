@@ -172,7 +172,7 @@ func TestCall_NonTextContentIgnored(t *testing.T) {
 	}
 }
 
-func TestIsExternal(t *testing.T) {
+func TestIsExternal_Coverage(t *testing.T) {
 	mgr := NewManager(nil)
 	if !mgr.IsExternal("demo__tool") {
 		t.Fatal("expected demo__tool to be external")
@@ -182,7 +182,7 @@ func TestIsExternal(t *testing.T) {
 	}
 }
 
-func TestClose(t *testing.T) {
+func TestClose_Coverage(t *testing.T) {
 	fs := &fakeSession{}
 	testConnectHook = func(ctx context.Context, client *sdk.Client, cfg ServerConfig) (session, []Tool, error) {
 		return fs, nil, nil

@@ -18,6 +18,23 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/codegraph"
 )
 
+// codegraphBridge is the minimal interface used by the codegraph subcommand so
+// tests can inject a fake bridge without a real CodeGraph binary.
+type codegraphBridge interface {
+	Analyze(ctx context.Context, path string) (*codegraph.Graph, error)
+	Find() (string, error)
+	Version(ctx context.Context) (string, error)
+}
+
+// codegraphHookVars holds injectable dependencies for the codegraph
+// subcommand. Coverage tests replace these fields to avoid requiring a real
+// CodeGraph binary on PATH.
+var codegraphHookVars = struct {
+	newBridge func() codegraphBridge
+}{
+	newBridge: func() codegraphBridge { return codegraph.New() },
+}
+
 // NewCodeGraphCmd builds the `codegraph` cobra subcommand (analyze + doctor),
 // matching the gh/vane/dox/rtk external-bridge pattern.
 func NewCodeGraphCmd() *cobra.Command {
@@ -62,7 +79,7 @@ func newCodeGraphAnalyzeCmd() *cobra.Command {
 				ctx, cancel = context.WithTimeout(ctx, timeout)
 				defer cancel()
 			}
-			g, err := codegraph.New().Analyze(ctx, path)
+			g, err := codegraphHookVars.newBridge().Analyze(ctx, path)
 			if err != nil {
 				return err
 			}
@@ -89,7 +106,7 @@ func newCodeGraphDoctorCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			b := codegraph.New()
+			b := codegraphHookVars.newBridge()
 			path, err := b.Find()
 			if err != nil {
 				fmt.Fprintln(os.Stderr, "codegraph: NOT installed")

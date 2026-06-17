@@ -32,6 +32,20 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
 
+// daemon hook variables — injected by coverage tests to avoid real disk or
+// network calls. Production defaults point to the real implementations.
+var (
+	daemonResourceParseLimitsHook = resource.ParseLimits
+	daemonOSGetwdHook             = os.Getwd
+	daemonAutonomyOpenHook        = autonomy.Open
+	memoryOpenHook                = memory.Open
+	sessionOpenHook               = session.Open
+	lessonsOpenHook               = lessons.Open
+	autonomyLoadTriggersHook      = autonomy.LoadTriggers
+	loopbuilderBuildHook          = loopbuilder.Build
+	daemonDiskFreeHook            = resource.DiskFree
+)
+
 // daemonOptions bundles the parsed CLI flags so the worker pool and
 // trigger registration share one config value.
 type daemonOptions struct {
@@ -71,7 +85,7 @@ func NewDaemonCmd() *cobra.Command {
 - records outcomes in the knowledge base (learning loop)
 - M4 holds: headless means ask -> deny; the daemon cannot self-escalate`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			limits, err := resource.ParseLimits(maxMemory, maxProcs, minDisk)
+			limits, err := daemonResourceParseLimitsHook(maxMemory, maxProcs, minDisk)
 			if err != nil {
 				return err
 			}
@@ -117,7 +131,7 @@ func runDaemon(ctx context.Context, opt daemonOptions) error {
 	if opt.verifyCmd == "" {
 		return fmt.Errorf("daemon refuses to start without --verify-cmd (autonomy requires a verification gate, mandate M3)")
 	}
-	cwd, err := os.Getwd()
+	cwd, err := daemonOSGetwdHook()
 	if err != nil {
 		return err
 	}
@@ -125,26 +139,26 @@ func runDaemon(ctx context.Context, opt daemonOptions) error {
 	// Apply process-wide resource limits up front.
 	opt.limits.Apply()
 
-	queue, err := autonomy.Open(autonomy.DefaultPath())
+	queue, err := daemonAutonomyOpenHook(autonomy.DefaultPath())
 	if err != nil {
 		return err
 	}
 	defer queue.Close()
 
-	memStore, err := memory.Open("")
+	memStore, err := memoryOpenHook("")
 	if err != nil {
 		return err
 	}
 	defer memStore.Close()
 
-	store, err := session.Open(session.DefaultPath())
+	store, err := sessionOpenHook(session.DefaultPath())
 	if err != nil {
 		return err
 	}
 	defer store.Close()
 
 	hookEngine := hooks.New(nil) // no workspace hook loading for daemon
-	memStoreLessons, _ := lessons.Open("")
+	memStoreLessons, _ := lessonsOpenHook("")
 	defer func() {
 		if memStoreLessons != nil {
 			memStoreLessons.Close()
@@ -154,7 +168,7 @@ func runDaemon(ctx context.Context, opt daemonOptions) error {
 	// Register triggers for every configured repo (cwd + --repos),
 	// de-duplicated so passing cwd explicitly is harmless.
 	for _, repo := range dedupeRepos(cwd, opt.repos) {
-		triggers := autonomy.LoadTriggers(repo)
+		triggers := autonomyLoadTriggersHook(repo)
 		if len(triggers) == 0 {
 			continue
 		}
@@ -222,11 +236,11 @@ func diskOK(l resource.Limits) bool {
 	if l.MinDiskBytes <= 0 {
 		return true
 	}
-	cwd, err := os.Getwd()
+	cwd, err := daemonOSGetwdHook()
 	if err != nil {
 		return true
 	}
-	free, ok := resource.DiskFree(cwd)
+	free, ok := daemonDiskFreeHook(cwd)
 	if !ok {
 		return true
 	}
@@ -292,7 +306,7 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 		}
 	}
 
-	loop, cleanup, err := loopbuilder.Build(ctx, loopbuilder.Config{
+	loop, cleanup, err := loopbuilderBuildHook(ctx, loopbuilder.Config{
 		Workspace:              goal.Workspace,
 		SessionID:              sess.ID,
 		GoalID:                 fmt.Sprintf("%d", goal.ID),

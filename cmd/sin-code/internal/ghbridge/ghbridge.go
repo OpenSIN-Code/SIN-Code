@@ -134,7 +134,7 @@ func (b *Bridge) Health(ctx context.Context) error {
 	}
 	// LookPath catches "gh not installed" before we spend a ctx
 	// building an exec.Cmd.
-	if _, err := exec.LookPath("gh"); err != nil {
+	if _, err := execLookPath("gh"); err != nil {
 		return fmt.Errorf("ghbridge: gh binary not found on PATH: %w", err)
 	}
 	hctx, cancel := context.WithTimeout(ctx, HealthTimeout)
@@ -283,6 +283,9 @@ var classifyFunc = Classify
 // scan in Classify is bypassed so the defensive verb-slot re-check can be
 // covered. Defaults to false, so production behavior is unchanged.
 var classifySkipForbiddenScan bool
+
+// execLookPath is a test seam around exec.LookPath.
+var execLookPath = exec.LookPath
 
 // Classify inspects a gh arg list and returns its Tier plus an error
 // describing WHY a call is rejected. The function is FAIL-CLOSED:

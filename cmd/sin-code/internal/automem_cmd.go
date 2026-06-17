@@ -24,6 +24,12 @@ var (
 
 	autoMemDefaultHome = auto_mem.DefaultHome
 	autoMemOpen        = auto_mem.Open
+
+	autoMemIndex     = func(s *auto_mem.Store) ([]string, error) { return s.Index() }
+	autoMemReadTopic = func(s *auto_mem.Store, heading string) ([]byte, error) { return s.ReadTopic(heading) }
+	autoMemAppend    = func(s *auto_mem.Store, e auto_mem.Entry) error { return s.Append(e) }
+	autoMemRemove    = func(s *auto_mem.Store, heading string) error { return s.Remove(heading) }
+	autoMemRotate    = func(s *auto_mem.Store, max int) (int, error) { return s.Rotate(max) }
 )
 
 func openAutoMem() (*auto_mem.Store, string, error) {
@@ -50,7 +56,7 @@ var memAutoListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		idx, err := s.Index()
+		idx, err := autoMemIndex(s)
 		if err != nil {
 			return err
 		}
@@ -82,7 +88,7 @@ var memAutoShowCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		body, err := s.ReadTopic(args[0])
+		body, err := autoMemReadTopic(s, args[0])
 		if err != nil {
 			return err
 		}
@@ -104,7 +110,7 @@ var memAutoAppendCmd = &cobra.Command{
 		if src == "" {
 			src = "manual"
 		}
-		if err := s.Append(auto_mem.Entry{
+		if err := autoMemAppend(s, auto_mem.Entry{
 			Heading:   args[0],
 			Body:      args[1],
 			SourceTag: src,
@@ -126,7 +132,7 @@ var memAutoRmCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if err := s.Remove(args[0]); err != nil {
+		if err := autoMemRemove(s, args[0]); err != nil {
 			return err
 		}
 		fmt.Printf("removed topic %q from %s\n", args[0], s.Path())
@@ -146,7 +152,7 @@ var memAutoGcCmd = &cobra.Command{
 		if n <= 0 {
 			n = 32
 		}
-		kept, err := s.Rotate(n)
+		kept, err := autoMemRotate(s, n)
 		if err != nil {
 			return err
 		}

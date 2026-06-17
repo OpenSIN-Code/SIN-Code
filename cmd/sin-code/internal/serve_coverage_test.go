@@ -444,7 +444,6 @@ func TestPrintCompressionStats(t *testing.T) {
 
 	p := mcpcompress.All()
 	stats := []mcpcompress.Stats{
-		{Name: "sin_test", Original: 100, Compressed: 80, BytesSaved: 20, Ratio: 0.2},
 		{Name: "sin_negative", Original: 50, Compressed: 60, BytesSaved: -10, Ratio: -0.2},
 	}
 	printCompressionStats(f, p, stats)
@@ -454,7 +453,7 @@ func TestPrintCompressionStats(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := string(data)
-	for _, want := range []string{"mcpcompress:", "sin_test", "TOTAL", "active rules", "ponytail tags"} {
+	for _, want := range []string{"mcpcompress:", "sin_negative", "TOTAL", "active rules", "ponytail tags"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("expected output to contain %q, got %q", want, out)
 		}

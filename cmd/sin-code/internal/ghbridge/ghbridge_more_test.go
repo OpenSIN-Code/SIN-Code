@@ -111,9 +111,9 @@ func TestHealthAuthErrorRaw(t *testing.T) {
 }
 
 func TestExecuteDefensiveForbidden(t *testing.T) {
-	orig := classifyOverride
-	classifyOverride = func([]string) (Tier, error) { return TierForbidden, nil }
-	t.Cleanup(func() { classifyOverride = orig })
+	orig := classifyFunc
+	classifyFunc = func([]string) (Tier, error) { return TierForbidden, nil }
+	t.Cleanup(func() { classifyFunc = orig })
 	var called bool
 	b := NewWithRunner(Runner(func(context.Context, []string) (string, string, error) {
 		called = true
@@ -149,9 +149,8 @@ func TestExecuteErrorRawFallback(t *testing.T) {
 }
 
 func TestClassifyVerbSlotReCheck(t *testing.T) {
-	orig := classifyForbiddenCheck
-	classifyForbiddenCheck = func(string) bool { return false }
-	t.Cleanup(func() { classifyForbiddenCheck = orig })
+	classifySkipForbiddenScan = true
+	t.Cleanup(func() { classifySkipForbiddenScan = false })
 	tier, err := Classify([]string{"issue", "delete", "1"})
 	if err == nil || tier != TierForbidden {
 		t.Fatalf("expected forbidden verb error, got tier=%s err=%v", tier, err)
@@ -181,22 +180,22 @@ func TestTruncateEdge(t *testing.T) {
 
 // ── MCP server lifecycle and I/O edge cases ─────────────────────────────
 
-func TestNewServer(t *testing.T) {
+func TestNewServerMore(t *testing.T) {
 	srv := NewServer()
 	if srv == nil {
 		t.Fatal("NewServer returned nil")
 	}
 }
 
-type errReader struct{}
+type errReaderMore struct{}
 
-func (errReader) Read([]byte) (int, error) { return 0, errors.New("boom") }
+func (errReaderMore) Read([]byte) (int, error) { return 0, errors.New("boom") }
 
 type failWriter struct{}
 
 func (failWriter) Write([]byte) (int, error) { return 0, errors.New("write fail") }
 
-func TestServeContextCancelled(t *testing.T) {
+func TestServeContextCancelledEdge(t *testing.T) {
 	in := &bytes.Buffer{}
 	req := jsonRPCRequest{JSONRPC: "2.0", ID: mustRawID(`"1"`), Method: "ping"}
 	writeReq(t, in, req)
@@ -209,15 +208,15 @@ func TestServeContextCancelled(t *testing.T) {
 	}
 }
 
-func TestServeScannerError(t *testing.T) {
-	srv := NewServerWithIO(errReader{}, &bytes.Buffer{}, &bytes.Buffer{})
+func TestServeScannerErrorEdge(t *testing.T) {
+	srv := NewServerWithIO(errReaderMore{}, &bytes.Buffer{}, &bytes.Buffer{})
 	err := srv.Serve(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("expected scanner error, got %v", err)
 	}
 }
 
-func TestServeEncodeError(t *testing.T) {
+func TestServeEncodeErrorEdge(t *testing.T) {
 	in := &bytes.Buffer{}
 	req := jsonRPCRequest{JSONRPC: "2.0", ID: mustRawID(`"1"`), Method: "ping"}
 	writeReq(t, in, req)
@@ -302,7 +301,7 @@ func TestLazyBridgeLookPathError(t *testing.T) {
 	}
 }
 
-func TestLazyBridgeSuccess(t *testing.T) {
+func TestLazyBridgeSuccessLookPath(t *testing.T) {
 	orig := execLookPath
 	execLookPath = func(string) (string, error) { return "/gh", nil }
 	t.Cleanup(func() { execLookPath = orig })
@@ -420,7 +419,7 @@ func TestDispatchNoDeadline(t *testing.T) {
 	}
 }
 
-func TestResultMarshalError(t *testing.T) {
+func TestResultMarshalErrorEdge(t *testing.T) {
 	orig := jsonMarshal
 	jsonMarshal = func(v any) ([]byte, error) { return nil, errors.New("marshal") }
 	t.Cleanup(func() { jsonMarshal = orig })
@@ -438,7 +437,7 @@ func TestResultMarshalError(t *testing.T) {
 	}
 }
 
-func TestMustMarshalError(t *testing.T) {
+func TestMustMarshalErrorEdge(t *testing.T) {
 	orig := jsonMarshal
 	jsonMarshal = func(v any) ([]byte, error) { return nil, errors.New("marshal") }
 	t.Cleanup(func() { jsonMarshal = orig })
@@ -467,9 +466,9 @@ func TestMCPConfigPath(t *testing.T) {
 		t.Fatalf("SIN_CODE_HOME: want %q, got %q", "/sinhome/mcp.json", got)
 	}
 	t.Setenv("SIN_CODE_HOME", "")
-	orig := osUserHomeDir
-	osUserHomeDir = func() (string, error) { return "/home", nil }
-	t.Cleanup(func() { osUserHomeDir = orig })
+	orig := userHomeDir
+	userHomeDir = func() (string, error) { return "/home", nil }
+	t.Cleanup(func() { userHomeDir = orig })
 	want := filepath.Join("/home", ".local", "share", "sin-code", "mcp.json")
 	if got := MCPConfigPath(); got != want {
 		t.Fatalf("home dir: want %q, got %q", want, got)
@@ -477,9 +476,9 @@ func TestMCPConfigPath(t *testing.T) {
 }
 
 func TestMCPConfigPathNoHome(t *testing.T) {
-	orig := osUserHomeDir
-	osUserHomeDir = func() (string, error) { return "", errors.New("no home") }
-	t.Cleanup(func() { osUserHomeDir = orig })
+	orig := userHomeDir
+	userHomeDir = func() (string, error) { return "", errors.New("no home") }
+	t.Cleanup(func() { userHomeDir = orig })
 	t.Setenv("SIN_CODE_HOME", "")
 	got := MCPConfigPath()
 	want := filepath.Join(".", ".sin-code-home", "mcp.json")
@@ -488,7 +487,7 @@ func TestMCPConfigPathNoHome(t *testing.T) {
 	}
 }
 
-func TestRegisterMCPExecutableError(t *testing.T) {
+func TestRegisterMCPExecutableErrorEdge(t *testing.T) {
 	orig := osExecutable
 	osExecutable = func() (string, error) { return "", errors.New("no exe") }
 	t.Cleanup(func() { osExecutable = orig })
@@ -500,9 +499,9 @@ func TestRegisterMCPExecutableError(t *testing.T) {
 }
 
 func TestRegisterMCPWriteMarshalError(t *testing.T) {
-	orig := jsonMarshalIndent
-	jsonMarshalIndent = func(v any, prefix, indent string) ([]byte, error) { return nil, errors.New("marshal") }
-	t.Cleanup(func() { jsonMarshalIndent = orig })
+	orig := jsonMarshal
+	jsonMarshal = func(v any) ([]byte, error) { return nil, errors.New("marshal") }
+	t.Cleanup(func() { jsonMarshal = orig })
 	path := filepath.Join(t.TempDir(), "mcp.json")
 	_, err := RegisterMCP(path)
 	if err == nil || !strings.Contains(err.Error(), "marshal") {
@@ -605,7 +604,7 @@ func TestNotificationsInitializedRequest(t *testing.T) {
 	}
 }
 
-func TestServeEmptyLine(t *testing.T) {
+func TestServeEmptyLineEdge(t *testing.T) {
 	in := &bytes.Buffer{}
 	in.Write([]byte("\n"))
 	out := &bytes.Buffer{}

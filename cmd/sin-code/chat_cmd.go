@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,6 +34,28 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
+)
+
+// chat hook variables — injected by coverage tests to avoid real I/O, network
+// or LLM calls. Production defaults point to the real implementations.
+var (
+	chatLoadAgentFn             = internal.LoadEffectiveAgent
+	chatNewLLMClientFn          = llm.NewClient
+	chatNewProviderCompletionFn = agentloop.NewProviderCompletion
+	chatRulesForAgentFn         = internal.RulesForAgent
+	chatGetwdFn                 = os.Getwd
+	chatNewHooksFn              = hooks.New
+	chatLoadMCPConfigsFn        = mcpclient.LoadConfigs
+	chatNewMCPManagerFn         = mcpclient.NewManager
+	chatMCPConnectAllFn         = func(mgr *mcpclient.Manager, ctx context.Context) error { return mgr.ConnectAll(ctx) }
+	chatOpenSessionFn           = session.Open
+	chatNewGateFn               = verify.NewGate
+	chatAskFn                   agentloop.AskFunc
+	chatPrintResultFn           = printResult
+	chatRunOverrideFn           func(context.Context, *session.Session, string) (*agentloop.Result, error)
+	chatStdout      io.Writer   = os.Stdout
+	chatStderr      io.Writer   = os.Stderr
+	chatStdin       io.Reader   = os.Stdin
 )
 
 type chatOptions struct {
@@ -133,7 +156,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 
 	var agentCfg orchestrator.AgentConfig
 	if opts.agent != "" {
-		cfg, _, err := internal.LoadEffectiveAgent(opts.agent)
+		cfg, _, err := chatLoadAgentFn(opts.agent)
 		if err != nil {
 			return err
 		}
@@ -145,10 +168,10 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	apiKey := firstNonEmpty(os.Getenv("SIN_LLM_API_KEY"),
 		os.Getenv("NVIDIA_API_KEY"), os.Getenv("OPENAI_API_KEY"))
 	model := firstNonEmpty(opts.model, agentCfg.Model, os.Getenv("SIN_LLM_MODEL"))
-	client := llm.NewClient(baseURL, apiKey)
-	completion := agentloop.NewProviderCompletion(client, model, agentCfg.MaxTokens, agentCfg.Temperature)
+	client := chatNewLLMClientFn(baseURL, apiKey)
+	completion := chatNewProviderCompletionFn(client, model, agentCfg.MaxTokens, agentCfg.Temperature)
 
-	perm := permission.New(internal.RulesForAgent(agentCfg))
+	perm := permission.New(chatRulesForAgentFn(agentCfg))
 	perm.Yolo = opts.yolo
 	perm.Headless = headless
 	if opts.mode != "" {
@@ -165,11 +188,11 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		if err := perm.SetMode(rec.Mode); err != nil {
 			return fmt.Errorf("chat: --autolevel: %w", err)
 		}
-		fmt.Fprintf(os.Stderr, "sin-code chat: --autolevel picked mode=%q (%s)\n",
+		fmt.Fprintf(chatStderr, "sin-code chat: --autolevel picked mode=%q (%s)\n",
 			rec.Mode, rec.Reason)
 	}
 
-	workspace, err := os.Getwd()
+	workspace, err := chatGetwdFn()
 	if err != nil {
 		return err
 	}
@@ -215,7 +238,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		fmt.Fprintf(os.Stderr, "sin-code chat: workspace restored to checkpoint %s\n", opts.rewind)
 	}
 
-	hookEngine := hooks.New(loadHooks(workspace))
+	hookEngine := chatNewHooksFn(loadHooks(workspace))
 
 	// --- auto-activation hook (issue #176) ------------------------------
 	// Off by default. Privacy-first: only opens when the operator sets
@@ -238,8 +261,8 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	hooklifeRunner := hooklife.NewRunner(hooklifeReg).WithTimeout(2 * time.Second)
 
 	// --- External MCP servers (mandate C5, ecosystem skills) -------------
-	mcpMgr := mcpclient.NewManager(mcpclient.LoadConfigs(workspace))
-	if err := mcpMgr.ConnectAll(ctx); err != nil {
+	mcpMgr := chatNewMCPManagerFn(chatLoadMCPConfigsFn(workspace))
+	if err := chatMCPConnectAllFn(mcpMgr, ctx); err != nil {
 		return err
 	}
 	defer mcpMgr.Close()
@@ -253,13 +276,13 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		}
 	}
 	runner := commandRunner(opts.verifyCmd)
-	gate := verify.NewGate(mode, runner, runner)
+	gate := chatNewGateFn(mode, runner, runner)
 
 	dbPath := opts.dbPath
 	if dbPath == "" {
 		dbPath = session.DefaultPath()
 	}
-	store, err := session.Open(dbPath)
+	store, err := chatOpenSessionFn(dbPath)
 	if err != nil {
 		return fmt.Errorf("open sessions db: %w", err)
 	}
@@ -281,7 +304,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		},
 	})
 	if d.Message != "" {
-		fmt.Fprintln(os.Stderr, "[autoactivate] session start rules:\n"+d.Message)
+		fmt.Fprintln(chatStderr, "[autoactivate] session start rules:\n"+d.Message)
 	}
 	// Apply the CLI `--activate` list now that the hook has wired the
 	// state for this session id.
@@ -291,7 +314,10 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 
 	var ask agentloop.AskFunc
 	if !headless {
-		ask = terminalAsk
+		ask = chatAskFn
+		if ask == nil {
+			ask = terminalAsk
+		}
 	}
 
 	loop := &agentloop.Loop{
@@ -307,7 +333,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		Ask:        ask,
 	}
 
-	dispatchUserPrompt := func(prompt string) {
+		dispatchUserPrompt := func(prompt string) {
 		pd := hooklifeRunner.Dispatch(ctx, hooklife.Event{
 			Phase:   hooklife.UserPrompt,
 			Tool:    "ChatPrompt",
@@ -318,30 +344,36 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 			},
 		})
 		if pd.Message != "" {
-			fmt.Fprintln(os.Stderr, "[autoactivate] per-turn rules:\n"+pd.Message)
+			fmt.Fprintln(chatStderr, "[autoactivate] per-turn rules:\n"+pd.Message)
 		}
 	}
 
 	if headless {
 		dispatchUserPrompt(opts.prompt)
-		res, err := loop.Run(ctx, sess, opts.prompt)
+		var res *agentloop.Result
+		var err error
+		if chatRunOverrideFn != nil {
+			res, err = chatRunOverrideFn(ctx, sess, opts.prompt)
+		} else {
+			res, err = loop.Run(ctx, sess, opts.prompt)
+		}
 		if err != nil {
 			act.Act.EndSession(sess.ID)
 			return err
 		}
 		act.Act.EndSession(sess.ID)
-		return printResult(res, opts.jsonOut)
+		return chatPrintResultFn(res, opts.jsonOut)
 	}
 
-	fmt.Printf("sin-code chat — session %s (verify=%s).", sess.ID, gate.Mode())
+	fmt.Fprintf(chatStdout, "sin-code chat — session %s (verify=%s).", sess.ID, gate.Mode())
 	if st, ok := act.Act.Snapshot(sess.ID); ok && len(st.ActiveRules.Names()) > 0 {
-		fmt.Printf(" Active rules: %s", strings.Join(st.ActiveRules.Names(), ", "))
+		fmt.Fprintf(chatStdout, " Active rules: %s", strings.Join(st.ActiveRules.Names(), ", "))
 	}
-	fmt.Println(" Type 'exit' to quit.")
-	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Fprintln(chatStdout, " Type 'exit' to quit.")
+	scanner := bufio.NewScanner(chatStdin)
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for {
-		fmt.Print("> ")
+		fmt.Fprint(chatStdout, "> ")
 		if !scanner.Scan() {
 			break
 		}
@@ -355,10 +387,10 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		dispatchUserPrompt(line)
 		res, err := loop.Run(ctx, sess, line)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			fmt.Fprintf(chatStderr, "error: %v\n", err)
 			continue
 		}
-		_ = printResult(res, opts.jsonOut)
+		_ = chatPrintResultFn(res, opts.jsonOut)
 	}
 	act.Act.EndSession(sess.ID)
 	return scanner.Err()
@@ -366,18 +398,18 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 
 func printResult(res *agentloop.Result, jsonOut bool) error {
 	if jsonOut {
-		enc := json.NewEncoder(os.Stdout)
+		enc := json.NewEncoder(chatStdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(res)
 	}
-	fmt.Println(res.Summary)
-	fmt.Printf("[session=%s verified=%v turns=%d]\n", res.SessionID, res.Verified, res.Turns)
+	fmt.Fprintln(chatStdout, res.Summary)
+	fmt.Fprintf(chatStdout, "[session=%s verified=%v turns=%d]\n", res.SessionID, res.Verified, res.Turns)
 	return nil
 }
 
 func terminalAsk(tc agentloop.ToolCall) bool {
-	fmt.Printf("Permission required: tool %q with args %v — allow? [y/N] ", tc.Name, tc.Args)
-	reader := bufio.NewReader(os.Stdin)
+	fmt.Fprintf(chatStdout, "Permission required: tool %q with args %v — allow? [y/N] ", tc.Name, tc.Args)
+	reader := bufio.NewReader(chatStdin)
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return false
@@ -437,7 +469,7 @@ func loadHooks(workspace string) []hooks.Hook {
 			}
 		}
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "warn: skipping invalid hooks file %s: %v\n", p, err)
+			fmt.Fprintf(chatStderr, "warn: skipping invalid hooks file %s: %v\n", p, err)
 			continue
 		}
 		all = append(all, hs...)

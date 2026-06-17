@@ -23,6 +23,56 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
 
+// autoLoop is the minimal agent-loop interface used by the auto run
+// subcommand so tests can inject a fake loop without building a real one.
+type autoLoop interface {
+	Run(ctx context.Context, sess *session.Session, goal string) (*agentloop.Result, error)
+}
+
+// autoPilot is the minimal autopilot interface used by the auto subcommand
+// so tests can inject a fake pilot.
+type autoPilot interface {
+	Run(ctx context.Context) (int, float64, error)
+}
+
+// autoHookVars holds injectable dependencies for the auto subcommand. Coverage
+// tests replace these fields to avoid real I/O or network calls.
+var autoHookVars = struct {
+	osStat            func(string) (os.FileInfo, error)
+	osWriteFile       func(string, []byte, os.FileMode) error
+	osGetwd           func() (string, error)
+	loadProgram       func(string) (*autopilot.Program, error)
+	defaultJournalPath func(string) string
+	openJournal       func(string) (*autopilot.Journal, error)
+	defaultSessionPath func() string
+	openSession       func(string) (*session.Store, error)
+	openLessons       func(string) (*lessons.Store, error)
+	buildLoop         func(ctx context.Context, cfg loopbuilder.Config, ls *lessons.Store) (autoLoop, func() error, error)
+	newPilot          func(cfg autopilot.Config) autoPilot
+	newBudget         func(minutes, maxExperiments int) *autopilot.Budget
+	newSnapshotter    func(string) *autopilot.Snapshotter
+}{
+	osStat:            os.Stat,
+	osWriteFile:       os.WriteFile,
+	osGetwd:           os.Getwd,
+	loadProgram:       autopilot.LoadProgram,
+	defaultJournalPath: autopilot.DefaultJournalPath,
+	openJournal:       autopilot.OpenJournal,
+	defaultSessionPath: session.DefaultPath,
+	openSession:       session.Open,
+	openLessons:       lessons.Open,
+	buildLoop: func(ctx context.Context, cfg loopbuilder.Config, ls *lessons.Store) (autoLoop, func() error, error) {
+		loop, cleanup, err := loopbuilder.Build(ctx, cfg, ls)
+		if err != nil {
+			return nil, nil, err
+		}
+		return loop, cleanup, nil
+	},
+	newPilot:       func(cfg autopilot.Config) autoPilot { return autopilot.New(cfg) },
+	newBudget:      autopilot.NewBudget,
+	newSnapshotter: autopilot.NewSnapshotter,
+}
+
 func init() { rootCmd.AddCommand(newAutoCmd()) }
 
 func newAutoCmd() *cobra.Command {
@@ -46,10 +96,10 @@ func newAutoInitCmd() *cobra.Command {
 		Use:   "init",
 		Short: "Write a program.md template into the current workspace",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if _, err := os.Stat("program.md"); err == nil {
+			if _, err := autoHookVars.osStat("program.md"); err == nil {
 				return fmt.Errorf("program.md already exists")
 			}
-			if err := os.WriteFile("program.md", []byte(programTemplate), 0o644); err != nil {
+			if err := autoHookVars.osWriteFile("program.md", []byte(programTemplate), 0o644); err != nil {
 				return err
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "wrote program.md — edit it, then run: sin-code auto run --verify-cmd \"...\"")
@@ -71,11 +121,11 @@ func newAutoRunCmd() *cobra.Command {
 			if verifyCmd == "" {
 				return fmt.Errorf("auto run refuses to start without --verify-cmd (M3: autonomy requires a verify gate)")
 			}
-			workspace, err := os.Getwd()
+			workspace, err := autoHookVars.osGetwd()
 			if err != nil {
 				return err
 			}
-			prog, err := autopilot.LoadProgram(filepath.Join(workspace, "program.md"))
+			prog, err := autoHookVars.loadProgram(filepath.Join(workspace, "program.md"))
 			if err != nil {
 				return err
 			}
@@ -87,20 +137,20 @@ func newAutoRunCmd() *cobra.Command {
 				prog.MaxExperiments = maxExperiments
 			}
 
-			journal, err := autopilot.OpenJournal(autopilot.DefaultJournalPath(workspace))
+			journal, err := autoHookVars.openJournal(autoHookVars.defaultJournalPath(workspace))
 			if err != nil {
 				return err
 			}
 			defer journal.Close()
 
-			lessonStore, _ := lessons.Open("")
+			lessonStore, _ := autoHookVars.openLessons("")
 			defer func() {
 				if lessonStore != nil {
 					lessonStore.Close()
 				}
 			}()
 
-			sessStore, err := session.Open(session.DefaultPath())
+			sessStore, err := autoHookVars.openSession(autoHookVars.defaultSessionPath())
 			if err != nil {
 				return err
 			}
@@ -127,7 +177,7 @@ func newAutoRunCmd() *cobra.Command {
 				if err != nil {
 					return autopilot.LoopResult{}, "", err
 				}
-				loop, cleanup, err := loopbuilder.Build(ctx, loopbuilder.Config{
+				loop, cleanup, err := autoHookVars.buildLoop(ctx, loopbuilder.Config{
 					Workspace:  workspace,
 					SessionID:  sess.ID,
 					MaxTurns:   maxTurns,
@@ -150,13 +200,13 @@ func newAutoRunCmd() *cobra.Command {
 				return autopilot.LoopResult{SessionID: res.SessionID, Verified: res.Verified, Turns: res.Turns}, res.Summary, nil
 			}
 
-			ap := autopilot.New(autopilot.Config{
+			ap := autoHookVars.newPilot(autopilot.Config{
 				Workspace: workspace,
 				Program:   prog,
 				Proposer:  &autopilot.Proposer{Program: prog}, // deterministic fallback; wire LLM here later
 				Journal:   journal,
-				Budget:    autopilot.NewBudget(prog.BudgetMinutes, prog.MaxExperiments),
-				Snap:      autopilot.NewSnapshotter(workspace),
+				Budget:    autoHookVars.newBudget(prog.BudgetMinutes, prog.MaxExperiments),
+				Snap:      autoHookVars.newSnapshotter(workspace),
 				RunGoal:   runGoal,
 				Lessons: func(ctx context.Context, ws string, n int) []string {
 					if lessonStore == nil {
@@ -202,13 +252,13 @@ func newAutoStatusCmd() *cobra.Command {
 		Use:   "status",
 		Short: "Show budget, best metric, and recent experiment summary",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			workspace, _ := os.Getwd()
-			journal, err := autopilot.OpenJournal(autopilot.DefaultJournalPath(workspace))
+			workspace, _ := autoHookVars.osGetwd()
+			journal, err := autoHookVars.openJournal(autoHookVars.defaultJournalPath(workspace))
 			if err != nil {
 				return err
 			}
 			defer journal.Close()
-			prog, _ := autopilot.LoadProgram(filepath.Join(workspace, "program.md"))
+			prog, _ := autoHookVars.loadProgram(filepath.Join(workspace, "program.md"))
 			dir := autopilot.Minimize
 			if prog != nil {
 				dir = prog.Direction
@@ -237,8 +287,8 @@ func newAutoJournalCmd() *cobra.Command {
 		Use:   "journal",
 		Short: "Print the experiment journal (newest first)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			workspace, _ := os.Getwd()
-			journal, err := autopilot.OpenJournal(autopilot.DefaultJournalPath(workspace))
+			workspace, _ := autoHookVars.osGetwd()
+			journal, err := autoHookVars.openJournal(autoHookVars.defaultJournalPath(workspace))
 			if err != nil {
 				return err
 			}

@@ -1019,4 +1019,7 @@ same input on every CI run (caveman evals/README.md §3 promise:
   and built-in scorers (including `CompileAndRun`).
 - `cmd/sin-code/internal/evalharness/runner_extras.doc.md` — code-block
   extraction, per-language compile, and sandboxed self-check execution.
+- `docs/eval.md` — user-facing guide for `sin-code eval`.
+- `evals/README.md` — Golden Dataset catalog and schema quick reference.
+- `.github/workflows/eval-n8n.yml` — n8n-delegated CI for datasets (M1).
 

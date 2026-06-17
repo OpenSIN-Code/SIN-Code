@@ -16,7 +16,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -115,7 +114,7 @@ func (s *Server) lazyBridge() (*Bridge, error) {
 		b := New()
 		// Sanity probe: missing-gh would make every call fail
 		// identically. Surface once, here, with a friendly hint.
-		if _, err := exec.LookPath("gh"); err != nil {
+		if _, err := execLookPath("gh"); err != nil {
 			s.bridgeErr = fmt.Errorf("ghbridge: gh binary not found on PATH: %w", err)
 			return
 		}
@@ -466,6 +465,12 @@ var ioCopy = io.Copy
 // closeFile is a test seam around (*os.File).Close.
 var closeFile = (*os.File).Close
 
+// osMkdirAll is a test seam around os.MkdirAll.
+var osMkdirAll = os.MkdirAll
+
+// osCreateTemp is a test seam around os.CreateTemp.
+var osCreateTemp = os.CreateTemp
+
 // writeJSONAtomic marshals v and writes to path via a temp-file +
 // rename so a crash mid-write cannot corrupt the existing file. Parent
 // directories are created on demand. Mirrors vane.writeJSONAtomic.
@@ -474,10 +479,10 @@ func writeJSONAtomic(path string, v any) error {
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := osMkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".ghbridge-*.json.tmp")
+	tmp, err := osCreateTemp(filepath.Dir(path), ".ghbridge-*.json.tmp")
 	if err != nil {
 		return err
 	}
