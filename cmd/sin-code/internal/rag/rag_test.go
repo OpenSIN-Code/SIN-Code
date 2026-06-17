@@ -501,3 +501,259 @@ func TestWorkerPool_QueueDepth(t *testing.T) {
 		t.Errorf("expected 0 after drain, got %d", d)
 	}
 }
+
+// ── Sqrt / Cosine clamping ─────────────────────────────────────────────
+
+func TestSqrt_ZeroAndNegative(t *testing.T) {
+	if got := sqrt(0); got != 0 {
+		t.Errorf("sqrt(0) expected 0, got %v", got)
+	}
+	if got := sqrt(-1); got != 0 {
+		t.Errorf("sqrt(-1) expected 0, got %v", got)
+	}
+}
+
+func TestCosineSimilarity_ClampAboveOne(t *testing.T) {
+	orig := sqrt
+	sqrt = func(x float64) float64 { return orig(x) * 0.5 }
+	defer func() { sqrt = orig }()
+	v := []float32{1, 0}
+	got := CosineSimilarity(v, v)
+	if got != 1.0 {
+		t.Errorf("expected clamp to 1, got %v", got)
+	}
+}
+
+// ── ONNX / HTTP embedder stubs ─────────────────────────────────────────
+
+func TestONNXRuntimeEmbedder_StubEnvEnabled(t *testing.T) {
+	t.Setenv("SIN_RAG_ONNX_PATH", "/tmp/libonnxruntime.so")
+	e := NewONNXRuntimeEmbedder("/tmp/model.onnx")
+	_, err := e.Embed(context.Background(), "test")
+	if !errors.Is(err, ErrONNXNotEnabled) {
+		t.Errorf("expected ErrONNXNotEnabled, got %v", err)
+	}
+}
+
+func TestHTTPEmbedder_StubWithConfig(t *testing.T) {
+	e := NewHTTPEmbedder("https://example.com/v1", "key", "model")
+	_, err := e.Embed(context.Background(), "test")
+	if !errors.Is(err, ErrONNXNotEnabled) {
+		t.Errorf("expected ErrONNXNotEnabled, got %v", err)
+	}
+}
+
+func TestHTTPEmbedder_Dim(t *testing.T) {
+	e := NewHTTPEmbedder("", "", "")
+	if e.Dim() != EmbeddingDim {
+		t.Errorf("expected %d, got %d", EmbeddingDim, e.Dim())
+	}
+}
+
+// ── Index edge cases ───────────────────────────────────────────────────
+
+func TestIndex_Keys(t *testing.T) {
+	i := NewIndex(nil)
+	i.Set("c", make([]float32, EmbeddingDim))
+	i.Set("a", make([]float32, EmbeddingDim))
+	i.Set("b", make([]float32, EmbeddingDim))
+	keys := i.Keys()
+	if len(keys) != 3 {
+		t.Fatalf("expected 3 keys, got %d", len(keys))
+	}
+	if keys[0] != "a" || keys[1] != "b" || keys[2] != "c" {
+		t.Errorf("expected sorted keys a,b,c, got %v", keys)
+	}
+}
+
+func TestIndex_TopNTieBreak(t *testing.T) {
+	i := NewIndex(nil)
+	v := make([]float32, EmbeddingDim)
+	v[0] = 1
+	v = Normalize(v)
+	i.Set("b", v)
+	i.Set("a", v)
+	hits, err := i.TopN(context.Background(), v, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 2 {
+		t.Fatalf("expected 2, got %d", len(hits))
+	}
+	if hits[0].ID != "a" || hits[1].ID != "b" {
+		t.Errorf("expected tie-break by ID, got %v", hits)
+	}
+}
+
+func TestIndex_TopNLimit(t *testing.T) {
+	i := NewIndex(nil)
+	mkVec := func(seed int) []float32 {
+		v := make([]float32, EmbeddingDim)
+		for j := range v {
+			v[j] = float32((j+seed)%7) / 7.0
+		}
+		return Normalize(v)
+	}
+	i.Set("a", mkVec(0))
+	i.Set("b", mkVec(1))
+	i.Set("c", mkVec(100))
+	hits, err := i.TopN(context.Background(), mkVec(0), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 1 {
+		t.Fatalf("expected 1, got %d", len(hits))
+	}
+	if hits[0].ID != "a" {
+		t.Errorf("expected 'a', got %s", hits[0].ID)
+	}
+}
+
+func TestIndex_TopNExcludesWrongDim(t *testing.T) {
+	i := NewIndex(nil)
+	good := make([]float32, EmbeddingDim)
+	good[0] = 1
+	good = Normalize(good)
+	i.Set("good", good)
+	// Direct map access is allowed because tests live in package rag.
+	i.entries["bad"] = []float32{1, 2, 3}
+	hits, err := i.TopN(context.Background(), good, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 1 || hits[0].ID != "good" {
+		t.Errorf("expected only 'good', got %v", hits)
+	}
+}
+
+// ── Retriever edge cases ───────────────────────────────────────────────
+
+func TestRetriever_EmbedError(t *testing.T) {
+	fail := &failingEmbedder{err: errors.New("embed failed")}
+	r := NewRetriever(fail, NewIndex(nil))
+	_, err := r.TopN(context.Background(), "x", 1)
+	if err == nil || err.Error() != "embed failed" {
+		t.Errorf("expected embed error, got %v", err)
+	}
+}
+
+type emptyEmbedder struct{}
+
+func (emptyEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {
+	return []float32{}, nil
+}
+func (emptyEmbedder) Dim() int { return EmbeddingDim }
+
+func TestRetriever_EmptyVector(t *testing.T) {
+	r := NewRetriever(emptyEmbedder{}, NewIndex(nil))
+	hits, err := r.TopN(context.Background(), "x", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 0 {
+		t.Errorf("expected 0 hits, got %d", len(hits))
+	}
+}
+
+func TestRetriever_TopN(t *testing.T) {
+	e := NewHashEmbedder()
+	i := NewIndex(nil)
+	vec, _ := e.Embed(context.Background(), "hello")
+	i.Set("hello", vec)
+	r := NewRetriever(e, i)
+	hits, err := r.TopN(context.Background(), "hello", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 1 {
+		t.Fatalf("expected 1, got %d", len(hits))
+	}
+	if hits[0].ID != "hello" {
+		t.Errorf("expected 'hello', got %s", hits[0].ID)
+	}
+}
+
+// ── Worker pool edge cases ─────────────────────────────────────────────
+
+func TestWorkerPool_SizeZeroFallback(t *testing.T) {
+	p := NewWorkerPool(NewHashEmbedder(), 0)
+	defer p.Close()
+	v, err := p.Embed(context.Background(), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(v) != EmbeddingDim {
+		t.Errorf("expected dim %d, got %d", EmbeddingDim, len(v))
+	}
+}
+
+type blockingEmbedder struct {
+	started chan struct{}
+	unblock chan struct{}
+}
+
+func (b *blockingEmbedder) Embed(_ context.Context, _ string) ([]float32, error) {
+	close(b.started)
+	<-b.unblock
+	return []float32{0.1}, nil
+}
+
+func (b *blockingEmbedder) Dim() int { return EmbeddingDim }
+
+func TestWorkerPool_ContextCancelBeforeQueue(t *testing.T) {
+	orig := workerPoolQueueBufferMultiplier
+	workerPoolQueueBufferMultiplier = 0
+	defer func() { workerPoolQueueBufferMultiplier = orig }()
+
+	b := &blockingEmbedder{started: make(chan struct{}), unblock: make(chan struct{})}
+	p := NewWorkerPool(b, 1)
+	defer p.Close()
+
+	go func() { _, _ = p.Embed(context.Background(), "first") }()
+	<-b.started
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := p.Embed(ctx, "second")
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context.Canceled, got %v", err)
+	}
+	close(b.unblock)
+}
+
+func TestWorkerPool_PoolClosedBeforeQueue(t *testing.T) {
+	p := NewWorkerPool(NewHashEmbedder(), 1)
+	defer p.Close()
+	workerPoolBeforeQueueHook = func() { p.Close() }
+	defer func() { workerPoolBeforeQueueHook = nil }()
+
+	_, err := p.Embed(context.Background(), "x")
+	if !errors.Is(err, ErrPoolClosed) {
+		t.Errorf("expected ErrPoolClosed, got %v", err)
+	}
+}
+
+func TestWorkerPool_ContextCancelDuringSend(t *testing.T) {
+	orig := workerPoolJobDoneBufferSize
+	workerPoolJobDoneBufferSize = 0
+	defer func() { workerPoolJobDoneBufferSize = orig }()
+
+	b := &blockingEmbedder{started: make(chan struct{}), unblock: make(chan struct{})}
+	p := NewWorkerPool(b, 1)
+	defer p.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := p.Embed(ctx, "x")
+		errCh <- err
+	}()
+
+	<-b.started
+	cancel()
+	err := <-errCh
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context.Canceled, got %v", err)
+	}
+	close(b.unblock)
+}

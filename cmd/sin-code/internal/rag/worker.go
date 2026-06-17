@@ -18,8 +18,16 @@ import (
 // ErrPoolClosed is returned by Embed after Close.
 var ErrPoolClosed = errors.New("rag: worker pool closed")
 
+// Package-level hook variables (overridden by tests) to make the
+// otherwise racy / unreachable error paths deterministic.
+var (
+	workerPoolQueueBufferMultiplier = 4
+	workerPoolJobDoneBufferSize     = 1
+	workerPoolBeforeQueueHook       func()
+)
+
 // job is one embedding request. The result channel is buffered
-// (size 1) so the worker can send without blocking, and the
+// (default size 1) so the worker can send without blocking, and the
 // caller can read without coordinating with the worker.
 type job struct {
 	ctx  context.Context
@@ -50,7 +58,7 @@ func NewWorkerPool(embedder Embedder, size int) *WorkerPool {
 	}
 	p := &WorkerPool{
 		embedder: embedder,
-		queue:    make(chan job, size*4), // 4x buffer for burst
+		queue:    make(chan job, size*workerPoolQueueBufferMultiplier), // 4x buffer for burst
 		closed:   make(chan struct{}),
 	}
 	for i := 0; i < size; i++ {
@@ -92,7 +100,10 @@ func (p *WorkerPool) Embed(ctx context.Context, text string) ([]float32, error) 
 		return nil, ErrPoolClosed
 	default:
 	}
-	j := job{ctx: ctx, text: text, done: make(chan result, 1)}
+	if workerPoolBeforeQueueHook != nil {
+		workerPoolBeforeQueueHook()
+	}
+	j := job{ctx: ctx, text: text, done: make(chan result, workerPoolJobDoneBufferSize)}
 	select {
 	case p.queue <- j:
 	case <-ctx.Done():

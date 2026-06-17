@@ -21,10 +21,13 @@ var (
 	autoMemSource  string
 	autoMemMax     int
 	autoMemFormat  string
+
+	autoMemDefaultHome = auto_mem.DefaultHome
+	autoMemOpen        = auto_mem.Open
 )
 
 func openAutoMem() (*auto_mem.Store, string, error) {
-	home, err := auto_mem.DefaultHome()
+	home, err := autoMemDefaultHome()
 	if err != nil {
 		return nil, "", err
 	}
@@ -32,7 +35,7 @@ func openAutoMem() (*auto_mem.Store, string, error) {
 	if proj == "" {
 		proj = "global"
 	}
-	s, err := auto_mem.Open(home, proj)
+	s, err := autoMemOpen(home, proj)
 	if err != nil {
 		return nil, "", err
 	}

@@ -64,8 +64,9 @@ func CosineSimilarity(a, b []float32) float32 {
 // sqrt is a tiny local replacement for math.Sqrt to keep this file
 // dependency-free of the math package (the package is small, the
 // call site is hot in cosine-sim top-N, and the savings are
-// non-trivial for large indexes).
-func sqrt(x float64) float64 {
+// non-trivial for large indexes). It is a variable so tests can
+// temporarily override it to exercise defensive clamp paths.
+var sqrt = func(x float64) float64 {
 	if x <= 0 {
 		return 0
 	}

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -388,5 +389,70 @@ func TestConfig_SplitList(t *testing.T) {
 	}
 	if got := splitList("a, b ,, c"); len(got) != 3 || got[0] != "a" || got[1] != "b" || got[2] != "c" {
 		t.Errorf("splitList trimmed unexpectedly: %v", got)
+	}
+}
+
+func TestConfig_LoadMergedConfig_Exported(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgDir, "sin-code.toml"), []byte("theme = \"light\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadMergedConfig()
+	if err != nil {
+		t.Fatalf("LoadMergedConfig: %v", err)
+	}
+	if cfg.Theme != "light" {
+		t.Errorf("expected theme light, got %q", cfg.Theme)
+	}
+}
+
+func TestConfig_LLMStyle_HappyPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Setenv("HOME", tmpDir)
+	cfgDir := filepath.Join(tmpDir, ".config", "sin")
+	if err := os.MkdirAll(cfgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfgDir, "sin-code.toml"), []byte("llm.style = \"terse\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := LLMStyle(); got != "terse" {
+		t.Errorf("expected LLMStyle terse, got %q", got)
+	}
+}
+
+func TestConfig_LLMStyle_ErrorReturnsDefault(t *testing.T) {
+	makeUnreadableConfig(t)
+	if got := LLMStyle(); got != "default" {
+		t.Errorf("expected LLMStyle default on error, got %q", got)
+	}
+}
+
+func TestConfig_ValidateInvalidThresholds(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.TestCoverageThreshold = -1
+	cfg.TestMutationThreshold = 101
+	cfg.TestTimeoutSeconds = 0
+
+	issues := validateConfig(cfg)
+	want := []string{"test.coverage_threshold", "test.mutation_threshold", "test.timeout_seconds"}
+	for _, w := range want {
+		found := false
+		for _, iss := range issues {
+			if strings.Contains(iss, w) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("expected issue containing %q, got %v", w, issues)
+		}
 	}
 }
