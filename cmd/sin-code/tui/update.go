@@ -268,6 +268,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case tea.KeyPressMsg:
+		// Modals (permission dialog, palette, etc.) must receive keys before
+		// the view-specific handler, otherwise the chat input swallows them.
+		if m.Mode != ModeNormal {
+			return m.handleKey(msg)
+		}
 		if m.ViewKind == ViewChat {
 			cmd := m.updateChat(msg)
 			return m, cmd
