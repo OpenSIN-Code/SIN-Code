@@ -113,6 +113,7 @@ type chatOptions struct {
 	fusionProviders    string
 	fusionMaxCost      float64
 	noTUI              bool
+	watch              string
 }
 
 func NewChatCmd() *cobra.Command {
@@ -166,6 +167,7 @@ func NewChatCmd() *cobra.Command {
 	f.StringVar(&opts.fusionProviders, "fusion-providers", "", "comma-separated Fireworks model names for the tournament (e.g. minimax-m3,kimi-k2p7-code,glm-5p2)")
 	f.Float64Var(&opts.fusionMaxCost, "fusion-max-cost", 5.0, "USD kill-switch per tournament invocation (issue #290)")
 	f.BoolVar(&opts.noTUI, "no-tui", false, "skip TUI and use plain CLI loop")
+	f.StringVar(&opts.watch, "watch", "", "watch file patterns (comma-separated, e.g. *.go,*.py) and re-run the last prompt on change")
 	return cmd
 }
 
@@ -689,6 +691,7 @@ func newBuiltinCommandRegistry(client *llm.Client, model string) *commands.Regis
 	r := commands.NewRegistry()
 	r.Register(commands.NewBTWCommand(chatSideLLM{c: client, model: model}, ""))
 	r.Register(commands.NewUndercoverCommand(chatUndercover))
+	r.Register(commands.NewInitCommand())
 	return r
 }
 

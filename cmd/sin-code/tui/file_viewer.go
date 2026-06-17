@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"unicode/utf8"
+
+	"charm.land/lipgloss/v2"
 )
 
 const maxViewerLines = 500
@@ -21,6 +23,9 @@ type FileViewer struct {
 	scroll   int
 	truncated bool
 	totalLines int
+	cursorLine  int
+	diagnostics []LSPDiagnostic
+	diagByLine  map[int][]LSPDiagnostic
 	highlighter *SyntaxHighlighter
 }
 
@@ -39,6 +44,7 @@ func (v *FileViewer) Load(path string) error {
 	v.scroll = 0
 	v.truncated = false
 	v.totalLines = 0
+	v.cursorLine = 0
 
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -144,25 +150,37 @@ func (v *FileViewer) Render(styles Styles, width, height int) string {
 		highlighted := v.highlighter.Highlight(strings.Join(v.lines[v.scroll:end], "\n"), lang)
 		hlLines := strings.Split(highlighted, "\n")
 		for j := 0; j < listHeight && j < len(hlLines); j++ {
-			num := fmt.Sprintf("%*d", lineNumWidth, v.scroll+j+1)
+			lineNum := v.scroll + j + 1
+			num := fmt.Sprintf("%*d", lineNumWidth, lineNum)
 			hl := hlLines[j]
 			if len(hl) > contentWidth {
 				hl = hl[:contentWidth]
 			}
-			bldr.WriteString(styles.Muted.Render(num + " │ "))
+			gutter, gutterStyle := diagGutter(lineNum, v.diagByLine, styles)
+			bldr.WriteString(gutterStyle.Render(num + " " + gutter + " "))
 			bldr.WriteString(padRight(hl, contentWidth))
 			bldr.WriteString("\n")
+			if msg := diagMessageForLine(lineNum, v.cursorLine, v.diagByLine); msg != "" {
+				bldr.WriteString(styles.StatusErr.Render(fmt.Sprintf("  %*s   %s", lineNumWidth, "", truncateHeader(msg, contentWidth-2))))
+				bldr.WriteString("\n")
+			}
 		}
 	} else {
 		for i := v.scroll; i < end; i++ {
-			numStr := fmt.Sprintf("%*d", lineNumWidth, i+1)
+			lineNum := i + 1
+			numStr := fmt.Sprintf("%*d", lineNumWidth, lineNum)
 			line := v.lines[i]
 			if len(line) > contentWidth {
 				line = line[:contentWidth]
 			}
-			bldr.WriteString(styles.Muted.Render(numStr + " │ "))
+			gutter, gutterStyle := diagGutter(lineNum, v.diagByLine, styles)
+			bldr.WriteString(gutterStyle.Render(numStr + " " + gutter + " "))
 			bldr.WriteString(padRight(line, contentWidth))
 			bldr.WriteString("\n")
+			if msg := diagMessageForLine(lineNum, v.cursorLine, v.diagByLine); msg != "" {
+				bldr.WriteString(styles.StatusErr.Render(fmt.Sprintf("  %*s   %s", lineNumWidth, "", truncateHeader(msg, contentWidth-2))))
+				bldr.WriteString("\n")
+			}
 		}
 	}
 
@@ -229,6 +247,73 @@ func (v *FileViewer) Clear() {
 	v.scroll = 0
 	v.truncated = false
 	v.totalLines = 0
+	v.cursorLine = 0
+	v.diagnostics = nil
+	v.diagByLine = nil
+	v.mu.Unlock()
+}
+
+func (v *FileViewer) SetDiagnostics(diags []LSPDiagnostic) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.diagnostics = diags
+	v.diagByLine = make(map[int][]LSPDiagnostic, len(diags))
+	for _, d := range diags {
+		line := d.Line
+		v.diagByLine[line] = append(v.diagByLine[line], d)
+	}
+}
+
+func (v *FileViewer) Diagnostics() []LSPDiagnostic {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	out := make([]LSPDiagnostic, len(v.diagnostics))
+	copy(out, v.diagnostics)
+	return out
+}
+
+func (v *FileViewer) DiagnosticsForLine(line int) []LSPDiagnostic {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	if v.diagByLine == nil {
+		return nil
+	}
+	out := make([]LSPDiagnostic, len(v.diagByLine[line]))
+	copy(out, v.diagByLine[line])
+	return out
+}
+
+func (v *FileViewer) SetCursor(line int) {
+	v.mu.Lock()
+	if line < 0 {
+		line = 0
+	}
+	if v.totalLines > 0 && line > v.totalLines {
+		line = v.totalLines
+	}
+	v.cursorLine = line
+	v.mu.Unlock()
+}
+
+func (v *FileViewer) Cursor() int {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	return v.cursorLine
+}
+
+func (v *FileViewer) CursorUp() {
+	v.mu.Lock()
+	if v.cursorLine > 1 {
+		v.cursorLine--
+	}
+	v.mu.Unlock()
+}
+
+func (v *FileViewer) CursorDown() {
+	v.mu.Lock()
+	if v.cursorLine < v.totalLines {
+		v.cursorLine++
+	}
 	v.mu.Unlock()
 }
 
@@ -273,4 +358,43 @@ func truncateHeader(s string, maxLen int) string {
 		return s[:maxLen]
 	}
 	return "..." + s[len(s)-maxLen+3:]
+}
+
+func diagGutter(lineNum int, diagByLine map[int][]LSPDiagnostic, styles Styles) (string, lipgloss.Style) {
+	diags, ok := diagByLine[lineNum]
+	if !ok || len(diags) == 0 {
+		return "│", styles.Muted
+	}
+	hasErr, hasWarn := false, false
+	for _, d := range diags {
+		switch d.Severity {
+		case "error":
+			hasErr = true
+		case "warning":
+			hasWarn = true
+		}
+	}
+	if hasErr {
+		return "▶", styles.StatusErr
+	}
+	if hasWarn {
+		return "▲", styles.StatusWarn
+	}
+	return "│", styles.Muted
+}
+
+func diagMessageForLine(lineNum, cursorLine int, diagByLine map[int][]LSPDiagnostic) string {
+	if cursorLine == 0 || lineNum != cursorLine {
+		return ""
+	}
+	diags, ok := diagByLine[lineNum]
+	if !ok || len(diags) == 0 {
+		return ""
+	}
+	for _, d := range diags {
+		if d.Severity == "error" {
+			return d.Message
+		}
+	}
+	return diags[0].Message
 }

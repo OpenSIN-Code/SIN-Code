@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -187,7 +188,7 @@ func (s *Scratchpad) Merge(other *Scratchpad) {
 var idCounter uint64
 
 func GenerateID(prefix string) string {
-	idCounter++
-	h := sha1.Sum([]byte(fmt.Sprintf("%d-%d-%s", time.Now().UnixNano(), idCounter, prefix)))
+	n := atomic.AddUint64(&idCounter, 1)
+	h := sha1.Sum([]byte(fmt.Sprintf("%d-%d-%s", time.Now().UnixNano(), n, prefix)))
 	return fmt.Sprintf("%s-%x", prefix, h[:6])
 }

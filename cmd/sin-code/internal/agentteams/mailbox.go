@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
-	"syscall"
 	"time"
 )
 
@@ -92,10 +91,10 @@ func (m *Mailbox) Send(msg Message) (offset int64, dedup bool, err error) {
 		return 0, false, fmt.Errorf("agentteams: open: %w", err)
 	}
 	defer f.Close()
-	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+	if err := flockLock(int(f.Fd())); err != nil {
 		return 0, false, fmt.Errorf("agentteams: flock: %w", err)
 	}
-	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	defer flockUnlock(int(f.Fd()))
 	// Dedup pass: read what's already there, return early if ID matches.
 	existing, err := readAllMessages(m.path)
 	if err != nil {
