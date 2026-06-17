@@ -531,3 +531,117 @@ func TestSelected_UnknownTagDropped(t *testing.T) {
 		t.Fatalf("Selected([bogus]) returned %d rules, want 0", len(got))
 	}
 }
+
+// TestCollapseWs_SecondPass exercises the second pass of the
+// double-space collapsor. With 4 consecutive spaces the first pass
+// leaves 2 spaces, so the loop body executes once.
+func TestCollapseWs_SecondPass(t *testing.T) {
+	in := "a    b" // 4 spaces
+	want := "a b"
+	got := Normalize(in)
+	if got != want {
+		t.Fatalf("Normalize(%q) = %q, want %q", in, got, want)
+	}
+}
+
+// TestBytesSaved_ClampsNegative covers the defensive clamp in
+// bytesSaved when compressed length exceeds original length.
+func TestBytesSaved_ClampsNegative(t *testing.T) {
+	if got := bytesSaved("short", "loooonger"); got != 0 {
+		t.Fatalf("bytesSaved('short','loooonger') = %d, want 0", got)
+	}
+}
+
+// TestRatio_EmptyOrig and TestRatio_NonPositiveSaved cover the guard
+// branches in ratio.
+func TestRatio_EmptyOrig(t *testing.T) {
+	if got := ratio("", "anything"); got != 0 {
+		t.Fatalf("ratio('','anything') = %f, want 0", got)
+	}
+}
+
+func TestRatio_NonPositiveSaved(t *testing.T) {
+	if got := ratio("short", "loooonger"); got != 0 {
+		t.Fatalf("ratio('short','loooonger') = %f, want 0", got)
+	}
+	if got := ratio("same", "same"); got != 0 {
+		t.Fatalf("ratio('same','same') = %f, want 0", got)
+	}
+}
+
+// TestTagSet_ListEmpty covers List returning nil for an empty set.
+func TestTagSet_ListEmpty(t *testing.T) {
+	set := FromCSV("invalid-tag")
+	if got := set.List(); got != nil {
+		t.Fatalf("List() on empty set = %v, want nil", got)
+	}
+}
+
+// TestTagSet_Contains covers the O(n) membership check.
+func TestTagSet_Contains(t *testing.T) {
+	set := FromCSV("delete,shrink")
+	if !set.Contains(TagDelete) {
+		t.Fatalf("expected set to contain %q", TagDelete)
+	}
+	if !set.Contains(TagShrink) {
+		t.Fatalf("expected set to contain %q", TagShrink)
+	}
+	if set.Contains(TagNative) {
+		t.Fatalf("did not expect set to contain %q", TagNative)
+	}
+}
+
+// TestTagSet_Size exercises the size accessor.
+func TestTagSet_Size(t *testing.T) {
+	if got := FromCSV("delete,shrink").Size(); got != 2 {
+		t.Fatalf("Size() = %d, want 2", got)
+	}
+	if got := FromCSV("").Size(); got != 5 {
+		t.Fatalf("Size() of default set = %d, want 5", got)
+	}
+	if got := FromCSV("invalid").Size(); got != 0 {
+		t.Fatalf("Size() of empty set = %d, want 0", got)
+	}
+}
+
+// TestTagSet_CSV exercises the canonical CSV round-trip string.
+func TestTagSet_CSV(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"delete,shrink", "delete,shrink"},
+		{" shrink , delete ", "delete,shrink"},
+		{"invalid", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			got := FromCSV(tc.in).CSV()
+			if got != tc.want {
+				t.Fatalf("CSV(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestTagSet_Empty covers the empty predicate.
+func TestTagSet_Empty(t *testing.T) {
+	if !FromCSV("invalid").Empty() {
+		t.Fatalf("Empty() on empty set = false, want true")
+	}
+	if FromCSV("delete").Empty() {
+		t.Fatalf("Empty() on non-empty set = true, want false")
+	}
+}
+
+// TestTagSet_Valid covers the canonical-tag predicate.
+func TestTagSet_Valid(t *testing.T) {
+	for _, tag := range DefaultTags {
+		if !Valid(tag) {
+			t.Fatalf("Valid(%q) = false, want true", tag)
+		}
+	}
+	if Valid(Tag("nope")) {
+		t.Fatalf("Valid('nope') = true, want false")
+	}
+}
