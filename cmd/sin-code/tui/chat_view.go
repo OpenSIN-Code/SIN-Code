@@ -174,6 +174,24 @@ func (m *Model) setStreaming(streaming bool) {
 	m.Footer.Streaming = streaming
 }
 
+func (m *Model) updateSessionPreview() {
+	if len(m.ChatHistory) == 0 {
+		return
+	}
+	
+	for i := len(m.ChatHistory) - 1; i >= 0; i-- {
+		entry := m.ChatHistory[i]
+		if strings.HasPrefix(entry, "assistant: ") {
+			preview := strings.TrimPrefix(entry, "assistant: ")
+			if len(preview) > 60 {
+				preview = preview[:57] + "..."
+			}
+			m.Tabs.UpdatePreview(m.Tabs.ActiveIdx, preview)
+			return
+		}
+	}
+}
+
 func renderToolCall(name, args string, styles Styles) string {
 	var b strings.Builder
 	b.WriteString(styles.AccentText.Render("⚡ "))

@@ -3,12 +3,15 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 type Session struct {
-	Name   string
-	Active bool
-	Dirty  bool
+	Name       string
+	Active     bool
+	Dirty      bool
+	Preview    string
+	LastActive time.Time
 }
 
 type Tabs struct {
@@ -43,7 +46,7 @@ func (t *Tabs) Add(name string) {
 	if name == "" {
 		name = fmt.Sprintf("Session %d", len(t.Sessions)+1)
 	}
-	t.Sessions = append(t.Sessions, Session{Name: name})
+	t.Sessions = append(t.Sessions, Session{Name: name, LastActive: time.Now()})
 	t.ActiveIdx = len(t.Sessions) - 1
 }
 
@@ -57,7 +60,7 @@ func (t *Tabs) Close(idx int) {
 	}
 	if t.ActiveIdx < 0 {
 		t.ActiveIdx = 0
-		t.Sessions = []Session{{Name: "Session 1", Active: true}}
+		t.Sessions = []Session{{Name: "Session 1", Active: true, LastActive: time.Now()}}
 	}
 }
 
@@ -66,6 +69,7 @@ func (t *Tabs) Select(idx int) {
 		return
 	}
 	t.ActiveIdx = idx
+	t.Sessions[idx].LastActive = time.Now()
 }
 
 func (t *Tabs) Next() {
@@ -84,7 +88,7 @@ func (t *Tabs) Prev() {
 
 func (t Tabs) View(s Styles) string {
 	if len(t.Sessions) == 0 {
-		t.Sessions = []Session{{Name: "Session 1", Active: true}}
+		t.Sessions = []Session{{Name: "Session 1", Active: true, LastActive: time.Now()}}
 		t.ActiveIdx = 0
 	}
 
@@ -124,6 +128,30 @@ func (t Tabs) View(s Styles) string {
 	}
 
 	return b.String()
+}
+
+func (t *Tabs) UpdatePreview(idx int, preview string) {
+	if idx < 0 || idx >= len(t.Sessions) {
+		return
+	}
+	t.Sessions[idx].Preview = preview
+}
+
+func (t *Tabs) SortedByRecency() []int {
+	indices := make([]int, len(t.Sessions))
+	for i := range indices {
+		indices[i] = i
+	}
+	
+	for i := 0; i < len(indices)-1; i++ {
+		for j := i + 1; j < len(indices); j++ {
+			if t.Sessions[indices[j]].LastActive.After(t.Sessions[indices[i]].LastActive) {
+				indices[i], indices[j] = indices[j], indices[i]
+			}
+		}
+	}
+	
+	return indices
 }
 
 func lipglossWidth(s string) int {

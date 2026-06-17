@@ -293,6 +293,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.Mode == ModeArgInput {
 		return m.handleArgInputKey(msg)
 	}
+	if m.Mode == ModeSessionSwitcher {
+		return m.handleSessionSwitcherKey(msg)
+	}
 
 	switch key {
 	case "ctrl+c", "q":
@@ -321,6 +324,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "ctrl+x":
 		m.OpenSubagents()
+		return m, nil
+	case "ctrl+g":
+		m.OpenSessionSwitcher()
 		return m, nil
 	case "1":
 		m.SwitchView(ViewTools)
@@ -607,6 +613,10 @@ func (m *Model) View() tea.View {
 		popup := RenderSubagentsPopup(m.Styles, m.Width, m.Height)
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
 	}
+	if m.Mode == ModeSessionSwitcher {
+		popup := RenderSessionSwitcher(m.SessionSwitcher, m.Tabs, m.Styles, m.Width, m.Height)
+		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
+	}
 
 	v := tea.NewView(layout)
 	v.AltScreen = true
@@ -670,10 +680,12 @@ func (m *Model) handleChatResponse(msg chat.ChatResponseMsg) {
 		if len(m.ChatHistory) > 500 {
 			m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
 		}
+		m.updateSessionPreview()
 		return
 	}
 	if msg.Error != nil {
 		m.ChatHistory[idx] = "assistant: (error: " + msg.Error.Error() + ")"
+		m.updateSessionPreview()
 		return
 	}
 	text := msg.Text
@@ -681,4 +693,5 @@ func (m *Model) handleChatResponse(msg chat.ChatResponseMsg) {
 		text = "(empty response)"
 	}
 	m.ChatHistory[idx] = "assistant: " + text
+	m.updateSessionPreview()
 }

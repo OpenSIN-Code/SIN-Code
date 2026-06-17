@@ -18,6 +18,7 @@ const (
 	ModePalette
 	ModeSubagents
 	ModeArgInput
+	ModeSessionSwitcher
 )
 
 type PaletteState struct {
@@ -26,6 +27,13 @@ type PaletteState struct {
 	Items  []string
 	Filter []string
 	Sel    int
+}
+
+type SessionSwitcherState struct {
+	Open    bool
+	Query   string
+	Sel     int
+	Indices []int
 }
 
 type ArgInputState struct {
@@ -63,12 +71,13 @@ type Model struct {
 	Styles     Styles
 	RightPanel bool
 
-	Palette   PaletteState
-	ArgInput  ArgInputState
-	History   []HistoryEntry
-	EFMStks   []EFMStack
-	Config    []ConfigEntry
-	ConfigSel int
+	Palette           PaletteState
+	SessionSwitcher   SessionSwitcherState
+	ArgInput          ArgInputState
+	History           []HistoryEntry
+	EFMStks           []EFMStack
+	Config            []ConfigEntry
+	ConfigSel         int
 
 	ToolList  list.Model
 	ToolItems []list.Item
