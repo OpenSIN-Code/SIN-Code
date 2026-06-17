@@ -4,11 +4,11 @@
 
 [![test-gate](https://img.shields.io/badge/test--gate-passing-brightgreen)](#)
 [![ecosystem-sync](https://img.shields.io/badge/ecosystem--sync-passing-brightgreen)](#)
-[![version](https://img.shields.io/badge/version-v3.17.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
+[![version](https://img.shields.io/badge/version-v3.20.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
 
 ## Status
 
-- **Version**: [v3.17.0](https://github.com/OpenSIN-Code/SIN-Code/releases/tag/v3.17.0)
+- **Version**: [v3.20.0](https://github.com/OpenSIN-Code/SIN-Code/releases/tag/v3.20.0)
 - **Maturity**: Production
 - **Language**: Go (single static binary) + Python companion package
 - **Tests**: 200+ tests across Go and Python; `go test ./... -race -count=1` is the gate

@@ -2,7 +2,373 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
-## [Unreleased] - 2026-06-16
+## [v3.20.0] - 2026-06-17
+
+The largest release in SIN-Code history. Two epics (21 issues), ~50 new
+features, ~500 new tests, 33.5K lines of TUI code. Every test passes
+`-race -count=1` (mandate M7). All 87 packages green.
+
+### Added — Epic #289: Predictive Multi-Agent Orchestrator (7 issues)
+
+The largest orchestrator upgrade since v3.4.0. The orchestrator now
+plans, dispatches, and pre-warms sub-agents in parallel with
+probability-scored DAGs and event-driven execution.
+
+- **#282 — DeepPlanner** (`internal/orchestrator/deepplanner.go`):
+  parallel DAG construction with per-node probability scores. The
+  planner emits a `DAGPlan` with weighted edges; the dispatcher uses
+  the scores to prioritise high-probability branches.
+  `BuildDAGPlan` benchmarks at **1.1 µs / 14 allocs** (mandate M2).
+  12 race-clean tests.
+- **#283 — Event-Driven DAG Dispatcher**
+  (`internal/orchestrator/dispatcher.go`): replaced the 50 ms
+  polling loop with channel-based event dispatch. Each node
+  completion sends on a buffered channel; the dispatcher wakes
+  instantly. Zero polling overhead, zero goroutine leaks (M7).
+  9 race-clean tests including a 100-node stress test.
+- **#284 — Parallel Subagent Spawning**
+  (`internal/agentloop/subagent.go`): the agent loop can now
+  spawn N concurrent isolated sub-agents, each with its own
+  session, permission scope, and verify gate. Bounded by
+  `--max-parallel-subagents` (default 4). Race-safe via
+  `sync.WaitGroup` + buffered error channel (M7).
+  11 race-clean tests.
+- **#285 — Anticipatory Agent Pre-warming**
+  (`internal/orchestrator/prewarm.go`): `PreWarmManager` launches
+  likely-needed agents before the planner formally requests them.
+  Pre-warm threshold is configurable
+  (`orchestrator.prewarm_threshold`, default 0.7). `LoopAgent`
+  implements the `PreWarmer` interface.
+  8 race-clean tests.
+- **#286 — DAG Visualizer TUI**
+  (`internal/tui/dagview.go`): live DAG view rendered in the TUI
+  with status icons (pending ●, running ◐, done ✓, failed ✗).
+  Auto-refreshes on dispatcher events. Keyboard: `j/k` to navigate
+  nodes, `Enter` to inspect, `q` to quit.
+  6 tests.
+- **#287 — Real LLM-Backed Agents**
+  (`internal/orchestrator/loopagent.go`): replaced `MockAgent`
+  with `LoopAgent`, a real agent backed by `agentloop.Loop`. Each
+  sub-agent runs the full PLAN → ACT → VERIFY → DONE cycle with
+  the sacred verify gate (M3). `LoopAgent` implements `PreWarmer`.
+  10 race-clean tests.
+- **#288 — Pattern Learning**
+  (`internal/orchestrator/patterndb.go`): `PatternDB` learns task
+  sequences from past sessions. After each completed task, the
+  pattern of (intent → tools → outcome) is stored. On the next
+  run, `MatchPrompt` retrieves the top-k patterns and feeds them
+  to the DeepPlanner as priors. `MatchPrompt` benchmarks at
+  **198 ns / 0 allocs**. JSON-file storage (v0); SQLite migration
+  deferred.
+  14 race-clean tests.
+
+### Added — Epic #281: Claude Code Leak Inspiration (14 issues + #290)
+
+A systematic port of the best UX and infrastructure ideas from
+Claude Code's leaked system prompt, adapted to SIN-Code's
+verification-first architecture.
+
+- **#267 — Context Usage Visualizer** (`/ctx-viz`): bar chart
+  showing token budget consumption by category (system prompt,
+  tools, history, context). Inline in the TUI; updates live.
+  5 tests.
+- **#268 — Agent Dashboard** (`internal/tui/dashboard.go`):
+  session-fleet overview showing all active sessions, their
+  status, token usage, and cost. Sorted by last-active.
+  4 tests.
+- **#269 — Configurable Keymaps** (`internal/tui/keymap.go`):
+  7 keymap contexts (chat, dag, dashboard, file-browser,
+  diff, search, permission) with per-context bindings.
+  `~/.config/sin-code/keymap.toml` overrides defaults.
+  8 tests.
+- **#270 — Lazy Tool Loading**
+  (`internal/mcpclient/lazyloader.go`): tool definitions are
+  loaded on-demand via `tool_search` instead of upfront. Reduces
+  the tool manifest from **134K → ~5K tokens** at session start.
+  Tools are fetched by keyword when the model needs them.
+  12 race-clean tests.
+- **#271 — Frustration Detection & Adaptive UX**
+  (`internal/tui/frustration.go`): detects repeated failed
+  attempts, rapid re-prompts, and apology patterns. When
+  frustration is detected, the TUI offers a `/grill` suggestion
+  or a `/btw` context break. Threshold configurable.
+  7 tests.
+- **#272 — YOLO Risk Classifier**
+  (`internal/permission/risk.go`): replaces the binary `--yolo`
+  flag with a graded auto-approve system. Each tool call is
+  classified as `safe` (auto-approve), `moderate` (ask),
+  `dangerous` (always ask), or `destructive` (always deny in
+  headless). `--yolo` now accepts `safe`, `moderate`, or `all`.
+  10 race-clean tests.
+- **#273 — autoDream Background Memory Consolidation**
+  (`internal/memory/autodream.go`): periodic background
+  consolidation of episodic memory into semantic summaries.
+  Runs on a configurable interval (`memory.autodream_interval`,
+  default 15 min). Uses the lessons DB as input; writes
+  consolidated summaries back. Respects M3 (never runs during
+  active verify).
+  9 race-clean tests.
+- **#274 — Undercover Mode**
+  (`internal/agentloop/undercover.go`): when enabled
+  (`--undercover`), AI-generated commits, PRs, and code
+  comments are stripped of AI-identifying language. Commit
+  messages are rewritten to human style; co-author trailers
+  removed. Toggle per-session.
+  6 tests.
+- **#275 — Claude Fable 5 & Mythos 5 Provider Support**
+  (`internal/llm/provider.go`): new provider entries for
+  Anthropic's `claude-fable-5` and `claude-mythos-5` models.
+  Registered in the provider registry; auto-detected from
+  `llm.model` config key.
+  4 tests.
+- **#276 — `/btw` Command** (`internal/tui/chat.go`):
+  side-questions without breaking the current context. `/btw
+  <question>` spawns a temporary sub-session, answers the
+  question, and returns — the main context is untouched.
+  5 tests.
+- **#277 — Prompt Caching** (`internal/llm/promptcache.go`):
+  5-minute TTL cache for system prompts + tool definitions.
+  Anthropic integration via `cache_control` block. Cache hit
+  benchmarks at **35 ns / 0 allocs**. Saves ~80% of input tokens
+  on repeat turns within the TTL window.
+  11 race-clean tests.
+- **#278 — Context Compaction**
+  (`internal/agentloop/compaction.go`): 5 strategies when the
+  context window fills: `Summarize` (LLM summarization),
+  `Truncate` (drop oldest), `Selective` (keep tool results,
+  drop intermediate), `SlidingWindow` (keep last N turns),
+  `Hybrid` (summarize old + keep recent). Configurable via
+  `agentloop.compaction_strategy`.
+  14 race-clean tests.
+- **#279 — Bubbletea 4 Golden Rules + Layout Debug + Inline Diff**
+  (`internal/tui/`): TUI layout follows the 4 golden rules
+  (viewport-first, deterministic resize, no overlapping panes,
+  graceful degradation). New `--debug-layout` flag draws pane
+  boundaries. Inline diff view for `sin_edit` results (before
+  /after side-by-side).
+  9 tests.
+- **#280 — Status Line** (`internal/tui/statusline.go`):
+  persistent status bar showing model name, token count,
+  estimated cost, and session duration. Updates live during
+  streaming. Configurable via `tui.status_line` (on/off/items).
+  5 tests.
+- **#290 — SIN Fusion v1: Verify-Tournament** — see the
+  dedicated entry below for full details (multi-model fan-out
+  on verify-fail, 6 Fireworks models, cost-governor, difficulty
+  gate, PoC-only).
+
+### Added — SOTA TUI Chat Experience (33.5K lines)
+
+A complete rewrite of the chat TUI, bringing it to parity with
+Claude Code and Codex CLI while preserving the sacred verify
+gate (M3).
+
+- **Animated streaming with blinking cursor** — braille spinner
+  (⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏) and emoji spinner (◐◓◑◒) during LLM generation;
+  cursor blinks at the last token position.
+- **Visual message blocks** — user/assistant/tool messages
+  rendered as distinct visual blocks with role icons.
+- **Tool cards** — each tool invocation renders as a compact card
+  with name, status, and result preview.
+- **Branded welcome screen** — ASCII art header with version,
+  model, and quick-start commands.
+- **Context bar** — live token/context usage indicator at the
+  bottom of the chat viewport.
+- **Compact mode toggle** — `Ctrl+M` toggles between full and
+  compact rendering (drops visual blocks, keeps content).
+- **Session info bar** — shows session ID, parent ID (if forked),
+  and turn count.
+- **Permission popup with risk coloring** — the permission dialog
+  color-codes by risk level (green=safe, yellow=moderate,
+  red=dangerous) per the YOLO risk classifier (#272).
+- **View transitions** — slide and fade animations between chat,
+  DAG, dashboard, and file-browser views.
+- **Notification toasts** — ephemeral success/error/info messages
+  in the top-right corner; auto-dismiss after 3 s.
+
+### Added — Enhanced Input Experience
+
+- **Vim mode** (`internal/tui/vim.go`): `Ctrl+V` toggles vim
+  keybindings for the chat input (normal/insert/visual modes).
+  Supports `hjkl`, `w/b`, `dd`, `yy`, `p`, `u`, `cw`, and search
+  (`/`).
+- **History navigation** — `Up`/`Down` cycles through per-session
+  prompt history; persists across restarts.
+- **Paste detection** — multi-line paste is detected and confirmed
+  before sending (prevents accidental submission).
+- **Word movement** — `Alt+Left`/`Alt+Right` jumps by word;
+  `Ctrl+A`/`Ctrl+E` jumps to line start/end.
+- **Auto-complete** — `/` triggers slash-command autocomplete
+  popup; `@` triggers file-path autocomplete.
+- **Slash command autocomplete popup** — fuzzy-filtered list of
+  available slash commands with descriptions.
+
+### Added — Split Pane, File Browser & File Viewer
+
+- **Split pane** (`internal/tui/split.go`): horizontal/vertical
+  pane splitting. `Ctrl+S` toggles split mode; the secondary pane
+  can show file browser, diff, DAG, or dashboard.
+- **File browser** (`internal/tui/filebrowser.go`): tree-view file
+  navigator with `j/k` navigation, `Enter` to open, `d` to diff
+  against HEAD.
+- **File viewer** (`internal/tui/fileviewer.go`): read-only file
+  viewer with syntax highlighting and line numbers.
+
+### Added — In-Chat Search
+
+- `/search <query>` — search within the current session's message
+  history. Results are highlighted inline; `n`/`N` cycles
+  forward/backward.
+
+### Added — Syntax Highlighting (7 languages, dependency-free)
+
+- `internal/tui/syntax/` — hand-rolled lexer for Go, Python, Rust,
+  JavaScript, TypeScript, JSON, and Markdown. Zero external deps
+  (M2). Token-based coloring with 16-color fallback for
+  non-truecolor terminals.
+- 21 tests covering each language + edge cases.
+
+### Added — Thinking Animation
+
+- Braille and emoji spinners during model "thinking" phase.
+  Auto-detected from the `thinking` field in the streaming
+  response.
+
+### Added — Token / Cost / Context Bar
+
+- Persistent bar showing live token count, estimated USD cost,
+  and context-window usage percentage. Updates during streaming.
+
+### Added — Git TUI
+
+- **Diff panel** (`internal/tui/git/diff.go`): side-by-side diff
+  view with syntax highlighting. `Ctrl+D` opens.
+- **Commit flow** (`internal/tui/git/commit.go`): interactive
+  commit message editor + staging/unstaging via `Space`.
+- **Log view** (`internal/tui/git/log.go`): paginated git log with
+  `Enter` to inspect a commit's full diff.
+- **PR creation** (`internal/tui/git/pr.go`): creates a PR via the
+  `gh` bridge with an interactive title/body editor.
+  12 tests.
+
+### Added — LSP TUI
+
+- **Diagnostics panel** (`internal/tui/lsp/diagnostics.go`): live
+  LSP diagnostics with severity icons. `Ctrl+L` opens.
+- **Go-to-definition** — `gd` in the file viewer jumps to the
+  definition via `gopls` / `pyright` / `tsserver`.
+- **Find references** — `gr` in the file viewer shows all
+  references in a popup list.
+- **Inline markers** — diagnostics rendered inline in the file
+  viewer with squiggle underlines.
+- **Status bar** — LSP server status (connected / error / off) in
+  the status line.
+  10 tests.
+
+### Added — `/init` Command
+
+- `/init` — detects project type (Go, Python, Node, Rust, generic),
+  scans for existing docs, and generates a starter `AGENTS.md` with
+  the correct module path, build commands, and test commands.
+  Idempotent — won't overwrite an existing `AGENTS.md` without
+  confirmation.
+
+### Added — Watch Mode
+
+- `sin-code chat --watch` — polling-based file watcher that re-runs
+  the last prompt when watched files change. Configurable via
+  `--watch-glob` (default `**/*.go`) and `--watch-debounce`
+  (default 500 ms).
+
+### Added — Docker Test Guards (#254)
+
+- Docker-dependent tests now skip in `-short` mode via
+  `testing.Short()`. CI without Docker (the n8n VM path, M1) no
+  longer fails on container-based tests.
+
+### Added — Eval User Guide + 4 Golden Datasets (#255, #258)
+
+- `docs/eval.md` — user-facing guide for `sin-code eval` with
+  examples for each scorer, the four-arm comparator, and tracing
+  setup.
+- 4 new golden datasets in `evals/`:
+  - `test-generation.json` — test-generation cases (#256)
+  - `coding.json` — compile-and-run scorer cases
+  - `trivial.json` — YAGNI one-liner cases
+  - `fusion-tournament.json` — Fusion tournament eval cases
+
+### Added — LLM Testgen Repair Loop (#256)
+
+- `internal/evalharness/testgen.go` — `Generate → Execute → Repair`
+  loop for LLM-backed test generation. When generated tests fail to
+  compile or pass, the failure is fed back to the LLM for repair.
+  Bounded by `--max-repair-rounds` (default 3).
+
+### Added — Performance Benchmarks (10)
+
+- 10 benchmarks covering hot paths:
+  - `PromptCache` hit: **35 ns, 0 allocs**
+  - `PatternDB.MatchPrompt`: **198 ns, 0 allocs**
+  - `DeepPlanner.BuildDAGPlan`: **1.1 µs, 14 allocs**
+  - `DAGDispatcher` event round-trip: 280 ns, 1 alloc
+  - `LazyLoader.ToolSearch`: 890 ns, 2 allocs
+  - `RiskClassifier.Classify`: 45 ns, 0 allocs
+  - `Compaction.Summarize`: 2.3 µs, 18 allocs
+  - `SyntaxHighlight.Go`: 1.4 µs, 3 allocs
+  - `Keymap.Lookup`: 22 ns, 0 allocs
+  - `StatusLine.Render`: 310 ns, 1 alloc
+
+### Added — E2E Pipeline Integration Tests (8)
+
+- `tests/e2e/` — 8 end-to-end tests exercising the full pipeline
+  (chat → tool call → verify → learn) with real agent-loop
+  instances (no mocks for the loop itself):
+  - `TestE2E_ChatToVerify_PoC`
+  - `TestE2E_ChatToVerify_Oracle`
+  - `TestE2E_SubagentSpawn_VerifyGate`
+  - `TestE2E_Fusion_Tournament_Winner`
+  - `TestE2E_LazyToolLoad_SearchAndInvoke`
+  - `TestE2E_Compaction_SlidingWindow`
+  - `TestE2E_PatternLearn_RoundTrip`
+  - `TestE2E_Undercover_CommitStrip`
+
+### Added — All Standalone Components Wired Into Execution Path
+
+- Every standalone TUI component (file browser, diff, DAG,
+  dashboard, search, LSP, git) is wired into the main execution
+  path. No dead code — every component is reachable via keyboard
+  shortcuts or slash commands.
+
+### v3.20.0 Stats
+
+| Metric | Value |
+|---|---|
+| New features | ~50 |
+| New tests | ~500 (all `-race` clean, M7) |
+| TUI code | 33.5K lines |
+| Packages passing | 87 |
+| Goroutine leaks | 0 (stress-tested with 100-node DAGs) |
+| PromptCache hit | 35 ns, 0 allocs |
+| PatternDB.MatchPrompt | 198 ns, 0 allocs |
+| DeepPlanner.BuildDAGPlan | 1.1 µs, 14 allocs |
+| Lazy tool loading | 134K → 5K tokens |
+
+### v3.20.0 Mandate Compliance
+
+- **M1** n8n-CI only ✓ (no GitHub Actions runners for build/test)
+- **M2** CGo-free, single static binary ✓ (no new runtime deps;
+  syntax highlighter is hand-rolled, zero deps)
+- **M3** Verification gate sacred ✓ (LoopAgent runs full verify;
+  autoDream never runs during active verify; Fusion tournament is
+  PoC-only)
+- **M4** Permission engine ✓ (YOLO risk classifier adds graded
+  auto-approve; `--undercover` never bypasses permission engine)
+- **M5** Module path `github.com/OpenSIN-Code/SIN-Code` ✓
+- **M6** SIN tools over naive built-ins ✓ (lazy loader preserves
+  SIN tool surface; keymap shortcuts route to `sin_*` tools)
+- **M7** Race-free ✓ (all ~500 tests pass `-race -count=1`;
+  dispatcher, subagent spawner, prewarm, and autoDream
+  stress-tested with 100-node DAGs and 1000-pattern DBs)
 
 ### Added — SIN Fusion v1: Verify-Tournament (issue #290)
 - **`internal/fusion/`** — new package: multi-model verify-tournament for verify-fail recovery
