@@ -65,16 +65,19 @@ Panes:
   - Bottom: footer with agent + tokens + cost + hints
 
 Keys:
+  Enter             send message (in chat view)
+  Shift+Enter       insert newline (in chat view)
   Tab / Shift+Tab   switch view
-  1-5               jump to view
+  1-7               jump to view
   ctrl+b            toggle sidebar
   ctrl+p            command palette
-  ctrl+x            subagents popup
+  ctrl+m            switch model
+  ctrl+g            switch session
+  ctrl+a            subagents popup
   t                 cycle theme
   a                 cycle agent (Build/Audit/Stats)
   r                 run selected tool
-  Enter             show --help for selected tool
-  q / ctrl+c        quit
+  q / ctrl+c / ctrl+x  quit
   Esc               interrupt
 
 If no TTY is available, a plain text catalog is printed instead.`,

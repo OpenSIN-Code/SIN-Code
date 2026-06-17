@@ -224,6 +224,14 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 			}
 			return nil, nil
 		}
+		// Check Code first (more reliable than String() across terminals)
+		if msg.Code == tea.KeyEnter {
+			if msg.Mod&tea.ModShift != 0 {
+				i.textarea.InsertString("\n")
+				return nil, nil
+			}
+			return i.submit()
+		}
 		switch msg.String() {
 		case "ctrl+s", "ctrl+enter":
 			return i.submit()

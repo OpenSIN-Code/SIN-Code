@@ -282,6 +282,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
+		// Ctrl+X and Ctrl+C quit immediately from any view/mode
+		if msg.Code == 'x' && msg.Mod&tea.ModCtrl != 0 {
+			m.saveChatHistory()
+			m.Quitting = true
+			return m, tea.Quit
+		}
+		if msg.Code == 'c' && msg.Mod&tea.ModCtrl != 0 {
+			m.saveChatHistory()
+			m.Quitting = true
+			return m, tea.Quit
+		}
 		if m.NotificationBanner != nil {
 			k := msg.String()
 			if k == "o" || k == "d" || k == "n" {
@@ -310,8 +321,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func isGlobalHotkey(msg tea.KeyMsg) bool {
 	key := msg.String()
-	// Chat input keys — must go to textarea, not handleKey
-	if key == "ctrl+s" || key == "ctrl+enter" || key == "ctrl+d" {
+	// Quit keys handled at top of Update — never route to handleKey
+	if key == "ctrl+s" || key == "ctrl+enter" || key == "ctrl+d" || key == "ctrl+x" || key == "ctrl+c" {
 		return false
 	}
 	// In chat mode, tab/shift+tab should stay in the textarea
@@ -778,6 +789,43 @@ func (m *Model) View() tea.View {
 	v.WindowTitle = "sin-code tui"
 	v.ReportFocus = true
 	v.MouseMode = tea.MouseModeCellMotion
+
+	if m.ViewKind == ViewChat {
+		pct := m.Footer.TokensPct
+		if pct < 0 {
+			pct = 0
+		}
+		if pct > 1 {
+			pct = 1
+		}
+		state := tea.ProgressBarDefault
+		if pct >= 0.8 {
+			state = tea.ProgressBarError
+		} else if pct >= 0.5 {
+			state = tea.ProgressBarWarning
+		}
+		v.ProgressBar = &tea.ProgressBar{
+			State: state,
+			Value: int(pct * 100),
+		}
+
+		if m.ChatInput != nil && len(m.ChatHistory) > 0 {
+			textHeight := 3
+			raw := m.ChatInput.RawValue()
+			if lines := strings.Count(raw, "\n") + 1; lines > 3 {
+				textHeight = min(lines+2, 10)
+			}
+			cursorY := m.Height - 3 - textHeight
+			if cursorY < 1 {
+				cursorY = 1
+			}
+			cursor := tea.NewCursor(0, cursorY)
+			cursor.Shape = tea.CursorBar
+			cursor.Blink = true
+			v.Cursor = cursor
+		}
+	}
+
 	return v
 }
 
