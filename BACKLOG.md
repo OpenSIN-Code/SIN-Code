@@ -14,9 +14,13 @@
 ## Technical Debt
 
 - **LSP framing bug** — `internal/lsp/client.go` cannot handle interleaved JSON-RPC notifications from gopls v0.20+; rewrite `Call` with a scanner split function (see `docs/lsp-known-issues.md`).
-- **Runtime DB locations** (#62) — migrate TUI session/lessons store and code index from repo-relative paths to `os.UserConfigDir()` so they are never accidentally committed.
+- **Auto-migration of pre-#265 per-workspace `.sin-code/` directories** — the migration in #265 / #62 changed the runtime home to `os.UserConfigDir()/sin-code/workspaces/<ws-hash>/` but did not move existing per-workspace `.sin-code/{lessons,sessions}.db` files. A `sin-code sessions migrate` subcommand (or first-run prompt) is out of scope for the original issue.
 - **AGENTS.md / README drift** — keep these files in sync with the actual binary after every subcommand/tool change.
 - **Branch protection note** — `main` now requires `CEO Audit (QUICK, grade≥B)` status check and `required_approving_review_count: 0` for the solo-maintainer workflow.
+
+## Completed (latest)
+
+- ✅ Migrate TUI runtime DBs (`lessons.db`, `sessions.db`) to `os.UserConfigDir()` with workspace-hash isolation (#265 / #62).
 
 ## Docs & Process
 

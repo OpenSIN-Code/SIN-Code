@@ -148,11 +148,11 @@ func ComposeLayout(tabs Tabs, sidebar Sidebar, view ViewKind, content string, ri
 	contentHeight := height - 4
 
 	leftWidth := 0
-	if !sidebar.Collapsed {
+	if view != ViewChat && !sidebar.Collapsed {
 		leftWidth = sidebar.Width
 	}
 	rightWidth := 0
-	if right != "" {
+	if view != ViewChat && right != "" {
 		rightWidth = max(28, width/4)
 	}
 

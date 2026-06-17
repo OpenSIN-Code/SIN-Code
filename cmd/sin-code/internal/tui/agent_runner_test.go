@@ -6,6 +6,8 @@ package tui
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -523,10 +525,16 @@ func TestLoopIsWiredFromBuilder(t *testing.T) {
 }
 
 func TestNewAgentRunnerCreatesSinCodeDir(t *testing.T) {
+	// Issue #62 / #265 — runtime DBs (.sin-code/sessions.db, lessons.db)
+	// must NOT live inside the workspace; they live under
+	// DBHome/workspaces/<sha256-prefix12(abs(ws))>/… instead. The
+	// workspace itself must remain untouched.
 	ws := filepath.Join(t.TempDir(), "fresh", "workspace")
 	r := newTestRunner(t, Config{Workspace: ws})
-	if _, err := os.Stat(filepath.Join(ws, ".sin-code")); err != nil {
-		t.Errorf("expected .sin-code dir under workspace, got: %v", err)
+	if _, err := os.Stat(filepath.Join(ws, ".sin-code")); err == nil {
+		t.Error(".sin-code should NOT exist under workspace after migration")
+	} else if !os.IsNotExist(err) {
+		t.Errorf("unexpected stat err: %v", err)
 	}
 	if r.SessionID() == "" {
 		t.Error("SessionID empty after fresh init")
@@ -551,16 +559,74 @@ func TestSetCompletionNilLoop(t *testing.T) {
 	})
 }
 
-func TestNewAgentRunnerErrorPaths(t *testing.T) {
+// TestNewAgentRunner_UsesDBHomeWhenSet — explicit DBHome overrides
+// UserConfigDir so tests can hermetic-creep each run (issue #62 / #265).
+func TestNewAgentRunner_UsesDBHomeWhenSet(t *testing.T) {
 	ws := t.TempDir()
-	fakeFile := filepath.Join(ws, "fake")
-	if err := os.WriteFile(fakeFile, []byte("x"), 0o644); err != nil {
+	home := filepath.Join(t.TempDir(), "home")
+	r, err := NewAgentRunner(context.Background(), Config{Workspace: ws, DBHome: home, SkipMCP: true})
+	if err != nil {
+		t.Fatalf("NewAgentRunner: %v", err)
+	}
+	defer r.Close()
+	keyPath, err := filepath.Abs(ws)
+	if err != nil {
 		t.Fatal(err)
 	}
-	_, err := NewAgentRunner(context.Background(), Config{Workspace: fakeFile})
-	if err == nil {
-		t.Error("expected error when workspace is a file")
+	wantDir := filepath.Join(home, "workspaces", shortSHA256Helper(keyPath))
+	wantSessions := filepath.Join(wantDir, "sessions.db")
+	wantLessons := filepath.Join(wantDir, "lessons.db")
+	if _, err := os.Stat(wantSessions); err != nil {
+		t.Errorf("sessions.db should exist at %s; got err %v", wantSessions, err)
 	}
+	if _, err := os.Stat(wantLessons); err != nil {
+		t.Errorf("lessons.db should exist at %s; got err %v", wantLessons, err)
+	}
+	// The workspace itself must remain untouched.
+	if _, err := os.Stat(filepath.Join(ws, ".sin-code")); err == nil {
+		t.Error(".sin-code must NOT exist under workspace")
+	} else if !os.IsNotExist(err) {
+		t.Errorf("unexpected stat err: %v", err)
+	}
+}
+
+// TestNewAgentRunner_DefaultsAreUserScoped — when DBHome is empty,
+// sessions.db / lessons.db land under UserConfigDir/sin-code/workspaces/<key>/…
+// (never in the workspace). Heroines of issue #62 / #265: this is what
+// prevents accidental commits.
+func TestNewAgentRunner_DefaultsAreUserScoped(t *testing.T) {
+	ws := t.TempDir()
+	home := filepath.Join(t.TempDir(), "user-cfg")
+	oldGetwd := osGetwd
+	osGetwd = func() (string, error) { return ws, nil }
+	defer func() { osGetwd = oldGetwd }()
+	oldUserConfigDir := userConfigDir
+	userConfigDir = func() (string, error) { return home, nil }
+	defer func() { userConfigDir = oldUserConfigDir }()
+
+	r, err := NewAgentRunner(context.Background(), Config{Workspace: "" /* defaults to ws */, SkipMCP: true})
+	if err != nil {
+		t.Fatalf("NewAgentRunner: %v", err)
+	}
+	defer r.Close()
+	keyPath, _ := filepath.Abs(ws)
+	wantSessions := filepath.Join(home, "sin-code", "workspaces", shortSHA256Helper(keyPath), "sessions.db")
+	if _, err := os.Stat(wantSessions); err != nil {
+		t.Errorf("sessions.db should exist at %s; got err %v", wantSessions, err)
+	}
+	// Workspace must remain untouched.
+	if _, err := os.Stat(filepath.Join(ws, ".sin-code")); err == nil {
+		t.Error(".sin-code must NOT exist under workspace")
+	} else if !os.IsNotExist(err) {
+		t.Errorf("unexpected stat err: %v", err)
+	}
+}
+
+// shortSHA256Helper mirrors dbhome.shortSHA256 but inlined to avoid
+// an internal-package-only path collision in the test binary.
+func shortSHA256Helper(s string) string {
+	sum := sha256.Sum256([]byte(strings.ToLower(s)))
+	return hex.EncodeToString(sum[:])[:12]
 }
 
 // ── parseToolCalls ─────────────────────────────────────────────────

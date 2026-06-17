@@ -872,17 +872,27 @@ default — privacy-first activation via `--activate` or
 
 ### 11.1 Known runtime DB locations
 
-The Go binary writes SQLite DBs to two distinct on-disk locations:
+The Go binary writes SQLite DBs to user-config directories by default
+(issue #265 / #62). Workspace isolation is keyed by a 12-char sha256
+of the workspace's absolute path so two projects never share a row.
 
-| Purpose          | Path (relative to `os.Getwd()`)                    | Module                             | Issue  |
-| ---------------- | -------------------------------------------------- | ---------------------------------- | ------ |
-| Lessons log      | `cmd/sin-code/tui/.sin-code/lessons.db`            | `internal/lessons/store.go`        | #62    |
-| Session store    | `cmd/sin-code/tui/.sin-code/sessions.db`           | `internal/session/store.go`        | #62    |
-| Code index       | `cmd/sin-code/internal/.sin-code/index.bin`        | `internal/index_store.go`          | c06cf18 |
+| Purpose          | Path (relative to `os.UserConfigDir()/sin-code/`)        | Module                                     | Issue  |
+| ---------------- | -------------------------------------------------------- | ------------------------------------------ | ------ |
+| Lessons log      | `workspaces/<sha256-prefix12(abs(ws))>/lessons.db`      | `internal/tui/dbhome.go` + `agent_runner.go` | #265   |
+| Session store    | `workspaces/<sha256-prefix12(abs(ws))>/sessions.db`     | `internal/tui/dbhome.go` + `agent_runner.go` | #265   |
+| Code index       | `<root>/.sin-code/index.bin` (per-project, intentional) | `internal/index_store.go`                  | n/a    |
 
-These are ignored by `.gitignore` (lines 64–65). Do not `git add` them
-under any circumstances; the proper fix is to migrate to
-`os.UserConfigDir()` (tracked as issue #62).
+`internal/session/store.go:DefaultPath()` and
+`internal/lessons/store.go:DefaultPath()` keep their
+`~/.local/share/sin-code/` shape for direct CLI use (`sin-code sessions`
+without a workspace). The TUI agent runner resolves the home through
+`Config.DBHome` (overridable in tests; default = `os.UserConfigDir()`).
+
+These files are NOT inside the workspace tree and so cannot be
+accidentally `git add`-ed. The legacy `.gitignore` rule (lines 64–65)
+remains as a defence-in-depth for users who keep a pre-migration
+working tree. Migration to add *automatic* move-from-old-path is
+out of scope for issue #265.
 
 ---
 
