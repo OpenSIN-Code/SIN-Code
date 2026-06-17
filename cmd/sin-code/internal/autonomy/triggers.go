@@ -42,6 +42,7 @@ type Runner struct {
 	Workspace    string
 	Triggers     []Trigger
 	PollInterval time.Duration
+	DreamFunc    func(context.Context) error
 }
 
 func (r *Runner) Run(ctx context.Context) error {
@@ -69,6 +70,12 @@ func (r *Runner) Run(ctx context.Context) error {
 			go func(t Trigger) {
 				defer wg.Done()
 				r.runDiscover(ctx, t)
+			}(t)
+		case "dream":
+			wg.Add(1)
+			go func(t Trigger) {
+				defer wg.Done()
+				r.runDream(ctx, t)
 			}(t)
 		default:
 			fmt.Fprintf(os.Stderr, "warn: unknown trigger type %q\n", t.Type)
@@ -131,6 +138,30 @@ func (r *Runner) runDiscover(ctx context.Context, t Trigger) {
 			return
 		case <-ticker.C:
 			scan()
+		}
+	}
+}
+
+func (r *Runner) runDream(ctx context.Context, t Trigger) {
+	interval, err := _parseDuration(t.Every)
+	if err != nil || interval < time.Minute {
+		fmt.Fprintf(os.Stderr, "warn: dream trigger needs every >= 1m, got %q\n", t.Every)
+		return
+	}
+	ticker := _newTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if r.DreamFunc != nil {
+				if err := r.DreamFunc(ctx); err != nil {
+					fmt.Fprintf(os.Stderr, "warn: dream trigger failed: %v\n", err)
+				}
+			} else if _, err := r.Queue.Add(ctx, t.Prompt, r.Workspace, t.Priority, 1); err != nil {
+				fmt.Fprintf(os.Stderr, "warn: dream enqueue failed: %v\n", err)
+			}
 		}
 	}
 }

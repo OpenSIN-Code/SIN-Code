@@ -662,3 +662,135 @@ func TestRunnerWatchAddError(t *testing.T) {
 		t.Fatalf("expected watch enqueue failed warning, got %q", out)
 	}
 }
+
+func TestRunnerDreamInvalidEvery(t *testing.T) {
+	resetHooks(t)
+	q := openRunnerQueue(t)
+
+	r := &Runner{
+		Queue:     q,
+		Workspace: t.TempDir(),
+		Triggers:  []Trigger{{Type: "dream", Every: "invalid", Prompt: "dream"}},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	out := captureStderr(t, func() {
+		go func() { _ = r.Run(ctx); close(done) }()
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("runner did not exit")
+		}
+	})
+
+	if !strings.Contains(out, "dream trigger needs every") {
+		t.Fatalf("expected dream trigger needs every warning, got %q", out)
+	}
+}
+
+func TestRunnerDreamShortInterval(t *testing.T) {
+	resetHooks(t)
+	q := openRunnerQueue(t)
+
+	r := &Runner{
+		Queue:     q,
+		Workspace: t.TempDir(),
+		Triggers:  []Trigger{{Type: "dream", Every: "1s", Prompt: "dream"}},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	out := captureStderr(t, func() {
+		go func() { _ = r.Run(ctx); close(done) }()
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("runner did not exit")
+		}
+	})
+
+	if !strings.Contains(out, "dream trigger needs every") {
+		t.Fatalf("expected dream trigger needs every warning, got %q", out)
+	}
+}
+
+func TestRunnerDreamFuncCalled(t *testing.T) {
+	resetHooks(t)
+	q := openRunnerQueue(t)
+
+	_newTicker = func(d time.Duration) *time.Ticker { return time.NewTicker(1 * time.Nanosecond) }
+
+	var callCount int
+	var mu sync.Mutex
+	r := &Runner{
+		Queue:     q,
+		Workspace: t.TempDir(),
+		Triggers:  []Trigger{{Type: "dream", Every: "1m", Prompt: "dream"}},
+		DreamFunc: func(ctx context.Context) error {
+			mu.Lock()
+			callCount++
+			mu.Unlock()
+			return nil
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	captureStderr(t, func() {
+		go func() { _ = r.Run(ctx); close(done) }()
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("runner did not exit")
+		}
+	})
+
+	mu.Lock()
+	cc := callCount
+	mu.Unlock()
+	if cc < 1 {
+		t.Fatalf("expected DreamFunc called at least 1 time, got %d", cc)
+	}
+}
+
+func TestRunnerDreamFallbackEnqueue(t *testing.T) {
+	resetHooks(t)
+	q := openRunnerQueue(t)
+
+	_newTicker = func(d time.Duration) *time.Ticker { return time.NewTicker(1 * time.Nanosecond) }
+
+	r := &Runner{
+		Queue:     q,
+		Workspace: t.TempDir(),
+		Triggers:  []Trigger{{Type: "dream", Every: "1m", Prompt: "consolidate memory", Priority: 1}},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+
+	captureStderr(t, func() {
+		go func() { _ = r.Run(ctx); close(done) }()
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			t.Fatal("runner did not exit")
+		}
+	})
+
+	goals, _ := q.List(context.Background(), StatusPending)
+	if len(goals) < 1 {
+		t.Fatalf("expected at least 1 enqueued goal (fallback), got %d", len(goals))
+	}
+}

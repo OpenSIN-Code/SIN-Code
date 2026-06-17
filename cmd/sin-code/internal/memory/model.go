@@ -14,14 +14,17 @@ import (
 )
 
 type Memory struct {
-	ID        string    `json:"id"`
-	Insight   string    `json:"insight"`
-	Project   string    `json:"project,omitempty"`
-	Tags      []string  `json:"tags,omitempty"`
-	Actor     string    `json:"actor,omitempty"`
-	Created   time.Time `json:"created"`
-	Updated   time.Time `json:"updated"`
-	Embedding []float32 `json:"-"`
+	ID           string    `json:"id"`
+	Insight      string    `json:"insight"`
+	Project      string    `json:"project,omitempty"`
+	Tags         []string  `json:"tags,omitempty"`
+	Actor        string    `json:"actor,omitempty"`
+	Created      time.Time `json:"created"`
+	Updated      time.Time `json:"updated"`
+	Embedding    []float32 `json:"-"`
+	Importance   float64   `json:"importance,omitempty"`
+	AccessCount  int       `json:"access_count,omitempty"`
+	LastAccessed time.Time `json:"last_accessed,omitempty"`
 }
 
 type Link struct {

@@ -181,6 +181,56 @@ func (s *Store) Add(m *Memory) error {
 	})
 }
 
+func (s *Store) Update(m *Memory) error {
+	if m == nil {
+		return fmt.Errorf("nil memory")
+	}
+	if strings.TrimSpace(m.Insight) == "" {
+		return fmt.Errorf("insight required")
+	}
+	if m.ID == "" {
+		return fmt.Errorf("id required for update")
+	}
+	m.Updated = time.Now().UTC()
+	m.Tags = NormalizeTags(m.Tags)
+	return dbUpdate(s.db, func(tx *bolt.Tx) error {
+		raw, err := jsonMarshal(m)
+		if err != nil {
+			return err
+		}
+		bMems := tx.Bucket([]byte(bucketMems))
+		if err := putWithErr(bucketMems, bMems, memKey(m.ID), raw); err != nil {
+			return err
+		}
+		return s.appendAudit(tx, m.ID, "update", "", m.Insight)
+	})
+}
+
+func (s *Store) Touch(id string) error {
+	return dbUpdate(s.db, func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucketMems))
+		raw := b.Get(memKey(id))
+		if raw == nil {
+			return ErrNotFound
+		}
+		var m Memory
+		if err := json.Unmarshal(raw, &m); err != nil {
+			return err
+		}
+		m.AccessCount++
+		m.LastAccessed = time.Now().UTC()
+		m.Updated = time.Now().UTC()
+		buf, err := jsonMarshal(&m)
+		if err != nil {
+			return err
+		}
+		if err := putWithErr(bucketMems, b, memKey(id), buf); err != nil {
+			return err
+		}
+		return s.appendAudit(tx, id, "touch", "", "")
+	})
+}
+
 func (s *Store) Get(id string) (*Memory, error) {
 	var m *Memory
 	err := dbView(s.db, func(tx *bolt.Tx) error {
