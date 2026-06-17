@@ -2,6 +2,9 @@ package tui
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"time"
 
 	"charm.land/bubbles/v2/list"
@@ -130,6 +133,39 @@ func (m *Model) appendChat(msg ChatMessage) {
 	}
 }
 
+// chatHistoryPath returns the path for chat history persistence.
+func chatHistoryPath() string {
+	home, _ := os.UserHomeDir()
+	dir := filepath.Join(home, ".local", "share", "sin-code")
+	_ = os.MkdirAll(dir, 0o755)
+	return filepath.Join(dir, "tui-chat-history.json")
+}
+
+// saveChatHistory persists the chat history to disk as JSON.
+func (m *Model) saveChatHistory() {
+	if len(m.ChatHistory) == 0 {
+		return
+	}
+	data, err := json.Marshal(m.ChatHistory)
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(chatHistoryPath(), data, 0o644)
+}
+
+// loadChatHistory loads persisted chat history from disk.
+func (m *Model) loadChatHistory() {
+	data, err := os.ReadFile(chatHistoryPath())
+	if err != nil {
+		return
+	}
+	var history []ChatMessage
+	if err := json.Unmarshal(data, &history); err != nil {
+		return
+	}
+	m.ChatHistory = history
+}
+
 func NewModel() *Model {
 	s := NewStyles(Themes[0])
 	footer := NewFooter(80)
@@ -182,6 +218,7 @@ func NewModel() *Model {
 	m.Footer.SetView(ViewChat)
 	m.Footer.ShowHints = false
 	m.ApplyTheme()
+	m.loadChatHistory()
 	return m
 }
 

@@ -79,6 +79,7 @@ type AgentEvent struct {
 	ToolName string
 	Err      error
 	AskReply chan bool
+	Tokens   int
 }
 
 // Config bundles the construction-time knobs the TUI passes when
@@ -296,7 +297,18 @@ func (r *AgentRunner) runOnce(ctx context.Context, prompt string) {
 		r.emit(ctx, EventError, err.Error(), "", "", err)
 		return
 	}
-	r.emit(ctx, EventDone, "verified", res.Summary, "", nil)
+	// Emit done with token count from the agent loop result.
+	ev := AgentEvent{
+		Kind:   EventDone,
+		Detail: "verified",
+		Result: res.Summary,
+		Tokens: res.Tokens,
+	}
+	select {
+	case r.Events <- ev:
+	case <-r.closed:
+	case <-ctx.Done():
+	}
 }
 
 func (r *AgentRunner) emit(ctx context.Context, kind EventKind, detail, result, toolName string, err error) {

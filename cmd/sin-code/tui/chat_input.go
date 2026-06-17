@@ -17,11 +17,11 @@ var newChatRunnerHook = func() (*chat.Runner, error) { return chat.NewRunner() }
 
 var newAttachmentStoreHook = func() (*attachments.Store, error) { return attachments.NewStore() }
 
-var chatRunnerRunHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string) (string, error) {
+var chatRunnerRunHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string) (string, int, error) {
 	return r.Run(ctx, prompt, history)
 }
 
-var chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, error) {
+var chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, int, error) {
 	return r.RunStream(ctx, prompt, history, onChunk)
 }
 
@@ -159,15 +159,15 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 
 	prog := m.Program
 	if prog == nil {
-		text, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
-		applyChatResponseMsg(m, chat.ChatResponseMsg{Text: text, Error: err}, thinkingIdx)
+		text, tokens, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
+		applyChatResponseMsg(m, chat.ChatResponseMsg{Text: text, Error: err, Tokens: tokens}, thinkingIdx)
 		return nil
 	}
 	go func() {
-		text, err := chatRunnerStreamHook(runner, m.ctx(), prompt, historySnapshot, func(chunk string) {
+		text, tokens, err := chatRunnerStreamHook(runner, m.ctx(), prompt, historySnapshot, func(chunk string) {
 			prog.Send(ChatChunkMsg{Text: chunk, Idx: thinkingIdx})
 		})
-		prog.Send(chat.ChatResponseMsg{Text: text, Error: err})
+		prog.Send(chat.ChatResponseMsg{Text: text, Error: err, Tokens: tokens})
 	}()
 	return nil
 }

@@ -441,8 +441,8 @@ func TestHandleChatSubmitWithRunnerProgram(t *testing.T) {
 	origStream := chatRunnerStreamHook
 	origAR := newAgentRunnerHook
 	newChatRunnerHook = func() (*chat.Runner, error) { return &chat.Runner{}, nil }
-	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, error) {
-		return "async reply", nil
+	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, int, error) {
+		return "async reply", 0, nil
 	}
 	newAgentRunnerHook = func(ctx context.Context, cfg agentrunner.Config) (*agentrunner.AgentRunner, error) {
 		return nil, fmt.Errorf("no agent runner in test")
@@ -1116,7 +1116,7 @@ type fakeProgram struct {
 }
 
 func newFakeProgram() *fakeProgram {
-	return &fakeProgram{recv: make(chan any, 1)}
+	return &fakeProgram{recv: make(chan any, 16)}
 }
 
 func (f *fakeProgram) Send(msg any) {
@@ -1450,8 +1450,8 @@ func TestHandleChatSubmitThinkingCap(t *testing.T) {
 	origRunner := newChatRunnerHook
 	origRun := chatRunnerRunHook
 	newChatRunnerHook = func() (*chat.Runner, error) { return &chat.Runner{}, nil }
-	chatRunnerRunHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string) (string, error) {
-		return "reply", nil
+	chatRunnerRunHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string) (string, int, error) {
+		return "reply", 0, nil
 	}
 	defer func() {
 		newChatRunnerHook = origRunner
@@ -1479,8 +1479,8 @@ func TestUpdateChatSubmit(t *testing.T) {
 	origStream := chatRunnerStreamHook
 	origAR := newAgentRunnerHook
 	newChatRunnerHook = func() (*chat.Runner, error) { return &chat.Runner{}, nil }
-	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, error) {
-		return "async", nil
+	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, int, error) {
+		return "async", 0, nil
 	}
 	newAgentRunnerHook = func(ctx context.Context, cfg agentrunner.Config) (*agentrunner.AgentRunner, error) {
 		return nil, fmt.Errorf("no agent runner in test")

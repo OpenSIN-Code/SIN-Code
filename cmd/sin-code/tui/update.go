@@ -342,6 +342,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	switch key {
 	case "ctrl+c", "q":
+		m.saveChatHistory()
 		m.Quitting = true
 		return m, tea.Quit
 	case "y":
@@ -764,6 +765,13 @@ func (m *Model) rightWidth() int {
 
 func (m *Model) handleChatResponse(msg chat.ChatResponseMsg) {
 	m.setStreaming(false)
+	if msg.Tokens > 0 {
+		m.Footer.Tokens += msg.Tokens
+		m.Footer.TokensPct = float64(m.Footer.Tokens) / 128000.0
+		if m.Footer.TokensPct > 1.0 {
+			m.Footer.TokensPct = 1.0
+		}
+	}
 	if len(m.ChatHistory) == 0 {
 		return
 	}

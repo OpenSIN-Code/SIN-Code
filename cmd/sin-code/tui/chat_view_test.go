@@ -178,10 +178,12 @@ func TestHandleChatSubmitWithAttachments(t *testing.T) {
 func TestChatHistoryTrimmedAt500(t *testing.T) {
 	prev, had := os.LookupEnv("SIN_NIM_API_KEY")
 	os.Unsetenv("SIN_NIM_API_KEY")
+	cleanup := stubNoAgentRunner()
 	t.Cleanup(func() {
 		if had {
 			os.Setenv("SIN_NIM_API_KEY", prev)
 		}
+		cleanup()
 	})
 
 	m := NewModel()

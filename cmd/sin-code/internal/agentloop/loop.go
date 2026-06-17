@@ -216,6 +216,7 @@ type Result struct {
 	Summary   string `json:"summary"`
 	Verified  bool   `json:"verified"`
 	Turns     int    `json:"turns"`
+	Tokens    int    `json:"tokens,omitempty"`
 	// Continuation is true when the run hit maxTurns with AllowContinuation
 	// enabled: the work is checkpointed (not failed) and should be resumed.
 	Continuation bool `json:"continuation,omitempty"`
@@ -614,6 +615,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			result := &Result{
 				SessionID: sess.ID, Summary: resp.Text,
 				Verified: res.Passed, Turns: turn + 1,
+				Tokens: totalTokens,
 			}
 			l.fire(ctx, hooks.TaskComplete, "", map[string]any{
 				"summary": result.Summary, "turns": result.Turns, "verified": result.Verified,
@@ -666,6 +668,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			Summary:      lastText,
 			Verified:     false,
 			Turns:        maxTurns,
+			Tokens:       totalTokens,
 			Continuation: true,
 			OpenCriteria: lastOpen,
 		}, nil

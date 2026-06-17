@@ -87,6 +87,13 @@ func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 	case agentrunner.EventDone:
 		cm = ChatMessage{Kind: chatDone, Detail: ev.Result}
 		m.setStreaming(false)
+		if ev.Tokens > 0 {
+			m.Footer.Tokens += ev.Tokens
+			m.Footer.TokensPct = float64(m.Footer.Tokens) / 128000.0
+			if m.Footer.TokensPct > 1.0 {
+				m.Footer.TokensPct = 1.0
+			}
+		}
 	case agentrunner.EventError:
 		cm = ChatMessage{Kind: chatError, Text: ev.Detail, Error: ev.Err}
 		m.setStreaming(false)

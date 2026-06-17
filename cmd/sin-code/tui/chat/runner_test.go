@@ -75,7 +75,7 @@ func TestRunnerSuccess(t *testing.T) {
 	c := llm.NewClient(srv.URL, "test-key")
 	r := NewRunnerWithClient(c, "", "")
 
-	out, err := r.Run(context.Background(), "hi", nil)
+	out, _, err := r.Run(context.Background(), "hi", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +137,7 @@ func TestRunnerHistory(t *testing.T) {
 		"recent turn 1",
 		"recent turn 2",
 	}
-	out, err := r.Run(context.Background(), "now ask me something", history)
+	out, _, err := r.Run(context.Background(), "now ask me something", history)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,11 +180,11 @@ func TestRunnerHistory(t *testing.T) {
 
 func TestRunnerNilClient(t *testing.T) {
 	var r *Runner
-	if _, err := r.Run(context.Background(), "x", nil); err == nil {
+	if _, _, err := r.Run(context.Background(), "x", nil); err == nil {
 		t.Error("expected error for nil runner")
 	}
 	r2 := &Runner{}
-	if _, err := r2.Run(context.Background(), "x", nil); err == nil {
+	if _, _, err := r2.Run(context.Background(), "x", nil); err == nil {
 		t.Error("expected error for runner with nil client")
 	}
 }
@@ -274,7 +274,7 @@ func TestRunnerDefaults(t *testing.T) {
 
 	c := llm.NewClient(srv.URL, "k")
 	r := &Runner{Client: c}
-	out, err := r.Run(context.Background(), "hello", nil)
+	out, _, err := r.Run(context.Background(), "hello", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -308,7 +308,7 @@ func TestRunnerHistoryPrefixes(t *testing.T) {
 		"assistant: hi",
 		"user: hello",
 	}
-	if _, err := r.Run(context.Background(), "prompt", history); err != nil {
+	if _, _, err := r.Run(context.Background(), "prompt", history); err != nil {
 		t.Fatal(err)
 	}
 	// system + 4 kept history entries (empty and bare "assistant:" skipped) + prompt = 5
@@ -332,7 +332,7 @@ func TestRunnerChatError(t *testing.T) {
 
 	c := llm.NewClient(srv.URL, "k")
 	r := NewRunnerWithClient(c, "model", "system")
-	if _, err := r.Run(context.Background(), "hi", nil); err == nil {
+	if _, _, err := r.Run(context.Background(), "hi", nil); err == nil {
 		t.Fatal("expected error")
 	}
 }
@@ -351,7 +351,7 @@ func TestRunnerShortHistory(t *testing.T) {
 	r := NewRunnerWithClient(c, "model", "system")
 	// history shorter than historyKeepN to cover the start < 0 branch
 	history := []string{"a", "b"}
-	if _, err := r.Run(context.Background(), "prompt", history); err != nil {
+	if _, _, err := r.Run(context.Background(), "prompt", history); err != nil {
 		t.Fatal(err)
 	}
 	if len(gotReq.Messages) != 4 { // system + 2 history + prompt

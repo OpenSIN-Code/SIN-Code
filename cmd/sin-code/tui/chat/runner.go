@@ -54,9 +54,9 @@ func NewRunnerWithClient(c *llm.Client, model, system string) *Runner {
 	return &Runner{Client: c, Model: model, SystemPrompt: system}
 }
 
-func (r *Runner) Run(ctx context.Context, prompt string, history []string) (string, error) {
+func (r *Runner) Run(ctx context.Context, prompt string, history []string) (string, int, error) {
 	if r == nil || r.Client == nil {
-		return "", fmt.Errorf("runner not initialized")
+		return "", 0, fmt.Errorf("runner not initialized")
 	}
 	model := r.Model
 	if model == "" {
@@ -103,18 +103,18 @@ func (r *Runner) Run(ctx context.Context, prompt string, history []string) (stri
 	}
 	resp, err := r.Client.Chat(ctx, req)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
-	return resp.ExtractText(), nil
+	return resp.ExtractText(), resp.Usage.TotalTokens, nil
 }
 
-func (r *Runner) RunStream(ctx context.Context, prompt string, history []string, onChunk func(string)) (string, error) {
+func (r *Runner) RunStream(ctx context.Context, prompt string, history []string, onChunk func(string)) (string, int, error) {
 	if r == nil || r.Client == nil {
-		return "", fmt.Errorf("runner not initialized")
+		return "", 0, fmt.Errorf("runner not initialized")
 	}
-	full, err := r.Run(ctx, prompt, history)
+	full, tokens, err := r.Run(ctx, prompt, history)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	words := strings.Fields(full)
 	var sb strings.Builder
@@ -128,10 +128,10 @@ func (r *Runner) RunStream(ctx context.Context, prompt string, history []string,
 		select {
 		case <-time.After(8 * time.Millisecond):
 		case <-ctx.Done():
-			return sb.String(), ctx.Err()
+			return sb.String(), 0, ctx.Err()
 		}
 	}
-	return sb.String(), nil
+	return sb.String(), tokens, nil
 }
 
 type ChatChunkMsg struct {
@@ -139,8 +139,9 @@ type ChatChunkMsg struct {
 }
 
 type ChatResponseMsg struct {
-	Text  string
-	Error error
+	Text   string
+	Error  error
+	Tokens int
 }
 
 func SendChatResponse(text string, err error) tea.Cmd {
