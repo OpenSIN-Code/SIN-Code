@@ -15,7 +15,10 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/apiweb"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpcompress"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func TestServePluginTimeoutDefault(t *testing.T) {
@@ -416,5 +419,200 @@ func TestServeHealthHandler(t *testing.T) {
 	}
 	if !strings.Contains(rr.Body.String(), "ok") {
 		t.Errorf("expected ok body, got %q", rr.Body.String())
+	}
+}
+
+func TestTagNames(t *testing.T) {
+	p := mcpcompress.All()
+	names := tagNames(p.Tags())
+	if len(names) != len(p) {
+		t.Fatalf("expected %d names, got %d", len(p), len(names))
+	}
+	for i, n := range names {
+		if n != string(p[i].Tag()) {
+			t.Errorf("expected %q, got %q", p[i].Tag(), n)
+		}
+	}
+}
+
+func TestPrintCompressionStats(t *testing.T) {
+	f, err := os.CreateTemp(t.TempDir(), "stats")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	p := mcpcompress.All()
+	stats := []mcpcompress.Stats{
+		{Name: "sin_test", Original: 100, Compressed: 80, BytesSaved: 20, Ratio: 0.2},
+	}
+	printCompressionStats(f, p, stats)
+
+	data, err := os.ReadFile(f.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := string(data)
+	for _, want := range []string{"mcpcompress:", "sin_test", "TOTAL", "active rules", "ponytail tags"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected output to contain %q, got %q", want, out)
+		}
+	}
+}
+
+func testWithCompressionFlags(t *testing.T, setFlags func()) (*mcp.Server, func()) {
+	oldCompress := serveCompressTools
+	oldPrint := servePrintStats
+	oldTags := serveCompressTags
+	oldStderr := os.Stderr
+
+	setFlags()
+
+	_, w, _ := os.Pipe()
+	os.Stderr = w
+
+	server := mcp.NewServer(&mcp.Implementation{
+		Name:    "sin-code",
+		Version: ServerVersion,
+	}, &mcp.ServerOptions{
+		Capabilities: &mcp.ServerCapabilities{
+			Tools: &mcp.ToolCapabilities{},
+		},
+	})
+	registerAllMCPTools(server)
+
+	cleanup := func() {
+		serveCompressTools = oldCompress
+		servePrintStats = oldPrint
+		serveCompressTags = oldTags
+		os.Stderr = oldStderr
+		_ = w.Close()
+	}
+	return server, cleanup
+}
+
+func TestRegisterAllMCPTools_CompressionEnabled(t *testing.T) {
+	server, cleanup := testWithCompressionFlags(t, func() {
+		serveCompressTools = true
+	})
+	defer cleanup()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cTransport, sTransport := mcp.NewInMemoryTransports()
+	ss, err := server.Connect(ctx, sTransport, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer ss.Close()
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "0.1.0"}, nil)
+	cs, err := client.Connect(ctx, cTransport, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer cs.Close()
+
+	result, err := cs.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	found := false
+	for _, tool := range result.Tools {
+		if tool.Name == "sin_discover" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected sin_discover in compressed manifest, got %d tools", len(result.Tools))
+	}
+}
+
+func TestRegisterAllMCPTools_PrintStats(t *testing.T) {
+	server, cleanup := testWithCompressionFlags(t, func() {
+		servePrintStats = true
+	})
+	defer cleanup()
+
+	// registerAllMCPTools already ran during setup; success path is that it
+	// does not panic and prints stats to stderr.
+	if server == nil {
+		t.Fatal("expected server")
+	}
+}
+
+func TestRegisterAllMCPTools_CompressTags(t *testing.T) {
+	server, cleanup := testWithCompressionFlags(t, func() {
+		serveCompressTags = "delete"
+	})
+	defer cleanup()
+	if server == nil {
+		t.Fatal("expected server")
+	}
+}
+
+func TestRegisterPluginMCPToolsWithReg_Compression(t *testing.T) {
+	oldCompress := serveCompressTools
+	oldTags := serveCompressTags
+	defer func() {
+		serveCompressTools = oldCompress
+		serveCompressTags = oldTags
+	}()
+	serveCompressTools = true
+
+	reg := plugins.NewRegistry()
+	reg.Register(&plugins.Plugin{
+		Name:    "comp",
+		Enabled: true,
+		Tools: []plugins.PluginTool{
+			{
+				Name:        "echo",
+				Description: "Echo input safely and carefully (e.g. hello)",
+				Binary:      "/bin/echo",
+				Args:        []string{},
+				Timeout:     5,
+			},
+		},
+	})
+
+	server := mcp.NewServer(&mcp.Implementation{
+		Name:    "sin-code",
+		Version: ServerVersion,
+	}, &mcp.ServerOptions{
+		Capabilities: &mcp.ServerCapabilities{
+			Tools: &mcp.ToolCapabilities{},
+		},
+	})
+	registerPluginMCPToolsWithReg(server, reg)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cTransport, sTransport := mcp.NewInMemoryTransports()
+	ss, err := server.Connect(ctx, sTransport, nil)
+	if err != nil {
+		t.Fatalf("server connect: %v", err)
+	}
+	defer ss.Close()
+	client := mcp.NewClient(&mcp.Implementation{Name: "test", Version: "0.1.0"}, nil)
+	cs, err := client.Connect(ctx, cTransport, nil)
+	if err != nil {
+		t.Fatalf("client connect: %v", err)
+	}
+	defer cs.Close()
+
+	result, err := cs.ListTools(ctx, nil)
+	if err != nil {
+		t.Fatalf("ListTools: %v", err)
+	}
+	found := false
+	for _, tool := range result.Tools {
+		if tool.Name == "sin_plugin_comp_echo" {
+			found = true
+			if strings.Contains(tool.Description, "safely") {
+				t.Errorf("expected hedges to be compressed, got %q", tool.Description)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected plugin tool in compressed manifest, got %v", result.Tools)
 	}
 }
