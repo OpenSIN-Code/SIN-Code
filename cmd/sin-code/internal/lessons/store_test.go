@@ -5,6 +5,7 @@ package lessons
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -226,5 +227,87 @@ func TestRecordSameFingerprintIncrementsOccurrences(t *testing.T) {
 	}
 	if len(entries) != 1 || entries[0].Occurrences != 3 {
 		t.Fatalf("expected 1 entry with 3 occurrences, got %+v", entries)
+	}
+}
+
+func TestTokensExcludesShortWords(t *testing.T) {
+	e := Entry{Type: TypeConstraint, Workspace: "/tmp/ws", Lesson: "foo bar", Context: map[string]any{"tool": "sin_read", "x": "ab"}}
+	toks := Tokens(e)
+	for _, w := range []string{"foo", "tool", "sin_read"} {
+		if !contains(strings.Join(toks, " "), w) {
+			t.Fatalf("expected token %q, got %v", w, toks)
+		}
+	}
+	for _, w := range []string{"ab", "ws"} { // "ab" too short, "ws" in workspace may or may not appear
+		if w == "ab" && contains(strings.Join(toks, " "), w) {
+			t.Fatalf("did not expect token %q, got %v", w, toks)
+		}
+	}
+}
+
+func TestQueryTopK(t *testing.T) {
+	s := openTest(t)
+	ctx := context.Background()
+	_ = s.Record(ctx, Entry{Type: TypeConstraint, Workspace: "/tmp", Lesson: "use docker for builds", Context: map[string]any{}})
+	_ = s.Record(ctx, Entry{Type: TypeConstraint, Workspace: "/tmp", Lesson: "avoid nil pointer", Context: map[string]any{}})
+	for i := 0; i < 3; i++ {
+		_ = s.Record(ctx, Entry{Type: TypeConstraint, Workspace: "/tmp", Lesson: "docker build always include tag", Context: map[string]any{}})
+	}
+	entries, err := s.QueryTopK(ctx, "/tmp", map[string]any{"prompt": "how do I build with docker"}, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected top-k results")
+	}
+	if !strings.Contains(entries[0].Lesson, "docker") {
+		t.Fatalf("expected docker lesson first, got %s", entries[0].Lesson)
+	}
+}
+
+func TestBriefingForContext(t *testing.T) {
+	s := openTest(t)
+	ctx := context.Background()
+	for i := 0; i < 2; i++ {
+		_ = s.Record(ctx, Entry{Type: TypeConstraint, Workspace: "/tmp", Lesson: "docker tag must be lowercase", Context: map[string]any{}})
+	}
+	_ = s.Record(ctx, Entry{Type: TypeConstraint, Workspace: "/tmp", Lesson: "noise", Context: map[string]any{}})
+	briefing, err := s.BriefingForContext(ctx, "/tmp", map[string]any{"prompt": "docker build"}, 10, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(briefing, "docker") {
+		t.Fatalf("expected docker lesson in briefing, got %q", briefing)
+	}
+	if contains(briefing, "noise") {
+		t.Fatalf("expected noise lesson excluded, got %q", briefing)
+	}
+}
+
+func TestDeleteRemovesIndex(t *testing.T) {
+	s := openTest(t)
+	ctx := context.Background()
+	e := Entry{Type: TypeConstraint, Workspace: "/tmp", Lesson: "docker cleanup", Context: map[string]any{}}
+	if err := s.Record(ctx, e); err != nil {
+		t.Fatal(err)
+	}
+	entries, _ := s.Query(ctx, "/tmp", 10)
+	if len(entries) != 1 {
+		t.Fatal("entry not recorded")
+	}
+	if err := s.Delete(ctx, entries[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	idxRows, err := s.db.Query(`SELECT COUNT(*) FROM lesson_index WHERE lesson_id = ?`, entries[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer idxRows.Close()
+	var n int
+	if idxRows.Next() {
+		idxRows.Scan(&n)
+	}
+	if n != 0 {
+		t.Fatalf("expected 0 index rows after delete, got %d", n)
 	}
 }

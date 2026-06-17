@@ -416,10 +416,9 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	// Learning loop closed: inject accumulated workspace lessons before the
 	// first turn so the agent never repeats a recorded mistake.
 	if l.Lessons != nil {
-		if entries, err := l.Lessons.Query(ctx, l.Workspace, 25); err == nil {
-			if briefing := lessons.Briefing(entries, 10, 2048); briefing != "" {
-				msgs = append(msgs, session.Message{Role: "user", Content: briefing})
-			}
+		briefCtx := map[string]any{"prompt": prompt}
+		if briefing, err := l.Lessons.BriefingForContext(ctx, l.Workspace, briefCtx, 10, 2048); err == nil && briefing != "" {
+			msgs = append(msgs, session.Message{Role: "user", Content: briefing})
 		}
 	}
 
