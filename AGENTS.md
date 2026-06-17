@@ -540,6 +540,7 @@ configured. The default is off for performance/privacy.
 | `test.mutation_threshold` | float (0–100) | `0` | `sin_mutation` default |
 | `test.auto_generate` | bool | `false` | Auto-trigger `sin_test_generate` on writes |
 | `test.timeout_seconds` | int | `300` | Default timeout for test tools |
+| `test.use_llm` | bool | `false` | `sin_test_generate` calls configured LLM to fill cases |
 
 Hook payload: `tool.post` events for `sin_write`/`sin_edit` now include the
 edited file path in `data.path` and expose it as `$SIN_HOOK_DATA_PATH` to

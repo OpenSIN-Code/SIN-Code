@@ -1229,6 +1229,9 @@ func TestConfig_TestThresholdRoundtrip(t *testing.T) {
 	if err := setConfigValueIn("test.timeout_seconds", "600", &cfg); err != nil {
 		t.Fatalf("set timeout_seconds: %v", err)
 	}
+	if err := setConfigValueIn("test.use_llm", "true", &cfg); err != nil {
+		t.Fatalf("set use_llm: %v", err)
+	}
 
 	if got, _ := getConfigValueFrom("test.coverage_threshold", cfg); got != "80" {
 		t.Errorf("coverage threshold get: %q", got)
@@ -1242,17 +1245,20 @@ func TestConfig_TestThresholdRoundtrip(t *testing.T) {
 	if got, _ := getConfigValueFrom("test.timeout_seconds", cfg); got != "600" {
 		t.Errorf("timeout_seconds get: %q", got)
 	}
+	if got, _ := getConfigValueFrom("test.use_llm", cfg); got != "true" {
+		t.Errorf("use_llm get: %q", got)
+	}
 
 	pairs := configPairs(cfg, true)
 	var found int
 	for _, p := range pairs {
 		switch p.Key {
-		case "test.coverage_threshold", "test.mutation_threshold", "test.auto_generate", "test.timeout_seconds":
+		case "test.coverage_threshold", "test.mutation_threshold", "test.auto_generate", "test.timeout_seconds", "test.use_llm":
 			found++
 		}
 	}
-	if found != 4 {
-		t.Errorf("expected 4 test config pairs, found %d", found)
+	if found != 5 {
+		t.Errorf("expected 5 test config pairs, found %d", found)
 	}
 }
 

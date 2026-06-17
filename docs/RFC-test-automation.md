@@ -296,14 +296,14 @@ This is already possible; the RFC standardises the JSON schema.
 - [x] Wire into CI via n8n (M1).
 - [x] Document dataset format in `evals/README.md`.
 
-### Phase 5 — LLM Case Filling (in progress)
+### Phase 5 — LLM Case Filling
 
-- [ ] Wire `sin_test_generate` to `internal/llm.Client` when `llm=true` or `test.use_llm=true`.
-- [ ] Implement prompt builder that asks the LLM for realistic test cases from a function signature.
-- [ ] Insert LLM-generated cases into the table-driven test.
-- [ ] Add generate/execute/repair loop (max 3 retries).
-- [ ] Add `test.use_llm` config key and `SIN_TEST_GENERATE_USE_LLM` env var.
-- [ ] Add unit tests for LLM case filling and fallback behaviour.
+- [x] Wire `sin_test_generate` to `internal/llm.Client` when `llm=true` or `test.use_llm=true`.
+- [x] Implement prompt builder that asks the LLM for realistic test cases from a function signature.
+- [x] Add `test.use_llm` config key and `SIN_TEST_GENERATE_USE_LLM` env var.
+- [x] Add unit tests for LLM case filling and fallback behaviour.
+- [ ] Insert LLM-generated cases into the table-driven test (template splice; Phase 5+).
+- [ ] Add generate/execute/repair loop (max 3 retries; Phase 5+).
 
 ---
 

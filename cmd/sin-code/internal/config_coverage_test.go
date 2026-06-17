@@ -242,7 +242,7 @@ func TestConfig_GetConfigValueFromAllKeys(t *testing.T) {
 		AgentVerifyMode: "poc", AgentMaxTurns: 80, AgentHeadless: true, AgentYolo: true,
 		ToolsAllow: []string{"a", "b"}, ToolsDeny: []string{"c"},
 		PathsMCPConfig: "./mcp.json", PathsSkillsDir: "./skills",
-		TestCoverageThreshold: 80, TestMutationThreshold: 50, TestTimeoutSeconds: 300,
+		TestCoverageThreshold: 80, TestMutationThreshold: 50, TestTimeoutSeconds: 300, TestUseLLM: true,
 	}
 	cases := map[string]string{
 		"theme":                   "dark",
@@ -266,6 +266,7 @@ func TestConfig_GetConfigValueFromAllKeys(t *testing.T) {
 		"test.mutation_threshold": "50",
 		"test.auto_generate":      "false",
 		"test.timeout_seconds":    "300",
+		"test.use_llm":            "true",
 	}
 	for key, want := range cases {
 		got, err := getConfigValueFrom(key, cfg)
@@ -309,6 +310,7 @@ func TestConfig_SetConfigValueInAllKeys(t *testing.T) {
 		{"test.mutation_threshold", "50", func() bool { return cfg.TestMutationThreshold == 50 }},
 		{"test.auto_generate", "true", func() bool { return cfg.TestAutoGenerate }},
 		{"test.timeout_seconds", "600", func() bool { return cfg.TestTimeoutSeconds == 600 }},
+		{"test.use_llm", "true", func() bool { return cfg.TestUseLLM }},
 	}
 	for _, c := range cases {
 		if err := setConfigValueIn(c.key, c.val, &cfg); err != nil {
@@ -384,6 +386,7 @@ func TestConfig_ApplyMapFull(t *testing.T) {
 		"test.mutation_threshold": "50",
 		"test.auto_generate":      "true",
 		"test.timeout_seconds":    "600",
+		"test.use_llm":            "true",
 	}
 	applyMap(&cfg, m)
 	if cfg.Theme != "light" || cfg.DefaultTimeout != 120 || cfg.DefaultFormat != "text" || !cfg.MCPServerEnabled {
@@ -397,6 +400,9 @@ func TestConfig_ApplyMapFull(t *testing.T) {
 	}
 	if len(cfg.ToolsAllow) != 2 || len(cfg.ToolsDeny) != 1 || cfg.PathsMCPConfig != "./m.json" || cfg.PathsSkillsDir != "./s" {
 		t.Errorf("applyMap did not set permission/path fields: %+v", cfg)
+	}
+	if cfg.TestCoverageThreshold != 80 || cfg.TestMutationThreshold != 50 || !cfg.TestAutoGenerate || cfg.TestTimeoutSeconds != 600 || !cfg.TestUseLLM {
+		t.Errorf("applyMap did not set test fields: %+v", cfg)
 	}
 }
 
