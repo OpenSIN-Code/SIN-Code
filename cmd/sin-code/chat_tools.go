@@ -104,6 +104,25 @@ func argStr(args map[string]any, key string) string {
 	return v
 }
 
+func argBool(args map[string]any, key string, defaultValue bool) bool {
+	v, ok := args[key]
+	if !ok {
+		return defaultValue
+	}
+	switch b := v.(type) {
+	case bool:
+		return b
+	case string:
+		b = strings.ToLower(strings.TrimSpace(b))
+		return b == "true" || b == "yes" || b == "1"
+	case float64:
+		return b != 0
+	case int:
+		return b != 0
+	}
+	return defaultValue
+}
+
 func toolRead(path string) (string, error) {
 	if path == "" {
 		return "", fmt.Errorf("sin_read: path required")
@@ -133,7 +152,9 @@ func toolWrite(path, content string) (string, error) {
 		os.Remove(tmp)
 		return "", err
 	}
-	return fmt.Sprintf("wrote %d bytes to %s", len(content), path), nil
+	result := fmt.Sprintf("wrote %d bytes to %s", len(content), path)
+	result += maybeGenerateTest(path)
+	return result, nil
 }
 
 func toolEdit(path, old, new string) (string, error) {
@@ -152,7 +173,9 @@ func toolEdit(path, old, new string) (string, error) {
 	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
 		return "", err
 	}
-	return "edited " + path, nil
+	result := "edited " + path
+	result += maybeGenerateTest(path)
+	return result, nil
 }
 
 func toolBash(ctx context.Context, command string) (string, error) {

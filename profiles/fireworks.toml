@@ -7,5 +7,24 @@ base_url = "https://api.fireworks.ai/inference/v1"
 model = "accounts/fireworks/models/qwen3-coder-480b-a35b-instruct"
 max_tokens = 8192
 temperature = 0.2
-tools_allow = ["sin_read", "sin_write", "sin_edit", "sin_search"]
+# Full SIN tool surface + all registered MCP prefixes (issue #249).
+# Destructive SIN builtins (sin_bash, sin_git_commit, sin_test_generate,
+# sin_browser_navigate) are intentionally omitted so they stay at the default
+# "ask" tier and are still gated by the permission engine in headless mode.
+tools_allow = [
+  "sin_read", "sin_write", "sin_edit", "sin_search",
+  "sin_test",
+  "sin_git_log", "sin_git_diff",
+  "sin_http_get",
+  "sin_security_scan", "sin_sbom_generate",
+  "sin_browser_findings", "sin_browser_snapshot", "sin_browser_vitals_flush", "sin_browser_diff",
+  "sckg_*", "oracle_*", "poc_*",
+  "websearch__*", "contextbridge__*", "simone__*", "symfonylens__*",
+  "codocs__*", "frontend__*", "goalmode__*", "grillme__*", "marketplace__*", "mcpbuilder__*", "scheduler__*",
+  "browser__*", "honcho__*", "share__*", "skills__*",
+  "sin_bootstrap_skill",
+  "vane__*", "superpowers__*", "dox__*",
+  "gh_query", "gh_health",
+  "autodev__*", "eval__*", "trace__*", "install__*", "compress__*", "profile__*", "sindept__*",
+]
 tools_deny = []

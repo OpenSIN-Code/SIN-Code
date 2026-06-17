@@ -131,6 +131,13 @@ func (r *Runner) RunCase(ctx context.Context, tc *TestCase) RunResult {
 	}
 	res.SessionID = sess.ID
 
+	// Wire live tool-coverage enforcement from the dataset constraints so the
+	// agent loop rejects premature completion inside the run, not just after it
+	// (issue #248). The constraints are reset per case via the fresh enforcer
+	// created in Loop.Run.
+	r.loop.CoverageRequiredTools = tc.Constraints.MustUseTools
+	r.loop.CoverageForbiddenTools = tc.Constraints.ForbiddenTools
+
 	loopRes, runErr := r.loop.Run(cctx, sess, tc.Prompt)
 	res.Duration = time.Since(start)
 	if cctx.Err() == context.DeadlineExceeded {
@@ -148,6 +155,9 @@ func (r *Runner) RunCase(ctx context.Context, tc *TestCase) RunResult {
 			res.FinalOutput = loopRes.Summary
 			res.VerifyPassed = loopRes.Verified
 		}
+		if r.loop.Coverage != nil {
+			res.ToolsUsed = r.loop.Coverage.Used()
+		}
 		res.Success = false
 		r.applyRules(tc, &res)
 		return res
@@ -157,6 +167,12 @@ func (r *Runner) RunCase(ctx context.Context, tc *TestCase) RunResult {
 	res.VerifyPassed = loopRes.Verified
 	res.FinalOutput = loopRes.Summary
 	res.Success = loopRes.Verified
+	// Surface the tools the loop actually invoked for reporting and for the
+	// post-hoc constraint checks (now redundant with live enforcement, but kept
+	// for backward compatibility with test overrides that don't run the loop).
+	if r.loop.Coverage != nil {
+		res.ToolsUsed = r.loop.Coverage.Used()
+	}
 	r.applyRules(tc, &res)
 	r.applyScorer(tc, &res)
 	return res

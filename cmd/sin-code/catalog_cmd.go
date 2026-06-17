@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/catalog"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/telemetry"
 )
 
 // NewCatalogCmd builds the `catalog` cobra subcommand.
@@ -51,7 +52,8 @@ between the two commands.`,
 	cmd.AddCommand(newCatalogListCmd())
 	cmd.AddCommand(newCatalogSearchCmd())
 	cmd.AddCommand(newCatalogInfoCmd())
-	cmd.PersistentFlags().StringVar(&kind, "kind", "", "filter by kind: agent|command|skill|hub")
+	cmd.AddCommand(newCatalogUnusedCmd())
+	cmd.PersistentFlags().StringVar(&kind, "kind", "", "filter by kind: agent|command|skill|hub|mcp|chat|external")
 	cmd.PersistentFlags().StringVar(&format, "format", "text", "output format: text|json")
 	return cmd
 }
@@ -101,7 +103,7 @@ func newCatalogInfoCmd() *cobra.Command {
 			sources := defaultCatalogSources()
 			ctx := c.Context()
 			for _, src := range sources {
-				for _, k := range []catalog.Kind{catalog.KindAgent, catalog.KindCommand, catalog.KindSkill, catalog.KindHub} {
+				for _, k := range []catalog.Kind{catalog.KindAgent, catalog.KindCommand, catalog.KindSkill, catalog.KindHub, catalog.KindMCP, catalog.KindChat, catalog.KindExternal} {
 					if kind != "" && k != catalog.Kind(kind) {
 						continue
 					}
@@ -119,6 +121,41 @@ func newCatalogInfoCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newCatalogUnusedCmd() *cobra.Command {
+	var (
+		format string
+		stub   bool
+	)
+	cmd := &cobra.Command{
+		Use:   "unused",
+		Short: "List catalog tools never used according to telemetry",
+		RunE: func(c *cobra.Command, _ []string) error {
+			assets, err := loadCatalog(c)
+			if err != nil {
+				return err
+			}
+			var provider telemetry.Provider
+			if stub {
+				provider = telemetry.Stub()
+			} else {
+				provider, err = telemetry.DefaultProvider()
+				if err != nil {
+					return err
+				}
+			}
+			used, err := provider.UsedTools(c.Context())
+			if err != nil {
+				return err
+			}
+			unused := catalog.FilterUnused(assets, used)
+			return renderCatalog(c.OutOrStdout(), unused, format)
+		},
+	}
+	cmd.Flags().StringVar(&format, "format", "text", "output format: text|json")
+	cmd.Flags().BoolVar(&stub, "stub", false, "use stub telemetry (assume nothing used)")
+	return cmd
 }
 
 // runCatalog is the shared implementation for the root and list
@@ -146,6 +183,9 @@ func loadCatalog(c *cobra.Command) ([]*catalog.Asset, error) {
 func defaultCatalogSources() []catalog.Source {
 	return []catalog.Source{
 		catalog.HubSource{},
+		catalog.MCPSource{},
+		catalog.ChatSource{},
+		catalog.ExternalSource{},
 		// AssetsSource is wired conditionally in the future when
 		// the asset loader exposes a registry at startup. For
 		// now, the hub covers the operator-facing catalog.

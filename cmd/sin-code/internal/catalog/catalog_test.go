@@ -584,6 +584,113 @@ func TestFilterByKind_NoMatch(t *testing.T) {
 	}
 }
 
+func TestMCPSource_ListsTools(t *testing.T) {
+	src := MCPSource{}
+	got, err := src.List(context.Background(), KindMCP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) < 46 {
+		t.Fatalf("expected at least 46 MCP tools, got %d", len(got))
+	}
+	for _, a := range got {
+		if a.Kind != KindMCP {
+			t.Errorf("expected kind=mcp, got %s", a.Kind)
+		}
+		if a.Namespace == "" {
+			t.Errorf("MCP asset %q missing namespace", a.Name)
+		}
+	}
+}
+
+func TestMCPSource_Get(t *testing.T) {
+	src := MCPSource{}
+	got, ok, err := src.Get(context.Background(), KindMCP, "sin_discover")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("expected sin_discover")
+	}
+	if got.Namespace != "sin_discover" {
+		t.Errorf("unexpected namespace: %s", got.Namespace)
+	}
+}
+
+func TestChatSource_ListsTools(t *testing.T) {
+	src := ChatSource{}
+	got, err := src.List(context.Background(), KindChat)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) < 17 {
+		t.Fatalf("expected at least 17 chat tools, got %d", len(got))
+	}
+	for _, a := range got {
+		if a.Kind != KindChat {
+			t.Errorf("expected kind=chat, got %s", a.Kind)
+		}
+	}
+}
+
+func TestExternalSource_ListsPrefixes(t *testing.T) {
+	src := ExternalSource{}
+	got, err := src.List(context.Background(), KindExternal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) < 14 {
+		t.Fatalf("expected at least 14 external prefixes, got %d", len(got))
+	}
+	for _, a := range got {
+		if a.Kind != KindExternal {
+			t.Errorf("expected kind=external, got %s", a.Kind)
+		}
+		if !strings.HasSuffix(a.Namespace, "__*") {
+			t.Errorf("external namespace %q should end with __*", a.Namespace)
+		}
+	}
+}
+
+func TestMerge_IncludesNewKinds(t *testing.T) {
+	merged, err := Merge(context.Background(), []Source{HubSource{}, MCPSource{}, ChatSource{}, ExternalSource{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts := map[Kind]int{}
+	for _, a := range merged {
+		counts[a.Kind]++
+	}
+	for _, k := range []Kind{KindHub, KindMCP, KindChat, KindExternal} {
+		if counts[k] == 0 {
+			t.Errorf("expected non-zero %s assets", k)
+		}
+	}
+}
+
+func TestSearch_MCPByNamespace(t *testing.T) {
+	assets, _ := Merge(context.Background(), []Source{MCPSource{}})
+	hits := Search(assets, "sin_discover")
+	if len(hits) == 0 || hits[0].Name != "sin_discover" {
+		t.Fatalf("expected sin_discover as top hit, got %+v", hits)
+	}
+}
+
+func TestSearch_ExternalByPrefix(t *testing.T) {
+	assets, _ := Merge(context.Background(), []Source{ExternalSource{}})
+	hits := Search(assets, "browser")
+	found := false
+	for _, h := range hits {
+		if h.Name == "browser" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected browser prefix, got %+v", hits)
+	}
+}
+
 func TestSearch_DescriptionMatch(t *testing.T) {
 	assets := []*Asset{
 		{Name: "x", Description: "find me"},
@@ -614,5 +721,34 @@ func TestSearch_OnlyTags(t *testing.T) {
 	got := Search(assets, "go")
 	if len(got) != 1 || got[0].Name != "x" {
 		t.Errorf("expected x by tag, got %+v", got)
+	}
+}
+
+func TestFilterUnused(t *testing.T) {
+	assets := []*Asset{
+		{Name: "discover", Namespace: "discover"},
+		{Name: "sin_read", Namespace: "sin_read"},
+		{Name: "sin_write", Namespace: "sin_write"},
+	}
+	used := map[string]int64{"sin_read": 1}
+	got := FilterUnused(assets, used)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 unused, got %d", len(got))
+	}
+	for _, a := range got {
+		if a.Name == "sin_read" {
+			t.Errorf("sin_read is used, should not be in unused list")
+		}
+	}
+}
+
+func TestFilterUnused_FallsBackToName(t *testing.T) {
+	assets := []*Asset{
+		{Name: "x", Namespace: "ns_x"},
+	}
+	used := map[string]int64{"x": 1}
+	got := FilterUnused(assets, used)
+	if len(got) != 0 {
+		t.Errorf("expected x marked used by name fallback, got %d", len(got))
 	}
 }

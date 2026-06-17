@@ -128,6 +128,40 @@ const rulesUltra = `# Output style (ultra)
 When the next action is destructive, security-relevant, or order-sensitive (schema drops, force-push, token rotation, lock ordering, multi-step migrations), drop to normal prose for that section, label the section, then resume ultra prose after.
 `
 
+// toolPreferenceBlock enforces mandate M6 ("SIN tools over naive
+// built-ins"). It is injected into every system prompt so the agent
+// reaches for the specialized tool instead of sin_bash/sin_read defaults.
+const toolPreferenceBlock = `# Tool preference (mandate M6)
+Always prefer the specialized SIN tool over a naive shell or generic file read.
+
+Available tools:
+- sin_scout — search and explore code, files, and text
+- sin_map — map architecture, entry points, and hot paths
+- sin_sckg — semantic code graph queries
+- sin_grasp — deep understanding of a single file
+- sin_adw — architectural debt / coupling watchdog
+- sin_poc — prove a claim by running code
+- sin_oracle — verify an external claim with evidence
+- sin_security_scan — security findings
+- sin_sbom_generate — software bill of materials
+- sin_efm — ephemeral full-stack test environment
+
+Task mappings:
+- search / explore → sin_scout
+- architecture / dependencies → sin_map or sin_sckg
+- understand one file → sin_grasp (not sin_read)
+- static analysis / complexity → sin_adw
+- verification → sin_poc or sin_oracle
+- security → sin_security_scan
+- supply chain / SBOM → sin_sbom_generate
+- integration / sandbox test → sin_efm
+
+Rules:
+- Never use sin_bash for cat, find, grep, sed, echo, or any other task that has a dedicated SIN tool.
+- Never use sin_read as a generic file dump when sin_grasp or sin_scout covers the need.
+- Before every sin_bash call, include a one-sentence justification explaining why no SIN tool covers the task.
+`
+
 // rulesFor returns the ruleset text for a non-default mode. Default
 // and Verbose callers must short-circuit on EmitsBlock before calling.
 func rulesFor(m Mode) string {
@@ -175,6 +209,29 @@ func RenderRules(m Mode, skillBody string) string {
 // "inject this verbatim into the system prompt".
 func RenderSystemBlock(level string) string {
 	return RenderRules(ParseMode(level), "")
+}
+
+// RenderToolPreferenceBlock returns the mandate M6 fragment that
+// instructs the agent to prefer specialized SIN tools over naive
+// sin_bash/sin_read equivalents. The output is a constant string so it
+// is byte-stable across builds.
+func RenderToolPreferenceBlock() string {
+	return toolPreferenceBlock
+}
+
+// RenderSystemPrompt returns the full system prompt injected into the
+// agent loop: the optional verbosity ruleset (empty for default/verbose),
+// followed by the mandatory M6 tool-preference block. The output is
+// byte-stable for any given style level.
+func RenderSystemPrompt(styleLevel string) string {
+	styleBlock := RenderSystemBlock(styleLevel)
+	var b strings.Builder
+	if styleBlock != "" {
+		b.WriteString(styleBlock)
+		b.WriteString("\n\n")
+	}
+	b.WriteString(toolPreferenceBlock)
+	return b.String()
 }
 
 // AppendVerbosity is the composition primitive. It returns

@@ -68,11 +68,12 @@ func (p *Planner) BuildPlan(prompt string) *Plan {
 	}
 
 	return &Plan{
-		ID:      GenerateID("pl"),
-		Prompt:  prompt,
-		Intent:  intent,
-		Tasks:   tasks,
-		Created: timeNow(),
+		ID:        GenerateID("pl"),
+		Prompt:    prompt,
+		Intent:    intent,
+		ToolChain: ToolChainForIntent(intent),
+		Tasks:     tasks,
+		Created:   timeNow(),
 	}
 }
 

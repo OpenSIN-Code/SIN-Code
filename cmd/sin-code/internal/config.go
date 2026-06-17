@@ -52,12 +52,14 @@ type SinCodeConfig struct {
 	LLMStyle        string   `toml:"llm.style"`
 	AgentVerifyMode string   `toml:"agent.verify_mode"`
 	AgentMaxTurns   int      `toml:"agent.max_turns"`
-	AgentHeadless   bool     `toml:"agent.headless"`
-	AgentYolo       bool     `toml:"agent.yolo"`
-	ToolsAllow      []string `toml:"permissions.tools_allow"`
-	ToolsDeny       []string `toml:"permissions.tools_deny"`
-	PathsMCPConfig  string   `toml:"paths.mcp_config"`
-	PathsSkillsDir  string   `toml:"paths.skills_dir"`
+	AgentHeadless          bool     `toml:"agent.headless"`
+	AgentYolo              bool     `toml:"agent.yolo"`
+	AgentLoopRequiredTools []string `toml:"agentloop.required_tools"`
+	AgentLoopForbiddenTools []string `toml:"agentloop.forbidden_tools"`
+	ToolsAllow             []string `toml:"permissions.tools_allow"`
+	ToolsDeny              []string `toml:"permissions.tools_deny"`
+	PathsMCPConfig         string   `toml:"paths.mcp_config"`
+	PathsSkillsDir         string   `toml:"paths.skills_dir"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -72,14 +74,16 @@ func defaultConfig() SinCodeConfig {
 		LLMMaxTokens:     8192,
 		LLMTemperature:   0.0,
 		LLMStyle:         "default",
-		AgentVerifyMode:  "poc",
-		AgentMaxTurns:    80,
-		AgentHeadless:    false,
-		AgentYolo:        false,
-		ToolsAllow:       []string{},
-		ToolsDeny:        []string{},
-		PathsMCPConfig:   filepath.Join("~", ".sin-code", "mcp.json"),
-		PathsSkillsDir:   "",
+		AgentVerifyMode:          "poc",
+		AgentMaxTurns:            80,
+		AgentHeadless:            false,
+		AgentYolo:                false,
+		AgentLoopRequiredTools:   []string{},
+		AgentLoopForbiddenTools:  []string{},
+		ToolsAllow:               []string{},
+		ToolsDeny:                []string{},
+		PathsMCPConfig:           filepath.Join("~", ".sin-code", "mcp.json"),
+		PathsSkillsDir:           "",
 	}
 }
 
@@ -249,6 +253,12 @@ func projectConfigPath() string {
 
 // ─── Load / save / merge ────────────────────────────────────────────────────
 
+// LoadMergedConfig returns the merged user + project configuration. It is
+// exported for use by the command layer (issue #248 and others).
+func LoadMergedConfig() (SinCodeConfig, error) {
+	return loadMergedConfig()
+}
+
 func loadMergedConfig() (SinCodeConfig, error) {
 	cfg := defaultConfig()
 	user, err := loadConfigFrom(userConfigPath())
@@ -264,6 +274,18 @@ func loadMergedConfig() (SinCodeConfig, error) {
 		cfg = mergeConfig(cfg, proj.Raw)
 	}
 	return cfg, nil
+}
+
+// LLMStyle returns the merged llm.style value, or "default" if the config
+// cannot be loaded. Exported so chat / daemon commands can inject the
+// same style level into the system prompt without exposing the full
+// merged config.
+func LLMStyle() string {
+	cfg, err := loadMergedConfig()
+	if err != nil {
+		return "default"
+	}
+	return cfg.LLMStyle
 }
 
 func loadConfig() (SinCodeConfig, error) {
@@ -375,6 +397,11 @@ agent.max_turns = %d
 agent.headless = %v
 agent.yolo = %v
 
+# Tool-coverage constraints (issue #248): comma-separated tool names.
+# Required tools must be invoked before completion; forbidden tools block it.
+agentloop.required_tools = %q
+agentloop.forbidden_tools = %q
+
 permissions.tools_allow = %q
 permissions.tools_deny = %q
 
@@ -384,6 +411,7 @@ paths.skills_dir = %q
 		cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMMaxTokens, cfg.LLMTemperature,
 		cfg.LLMStyle,
 		cfg.AgentVerifyMode, cfg.AgentMaxTurns, cfg.AgentHeadless, cfg.AgentYolo,
+		strings.Join(cfg.AgentLoopRequiredTools, ","), strings.Join(cfg.AgentLoopForbiddenTools, ","),
 		strings.Join(cfg.ToolsAllow, ","), strings.Join(cfg.ToolsDeny, ","),
 		cfg.PathsMCPConfig, cfg.PathsSkillsDir)
 }
@@ -445,6 +473,10 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.AgentHeadless), nil
 	case "agent.yolo":
 		return fmt.Sprintf("%v", cfg.AgentYolo), nil
+	case "agentloop.required_tools":
+		return strings.Join(cfg.AgentLoopRequiredTools, ","), nil
+	case "agentloop.forbidden_tools":
+		return strings.Join(cfg.AgentLoopForbiddenTools, ","), nil
 	case "permissions.tools_allow":
 		return strings.Join(cfg.ToolsAllow, ","), nil
 	case "permissions.tools_deny":
@@ -527,6 +559,10 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.AgentHeadless = value == "true" || value == "1"
 	case "agent.yolo":
 		cfg.AgentYolo = value == "true" || value == "1"
+	case "agentloop.required_tools":
+		cfg.AgentLoopRequiredTools = splitList(value)
+	case "agentloop.forbidden_tools":
+		cfg.AgentLoopForbiddenTools = splitList(value)
 	case "permissions.tools_allow":
 		cfg.ToolsAllow = splitList(value)
 	case "permissions.tools_deny":
@@ -562,6 +598,8 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"agent.max_turns", fmt.Sprintf("%d", cfg.AgentMaxTurns)},
 		{"agent.headless", fmt.Sprintf("%v", cfg.AgentHeadless)},
 		{"agent.yolo", fmt.Sprintf("%v", cfg.AgentYolo)},
+		{"agentloop.required_tools", strings.Join(cfg.AgentLoopRequiredTools, ",")},
+		{"agentloop.forbidden_tools", strings.Join(cfg.AgentLoopForbiddenTools, ",")},
 		{"permissions.tools_allow", strings.Join(cfg.ToolsAllow, ",")},
 		{"permissions.tools_deny", strings.Join(cfg.ToolsDeny, ",")},
 		{"paths.mcp_config", cfg.PathsMCPConfig},
@@ -622,6 +660,10 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 			"headless":    cfg.AgentHeadless,
 			"yolo":        cfg.AgentYolo,
 		},
+		"agentloop": map[string]any{
+			"required_tools": cfg.AgentLoopRequiredTools,
+			"forbidden_tools": cfg.AgentLoopForbiddenTools,
+		},
 		"permissions": map[string]any{
 			"tools_allow": cfg.ToolsAllow,
 			"tools_deny":  cfg.ToolsDeny,
@@ -645,11 +687,12 @@ func showTOML(cfg SinCodeConfig, mask bool) error {
 		Theme: cfg.Theme, DefaultTimeout: cfg.DefaultTimeout, DefaultFormat: cfg.DefaultFormat,
 		MCPServerEnabled: cfg.MCPServerEnabled, LLMBaseURL: cfg.LLMBaseURL, LLMAPIKey: apiKey,
 		LLMModel: cfg.LLMModel, LLMMaxTokens: cfg.LLMMaxTokens, LLMTemperature: cfg.LLMTemperature,
-		LLMStyle:        cfg.LLMStyle,
-		AgentVerifyMode: cfg.AgentVerifyMode, AgentMaxTurns: cfg.AgentMaxTurns,
-		AgentHeadless: cfg.AgentHeadless, AgentYolo: cfg.AgentYolo,
-		ToolsAllow: cfg.ToolsAllow, ToolsDeny: cfg.ToolsDeny,
-		PathsMCPConfig: cfg.PathsMCPConfig, PathsSkillsDir: cfg.PathsSkillsDir,
+		LLMStyle:                 cfg.LLMStyle,
+		AgentVerifyMode:          cfg.AgentVerifyMode, AgentMaxTurns: cfg.AgentMaxTurns,
+		AgentHeadless:            cfg.AgentHeadless, AgentYolo: cfg.AgentYolo,
+		AgentLoopRequiredTools: cfg.AgentLoopRequiredTools, AgentLoopForbiddenTools: cfg.AgentLoopForbiddenTools,
+		ToolsAllow:               cfg.ToolsAllow, ToolsDeny: cfg.ToolsDeny,
+		PathsMCPConfig:           cfg.PathsMCPConfig, PathsSkillsDir: cfg.PathsSkillsDir,
 	}))
 	return nil
 }
@@ -721,6 +764,10 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.AgentHeadless = val == "true"
 		case "agent.yolo":
 			cfg.AgentYolo = val == "true"
+		case "agentloop.required_tools":
+			cfg.AgentLoopRequiredTools = parseList(val)
+		case "agentloop.forbidden_tools":
+			cfg.AgentLoopForbiddenTools = parseList(val)
 		case "permissions.tools_allow":
 			cfg.ToolsAllow = parseList(val)
 		case "permissions.tools_deny":

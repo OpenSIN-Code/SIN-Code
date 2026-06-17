@@ -4,6 +4,76 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — Tool coverage & SIN-tool preference enforcement
+- **Agent profile tool surface (issue #249)** — bundled `profiles/fireworks.toml`
+  and `profiles/qwen-relay.toml` now set `tools_allow` to the full `sin_*`
+  surface plus all registered MCP prefixes (`sckg_*`, `oracle_*`, `poc_*`,
+  `websearch__*`, `browser__*`, `gh_query`, `gh_health`, etc.). Destructive
+  SIN builtins (`sin_bash`, `sin_git_commit`, `sin_test_generate`,
+  `sin_browser_navigate`) remain intentionally omitted so they stay at the
+  default `ask` tier and are still gated by the permission engine in headless
+  mode (M4).
+- **M6 system-prompt enforcement (issue #253)** — `internal/style/style.go`
+  now injects a mandatory `# Tool preference (mandate M6)` fragment into every
+  rendered system prompt via `RenderSystemPrompt`. The block instructs the
+  model to prefer specialized SIN tools (`sin_scout`, `sin_map`, `sin_grasp`,
+  `sin_sckg`, `sin_poc`, `sin_oracle`, `sin_efm`, `sin_security_scan`,
+  `sin_sbom_generate`, `sin_adw`) over naive shell or generic file-read
+  equivalents, and requires justification before any `sin_bash` call.
+  - 6 new tests in `cmd/sin-code/internal/style/style_test.go` cover the
+    tool-preference block (non-empty, expected tools, forbidden naive
+    equivalents, byte-hash stability, inclusion in all modes, and
+    style-block-only behavior).
+- **Runtime tool coverage enforcer (issue #248)** — new
+  `cmd/sin-code/internal/agentloop/toolcoverage.go` with
+  `ToolCoverageEnforcer`. The enforcer is created per-run when
+  `agentloop.required_tools` or `agentloop.forbidden_tools` is configured,
+  records every tool invocation under a mutex, and fails completion if any
+  required tool is missing or any forbidden tool was used. Failures are fed
+  back into the stop-gate as open criteria.
+  - 10 new tests in `cmd/sin-code/internal/agentloop/toolcoverage_test.go`
+    cover constraints, missing required, forbidden used, both, used-set
+    deduplication, open-criteria, feedback, and race safety.
+  - 3 new loop-level tests in `cmd/sin-code/internal/agentloop/loop_test.go`
+    (`TestRun_CoverageRequiredTool_ForcesInvocation`,
+    `TestRun_CoverageForbiddenTool_BlocksCompletion`,
+    `TestRun_CoverageRequiredTool_ImmediatePass`).
+  - 1 new config roundtrip test in `cmd/sin-code/internal/config_test.go`
+    (`TestConfig_ToolCoverageRoundtrip`).
+  - Exposed via CLI flags `--require-tools` / `--forbid-tools` on `chat`,
+    `daemon`, and `execute`/`orchestrate` paths, and via config keys
+    `agentloop.required_tools` / `agentloop.forbidden_tools`.
+- **Tool-usage telemetry (issue #250)** — `cmd/sin-code/internal/ledger/usage.go`
+  adds `RecordUsage`, `ToolUsageCounts`, `FamilyUsageCounts`, `ToolCoverage`,
+  `UnusedTools`, and `ToolUsageByPeriod` to support heatmap, coverage, and
+  unused-tool queries. `cmd/sin-code/ledger_cmd.go` adds `sin-code ledger tools`
+  with `--heatmap`, `--coverage`, `--unused`, `--family`, and `--json` flags.
+  - 7 new tests in `cmd/sin-code/internal/ledger/usage_test.go` cover
+    heatmap, family counts, coverage/unused, period bucketing, field
+    validation, race safety, and since/until filtering.
+- **Orchestrator ToolChain (issue #252)** — new
+  `cmd/sin-code/internal/orchestrator/toolchain.go` with `ToolChain` and
+  `Intent`-to-tools mapping. The planner attaches a deterministic `ToolChain`
+  to every `Plan` for intents: `security`, `review`, `architecture`, `test`,
+  `codebase`, and `docs`. Required tools are derived from canonical names such
+  as `sin_security_scan`, `sin_sbom_generate`, `sin_oracle`, `sin_adw`,
+  `sin_poc`, `sin_map`, `sin_sckg`, `sin_test`, `sin_scout`, and `sin_read`.
+  - 13 new tests in `cmd/sin-code/internal/orchestrator/toolchain_test.go`
+    cover per-intent mapping, empty chains for general/unknown intents, copy
+    independence, `RequiredToolsForIntent`, JSON serialization, and planner
+    determinism.
+- **Unified tool catalog (issue #251)** — `cmd/sin-code/internal/catalog/` now
+  merges `HubSource`, `MCPSource`, `ChatSource`, and `ExternalSource` into one
+  `Asset` catalog. The catalog enumerates 46+ MCP tools, 17+ chat tools, and
+  14+ external MCP prefixes. `cmd/sin-code/catalog_cmd.go` adds
+  `sin-code catalog` with `list`, `search`, `info`, and `unused` subcommands,
+  plus `sin-code hub search --unused`.
+  - 46 new tests in `cmd/sin-code/internal/catalog/catalog_test.go` cover
+    merge, de-duplication, search, filtering, per-source lists, and unused
+    filtering.
+  - `cmd/sin-code/testdata/scripts/golden_help.txt` regenerated to match the
+    current help output.
+
 ### Added — Shop-Center skill integration (issue #142 fusion)
 - **`KnownSkills()` registry extended** with the three shop skills
   (issue #142 acceptance criterion #2 — installable via

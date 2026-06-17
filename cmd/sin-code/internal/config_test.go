@@ -1177,3 +1177,40 @@ func TestConfig_RenderTOMLContainsLLMStyle(t *testing.T) {
 		t.Errorf("TOML should reference issue #167 in a comment, got:\n%s", got)
 	}
 }
+
+func TestConfig_ToolCoverageRoundtrip(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.AgentLoopRequiredTools = []string{"sin_poc", "sin_oracle"}
+	cfg.AgentLoopForbiddenTools = []string{"sin_bash"}
+
+	// set / get / render / parse roundtrip.
+	if err := setConfigValueIn("agentloop.required_tools", "sin_poc,sin_oracle", &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if err := setConfigValueIn("agentloop.forbidden_tools", "sin_bash", &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := getConfigValueFrom("agentloop.required_tools", cfg); err != nil || got != "sin_poc,sin_oracle" {
+		t.Fatalf("required_tools get: %q, err %v", got, err)
+	}
+	if got, err := getConfigValueFrom("agentloop.forbidden_tools", cfg); err != nil || got != "sin_bash" {
+		t.Fatalf("forbidden_tools get: %q, err %v", got, err)
+	}
+	toml := renderConfigTOML(cfg)
+	if !strings.Contains(toml, `agentloop.required_tools = "sin_poc,sin_oracle"`) {
+		t.Errorf("TOML missing required_tools, got:\n%s", toml)
+	}
+	if !strings.Contains(toml, `agentloop.forbidden_tools = "sin_bash"`) {
+		t.Errorf("TOML missing forbidden_tools, got:\n%s", toml)
+	}
+
+	m := parseConfigRaw(toml)
+	parsed := defaultConfig()
+	applyMap(&parsed, m)
+	if len(parsed.AgentLoopRequiredTools) != 2 || parsed.AgentLoopRequiredTools[0] != "sin_poc" {
+		t.Errorf("parsed required_tools: %v", parsed.AgentLoopRequiredTools)
+	}
+	if len(parsed.AgentLoopForbiddenTools) != 1 || parsed.AgentLoopForbiddenTools[0] != "sin_bash" {
+		t.Errorf("parsed forbidden_tools: %v", parsed.AgentLoopForbiddenTools)
+	}
+}

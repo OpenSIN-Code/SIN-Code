@@ -519,3 +519,50 @@ func TestContains(t *testing.T) {
 		t.Fatal("expected not contains c")
 	}
 }
+
+// Runner wires dataset constraints into the loop's live coverage enforcer
+// so the agent loop rejects completion instead of the runner doing it
+// post-hoc (issue #248).
+func TestRunCase_WiresCoverageConstraints(t *testing.T) {
+	turns := 0
+	loop := &agentloop.Loop{
+		Gate: verify.NewGate("poc",
+			func(ctx context.Context, ws string) (bool, string, error) { return true, "ok", nil },
+			nil),
+		Workspace: "/tmp",
+		LocalTool: func(ctx context.Context, name string, args map[string]any) (string, error) {
+			return "out", nil
+		},
+		Completion: func(ctx context.Context, msgs []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error) {
+			turns++
+			if turns == 1 {
+				return &agentloop.Completion{
+					Text: "",
+					ToolCalls: []agentloop.ToolCall{
+						{ID: "t1", Name: "sin_poc", Args: map[string]any{}},
+					},
+					Raw: session.Message{Role: "assistant", Content: ""},
+				}, nil
+			}
+			return &agentloop.Completion{Text: "done", Raw: session.Message{Role: "assistant", Content: "done"}}, nil
+		},
+	}
+	r, err := NewRunner(RunnerConfig{}, loop, inMemoryStore(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := &TestCase{
+		ID: "a", Prompt: "p",
+		Constraints: Constraints{MustUseTools: []string{"sin_poc"}, ForbiddenTools: []string{"sin_bash"}},
+	}
+	res := r.RunCase(context.Background(), tc)
+	if !res.Success || !res.VerifyPassed {
+		t.Fatalf("expected success with live coverage, got %+v", res)
+	}
+	if len(res.ToolsUsed) != 1 || res.ToolsUsed[0] != "sin_poc" {
+		t.Fatalf("expected ToolsUsed populated from loop coverage, got %v", res.ToolsUsed)
+	}
+	if loop.Coverage == nil {
+		t.Fatal("expected loop.Coverage to be created")
+	}
+}

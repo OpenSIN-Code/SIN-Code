@@ -24,6 +24,7 @@ import (
 
 	"github.com/chromedp/chromedp"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgen"
 	"github.com/OpenSIN-Code/SIN-Code/pkg/browser/cdp"
 )
 
@@ -48,8 +49,21 @@ func extraSpecs() []agentloopToolSpecAlias {
 			InputSchema: obj(map[string]any{"message": str("conventional commit message")}, "message")},
 		{Name: "sin_http_get", Description: "Fetch a URL (GET only, 256KB cap, 30s timeout). For docs/APIs.",
 			InputSchema: obj(map[string]any{"url": str("http(s) URL")}, "url")},
-		{Name: "sin_test", Description: "Run the workspace test suite and return structured pass/fail output.",
-			InputSchema: obj(map[string]any{"target": str("optional package/file filter")})},
+		{Name: "sin_test", Description: "Run the workspace test suite with race detection and coverage, returning structured pass/fail output. Set json=true for machine-readable output.",
+			InputSchema: obj(map[string]any{
+				"target":  str("optional package/file filter (default ./...)"),
+				"race":    str("run with -race (default true)"),
+				"cover":   str("run with -coverprofile (default true)"),
+				"json":    str("emit structured JSON instead of plain text (default false)"),
+				"timeout": str("go test timeout, e.g. 5m (default 5m)"),
+			})},
+		{Name: "sin_test_generate", Description: "Generate table-driven Go tests for a file or package. Uses gotests if available; otherwise falls back to a pure-stdlib generator. Verifies the generated tests compile. Writes files, so gated by permission engine.",
+			InputSchema: obj(map[string]any{
+				"file":      str("single .go file to generate tests for"),
+				"package":   str("package pattern to generate tests for (default ./..., ignored if file is set)"),
+				"overwrite": str("replace existing test files (default false)"),
+				"llm":       str("use LLM to fill test cases (default false)"),
+			})},
 		// Browser CDP tools — headless Chrome via Chrome DevTools Protocol.
 		// sin_browser_navigate starts a fresh recording session; subsequent
 		// sin_browser_findings / sin_browser_snapshot calls consume it.
@@ -103,7 +117,9 @@ func extraTool(ctx context.Context, name string, args map[string]any) (string, e
 	case "sin_http_get":
 		return toolHTTPGet(ctx, argStr(args, "url"))
 	case "sin_test":
-		return toolTest(ctx, argStr(args, "target"))
+		return toolTest(ctx, args)
+	case "sin_test_generate":
+		return toolTestGenerate(ctx, args)
 	case "sin_browser_navigate":
 		return toolBrowserNavigate(ctx, argStr(args, "url"), argStr(args, "step"), argStr(args, "wait_sec"), argStr(args, "save_baseline"))
 	case "sin_browser_findings":
@@ -157,9 +173,23 @@ func toolHTTPGet(ctx context.Context, url string) (string, error) {
 	return fmt.Sprintf("HTTP %d (%d bytes)\n%s", resp.StatusCode, len(body), body), nil
 }
 
-func toolTest(ctx context.Context, target string) (string, error) {
-	cctx, cancel := context.WithTimeout(ctx, testTimeout)
+func toolTest(ctx context.Context, args map[string]any) (string, error) {
+	target := argStr(args, "target")
+	raceEnabled := argBool(args, "race", true)
+	coverEnabled := argBool(args, "cover", true)
+	jsonOut := argBool(args, "json", false)
+	timeout := argStr(args, "timeout")
+	if timeout == "" {
+		timeout = "5m"
+	}
+
+	dur, err := time.ParseDuration(timeout)
+	if err != nil {
+		return "", fmt.Errorf("sin_test: invalid timeout %q", timeout)
+	}
+	cctx, cancel := context.WithTimeout(ctx, dur)
 	defer cancel()
+
 	var cmd *exec.Cmd
 	switch {
 	case fileExists("go.mod"):
@@ -167,28 +197,101 @@ func toolTest(ctx context.Context, target string) (string, error) {
 		if target != "" {
 			pkg = target
 		}
-		cmd = exec.CommandContext(cctx, "go", "test", pkg, "-count=1")
+		goArgs := []string{"test", pkg, "-count=1", "-timeout=" + timeout}
+		if raceEnabled {
+			goArgs = append(goArgs, "-race")
+		}
+		if coverEnabled {
+			goArgs = append(goArgs, "-coverprofile=.sin-code/coverage.out", "-covermode=atomic")
+		}
+		cmd = exec.CommandContext(cctx, "go", goArgs...)
 	case fileExists("package.json"):
 		cmd = exec.CommandContext(cctx, "sh", "-c", "npm test --silent 2>&1")
 	case fileExists("pyproject.toml") || fileExists("pytest.ini"):
-		args := []string{"-m", "pytest", "-q"}
+		pyArgs := []string{"-m", "pytest", "-q"}
 		if target != "" {
-			args = append(args, target)
+			pyArgs = append(pyArgs, target)
 		}
-		cmd = exec.CommandContext(cctx, "python3", args...)
+		cmd = exec.CommandContext(cctx, "python3", pyArgs...)
 	default:
 		return "", fmt.Errorf("sin_test: no recognized test setup (go.mod/package.json/pyproject.toml)")
 	}
+
 	out, err := cmd.CombinedOutput()
+	passed := err == nil
 	text := string(out)
 	if len(text) > maxToolOutput {
 		text = text[:maxToolOutput] + "\n[... truncated]"
 	}
+
+	if jsonOut {
+		report := map[string]any{
+			"status":      "PASS",
+			"target":      target,
+			"race":        raceEnabled,
+			"cover":       coverEnabled,
+			"timeout":     timeout,
+			"test_output": text,
+		}
+		if !passed {
+			report["status"] = "FAIL"
+		}
+		// Best-effort coverage extraction from the textual output.
+		if coverEnabled {
+			report["coverage"] = extractCoverage(text)
+		}
+		b, _ := json.MarshalIndent(report, "", "  ")
+		return string(b), nil
+	}
+
 	status := "PASS"
-	if err != nil {
+	if !passed {
 		status = "FAIL"
 	}
 	return fmt.Sprintf("TEST %s\n%s", status, text), nil
+}
+
+func toolTestGenerate(ctx context.Context, args map[string]any) (string, error) {
+	file := argStr(args, "file")
+	pkg := argStr(args, "package")
+	overwrite := argBool(args, "overwrite", false)
+	useLLM := argBool(args, "llm", false)
+
+	if file == "" && pkg == "" {
+		pkg = "./..."
+	}
+
+	var llmFn func(context.Context, string) (string, error)
+	if useLLM {
+		llmFn = nil // TODO: wire to internal/llm client in Phase 2
+	}
+
+	res := testgen.Generate(ctx, testgen.Options{
+		File:      file,
+		Package:   pkg,
+		UseLLM:    llmFn,
+		Overwrite: overwrite,
+		Timeout:   testTimeout,
+	})
+
+	if res.Error != "" {
+		return "", fmt.Errorf("sin_test_generate: %s", res.Error)
+	}
+	b, err := json.MarshalIndent(res, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// extractCoverage tries to pull the total coverage line from `go test -cover` output.
+func extractCoverage(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "coverage:") || strings.Contains(line, "of statements") {
+			return strings.TrimSpace(line)
+		}
+	}
+	return ""
 }
 
 func fileExists(p string) bool {
@@ -424,4 +527,23 @@ func toolBrowserDiff(windowStr string) (string, error) {
 		len(diff.Resolved), len(diff.Introduced), len(diff.Persisted),
 		diff.BeforeErr, diff.AfterErr,
 		string(b)), nil
+}
+
+// autoGenerateTests enables the Phase 2 tool.post behaviour: after
+// sin_write/sin_edit touch a .go file, sin_test_generate is invoked
+// automatically. Default off for performance/privacy.
+var autoGenerateTests = os.Getenv("SIN_AUTO_GENERATE_TESTS") == "1"
+
+// maybeGenerateTest runs sin_test_generate for a freshly edited .go file
+// when auto-generation is enabled. It returns a short human-readable note
+// that is appended to the tool result.
+func maybeGenerateTest(path string) string {
+	if !autoGenerateTests || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+		return ""
+	}
+	res := testgen.Generate(context.Background(), testgen.Options{File: path, Timeout: 30 * time.Second})
+	if res.Error != "" {
+		return fmt.Sprintf("\n[auto-generate] failed: %s", res.Error)
+	}
+	return fmt.Sprintf("\n[auto-generate] generated %s (test passed=%v)", strings.Join(res.GeneratedFiles, ", "), res.TestPassed)
 }

@@ -26,6 +26,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/stopgate"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
 )
@@ -41,6 +42,7 @@ type Config struct {
 	VerifyCmd   string
 	Yolo        bool
 	Headless    bool
+	Style       string
 	AskFunc     agentloop.AskFunc
 	LocalTool   agentloop.LocalToolFunc
 	LocalSpec   []agentloop.ToolSpec
@@ -54,11 +56,33 @@ type Config struct {
 	// AllowContinuation switches the maxTurns outcome from a hard error to a
 	// resumable checkpoint (used by the daemon).
 	AllowContinuation bool
+
+	// GoalID is an optional identifier for the autonomous goal that owns this
+	// run. It is forwarded into ledger tool-usage records.
+	GoalID string
+
+	// CoverageRequiredTools and CoverageForbiddenTools are passed through
+	// to the agent loop's tool-coverage enforcer (issue #248).
+	CoverageRequiredTools  []string
+	CoverageForbiddenTools []string
 }
 
 // Build constructs a fully wired agentloop.Loop with all mandates applied
 // (C1-C8, M1-M4). Returns the loop and a cleanup function (defer it).
 func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop.Loop, func() error, error) {
+	// Apply config-file defaults for tool coverage when the caller did not
+	// supply CLI values (issue #248).
+	if len(cfg.CoverageRequiredTools) == 0 || len(cfg.CoverageForbiddenTools) == 0 {
+		if sinCfg, err := internal.LoadMergedConfig(); err == nil {
+			if len(cfg.CoverageRequiredTools) == 0 {
+				cfg.CoverageRequiredTools = sinCfg.AgentLoopRequiredTools
+			}
+			if len(cfg.CoverageForbiddenTools) == 0 {
+				cfg.CoverageForbiddenTools = sinCfg.AgentLoopForbiddenTools
+			}
+		}
+	}
+
 	var agentCfg orchestrator.AgentConfig
 	if cfg.AgentName != "" {
 		loaded, _, err := internal.LoadEffectiveAgent(cfg.AgentName)
@@ -113,18 +137,22 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	}
 
 	loop := &agentloop.Loop{
-		Gate:       gate,
-		LocalTool:  localTool,
-		LocalSpec:  localSpec,
-		Workspace:  cfg.Workspace,
-		MaxTurns:   cfg.MaxTurns,
-		SessionID:  cfg.SessionID,
-		Completion: completion,
-		Hooks:      hookEngine,
-		Perm:       perm,
-		Ask:        cfg.AskFunc,
-		Lessons:    memStore,
-		Ledger:     ledgerStore,
+		Gate:                   gate,
+		LocalTool:              localTool,
+		LocalSpec:              localSpec,
+		Workspace:              cfg.Workspace,
+		MaxTurns:               cfg.MaxTurns,
+		SessionID:              cfg.SessionID,
+		GoalID:                 cfg.GoalID,
+		SystemPrompt:           style.RenderSystemPrompt(cfg.Style),
+		Completion:             completion,
+		Hooks:                  hookEngine,
+		Perm:                   perm,
+		Ask:                    cfg.AskFunc,
+		Lessons:                memStore,
+		Ledger:                 ledgerStore,
+		CoverageRequiredTools:  cfg.CoverageRequiredTools,
+		CoverageForbiddenTools: cfg.CoverageForbiddenTools,
 	}
 
 	// Stop-gate (anti-babysitting): when a Definition-of-Done contract is

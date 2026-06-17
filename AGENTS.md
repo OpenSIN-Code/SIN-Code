@@ -39,6 +39,17 @@
 > engine in `cmd/sin-code/internal/audit/`, 48th CEO-audit gate.
 > `sin-code install` (issue #170) — 40th subcommand; `sin-code review --complexity`
 > (issue #179) — 41st subcommand.
+> **Last verified against main:** v3.20.0 (2026-06-17) —
+> agent profiles now expose the full `sin_*` + registered MCP prefix surface
+> while keeping destructive builtins at `ask` (issue #249); system-prompt M6
+> enforcement fragment prefers SIN tools over naive bash/read equivalents
+> (issue #253); runtime `ToolCoverageEnforcer` rejects completion when
+> `required_tools` are missing or `forbidden_tools` were used (issue #248);
+> tool-usage telemetry in `internal/ledger/` drives `ledger tools --heatmap`
+> / `--coverage` / `--unused` / `--json` (issue #250); orchestrator planner
+> emits mandatory `ToolChain` per classified intent (issue #252); unified
+> catalog enumerates 46+ MCP tools, 17+ chat tools, and 14+ external MCP
+> prefixes via `sin-code catalog` / `hub search --unused` (issue #251).
 
 ---
 
@@ -112,6 +123,13 @@ non-mechanical criteria. A green judge can never override a red deterministic
 check. Rejection re-injects the open criteria and forces continued work. All of
 this is opt-in and fail-safe: nil stop-gate / empty contract / no contract flag
 preserves exact legacy single-gate behavior.
+
+**Tool coverage gate (issue #248):** the runtime `ToolCoverageEnforcer` in
+`internal/agentloop/` is part of the verification gate. When `required_tools`
+are configured and the model completes a run without invoking every required
+tool, or when a `forbidden_tools` entry was invoked, the loop rejects the
+completion and re-injects the violation as open criteria. The enforcer is
+fail-closed and race-safe (M7).
 
 **Daemon loop-engineering flags:** `--max-continuations` (checkpoint+resume past
 `--max-turns` instead of aborting, bounded), `--max-depth` (sub-goal nesting via
@@ -469,6 +487,18 @@ registered MCP prefixes (issue #249). Destructive SIN builtins (`sin_bash`,
 omitted from the profile allow list so they remain at the default "ask" tier and
 are still gated by the permission engine in headless mode (mandate M4).
 
+**Tool coverage config keys (issue #248):**
+
+| Config key | Type | Default | CLI equivalent |
+|---|---|---|---|
+| `agentloop.required_tools` | comma-separated list | `[]` | `--require-tools` |
+| `agentloop.forbidden_tools` | comma-separated list | `[]` | `--forbid-tools` |
+
+These are parsed by the stdlib TOML reader as flat strings and converted to
+slices by `cmd/sin-code/internal/config.go`. They are forwarded through
+`loopbuilder.Config` into `agentloop.Loop.CoverageRequiredTools` /
+`CoverageForbiddenTools` and into spawned subagents.
+
 Session DB: `~/.local/share/sin-code/sessions.db` (SQLite, modernc).
 Schema: `sessions(id, created_at, updated_at, title, parent_id)` with
 `parent_id TEXT REFERENCES sessions(id) ON DELETE SET NULL` (issue #194) —
@@ -542,6 +572,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.17.0 | ✅ SHIPPED | TUI runtime DB .gitignore, MCP warning deduplication, marketplace update test hardening, skills 33 → 34 |
 | v3.18.0 | ✅ SHIPPED | `sin-code install` single-binary installer (issue #170), curl/bash + PowerShell shims, SHA256-verified release downloads |
 | v3.19.0 | ACTIVE | `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format (`delete`, `stdlib`, `native`, `yagni`, `shrink`), `// sin-debt:` marker support (issue #177), text/json/markdown output, race-clean tests |
+| v3.20.0 | ✅ SHIPPED | Tool coverage, M6 enforcement, catalog, telemetry (issues #249, #253, #248, #250, #252, #251): agent profiles expose full `sin_*` + MCP prefix surface; system prompt injects SIN-tool preference fragment; runtime `ToolCoverageEnforcer` rejects missing/forbidden tool usage; `ledger tools` heatmap/coverage/unused; orchestrator planner emits mandatory `ToolChain` per intent; `sin-code catalog` unifies 46+ MCP tools, 17+ chat tools, and 14+ external MCP prefixes. |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -568,6 +599,10 @@ updates `homebrew-sin` formula, and ships to GitHub Releases.
   change (major bump + deprecation alias for one minor cycle).
 - Tool prefixes for external MCP servers use `server__tool` namespacing
   (e.g. `websearch__search`, `browser__navigate`).
+- The catalog kinds (`agent`, `command`, `skill`, `hub`, `mcp`, `chat`,
+  `external`) and the `internal/orchestrator.ToolChain` type are public API
+  surfaces for downstream tooling and tests. Adding kinds/tools is non-breaking;
+  renaming or removing a kind is a major bump.
 - The string "SIN-Code-Bundle" may only appear in CHANGELOG history and
   migration notes — never in code, config, or new docs (mandate M5).
 

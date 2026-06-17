@@ -39,6 +39,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
 	sinctrace "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/trace"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 )
@@ -157,10 +158,11 @@ func newEvalRunCmd() *cobra.Command {
 			gate := verify.NewGate("off", nil, nil)
 
 			loop := &agentloop.Loop{
-				Gate:      gate,
-				Workspace: workspaceRoot(datasetPath),
-				MaxTurns:  80,
-				Hooks:     &hooks.Engine{}, // empty: no user hooks during eval
+				Gate:         gate,
+				Workspace:    workspaceRoot(datasetPath),
+				MaxTurns:     80,
+				SystemPrompt: style.RenderSystemPrompt("default"),
+				Hooks:        &hooks.Engine{}, // empty: no user hooks during eval
 				// Completion funcs left nil -> RunOverride is required.
 				RunOverride: stubRunOverride,
 			}

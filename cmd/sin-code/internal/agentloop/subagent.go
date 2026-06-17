@@ -75,11 +75,14 @@ func (l *Loop) SpawnSubagent(ctx context.Context, sessions *session.Store, req S
 		Perm:           l.Perm,
 		Ask:            l.Ask,
 		Lessons:        l.Lessons,
-		StopGate:       l.StopGate,
-		MaxStopRejects: l.MaxStopRejects,
-		StallThreshold: l.StallThreshold,
-		Reflector:      l.Reflector,
-		Ledger:         l.Ledger,
+		StopGate:               l.StopGate,
+		MaxStopRejects:         l.MaxStopRejects,
+		StallThreshold:         l.StallThreshold,
+		Reflector:              l.Reflector,
+		Ledger:                 l.Ledger,
+		Coverage:               l.Coverage,
+		CoverageRequiredTools:  l.CoverageRequiredTools,
+		CoverageForbiddenTools: l.CoverageForbiddenTools,
 		// NOTE: deliberately NOT inheriting RunOverride. The
 		// sub-agent's Run is always the default; the parent's
 		// RunOverride is its own concern.

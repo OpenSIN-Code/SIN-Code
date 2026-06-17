@@ -61,17 +61,24 @@ type Task struct {
 	Cost        float64    `json:"cost"`
 }
 
+type ToolChain struct {
+	Required  []string `json:"required"`
+	Optional  []string `json:"optional,omitempty"`
+	Forbidden []string `json:"forbidden,omitempty"`
+}
+
 type Plan struct {
-	ID         string    `json:"id"`
-	Prompt     string    `json:"prompt"`
-	Intent     Intent    `json:"intent"`
-	Tasks      []*Task   `json:"tasks"`
-	Created    time.Time `json:"created"`
-	Started    time.Time `json:"started"`
-	Completed  time.Time `json:"completed"`
-	TotalCost  float64   `json:"total_cost"`
-	TokensUsed int       `json:"tokens_used"`
-	Success    bool      `json:"success"`
+	ID         string     `json:"id"`
+	Prompt     string     `json:"prompt"`
+	Intent     Intent     `json:"intent"`
+	ToolChain  *ToolChain `json:"tool_chain,omitempty"`
+	Tasks      []*Task    `json:"tasks"`
+	Created    time.Time  `json:"created"`
+	Started    time.Time  `json:"started"`
+	Completed  time.Time  `json:"completed"`
+	TotalCost  float64    `json:"total_cost"`
+	TokensUsed int        `json:"tokens_used"`
+	Success    bool       `json:"success"`
 }
 
 type AgentConfig struct {

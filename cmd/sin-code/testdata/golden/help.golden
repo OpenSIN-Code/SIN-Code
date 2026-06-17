@@ -5,7 +5,8 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
   Utility commands: security, sbom, config, self-update, tui, serve, update
   Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, superpowers,
-                    vane, stack, gh, hub, ledger, summary, install, compress
+                    vane, stack, gh, hub, ledger, summary, install, compress,
+                    cover
   Other:            completion, read, write, edit, lsp, plugin, index,
                     orchestrator-run, orchestrator-agents, orchestrator-plan,
                     todo, notifications, memory, assets, evalset, hooks,
@@ -21,16 +22,22 @@ Usage:
 Available Commands:
   adw                 Architectural Debt Watchdogs — detect god modules, circular deps, etc.
   assets              Manage harvested agents/commands/skills
+  audit               Repo-wide audits (complexity, ...)
   auto                Ultra-autonomous mode: pursue a program.md objective on your behalf
   autodev             Bridge to OpenSIN-Code/autodev-cli (Python autoresearch loop, never vendored)
+  autopr              Self-healing pipeline: auto-fix trivial regressions and open a PR
   catalog             Unified tool catalog (hub + assets, one CLI)
+  ceo-audit           CEO-grade SOTA repository audit (48 gates)
   chat                Run the SIN-Code agent loop (interactive REPL or headless one-shot)
+  checkpoint          Snapshot the current workspace state
   codegraph           Bridge to CodeGraph for multi-language code analysis
   compile-spec        Compile .sin-code.yml into the four derived JSON artifacts
   completion          Generate the autocompletion script for the specified shell
   compress            Lossless compaction for lessons / instincts / summaries / AGENTS.md
   config              View and manage sin-code configuration
+  cover               Coverage scanner and test-generation coordinator
   daemon              Run the autonomous worker: lease goals, execute, verify, learn
+  debt                Inspect sin-debt markers (issue #177)
   discover            Discover files with relevance scoring and pattern matching
   dox                 Self-maintaining AGENTS.md hierarchy (agent0ai/dox protocol)
   edit                Hashline-anchored surgical edits with validation
@@ -41,6 +48,7 @@ Available Commands:
   gh                  Bridge to the GitHub CLI (gh) with a 3-tier verb-allowlist policy
   goal                Manage the autonomous goal queue
   grasp               Deep code understanding for a single file
+  grill               Native adversarial design-review interview (issue #141 fusion)
   harvest             Fetch URLs with caching, structure extraction, and change detection
   headroom            Manage Headroom context compression integration
   help                Help about any command
@@ -66,7 +74,10 @@ Available Commands:
   profile             Render & verify the single-source-of-truth agent profile (issue #175)
   prp                 Product Requirement Prompt workflow (plan→implement→verify→pr)
   read                Read files with hashline anchors, outline, and size guards
+  review              Review code for complexity and other quality dimensions
+  rewind              Restore the workspace to a prior checkpoint
   rtk                 Bridge to rtk (Rust Token Killer) to cut LLM token usage 60-90%
+  rules               Path-scoped rule loader (.sin-code/rules/<topic>.md)
   sbom                Generate SPDX or CycloneDX JSON SBOM for a project
   sckg                Semantic Codebase Knowledge Graphs — build & query code graph
   scout               Search code with regex, semantic, symbol, and usage search
@@ -78,6 +89,7 @@ Available Commands:
   skills              List and install bundled project-local skills
   spec                Author, validate & inspect *.spec.md contracts (Spec-Layer)
   stack               Manage the DOX + Superpowers + Vane methodology stack
+  subagent            Run a subtask in an isolated session, return summary (issue #192)
   summary             Build a deterministic summary from the session ledger
   superpowers         Integrate obra/superpowers skills into SIN-Code
   swarm               Race N agent profiles on the same prompt (first verified wins)

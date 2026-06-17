@@ -28,10 +28,13 @@ import (
 type Kind string
 
 const (
-	KindAgent   Kind = "agent"
-	KindCommand Kind = "command"
-	KindSkill   Kind = "skill"
-	KindHub     Kind = "hub" // legacy hub.Tool entries (subcommand metadata)
+	KindAgent    Kind = "agent"
+	KindCommand  Kind = "command"
+	KindSkill    Kind = "skill"
+	KindHub      Kind = "hub"      // legacy hub.Tool entries (subcommand metadata)
+	KindMCP      Kind = "mcp"      // in-process MCP tools (sin_*)
+	KindChat     Kind = "chat"     // built-in chat tools (sin_*)
+	KindExternal Kind = "external" // external MCP server prefixes (browser__*, ...)
 )
 
 // Asset is the catalog-level representation of one tool. It is a
@@ -41,12 +44,15 @@ const (
 type Asset struct {
 	Kind        Kind     `json:"kind"`
 	Name        string   `json:"name"`
+	Namespace   string   `json:"namespace,omitempty"` // fully-qualified namespaced name
 	Short       string   `json:"short,omitempty"`
 	Description string   `json:"description"`
 	Example     string   `json:"example,omitempty"`
 	Source      string   `json:"source"` // "hub", "assets", etc.
 	Domain      string   `json:"domain,omitempty"`
 	Tags        []string `json:"tags,omitempty"`
+	ReadOnly    bool     `json:"read_only,omitempty"`
+	Destructive bool     `json:"destructive,omitempty"`
 }
 
 // Source produces assets for the catalog. The interface is minimal
@@ -90,7 +96,7 @@ func Merge(ctx context.Context, sources []Source) ([]*Asset, error) {
 	seen := map[dedupKey]bool{}
 	var out []*Asset
 	for _, src := range sources {
-		for _, kind := range []Kind{KindAgent, KindCommand, KindSkill, KindHub} {
+		for _, kind := range []Kind{KindAgent, KindCommand, KindSkill, KindHub, KindMCP, KindChat, KindExternal} {
 			assets, err := src.List(ctx, kind)
 			if err != nil {
 				return nil, err
@@ -182,6 +188,23 @@ func FilterByKind(assets []*Asset, kind Kind) []*Asset {
 	out := make([]*Asset, 0, len(assets))
 	for _, a := range assets {
 		if a.Kind == kind {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// FilterUnused returns assets whose Name or Namespace has never been recorded
+// in the used map. If an asset has a Namespace, the namespace is checked
+// first; the simple Name is always checked as a fallback.
+func FilterUnused(assets []*Asset, used map[string]int64) []*Asset {
+	out := make([]*Asset, 0, len(assets))
+	for _, a := range assets {
+		name := a.Name
+		if a.Namespace != "" {
+			name = a.Namespace
+		}
+		if used[name] == 0 && used[a.Name] == 0 {
 			out = append(out, a)
 		}
 	}

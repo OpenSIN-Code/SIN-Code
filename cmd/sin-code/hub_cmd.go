@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hub"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/telemetry"
 )
 
 // NewHubCmd builds the `hub` cobra subcommand.
@@ -48,11 +49,18 @@ func newHubListCmd() *cobra.Command {
 }
 
 func newHubSearchCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "search <keyword>",
+	var unused bool
+	cmd := &cobra.Command{
+		Use:   "search [keyword]",
 		Short: "Search tools by name, short, or description",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(c *cobra.Command, args []string) error {
+			if unused {
+				return runHubUnused(c)
+			}
+			if len(args) == 0 {
+				return fmt.Errorf("search requires a keyword")
+			}
 			res := hub.Search(args[0])
 			if len(res) == 0 {
 				fmt.Println("No tools matched.")
@@ -63,7 +71,34 @@ func newHubSearchCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&unused, "unused", false, "list hub tools never used according to telemetry")
+	return cmd
 }
+
+func runHubUnused(c *cobra.Command) error {
+	provider, err := telemetry.DefaultProvider()
+	if err != nil {
+		return err
+	}
+	used, err := provider.UsedTools(c.Context())
+	if err != nil {
+		return err
+	}
+	var unused []hub.Tool
+	for _, t := range hub.AllTools() {
+		name := t.Namespace
+		if name == "" {
+			name = t.Name
+		}
+		if used[name] == 0 && used[t.Name] == 0 {
+			unused = append(unused, t)
+		}
+	}
+	fmt.Printf("%d unused hub tool(s):\n\n", len(unused))
+	fmt.Print(hub.FormatList(unused))
+	return nil
+}
+
 
 func newHubInfoCmd() *cobra.Command {
 	return &cobra.Command{

@@ -108,7 +108,22 @@ CREATE INDEX IF NOT EXISTS idx_ledger_session ON ledger(session_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_type ON ledger(type);
 CREATE INDEX IF NOT EXISTS idx_ledger_created ON ledger(created_at);
 
-PRAGMA user_version = 1;
+CREATE TABLE IF NOT EXISTS tool_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tool_name TEXT NOT NULL,
+    tool_family TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    goal_id TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tool_usage_name ON tool_usage(tool_name);
+CREATE INDEX IF NOT EXISTS idx_tool_usage_family ON tool_usage(tool_family);
+CREATE INDEX IF NOT EXISTS idx_tool_usage_outcome ON tool_usage(outcome);
+CREATE INDEX IF NOT EXISTS idx_tool_usage_created ON tool_usage(created_at);
+CREATE INDEX IF NOT EXISTS idx_tool_usage_session ON tool_usage(session_id);
+
+PRAGMA user_version = 2;
 `
 	_, err := s.db.Exec(schema)
 	return err

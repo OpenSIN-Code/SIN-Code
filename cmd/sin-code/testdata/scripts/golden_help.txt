@@ -29,12 +29,11 @@ Available Commands:
   audit               Repo-wide audits (complexity, ...)
   auto                Ultra-autonomous mode: pursue a program.md objective on your behalf
   autodev             Bridge to OpenSIN-Code/autodev-cli (Python autoresearch loop, never vendored)
-  autodev             Bridge to OpenSIN-Code/autodev-cli (Python autoresearch loop, never vendored)
+  autopr              Self-healing pipeline: auto-fix trivial regressions and open a PR
   catalog             Unified tool catalog (hub + assets, one CLI)
   ceo-audit           CEO-grade SOTA repository audit (48 gates)
   chat                Run the SIN-Code agent loop (interactive REPL or headless one-shot)
-  codegraph           Bridge to CodeGraph for multi-language code analysis
-  codegraph           Bridge to CodeGraph for multi-language code analysis
+  checkpoint          Snapshot the current workspace state
   codegraph           Bridge to CodeGraph for multi-language code analysis
   compile-spec        Compile .sin-code.yml into the four derived JSON artifacts
   completion          Generate the autocompletion script for the specified shell
@@ -47,7 +46,6 @@ Available Commands:
   dox                 Self-maintaining AGENTS.md hierarchy (agent0ai/dox protocol)
   edit                Hashline-anchored surgical edits with validation
   efm                 Ephemeral Full-Stack Mocking — spin up disposable test environments
-  eval                Run Golden Dataset evaluation suites
   eval                Run Golden Dataset evaluation suites
   evalset             Eval-driven development harness (EvalSets, Runs, regression compare)
   execute             Execute shell commands safely with secret redaction and timeout
@@ -65,7 +63,6 @@ Available Commands:
   install             Install or verify the sin-code single-binary release
   instinct            Manage learned instincts (continuous learning)
   ledger              Query the semantic session ledger
-  ledger              Query the semantic session ledger
   lsp                 LSP (Language Server Protocol) — IDE-grade code intelligence
   map                 Map code architecture with dependency graphs and hot-path analysis
   mcp                 Inspect and debug external MCP servers
@@ -82,9 +79,9 @@ Available Commands:
   prp                 Product Requirement Prompt workflow (plan→implement→verify→pr)
   read                Read files with hashline anchors, outline, and size guards
   review              Review code for complexity and other quality dimensions
+  rewind              Restore the workspace to a prior checkpoint
   rtk                 Bridge to rtk (Rust Token Killer) to cut LLM token usage 60-90%
-  rtk                 Bridge to rtk (Rust Token Killer) to cut LLM token usage 60-90%
-  rtk                 Bridge to rtk (Rust Token Killer) to cut LLM token usage 60-90%
+  rules               Path-scoped rule loader (.sin-code/rules/<topic>.md)
   sbom                Generate SPDX or CycloneDX JSON SBOM for a project
   sckg                Semantic Codebase Knowledge Graphs — build & query code graph
   scout               Search code with regex, semantic, symbol, and usage search
@@ -95,15 +92,12 @@ Available Commands:
   skill               Install and manage ecosystem MCP skills
   skills              List and install bundled project-local skills
   spec                Author, validate & inspect *.spec.md contracts (Spec-Layer)
-  spec                Author, validate & inspect *.spec.md contracts (Spec-Layer)
-  spec                Author, validate & inspect *.spec.md contracts (Spec-Layer)
   stack               Manage the DOX + Superpowers + Vane methodology stack
-  summary             Build a deterministic summary from the session ledger
+  subagent            Run a subtask in an isolated session, return summary (issue #192)
   summary             Build a deterministic summary from the session ledger
   superpowers         Integrate obra/superpowers skills into SIN-Code
   swarm               Race N agent profiles on the same prompt (first verified wins)
   todo                Issue tracker with dependencies, audit log, and project namespaces
-  trace               Configure + verify OpenTelemetry tracer setup
   trace               Configure + verify OpenTelemetry tracer setup
   triage              Read the open issue backlog via gh, score, group, and render
   tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)

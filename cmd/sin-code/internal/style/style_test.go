@@ -358,6 +358,90 @@ func TestRenderRules_ByteHashStable(t *testing.T) {
 	}
 }
 
+// ─── Tool preference block (mandate M6) ───────────────────────────────────
+
+func TestRenderToolPreferenceBlock_NonEmpty(t *testing.T) {
+	t.Parallel()
+	got := RenderToolPreferenceBlock()
+	if got == "" {
+		t.Fatal("RenderToolPreferenceBlock must not be empty")
+	}
+}
+
+func TestRenderToolPreferenceBlock_ListsExpectedTools(t *testing.T) {
+	t.Parallel()
+	got := RenderToolPreferenceBlock()
+	for _, tool := range []string{
+		"sin_scout", "sin_map", "sin_sckg", "sin_grasp", "sin_adw",
+		"sin_poc", "sin_oracle", "sin_security_scan", "sin_sbom_generate", "sin_efm",
+	} {
+		if !strings.Contains(got, tool) {
+			t.Errorf("tool preference block must list %q", tool)
+		}
+	}
+}
+
+func TestRenderToolPreferenceBlock_ForbidsNaiveEquivalents(t *testing.T) {
+	t.Parallel()
+	got := RenderToolPreferenceBlock()
+	for _, forbidden := range []string{"cat", "find", "grep", "sed", "echo"} {
+		if !strings.Contains(got, forbidden) {
+			t.Errorf("tool preference block must forbid naive equivalent %q", forbidden)
+		}
+	}
+	if !strings.Contains(got, "Before every sin_bash call") {
+		t.Error("tool preference block must require justification before sin_bash")
+	}
+}
+
+func TestRenderToolPreferenceBlock_ByteHashStable(t *testing.T) {
+	t.Parallel()
+	want := sha256hex(RenderToolPreferenceBlock())
+	for i := 0; i < 100; i++ {
+		if got := sha256hex(RenderToolPreferenceBlock()); got != want {
+			t.Fatalf("RenderToolPreferenceBlock byte hash drifted at iteration %d", i)
+		}
+	}
+}
+
+func TestRenderSystemPrompt_IncludesM6BlockForAllModes(t *testing.T) {
+	t.Parallel()
+	for _, level := range []string{"", "default", "verbose", "normal", "terse", "ultra", "unknown"} {
+		got := RenderSystemPrompt(level)
+		if !strings.Contains(got, toolPreferenceBlock) {
+			t.Errorf("RenderSystemPrompt(%q) missing M6 block", level)
+		}
+	}
+}
+
+func TestRenderSystemPrompt_IncludesStyleBlockOnlyForActiveModes(t *testing.T) {
+	t.Parallel()
+	for _, level := range []string{"", "default", "verbose", "unknown"} {
+		got := RenderSystemPrompt(level)
+		if strings.Contains(got, "# Output style") {
+			t.Errorf("RenderSystemPrompt(%q) should not contain style block for inactive mode", level)
+		}
+	}
+	for _, level := range []string{"normal", "terse", "ultra"} {
+		got := RenderSystemPrompt(level)
+		if !strings.Contains(got, "# Output style") {
+			t.Errorf("RenderSystemPrompt(%q) missing style block", level)
+		}
+	}
+}
+
+func TestRenderSystemPrompt_ByteHashStable(t *testing.T) {
+	t.Parallel()
+	for _, level := range []string{"default", "normal", "terse", "ultra"} {
+		want := sha256hex(RenderSystemPrompt(level))
+		for i := 0; i < 100; i++ {
+			if got := sha256hex(RenderSystemPrompt(level)); got != want {
+				t.Fatalf("RenderSystemPrompt(%q) byte hash drifted at iteration %d", level, i)
+			}
+		}
+	}
+}
+
 // ─── Concurrency / race safety (mandate M7) ──────────────────────────────
 
 func TestMode_ConcurrentEquivalence(t *testing.T) {

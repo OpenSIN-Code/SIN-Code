@@ -15,13 +15,22 @@ auto-summaries and cross-session learning.
 - **Verification evidence:** Oracle/PoC results are stored next to the turns
   they gate, so a summary can claim “verified by poc” with proof.
 
-## Schema (v1)
+## Schema (v2)
 Table `ledger`:
 - `id TEXT PRIMARY KEY`
 - `session_id TEXT NOT NULL` (indexed)
 - `type TEXT NOT NULL` (indexed)
 - `data TEXT NOT NULL` (JSON payload)
 - `summary TEXT NOT NULL` (human line)
+- `created_at TEXT NOT NULL` (RFC3339Nano)
+
+Table `tool_usage`:
+- `id INTEGER PRIMARY KEY AUTOINCREMENT`
+- `tool_name TEXT NOT NULL` (indexed)
+- `tool_family TEXT NOT NULL` (indexed)
+- `outcome TEXT NOT NULL` (indexed: `ok` / `error` / `denied`)
+- `session_id TEXT NOT NULL` (indexed)
+- `goal_id TEXT NOT NULL DEFAULT ''`
 - `created_at TEXT NOT NULL` (RFC3339Nano)
 
 ## Entry types
@@ -48,6 +57,17 @@ id, err := store.Record(ctx, ledger.Entry{
 })
 
 entries, err := store.List(ctx, "sess-123", 1000)
+
+// Tool usage aggregation (issue #250).
+_ = store.RecordUsage(ctx, ledger.UsageRecord{
+    ToolName:  "sin_read",
+    Outcome:   ledger.OutcomeOK,
+    SessionID: "sess-123",
+    GoalID:    "42",
+})
+
+counts, err := store.ToolUsageCounts(ctx, time.Time{}, time.Time{})
+coverage, err := store.ToolCoverage(ctx, knownToolNames)
 ```
 
 ## Maintenance

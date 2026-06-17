@@ -29,10 +29,14 @@ func (HubSource) List(_ context.Context, kind Kind) ([]*Asset, error) {
 		out = append(out, &Asset{
 			Kind:        KindHub,
 			Name:        t.Name,
+			Namespace:   t.Namespace,
 			Short:       t.Short,
 			Description: t.Description,
 			Example:     t.Example,
 			Source:      "hub",
+			Tags:        append([]string{t.Category}, t.Tags...),
+			ReadOnly:    t.ReadOnly,
+			Destructive: t.Destructive,
 		})
 	}
 	return out, nil
@@ -48,10 +52,14 @@ func (HubSource) Get(_ context.Context, kind Kind, name string) (*Asset, bool, e
 			return &Asset{
 				Kind:        KindHub,
 				Name:        t.Name,
+				Namespace:   t.Namespace,
 				Short:       t.Short,
 				Description: t.Description,
 				Example:     t.Example,
 				Source:      "hub",
+				Tags:        append([]string{t.Category}, t.Tags...),
+				ReadOnly:    t.ReadOnly,
+				Destructive: t.Destructive,
 			}, true, nil
 		}
 	}

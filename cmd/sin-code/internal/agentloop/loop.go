@@ -112,7 +112,10 @@ type Loop struct {
 	// identical-criteria fingerprint count.
 	MaxStopRejects int
 	SessionID      string
-	Completion     func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error)
+	// SystemPrompt is prepended to every model request as a system
+	// message. It is immutable for the lifetime of the loop (mandate M7).
+	SystemPrompt string
+	Completion   func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error)
 
 	Hooks   *hooks.Engine
 	Perm    *permission.Engine
@@ -171,6 +174,24 @@ type Loop struct {
 	// without it for backward compatibility.
 	Ledger *ledger.Store
 
+	// GoalID is the autonomous goal identifier this run belongs to. Empty for
+	// interactive chat runs. It is forwarded into ledger tool-usage records.
+	GoalID string
+
+	// Coverage, if set, tracks required/forbidden tool usage and rejects
+	// completion when constraints are violated (issue #248). The loop
+	// creates it automatically when CoverageRequiredTools or
+	// CoverageForbiddenTools are non-empty; callers may also set it
+	// directly for dataset runners.
+	Coverage *ToolCoverageEnforcer
+
+	// CoverageRequiredTools lists tools the model must invoke before the
+	// run can complete. Comma-separated via CLI; set directly for tests.
+	CoverageRequiredTools []string
+
+	// CoverageForbiddenTools lists tools that block completion if invoked.
+	CoverageForbiddenTools []string
+
 	// RunOverride, if set, replaces the default Run. Used by the
 	// WebUI v2 chat API (issue #52) so tests can swap in a
 	// deterministic result without wiring a real LLM.
@@ -204,6 +225,18 @@ func (l *Loop) record(ctx context.Context, typ ledger.EntryType, data map[string
 	})
 }
 
+func (l *Loop) recordUsage(ctx context.Context, name string, outcome ledger.UsageOutcome) {
+	if l.Ledger == nil || l.SessionID == "" {
+		return
+	}
+	_ = l.Ledger.RecordUsage(ctx, ledger.UsageRecord{
+		ToolName:  name,
+		Outcome:   outcome,
+		SessionID: l.SessionID,
+		GoalID:    l.GoalID,
+	})
+}
+
 func (l *Loop) fire(ctx context.Context, event, name string, data map[string]any) hooks.Result {
 	if l.Hooks == nil {
 		return hooks.Result{}
@@ -228,16 +261,19 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 		switch l.Perm.Check(tc.Name) {
 		case permission.Deny:
 			l.fire(ctx, hooks.ToolDenied, tc.Name, map[string]any{"policy": "deny"})
+			l.recordUsage(ctx, tc.Name, ledger.OutcomeDenied)
 			return "DENIED by permission policy", injects
 		case permission.Ask:
 			ask := l.fire(ctx, hooks.PermissionAsk, tc.Name, map[string]any{"args": tc.Args})
 			injects = append(injects, ask.PromptInjects...)
 			if ask.Blocked {
 				l.fire(ctx, hooks.ToolDenied, tc.Name, map[string]any{"policy": "ask", "by": "hook"})
+				l.recordUsage(ctx, tc.Name, ledger.OutcomeDenied)
 				return "DENIED by hook: " + ask.BlockReason, injects
 			}
 			if l.Ask == nil || !l.Ask(tc) {
 				l.fire(ctx, hooks.ToolDenied, tc.Name, map[string]any{"policy": "ask", "by": "user"})
+				l.recordUsage(ctx, tc.Name, ledger.OutcomeDenied)
 				return "DENIED by user", injects
 			}
 		case permission.Allow:
@@ -256,6 +292,7 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 	if err != nil {
 		l.fire(ctx, hooks.ToolError, tc.Name, map[string]any{"error": err.Error()})
 		l.record(ctx, ledger.TypeToolError, map[string]any{"tool": tc.Name}, "tool error: "+tc.Name)
+		l.recordUsage(ctx, tc.Name, ledger.OutcomeError)
 		if l.Lessons != nil {
 			_ = l.Lessons.Record(ctx, lessons.Entry{
 				Type:      lessons.TypeToolError,
@@ -269,6 +306,7 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 	post := l.fire(ctx, hooks.ToolPost, tc.Name, map[string]any{"output_bytes": len(res)})
 	injects = append(injects, post.PromptInjects...)
 	l.record(ctx, ledger.TypeToolCall, map[string]any{"tool": tc.Name}, "tool call: "+tc.Name)
+	l.recordUsage(ctx, tc.Name, ledger.OutcomeOK)
 	return res, injects
 }
 
@@ -281,6 +319,12 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	}
 	if l.SessionID == "" {
 		l.SessionID = sess.ID
+	}
+	// Ensure the coverage enforcer exists when constraints are configured.
+	// It is recreated per-Run so REPL/dataset reuse of the same Loop gets
+	// fresh state for each prompt/test case (issue #248).
+	if len(l.CoverageRequiredTools) > 0 || len(l.CoverageForbiddenTools) > 0 {
+		l.Coverage = NewToolCoverageEnforcer(l.CoverageRequiredTools, l.CoverageForbiddenTools)
 	}
 	l.record(ctx, ledger.TypeUserPrompt, map[string]any{"content": prompt}, "user prompt")
 	msgs := sess.History()
@@ -336,6 +380,11 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			if compressed, cerr := l.CompressMessages(ctx, msgs); cerr == nil && compressed != nil {
 				reqMsgs = compressed
 			}
+		}
+		// Mandate M6: the tool-preference block is prepended fresh each
+		// turn so the model cannot compress it away.
+		if l.SystemPrompt != "" {
+			reqMsgs = append([]session.Message{{Role: "system", Content: l.SystemPrompt}}, reqMsgs...)
 		}
 		resp, err := l.Completion(ctx, reqMsgs, tools)
 		if err != nil {
@@ -426,9 +475,13 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			// exactly one reflection. Issue #152.
 			if l.Reflector != nil && !reflectedThisProposal {
 				reflectedThisProposal = true
+				reflectTools := toolsUsed
+				if l.Coverage != nil {
+					reflectTools = l.Coverage.Used()
+				}
 				ref := l.Reflector(ctx, StopSnapshot{
 					Prompt: prompt, FinalOutput: resp.Text, Turns: turn + 1,
-					ToolsUsed: toolsUsed, VerifyPassed: res.Passed, SessionID: sess.ID,
+					ToolsUsed: reflectTools, VerifyPassed: res.Passed, SessionID: sess.ID,
 				})
 				if len(ref.Issues) > 0 {
 					l.fire(ctx, hooks.ReflectIssues, "", map[string]any{"issues": ref.Issues})
@@ -457,12 +510,17 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			// before we accept DONE. A reject re-injects the open criteria
 			// and keeps the loop working (the core anti-babysitting path).
 			lastText = resp.Text
-			if l.StopGate != nil {
-				dec := l.StopGate(ctx, StopSnapshot{
+			effectiveStopGate := l.wrapStopGate()
+			if effectiveStopGate != nil {
+				snapTools := toolsUsed
+				if l.Coverage != nil {
+					snapTools = l.Coverage.Used()
+				}
+				dec := effectiveStopGate(ctx, StopSnapshot{
 					Prompt:       prompt,
 					FinalOutput:  resp.Text,
 					Turns:        turn + 1,
-					ToolsUsed:    toolsUsed,
+					ToolsUsed:    snapTools,
 					VerifyPassed: res.Passed,
 					SessionID:    sess.ID,
 				})
@@ -551,6 +609,9 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			// Real work happened in this turn — reset the reflection
 			// flag so a fresh proposal can be re-evaluated.
 			reflectedThisProposal = false
+			if l.Coverage != nil {
+				l.Coverage.Record(tc.Name)
+			}
 			if !toolsSeen[tc.Name] {
 				toolsSeen[tc.Name] = true
 				toolsUsed = append(toolsUsed, tc.Name)
@@ -595,6 +656,32 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	l.fire(ctx, hooks.TaskAbort, "", map[string]any{"reason": "max turns exceeded"})
 	l.record(ctx, ledger.TypeTaskAbort, map[string]any{"reason": "max turns exceeded"}, "task aborted: max turns exceeded")
 	return nil, fmt.Errorf("max turns (%d) exceeded without verified completion", maxTurns)
+}
+
+// wrapStopGate returns a StopGate that first evaluates tool-coverage
+// constraints (issue #248), then delegates to the configured StopGate. If no
+// coverage constraints and no StopGate are configured, it returns nil so the
+// loop preserves exact legacy behavior.
+func (l *Loop) wrapStopGate() StopGate {
+	hasCoverage := l.Coverage != nil && l.Coverage.HasConstraints()
+	if !hasCoverage && l.StopGate == nil {
+		return nil
+	}
+	return func(ctx context.Context, snap StopSnapshot) StopDecision {
+		if l.Coverage != nil {
+			if ok, missing, forbidden := l.Coverage.Check(); !ok {
+				return StopDecision{
+					Complete:     false,
+					OpenCriteria: l.Coverage.OpenCriteria(missing, forbidden),
+					Report:       l.Coverage.Feedback(missing, forbidden),
+				}
+			}
+		}
+		if l.StopGate != nil {
+			return l.StopGate(ctx, snap)
+		}
+		return StopDecision{Complete: true}
+	}
 }
 
 // formatStopContinue renders the stop-gate rejection into a directive the

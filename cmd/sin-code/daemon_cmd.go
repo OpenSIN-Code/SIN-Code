@@ -46,6 +46,8 @@ type daemonOptions struct {
 	maxDepth         int
 	noContract       bool
 	noBaseline       bool
+	requireTools     string
+	forbidTools      string
 }
 
 func NewDaemonCmd() *cobra.Command {
@@ -56,6 +58,7 @@ func NewDaemonCmd() *cobra.Command {
 	var noContract, noBaseline bool
 	var repos []string
 	var maxMemory, minDisk string
+	var requireTools, forbidTools string
 	cmd := &cobra.Command{
 		Use:   "daemon",
 		Short: "Run the autonomous worker: lease goals, execute, verify, learn",
@@ -87,6 +90,8 @@ func NewDaemonCmd() *cobra.Command {
 				maxDepth:         maxDepth,
 				noContract:       noContract,
 				noBaseline:       noBaseline,
+				requireTools:     requireTools,
+				forbidTools:      forbidTools,
 			})
 		},
 	}
@@ -103,6 +108,8 @@ func NewDaemonCmd() *cobra.Command {
 	cmd.Flags().IntVar(&maxDepth, "max-depth", 3, "max sub-goal nesting depth an agent may spawn via spawn_subgoal")
 	cmd.Flags().BoolVar(&noContract, "no-contract", false, "disable Definition-of-Done contracts (revert to single verify-gate)")
 	cmd.Flags().BoolVar(&noBaseline, "no-baseline", false, "disable the always-on SinCode loop baseline (tests/debug/docs/completeness DoD); also via SIN_BASELINE=off")
+	cmd.Flags().StringVar(&requireTools, "require-tools", "", "comma-separated tool names the model must invoke before completion (issue #248)")
+	cmd.Flags().StringVar(&forbidTools, "forbid-tools", "", "comma-separated tool names that block completion if invoked (issue #248)")
 	return cmd
 }
 
@@ -286,14 +293,17 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 	}
 
 	loop, cleanup, err := loopbuilder.Build(ctx, loopbuilder.Config{
-		Workspace:         goal.Workspace,
-		SessionID:         sess.ID,
-		MaxTurns:          opt.maxTurns,
-		VerifyMode:        "poc",
-		VerifyCmd:         opt.verifyCmd,
-		Headless:          true,
-		Contract:          contract,
-		AllowContinuation: opt.maxContinuations > 0,
+		Workspace:              goal.Workspace,
+		SessionID:              sess.ID,
+		GoalID:                 fmt.Sprintf("%d", goal.ID),
+		MaxTurns:               opt.maxTurns,
+		VerifyMode:             "poc",
+		VerifyCmd:              opt.verifyCmd,
+		Headless:               true,
+		Contract:               contract,
+		AllowContinuation:      opt.maxContinuations > 0,
+		CoverageRequiredTools:  splitList(opt.requireTools),
+		CoverageForbiddenTools: splitList(opt.forbidTools),
 		ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
 			baseTool := combinedTool(goal.Workspace, mgr)
 			baseSpecs := combinedSpecs(mgr)
