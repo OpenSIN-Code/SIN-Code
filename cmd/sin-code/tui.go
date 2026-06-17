@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/spf13/cobra"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/logger"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui"
 )
 
@@ -20,6 +21,10 @@ func getSubcommand(name string) *cobra.Command {
 }
 
 func runNewTUI(out io.Writer) {
+	// Suppress structured JSON warnings on stderr while the TUI is running.
+	// Errors are still logged; normal agent/chat events are rendered in the UI.
+	logger.SetLevel(logger.LevelError)
+
 	pm := tui.NewModel()
 	pm.OnRun = func(name string, args []string) error {
 		c := getSubcommand(name)
