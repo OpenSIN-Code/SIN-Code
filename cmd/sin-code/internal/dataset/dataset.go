@@ -86,6 +86,12 @@ type Expected struct {
 // ScorerConfig selects a scorer and its parameters. It is the dataset
 // representation of an evalharness.Scorer; the runner resolves it when
 // applying post-hoc output gates.
+//
+// RequiresModel, when true, gates the scorer behind the real chat
+// completion path — i.e. the scorer is skipped when the legacy offline
+// stub is in effect. This keeps byte-stable CI green even when a
+// dataset carries a compile_and_run case that the stub cannot satisfy
+// (issue #264).
 type ScorerConfig struct {
 	Type          string  `json:"type,omitempty"`           // "compile_and_run" | "exact" | "contains"
 	Language      string  `json:"language,omitempty"`       // language for compile_and_run
@@ -94,6 +100,7 @@ type ScorerConfig struct {
 	Timeout       string  `json:"timeout,omitempty"`        // e.g. "30s"
 	Binary        string  `json:"binary,omitempty"`         // explicit compiler/interpreter
 	PassThreshold float64 `json:"pass_threshold,omitempty"` // threshold for contains scorer
+	RequiresModel bool    `json:"requires_model,omitempty"` // skip scorer in stub mode
 }
 
 // LoadDataset reads + validates a single JSON file. Returns the

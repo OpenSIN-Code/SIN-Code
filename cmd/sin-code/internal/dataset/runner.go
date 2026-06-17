@@ -53,6 +53,11 @@ type RunnerConfig struct {
 	VerifyMode     string // "poc" | "oracle" | "off"
 	TimeoutPerCase time.Duration
 	MaxConcurrency int // 0 -> 1 (serial, deterministic)
+	// UseModel, when true, means the runner is plugged into a real chat
+	// completion path (eval --use-model, issue #261). When false, the
+	// loop runs against the offline stub and any ScorerConfig with
+	// RequiresModel=true is skipped (issue #264).
+	UseModel bool
 }
 
 // Runner executes one Dataset against one agentloop.Loop. Sessions
@@ -236,7 +241,16 @@ func (r *Runner) applyRules(tc *TestCase, res *RunResult) RunResult {
 
 // applyScorer evaluates a configured or override scorer against the
 // model's final output. If the scorer fails, res.Success flips to false.
+//
+// A per-case ScorerConfig that sets RequiresModel=true is skipped
+// whenever the runner is not in real-model mode (RunnerConfig.UseModel
+// is false). This is the dual-mode contract: compile_and_run cases can
+// live alongside stub-friendly output_contains cases in the same
+// dataset (#264) without breaking byte-stable offline CI.
 func (r *Runner) applyScorer(tc *TestCase, res *RunResult) {
+	if tc.Scorer.RequiresModel && !r.cfg.UseModel && r.Scorer == nil {
+		return
+	}
 	var scorer evalharness.Scorer
 	var cfg map[string]any
 	if r.Scorer != nil {

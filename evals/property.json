@@ -1,40 +1,64 @@
 {
   "name": "Property-Based Testing Golden Dataset",
-  "version": "1.0.0",
-  "description": "Evaluates the agent's ability to generate and reason about property-based tests (RFC-test-automation.md).",
+  "version": "1.1.0",
+  "description": "Evaluates the agent's ability to invoke sin_property and produce property-friendly Go (RFC-test-automation.md). Dual-mode: keyword cases stay green in offline stub mode; compile_and_run case is gated behind --use-model (issue #264).",
   "test_cases": [
     {
-      "id": "generate_property_check",
-      "prompt": "Write a complete Go program (package main) that defines a function Add(a, b int) int and a main function that verifies the property Add(a,b) == Add(b,a) for many pseudo-random integer pairs. Output the code in a fenced Go code block.",
-      "description": "Generates a valid Go program that demonstrates a property check.",
-      "tags": ["property", "go", "compile_and_run"],
+      "id": "property_invoke",
+      "prompt": "Use the sin_property tool on cmd/sin-code/internal/testgen/ and report whether the rapid-based property tests are wired.",
+      "description": "Smoke test for sin_property invocation.",
+      "tags": ["property", "stub-friendly"],
       "constraints": {
-        "max_turns": 4,
-        "timeout": "120s"
-      },
-      "expected": {
-        "output_contains": ["Add", "main function", "property"]
-      },
-      "metadata": {
-        "priority": "high",
-        "category": "generation"
-      }
-    },
-    {
-      "id": "property_tool_reasoning",
-      "prompt": "Explain how you would use sin_property to test the property that reversing a string twice returns the original string. Mention the tool name and the property.",
-      "description": "Verifies the agent knows when to use the property tool.",
-      "tags": ["property", "reasoning"],
-      "constraints": {
-        "max_turns": 3,
-        "timeout": "60s"
+        "max_turns": 5,
+        "timeout": "180s"
       },
       "expected": {
         "output_contains": ["sin_property", "property"]
       },
       "metadata": {
         "priority": "medium",
-        "category": "reasoning"
+        "category": "tool"
+      }
+    },
+    {
+      "id": "property_idempotent",
+      "prompt": "Run sin_property on a property that asserts reverse(reverse(s)) == s for any non-empty string. Confirm the property holds for the supplied alice/bob examples.",
+      "description": "Confirms the agent can specify a concrete property and a small example set.",
+      "tags": ["property", "stub-friendly"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "180s"
+      },
+      "expected": {
+        "output_contains": ["sin_property", "reverse"]
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "tool"
+      }
+    },
+    {
+      "id": "compile_property_idempotent_sort",
+      "prompt": "Write a Go function sortStrings(xs []string) []string that returns xs sorted lexicographically without mutating the input. Reply with the implementation in a fenced ```go``` code block.",
+      "description": "Dual-mode: a pure sort function with an obvious property (sort twice == sort once; sort does not mutate). The LLM-mode scorer compiles and self-checks the invariant.",
+      "tags": ["property", "compile_and_run", "go", "model-only"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "60s"
+      },
+      "expected": {
+        "output_contains": ["sortStrings", "```go"]
+      },
+      "scorer": {
+        "type": "compile_and_run",
+        "language": "go",
+        "self_check": "in := []string{\"c\", \"a\", \"b\"}\ninCopy := append([]string(nil), in...)\nout := sortStrings(in)\nif !reflect.DeepEqual(out, []string{\"a\", \"b\", \"c\"}) { panic(\"sort=\" + fmt.Sprint(out)) }\nif !reflect.DeepEqual(in, inCopy) { panic(\"mutated input: \" + fmt.Sprint(in)) }\nif !reflect.DeepEqual(sortStrings(out), out) { panic(\"not idempotent\") }",
+        "timeout": "20s",
+        "requires_model": true
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "code-generation"
       }
     }
   ]

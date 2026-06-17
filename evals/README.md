@@ -54,6 +54,34 @@ This directory contains versioned Golden Datasets for `sin-code eval` (see
 }
 ```
 
+## Dual-mode contract (issue #264)
+
+Every dataset in this directory MUST stay green in two evaluation modes:
+
+1. **Offline stub mode** (the default): the runner uses
+   `cmd/sin-code.evalCmd.stubRunOverride`, an echo-only loop that does not
+   call a real LLM. Byte-stable; safe in CI.
+2. **Real-model mode** (`--use-model`, issue #261): the loop routes every
+   case through a configured chat-completion provider.
+
+The two modes gain their signal from different scorers:
+
+- Stub mode → `expected.output_contains` is the primary verifier.
+- Model mode → `scorer.type: "compile_and_run"` plus `language: "go"`
+  is the primary verifier.
+
+To keep both modes green simultaneously, every `compile_and_run` Scorer
+sets `requires_model: true` — `Runner.applyScorer` then skips the scorer
+when `RunnerConfig.UseModel` is false. Only `expected.output_contains`
+runs in stub mode. Removing `requires_model: true` from such a case will
+fail offline CI; restoring it is the fix.
+
+The convention is enforced by the v1.1.0 JSON files in this directory;
+
+every dataset carries at least one `model-only` tag + `compile_and_run`
+case so that real-model CI has something concrete to verify, while the
+existing stub-friendly cases keep their historical keyword checks.
+
 ## CI
 
 The `eval-n8n.yml` GitHub Actions workflow delegates these datasets to the

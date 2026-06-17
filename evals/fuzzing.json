@@ -1,40 +1,64 @@
 {
   "name": "Fuzzing Golden Dataset",
-  "version": "1.0.0",
-  "description": "Evaluates the agent's ability to generate and reason about Go fuzz-style tests (RFC-test-automation.md).",
+  "version": "1.1.0",
+  "description": "Evaluates the agent's ability to invoke sin_fuzz and produce fuzz-friendly Go (RFC-test-automation.md). Dual-mode contract: keyword cases stay green in offline stub mode; compile_and_run case is gated behind --use-model (issue #264).",
   "test_cases": [
     {
-      "id": "generate_fuzz_target",
-      "prompt": "Write a complete Go program (package main) that defines a function Add(a, b int) int and a main function that fuzz-tests it with many pseudo-random inputs, panicking if a result is wrong. Output the code in a fenced Go code block.",
-      "description": "Generates a valid Go program that demonstrates fuzz-style testing.",
-      "tags": ["fuzzing", "go", "compile_and_run"],
+      "id": "fuzz_invoke",
+      "prompt": "Use the sin_fuzz tool on cmd/sin-code/internal/testgen/fuzz_test.go and report whether a fuzz target is registered.",
+      "description": "Smoke test for sin_fuzz invocation.",
+      "tags": ["fuzzing", "stub-friendly"],
       "constraints": {
-        "max_turns": 4,
-        "timeout": "120s"
+        "max_turns": 5,
+        "timeout": "180s"
       },
       "expected": {
-        "output_contains": ["Add", "main function", "fuzz"]
-      },
-      "metadata": {
-        "priority": "high",
-        "category": "generation"
-      }
-    },
-    {
-      "id": "fuzz_output_reasoning",
-      "prompt": "Explain how you would use sin_fuzz to discover an edge-case bug in a function that parses integers. Mention the tool name and one concrete input that would be worth fuzzing.",
-      "description": "Verifies the agent knows when to use the fuzz tool.",
-      "tags": ["fuzzing", "reasoning"],
-      "constraints": {
-        "max_turns": 3,
-        "timeout": "60s"
-      },
-      "expected": {
-        "output_contains": ["sin_fuzz", "fuzz"]
+        "output_contains": ["sin_fuzz", "Fuzz"]
       },
       "metadata": {
         "priority": "medium",
-        "category": "reasoning"
+        "category": "tool"
+      }
+    },
+    {
+      "id": "fuzz_seed_corpus",
+      "prompt": "Run sin_fuzz with a small seed corpus of strings [\"foo\", \"bar\", \"\"] and confirm it does not panic on the empty input.",
+      "description": "Confirms the agent can specify a seed corpus for sin_fuzz.",
+      "tags": ["fuzzing", "stub-friendly"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "180s"
+      },
+      "expected": {
+        "output_contains": ["sin_fuzz", "seed"]
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "tool"
+      }
+    },
+    {
+      "id": "compile_fuzzable_reverse",
+      "prompt": "Write a Go function reverse(s string) string that reverses its input rune-by-rune (use []rune). Reply with the implementation in a fenced ```go``` code block.",
+      "description": "Dual-mode: this rev / palindrome form is a classic fuzz target; the LLM-mode scorer compiles and self-checks Unicode round-trip.",
+      "tags": ["fuzzing", "compile_and_run", "go", "model-only"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "60s"
+      },
+      "expected": {
+        "output_contains": ["reverse", "```go"]
+      },
+      "scorer": {
+        "type": "compile_and_run",
+        "language": "go",
+        "self_check": "if got := reverse(\"\"); got != \"\" { panic(\"empty=\" + got) }\nif got := reverse(\"abc\"); got != \"cba\" { panic(\"abc=\" + got) }\nif got := reverse(\"a\\u0301\"); reverse(got) != \"a\\u0301\" { panic(\"composed round-trip\") }\nif got := reverse(\"中\"); got != \"中\" { panic(\"cjk round-trip\") }",
+        "timeout": "20s",
+        "requires_model": true
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "code-generation"
       }
     }
   ]

@@ -204,6 +204,7 @@ func newEvalRunCmd() *cobra.Command {
 				VerifyMode:     "off",
 				TimeoutPerCase: timeout,
 				MaxConcurrency: 1,
+				UseModel:       useModel,
 			}, loop, store)
 			if err != nil {
 				return fmt.Errorf("eval run: new runner: %w", err)

@@ -1,13 +1,13 @@
 {
   "name": "Mutation Testing Golden Dataset",
-  "version": "1.0.0",
-  "description": "Evaluates the agent's ability to invoke sin_mutation and interpret mutation scores (RFC-test-automation.md).",
+  "version": "1.1.0",
+  "description": "Evaluates the agent's ability to invoke sin_mutation and interpret mutation scores (RFC-test-automation.md). Dual-mode: keyword cases stay green in offline stub mode; compile_and_run case is gated behind --use-model (issue #264).",
   "test_cases": [
     {
       "id": "mutation_threshold_check",
       "prompt": "Use the sin_mutation tool on the current workspace and report whether the mutation score meets the configured threshold.",
       "description": "Smoke test for sin_mutation invocation and report interpretation.",
-      "tags": ["mutation", "quality-gate"],
+      "tags": ["mutation", "quality-gate", "stub-friendly"],
       "constraints": {
         "max_turns": 5,
         "timeout": "180s"
@@ -24,7 +24,7 @@
       "id": "mutation_score_json",
       "prompt": "Run mutation testing with a threshold of 0.5 using sin_mutation and return the JSON result.",
       "description": "Checks that the agent can request structured mutation output.",
-      "tags": ["mutation", "json"],
+      "tags": ["mutation", "json", "stub-friendly"],
       "constraints": {
         "max_turns": 5,
         "timeout": "180s"
@@ -35,6 +35,30 @@
       "metadata": {
         "priority": "medium",
         "category": "tool"
+      }
+    },
+    {
+      "id": "compile_mutation_aware_clamp",
+      "prompt": "Write a Go function clamp(v, lo, hi int) int that returns the value clamped to [lo,hi]. The implementation must use three explicit conditional branches (no helper, no min/max). Reply with the implementation in a fenced ```go``` code block.",
+      "description": "Dual-mode: this is the kind of function a mutation-test tool would probe; the LLM-mode scorer compiles and self-checks it.",
+      "tags": ["mutation", "compile_and_run", "go", "model-only"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "60s"
+      },
+      "expected": {
+        "output_contains": ["clamp", "```go"]
+      },
+      "scorer": {
+        "type": "compile_and_run",
+        "language": "go",
+        "self_check": "if got := clamp(5, 0, 10); got != 5 { panic(\"mid=\" + fmt.Sprint(got)) }\nif got := clamp(-3, 0, 10); got != 0 { panic(\"lo=\" + fmt.Sprint(got)) }\nif got := clamp(20, 0, 10); got != 10 { panic(\"hi=\" + fmt.Sprint(got)) }",
+        "timeout": "20s",
+        "requires_model": true
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "code-generation"
       }
     }
   ]

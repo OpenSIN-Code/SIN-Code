@@ -533,3 +533,58 @@ func TestRunCase_WiresCoverageConstraints(t *testing.T) {
 		t.Fatal("expected loop.Coverage to be created")
 	}
 }
+
+// TestApplyScorer_RequiresModel_SkipInStub (#264) — a ScorerConfig with
+// RequiresModel=true is skipped when the runner is not in real-model
+// mode so legacy offline CI stays byte-stable.
+func TestApplyScorer_RequiresModel_SkipInStub(t *testing.T) {
+	r := loopingRunner(t, nil)
+	tc := &TestCase{
+		ID:     "model_only",
+		Prompt: "p",
+		Scorer: ScorerConfig{
+			Type:          "compile_and_run",
+			Language:      "go",
+			SelfCheck:     "assert fizzbuzz(15) == nil",
+			RequiresModel: true,
+		},
+	}
+	res := RunResult{Success: true, FinalOutput: ""}
+	r.applyScorer(tc, &res)
+	if !res.Success {
+		t.Fatalf("stub runner must skip RequiresModel scorer; got %+v", res)
+	}
+	if res.Error != "" {
+		t.Fatalf("stub runner must not record scorer error; got %q", res.Error)
+	}
+}
+
+// TestApplyScorer_RequiresModel_AppliedInModelMode (#264) — when the
+// runner is in real-model mode, RequiresModel scorers run as normal.
+func TestApplyScorer_RequiresModel_AppliedInModelMode(t *testing.T) {
+	loop := &agentloop.Loop{RunOverride: func(context.Context, *session.Session, string) (*agentloop.Result, error) {
+		return &agentloop.Result{SessionID: "s", Summary: "stub-output without code block", Verified: true, Turns: 1}, nil
+	}}
+	r, err := NewRunner(RunnerConfig{UseModel: true}, loop, inMemoryStore(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc := &TestCase{
+		ID:     "model_only",
+		Prompt: "p",
+		Scorer: ScorerConfig{
+			Type:          "compile_and_run",
+			Language:      "go",
+			SelfCheck:     "assert fizzbuzz(15) == nil",
+			RequiresModel: true,
+		},
+	}
+	res := RunResult{Success: true, FinalOutput: "stub-output without code block"}
+	r.applyScorer(tc, &res)
+	if res.Success {
+		t.Fatal("expected compile_and_run to fail on no-code-block output")
+	}
+	if !strings.Contains(res.Error, "scorer:") {
+		t.Fatalf("expected scorer error, got %q", res.Error)
+	}
+}

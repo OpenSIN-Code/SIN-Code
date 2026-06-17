@@ -1,40 +1,64 @@
 {
   "name": "Quality Gate Golden Dataset",
-  "version": "1.0.0",
-  "description": "Evaluates the agent's ability to run sin_quality_gate and interpret the pass/fail report (RFC-test-automation.md).",
+  "version": "1.1.0",
+  "description": "Evaluates the agent's ability to invoke sin_quality_gate and produce coverage-aware Go (RFC-test-automation.md). Dual-mode: keyword cases stay green in offline stub mode; compile_and_run case is gated behind --use-model (issue #264).",
   "test_cases": [
     {
-      "id": "quality_gate_run",
-      "prompt": "Run sin_quality_gate on the current workspace and report whether the gate passes or fails.",
+      "id": "quality_gate_passes",
+      "prompt": "Run sin_quality_gate with the configured coverage_threshold and verify the gate returns PASS.",
       "description": "Smoke test for sin_quality_gate invocation.",
-      "tags": ["quality-gate", "tool"],
+      "tags": ["quality-gate", "stub-friendly"],
       "constraints": {
-        "max_turns": 4,
-        "timeout": "120s"
+        "max_turns": 5,
+        "timeout": "180s"
       },
       "expected": {
-        "output_contains": ["sin_quality_gate", "passes or fails"]
-      },
-      "metadata": {
-        "priority": "high",
-        "category": "tool"
-      }
-    },
-    {
-      "id": "quality_gate_threshold",
-      "prompt": "Use sin_quality_gate to check the current workspace with a coverage threshold of 80%. Report the JSON status and coverage value.",
-      "description": "Verifies the agent can pass a threshold to the quality gate.",
-      "tags": ["quality-gate", "json", "coverage"],
-      "constraints": {
-        "max_turns": 4,
-        "timeout": "120s"
-      },
-      "expected": {
-        "output_contains": ["sin_quality_gate", "coverage threshold"]
+        "output_contains": ["sin_quality_gate", "PASS"]
       },
       "metadata": {
         "priority": "medium",
         "category": "tool"
+      }
+    },
+    {
+      "id": "quality_gate_json",
+      "prompt": "Run sin_quality_gate with coverage_threshold=80 and parse the JSON status field. Return the JSON envelope.",
+      "description": "Confirms the agent can read the gate's structured output.",
+      "tags": ["quality-gate", "json", "stub-friendly"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "180s"
+      },
+      "expected": {
+        "output_contains": ["sin_quality_gate", "\"status\""]
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "tool"
+      }
+    },
+    {
+      "id": "compile_coverage_friendly_calculator",
+      "prompt": "Write a Go function Calc(op string, a, b float64) (float64, error) supporting add/sub/mul/div (div-by-zero error). Reply with the implementation in a fenced ```go``` code block.",
+      "description": "Dual-mode: multi-branch switch is the classic coverage-probe target. The LLM-mode scorer compiles and self-checks every branch.",
+      "tags": ["quality-gate", "compile_and_run", "go", "model-only"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "60s"
+      },
+      "expected": {
+        "output_contains": ["Calc", "```go"]
+      },
+      "scorer": {
+        "type": "compile_and_run",
+        "language": "go",
+        "self_check": "if v, err := Calc(\"add\", 1, 2); err != nil || v != 3 { panic(\"add=\" + fmt.Sprint(v, err)) }\nif v, err := Calc(\"sub\", 5, 3); err != nil || v != 2 { panic(\"sub=\" + fmt.Sprint(v, err)) }\nif v, err := Calc(\"mul\", 4, 3); err != nil || v != 12 { panic(\"mul=\" + fmt.Sprint(v, err)) }\nif v, err := Calc(\"div\", 10, 4); err != nil || v != 2.5 { panic(\"div=\" + fmt.Sprint(v, err)) }\nif _, err := Calc(\"div\", 1, 0); err == nil { panic(\"div-by-zero must error\") }\nif _, err := Calc(\"exp\", 1, 2); err == nil { panic(\"unknown op must error\") }",
+        "timeout": "20s",
+        "requires_model": true
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "code-generation"
       }
     }
   ]
