@@ -1,5 +1,8 @@
 # eval/judge.go + metrics.go
 
+**User guide:** `docs/eval.md` — high-level usage, CLI reference, and
+worked examples. **Dataset catalog:** `evals/README.md`.
+
 ## What
 
 LLM-as-a-Judge (`judge.go`) and suite metrics (`metrics.go`) for the
