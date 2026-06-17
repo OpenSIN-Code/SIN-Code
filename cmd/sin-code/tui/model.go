@@ -27,8 +27,11 @@ const (
 	ModeArgInput
 	ModeSessionSwitcher
 	ModeModelSelector
+	ModeModelSwitcher
 	ModePermissionDialog
 	ModeSearch
+	ModeHelpOverlay
+	ModeFilePicker
 )
 
 type PaletteState struct {
@@ -253,6 +256,18 @@ type Model struct {
 	// Compact rendering toggle (chat view)
 	CompactMode *CompactMode
 
+	// Model switcher popup (#315)
+	ModelSwitcher *ModelSwitcher
+
+	// Help overlay (#306)
+	HelpOverlay *HelpOverlay
+
+	// File picker popup (#304)
+	FilePicker *FilePicker
+
+	// Crash recovery (#311)
+	CrashRecovery *CrashRecovery
+
 	// Session info bar (chat view)
 	SessionInfo *SessionInfo
 
@@ -260,6 +275,10 @@ type Model struct {
 	SplitPane   *SplitPane
 	FileBrowser *FileBrowser
 	FileViewer  *FileViewer
+
+	Mouse *MouseHandler
+
+	RenderCache *RenderCache
 }
 
 func (m *Model) ctx() context.Context {
@@ -408,12 +427,18 @@ func NewModel() *Model {
 			MaxTurns:   20,
 			VerifyMode: "poc",
 		},
-		TokenBar:    NewTokenBar(128000),
-		CompactMode: NewCompactMode(),
+		TokenBar:      NewTokenBar(128000),
+		CompactMode:   NewCompactMode(),
+		ModelSwitcher: NewModelSwitcher(),
+		HelpOverlay:   NewHelpOverlay(DefaultKeymapConfig()),
+		FilePicker:    NewFilePicker(""),
+		CrashRecovery: NewCrashRecovery(),
 		SessionInfo: NewSessionInfo(),
 		SplitPane:   NewSplitPane(),
 		FileBrowser: NewFileBrowser(""),
 		FileViewer:  NewFileViewer(),
+		Mouse:         NewMouseHandler(),
+		RenderCache:   NewRenderCache(100),
 	}
 	m.Footer.SetView(ViewChat)
 	m.Footer.ShowHints = false

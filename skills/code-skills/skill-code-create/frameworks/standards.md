@@ -11,17 +11,19 @@ Docs: ../SKILL.md
 
 ## Skill Standard
 
-- `SKILL.md` with YAML frontmatter (`name`, `description`, `license`, `compatibility`, `metadata`).
+- `SKILL.md` with YAML frontmatter (`name`, `description`, `license`, `compatibility`, `metadata`, `required_tools` (optional, YAML list of SIN tool names)).
 - Required directories: `context/`, `frameworks/`, `tasks/`, `templates/`.
 - Recommended directories: `scripts/`, `tests/`, `lib/`.
 - `compatibility` must be a YAML list.
 - `metadata` should include `author`, `version`, and for external skills `lifecycle: external` plus `sources:`.
+- `required_tools` (optional): a YAML list of SIN tool names (e.g. `[sin_edit, sin_test]`). Parsed by `skillmgr/required_tools.go` and enforced by `ToolCoverageEnforcer`.
 
 ## Bundled Skill Layout
 
 ```
 skills/<category>-skills/skill-<category>-<name>/
-├── SKILL.md
+├── SKILL.md          # frontmatter: name, description, license, compatibility,
+│                     #   metadata, required_tools (optional)
 ├── LICENSE
 ├── context/
 │   └── triggers.md
@@ -41,6 +43,7 @@ skills/<category>-skills/skill-<category>-<name>/
 - No copyrighted material without license.
 - Keep templates actionable.
 - External/port skills must include `lifecycle: external` and `sources:` in `SKILL.md` metadata.
+- If `required_tools` is present, it must be a YAML list of valid SIN tool names.
 - Bundled skill changes require updating `README.md`, `AGENTS.md`, `CHANGELOG.md`, and `ECOSYSTEM.md` in the same PR.
 
 ## Quality Gates

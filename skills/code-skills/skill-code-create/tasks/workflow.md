@@ -17,6 +17,9 @@ Docs: ../SKILL.md
 - [ ] Task 2: Write `SKILL.md`.
   - Acceptance: Frontmatter + overview + when to use + core process + naming rules + verification.
   - Verify: Validator parses frontmatter.
+- [ ] Task 2b: If the skill has deterministic tool dependencies, add `required_tools:` YAML list to frontmatter.
+  - Acceptance: `required_tools` is a YAML list of valid SIN tool names (or omitted if not applicable).
+  - Verify: `python3 scripts/validate_skill.py <skill-dir> --strict` passes with the field present.
 - [ ] Task 3: Fill `context/triggers.md`.
   - Acceptance: Triggers, boundaries, required input, tone documented.
   - Verify: File not empty.

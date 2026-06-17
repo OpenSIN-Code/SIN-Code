@@ -16,6 +16,7 @@ Constraints:
 - Directory must be `skills/{category}-skills/{name}/`.
 - Write YAML frontmatter with `name`, `description`, `license`, `compatibility`, `metadata`.
 - For external/port skills, include `lifecycle: external` and `sources:` in metadata.
+- If the skill has deterministic tool dependencies, add `required_tools:` as a YAML list (e.g. `[sin_edit, sin_test]`).
 - Include required directories: `context/`, `frameworks/`, `tasks/`, `templates/`.
 - Add a `LICENSE` file.
 - Validate with `python3 scripts/validate_skill.py --all-bundled --strict`.

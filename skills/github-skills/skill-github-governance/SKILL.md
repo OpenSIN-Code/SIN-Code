@@ -10,6 +10,9 @@ compatibility:
 metadata:
   coupled_with: skill-github-readme
   sources: "OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/sovereign-repo-governance"
+required_tools:
+  - sin_execute
+  - sin_orchestrate
 lifecycle: external
 ---
 

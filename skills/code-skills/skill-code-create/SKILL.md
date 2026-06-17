@@ -74,6 +74,22 @@ ADD CONTEXT/FRAMEWORKS/TASKS/TEMPLATES → VALIDATE → UPDATE REGISTRY & DOCS �
 - Must be valid kebab-case: `^[a-z0-9]+(-[a-z0-9]+)*$`.
 - Skills ported from external repos must include `lifecycle: external` and `sources:` in `SKILL.md` metadata.
 
+### `required_tools` Frontmatter Field
+
+- **What:** An optional YAML frontmatter field that binds a skill to specific SIN tools. Example:
+  ```yaml
+  required_tools: [sin_edit, sin_test, sin_quality_gate]
+  ```
+  or as a YAML block list:
+  ```yaml
+  required_tools:
+    - sin_edit
+    - sin_test
+  ```
+- **When to use:** When the skill has a deterministic tool dependency — i.e., the skill's workflow cannot be completed without calling a specific SIN tool. Omit the field if the skill has no hard tool requirement.
+- **How it works:** Parsed by `cmd/sin-code/internal/skillmgr/required_tools.go` and merged into `CoverageRequiredTools` on the agent loop. Enforced at runtime by the `ToolCoverageEnforcer` (issue #248): if the model completes a run without invoking every listed tool, the loop rejects the completion and re-injects the violation as open criteria.
+- **Validation:** `scripts/validate_skill.py --strict` validates that `required_tools` (if present) is a YAML list of known SIN tool names.
+
 ## External Skills
 
 - External skills live in `~/.config/opencode/skills/` or are registered as MCP servers.

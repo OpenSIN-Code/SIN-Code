@@ -8,8 +8,10 @@ compatibility:
 metadata:
   author: SIN-Rotator
   version: 2.0.0
-  lifecycle: external
   sources: "OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/skill-code-graph"
+required_tools:
+  - sin_image_graph
+lifecycle: external
 ---
 
 # skill-code-graph — SOTA Chart Generation

@@ -256,14 +256,14 @@ func (k *Keymap) applyOverride(b *key.Binding, keys []string) {
 	*b = key.NewBinding(key.WithKeys(keys...), key.WithHelp(help.Key, help.Desc))
 }
 
-type MouseAction struct {
+type MouseResolution struct {
 	Kind   string
 	X      int
 	Y      int
 	Target string
 }
 
-func ResolveMouse(msg tea.MouseMsg, width, height int, sidebarWidth int, rightPanelWidth int) MouseAction {
+func ResolveMouse(msg tea.MouseMsg, width, height int, sidebarWidth int, rightPanelWidth int) MouseResolution {
 	var x, y int
 	kind := "click"
 	switch evt := msg.(type) {
@@ -285,7 +285,7 @@ func ResolveMouse(msg tea.MouseMsg, width, height int, sidebarWidth int, rightPa
 		x, y = m.X, m.Y
 		kind = "click"
 	}
-	return MouseAction{
+	return MouseResolution{
 		Kind:   kind,
 		X:      x,
 		Y:      y,

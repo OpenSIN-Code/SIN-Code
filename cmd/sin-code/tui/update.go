@@ -431,6 +431,8 @@ func isGlobalHotkey(msg tea.KeyMsg) bool {
 		return true
 	case key == "esc", key == "q":
 		return true
+	case key == "?":
+		return true
 	case key == "f2":
 		return true
 	case key >= "0" && key <= "9":
@@ -463,6 +465,15 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	if m.Mode == ModeModelSelector {
 		return m.handleModelSelectorKey(msg)
+	}
+	if m.Mode == ModeModelSwitcher {
+		return m.handleModelSwitcherKey(msg)
+	}
+	if m.Mode == ModeHelpOverlay {
+		return m.handleHelpOverlayKey(msg)
+	}
+	if m.Mode == ModeFilePicker {
+		return m.handleFilePickerKey(msg)
 	}
 	if m.Mode == ModePermissionDialog {
 		k := msg.String()
@@ -588,11 +599,20 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keySplitPane):
 		m.ToggleSplitPane()
 		return m, nil
+	case msg.String() == "ctrl+o":
+		m.OpenFilePicker()
+		return m, nil
 	case key.Matches(msg, keyClosePreview) && m.FilePreview != "":
 		m.ClearFilePreview()
 		return m, nil
 	case key.Matches(msg, keymap.SessionSwitch):
 		m.OpenSessionSwitcher()
+		return m, nil
+	case key.Matches(msg, keymap.Help):
+		if m.HelpOverlay != nil {
+			m.HelpOverlay.Open()
+			m.Mode = ModeHelpOverlay
+		}
 		return m, nil
 	case key.Matches(msg, keymap.ModelSelect):
 		m.OpenModelSelector()
@@ -996,6 +1016,21 @@ func (m *Model) View() tea.View {
 		popup := RenderModelSelector(m.ModelSelector, m.Styles, m.Width, m.Height)
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
 	}
+	if m.Mode == ModeModelSwitcher && m.ModelSwitcher != nil {
+		popup := m.ModelSwitcher.Render(m.Styles, m.Width, m.Height)
+		if popup != "" {
+			layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
+		}
+	}
+	if m.Mode == ModeHelpOverlay && m.HelpOverlay != nil {
+		layout = m.HelpOverlay.Render(m.Styles, m.Width, m.Height)
+	}
+	if m.Mode == ModeFilePicker && m.FilePicker != nil {
+		popup := m.FilePicker.Render(m.Styles, m.Width, m.Height)
+		if popup != "" {
+			layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
+		}
+	}
 	if m.Mode == ModePermissionDialog && m.Footer.PermissionPopup != nil {
 		req := PermissionRequest{
 			Tool: m.PermissionDialog.ToolName,
@@ -1302,7 +1337,7 @@ func copyToClipboard(text string) {
 	_ = cmd.Run()
 }
 
-func (m *Model) handleMouseAction(action MouseAction) tea.Cmd {
+func (m *Model) handleMouseAction(action MouseResolution) tea.Cmd {
 	switch action.Kind {
 	case "click":
 		return m.handleMouseClick(action)
@@ -1314,7 +1349,7 @@ func (m *Model) handleMouseAction(action MouseAction) tea.Cmd {
 	return nil
 }
 
-func (m *Model) handleMouseClick(action MouseAction) tea.Cmd {
+func (m *Model) handleMouseClick(action MouseResolution) tea.Cmd {
 	switch action.Target {
 	case "sidebar":
 		return m.handleSidebarClick(action)
@@ -1333,7 +1368,7 @@ func (m *Model) handleMouseClick(action MouseAction) tea.Cmd {
 	return nil
 }
 
-func (m *Model) handleSidebarClick(action MouseAction) tea.Cmd {
+func (m *Model) handleSidebarClick(action MouseResolution) tea.Cmd {
 	const tabBarHeight = 3
 	const sidebarHeaderHeight = 2 // header + separator
 
@@ -1364,7 +1399,7 @@ func (m *Model) handleSidebarClick(action MouseAction) tea.Cmd {
 	return nil
 }
 
-func (m *Model) handleTabsClick(action MouseAction) tea.Cmd {
+func (m *Model) handleTabsClick(action MouseResolution) tea.Cmd {
 	const tabStartX = 12 // "⚡ sin-code" header + space
 	const tabWidth = 15
 	if action.X < tabStartX {
@@ -1377,14 +1412,14 @@ func (m *Model) handleTabsClick(action MouseAction) tea.Cmd {
 	return nil
 }
 
-func (m *Model) handleMouseScrollUp(action MouseAction) tea.Cmd {
+func (m *Model) handleMouseScrollUp(action MouseResolution) tea.Cmd {
 	if m.ViewKind == ViewChat {
 		m.ChatViewport.ScrollUp(3)
 	}
 	return nil
 }
 
-func (m *Model) handleMouseScrollDown(action MouseAction) tea.Cmd {
+func (m *Model) handleMouseScrollDown(action MouseResolution) tea.Cmd {
 	if m.ViewKind == ViewChat {
 		m.ChatViewport.ScrollDown(3)
 	}

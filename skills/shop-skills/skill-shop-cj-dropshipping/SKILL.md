@@ -10,6 +10,9 @@ compatibility:
 metadata:
   author: SIN-Code
   version: 1.0.0
+required_tools:
+  - sin_execute
+  - sin_harvest
 lifecycle: external
 sources:
   - https://github.com/OpenSIN-Code/cj-dropshipping-skill

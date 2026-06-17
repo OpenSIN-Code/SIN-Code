@@ -110,7 +110,9 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 			"  /attach-glob <pattern>  Attach files matching a glob pattern\n" +
 			"  /detach <name|index>  Remove an attachment\n" +
 			"  /clear  Clear chat history\n" +
-			"  /help   Show this help message\n\n" +
+			"  /help   Show this help message\n" +
+			"  /theme custom <path>  Load custom theme from JSON\n" +
+			"  /theme export <path>  Export current theme to JSON\n\n" +
 			"Keys:\n" +
 			"  Enter        Send message\n" +
 			"  Shift+Enter  Insert newline\n" +
@@ -123,6 +125,33 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 			"  PgUp/PgDn    Scroll chat history\n" +
 			"  1-7          Jump to view (Tools, Sessions, EFM, Config, History, Todos, Chat)"
 		m.appendChat(ChatMessage{Kind: chatSystem, Text: helpText})
+		return nil
+	}
+
+	if strings.HasPrefix(trimmed, "/theme custom ") {
+		path := strings.TrimSpace(strings.TrimPrefix(trimmed, "/theme custom "))
+		if path == "" {
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: "Usage: /theme custom <path>"})
+			return nil
+		}
+		if err := m.LoadCustomThemeFromPath(path); err != nil {
+			m.appendChat(ChatMessage{Kind: chatError, Text: "Failed to load theme: " + err.Error()})
+		} else {
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: "Custom theme loaded from " + path})
+		}
+		return nil
+	}
+	if strings.HasPrefix(trimmed, "/theme export ") {
+		path := strings.TrimSpace(strings.TrimPrefix(trimmed, "/theme export "))
+		if path == "" {
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: "Usage: /theme export <path>"})
+			return nil
+		}
+		if err := m.ExportThemeToPath(path); err != nil {
+			m.appendChat(ChatMessage{Kind: chatError, Text: "Failed to export theme: " + err.Error()})
+		} else {
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: "Theme exported to " + path})
+		}
 		return nil
 	}
 

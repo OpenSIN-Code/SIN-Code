@@ -23,6 +23,9 @@ metadata:
     - https://github.com/DietrichGebert/ponytail/blob/main/skills/ponytail/SKILL.md
   sin-mandate: M3 (verification gate is sacred)
   activation-keyword: lazy_skill
+required_tools:
+  - sin_poc
+  - sin_oracle
 ---
 
 # skill-code-lazy (SIN-Code variant of ponytail)
