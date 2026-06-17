@@ -20,7 +20,14 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
 	agentrunner "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/tui"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"
+	"regexp"
 )
+
+var ansiRegexp = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func stripANSI(s string) string {
+	return ansiRegexp.ReplaceAllString(s, "")
+}
 
 // ── messages.go ─────────────────────────────────────────────────────────────
 
@@ -763,10 +770,10 @@ func TestApplyThemeNegative(t *testing.T) {
 
 func TestPreviousView(t *testing.T) {
 	m := NewModel()
-	m.ViewKind = ViewTools
+	m.ViewKind = ViewChat
 	m.PreviousView()
-	if m.ViewKind != ViewChat {
-		t.Errorf("PreviousView from Tools = %v, want Chat", m.ViewKind)
+	if m.ViewKind != ViewTodos {
+		t.Errorf("PreviousView from Chat = %v, want Todos", m.ViewKind)
 	}
 }
 
@@ -1146,6 +1153,8 @@ func TestViewKindShortAll(t *testing.T) {
 		{ViewTodos, "6·Todos"},
 		{ViewChat, "7·Chat"},
 		{ViewDAG, "8·DAG"},
+		{ViewContextViz, "9·Context"},
+		{ViewAgentDashboard, "0·Dashboard"},
 	}
 	for _, tc := range cases {
 		if got := tc.v.Short(); got != tc.want {
@@ -1606,7 +1615,8 @@ func TestRunAgentSkillPromptSubmitErrorCap(t *testing.T) {
 func TestRenderCommandPaletteWithQuery(t *testing.T) {
 	items := []string{"alpha", "beta", "gamma"}
 	out := RenderCommandPalette(items, 1, "be", NewStyles(Themes[0]), 80, 24)
-	if !strings.Contains(out, "beta") {
+	stripped := stripANSI(out)
+	if !strings.Contains(stripped, "beta") {
 		t.Errorf("expected palette to render: %q", out)
 	}
 }
@@ -1934,8 +1944,8 @@ func TestPrevView(t *testing.T) {
 	m := NewModel()
 	m.ViewKind = ViewTools
 	m.PrevView()
-	if m.ViewKind != ViewChat {
-		t.Errorf("PrevView = %v, want Chat", m.ViewKind)
+	if m.ViewKind != ViewAgentDashboard {
+		t.Errorf("PrevView = %v, want Dashboard", m.ViewKind)
 	}
 }
 
@@ -1985,7 +1995,8 @@ func TestRightWidthMedium(t *testing.T) {
 func TestRenderCommandPaletteQuery(t *testing.T) {
 	items := []string{"alpha", "beta"}
 	out := RenderCommandPalette(items, 0, "al", NewStyles(Themes[0]), 80, 24)
-	if !strings.Contains(out, "alpha") {
+	stripped := stripANSI(out)
+	if !strings.Contains(stripped, "alpha") {
 		t.Errorf("expected alpha in palette: %q", out)
 	}
 }
@@ -2214,8 +2225,8 @@ func TestPreviousViewCoverage(t *testing.T) {
 	m := NewModel()
 	m.ViewKind = ViewTools
 	m.PreviousView()
-	if m.ViewKind != ViewChat {
-		t.Errorf("PreviousView = %v, want Chat", m.ViewKind)
+	if m.ViewKind != ViewAgentDashboard {
+		t.Errorf("PreviousView = %v, want Dashboard", m.ViewKind)
 	}
 }
 

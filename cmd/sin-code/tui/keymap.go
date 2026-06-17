@@ -29,6 +29,9 @@ type Keymap struct {
 	ViewHistory  key.Binding
 	ViewTodos    key.Binding
 	ViewChat     key.Binding
+	ViewDAG      key.Binding
+	ViewContext  key.Binding
+	ViewDashboard key.Binding
 
 	RunTool  key.Binding
 	ShowHelp key.Binding
@@ -68,7 +71,10 @@ func DefaultKeymap() Keymap {
 		ViewConfig:    key.NewBinding(key.WithKeys("4"), key.WithHelp("4", "config")),
 		ViewHistory:   key.NewBinding(key.WithKeys("5"), key.WithHelp("5", "history")),
 		ViewTodos:     key.NewBinding(key.WithKeys("6"), key.WithHelp("6", "todos")),
-		ViewChat:      key.NewBinding(key.WithKeys("7"), key.WithHelp("7", "chat")),
+		ViewChat:       key.NewBinding(key.WithKeys("7"), key.WithHelp("7", "chat")),
+		ViewDAG:        key.NewBinding(key.WithKeys("8"), key.WithHelp("8", "dag")),
+		ViewContext:    key.NewBinding(key.WithKeys("9"), key.WithHelp("9", "context")),
+		ViewDashboard:  key.NewBinding(key.WithKeys("0"), key.WithHelp("0", "dashboard")),
 		RunTool:       key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "run")),
 		ShowHelp:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "help")),
 		ToolUp:        key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("up/k", "up")),
@@ -94,7 +100,7 @@ func (k Keymap) HelpView(styles Styles) string {
 		bindings []key.Binding
 	}{
 		{"Global", []key.Binding{k.Quit, k.Help, k.Palette, k.ToggleSidebar, k.CycleTheme, k.CycleAgent, k.Interrupt}},
-		{"Navigation", []key.Binding{k.NextView, k.PrevView, k.ViewTools, k.ViewSessions, k.ViewEFM, k.ViewConfig, k.ViewHistory, k.ViewTodos, k.ViewChat}},
+		{"Navigation", []key.Binding{k.NextView, k.PrevView, k.ViewTools, k.ViewSessions, k.ViewEFM, k.ViewConfig, k.ViewHistory, k.ViewTodos, k.ViewChat, k.ViewDAG, k.ViewContext, k.ViewDashboard}},
 		{"Tools", []key.Binding{k.RunTool, k.ShowHelp, k.ToolUp, k.ToolDown}},
 		{"Chat", []key.Binding{k.Submit, k.Cancel, k.Search, k.CopyMessage, k.ScrollUp, k.ScrollDown}},
 		{"Sessions", []key.Binding{k.NewSession, k.CloseSession, k.SessionSwitch}},
@@ -134,7 +140,10 @@ type KeyOverrides struct {
 	ViewConfig    []string `json:"view_config,omitempty"`
 	ViewHistory   []string `json:"view_history,omitempty"`
 	ViewTodos     []string `json:"view_todos,omitempty"`
-	ViewChat      []string `json:"view_chat,omitempty"`
+	ViewChat     []string `json:"view_chat,omitempty"`
+	ViewDAG      []string `json:"view_dag,omitempty"`
+	ViewContext  []string `json:"view_context,omitempty"`
+	ViewDashboard []string `json:"view_dashboard,omitempty"`
 	RunTool       []string `json:"run_tool,omitempty"`
 	ShowHelp      []string `json:"show_help,omitempty"`
 	ToolUp        []string `json:"tool_up,omitempty"`
@@ -151,6 +160,39 @@ type KeyOverrides struct {
 	ModelSelect   []string `json:"model_select,omitempty"`
 	Subagents     []string `json:"subagents,omitempty"`
 }
+
+// KeyOverridesExampleJSON is a valid example for
+// ~/.config/sin-code/tui-keys.json. Every field is OPTIONAL (omitempty); a
+// field that is absent or set to an empty array leaves the DefaultKeymap
+// binding untouched. Each value is a list of key strings as understood by
+// charm.land/bubbles (e.g. "ctrl+x", "shift+enter", "pgup", "up", "k").
+//
+// The full set of overridable field names mirrors the KeyOverrides struct
+// JSON tags: quit, help, palette, toggle_sidebar, cycle_theme, cycle_agent,
+// interrupt, next_view, prev_view, view_tools, view_sessions, view_efm,
+// view_config, view_history, view_todos, view_chat, view_dag, view_context,
+// view_dashboard, run_tool, show_help,
+// tool_up, tool_down, submit, cancel, search, copy_message, scroll_up,
+// scroll_down, new_session, close_session, session_switch, model_select,
+// subagents.
+//
+// Load with LoadKeyOverrides(path) and apply with Keymap.ApplyOverrides(ov).
+const KeyOverridesExampleJSON = `{
+  "quit":            ["ctrl+x", "ctrl+c"],
+  "submit":          ["ctrl+s", "ctrl+enter"],
+  "search":          ["ctrl+f"],
+  "session_switch":  ["ctrl+g"],
+  "cycle_theme":     ["t"],
+  "copy_message":    ["y"],
+  "scroll_up":       ["pgup", "ctrl+u"],
+  "scroll_down":     ["pgdown", "ctrl+d"],
+  "next_view":       ["tab"],
+  "prev_view":       ["shift+tab"],
+  "new_session":     ["+"],
+  "close_session":   ["-"],
+  "model_select":    ["ctrl+m"],
+  "subagents":       ["ctrl+a"]
+}`
 
 func LoadKeyOverrides(path string) (KeyOverrides, error) {
 	var ov KeyOverrides
@@ -181,6 +223,9 @@ func (k *Keymap) ApplyOverrides(ov KeyOverrides) {
 	k.applyOverride(&k.ViewHistory, ov.ViewHistory)
 	k.applyOverride(&k.ViewTodos, ov.ViewTodos)
 	k.applyOverride(&k.ViewChat, ov.ViewChat)
+	k.applyOverride(&k.ViewDAG, ov.ViewDAG)
+	k.applyOverride(&k.ViewContext, ov.ViewContext)
+	k.applyOverride(&k.ViewDashboard, ov.ViewDashboard)
 	k.applyOverride(&k.RunTool, ov.RunTool)
 	k.applyOverride(&k.ShowHelp, ov.ShowHelp)
 	k.applyOverride(&k.ToolUp, ov.ToolUp)

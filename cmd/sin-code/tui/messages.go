@@ -13,7 +13,11 @@ const (
 	ViewTodos
 	ViewChat
 	ViewDAG
+	ViewContextViz
+	ViewAgentDashboard
 )
+
+const viewCount = 10
 
 func (v ViewKind) String() string {
 	switch v {
@@ -33,6 +37,10 @@ func (v ViewKind) String() string {
 		return "Chat"
 	case ViewDAG:
 		return "DAG"
+	case ViewContextViz:
+		return "Context"
+	case ViewAgentDashboard:
+		return "Dashboard"
 	}
 	return "Unknown"
 }
@@ -55,6 +63,10 @@ func (v ViewKind) Short() string {
 		return "7·Chat"
 	case ViewDAG:
 		return "8·DAG"
+	case ViewContextViz:
+		return "9·Context"
+	case ViewAgentDashboard:
+		return "0·Dashboard"
 	}
 	return "?·"
 }

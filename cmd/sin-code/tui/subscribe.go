@@ -4,9 +4,12 @@
 package tui
 
 import (
+	"time"
+
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
 
 // NotificationSource is the interface used by NotificationMsg to access
@@ -39,5 +42,76 @@ func ListenForNotifications() tea.Cmd {
 func RefreshTodosCmd() tea.Cmd {
 	return func() tea.Msg {
 		return CountsMsg{Open: 0, Blocked: 0, Overdue: 0, Ready: 0}
+	}
+}
+
+// sessionStorePathHook is a test seam for the session DB path.
+// Defaults to session.DefaultPath() (~/.local/share/sin-code/sessions.db);
+// tests override to point at a temp DB.
+var sessionStorePathHook = session.DefaultPath
+
+// sessionTreeDataHook is a test seam that loads session tree data from
+// the store at the given path. Returns flat SessionNodeData suitable for
+// BuildSessionTree. Tests override to avoid hitting a real SQLite DB.
+var sessionTreeDataHook = func(path string) ([]SessionNodeData, error) {
+	store, err := session.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer store.Close()
+
+	infos, err := store.List()
+	if err != nil {
+		return nil, err
+	}
+
+	data := make([]SessionNodeData, 0, len(infos))
+	for _, info := range infos {
+		createdAt, _ := time.Parse(time.RFC3339, info.CreatedAt)
+		updatedAt, _ := time.Parse(time.RFC3339, info.UpdatedAt)
+
+		var msgCount int
+		var preview string
+		if sess, err := store.StartOrResume(info.ID); err == nil {
+			hist := sess.History()
+			msgCount = len(hist)
+			for i := len(hist) - 1; i >= 0; i-- {
+				if hist[i].Role == "assistant" && hist[i].Content != "" {
+					preview = hist[i].Content
+					break
+				}
+			}
+		}
+
+		data = append(data, SessionNodeData{
+			ID:           info.ID,
+			Name:         info.Title,
+			ParentID:     info.ParentID,
+			CreatedAt:    createdAt,
+			LastActive:   updatedAt,
+			MessageCount: msgCount,
+			Preview:      preview,
+		})
+	}
+
+	return data, nil
+}
+
+// RefreshSessionTreeCmd returns a tea.Cmd that queries the session store
+// and returns a SessionTreeMsg with real session data. Returns nil (no-op)
+// when the store is unavailable — graceful degradation.
+func RefreshSessionTreeCmd() tea.Cmd {
+	return func() tea.Msg {
+		dbPath := sessionStorePathHook()
+		if dbPath == "" {
+			return nil
+		}
+
+		data, err := sessionTreeDataHook(dbPath)
+		if err != nil {
+			return nil
+		}
+
+		return SessionTreeMsg{Sessions: data}
 	}
 }

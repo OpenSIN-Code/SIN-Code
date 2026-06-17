@@ -62,21 +62,71 @@ func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 		m.AgentRunner = nil
 		return
 	}
+	// Ensure tool tree exists before sending any tool-call messages.
+	if m.ToolTree == nil {
+		m.ToolTree = &ToolCallTree{}
+	}
 	ev := msg.Event
 	var cm ChatMessage
 	switch ev.Kind {
 	case agentrunner.EventTurn:
 		cm = ChatMessage{Kind: chatAgent, Text: "turn start", Detail: ev.Detail}
 	case agentrunner.EventTool:
-		isResult := strings.HasPrefix(ev.Detail, "tool result: ")
+		isResult := strings.HasPrefix(ev.Detail, "tool result")
 		cm = ChatMessage{
 			Kind:   chatTool,
 			Tool:   ev.ToolName,
 			Detail: ev.Detail,
 			Result: isResult,
 		}
+		toolName := ev.ToolName
+		if toolName == "" && strings.HasPrefix(ev.Detail, "tool: ") {
+			toolName = strings.TrimPrefix(ev.Detail, "tool: ")
+		}
+		if !isResult && toolName != "" {
+			// New tool call starting — add node to tree.
+			nodeID := fmt.Sprintf("tool-%d-%s", time.Now().UnixNano(), toolName)
+			if m.Program != nil {
+				m.Program.Send(ToolCallTreeMsg{
+					ParentID: "",
+					Node: &ToolCallNode{
+						ID:        nodeID,
+						Tool:      toolName,
+						Status:    "running",
+						StartTime: time.Now(),
+						Expanded:  false,
+					},
+				})
+			}
+		} else if isResult && toolName != "" {
+			// Tool call result — best-effort update by tool name.
+			if m.Program != nil {
+				m.Program.Send(ToolCallUpdateMsg{
+					ID:     toolName,
+					Status: "success",
+					Output: ev.Detail,
+				})
+			}
+		}
 	case agentrunner.EventVerify:
 		cm = ChatMessage{Kind: chatVerify, Detail: ev.Detail}
+		vState := VerifyRunning
+		d := ev.Detail
+		if strings.Contains(d, "PASSED") || strings.Contains(d, "pass") {
+			vState = VerifyPassed
+		} else if strings.Contains(d, "FAILED") || strings.Contains(d, "fail") {
+			vState = VerifyFailed
+		} else if strings.Contains(d, "BLOCKED") || strings.Contains(d, "blocked") {
+			vState = VerifyBlocked
+		}
+		if m.Program != nil {
+			m.Program.Send(VerifyUpdateMsg{
+				State:    vState,
+				Mode:     "poc",
+				Target:   ev.Detail,
+				Evidence: ev.Result,
+			})
+		}
 	case agentrunner.EventAsk:
 		m.pendingAsk = ev.AskReply
 		m.OpenPermissionDialog(ev.ToolName, ev.Detail, "")
@@ -93,6 +143,14 @@ func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 			if m.Footer.TokensPct > 1.0 {
 				m.Footer.TokensPct = 1.0
 			}
+		}
+		if strings.Contains(strings.ToLower(ev.Result), "verified") && m.Program != nil {
+			m.Program.Send(VerifyUpdateMsg{
+				State:    VerifyPassed,
+				Mode:     "poc",
+				Target:   "agent run complete",
+				Evidence: ev.Result,
+			})
 		}
 	case agentrunner.EventError:
 		cm = ChatMessage{Kind: chatError, Text: ev.Detail, Error: ev.Err}

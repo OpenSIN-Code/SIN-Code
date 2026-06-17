@@ -106,10 +106,16 @@ func RenderCommandPalette(items []string, sel int, query string, styles Styles, 
 		maxShow = len(items)
 	}
 	for i := 0; i < maxShow; i++ {
+		display := items[i]
+		if query != "" {
+			if ok, indices := fuzzySubsequenceMatch(items[i], query); ok {
+				display = fuzzyHighlight(items[i], indices, "", styles.Bold.Render(""))
+			}
+		}
 		if i == sel {
-			b.WriteString(styles.PopupSel.Render(padRight("  "+items[i], width-6)))
+			b.WriteString(styles.PopupSel.Render(padRight("  "+display, width-6)))
 		} else {
-			b.WriteString(styles.PopupItem.Render(padRight("  "+items[i], width-6)))
+			b.WriteString(styles.PopupItem.Render(padRight("  "+display, width-6)))
 		}
 		b.WriteString("\n")
 	}

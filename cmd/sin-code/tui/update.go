@@ -25,6 +25,11 @@ var (
 	keyPgUp          = key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "scroll up"))
 	keyPgDn          = key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdn", "scroll down"))
 	keyDiffPopup     = key.NewBinding(key.WithKeys("ctrl+d"), key.WithHelp("^d", "diff popup"))
+	keyToolTree      = key.NewBinding(key.WithKeys("ctrl+t"), key.WithHelp("^t", "tool tree"))
+	keySessionTree   = key.NewBinding(key.WithKeys("ctrl+y"), key.WithHelp("^y", "session tree"))
+	keyVerifyFull    = key.NewBinding(key.WithKeys("ctrl+v"), key.WithHelp("^v", "verify panel"))
+	keyDebugLayout   = key.NewBinding(key.WithKeys("ctrl+l"), key.WithHelp("^l", "debug layout"))
+	keyInlineDiff    = key.NewBinding(key.WithKeys("ctrl+i"), key.WithHelp("^i", "inline diff"))
 	keyClosePreview  = key.NewBinding(key.WithKeys("ctrl+f"), key.WithHelp("^f", "close preview"))
 	keyLeft          = key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "left"))
 	keyRight         = key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "right"))
@@ -37,10 +42,13 @@ func (m *Model) Init() tea.Cmd {
 		m.Spinner.Init(),
 		ListenForNotifications(),
 		RefreshTodosCmd(),
+		RefreshSessionTreeCmd(),
 		InitGitRefresh(),
 	}
 	return tea.Batch(cmds...)
 }
+
+func SetKeymap(k Keymap) { keymap = k }
 
 func (m *Model) ApplyTheme() {
 	if m.ThemeIdx < 0 {
@@ -74,13 +82,13 @@ func (m *Model) SwitchView(v ViewKind) {
 }
 
 func (m *Model) NextView() {
-	m.SwitchView(ViewKind((int(m.ViewKind) + 1) % 7))
+	m.SwitchView(ViewKind((int(m.ViewKind) + 1) % viewCount))
 }
 
 func (m *Model) PrevView() {
 	v := int(m.ViewKind) - 1
 	if v < 0 {
-		v = 6
+		v = viewCount - 1
 	}
 	m.SwitchView(ViewKind(v))
 }
@@ -105,12 +113,10 @@ func (m *Model) filterPalette(query string) {
 		m.Palette.Sel = 0
 		return
 	}
-	q := strings.ToLower(query)
-	filtered := make([]string, 0, len(m.Palette.Items))
-	for _, item := range m.Palette.Items {
-		if strings.Contains(strings.ToLower(item), q) {
-			filtered = append(filtered, item)
-		}
+	matches := fuzzyFilter(m.Palette.Items, query)
+	filtered := make([]string, 0, len(matches))
+	for _, fm := range matches {
+		filtered = append(filtered, fm.Item)
 	}
 	m.Palette.Filter = filtered
 	if m.Palette.Sel >= len(filtered) {
@@ -397,7 +403,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleArgInputKey(msg)
 	}
 	if m.Mode == ModeSessionSwitcher {
-		return m.handleSessionSwitcherKey(msg)
+		model, cmd := m.handleSessionSwitcherKey(msg)
+		if msg.String() == "enter" {
+			return model, tea.Batch(cmd, RefreshSessionTreeCmd())
+		}
+		return model, cmd
 	}
 	if m.Mode == ModeModelSelector {
 		return m.handleModelSelectorKey(msg)
@@ -461,6 +471,21 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keyDiffPopup):
 		m.DiffPopupOpen = !m.DiffPopupOpen
 		return m, nil
+	case key.Matches(msg, keyToolTree):
+		m.ToolTreeVisible = !m.ToolTreeVisible
+		return m, nil
+	case key.Matches(msg, keySessionTree):
+		m.SessionTreeVisible = !m.SessionTreeVisible
+		return m, RefreshSessionTreeCmd()
+	case key.Matches(msg, keyVerifyFull):
+		m.VerifyPanelFull = !m.VerifyPanelFull
+		return m, nil
+	case key.Matches(msg, keyDebugLayout):
+		m.ToggleDebugLayout()
+		return m, nil
+	case key.Matches(msg, keyInlineDiff):
+		m.ToggleInlineDiff()
+		return m, nil
 	case key.Matches(msg, keyClosePreview) && m.FilePreview != "":
 		m.ClearFilePreview()
 		return m, nil
@@ -490,6 +515,15 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, keymap.ViewChat):
 		m.SwitchView(ViewChat)
+		return m, nil
+	case key.Matches(msg, keymap.ViewDAG):
+		m.SwitchView(ViewDAG)
+		return m, nil
+	case key.Matches(msg, keymap.ViewContext):
+		m.SwitchView(ViewContextViz)
+		return m, nil
+	case key.Matches(msg, keymap.ViewDashboard):
+		m.SwitchView(ViewAgentDashboard)
 		return m, nil
 	case key.Matches(msg, keymap.CycleTheme):
 		m.CycleTheme()
@@ -555,6 +589,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.DAGState.Selected > 0 {
 				m.DAGState.Selected--
 			}
+		case ViewAgentDashboard:
+			if m.AgentDashboardState.Selected > 0 {
+				m.AgentDashboardState.Selected--
+			}
 		}
 		return m, nil
 	case key.Matches(msg, keymap.ToolDown):
@@ -577,6 +615,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case ViewDAG:
 			if m.DAGState.Selected < len(m.DAGState.Tasks)-1 {
 				m.DAGState.Selected++
+			}
+		case ViewAgentDashboard:
+			if m.AgentDashboardState.Selected < len(m.AgentDashboardState.Sessions)-1 {
+				m.AgentDashboardState.Selected++
 			}
 		}
 		return m, nil
@@ -609,12 +651,14 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.ViewKind == ViewSessions {
 			m.Tabs.Add("")
 			m.AppendHistory(ViewSessions.String(), "session-add", "", true)
+			return m, RefreshSessionTreeCmd()
 		}
 		return m, nil
 	case key.Matches(msg, keymap.CloseSession):
 		if m.ViewKind == ViewSessions {
 			m.Tabs.Close(m.Tabs.ActiveIdx)
 			m.AppendHistory(ViewSessions.String(), "session-close", "", true)
+			return m, RefreshSessionTreeCmd()
 		}
 		return m, nil
 	}
@@ -625,7 +669,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) PreviousView() {
 	v := int(m.ViewKind) - 1
 	if v < 0 {
-		v = 6
+		v = viewCount - 1
 	}
 	m.SwitchView(ViewKind(v))
 }
@@ -682,6 +726,12 @@ func (m *Model) executePaletteChoice(choice string) {
 		m.SwitchView(ViewConfig)
 	case "view: history":
 		m.SwitchView(ViewHistory)
+	case "view: dag":
+		m.SwitchView(ViewDAG)
+	case "view: context":
+		m.SwitchView(ViewContextViz)
+	case "view: dashboard":
+		m.SwitchView(ViewAgentDashboard)
 	case "sidebar: toggle":
 		m.Sidebar.Toggle()
 	case "quit":
@@ -780,6 +830,10 @@ func (m *Model) View() tea.View {
 		content = m.renderChat(m.Styles, m.contentWidth(), contentHeight)
 	case ViewDAG:
 		content = RenderDAGView(m.DAGState, m.Styles, m.contentWidth(), contentHeight)
+	case ViewContextViz:
+		content = RenderContextVizView(m.ContextState, m.Styles, m.contentWidth(), contentHeight)
+	case ViewAgentDashboard:
+		content = RenderAgentDashboardView(m.AgentDashboardState, m.Styles, m.contentWidth(), contentHeight)
 	}
 
 	if m.NotificationBanner != nil {
@@ -800,6 +854,10 @@ func (m *Model) View() tea.View {
 	m.Footer.Loading = m.Loading
 
 	layout := ComposeLayout(m.Tabs, m.Sidebar, m.ViewKind, content, right, m.Footer, m.Styles, m.Width, m.Height)
+
+	if m.DebugLayout {
+		layout = RenderLayoutDebug(m.Tabs, m.Sidebar, m.ViewKind, content, right, m.Footer, m.Styles, m.Width, m.Height)
+	}
 
 	if m.Mode == ModePalette {
 		popup := RenderCommandPalette(m.Palette.Filter, m.Palette.Sel, m.Palette.Query, m.Styles, m.Width, m.Height)
@@ -827,6 +885,14 @@ func (m *Model) View() tea.View {
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
 	}
 
+	if m.InlineDiffOpen && m.ViewKind == ViewChat {
+		diffs := RecentDiffs()
+		if len(diffs) > 0 {
+			inlineDiff := RenderInlineDiff(diffs, m.Styles, m.contentWidth())
+			layout = layout + "\n" + inlineDiff
+		}
+	}
+
 	if m.FilePreview != "" {
 		popup := RenderFilePreview(m, m.Styles, m.Width, m.Height)
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
@@ -834,13 +900,45 @@ func (m *Model) View() tea.View {
 
 	// Verify panel overlay in chat mode
 	if m.ViewKind == ViewChat && m.VerifyPanel.State != VerifyIdle {
-		vp := RenderVerifyPanel(m.VerifyPanel, m.Styles, m.contentWidth())
-		layout = vp + "\n" + layout
+		if m.VerifyPanelFull {
+			vp := RenderVerifyPanel(m.VerifyPanel, m.Styles, m.contentWidth())
+			if vp != "" {
+				popupBox := lipgloss.NewStyle().
+					Border(lipgloss.RoundedBorder()).
+					BorderForeground(m.Styles.AccentText.GetForeground()).
+					Padding(1, 2).
+					Render(vp)
+				layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popupBox)
+			}
+		} else {
+			vp := RenderVerifyStatusBar(m.VerifyPanel, m.Styles)
+			if vp != "" {
+				layout = layout + "\n" + vp
+			}
+		}
 	}
 
-	// Tool call tree overlay when toggled
-	if m.ToolTree != nil && len(m.ToolTree.Nodes) > 0 && m.Mode == ModeNormal && m.ViewKind == ViewChat {
-		// Show as a compact panel below chat if there are recent tool calls
+	// Tool call tree popup overlay (ctrl+t to toggle)
+	if m.ToolTreeVisible && m.ToolTree != nil && len(m.ToolTree.Nodes) > 0 {
+		tree := RenderToolCallTree(m.ToolTree, m.Styles, min(m.Width-4, 80))
+		popup := m.Styles.ContentHdr.Render(tree)
+		popupBox := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(m.Styles.AccentText.GetForeground()).
+			Padding(1, 2).
+			Render(popup)
+		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popupBox)
+	}
+
+	// Session tree popup overlay (ctrl+y to toggle)
+	if m.SessionTreeVisible && m.SessionTree != nil {
+		tree := RenderSessionTree(m.SessionTree, m.Styles, min(m.Width-4, 80))
+		popupBox := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(m.Styles.StatusOK.GetForeground()).
+			Padding(1, 2).
+			Render(tree)
+		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popupBox)
 	}
 
 	v := tea.NewView(layout)

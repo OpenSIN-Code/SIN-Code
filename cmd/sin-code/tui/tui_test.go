@@ -31,8 +31,8 @@ func TestNewModelDefaults(t *testing.T) {
 	if len(m.Tabs.Sessions) != 1 {
 		t.Errorf("expected 1 default session, got %d", len(m.Tabs.Sessions))
 	}
-	if len(m.Sidebar.Items) != 8 {
-		t.Errorf("expected 8 sidebar items, got %d", len(m.Sidebar.Items))
+	if len(m.Sidebar.Items) != 10 {
+		t.Errorf("expected 10 sidebar items, got %d", len(m.Sidebar.Items))
 	}
 }
 
@@ -341,6 +341,79 @@ func TestFooterProgressBar(t *testing.T) {
 	bar = f.ProgressBar(10)
 	if !strings.Contains(bar, "█") || !strings.Contains(bar, "░") {
 		t.Errorf("expected mix of filled/empty in 50%% bar, got %q", bar)
+	}
+}
+
+func TestFooterStatusLine(t *testing.T) {
+	f := NewFooter(80)
+	f.ModelName = "Opus 4.8"
+	f.Tokens = 12400
+	f.Cost = "$0.08"
+	f.Duration = 23 * time.Minute + 14 * time.Second
+	f.Provider = "Anthropic"
+
+	styles := NewStyles(Themes[0])
+	line := f.RenderStatusLine(styles)
+
+	if !strings.Contains(line, "Opus 4.8") {
+		t.Errorf("expected model name in status line, got %q", line)
+	}
+	if !strings.Contains(line, "tok") {
+		t.Errorf("expected token count in status line, got %q", line)
+	}
+	if !strings.Contains(line, "$0.08") {
+		t.Errorf("expected cost in status line, got %q", line)
+	}
+	if !strings.Contains(line, "23m") {
+		t.Errorf("expected duration in status line, got %q", line)
+	}
+	if !strings.Contains(line, "Anthropic") {
+		t.Errorf("expected provider in status line, got %q", line)
+	}
+}
+
+func TestFooterCompactMode(t *testing.T) {
+	f := NewFooter(80)
+	f.ModelName = "Sonnet"
+	f.Tokens = 1500
+	f.Cost = "$0.04"
+	f.Duration = 3 * time.Minute + 12 * time.Second
+
+	styles := NewStyles(Themes[0])
+	f.SetCompact(true)
+	out := f.Render(styles)
+	if !strings.Contains(out, "Sonnet") {
+		t.Errorf("expected model in compact render, got %q", out)
+	}
+	if !strings.Contains(out, "tok") {
+		t.Errorf("expected tokens in compact render, got %q", out)
+	}
+	if !strings.Contains(out, "$0.04") {
+		t.Errorf("expected cost in compact render, got %q", out)
+	}
+	if !strings.Contains(out, "3m") {
+		t.Errorf("expected duration in compact render, got %q", out)
+	}
+
+	f.SetCompact(false)
+	out2 := f.Render(styles)
+	if out == out2 {
+		t.Error("expected different output between compact and non-compact")
+	}
+}
+
+func TestFooterToggleCompact(t *testing.T) {
+	f := NewFooter(80)
+	if f.Compact {
+		t.Error("expected compact off by default")
+	}
+	f.ToggleCompact()
+	if !f.Compact {
+		t.Error("expected compact on after toggle")
+	}
+	f.ToggleCompact()
+	if f.Compact {
+		t.Error("expected compact off after second toggle")
 	}
 }
 

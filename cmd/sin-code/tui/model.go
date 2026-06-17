@@ -141,6 +141,36 @@ type DAGState struct {
 	Prompt   string
 }
 
+type ContextCategory struct {
+	Name   string
+	Tokens int
+	Color  string
+}
+
+type ContextState struct {
+	Categories []ContextCategory
+	MaxTokens  int
+	UsedTokens int
+	CostUSD    float64
+	CacheHit   float64
+	Compacted  bool
+}
+
+type AgentSessionRow struct {
+	ID          string
+	AgentName   string
+	Task        string
+	Status      string
+	Duration    time.Duration
+	Tokens      int
+	Cost        float64
+}
+
+type AgentDashboardState struct {
+	Sessions []AgentSessionRow
+	Selected int
+}
+
 type Model struct {
 	ctxFn     func() context.Context
 	Program   teaProgramIface
@@ -166,6 +196,10 @@ type Model struct {
 	PermissionDialog PermissionDialogState
 	ArgInput         ArgInputState
 
+	ToolTreeVisible    bool
+	SessionTreeVisible bool
+	VerifyPanelFull    bool
+
 	ChatState
 	AgentState
 	ToolState
@@ -185,6 +219,18 @@ type Model struct {
 
 	// Session tree
 	SessionTree *SessionTree
+
+	// Context visualizer state
+	ContextState ContextState
+
+	// Agent dashboard state
+	AgentDashboardState AgentDashboardState
+
+	// Layout debug mode (issue #279)
+	DebugLayout bool
+
+	// Inline diff view (issue #279)
+	InlineDiffOpen bool
 }
 
 func (m *Model) ctx() context.Context {
@@ -324,6 +370,8 @@ func NewModel() *Model {
 			ChatViewport: viewport.New(viewport.WithWidth(80), viewport.WithHeight(20)),
 			SearchInput:  searchInput,
 		},
+		ContextState:        DefaultContextState(),
+		AgentDashboardState: DefaultAgentDashboardState(),
 	}
 	m.Footer.SetView(ViewChat)
 	m.Footer.ShowHints = false
@@ -339,7 +387,11 @@ func defaultPaletteCommands() []string {
 		"efm", "serve", "security", "sbom", "config", "self-update",
 		"todo add", "todo list", "todo ready", "todo complete",
 		"theme: next", "agent: cycle", "view: tools", "view: sessions",
-		"view: efm", "view: config", "view: history", "view: todos",
+		"view: efm", "view: config", "view: history", 		"view: todos",
+		"view: chat",
+		"view: dag",
+		"view: context",
+		"view: dashboard",
 		"sidebar: toggle", "quit",
 	}
 }

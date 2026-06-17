@@ -13,12 +13,14 @@ type Footer struct {
 	Selection   string
 	AgentIndex  int
 	ModelName   string
+	Provider    string
 	Tokens      int
 	TokensPct   float64
 	Cost        string
 	Duration    time.Duration
 	Streaming   bool
 	Compacted   bool
+	Compact     bool
 	Width       int
 	ShowHints   bool
 	HintKeys    []HintPair
@@ -90,6 +92,20 @@ func DefaultHints(view ViewKind) []HintPair {
 			{"p", "plan"},
 			{"q", "quit"},
 		}
+	case ViewContextViz:
+		return []HintPair{
+			{"Tab", "view"},
+			{"r", "refresh"},
+			{"q", "quit"},
+		}
+	case ViewAgentDashboard:
+		return []HintPair{
+			{"Tab", "view"},
+			{"↑/↓", "navigate"},
+			{"p", "peek"},
+			{"f", "fork"},
+			{"q", "quit"},
+		}
 	default:
 		return []HintPair{
 			{"Tab", "view"},
@@ -117,6 +133,49 @@ func NewFooter(width int) Footer {
 func (f *Footer) SetView(v ViewKind) {
 	f.view = v
 	f.HintKeys = DefaultHints(v)
+}
+
+func (f *Footer) SetCompact(compact bool) {
+	f.Compact = compact
+}
+
+func (f *Footer) ToggleCompact() {
+	f.Compact = !f.Compact
+}
+
+func (f Footer) RenderStatusLine(styles Styles) string {
+	var parts []string
+
+	model := f.ModelName
+	if model == "" {
+		model = f.AgentName()
+	}
+	if model != "" {
+		parts = append(parts, styles.FooterKey.Render(model))
+	}
+
+	tokStr := formatTokens(f.Tokens)
+	parts = append(parts, styles.Muted.Render(tokStr+" tok"))
+
+	cost := f.Cost
+	if cost == "" {
+		cost = "$0.00"
+	}
+	if f.EstimatedCost > 0.01 && cost == "$0.00" {
+		cost = formatEstimatedCost(f.EstimatedCost)
+	}
+	parts = append(parts, styles.FooterVal.Render(cost))
+
+	if f.Duration > 0 {
+		parts = append(parts, styles.Muted.Render(formatDuration(f.Duration)))
+	}
+
+	if f.Provider != "" {
+		parts = append(parts, styles.Muted.Render(f.Provider))
+	}
+
+	sep := styles.Muted.Render(" | ")
+	return styles.Footer.Render(strings.Join(parts, sep))
 }
 
 func (f *Footer) View() ViewKind { return f.view }
@@ -160,6 +219,9 @@ func (f Footer) ProgressBar(width int) string {
 }
 
 func (f Footer) Render(styles Styles) string {
+	if f.Compact {
+		return f.RenderStatusLine(styles)
+	}
 	if f.view == ViewChat {
 		return f.renderChatFooter(styles)
 	}
@@ -195,6 +257,14 @@ func (f Footer) renderChatFooter(styles Styles) string {
 		parts = append(parts, styles.Muted.Render(f.Cost))
 	}
 
+	if f.Duration > 0 {
+		parts = append(parts, styles.Muted.Render(formatDuration(f.Duration)))
+	}
+
+	if f.Provider != "" {
+		parts = append(parts, styles.Muted.Render(f.Provider))
+	}
+
 	if !f.Streaming && f.EstimatedTokens > 0 {
 		parts = append(parts, styles.Muted.Render(fmt.Sprintf("~%s", formatTokens(f.EstimatedTokens))))
 		if f.EstimatedCost > 0.01 {
@@ -227,6 +297,9 @@ func (f Footer) renderClassicFooter(styles Styles) string {
 	}
 
 	agent := f.AgentName()
+	if f.ModelName != "" {
+		agent = f.ModelName
+	}
 	if f.Streaming {
 		mid.WriteString(styles.AccentText.Render("⟳ "))
 	}

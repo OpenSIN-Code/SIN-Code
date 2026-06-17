@@ -15,7 +15,7 @@ func TestDefaultKeymap(t *testing.T) {
 	km := DefaultKeymap()
 	bindings := []key.Binding{
 		km.Quit, km.Help, km.Palette, km.ToggleSidebar, km.CycleTheme, km.CycleAgent, km.Interrupt,
-		km.NextView, km.PrevView, km.ViewTools, km.ViewSessions, km.ViewEFM, km.ViewConfig, km.ViewHistory, km.ViewTodos, km.ViewChat,
+		km.NextView, km.PrevView, km.ViewTools, km.ViewSessions, km.ViewEFM, km.ViewConfig, km.ViewHistory, km.ViewTodos, km.ViewChat, km.ViewDAG, km.ViewContext, km.ViewDashboard,
 		km.RunTool, km.ShowHelp, km.ToolUp, km.ToolDown,
 		km.Submit, km.Cancel, km.Search, km.CopyMessage, km.ScrollUp, km.ScrollDown,
 		km.NewSession, km.CloseSession, km.SessionSwitch,
