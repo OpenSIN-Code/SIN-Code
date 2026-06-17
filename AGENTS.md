@@ -204,7 +204,8 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code ceo-audit     ← v3.18.0: 48-gate CEO audit with complexity gate (issue #180)
   └─ 41 subcommands
   ├─ sin-code review        ← v3.19.0: ponytail complexity review (issue #179)
-  └─ 41 subcommands (v3.19.0)
+  ├─ sin-code image-graph   ← v3.20.0: SOTA ECharts chart generation (bar/line/pie/area)
+  └─ 42 subcommands (v3.20.0)
 
          │
          ▼
@@ -783,8 +784,8 @@ output), exactly as skilldist demands.
 ``` (v3.18.0: 41 subcommands — `debt` is issue #177, sin-debt markers; `install` is issue #170; `eval`, `evalset`, `prp`, `instinct`, `assets`, `hooks`, `rtk`, `codegraph`, `spec` follow)
 Audit:     audit, ceo-audit
 ``` (v3.18.0: 41 subcommands, up from 39 in v3.13.0)
-           config, self-update, hub, ledger, summary, review
-``` (v3.19.0: 41 subcommands, up from 39 in v3.13.0)
+           config, self-update, hub, ledger, summary, review, image-graph
+``` (v3.20.0: 42 subcommands — `image-graph` added: SOTA ECharts chart generation)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 
