@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: MIT
-// Purpose: chat input widget — textarea with attachment support and slash
-// commands. Used by the TUI 2.0 chat mode (Phase 5 of st-3t5v).
 package chat
 
 import (
@@ -11,35 +9,48 @@ import (
 
 	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/attachments"
 )
 
-// osUserHomeDirHook is a test seam for os.UserHomeDir.
 var osUserHomeDirHook = os.UserHomeDir
 
 type Input struct {
-	textarea    textarea.Model
-	attachments []*attachments.Attachment
-	store       *attachments.Store
-	width       int
-	height      int
-	placeholder string
+	textarea      textarea.Model
+	attachments   []*attachments.Attachment
+	store         *attachments.Store
+	width         int
+	height        int
+	placeholder   string
+	history       []string
+	historyCursor int
 }
 
 func NewInput(store *attachments.Store) *Input {
 	ta := textarea.New()
 	ta.Placeholder = "Type a message... (/attach, /clear, Ctrl+S send)"
 	ta.ShowLineNumbers = false
+	ta.Prompt = ""
 	ta.SetWidth(80)
-	ta.SetHeight(5)
+	ta.SetHeight(3)
 	ta.CharLimit = 100_000
 	ta.Focus()
+
+	styles := textarea.DefaultStyles(true)
+	styles.Focused.Placeholder = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	styles.Focused.CursorLine = lipgloss.NewStyle()
+	styles.Focused.EndOfBuffer = lipgloss.NewStyle().Foreground(lipgloss.Color("236"))
+	styles.Focused.Text = lipgloss.NewStyle()
+	styles.Blurred.Placeholder = lipgloss.NewStyle().Foreground(lipgloss.Color("238"))
+	styles.Blurred.EndOfBuffer = lipgloss.NewStyle().Foreground(lipgloss.Color("236"))
+	ta.SetStyles(styles)
+
 	return &Input{
 		textarea:    ta,
 		store:       store,
 		width:       80,
-		height:      5,
+		height:      3,
 		placeholder: "Type a message...",
 	}
 }
@@ -134,8 +145,6 @@ func (i *Input) HandleSlashCommand(line string) (handled bool, err error) {
 		}
 		return true, nil
 	case "/clear":
-		// /clear is handled at the TUI model level (handleChatSubmit)
-		// so it can wipe the full chat history, not just the input.
 		return false, nil
 	case "/detach":
 		if len(parts) < 2 {
@@ -192,13 +201,37 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 					return nil, nil
 				}
 			}
+			text := i.RawValue()
+			if text != "" {
+				i.history = append(i.history, text)
+				i.historyCursor = len(i.history)
+			}
 			return nil, &SubmitMsg{
-				Text:        i.RawValue(),
+				Text:        text,
 				Attachments: i.attachments,
 			}
 		case "ctrl+d":
 			if i.textarea.Value() == "" && len(i.attachments) == 0 {
 				return tea.Quit, nil
+			}
+		case "up":
+			if i.textarea.Line() == 0 && len(i.history) > 0 {
+				if i.historyCursor > 0 {
+					i.historyCursor--
+					i.textarea.SetValue(i.history[i.historyCursor])
+				}
+				return nil, nil
+			}
+		case "down":
+			if i.textarea.Line() >= i.textarea.LineCount()-1 && len(i.history) > 0 {
+				if i.historyCursor < len(i.history)-1 {
+					i.historyCursor++
+					i.textarea.SetValue(i.history[i.historyCursor])
+				} else {
+					i.historyCursor = len(i.history)
+					i.textarea.Reset()
+				}
+				return nil, nil
 			}
 		}
 	}
@@ -206,9 +239,6 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 	return cmd, nil
 }
 
-// handlePaste inspects a pasted payload (from tea.PasteMsg) and dispatches
-// it as an attachment when possible (raw image bytes or an existing file
-// path). Otherwise the payload is inserted as text in the textarea.
 func (i *Input) handlePaste(content string) {
 	if i.isImageBytes(content) {
 		name := "pasted-" + imageExt(content)
@@ -224,12 +254,6 @@ func (i *Input) handlePaste(content string) {
 	i.textarea.InsertString(content)
 }
 
-// HandlePasteBytes is a public entry-point for paste events that carry raw
-// bytes (e.g. an image dragged into the terminal, or a future Bubbletea v2
-// tea.PasteMsg adapter). The Bubbletea v1 KeyMsg.Paste path runs the
-// payload through utf8.DecodeRune which corrupts non-UTF-8 image data, so
-// programmatic callers (tests, future drag-and-drop handlers) should use
-// this method to preserve byte fidelity.
 func (i *Input) HandlePasteBytes(data []byte) {
 	if i.isImageBytes(string(data)) {
 		name := "pasted-" + imageExt(string(data))
@@ -245,8 +269,6 @@ func (i *Input) HandlePasteBytes(data []byte) {
 	i.textarea.InsertString(string(data))
 }
 
-// isImageBytes reports whether the payload starts with the magic bytes
-// of a known image format (PNG, JPEG, GIF, WebP).
 func (i *Input) isImageBytes(content string) bool {
 	b := []byte(content)
 	if len(b) >= 4 {
@@ -268,9 +290,6 @@ func (i *Input) isImageBytes(content string) bool {
 	return false
 }
 
-// isFilePath reports whether content looks like a single filesystem path
-// (starts with /, ~/, or ./, contains no newlines) and resolves to an
-// existing regular file.
 func (i *Input) isFilePath(content string) bool {
 	trimmed := strings.TrimRight(content, "\r\n\t ")
 	if trimmed == "" || strings.ContainsAny(trimmed, "\r\n") {

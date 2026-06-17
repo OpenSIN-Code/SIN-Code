@@ -1,0 +1,48 @@
+ ⚡ sin-code     Session 1      +  
+   ⚡ sin-code 
+────────────────────
+  ⚒  Tools          
+  ❒  Sessions       
+  ⚡  EFM            
+  ⚙  Config         
+  ⏱  History        
+  ☐  Todos          
+  💬  Chat          
+                      
+  ⚙ Config — sin-code runtime settings                                  
+────────────────────────────────────────────────────────────────
+                                                                                                  
+  Key                     Value             Allowed                   Kind 
+  ────────────────────────────────────────────────────────────
+   theme                   default           default|Dracula|Nord|So…  select 
+   agent                   Build             Build|Audit|Stats         select 
+   llm.model               qwen3-coder-plus  qwen3-coder-plus|qwen3-…  select 
+   sidebar                 visible           visible|collapsed         select 
+   default-view            Tools             Tools|Sessions|EFM|Conf…  select 
+   cooldown-seconds        60                1-3600                    number 
+   efm-default-ttl         3600              60-86400                  number 
+   output-format           json              json|text|yaml            select 
+   verbosity               info              debug|info|warn|error     select 
+                                                                                                  
+▸ Selected: llm.model =  qwen3-coder-plus  
+  allowed: qwen3-coder-plus|qwen3-235b-a22b|deepseek-v3|llama-3.3-70b|gpt-4o  (select)
+  Press e to edit · s to save                                              
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+                                                                                                  
+  Config  discover Build tokens 0 (0%) $0.00 

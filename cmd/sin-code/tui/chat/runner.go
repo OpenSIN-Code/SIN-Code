@@ -1,9 +1,4 @@
 // SPDX-License-Identifier: MIT
-// Purpose: async LLM runner for the TUI chat view. Translates the
-// `chat.SubmitMsg` payload (system + last 5 history turns + current prompt)
-// into an `llm.ChatRequest` and returns the assistant text. Provider is
-// resolved via `llm.ProviderFromConfig("nim", ...)`, which reads
-// `SIN_NIM_API_KEY` from the environment.
 package chat
 
 import (
@@ -11,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -18,7 +14,6 @@ import (
 )
 
 var (
-	// providerFromConfigHook is overridden in tests to exercise NewRunner error paths.
 	providerFromConfigHook = llm.ProviderFromConfig
 )
 
@@ -28,16 +23,12 @@ const (
 	historyKeepN  = 5
 )
 
-// Runner wraps an LLM client + model + system prompt. One Runner per TUI
-// session; the chat view holds a singleton and reuses it across submits.
 type Runner struct {
 	Client       *llm.Client
 	Model        string
 	SystemPrompt string
 }
 
-// NewRunner builds a Runner from the current environment. Returns an
-// error if no API key is configured (env SIN_NIM_API_KEY).
 func NewRunner() (*Runner, error) {
 	if os.Getenv("SIN_NIM_API_KEY") == "" {
 		return nil, fmt.Errorf("no API key configured (set SIN_NIM_API_KEY)")
@@ -53,8 +44,6 @@ func NewRunner() (*Runner, error) {
 	}, nil
 }
 
-// NewRunnerWithClient builds a Runner from a pre-configured client.
-// Used by tests and by callers that want to override the base URL.
 func NewRunnerWithClient(c *llm.Client, model, system string) *Runner {
 	if model == "" {
 		model = defaultModel
@@ -65,9 +54,6 @@ func NewRunnerWithClient(c *llm.Client, model, system string) *Runner {
 	return &Runner{Client: c, Model: model, SystemPrompt: system}
 }
 
-// Run builds a ChatRequest from system + last 5 history entries + current
-// prompt and returns the assistant text. history is the full m.ChatHistory
-// slice; the most recent `historyKeepN` entries are folded in.
 func (r *Runner) Run(ctx context.Context, prompt string, history []string) (string, error) {
 	if r == nil || r.Client == nil {
 		return "", fmt.Errorf("runner not initialized")
@@ -122,17 +108,41 @@ func (r *Runner) Run(ctx context.Context, prompt string, history []string) (stri
 	return resp.ExtractText(), nil
 }
 
-// ChatResponseMsg is fired by the background goroutine when the LLM
-// returns. The TUI Update handler appends it to ChatHistory.
+func (r *Runner) RunStream(ctx context.Context, prompt string, history []string, onChunk func(string)) (string, error) {
+	if r == nil || r.Client == nil {
+		return "", fmt.Errorf("runner not initialized")
+	}
+	full, err := r.Run(ctx, prompt, history)
+	if err != nil {
+		return "", err
+	}
+	words := strings.Fields(full)
+	var sb strings.Builder
+	for i, w := range words {
+		if i > 0 {
+			sb.WriteString(" ")
+			onChunk(" ")
+		}
+		sb.WriteString(w)
+		onChunk(w)
+		select {
+		case <-time.After(8 * time.Millisecond):
+		case <-ctx.Done():
+			return sb.String(), ctx.Err()
+		}
+	}
+	return sb.String(), nil
+}
+
+type ChatChunkMsg struct {
+	Text string
+}
+
 type ChatResponseMsg struct {
 	Text  string
 	Error error
 }
 
-// SendChatResponse is a tea.Cmd that produces a ChatResponseMsg. Useful
-// for callers that drive the chat synchronously (e.g. tests). The chat
-// input normally spawns a goroutine and uses *tea.Program.Send to push
-// ChatResponseMsg into the event loop directly.
 func SendChatResponse(text string, err error) tea.Cmd {
 	return func() tea.Msg {
 		return ChatResponseMsg{Text: text, Error: err}

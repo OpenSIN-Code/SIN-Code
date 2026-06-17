@@ -21,16 +21,16 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 
 	var b strings.Builder
 
-	// Reserve space for input at bottom
-	inputHeight := 3
-	chatHeight := height - inputHeight - 2
+	// Reserve space for input at bottom (3 lines textarea + 1 separator)
+	inputHeight := 4
+	chatHeight := height - inputHeight
 	if chatHeight < 3 {
 		chatHeight = 3
 	}
 
 	if len(m.ChatHistory) == 0 {
-		b.WriteString(styles.Muted.Render("  Send a message to get started."))
-		b.WriteString("\n")
+		welcome := "Send a message to get started.\n\nCtrl+S to send · /clear to reset · /attach for files"
+		b.WriteString(lipgloss.Place(width, chatHeight, lipgloss.Center, lipgloss.Center, styles.Muted.Render(welcome)))
 	} else {
 		start := len(m.ChatHistory) - chatHeight
 		if start < 0 {
@@ -46,10 +46,9 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 		}
 	}
 
-	// Add separator + input field at bottom
-	separator := styles.Muted.Render(strings.Repeat("─", width))
+	// Subtle separator + input field at bottom
 	b.WriteString("\n")
-	b.WriteString(separator)
+	b.WriteString(styles.Muted.Render(strings.Repeat("─", width)))
 	b.WriteString("\n")
 	if m.ChatInput != nil {
 		b.WriteString(m.ChatInput.View())
@@ -65,7 +64,7 @@ func renderChatMessageCompact(msg chatMsg, md *markdownRenderer, styles Styles, 
 	case chatUser:
 		b.WriteString(styles.AccentText.Render("> "))
 		b.WriteString(styles.Content.Render(msg.Text))
-		b.WriteString("\n\n")
+		b.WriteString("\n")
 
 	case chatAssistant:
 		rendered := md.render(msg.Text)
@@ -73,16 +72,19 @@ func renderChatMessageCompact(msg chatMsg, md *markdownRenderer, styles Styles, 
 		if !strings.HasSuffix(rendered, "\n") {
 			b.WriteString("\n")
 		}
-		b.WriteString("\n")
 
 	case chatTool:
 		if msg.Result {
-			b.WriteString(styles.StatusOK.Render("✓ " + msg.Tool))
+			b.WriteString(styles.StatusOK.Render("  ✓ " + msg.Tool))
 			if msg.Detail != "" {
-				b.WriteString(styles.Muted.Render(" → " + msg.Detail))
+				detail := msg.Detail
+				if len(detail) > 60 {
+					detail = detail[:57] + "..."
+				}
+				b.WriteString(styles.Muted.Render(" → " + detail))
 			}
 		} else {
-			b.WriteString(styles.AccentText.Render("⚡ " + msg.Tool))
+			b.WriteString(styles.AccentText.Render("  ⚡ " + msg.Tool))
 			if msg.Detail != "" {
 				b.WriteString(styles.Muted.Render(" " + msg.Detail))
 			}
@@ -100,11 +102,15 @@ func renderChatMessageCompact(msg chatMsg, md *markdownRenderer, styles Styles, 
 		b.WriteString("\n")
 
 	case chatAsk:
-		b.WriteString(styles.StatusWarn.Render("🔒 " + msg.Detail))
+		b.WriteString(styles.StatusWarn.Render("  🔒 " + msg.Detail))
 		b.WriteString("\n")
 
 	case chatDone:
-		b.WriteString(styles.StatusOK.Render("✓ " + msg.Detail))
+		detail := msg.Detail
+		if len(detail) > 80 {
+			detail = detail[:77] + "..."
+		}
+		b.WriteString(styles.StatusOK.Render("  ✓ " + detail))
 		b.WriteString("\n")
 
 	case chatError:
@@ -116,12 +122,11 @@ func renderChatMessageCompact(msg chatMsg, md *markdownRenderer, styles Styles, 
 		b.WriteString("\n")
 
 	case chatSystem:
-		b.WriteString(styles.StatusWarn.Render("⚠ " + msg.Text))
+		b.WriteString(styles.StatusWarn.Render("  ⚠ " + msg.Text))
 		b.WriteString("\n")
 
 	case chatAgent:
-		// Show turn start as a subtle status line, not a full bubble.
-		b.WriteString(styles.Muted.Render("  ⟳ agent " + msg.Text))
+		b.WriteString(styles.Muted.Render("  ⟳ " + msg.Text))
 		b.WriteString("\n")
 	}
 

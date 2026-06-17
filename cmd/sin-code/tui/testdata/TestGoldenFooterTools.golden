@@ -1,0 +1,104 @@
+ ⚡ sin-code     Session 1      +  
+   ⚡ sin-code 
+────────────────────
+  ⚒  Tools          
+  ❒  Sessions       
+  ⚡  EFM            
+  ⚙  Config         
+  ⏱  History        
+  ☐  Todos          
+  💬  Chat          
+────────────────────
+ Subcommands
+  ▸   discover      
+     execute          
+     map              
+     grasp            
+     scout            
+     harvest          
+     orchestrate      
+     ibd              
+     poc              
+     sckg             
+     adw              
+     oracle           
+     efm              
+     serve            
+     security         
+     sbom             
+     config           
+     self-update      
+     tui              
+                      
+  ⚒ Tools (all 19 subcommands)              
+────────────────────────────────────────────────────────────────
+                                                                    
+     discover        Discover files with relevance scoring      
+     execute         Safe shell execution with redaction        
+     map             Architecture map + dependency graph        
+     grasp           Deep single-file analysis                  
+     scout           Regex/semantic/symbol code search          
+     harvest         URL fetch + cache + structure extract      
+   ▶ orchestrate     Task management with dependencies        
+     ibd             Intent-based diffing                       
+     poc             Proof-of-correctness verification          
+     sckg            Semantic codebase knowledge graph          
+     adw             Architectural debt watchdogs               
+     oracle          Verification oracle                        
+     efm             Ephemeral full-stack mocking               
+   ▶ serve           Start MCP server (stdio)                 
+   ▶ security        Security scan (Go/Python/Node)           
+     sbom            SBOM generation (SPDX/CycloneDX)           
+     config          Configuration management                   
+     self-update     Update to latest release                   
+   ▶ tui             Launch this TUI                          
+                                                                    
+▸ Selected: discover                
+  Discover files with relevance scoring       
+  Press r to run with arguments               
+                                                                    
+                                                                    
+                                                                    
+                                                                    
+                                                                    
+                                                                    
+                                                                    
+                                                                    
+                                                                    
+                                                                    
+  Details 
+──────────────────────────────
+                              
+Name   
+  discover             
+                              
+Description
+   Discover files with relevance scoring 
+                              
+Usage  
+   sin-code discover <args> 
+                              
+  Requires arguments
+                              
+Shortcuts
+  r   run this tool
+  Tab next view
+  /   filter
+                              
+                              
+                              
+                              
+                              
+                              
+                              
+                              
+                              
+                              
+                              
+                              
+                              
+                              
+                              
+                              
+                              
+                                Tools  discover Build tokens 8421 (6%) $0.023 

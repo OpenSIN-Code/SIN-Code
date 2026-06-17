@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
@@ -67,9 +68,9 @@ func tuiToolFunc(workspace string) agentloop.LocalToolFunc {
 		case "sin_read":
 			return tuiToolRead(argStr(args, "path"))
 		case "sin_write":
-			return tuiToolWrite(argStr(args, "path"), argStr(args, "content"))
+			return tuiToolWriteWithDiff(argStr(args, "path"), argStr(args, "content"))
 		case "sin_edit":
-			return tuiToolEdit(argStr(args, "path"), argStr(args, "old"), argStr(args, "new"))
+			return tuiToolEditWithDiff(argStr(args, "path"), argStr(args, "old"), argStr(args, "new"))
 		case "sin_bash":
 			return tuiToolBash(ctx, argStr(args, "command"))
 		case "sin_search":
@@ -229,4 +230,60 @@ func tuiToolSearch(pattern, dir string) (string, error) {
 		return "no matches found", nil
 	}
 	return strings.Join(matches, "\n"), nil
+}
+
+type DiffEntry struct {
+	Path      string
+	Before    string
+	After     string
+	Tool      string
+	Timestamp time.Time
+}
+
+var diffBuffer = make([]DiffEntry, 0, 20)
+var diffMu sync.Mutex
+
+func RecordDiff(path, before, after, tool string) {
+	diffMu.Lock()
+	defer diffMu.Unlock()
+	diffBuffer = append(diffBuffer, DiffEntry{
+		Path: path, Before: before, After: after,
+		Tool: tool, Timestamp: time.Now(),
+	})
+	if len(diffBuffer) > 20 {
+		diffBuffer = diffBuffer[len(diffBuffer)-20:]
+	}
+}
+
+func RecentDiffs() []DiffEntry {
+	diffMu.Lock()
+	defer diffMu.Unlock()
+	out := make([]DiffEntry, len(diffBuffer))
+	copy(out, diffBuffer)
+	return out
+}
+
+func ClearDiffs() {
+	diffMu.Lock()
+	defer diffMu.Unlock()
+	diffBuffer = diffBuffer[:0]
+}
+
+func tuiToolWriteWithDiff(path, content string) (string, error) {
+	before, _ := os.ReadFile(path)
+	result, err := tuiToolWrite(path, content)
+	if err == nil {
+		RecordDiff(path, string(before), content, "sin_write")
+	}
+	return result, err
+}
+
+func tuiToolEditWithDiff(path, old, new string) (string, error) {
+	before, _ := os.ReadFile(path)
+	result, err := tuiToolEdit(path, old, new)
+	if err == nil {
+		after, _ := os.ReadFile(path)
+		RecordDiff(path, string(before), string(after), "sin_edit")
+	}
+	return result, err
 }

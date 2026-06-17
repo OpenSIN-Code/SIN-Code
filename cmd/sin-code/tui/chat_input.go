@@ -1,8 +1,4 @@
 // SPDX-License-Identifier: MIT
-// Purpose: TUI-side adapter for the chat.Input widget. Avoids the
-// `*chat.Input` direct dep in model.go by wrapping it in a local type.
-// Submits are routed through a chat.Runner (lazy-init singleton) and the
-// LLM call runs in a background goroutine so the UI stays responsive.
 package tui
 
 import (
@@ -17,15 +13,16 @@ import (
 
 type chatInput = chat.Input
 
-// newChatRunnerHook is a test seam for chat runner construction.
 var newChatRunnerHook = func() (*chat.Runner, error) { return chat.NewRunner() }
 
-// newAttachmentStoreHook is a test seam for the attachment store used by newChatInput.
 var newAttachmentStoreHook = func() (*attachments.Store, error) { return attachments.NewStore() }
 
-// chatRunnerRunHook is a test seam for chat runner execution.
 var chatRunnerRunHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string) (string, error) {
 	return r.Run(ctx, prompt, history)
+}
+
+var chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, error) {
+	return r.RunStream(ctx, prompt, history, onChunk)
 }
 
 func newChatInput() *chatInput {
@@ -42,9 +39,6 @@ func (m *Model) initChatInput() {
 	}
 }
 
-// initChatRunner lazily initializes the chat LLM runner. If no API key is
-// configured the runner stays nil and the submit handler prints an
-// in-band error rather than calling the LLM.
 func (m *Model) initChatRunner() {
 	if m.ChatRunner != nil {
 		return
@@ -62,19 +56,40 @@ type chatSubmitMsg struct {
 	Attachments []*attachments.Attachment
 }
 
-// handleChatSubmit appends the user entry to history and, when a runner
-// is available, kicks off an async LLM call. A "thinking..." placeholder
-// is shown immediately; the background goroutine dispatches a
-// chat.ChatResponseMsg back into the Update loop via *tea.Program.Send
-// (or, when no program is set, blocks synchronously — used by tests).
-//
-// Returns a tea.Cmd that subscribes to the AgentRunner's event stream
-// (issue #53) so the user sees the full agentloop progress in chat
-// history. Returns nil when no agent runner is available.
+func chatMessageToString(msg ChatMessage) string {
+	switch msg.Kind {
+	case chatUser:
+		return msg.Text
+	case chatAssistant:
+		return "assistant: " + msg.Text
+	case chatSystem:
+		return "assistant: " + msg.Text
+	case chatError:
+		if msg.Error != nil {
+			return "assistant: (error: " + msg.Error.Error() + ")"
+		}
+		return "assistant: (error: " + msg.Text + ")"
+	case chatThinking:
+		return "assistant: thinking..."
+	default:
+		if msg.Text != "" {
+			return "assistant: " + msg.Text
+		}
+		return "assistant: " + msg.Detail
+	}
+}
+
+func chatHistoryToStrings(history []ChatMessage) []string {
+	out := make([]string, 0, len(history))
+	for _, msg := range history {
+		out = append(out, chatMessageToString(msg))
+	}
+	return out
+}
+
 func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	entry := submit.Text
 
-	// Handle /clear at the model level: wipe chat history + reset streaming.
 	if strings.TrimSpace(entry) == "/clear" {
 		m.ChatHistory = nil
 		m.setStreaming(false)
@@ -82,6 +97,7 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		m.Footer.TokensPct = 0
 		m.Footer.Cost = ""
 		m.Footer.Compacted = false
+		m.ChatFocusIdx = 0
 		m.AppendHistory(ViewChat.String(), "chat-clear", "chat history cleared", true)
 		return nil
 	}
@@ -93,79 +109,61 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		}
 		entry += "]"
 	}
-	m.ChatHistory = append(m.ChatHistory, entry)
-	if len(m.ChatHistory) > 500 {
-		m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
-	}
+	m.appendChat(ChatMessage{Kind: chatUser, Text: entry})
 	m.AppendHistory(ViewChat.String(), "chat-submit", entry, true)
 
 	m.initChatRunner()
 	if m.ChatRunner == nil {
-		m.ChatHistory = append(m.ChatHistory, "assistant: (no API key — set SIN_NIM_API_KEY)")
-		if len(m.ChatHistory) > 500 {
-			m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
-		}
+		m.appendChat(ChatMessage{Kind: chatSystem, Text: "(no API key — set SIN_NIM_API_KEY)"})
 	}
 
-	// Issue #53: also kick off the full agentloop in parallel. The
-	// agent runner emits AgentRunnerMsg events that the update loop
-	// folds back into ChatHistory, so the user sees the agent's tool
-	// calls, asks, and final summary alongside the LLM chat reply.
-	// Falls back to nil (no-op) when the runner cannot be constructed
-	// (e.g. workspace not writable).
 	agentCmd := m.submitAgentPrompt(submit.Text)
 
 	if m.ChatRunner == nil {
 		return agentCmd
 	}
 
-	// Show "thinking..." placeholder right away so the user sees feedback.
-	// The agent runner emits its own "agent turn start" event separately.
-	m.ChatHistory = append(m.ChatHistory, "assistant: thinking...")
-	if len(m.ChatHistory) > 500 {
-		m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
-	}
+	m.appendChat(ChatMessage{Kind: chatThinking})
 	thinkingIdx := len(m.ChatHistory) - 1
 	m.setStreaming(true)
 
-	// Snapshot the runner + history so the goroutine doesn't race the
-	// Update loop's mutations.
 	runner := m.ChatRunner
-	historySnapshot := append([]string(nil), m.ChatHistory[:thinkingIdx]...)
+	historySnapshot := chatHistoryToStrings(m.ChatHistory[:thinkingIdx])
 	prompt := submit.Text
 
 	prog := m.Program
 	if prog == nil {
-		// No program wired up (e.g. test path): run synchronously so the
-		// caller sees the final history immediately and the model is never
-		// mutated by a background goroutine.
 		text, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
 		applyChatResponseMsg(m, chat.ChatResponseMsg{Text: text, Error: err}, thinkingIdx)
 		return agentCmd
 	}
 	go func() {
-		text, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
+		text, err := chatRunnerStreamHook(runner, m.ctx(), prompt, historySnapshot, func(chunk string) {
+			prog.Send(ChatChunkMsg{Text: chunk, Idx: thinkingIdx})
+		})
 		prog.Send(chat.ChatResponseMsg{Text: text, Error: err})
 	}()
 	return agentCmd
 }
 
-// applyChatResponseMsg replaces the "thinking..." placeholder at idx with
-// the real assistant text (or error). Used by the synchronous fallback path
-// when no *tea.Program is wired up.
 func applyChatResponseMsg(m *Model, msg chat.ChatResponseMsg, idx int) {
 	if idx < 0 || idx >= len(m.ChatHistory) {
 		return
 	}
 	if msg.Error != nil {
-		m.ChatHistory[idx] = "assistant: (error: " + msg.Error.Error() + ")"
+		m.ChatHistory[idx] = ChatMessage{Kind: chatError, Text: msg.Error.Error(), Error: msg.Error}
 		return
 	}
 	text := msg.Text
 	if text == "" {
 		text = "(empty response)"
 	}
-	m.ChatHistory[idx] = "assistant: " + text
+	if m.ChatHistory[idx].Kind == chatAssistant && m.ChatHistory[idx].Text != "" {
+		m.ChatHistory[idx].Text = text
+	} else {
+		m.ChatHistory[idx] = ChatMessage{Kind: chatAssistant, Text: text}
+	}
+	m.updateSessionPreview()
 }
 
 func (m *Model) updateChat(msg tea.Msg) tea.Cmd {
@@ -176,10 +174,6 @@ func (m *Model) updateChat(msg tea.Msg) tea.Cmd {
 	if submit != nil {
 		agentCmd := handleChatSubmit(m, *submit)
 		m.ChatInput.Clear()
-		// Combine the input's tea.Cmd with the agent-runner
-		// subscription so both fire on the next tick. The agent
-		// subscription re-arms itself in update.go's AgentRunnerMsg
-		// handler.
 		if agentCmd != nil {
 			return tea.Batch(cmd, agentCmd)
 		}

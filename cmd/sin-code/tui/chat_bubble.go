@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
-// Purpose: Chat bubble styles and message rendering for modern TUI.
-// Provides visual distinction between user, assistant, tool, and system messages.
 package tui
 
 import (
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 )
@@ -166,70 +165,17 @@ const (
 	chatSystem
 )
 
-type chatMsg struct {
-	Kind    chatMsgKind
-	Text    string
-	Tool    string
-	Detail  string
-	Result  bool // true for tool-result entries
-}
-
-func parseChatEntry(entry string) chatMsg {
-	if !strings.Contains(entry, ":") || strings.HasPrefix(entry, "> ") {
-		return chatMsg{Kind: chatUser, Text: entry}
-	}
-
-	switch {
-	case strings.HasPrefix(entry, "assistant: thinking..."):
-		return chatMsg{Kind: chatThinking, Text: ""}
-	case strings.HasPrefix(entry, "assistant: (error:"):
-		text := strings.TrimPrefix(entry, "assistant: (error: ")
-		text = strings.TrimSuffix(text, ")")
-		return chatMsg{Kind: chatError, Text: text}
-	case strings.HasPrefix(entry, "assistant: (empty response)"):
-		return chatMsg{Kind: chatAssistant, Text: "(empty response)"}
-	case strings.HasPrefix(entry, "assistant: (no API key"):
-		return chatMsg{Kind: chatSystem, Text: strings.TrimPrefix(entry, "assistant: ")}
-	case strings.HasPrefix(entry, "assistant: (agent runner"):
-		return chatMsg{Kind: chatSystem, Text: strings.TrimPrefix(entry, "assistant: ")}
-	case strings.HasPrefix(entry, "assistant: turn start:"):
-		detail := strings.TrimPrefix(entry, "assistant: turn start: ")
-		return chatMsg{Kind: chatAgent, Text: "turn start", Detail: detail}
-	case strings.HasPrefix(entry, "assistant: tool("):
-		rest := strings.TrimPrefix(entry, "assistant: tool(")
-		idx := strings.Index(rest, ")")
-		tool := rest
-		detail := ""
-		if idx >= 0 {
-			tool = rest[:idx]
-			detail = strings.TrimPrefix(rest[idx+1:], ": ")
-		}
-		return chatMsg{Kind: chatTool, Tool: tool, Text: detail, Detail: detail}
-	case strings.HasPrefix(entry, "assistant: tool result:"):
-		rest := strings.TrimPrefix(entry, "assistant: tool result: ")
-		name := ""
-		idx := strings.Index(rest, " — ")
-		if idx >= 0 {
-			name = rest[:idx]
-			rest = rest[idx+3:]
-		}
-		return chatMsg{Kind: chatTool, Tool: name, Text: rest, Detail: rest, Result: true}
-	case strings.HasPrefix(entry, "assistant: verify:"):
-		detail := strings.TrimPrefix(entry, "assistant: verify: ")
-		return chatMsg{Kind: chatVerify, Text: detail, Detail: detail}
-	case strings.HasPrefix(entry, "assistant: ask:"):
-		detail := strings.TrimPrefix(entry, "assistant: ask: ")
-		return chatMsg{Kind: chatAsk, Text: detail, Detail: detail}
-	case strings.HasPrefix(entry, "assistant: done:"):
-		detail := strings.TrimPrefix(entry, "assistant: done: ")
-		return chatMsg{Kind: chatDone, Text: detail, Detail: detail}
-	case strings.HasPrefix(entry, "assistant: ERROR:"):
-		detail := strings.TrimPrefix(entry, "assistant: ERROR: ")
-		return chatMsg{Kind: chatError, Text: detail}
-	case strings.HasPrefix(entry, "assistant: "):
-		text := strings.TrimPrefix(entry, "assistant: ")
-		return chatMsg{Kind: chatAssistant, Text: text}
-	default:
-		return chatMsg{Kind: chatUser, Text: entry}
-	}
+type ChatMessage struct {
+	ID         int64
+	Kind       chatMsgKind
+	Text       string
+	Tool       string
+	ToolInput  string
+	ToolOutput string
+	Detail     string
+	Result     bool
+	Timestamp  time.Time
+	Tokens     int
+	Error      error
+	Expanded   bool
 }

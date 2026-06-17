@@ -1,13 +1,4 @@
 // SPDX-License-Identifier: MIT
-// Purpose: TUI-side glue that wires cmd/sin-code/internal/tui.AgentRunner
-// into the Bubbletea event loop. Issue #53: when the user submits a
-// chat prompt or selects a skill-palette entry, the AgentRunner runs
-// the full agentloop (with tools, permission gates, verification) and
-// streams AgentEvents back into the model.
-//
-// This file lives in cmd/sin-code/tui/ (not internal/tui/) because the
-// AgentRunner is in cmd/sin-code/internal/tui/ and Go's internal-package
-// visibility rules prevent internal/tui/ from importing it.
 package tui
 
 import (
@@ -21,23 +12,15 @@ import (
 	agentrunner "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/tui"
 )
 
-// AgentRunnerMsg is the tea.Msg that carries one AgentEvent into the
-// TUI's update loop. Closed is true when the runner has shut down its
-// event channel; the TUI should drop the AgentRunner reference.
 type AgentRunnerMsg struct {
 	Event  agentrunner.AgentEvent
 	Closed bool
 }
 
-// initAgentRunner lazily initializes the agent runner used for chat
-// submits. Returns the runner or nil if it could not be constructed.
-// The caller is responsible for calling Close() when the TUI exits.
-// newAgentRunnerHook is a test seam for AgentRunner construction.
 var newAgentRunnerHook = func(ctx context.Context, cfg agentrunner.Config) (*agentrunner.AgentRunner, error) {
 	return agentrunner.NewAgentRunner(ctx, cfg)
 }
 
-// submitAgentRunnerHook is a test seam for AgentRunner submission.
 var submitAgentRunnerHook = func(r *agentrunner.AgentRunner, ctx context.Context, prompt string) (<-chan struct{}, error) {
 	return r.Submit(ctx, prompt)
 }
@@ -52,9 +35,9 @@ func (m *Model) initAgentRunner() *agentrunner.AgentRunner {
 	}
 	r, err := newAgentRunnerHook(m.ctx(), agentrunner.Config{
 		Workspace:   ws,
-		Headless:    false, // TUI is interactive — show the Ask dialog
-		Yolo:        false, // never auto-allow in interactive mode
-		MaxTurns:    20,    // tighter than CLI default to keep the UI snappy
+		Headless:    false,
+		Yolo:        false,
+		MaxTurns:    20,
 		ToolFactory: tuiToolFactory(ws),
 	})
 	if err != nil {
@@ -64,8 +47,6 @@ func (m *Model) initAgentRunner() *agentrunner.AgentRunner {
 	return r
 }
 
-// listenAgentRunnerCmd returns a tea.Cmd that produces the next
-// AgentRunnerMsg from the runner's event channel.
 func listenAgentRunnerCmd(r *agentrunner.AgentRunner) tea.Cmd {
 	return func() tea.Msg {
 		ev, ok := <-r.EventsChannel()
@@ -76,120 +57,78 @@ func listenAgentRunnerCmd(r *agentrunner.AgentRunner) tea.Cmd {
 	}
 }
 
-// handleAgentRunnerEvent applies one AgentEvent to the TUI's chat
-// history. All event kinds map to chat history entries so the user
-// can scroll back through the run.
 func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 	if msg.Closed {
 		m.AgentRunner = nil
 		return
 	}
 	ev := msg.Event
-	var line string
+	var cm ChatMessage
 	switch ev.Kind {
 	case agentrunner.EventTurn:
-		line = "agent turn start"
+		cm = ChatMessage{Kind: chatAgent, Text: "turn start", Detail: ev.Detail}
 	case agentrunner.EventTool:
-		// Normalize incoming tool events so chat_view can render them as clean
-		// tool-call / tool-result bubbles. Two shapes arrive:
-		//   - "tool: sin_bash"   (tool call about to run)
-		//   - "tool result: sin_bash — output" (tool result)
-		if strings.HasPrefix(ev.Detail, "tool result: ") {
-			line = "tool result: " + strings.TrimPrefix(ev.Detail, "tool result: ")
-		} else if strings.HasPrefix(ev.Detail, "tool: ") {
-			name := strings.TrimPrefix(ev.Detail, "tool: ")
-			if ev.ToolName != "" {
-				name = ev.ToolName
-			}
-			line = "tool(" + name + "): calling"
-		} else {
-			prefix := "tool"
-			if ev.ToolName != "" {
-				prefix = "tool(" + ev.ToolName + ")"
-			}
-			line = prefix + ": " + ev.Detail
+		isResult := strings.HasPrefix(ev.Detail, "tool result: ")
+		cm = ChatMessage{
+			Kind:   chatTool,
+			Tool:   ev.ToolName,
+			Detail: ev.Detail,
+			Result: isResult,
 		}
 	case agentrunner.EventVerify:
-		line = "verify: " + ev.Detail
+		cm = ChatMessage{Kind: chatVerify, Detail: ev.Detail}
 	case agentrunner.EventAsk:
 		m.pendingAsk = ev.AskReply
 		m.OpenPermissionDialog(ev.ToolName, ev.Detail, "")
-		m.setStreaming(false) // agent is waiting, not running
-		line = "ask: " + ev.Detail
+		m.setStreaming(false)
+		cm = ChatMessage{Kind: chatAsk, Detail: ev.Detail}
 	case agentrunner.EventDone:
-		line = "done: " + ev.Result
+		cm = ChatMessage{Kind: chatDone, Detail: ev.Result}
 		m.setStreaming(false)
 	case agentrunner.EventError:
-		line = "agent: ERROR: " + ev.Detail
+		cm = ChatMessage{Kind: chatError, Text: ev.Detail, Error: ev.Err}
 		m.setStreaming(false)
 	default:
-		line = "agent: " + ev.Detail
+		cm = ChatMessage{Kind: chatSystem, Text: ev.Detail}
 	}
-	m.ChatHistory = append(m.ChatHistory, "assistant: "+line)
-	if len(m.ChatHistory) > 500 {
-		m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
-	}
-	m.AppendHistory(ViewChat.String(), "agent-event", strings.TrimSpace(line), ev.Err == nil)
+	m.appendChat(cm)
+	m.AppendHistory(ViewChat.String(), "agent-event", cm.Detail, ev.Err == nil)
 }
 
-// answerPendingAsk answers the most recent agent ask. Called from the
-// chat view's y/N key handler.
 func (m *Model) answerPendingAsk(allow bool) {
 	if m.pendingAsk == nil {
 		return
 	}
 	ch := m.pendingAsk
 	m.pendingAsk = nil
-	// Use a short timeout so the UI doesn't hang if the receiver
-	// already timed out (30s AskTimeout in the agent runner).
 	select {
 	case ch <- allow:
 	case <-time.After(3 * time.Second):
 	}
 }
 
-// submitAgentPrompt kicks off a Submit on the AgentRunner. Returns a
-// tea.Cmd that subscribes to runner events.
 func (m *Model) submitAgentPrompt(prompt string) tea.Cmd {
 	r := m.initAgentRunner()
 	if r == nil {
 		return nil
 	}
 	if _, err := submitAgentRunnerHook(r, m.ctx(), prompt); err != nil {
-		m.ChatHistory = append(m.ChatHistory,
-			"assistant: (agent runner unavailable: "+err.Error()+")")
-		if len(m.ChatHistory) > 500 {
-			m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
-		}
+		m.appendChat(ChatMessage{Kind: chatSystem, Text: "(agent runner unavailable: " + err.Error() + ")"})
 		return nil
 	}
 	return listenAgentRunnerCmd(r)
 }
 
-// runAgentSkillPrompt formats a skill-palette entry as a directive to
-// the agent and submits it through the AgentRunner. The prompt asks
-// the agent to "use the X tool to ..." so the LLM resolves the skill
-// via the live tool surface (websearch, browser, scheduler, etc.)
-// rather than just printing a CLI hint.
 func (m *Model) runAgentSkillPrompt(skill, args string) tea.Cmd {
 	r := m.initAgentRunner()
 	if r == nil {
-		// No agent runner: fall back to the in-band "use the CLI"
-		// hint so the user gets feedback.
 		hint := fmt.Sprintf("run: sin-code mcp call %s %q", skill, args)
-		m.ChatHistory = append(m.ChatHistory, "assistant: "+hint)
-		if len(m.ChatHistory) > 500 {
-			m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
-		}
+		m.appendChat(ChatMessage{Kind: chatAssistant, Text: hint})
 		return nil
 	}
 	prompt := fmt.Sprintf("use the %s tool to %s", skill, args)
 	if _, err := submitAgentRunnerHook(r, m.ctx(), prompt); err != nil {
-		m.ChatHistory = append(m.ChatHistory,
-			"assistant: (agent runner error: "+err.Error()+")")
-		if len(m.ChatHistory) > 500 {
-			m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
-		}
+		m.appendChat(ChatMessage{Kind: chatSystem, Text: "(agent runner error: " + err.Error() + ")"})
 		return nil
 	}
 	return listenAgentRunnerCmd(r)

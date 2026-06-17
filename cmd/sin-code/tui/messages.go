@@ -54,13 +54,10 @@ func (v ViewKind) Short() string {
 	return "?·"
 }
 
-// NotificationMsg is fired when the TUI receives a new notification
-// from the sin-code notifications broadcaster.
 type NotificationMsg struct {
 	N NotificationSource
 }
 
-// CountsMsg is fired when todo counts are recomputed (open/blocked/overdue).
 type CountsMsg struct {
 	Open    int
 	Blocked int
@@ -68,12 +65,10 @@ type CountsMsg struct {
 	Ready   int
 }
 
-// TodosLoadedMsg is fired when the todo list is reloaded.
 type TodosLoadedMsg struct {
 	Items []TodoRow
 }
 
-// TodoRow is a lightweight struct for displaying todos in the TUI.
 type TodoRow struct {
 	ID       string
 	Title    string
@@ -148,4 +143,13 @@ type SessionCloseMsg struct {
 
 type SessionSelectMsg struct {
 	Index int
+}
+
+type ChatChunkMsg struct {
+	Text string
+	Idx  int
+}
+
+type ChatCopyMsg struct {
+	Text string
 }
