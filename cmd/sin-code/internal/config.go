@@ -69,6 +69,9 @@ type SinCodeConfig struct {
 	// to fill realistic test cases (otherwise it emits a table-driven
 	// scaffold with zero-value tasks). Off by default — privacy/cost.
 	TestUseLLM bool `toml:"test.use_llm"`
+	// TestRepairRounds bounds the generate→compile→execute→repair loop
+	// when test.use_llm is true. Default 3; 0 disables repair.
+	TestRepairRounds int `toml:"test.repair_rounds"`
 	// SIN Fusion v1: verify-tournament config (issue #290).
 	FusionEnabled          bool     `toml:"fusion.enabled"`
 	FusionProviders        []string `toml:"fusion.providers"`
@@ -105,6 +108,7 @@ func defaultConfig() SinCodeConfig {
 		TestAutoGenerate:         false,
 		TestTimeoutSeconds:       300,
 		TestUseLLM:               false,
+		TestRepairRounds:         3,
 		FusionEnabled:            false,
 		FusionProviders:          []string{"minimax-m3", "kimi-k2p7-code-fast", "kimi-k2p7-code", "deepseek-v4-pro", "qwen-3p7-plus", "glm-5p2"},
 		FusionMaxCostUSD:         5.0,
@@ -440,11 +444,13 @@ paths.skills_dir = %q
 # mutation_threshold: minimum mutation score for sin_mutation (0 = disabled)
 # auto_generate: run sin_test_generate after every sin_write/sin_edit to .go files
 # use_llm: let sin_test_generate call the configured LLM to fill realistic test cases
+# repair_rounds: max generate→compile→execute→repair iterations when use_llm is true (0 disables)
 test.coverage_threshold = %v
 test.mutation_threshold = %v
 test.auto_generate = %v
 test.timeout_seconds = %d
 test.use_llm = %v
+test.repair_rounds = %d
 `, cfg.Theme, cfg.DefaultTimeout, cfg.DefaultFormat, cfg.MCPServerEnabled,
 		cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMMaxTokens, cfg.LLMTemperature,
 		cfg.LLMStyle,
@@ -452,7 +458,7 @@ test.use_llm = %v
 		strings.Join(cfg.AgentLoopRequiredTools, ","), strings.Join(cfg.AgentLoopForbiddenTools, ","),
 		strings.Join(cfg.ToolsAllow, ","), strings.Join(cfg.ToolsDeny, ","),
 		cfg.PathsMCPConfig, cfg.PathsSkillsDir,
-		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds, cfg.TestUseLLM)
+		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds, cfg.TestUseLLM, cfg.TestRepairRounds)
 }
 
 func initConfig() error {
@@ -534,6 +540,8 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%d", cfg.TestTimeoutSeconds), nil
 	case "test.use_llm":
 		return fmt.Sprintf("%v", cfg.TestUseLLM), nil
+	case "test.repair_rounds":
+		return fmt.Sprintf("%d", cfg.TestRepairRounds), nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -642,6 +650,12 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.TestTimeoutSeconds = v
 	case "test.use_llm":
 		cfg.TestUseLLM = value == "true" || value == "1"
+	case "test.repair_rounds":
+		v, err := strconv.Atoi(value)
+		if err != nil || v < 0 {
+			return fmt.Errorf("test.repair_rounds must be a non-negative integer, got %q", value)
+		}
+		cfg.TestRepairRounds = v
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}
@@ -680,6 +694,7 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"test.auto_generate", fmt.Sprintf("%v", cfg.TestAutoGenerate)},
 		{"test.timeout_seconds", fmt.Sprintf("%d", cfg.TestTimeoutSeconds)},
 		{"test.use_llm", fmt.Sprintf("%v", cfg.TestUseLLM)},
+		{"test.repair_rounds", fmt.Sprintf("%d", cfg.TestRepairRounds)},
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Key < pairs[j].Key })
 	return pairs
@@ -769,6 +784,9 @@ func showTOML(cfg SinCodeConfig, mask bool) error {
 		AgentLoopRequiredTools: cfg.AgentLoopRequiredTools, AgentLoopForbiddenTools: cfg.AgentLoopForbiddenTools,
 		ToolsAllow:               cfg.ToolsAllow, ToolsDeny: cfg.ToolsDeny,
 		PathsMCPConfig:           cfg.PathsMCPConfig, PathsSkillsDir: cfg.PathsSkillsDir,
+		TestCoverageThreshold:    cfg.TestCoverageThreshold, TestMutationThreshold: cfg.TestMutationThreshold,
+		TestAutoGenerate:         cfg.TestAutoGenerate, TestTimeoutSeconds: cfg.TestTimeoutSeconds,
+		TestUseLLM:               cfg.TestUseLLM, TestRepairRounds: cfg.TestRepairRounds,
 	}))
 	return nil
 }
@@ -809,6 +827,9 @@ func validateConfig(cfg SinCodeConfig) []string {
 	}
 	if cfg.TestTimeoutSeconds <= 0 {
 		issues = append(issues, fmt.Sprintf("test.timeout_seconds must be > 0, got %d", cfg.TestTimeoutSeconds))
+	}
+	if cfg.TestRepairRounds < 0 {
+		issues = append(issues, fmt.Sprintf("test.repair_rounds must be >= 0, got %d", cfg.TestRepairRounds))
 	}
 	return issues
 }
@@ -873,6 +894,8 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			_, _ = fmt.Sscanf(val, "%d", &cfg.TestTimeoutSeconds)
 		case "test.use_llm":
 			cfg.TestUseLLM = val == "true" || val == "1"
+		case "test.repair_rounds":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.TestRepairRounds)
 		}
 	}
 }

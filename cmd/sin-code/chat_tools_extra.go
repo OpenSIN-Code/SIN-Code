@@ -338,6 +338,20 @@ func toolTestGenerate(ctx context.Context, args map[string]any) (string, error) 
 		pkg = "./..."
 	}
 
+	// When useLLM is true and a single file is specified, try the
+	// RepairLoop path (LLMFiller → compile → test → repair). Fall
+	// back to the scaffold path when the LLM client cannot be built
+	// or the repair loop encounters an unrecoverable error.
+	if useLLM && file != "" {
+		if res, ok := tryRepairLoopPath(ctx, file, overwrite); ok {
+			b, err := json.MarshalIndent(res, "", "  ")
+			if err != nil {
+				return "", err
+			}
+			return string(b), nil
+		}
+	}
+
 	var llmFn func(context.Context, string) (string, error)
 	var casesByFunc map[string][]testgen.TestCase
 	if useLLM {
@@ -361,6 +375,73 @@ func toolTestGenerate(ctx context.Context, args map[string]any) (string, error) 
 		return "", err
 	}
 	return string(b), nil
+}
+
+// repairLoopOutput is the JSON-compatible result for the RepairLoop path.
+// It mirrors testgen.Result fields so downstream callers see a consistent
+// shape regardless of which generation path was taken.
+type repairLoopOutput struct {
+	GeneratedFiles []string `json:"generated_files"`
+	TestOutput     string   `json:"test_output"`
+	TestPassed     bool     `json:"test_passed"`
+	RoundsUsed     int      `json:"rounds_used"`
+	CompileErrors  string   `json:"compile_errors,omitempty"`
+}
+
+// tryRepairLoopPath attempts to use the LLMFiller + RepairLoop to
+// generate, compile, run, and repair tests for a single file. Returns
+// (result, true) on success or (nil, false) when the path is not
+// available (missing API key, existing test file without overwrite, or
+// a loop error) so the caller falls back to the scaffold path.
+func tryRepairLoopPath(ctx context.Context, file string, overwrite bool) (*repairLoopOutput, bool) {
+	cfg := testConfig()
+	apiKey := strings.TrimSpace(os.Getenv("LLM_API_KEY"))
+	if apiKey == "" {
+		apiKey = strings.TrimSpace(cfg.LLMAPIKey)
+	}
+	if apiKey == "" {
+		return nil, false
+	}
+
+	testFile := strings.TrimSuffix(file, ".go") + "_test.go"
+	if !overwrite {
+		if _, err := os.Stat(testFile); err == nil {
+			return nil, false
+		}
+	}
+
+	baseURL := strings.TrimSpace(cfg.LLMBaseURL)
+	if baseURL == "" {
+		baseURL = "https://integrate.api.nvidia.com/v1"
+	}
+	client := llm.NewClient(baseURL, apiKey)
+	filler := testgen.NewLLMFiller(client, cfg.LLMModel)
+
+	repairRounds := cfg.TestRepairRounds
+	if repairRounds <= 0 {
+		repairRounds = testgen.DefaultRepairRounds
+	}
+
+	loop := testgen.NewRepairLoop(filler,
+		testgen.WithRepairMaxRounds(repairRounds),
+		testgen.WithRepairTimeout(testTimeout))
+
+	res, err := loop.Run(ctx, testgen.RepairRequest{
+		SourceFile: file,
+		MaxRounds:  repairRounds,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sin_test_generate: repair loop error: %v\n", err)
+		return nil, false
+	}
+
+	return &repairLoopOutput{
+		GeneratedFiles: []string{testFile},
+		TestOutput:     res.TestResults,
+		TestPassed:     res.FinalPass,
+		RoundsUsed:     res.RoundsUsed,
+		CompileErrors:  res.CompileErrors,
+	}, true
 }
 
 // buildTestgenLLMFn returns the per-file `Cases` map and a
