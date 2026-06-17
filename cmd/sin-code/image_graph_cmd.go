@@ -24,7 +24,6 @@ func NewImageGraphCmd() *cobra.Command {
 		yLabel      string
 		width       string
 		height      string
-		theme       string
 		inlineJSON  string
 	)
 
@@ -106,14 +105,11 @@ Examples:
 			if width != "" {
 				spec.Width = width
 			}
-			if height != "" {
-				spec.Height = height
-			}
-			if theme != "" {
-				spec.Theme = theme
-			}
+		if height != "" {
+			spec.Height = height
+		}
 
-			if spec.Type == "" {
+		if spec.Type == "" {
 				return fmt.Errorf("chart type required (--type bar|line|pie|area)")
 			}
 			if outputFile == "" {
@@ -137,7 +133,6 @@ Examples:
 	cmd.Flags().StringVar(&yLabel, "ylabel", "", "Y axis label")
 	cmd.Flags().StringVar(&width, "width", "1200px", "chart width (e.g. 1200px, 100%)")
 	cmd.Flags().StringVar(&height, "height", "720px", "chart height (e.g. 720px, 100%)")
-	cmd.Flags().StringVar(&theme, "theme", "dark", "ECharts theme: dark, light, macarona, westeros")
 	cmd.Flags().StringVarP(&inlineJSON, "json", "j", "", "inline JSON spec (alternative to --data)")
 
 	return cmd

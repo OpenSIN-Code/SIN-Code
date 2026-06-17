@@ -2,6 +2,7 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+<<<<<<< HEAD
 ## [v3.20.0] - 2026-06-17
 
 The largest release in SIN-Code history. Two epics (21 issues), ~50 new
@@ -369,6 +370,26 @@ gate (M3).
 - **M7** Race-free ✓ (all ~500 tests pass `-race -count=1`;
   dispatcher, subagent spawner, prewarm, and autoDream
   stress-tested with 100-node DAGs and 1000-pattern DBs)
+
+### Added — image-graph + skill bundling
+- `sin-code image-graph` — 42nd subcommand: SOTA chart generation with Apache ECharts (bar, line, pie, area). Direct ECharts JSON generation (no wrapper library). Gradients, glow shadows, staggered animations, dark theme, interactive HTML + PNG output. Zero external Go dependencies.
+- `skill-github-readme` — 35th bundled skill: Enterprise visual standard for repository READMEs. Mermaid diagrams, 3-second-hook psychology, CI badges, llms.txt, social preview. Ported from Infra-SIN-OpenCode-Stack/visual-repo. Coupled with skill-github-governance, integrates with sin-image-graph.
+- `skill-code-graph` — bundled sin-image-graph skill under skills/code-skills/
+- Cross-reference chain: `skill-github-governance` → `skill-github-readme` → `sin-image-graph`
+
+### Changed
+- `skill-github-governance` updated: added coupling references to skill-github-readme and sin-image-graph
+- Renamed in Infra-SIN-OpenCode-Stack: `sovereign-repo-governance` → `skill-github-governance`, `visual-repo` → `skill-github-readme` (breaking rename for findability)
+- `sin-image-graph` SKILL.md updated to v2.0.0: documents ECharts features (gradients, glow, animations), new JSON examples, comparison table vs sin-image-generation
+- `sin-image-generation` SKILL.md rewritten: removed Nano Banana 2 (restricted), added FLUX.2 Max + Imagen 4 Ultra as primary image models
+- opencode config updated: `nano-banana-2` model → `flux-2-max` + `imagen-4-ultra` models
+
+### Removed
+- go-echarts/v2 dependency — replaced with direct ECharts JSON generation (zero external charting deps)
+- `--theme` flag from `image-graph` command (fixed dark theme, flag was dead)
+
+## [Unreleased] - 2026-06-16
+>>>>>>> 829b6f9 (chore: parallel cleanup — AGENTS.md counts, dead flag, CHANGELOG, bundle skill-code-graph)
 
 ### Added — SIN Fusion v1: Verify-Tournament (issue #290)
 - **`internal/fusion/`** — new package: multi-model verify-tournament for verify-fail recovery
