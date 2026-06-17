@@ -33,13 +33,17 @@ func NewRunner() (*Runner, error) {
 	if os.Getenv("SIN_NIM_API_KEY") == "" {
 		return nil, fmt.Errorf("no API key configured (set SIN_NIM_API_KEY)")
 	}
-	c, err := providerFromConfigHook("nim", "", "", defaultModel, 0)
+	model := os.Getenv("SIN_LLM_MODEL")
+	if model == "" {
+		model = defaultModel
+	}
+	c, err := providerFromConfigHook("nim", "", "", model, 0)
 	if err != nil {
 		return nil, err
 	}
 	return &Runner{
 		Client:       c,
-		Model:        defaultModel,
+		Model:        model,
 		SystemPrompt: defaultSystem,
 	}, nil
 }

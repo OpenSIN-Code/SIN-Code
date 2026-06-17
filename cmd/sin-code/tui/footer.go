@@ -12,6 +12,7 @@ type Footer struct {
 	view        ViewKind
 	Selection   string
 	AgentIndex  int
+	ModelName   string
 	Tokens      int
 	TokensPct   float64
 	Cost        string
@@ -153,6 +154,9 @@ func (f Footer) renderChatFooter(styles Styles) string {
 	parts = append(parts, status)
 
 	agent := f.AgentName()
+	if f.ModelName != "" {
+		agent = f.ModelName
+	}
 	if agent != "" {
 		parts = append(parts, styles.FooterKey.Render(agent))
 	}

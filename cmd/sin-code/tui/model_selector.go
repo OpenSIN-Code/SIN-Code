@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -205,22 +206,33 @@ func (m *Model) ModelSelectorSelect() {
 	if len(m.ModelSelector.Indices) == 0 {
 		return
 	}
-	
+
 	if m.ModelSelector.Sel >= 0 && m.ModelSelector.Sel < len(m.ModelSelector.Indices) {
 		modelIdx := m.ModelSelector.Indices[m.ModelSelector.Sel]
 		model := m.ModelSelector.Models[modelIdx]
-		
+
 		for i, entry := range m.Config {
 			if entry.Key == "llm.model" {
 				m.Config[i].Value = model.ID
 				break
 			}
 		}
-		
+
 		m.ModelSelector.CurrentID = model.ID
+
+		// Set env var so new runners pick up the model
+		os.Setenv("SIN_LLM_MODEL", model.ID)
+
+		// Reset runners so they reinitialize with the new model
+		m.ChatRunner = nil
+		m.AgentRunner = nil
+
+		// Update footer to show the new model name
+		m.Footer.ModelName = model.Name
+
 		m.AppendHistory("Config", "model-change", model.Name, true)
 	}
-	
+
 	m.CloseModelSelector()
 }
 
