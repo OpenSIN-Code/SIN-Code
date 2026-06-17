@@ -554,6 +554,7 @@ body{background:%s;display:flex;align-items:center;justify-content:center;min-he
 <script>
 var chart=echarts.init(document.getElementById('chart'),null,{renderer:'canvas'});
 var option=%s;
+option.animation=false;
 chart.setOption(option);
 window.addEventListener('resize',function(){chart.resize()});
 window.addEventListener('load',function(){setTimeout(function(){document.title='CHART_READY'},500)});
@@ -623,14 +624,17 @@ func tryChromeScreenshot(htmlPath, pngPath string) bool {
 		return false
 	}
 	cmd := exec.Command(chrome,
-		"--headless",
+		"--headless=new",
 		"--disable-gpu",
 		"--no-sandbox",
 		"--screenshot="+pngPath,
 		"--window-size=1280,720",
 		"--default-background-color=00000000",
-		"--virtual-time-budget=3000",
+		"--virtual-time-budget=8000",
 		"--hide-scrollbars",
+		"--run-all-compositor-stages-before-draw",
+		"--disable-software-rasterizer",
+		"--enable-unsafe-swiftshader",
 		"file://"+htmlPath,
 	)
 	cmd.Stdout = nil
