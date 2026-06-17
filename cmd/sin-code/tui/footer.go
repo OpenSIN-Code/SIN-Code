@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 var AgentNames = []string{"Build", "Audit", "Stats"}
@@ -14,6 +15,8 @@ type Footer struct {
 	Tokens      int
 	TokensPct   float64
 	Cost        string
+	Duration    time.Duration
+	Streaming   bool
 	Width       int
 	ShowHints   bool
 	HintKeys    []HintPair
@@ -146,11 +149,18 @@ func (f Footer) Render(styles Styles) string {
 	left.WriteString(" ")
 
 	agent := f.AgentName()
+	if f.Streaming {
+		mid.WriteString(styles.AccentText.Render("⟳ "))
+	}
 	mid.WriteString(styles.FooterKey.Render(agent))
 	mid.WriteString(" ")
 	mid.WriteString(styles.Muted.Render(fmt.Sprintf("tokens %d (%.0f%%)", f.Tokens, f.TokensPct*100)))
 	mid.WriteString(" ")
 	mid.WriteString(styles.FooterVal.Render(f.Cost))
+	if f.Duration > 0 {
+		mid.WriteString(" ")
+		mid.WriteString(styles.Muted.Render(formatDuration(f.Duration)))
+	}
 
 	if f.ShowHints {
 		right.WriteString(" ")
@@ -174,6 +184,16 @@ func (f Footer) Render(styles Styles) string {
 	}
 
 	return styles.Footer.Render(left.String() + mid.String() + right.String())
+}
+
+func formatDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	return fmt.Sprintf("%dm%ds", int(d.Minutes()), int(d.Seconds())%60)
 }
 
 func footerCount(f Footer, label string, icon rune) string {

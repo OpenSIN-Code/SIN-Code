@@ -652,6 +652,7 @@ func (m *Model) rightWidth() int {
 // it immediately before spawning the goroutine, and the Update loop is
 // the only writer to ChatHistory in steady state.
 func (m *Model) handleChatResponse(msg chat.ChatResponseMsg) {
+	m.setStreaming(false)
 	if len(m.ChatHistory) == 0 {
 		return
 	}

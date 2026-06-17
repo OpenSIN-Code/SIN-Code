@@ -163,10 +163,15 @@ func (m *Model) renderChatFooter(styles Styles, width int) string {
 func (m *Model) updateChatMetrics(tokens int, cost float64, duration time.Duration) {
 	m.Footer.Tokens = tokens
 	m.Footer.Cost = fmt.Sprintf("$%.2f", cost)
+	m.Footer.Duration = duration
 	m.Footer.TokensPct = float64(tokens) / 128000.0
 	if m.Footer.TokensPct > 1.0 {
 		m.Footer.TokensPct = 1.0
 	}
+}
+
+func (m *Model) setStreaming(streaming bool) {
+	m.Footer.Streaming = streaming
 }
 
 func renderToolCall(name, args string, styles Styles) string {

@@ -111,6 +111,7 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
 	}
 	thinkingIdx := len(m.ChatHistory) - 1
+	m.setStreaming(true)
 
 	// Snapshot the runner + history so the goroutine doesn't race the
 	// Update loop's mutations.
