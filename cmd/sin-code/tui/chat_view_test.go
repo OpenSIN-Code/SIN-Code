@@ -73,11 +73,8 @@ func TestChatInputInitializedOnView(t *testing.T) {
 func TestRenderChatEmpty(t *testing.T) {
 	m := NewModel()
 	out := m.renderChat(m.Styles, 80, 20)
-	if !strings.Contains(out, "Chat") {
-		t.Error("expected title")
-	}
-	if !strings.Contains(out, "no messages") {
-		t.Error("expected empty message")
+	if !strings.Contains(out, "Send a message") {
+		t.Error("expected empty prompt")
 	}
 }
 
@@ -95,13 +92,14 @@ func TestRenderChatWithHistory(t *testing.T) {
 
 func TestRenderChatViewIncludesChatView(t *testing.T) {
 	m := NewModel()
+	m.initChatInput()
 	m.Width = 100
 	m.Height = 30
 	m.Ready = true
 	m.ViewKind = ViewChat
 	out := m.View().Content
-	if !strings.Contains(out, "Chat") {
-		t.Error("expected Chat in view")
+	if !strings.Contains(out, "Send a message") {
+		t.Errorf("expected chat prompt in view, got:\n%s", out[:min(200, len(out))])
 	}
 }
 

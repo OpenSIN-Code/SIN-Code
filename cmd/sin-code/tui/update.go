@@ -268,9 +268,21 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case tea.KeyPressMsg:
+		// Banner keys (o/d/n) take priority when a banner is visible.
+		if m.NotificationBanner != nil {
+			k := msg.String()
+			if k == "o" || k == "d" || k == "n" {
+				return m.handleKey(msg)
+			}
+		}
 		// Modals (permission dialog, palette, etc.) must receive keys before
 		// the view-specific handler, otherwise the chat input swallows them.
 		if m.Mode != ModeNormal {
+			return m.handleKey(msg)
+		}
+		// Global hotkeys work even in chat mode — they must not be
+		// consumed by the textarea.
+		if isGlobalHotkey(msg) {
 			return m.handleKey(msg)
 		}
 		if m.ViewKind == ViewChat {
@@ -281,6 +293,31 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+// isGlobalHotkey reports whether a key should be handled by handleKey
+// even when the chat input is focused. This prevents the textarea from
+// swallowing navigation and control keys.
+func isGlobalHotkey(msg tea.KeyMsg) bool {
+	key := msg.String()
+	// Ctrl+S and Ctrl+Enter are chat submit keys — must go to the
+	// textarea, not handleKey.
+	if key == "ctrl+s" || key == "ctrl+enter" || key == "ctrl+d" {
+		return false
+	}
+	switch {
+	case strings.HasPrefix(key, "ctrl+"):
+		return true
+	case key == "tab", key == "shift+tab":
+		return true
+	case key == "esc", key == "q":
+		return true
+	case key >= "0" && key <= "9":
+		return true // view jump keys (0-9)
+	case key == "y" || key == "n":
+		return true // permission dialog (when pendingAsk is set)
+	}
+	return false
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -316,6 +353,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Agent ask permission dialog: y = allow.
 		if m.pendingAsk != nil {
 			m.answerPendingAsk(true)
+			m.ClosePermissionDialog()
 			return m, nil
 		}
 	case "esc":
@@ -433,6 +471,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// Agent ask permission dialog: n = deny.
 		if m.pendingAsk != nil {
 			m.answerPendingAsk(false)
+			m.ClosePermissionDialog()
 			return m, nil
 		}
 		if m.NotificationBanner != nil {
@@ -447,7 +486,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) PreviousView() {
 	v := int(m.ViewKind) - 1
 	if v < 0 {
-		v = 4
+		v = 6 // wrap to ViewChat (last view)
 	}
 	m.SwitchView(ViewKind(v))
 }

@@ -16,8 +16,8 @@ func TestNewModelDefaults(t *testing.T) {
 	if m.ThemeIdx != 0 {
 		t.Errorf("expected theme 0, got %d", m.ThemeIdx)
 	}
-	if m.ViewKind != ViewTools {
-		t.Errorf("expected ViewTools, got %v", m.ViewKind)
+	if m.ViewKind != ViewChat {
+		t.Errorf("expected ViewChat, got %v", m.ViewKind)
 	}
 	if m.Mode != ModeNormal {
 		t.Errorf("expected ModeNormal, got %v", m.Mode)
@@ -379,6 +379,7 @@ func TestHistoryCap(t *testing.T) {
 func TestToolsViewRenders(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m.SwitchView(ViewTools) // default is now Chat; switch to Tools explicitly
 	view := m.View().Content
 	if !strings.Contains(view, "Tools") {
 		t.Errorf("expected Tools in view, got:\n%s", view)
@@ -747,6 +748,7 @@ func TestConfigViewSelectionMoves(t *testing.T) {
 func TestToolListSelectionMoves(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m.ViewKind = ViewTools // arrow keys control sidebar in tools view
 	start := m.Sidebar.ToolSel
 	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.Sidebar.ToolSel == start {

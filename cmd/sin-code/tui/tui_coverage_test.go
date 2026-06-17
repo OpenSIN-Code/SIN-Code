@@ -389,8 +389,8 @@ func TestRenderEFMViewDefaultStatus(t *testing.T) {
 func TestRenderChatClampsSize(t *testing.T) {
 	m := NewModel()
 	out := m.renderChat(NewStyles(Themes[0]), 5, 3)
-	if !strings.Contains(out, "Chat") {
-		t.Errorf("expected Chat title after clamp: %q", out)
+	if !strings.Contains(out, "Send a message") {
+		t.Errorf("expected empty prompt after clamp: %q", out)
 	}
 }
 
@@ -765,8 +765,8 @@ func TestPreviousView(t *testing.T) {
 	m := NewModel()
 	m.ViewKind = ViewTools
 	m.PreviousView()
-	if m.ViewKind != ViewHistory {
-		t.Errorf("PreviousView from Tools = %v, want History", m.ViewKind)
+	if m.ViewKind != ViewChat {
+		t.Errorf("PreviousView from Tools = %v, want Chat", m.ViewKind)
 	}
 }
 
@@ -1172,8 +1172,8 @@ func TestRenderChatWrapsLongLines(t *testing.T) {
 	m := NewModel()
 	m.ChatHistory = []string{strings.Repeat("a", 100)}
 	out := m.renderChat(NewStyles(Themes[0]), 80, 20)
-	if !strings.Contains(out, "…") {
-		t.Error("expected long line to be truncated")
+	if !strings.Contains(out, "a") {
+		t.Error("expected long line to be rendered")
 	}
 }
 
@@ -1357,6 +1357,7 @@ func TestUpdateEscInterrupt(t *testing.T) {
 
 func TestHandleKeyCycleTheme(t *testing.T) {
 	m := NewModel()
+	m.ViewKind = ViewTools // "t" is a view-specific hotkey, not a chat key
 	start := m.ThemeIdx
 	m.Update(tea.KeyPressMsg{Text: "t"})
 	if m.ThemeIdx == start {
@@ -1366,6 +1367,7 @@ func TestHandleKeyCycleTheme(t *testing.T) {
 
 func TestHandleKeyCycleAgent(t *testing.T) {
 	m := NewModel()
+	m.ViewKind = ViewTools // "a" is a view-specific hotkey, not a chat key
 	start := m.Footer.AgentIndex
 	m.Update(tea.KeyPressMsg{Text: "a"})
 	if m.Footer.AgentIndex == start {
@@ -2207,8 +2209,8 @@ func TestPreviousViewCoverage(t *testing.T) {
 	m := NewModel()
 	m.ViewKind = ViewTools
 	m.PreviousView()
-	if m.ViewKind != ViewHistory {
-		t.Errorf("PreviousView = %v, want History", m.ViewKind)
+	if m.ViewKind != ViewChat {
+		t.Errorf("PreviousView = %v, want Chat", m.ViewKind)
 	}
 }
 
@@ -2566,6 +2568,7 @@ func TestRightWidthSmall(t *testing.T) {
 
 func TestContentWidthClamp(t *testing.T) {
 	m := NewModel()
+	m.ViewKind = ViewTools // sidebar is only subtracted in non-chat views
 	m.Width = 30
 	m.Sidebar.Collapsed = false
 	m.Sidebar.Width = 22

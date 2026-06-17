@@ -29,7 +29,7 @@ type Input struct {
 
 func NewInput(store *attachments.Store) *Input {
 	ta := textarea.New()
-	ta.Placeholder = "Type a message... (/attach <path>, /clear, Ctrl+S submit, Ctrl+C quit)"
+	ta.Placeholder = "Type a message... (/attach, /clear, Ctrl+S send)"
 	ta.ShowLineNumbers = false
 	ta.SetWidth(80)
 	ta.SetHeight(5)
@@ -134,8 +134,9 @@ func (i *Input) HandleSlashCommand(line string) (handled bool, err error) {
 		}
 		return true, nil
 	case "/clear":
-		i.Clear()
-		return true, nil
+		// /clear is handled at the TUI model level (handleChatSubmit)
+		// so it can wipe the full chat history, not just the input.
+		return false, nil
 	case "/detach":
 		if len(parts) < 2 {
 			return true, fmt.Errorf("usage: /detach <name|index>")

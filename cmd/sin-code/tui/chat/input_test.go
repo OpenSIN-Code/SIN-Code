@@ -188,11 +188,11 @@ func TestInputSlashClear(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !handled {
-		t.Error("expected handled")
-	}
-	if i.RawValue() != "" {
-		t.Error("expected cleared")
+	// /clear is now handled at the TUI model level (handleChatSubmit)
+	// so the input widget returns not-handled, letting it bubble up
+	// as a SubmitMsg.
+	if handled {
+		t.Error("expected not handled (model-level /clear)")
 	}
 }
 
@@ -322,11 +322,9 @@ func TestInputUpdateSlashHandled(t *testing.T) {
 	i := newTestInput(t)
 	i.textarea.SetValue("/clear")
 	_, submit := i.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
-	if submit != nil {
-		t.Error("expected no submit for slash command")
-	}
-	if i.RawValue() != "" {
-		t.Error("expected cleared after /clear")
+	// /clear is now passed through as a SubmitMsg (model-level handling)
+	if submit == nil {
+		t.Error("expected submit for /clear (model-level handling)")
 	}
 }
 

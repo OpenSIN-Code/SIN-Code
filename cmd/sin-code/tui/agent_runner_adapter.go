@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -87,7 +88,7 @@ func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 	var line string
 	switch ev.Kind {
 	case agentrunner.EventTurn:
-		line = "turn start: " + ev.Detail
+		line = "agent turn start"
 	case agentrunner.EventTool:
 		// Normalize incoming tool events so chat_view can render them as clean
 		// tool-call / tool-result bubbles. Two shapes arrive:
@@ -112,13 +113,15 @@ func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 		line = "verify: " + ev.Detail
 	case agentrunner.EventAsk:
 		m.pendingAsk = ev.AskReply
-		// Open permission dialog with tool info
 		m.OpenPermissionDialog(ev.ToolName, ev.Detail, "")
-		line = "ask: " + ev.Detail + " — permission dialog opened"
+		m.setStreaming(false) // agent is waiting, not running
+		line = "ask: " + ev.Detail
 	case agentrunner.EventDone:
-		line = "agent: done: " + ev.Result
+		line = "done: " + ev.Result
+		m.setStreaming(false)
 	case agentrunner.EventError:
 		line = "agent: ERROR: " + ev.Detail
+		m.setStreaming(false)
 	default:
 		line = "agent: " + ev.Detail
 	}
@@ -137,9 +140,11 @@ func (m *Model) answerPendingAsk(allow bool) {
 	}
 	ch := m.pendingAsk
 	m.pendingAsk = nil
+	// Use a short timeout so the UI doesn't hang if the receiver
+	// already timed out (30s AskTimeout in the agent runner).
 	select {
 	case ch <- allow:
-	default:
+	case <-time.After(3 * time.Second):
 	}
 }
 

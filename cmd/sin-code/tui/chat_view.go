@@ -46,9 +46,10 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 		}
 	}
 
-	// Add input field at bottom
+	// Add separator + input field at bottom
+	separator := styles.Muted.Render(strings.Repeat("─", width))
 	b.WriteString("\n")
-	b.WriteString(styles.Muted.Render("─"))
+	b.WriteString(separator)
 	b.WriteString("\n")
 	if m.ChatInput != nil {
 		b.WriteString(m.ChatInput.View())

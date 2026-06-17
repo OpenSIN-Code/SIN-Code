@@ -7,6 +7,7 @@ package tui
 
 import (
 	"context"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
 
@@ -72,6 +73,19 @@ type chatSubmitMsg struct {
 // history. Returns nil when no agent runner is available.
 func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	entry := submit.Text
+
+	// Handle /clear at the model level: wipe chat history + reset streaming.
+	if strings.TrimSpace(entry) == "/clear" {
+		m.ChatHistory = nil
+		m.setStreaming(false)
+		m.Footer.Tokens = 0
+		m.Footer.TokensPct = 0
+		m.Footer.Cost = ""
+		m.Footer.Compacted = false
+		m.AppendHistory(ViewChat.String(), "chat-clear", "chat history cleared", true)
+		return nil
+	}
+
 	if len(submit.Attachments) > 0 {
 		entry += "\n[attachments:"
 		for _, a := range submit.Attachments {
@@ -106,6 +120,7 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	}
 
 	// Show "thinking..." placeholder right away so the user sees feedback.
+	// The agent runner emits its own "agent turn start" event separately.
 	m.ChatHistory = append(m.ChatHistory, "assistant: thinking...")
 	if len(m.ChatHistory) > 500 {
 		m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
@@ -126,7 +141,7 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		// mutated by a background goroutine.
 		text, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
 		applyChatResponseMsg(m, chat.ChatResponseMsg{Text: text, Error: err}, thinkingIdx)
-		return nil
+		return agentCmd
 	}
 	go func() {
 		text, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
