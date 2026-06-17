@@ -680,8 +680,11 @@ func TestOnUserPromptInitializesEmptyActiveRules(t *testing.T) {
 	a := NewActivator(nil)
 	a.OnSessionStart(sidA, StartOptions{AutoOn: true})
 	rules, ok := a.OnUserPrompt(sidA, "anything")
-	if ok || rules != nil {
-		t.Errorf("expected (nil, false) for empty active rules, got (%v, %v)", rules, ok)
+	if ok {
+		t.Errorf("expected ok=false for empty active rules, got ok=%v", ok)
+	}
+	if len(rules) != 0 {
+		t.Errorf("expected empty rules, got %v", rules)
 	}
 }
 
