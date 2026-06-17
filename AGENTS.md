@@ -387,6 +387,7 @@ SIN-Code/
 │   │       ├── auto_mem/      ← v3.20.0: byte-stable MEMORY.md (Claude-Auto-Memory parity, M3-safe)
 │   │       ├── rules/         ← v3.20.0: path-scoped rule loader (Claude-Code v2.1 parity, issue #195)
 │   │       ├── sdk/           ← v3.20.0: in-process MCP Go-SDK wrapper (issue #202)
+│   │       ├── agentteams/    ← v3.20.0: file-locked agent-team mailbox (issue #203)
 │   │       ├── loopbuilder/   ← v3.4.0: shared factory (DRY)
 │   │       ├── vane/          ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (internal/vane)
 │   │       ├── stack/         ← v3.8.0: unified install/doctor across 3 layers
