@@ -96,3 +96,28 @@ func TestRenderCommands_Sorted(t *testing.T) {
 		t.Errorf("expected sorted commands, got %v", r.CommandsToRun)
 	}
 }
+
+func TestRenderPRTitle_NoFiles(t *testing.T) {
+	// Fixable issues with no File field -> title omits the file list.
+	issues := []Issue{
+		{Class: ClassTrivial, File: ""},
+		{Class: ClassMechanical, File: ""},
+	}
+	r := NewReport(".", issues)
+	want := "autopr: fix 2 trivial issues"
+	if r.PRTitle != want {
+		t.Errorf("expected title %q, got %q", want, r.PRTitle)
+	}
+}
+
+func TestRenderPRTitle_OneFile(t *testing.T) {
+	// Exactly one file -> title lists that file.
+	issues := []Issue{
+		{Class: ClassTrivial, File: "a.go"},
+	}
+	r := NewReport(".", issues)
+	want := "autopr: fix 1 trivial issues (a.go)"
+	if r.PRTitle != want {
+		t.Errorf("expected title %q, got %q", want, r.PRTitle)
+	}
+}

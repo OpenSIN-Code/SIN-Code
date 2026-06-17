@@ -116,3 +116,33 @@ func TestClassifyQuestionMarkWeak(t *testing.T) {
 			got.Mode, got.Reason)
 	}
 }
+
+func TestClassifyTiebreakByHitIndex(t *testing.T) {
+	// The production rules all have distinct weights, so the
+	// equal-weight tie-break branch is only reachable via the
+	// package-level rules hook variable.
+	orig := rules
+	defer func() { rules = orig }()
+
+	rules = []rule{
+		{
+			Name:    "late_hit",
+			Mode:    permission.ModePlan,
+			Reason:  "late hit",
+			Weight:  5,
+			Phrases: []string{"world"},
+		},
+		{
+			Name:    "early_hit",
+			Mode:    permission.ModeAcceptEdits,
+			Reason:  "early hit",
+			Weight:  5,
+			Phrases: []string{"hello"},
+		},
+	}
+
+	got := Classify("hello world")
+	if got.Mode != permission.ModeAcceptEdits || got.Reason != "early hit" {
+		t.Errorf("tiebreak by earliest hit: got mode=%q reason=%q, want acceptEdits/early hit", got.Mode, got.Reason)
+	}
+}

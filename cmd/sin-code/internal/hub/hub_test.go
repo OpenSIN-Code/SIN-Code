@@ -223,3 +223,38 @@ func TestFormatDetailShowsMetadata(t *testing.T) {
 		}
 	}
 }
+
+func TestFormatDetailDestructive(t *testing.T) {
+	out := FormatDetail(Tool{
+		Name:        "test",
+		Short:       "short",
+		Description: "desc",
+		Example:     "ex",
+		Destructive: true,
+	})
+	for _, want := range []string{"Hint:", "destructive"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("FormatDetail missing %q; got %q", want, out)
+		}
+	}
+}
+
+func TestFormatListUsesNamespace(t *testing.T) {
+	out := FormatList([]Tool{{Name: "name", Namespace: "ns_name", Short: "short"}})
+	if !strings.Contains(out, "ns_name") {
+		t.Fatalf("FormatList should use namespace when it differs from name; got %q", out)
+	}
+}
+
+func TestFormatCategoriesUsesNamespace(t *testing.T) {
+	out := FormatCategories([]Category{
+		{
+			Name:        "Category",
+			Description: "desc",
+			Tools:       []Tool{{Name: "name", Namespace: "ns_name", Short: "short"}},
+		},
+	})
+	if !strings.Contains(out, "ns_name") {
+		t.Fatalf("FormatCategories should use namespace when it differs from name; got %q", out)
+	}
+}
