@@ -73,6 +73,35 @@ sin-code eval run --dataset evals/critical.json \
     --judge-key-env OPENAI_API_KEY
 ```
 
+## Real-model completion (issue #261)
+
+By default, `sin-code eval run` uses the offline stub (`eval_cmd.co`
+echoes the prompt back). Use `--use-model` (or `SIN_EVAL_USE_MODEL=1`) to
+route each case through the configured OpenAI-compatible chat completion
+instead.
+
+```bash
+sin-code eval run --dataset evals/test-generation.json \
+    --use-model \
+    --min-pass-rate 0.5
+```
+
+Requires either:
+
+- `LLM_API_KEY` env var, or
+- `llm.api_key` in user/project config (see `sin-code config get llm.api_key`).
+
+`LLM_MODEL` env var or `llm.model` config is also required. The endpoint
+defaults to `https://integrate.api.nvidia.com/v1`; override via
+`llm.base_url`.
+
+Byte-stability: without `--use-model` (the default) the same CI runs as
+before (`sin-code eval list` payloads, structural-keyword assertions,
+`compile_and_run` scorers, etc.). With `--use-model`, results become
+model-dependent — `eval snapshot`/`eval diff` retain their determinism
+because the snapshot is taken on top of whatever the model produced.
+
+
 ## CI integration
 
 The `eval-n8n.yml` GitHub Actions workflow delegates dataset runs to the

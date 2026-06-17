@@ -32,6 +32,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/dataset"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/eval"
@@ -103,6 +104,11 @@ func newEvalRunCmd() *cobra.Command {
 		scorerSelfChk string
 		scorerSkip    bool
 		scorerBinary  string
+		// useModel switches the offline stub to a real OpenAI-compatible
+		// chat completion. Wired through internal/llm.Client + agentloop's
+		// provider adapter. Off by default — preserves the byte-stable
+		// CI behaviour callers have relied on since #75.
+		useModel bool
 	)
 
 	cmd := &cobra.Command{
@@ -157,14 +163,30 @@ func newEvalRunCmd() *cobra.Command {
 			// (the LLMs model would just hallucinate the verify-mode field).
 			gate := verify.NewGate("off", nil, nil)
 
+			// --use-model opt-in switch (issue #261): route to a real
+			// chat completion instead of the offline stub. The
+			// default is the stub so existing CI runs stay byte-stable
+			// unless they actively opt in.
+			useModel = useModel || strings.TrimSpace(os.Getenv("SIN_EVAL_USE_MODEL")) == "1"
+
 			loop := &agentloop.Loop{
 				Gate:         gate,
 				Workspace:    workspaceRoot(datasetPath),
 				MaxTurns:     80,
 				SystemPrompt: style.RenderSystemPrompt("default"),
 				Hooks:        &hooks.Engine{}, // empty: no user hooks during eval
-				// Completion funcs left nil -> RunOverride is required.
-				RunOverride: stubRunOverride,
+			}
+			if useModel {
+				completion, merr := buildEvalCompletion()
+				if merr != nil {
+					return fmt.Errorf("eval run: --use-model: %w", merr)
+				}
+				loop.Completion = completion
+			} else {
+				// Default legacy path: offline stub. The runner does not
+				// need a real agent loop to evaluate structural rules; it
+				// is byte-stable across releases (#75).
+				loop.RunOverride = stubRunOverride
 			}
 
 			var overrideScorer evalharness.Scorer
@@ -237,6 +259,7 @@ func newEvalRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&scorerSelfChk, "self-check", "", "Self-check code for --scorer compile-and-run")
 	cmd.Flags().BoolVar(&scorerSkip, "skip-test", false, "YAGNI mode: accept compile-only for trivial one-liners")
 	cmd.Flags().StringVar(&scorerBinary, "scorer-binary", "", "Explicit compiler/interpreter for --scorer compile-and-run")
+	cmd.Flags().BoolVar(&useModel, "use-model", false, "Run each dataset case through the configured LLM instead of the offline stub (issue #261). Requires llm.api_key in config or LLM_API_KEY env.")
 
 	cmd.MarkFlagRequired("dataset")
 	return cmd
@@ -305,6 +328,45 @@ func mustParseExporter(s string) sinctrace.ExporterKind {
 		return sinctrace.ExporterNoop
 	}
 	return kind
+}
+
+// buildEvalCompletion constructs a chat-completion func for the agent
+// loop when --use-model is in effect (issue #261). The client honours
+// llm.base_url / llm.api_key / llm.model from the merged config, with
+// env vars LLM_API_KEY / LLM_MODEL overriding transparently.
+func buildEvalCompletion() (func(ctx context.Context, history []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error), error) {
+	cfg, err := internal.LoadMergedConfig()
+	if err != nil {
+		return nil, fmt.Errorf("load config: %w", err)
+	}
+	apiKey := strings.TrimSpace(os.Getenv("LLM_API_KEY"))
+	if apiKey == "" {
+		apiKey = strings.TrimSpace(cfg.LLMAPIKey)
+	}
+	if apiKey == "" {
+		return nil, fmt.Errorf("LLM_API_KEY env or llm.api_key config required")
+	}
+	baseURL := strings.TrimSpace(cfg.LLMBaseURL)
+	if baseURL == "" {
+		baseURL = "https://integrate.api.nvidia.com/v1"
+	}
+	model := strings.TrimSpace(os.Getenv("LLM_MODEL"))
+	if model == "" {
+		model = strings.TrimSpace(cfg.LLMModel)
+	}
+	if model == "" {
+		return nil, fmt.Errorf("LLM_MODEL env or llm.model config required")
+	}
+	client := llm.NewClient(baseURL, apiKey)
+	maxTokens := cfg.LLMMaxTokens
+	if maxTokens <= 0 {
+		maxTokens = 2048
+	}
+	temperature := cfg.LLMTemperature
+	if temperature == 0 {
+		temperature = 0.2
+	}
+	return agentloop.NewProviderCompletion(client, model, maxTokens, temperature), nil
 }
 
 // applyJudge runs the LLM-as-a-Judge over results and writes the

@@ -140,3 +140,4 @@ func TestSimpleTypeAndZeroValue(t *testing.T) {
 		t.Error("unexpected zero values")
 	}
 }
+
