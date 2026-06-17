@@ -26,7 +26,7 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 			textHeight = min(lines+2, 10)
 		}
 	}
-	chatHeight := height - textHeight - 2
+	chatHeight := height - textHeight - 3
 	if chatHeight < 3 {
 		chatHeight = 3
 	}
@@ -36,12 +36,32 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 		return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, styles.Muted.Render(welcome))
 	}
 
+	modelName := m.Footer.ModelName
+	if modelName == "" {
+		modelName = m.Footer.AgentName()
+	}
+	m.SessionInfo.Update(shortSessionID(m.Tabs.Active().Name), modelName, countUserTurns(m.ChatHistory), m.VerifyPanel.State == VerifyPassed)
+	m.TokenBar.Update(m.Footer.Tokens, parseCostStr(m.Footer.Cost), modelName)
+
+	highlighter := NewSyntaxHighlighter(styles.Theme)
+
 	var content strings.Builder
-	mdRenderer := newMarkdownRenderer(styles)
+	isStreaming := m.Footer.Streaming
+	compact := m.CompactMode != nil && m.CompactMode.Active()
 
 	for i, msg := range m.ChatHistory {
-		rendered := renderChatMessageCompact(msg, mdRenderer, styles, width, i == m.ChatFocusIdx, m.Spinner)
+		if compact {
+			content.WriteString(renderCompactMessage(msg, styles, width, i == m.ChatFocusIdx, m.Spinner))
+			continue
+		}
+		isLast := i == len(m.ChatHistory)-1
+		msgStreaming := isLast && isStreaming && (msg.Kind == chatAssistant || msg.Kind == chatThinking)
+		rendered := renderChatMessageV2(msg, highlighter, styles, width, i == m.ChatFocusIdx, m.Spinner, msgStreaming)
 		content.WriteString(rendered)
+
+		if i < len(m.ChatHistory)-1 {
+			content.WriteString("\n")
+		}
 	}
 
 	m.ChatViewport.SetWidth(width)
@@ -52,17 +72,23 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 	}
 
 	var b strings.Builder
+	b.WriteString(m.SessionInfo.Render(styles, width))
+	b.WriteString("\n")
 	b.WriteString(m.ChatViewport.View())
 
 	if m.Mode == ModeSearch {
 		b.WriteString("\n")
-		b.WriteString(styles.AccentText.Render("/" + m.SearchInput.View()))
+		if m.ChatSearch != nil {
+			b.WriteString(m.ChatSearch.RenderBar(styles))
+		} else {
+			b.WriteString(styles.AccentText.Render("/" + m.SearchInput.View()))
+		}
 	}
 
 	b.WriteString("\n")
 	b.WriteString(styles.Muted.Render(strings.Repeat("─", width)))
 	b.WriteString("\n")
-	b.WriteString(renderContextBar(m.Footer.Tokens, 128000, styles, width))
+	b.WriteString(m.TokenBar.Render(styles, width))
 	b.WriteString("\n")
 	if m.ChatInput != nil {
 		m.ChatInput.SetSize(width, textHeight)
@@ -72,7 +98,7 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 	return b.String()
 }
 
-func renderChatMessageCompact(msg ChatMessage, md *markdownRenderer, styles Styles, width int, focused bool, spinner Spinner) string {
+func renderChatMessageV2(msg ChatMessage, highlighter *SyntaxHighlighter, styles Styles, width int, focused bool, spinner Spinner, streaming bool) string {
 	var b strings.Builder
 
 	focusPrefix := ""
@@ -82,57 +108,26 @@ func renderChatMessageCompact(msg ChatMessage, md *markdownRenderer, styles Styl
 
 	switch msg.Kind {
 	case chatUser:
-		label := styles.Bold.Render("You")
-		body := wrapText(msg.Text, width-6)
-		block := styles.UserBlock.Width(width - 4).Render(label + "\n" + body)
-		b.WriteString(block)
+		b.WriteString(renderUserBubble(msg, styles, width))
 		b.WriteString("\n")
 
 	case chatAssistant:
-		rendered := md.render(msg.Text)
-		label := styles.Bold.Render("Assistant")
-		block := styles.AssistantBlock.Width(width - 4).Render(label + "\n" + strings.TrimRight(rendered, "\n"))
-		b.WriteString(block)
+		b.WriteString(renderAssistantBubble(msg, highlighter, styles, width, streaming, spinner))
 		b.WriteString("\n")
 
 	case chatTool:
-		if msg.Expanded {
-			hdr := styles.ToolCardHdr.Render(focusPrefix + "⚡ " + msg.Tool)
-			var cardBody strings.Builder
-			cardBody.WriteString(hdr)
-			cardBody.WriteString("\n")
-			if msg.ToolInput != "" {
-				cardBody.WriteString(styles.Muted.Render("  input: "))
-				cardBody.WriteString(styles.Muted.Render(msg.ToolInput))
-				cardBody.WriteString("\n")
+		b.WriteString(renderToolCard(msg, styles, width, focused))
+		if isFileModifyingTool(msg.Tool) {
+			diffText := extractDiffFromOutput(msg.ToolOutput)
+			if diffText == "" {
+				diffText = extractDiffFromOutput(msg.Detail)
 			}
-			output := msg.ToolOutput
-			if output == "" {
-				output = msg.Detail
-			}
-			if output != "" {
-				cardBody.WriteString(renderToolOutput(output, styles, width))
-			}
-			card := styles.ToolCard.Width(width - 4).Render(cardBody.String())
-			b.WriteString(card)
-		} else {
-			if msg.Result {
-				b.WriteString(styles.StatusOK.Render(focusPrefix + "✓ " + msg.Tool))
-				if msg.Detail != "" {
-					detail := msg.Detail
-					if len(detail) > 60 {
-						detail = detail[:57] + "..."
-					}
-					b.WriteString(styles.Muted.Render(" → " + detail))
-				}
-			} else {
-				b.WriteString(styles.AccentText.Render(focusPrefix + "⚡ " + msg.Tool))
-				if msg.Detail != "" {
-					detail := msg.Detail
-					if len(detail) > 60 {
-						detail = detail[:57] + "..."
-					}
-					b.WriteString(styles.Muted.Render(" " + detail))
+			if diffText != "" {
+				renderer := NewDiffRenderer(styles)
+				compact := renderer.RenderCompact(diffText, styles, width-4)
+				if compact != "" {
+					b.WriteString(compact)
+					b.WriteString("\n")
 				}
 			}
 		}
@@ -161,18 +156,17 @@ func renderChatMessageCompact(msg ChatMessage, md *markdownRenderer, styles Styl
 		b.WriteString("\n")
 
 	case chatError:
-		b.WriteString(renderErrorExpanded(msg, styles, width))
-		b.WriteString("\n")
+		b.WriteString(renderErrorBubble(msg, styles, width))
 
 	case chatThinking:
-		b.WriteString(spinner.ViewThemed(styles.Spinner, styles.Theme))
-		b.WriteString(" ")
-		b.WriteString(styles.AccentText.Render("thinking..."))
+		anim := NewThinkingAnimation()
+		anim.SetFrame(spinner.Frame() % len(thinkingFrames))
+		anim.SetStart(msg.Timestamp)
+		b.WriteString(anim.Render(styles))
 		b.WriteString("\n")
 
 	case chatSystem:
-		b.WriteString(styles.StatusWarn.Render(focusPrefix + "⚠ " + msg.Text))
-		b.WriteString("\n")
+		b.WriteString(renderSystemBubble(msg, styles, width))
 
 	case chatAgent:
 		b.WriteString(styles.Muted.Render(focusPrefix + "⟳ " + msg.Text))
@@ -180,6 +174,104 @@ func renderChatMessageCompact(msg ChatMessage, md *markdownRenderer, styles Styl
 	}
 
 	return b.String()
+}
+
+func renderThinkingIndicator(spinner Spinner, styles Styles) string {
+	anim := NewThinkingAnimation()
+	anim.SetFrame(spinner.Frame() % len(thinkingFrames))
+	return anim.Render(styles)
+}
+
+func renderMarkdownWithCodeBlocks(text string, highlighter *SyntaxHighlighter, styles Styles, width int) string {
+	if text == "" {
+		return ""
+	}
+
+	lines := strings.Split(text, "\n")
+	var b strings.Builder
+	var textBuf strings.Builder
+	inBlock := false
+	var blockLang string
+	var blockBuf strings.Builder
+
+	flushText := func() {
+		if textBuf.Len() == 0 {
+			return
+		}
+		rendered := renderMarkdownSimple(textBuf.String(), styles, width)
+		b.WriteString(strings.TrimRight(rendered, "\n"))
+		textBuf.Reset()
+	}
+
+	flushCode := func() {
+		code := strings.TrimSuffix(blockBuf.String(), "\n")
+		code = strings.TrimPrefix(code, "\n")
+		if code != "" {
+			rendered := renderCodeBlock(code, blockLang, highlighter, styles, width, false)
+			b.WriteString(rendered)
+		}
+		blockBuf.Reset()
+	}
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "```") {
+			if !inBlock {
+				flushText()
+				if b.Len() > 0 {
+					b.WriteString("\n\n")
+				}
+				inBlock = true
+				blockLang = strings.TrimSpace(strings.TrimPrefix(trimmed, "```"))
+			} else {
+				flushCode()
+				b.WriteString("\n")
+				inBlock = false
+				blockLang = ""
+			}
+		} else if inBlock {
+			blockBuf.WriteString(line)
+			blockBuf.WriteString("\n")
+		} else {
+			textBuf.WriteString(line)
+			textBuf.WriteString("\n")
+		}
+	}
+
+	if inBlock {
+		flushCode()
+	} else {
+		flushText()
+	}
+
+	return b.String()
+}
+
+func renderMarkdownSimple(text string, styles Styles, width int) string {
+	if text == "" {
+		return ""
+	}
+
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStandardStyle("dark"),
+		glamour.WithWordWrap(width),
+	)
+	if err != nil {
+		return strings.TrimRight(text, "\n")
+	}
+
+	rendered, err := r.Render(text)
+	if err != nil {
+		return strings.TrimRight(text, "\n")
+	}
+
+	return strings.TrimSpace(rendered)
+}
+
+func renderChatMessageCompact(msg ChatMessage, md *markdownRenderer, styles Styles, width int, focused bool, spinner Spinner) string {
+	highlighter := NewSyntaxHighlighter(styles.Theme)
+	isStreaming := msg.Kind == chatThinking
+	return renderChatMessageV2(msg, highlighter, styles, width, focused, spinner, isStreaming)
 }
 
 func renderVerificationCompact(status, message string, styles Styles) string {
@@ -311,68 +403,17 @@ func renderError(err string, styles Styles) string {
 }
 
 func renderErrorExpanded(msg ChatMessage, styles Styles, width int) string {
-	errText := msg.Text
-	if errText == "" && msg.Error != nil {
-		errText = msg.Error.Error()
-	}
-	if !msg.Expanded {
-		short := truncateString(errText, width-4)
-		return styles.StatusErr.Render("❌ " + short)
-	}
-
-	panelStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(c(styles.Theme.Error)).
-		Padding(0, 1).
-		Width(width - 2)
-
-	body := styles.StatusErr.Render(errText) + "\n" + styles.Muted.Render("Press enter to collapse")
-	return panelStyle.Render(body)
+	return renderErrorBubble(msg, styles, width)
 }
 
-func renderContextBar(tokens int, maxTokens int, styles Styles, width int) string {
-	if width < 10 {
-		width = 10
+func countUserTurns(history []ChatMessage) int {
+	n := 0
+	for _, msg := range history {
+		if msg.Kind == chatUser {
+			n++
+		}
 	}
-	if maxTokens <= 0 {
-		maxTokens = 128000
-	}
-	pct := float64(tokens) / float64(maxTokens)
-	if pct < 0 {
-		pct = 0
-	}
-	if pct > 1 {
-		pct = 1
-	}
-
-	label := fmt.Sprintf("%s/%s (%.0f%%)", formatTokens(tokens), formatTokens(maxTokens), pct*100)
-	labelWidth := lipgloss.Width(label)
-	barWidth := width - labelWidth - 3
-	if barWidth < 4 {
-		barWidth = 4
-	}
-
-	filled := int(float64(barWidth) * pct)
-	if filled > barWidth {
-		filled = barWidth
-	}
-	if filled < 0 {
-		filled = 0
-	}
-
-	var colorStr string
-	switch {
-	case pct < 0.5:
-		colorStr = styles.Theme.Success
-	case pct < 0.8:
-		colorStr = styles.Theme.Warn
-	default:
-		colorStr = styles.Theme.Error
-	}
-
-	barStyle := lipgloss.NewStyle().Foreground(c(colorStr))
-	bar := barStyle.Render(strings.Repeat("█", filled)) + styles.Muted.Render(strings.Repeat("░", barWidth-filled))
-	return bar + " " + styles.Muted.Render(label)
+	return n
 }
 
 func looksLikeGoCode(s string) bool {
@@ -394,18 +435,10 @@ func renderToolOutput(output string, styles Styles, width int) string {
 		width = 10
 	}
 
+	highlighter := NewSyntaxHighlighter(styles.Theme)
+
 	if looksLikeGoCode(output) {
-		codeBlock := "```go\n" + output + "\n```"
-		r, err := glamour.NewTermRenderer(
-			glamour.WithStandardStyle("dark"),
-			glamour.WithWordWrap(width),
-		)
-		if err == nil {
-			rendered, err := r.Render(codeBlock)
-			if err == nil {
-				return strings.TrimRight(rendered, "\n")
-			}
-		}
+		return renderCodeBlock(output, "go", highlighter, styles, width, false) + "\n"
 	}
 
 	panelStyle := lipgloss.NewStyle().

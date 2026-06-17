@@ -72,12 +72,13 @@ func DefaultKeymapConfig() KeymapConfig {
 			"tool_down": km.ToolDown.Keys(),
 		},
 		Chat: ContextBindings{
-			"submit":       km.Submit.Keys(),
-			"cancel":       km.Cancel.Keys(),
-			"search":       km.Search.Keys(),
-			"copy_message": km.CopyMessage.Keys(),
-			"scroll_up":    km.ScrollUp.Keys(),
-			"scroll_down":  km.ScrollDown.Keys(),
+			"submit":         km.Submit.Keys(),
+			"cancel":         km.Cancel.Keys(),
+			"search":         km.Search.Keys(),
+			"copy_message":   km.CopyMessage.Keys(),
+			"scroll_up":      km.ScrollUp.Keys(),
+			"scroll_down":    km.ScrollDown.Keys(),
+			"compact_toggle": km.CompactToggle.Keys(),
 		},
 		Sessions: ContextBindings{
 			"new_session":    km.NewSession.Keys(),
@@ -152,6 +153,7 @@ func (c KeymapConfig) ToKeymap() Keymap {
 	applyCtx(&km.CopyMessage, c.Chat, "copy_message")
 	applyCtx(&km.ScrollUp, c.Chat, "scroll_up")
 	applyCtx(&km.ScrollDown, c.Chat, "scroll_down")
+	applyCtx(&km.CompactToggle, c.Chat, "compact_toggle")
 
 	applyCtx(&km.NewSession, c.Sessions, "new_session")
 	applyCtx(&km.CloseSession, c.Sessions, "close_session")

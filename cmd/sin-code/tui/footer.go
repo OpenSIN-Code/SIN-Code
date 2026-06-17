@@ -33,6 +33,10 @@ type Footer struct {
 	GitBranch       string
 	EstimatedCost   float64
 	EstimatedTokens int
+
+	PermissionPopup *PermissionPopup
+	Transition      *Transition
+	Toast           *Toast
 }
 
 type HintPair struct {
@@ -118,15 +122,18 @@ func DefaultHints(view ViewKind) []HintPair {
 
 func NewFooter(width int) Footer {
 	return Footer{
-		view:       ViewTools,
-		AgentIndex: 0,
-		Tokens:     0,
-		TokensPct:  0,
-		Cost:       "$0.00",
-		Width:      width,
-		ShowHints:  true,
-		HintKeys:   DefaultHints(ViewTools),
-		Spinner:    NewSpinner(),
+		view:           ViewTools,
+		AgentIndex:     0,
+		Tokens:         0,
+		TokensPct:      0,
+		Cost:           "$0.00",
+		Width:          width,
+		ShowHints:      true,
+		HintKeys:       DefaultHints(ViewTools),
+		Spinner:        NewSpinner(),
+		PermissionPopup: NewPermissionPopup(),
+		Transition:      NewTransition(),
+		Toast:           NewToast(),
 	}
 }
 
@@ -352,4 +359,25 @@ func footerCount(f Footer, label string, icon rune) string {
 		return fmt.Sprintf("%c %d %s", icon, f.TodoReady, label)
 	}
 	return fmt.Sprintf("%c %d open", icon, f.TodoOpen)
+}
+
+func (f *Footer) ShowToast(kind ToastKind, message string) {
+	if f.Toast != nil {
+		f.Toast.Show(kind, message)
+	}
+}
+
+func (f *Footer) StartTransition(kind TransitionKind) {
+	if f.Transition != nil {
+		f.Transition.Start(kind)
+	}
+}
+
+func (f *Footer) TickOverlays() {
+	if f.Transition != nil {
+		f.Transition.Tick()
+	}
+	if f.Toast != nil {
+		f.Toast.Tick()
+	}
 }

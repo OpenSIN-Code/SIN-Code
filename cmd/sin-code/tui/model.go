@@ -72,14 +72,16 @@ type ThemeState struct {
 }
 
 type ChatState struct {
-	ChatInput     *chatInput
-	ChatHistory   []ChatMessage
-	ChatRunner    *chat.Runner
-	ChatViewport  viewport.Model
-	ChatFocusIdx  int
-	SearchQuery   string
-	SearchMatches []int
-	SearchInput   textinput.Model
+	ChatInput        *chatInput
+	ChatHistory      []ChatMessage
+	ChatRunner       *chat.Runner
+	ChatViewport     viewport.Model
+	ChatFocusIdx     int
+	SearchQuery      string
+	SearchMatches    []int
+	SearchInput      textinput.Model
+	SlashAutocomplete *SlashAutocomplete
+	ChatSearch       *ChatSearch
 }
 
 type AgentState struct {
@@ -156,6 +158,14 @@ type ContextState struct {
 	Compacted  bool
 }
 
+type AgentRunnerConfig struct {
+	Yolo       bool
+	MaxTurns   int
+	Model      string
+	VerifyMode string
+	VerifyCmd  string
+}
+
 type AgentSessionRow struct {
 	ID          string
 	AgentName   string
@@ -200,6 +210,8 @@ type Model struct {
 	SessionTreeVisible bool
 	VerifyPanelFull    bool
 
+	AgentConfig AgentRunnerConfig
+
 	ChatState
 	AgentState
 	ToolState
@@ -234,6 +246,20 @@ type Model struct {
 
 	// Inline diff view (issue #279)
 	InlineDiffOpen bool
+
+	// Token/cost/context bar (chat view)
+	TokenBar *TokenBar
+
+	// Compact rendering toggle (chat view)
+	CompactMode *CompactMode
+
+	// Session info bar (chat view)
+	SessionInfo *SessionInfo
+
+	// Split pane layout (F2 toggle)
+	SplitPane   *SplitPane
+	FileBrowser *FileBrowser
+	FileViewer  *FileViewer
 }
 
 func (m *Model) ctx() context.Context {
@@ -370,11 +396,24 @@ func NewModel() *Model {
 			ToolItems: items,
 		},
 		ChatState: ChatState{
-			ChatViewport: viewport.New(viewport.WithWidth(80), viewport.WithHeight(20)),
-			SearchInput:  searchInput,
+			ChatViewport:      viewport.New(viewport.WithWidth(80), viewport.WithHeight(20)),
+			SearchInput:       searchInput,
+			SlashAutocomplete: NewSlashAutocomplete(),
+			ChatSearch:        NewChatSearch(),
 		},
 		ContextState:        DefaultContextState(),
 		AgentDashboardState: DefaultAgentDashboardState(),
+		AgentConfig: AgentRunnerConfig{
+			Yolo:       false,
+			MaxTurns:   20,
+			VerifyMode: "poc",
+		},
+		TokenBar:    NewTokenBar(128000),
+		CompactMode: NewCompactMode(),
+		SessionInfo: NewSessionInfo(),
+		SplitPane:   NewSplitPane(),
+		FileBrowser: NewFileBrowser(""),
+		FileViewer:  NewFileViewer(),
 	}
 	m.Footer.SetView(ViewChat)
 	m.Footer.ShowHints = false

@@ -36,8 +36,8 @@ func (m *Model) initAgentRunner() *agentrunner.AgentRunner {
 	r, err := newAgentRunnerHook(m.ctx(), agentrunner.Config{
 		Workspace:   ws,
 		Headless:    false,
-		Yolo:        false,
-		MaxTurns:    20,
+		Yolo:        m.AgentConfig.Yolo,
+		MaxTurns:    m.AgentConfig.MaxTurns,
 		ToolFactory: tuiToolFactory(ws),
 	})
 	if err != nil {

@@ -31,6 +31,7 @@ var (
 	keyDebugLayout   = key.NewBinding(key.WithKeys("ctrl+l"), key.WithHelp("^l", "debug layout"))
 	keyInlineDiff    = key.NewBinding(key.WithKeys("ctrl+i"), key.WithHelp("^i", "inline diff"))
 	keyClosePreview  = key.NewBinding(key.WithKeys("ctrl+f"), key.WithHelp("^f", "close preview"))
+	keySplitPane     = key.NewBinding(key.WithKeys("f2"), key.WithHelp("F2", "split pane"))
 	keyLeft          = key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "left"))
 	keyRight         = key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "right"))
 	keyUp            = key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up"))
@@ -43,6 +44,7 @@ func (m *Model) Init() tea.Cmd {
 		ListenForNotifications(),
 		RefreshTodosCmd(),
 		RefreshSessionTreeCmd(),
+		RefreshLSPCmd(),
 		InitGitRefresh(),
 	}
 	return tea.Batch(cmds...)
@@ -76,9 +78,19 @@ func (m *Model) CycleTheme() {
 }
 
 func (m *Model) SwitchView(v ViewKind) {
+	old := m.ViewKind
 	m.ViewKind = v
 	m.Sidebar.SetSelectedView(v)
 	m.Footer.SetView(v)
+	if m.Footer.Transition != nil && old != v {
+		fwd := (int(v) - int(old) + viewCount) % viewCount
+		bwd := (int(old) - int(v) + viewCount) % viewCount
+		if fwd <= bwd {
+			m.Footer.Transition.Start(TransitionSlideLeft)
+		} else {
+			m.Footer.Transition.Start(TransitionSlideRight)
+		}
+	}
 }
 
 func (m *Model) NextView() {
@@ -240,6 +252,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
+		m.Footer.TickOverlays()
 		return m, tea.Batch(cmds...)
 
 	case NotificationMsg:
@@ -285,6 +298,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case AgentRunnerMsg:
 		m.handleAgentRunnerEvent(msg)
+		if msg.Closed {
+			m.Footer.ShowToast(ToastSuccess, "Agent run complete")
+		}
 		if !msg.Closed && m.AgentRunner != nil {
 			cmds = append(cmds, listenAgentRunnerCmd(m.AgentRunner))
 		}
@@ -304,10 +320,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ReloadMsg:
 		HandleReload(m)
+		m.Footer.ShowToast(ToastInfo, "Session saved")
 		return m, nil
 
 	case VerifyUpdateMsg:
 		HandleVerifyUpdate(&m.VerifyPanel, msg)
+		switch msg.State {
+		case VerifyPassed:
+			m.Footer.ShowToast(ToastSuccess, "Verified")
+		case VerifyFailed:
+			m.Footer.ShowToast(ToastError, "Verification failed")
+		}
 		return m, nil
 
 	case ToolCallTreeMsg:
@@ -408,6 +431,8 @@ func isGlobalHotkey(msg tea.KeyMsg) bool {
 		return true
 	case key == "esc", key == "q":
 		return true
+	case key == "f2":
+		return true
 	case key >= "0" && key <= "9":
 		return true // view jump keys (0-9)
 	case key == "y" || key == "n":
@@ -440,10 +465,57 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleModelSelectorKey(msg)
 	}
 	if m.Mode == ModePermissionDialog {
+		k := msg.String()
+		if k == "a" || k == "A" {
+			m.answerPendingAsk(true)
+			m.ClosePermissionDialog()
+			if m.Footer.PermissionPopup != nil {
+				m.Footer.PermissionPopup.Dismiss()
+			}
+			m.Footer.ShowToast(ToastSuccess, "Always allow: rule added")
+			return m, nil
+		}
 		return m.handlePermissionDialogKey(msg)
 	}
 	if m.Mode == ModeSearch {
 		return m.handleSearchKey(msg)
+	}
+
+	if m.SplitPane.Active() && m.SplitPane.SideKind() == PaneFileViewer && m.ViewKind == ViewChat {
+		switch {
+		case key.Matches(msg, keySplitPane):
+			m.ToggleSplitPane()
+			return m, nil
+		case key.Matches(msg, keyUp), key.Matches(msg, keymap.ToolUp):
+			if m.FileViewer.CurrentPath() != "" {
+				m.FileViewer.ScrollUp(1)
+			} else {
+				m.FileBrowser.MoveUp()
+			}
+			return m, nil
+		case key.Matches(msg, keyDown), key.Matches(msg, keymap.ToolDown):
+			if m.FileViewer.CurrentPath() != "" {
+				m.FileViewer.ScrollDown(1)
+			} else {
+				m.FileBrowser.MoveDown()
+			}
+			return m, nil
+		case key.Matches(msg, keyRight), key.Matches(msg, keymap.ShowHelp):
+			if m.FileBrowser.SelectedIsDir() {
+				m.FileBrowser.ToggleExpand()
+			} else {
+				p := m.FileBrowser.SelectedPath()
+				if p != "" {
+					_ = m.FileViewer.Load(p)
+				}
+			}
+			return m, nil
+		case key.Matches(msg, keyLeft):
+			if m.FileViewer.CurrentPath() != "" {
+				m.FileViewer.Clear()
+			}
+			return m, nil
+		}
 	}
 
 	switch {
@@ -512,6 +584,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, keyInlineDiff):
 		m.ToggleInlineDiff()
+		return m, nil
+	case key.Matches(msg, keySplitPane):
+		m.ToggleSplitPane()
 		return m, nil
 	case key.Matches(msg, keyClosePreview) && m.FilePreview != "":
 		m.ClearFilePreview()
@@ -854,7 +929,20 @@ func (m *Model) View() tea.View {
 		content = m.RenderTodos(m.Styles, m.contentWidth(), contentHeight)
 	case ViewChat:
 		m.initChatInput()
-		content = m.renderChat(m.Styles, m.contentWidth(), contentHeight)
+		if m.SplitPane.Active() {
+			cw := m.contentWidth()
+			sideW := m.SplitPane.SideWidth(cw)
+			chatW := cw - sideW - 1
+			if chatW < 20 {
+				chatW = 20
+				sideW = cw - chatW - 1
+			}
+			chatContent := m.renderChat(m.Styles, chatW, contentHeight)
+			sideContent := m.renderSidePanel(m.Styles, sideW, contentHeight)
+			content = joinHorizontal(chatContent, sideContent, chatW, sideW, contentHeight)
+		} else {
+			content = m.renderChat(m.Styles, m.contentWidth(), contentHeight)
+		}
 	case ViewDAG:
 		content = RenderDAGView(m.DAGState, m.Styles, m.contentWidth(), contentHeight)
 	case ViewContextViz:
@@ -888,6 +976,10 @@ func (m *Model) View() tea.View {
 		layout = RenderLayoutDebug(m.Tabs, m.Sidebar, m.ViewKind, content, right, m.Footer, m.Styles, m.Width, m.Height)
 	}
 
+	if m.Footer.Transition != nil && m.Footer.Transition.Active() {
+		layout = m.Footer.Transition.Render(layout, m.Styles, m.Width, m.Height)
+	}
+
 	if m.Mode == ModePalette {
 		popup := RenderCommandPalette(m.Palette.Filter, m.Palette.Sel, m.Palette.Query, m.Styles, m.Width, m.Height)
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
@@ -904,8 +996,23 @@ func (m *Model) View() tea.View {
 		popup := RenderModelSelector(m.ModelSelector, m.Styles, m.Width, m.Height)
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
 	}
-	if m.Mode == ModePermissionDialog {
-		popup := RenderPermissionDialog(m.PermissionDialog, m.Styles, m.Width, m.Height)
+	if m.Mode == ModePermissionDialog && m.Footer.PermissionPopup != nil {
+		req := PermissionRequest{
+			Tool: m.PermissionDialog.ToolName,
+			Args: m.PermissionDialog.Detail,
+			Risk: RiskFromTool(m.PermissionDialog.ToolName, m.PermissionDialog.Detail),
+		}
+		m.Footer.PermissionPopup.SetRequest(req)
+		popup := m.Footer.PermissionPopup.Render(m.Styles, m.Width, m.Height)
+		if popup != "" {
+			layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
+		}
+	} else if m.Footer.PermissionPopup != nil && m.Footer.PermissionPopup.Active() {
+		m.Footer.PermissionPopup.Dismiss()
+	}
+
+	if m.ViewKind == ViewChat && m.Mode == ModeSearch && m.ChatSearch != nil {
+		popup := m.ChatSearch.Render(m.Styles, min(m.Width-8, 70), min(m.Height-6, 20))
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
 	}
 
@@ -968,6 +1075,18 @@ func (m *Model) View() tea.View {
 			Padding(1, 2).
 			Render(tree)
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popupBox)
+	}
+
+	if m.ViewKind == ViewChat && m.SlashAutocomplete != nil && m.SlashAutocomplete.Active() {
+		popup := m.SlashAutocomplete.Render(m.Styles, min(m.Width-8, 70))
+		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Left, lipgloss.Bottom, popup)
+	}
+
+	if m.Footer.Toast != nil && m.Footer.Toast.Active() {
+		toastBox := m.Footer.Toast.Render(m.Styles, m.Width)
+		if toastBox != "" {
+			layout = lipgloss.Place(m.Width, m.Height, lipgloss.Right, lipgloss.Top, toastBox)
+		}
 	}
 
 	v := tea.NewView(layout)
@@ -1087,29 +1206,25 @@ func (m *Model) handleChatResponse(msg chat.ChatResponseMsg) {
 }
 
 func (m *Model) OpenSearch() {
-	m.Mode = ModeSearch
-	m.SearchQuery = ""
-	m.SearchMatches = nil
-	m.SearchInput.SetValue("")
-	m.SearchInput.Placeholder = "Search chat..."
-	m.SearchInput.Focus()
+	m.OpenChatSearch()
 }
 
 func (m *Model) CloseSearch() {
-	m.Mode = ModeNormal
-	m.SearchInput.Blur()
-	m.SearchQuery = ""
-	m.SearchMatches = nil
+	m.CloseChatSearch()
 }
 
 func (m *Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	switch key {
 	case "esc":
-		m.CloseSearch()
+		m.CloseChatSearch()
 		return m, nil
 	case "enter":
-		if len(m.SearchMatches) > 0 {
+		if m.ChatSearch != nil && m.ChatSearch.CurrentResult() != nil {
+			r := m.ChatSearch.CurrentResult()
+			m.ChatFocusIdx = r.MessageIdx
+			m.SearchQuery = m.SearchInput.Value()
+		} else if len(m.SearchMatches) > 0 {
 			idx := m.ChatFocusIdx
 			found := -1
 			for _, mi := range m.SearchMatches {
@@ -1124,17 +1239,33 @@ func (m *Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.ChatFocusIdx = found
 		}
 		return m, nil
+	case "up":
+		if m.ChatSearch != nil {
+			m.ChatSearch.Prev()
+		}
+		return m, nil
+	case "down":
+		if m.ChatSearch != nil {
+			m.ChatSearch.Next()
+		}
+		return m, nil
 	case "backspace":
 		val := m.SearchInput.Value()
 		if len(val) > 0 {
 			m.SearchInput.SetValue(val[:len(val)-1])
 		}
 		m.updateSearchMatches()
+		if m.ChatSearch != nil {
+			m.ChatSearch.Search(m.ChatHistory, m.SearchInput.Value())
+		}
 		return m, nil
 	default:
 		if len(key) == 1 && key[0] >= 32 && key[0] < 127 {
 			m.SearchInput.SetValue(m.SearchInput.Value() + key)
 			m.updateSearchMatches()
+			if m.ChatSearch != nil {
+				m.ChatSearch.Search(m.ChatHistory, m.SearchInput.Value())
+			}
 		}
 		return m, nil
 	}
@@ -1258,4 +1389,55 @@ func (m *Model) handleMouseScrollDown(action MouseAction) tea.Cmd {
 		m.ChatViewport.ScrollDown(3)
 	}
 	return nil
+}
+
+func (m *Model) ToggleSplitPane() {
+	m.SplitPane.Toggle()
+	if m.SplitPane.Active() && m.SplitPane.SideKind() == PaneFileViewer {
+		if m.FileBrowser.Root() == "" || !m.FileBrowser.Loaded() {
+			root := m.Workspace
+			if root == "" {
+				root = "."
+			}
+			m.FileBrowser.SetRoot(root)
+		}
+	}
+}
+
+func (m *Model) renderSidePanel(styles Styles, width, height int) string {
+	if m.FileViewer.CurrentPath() != "" {
+		return m.FileViewer.Render(styles, width, height)
+	}
+	return m.FileBrowser.Render(styles, width, height)
+}
+
+func joinHorizontal(left, right string, leftWidth, rightWidth, height int) string {
+	leftLines := strings.Split(left, "\n")
+	rightLines := strings.Split(right, "\n")
+
+	maxLines := height
+	if len(leftLines) > maxLines {
+		maxLines = len(leftLines)
+	}
+	if len(rightLines) > maxLines {
+		maxLines = len(rightLines)
+	}
+
+	var b strings.Builder
+	for i := 0; i < maxLines; i++ {
+		var l, r string
+		if i < len(leftLines) {
+			l = leftLines[i]
+		}
+		if i < len(rightLines) {
+			r = rightLines[i]
+		}
+		b.WriteString(padRight(l, leftWidth))
+		b.WriteString("│")
+		b.WriteString(padRight(r, rightWidth))
+		if i < maxLines-1 {
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
 }

@@ -3,9 +3,34 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"charm.land/glamour/v2"
 )
+
+var (
+	cachedRenderer *glamour.TermRenderer
+	cachedWidth    int
+	rendererMu     sync.Mutex
+)
+
+func getCachedRenderer(width int) *glamour.TermRenderer {
+	rendererMu.Lock()
+	defer rendererMu.Unlock()
+	if cachedRenderer != nil && cachedWidth == width {
+		return cachedRenderer
+	}
+	r, err := glamour.NewTermRenderer(
+		glamour.WithStandardStyle("dark"),
+		glamour.WithWordWrap(width),
+	)
+	if err != nil {
+		return nil
+	}
+	cachedRenderer = r
+	cachedWidth = width
+	return r
+}
 
 type markdownRenderer struct {
 	styles Styles
@@ -22,12 +47,8 @@ func (m *markdownRenderer) render(text string) string {
 		return ""
 	}
 
-	width := 80
-	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
-		glamour.WithWordWrap(width),
-	)
-	if err != nil {
+	r := getCachedRenderer(80)
+	if r == nil {
 		return strings.TrimRight(text, "\n") + "\n"
 	}
 
@@ -36,7 +57,6 @@ func (m *markdownRenderer) render(text string) string {
 		return strings.TrimRight(text, "\n") + "\n"
 	}
 
-	// Glamour adds leading/trailing newlines — trim them for compact chat display
 	rendered = strings.TrimSpace(rendered)
 	return rendered + "\n"
 }
@@ -83,11 +103,8 @@ func renderMarkdown(text string, styles Styles) string {
 }
 
 func renderMarkdownWithWidth(text string, width int, styles Styles) string {
-	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
-		glamour.WithWordWrap(width),
-	)
-	if err != nil {
+	r := getCachedRenderer(width)
+	if r == nil {
 		return strings.TrimRight(text, "\n") + "\n"
 	}
 
@@ -110,13 +127,7 @@ func truncateString(s string, maxLen int) string {
 }
 
 func formatTokens(tokens int) string {
-	if tokens < 1000 {
-		return fmt.Sprintf("%d", tokens)
-	}
-	if tokens < 1000000 {
-		return fmt.Sprintf("%.1fK", float64(tokens)/1000)
-	}
-	return fmt.Sprintf("%.1fM", float64(tokens)/1000000)
+	return FormatTokens(tokens)
 }
 
 func formatCost(cost float64) string {

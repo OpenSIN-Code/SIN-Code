@@ -115,3 +115,38 @@ func RefreshSessionTreeCmd() tea.Cmd {
 		return SessionTreeMsg{Sessions: data}
 	}
 }
+
+// lspDiagnosticsHook is a test seam for obtaining LSP diagnostics.
+//
+// The internal/lsp package uses an asynchronous notification model:
+// servers push textDocument/publishDiagnostics via a handler registered
+// with Client.SetNotificationHandler. There is no synchronous pull API
+// (no Diagnostics() method), and no global registry of running clients
+// that subscribe.go can reach. Starting an LSP server inside a refresh
+// command would be wrong — servers are long-lived and should be managed
+// by a dedicated goroutine that collects notifications and feeds them
+// here.
+//
+// The default therefore returns nil (graceful degradation): the LSP
+// panel shows "No diagnostics — all clear!" when no server is running,
+// which is correct. When real LSP integration is wired up, a caller
+// replaces this hook with one that reads from whatever diagnostics
+// buffer the notification handler populates.
+var lspDiagnosticsHook = func() ([]LSPDiagnostic, error) {
+	return nil, nil
+}
+
+// RefreshLSPCmd returns a tea.Cmd that fetches diagnostics from the LSP
+// client and emits an LSPDiagnosticsMsg for the Update loop to apply via
+// HandleLSPDiagnostics. Returns nil (no-op) when diagnostics are
+// unavailable — graceful degradation so the TUI never crashes when no
+// LSP server is running.
+func RefreshLSPCmd() tea.Cmd {
+	return func() tea.Msg {
+		diags, err := lspDiagnosticsHook()
+		if err != nil || diags == nil {
+			return nil
+		}
+		return LSPDiagnosticsMsg{Diagnostics: diags}
+	}
+}

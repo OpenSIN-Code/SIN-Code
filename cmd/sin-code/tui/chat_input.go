@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/bubbles/v2/key"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/attachments"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"
@@ -200,6 +201,47 @@ func (m *Model) updateChat(msg tea.Msg) tea.Cmd {
 	if m.ChatInput == nil {
 		return nil
 	}
+
+	if kmsg, ok := msg.(tea.KeyPressMsg); ok {
+		if m.CompactMode != nil && key.Matches(kmsg, keymap.CompactToggle) {
+			m.CompactMode.Toggle()
+			return nil
+		}
+	}
+
+	if m.SlashAutocomplete != nil && m.SlashAutocomplete.Active() {
+		if kp, ok := msg.(tea.KeyPressMsg); ok {
+			key := kp.String()
+			switch key {
+			case "up", "k":
+				m.SlashAutocomplete.MoveUp()
+				return nil
+			case "down", "j":
+				m.SlashAutocomplete.MoveDown()
+				return nil
+			case "tab", "enter":
+				sel := m.SlashAutocomplete.Selected()
+				if sel != nil {
+					insertText := sel.Name
+					if sel.Args != "" {
+						insertText += " "
+					} else {
+						insertText += " "
+					}
+					m.ChatInput.SetValue(insertText)
+					m.SlashAutocomplete.SetActive(false)
+					if sel.Name == "/search" {
+						m.OpenChatSearch()
+					}
+					return nil
+				}
+			case "esc":
+				m.SlashAutocomplete.SetActive(false)
+				return nil
+			}
+		}
+	}
+
 	cmd, submit := m.ChatInput.Update(msg)
 	if submit != nil {
 		agentCmd := handleChatSubmit(m, *submit)
@@ -209,5 +251,45 @@ func (m *Model) updateChat(msg tea.Msg) tea.Cmd {
 		}
 		return cmd
 	}
+
+	m.updateSlashAutocompleteFromInput()
+
 	return cmd
+}
+
+func (m *Model) updateSlashAutocompleteFromInput() {
+	if m.SlashAutocomplete == nil || m.ChatInput == nil {
+		return
+	}
+	raw := m.ChatInput.RawValue()
+	if strings.HasPrefix(raw, "/") && !strings.Contains(raw, "\n") {
+		if !m.SlashAutocomplete.Active() {
+			m.SlashAutocomplete.SetActive(true)
+		}
+		m.SlashAutocomplete.Filter(raw)
+	} else if m.SlashAutocomplete.Active() {
+		m.SlashAutocomplete.SetActive(false)
+	}
+}
+
+func (m *Model) OpenChatSearch() {
+	m.Mode = ModeSearch
+	m.SearchQuery = ""
+	m.SearchMatches = nil
+	m.SearchInput.SetValue("")
+	m.SearchInput.Placeholder = "Search chat..."
+	m.SearchInput.Focus()
+	if m.ChatSearch != nil {
+		m.ChatSearch.Clear()
+	}
+}
+
+func (m *Model) CloseChatSearch() {
+	m.Mode = ModeNormal
+	m.SearchInput.Blur()
+	m.SearchQuery = ""
+	m.SearchMatches = nil
+	if m.ChatSearch != nil {
+		m.ChatSearch.Clear()
+	}
 }

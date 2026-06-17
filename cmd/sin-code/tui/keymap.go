@@ -45,6 +45,8 @@ type Keymap struct {
 	ScrollUp    key.Binding
 	ScrollDown  key.Binding
 
+	CompactToggle key.Binding
+
 	NewSession    key.Binding
 	CloseSession  key.Binding
 	SessionSwitch key.Binding
@@ -85,6 +87,7 @@ func DefaultKeymap() Keymap {
 		CopyMessage:   key.NewBinding(key.WithKeys("y"), key.WithHelp("y", "copy")),
 		ScrollUp:      key.NewBinding(key.WithKeys("pgup", "up"), key.WithHelp("pgup", "scroll up")),
 		ScrollDown:    key.NewBinding(key.WithKeys("pgdown", "down"), key.WithHelp("pgdn", "scroll down")),
+		CompactToggle: key.NewBinding(key.WithKeys("c"), key.WithHelp("c", "compact")),
 		NewSession:    key.NewBinding(key.WithKeys("+"), key.WithHelp("+", "new session")),
 		CloseSession:  key.NewBinding(key.WithKeys("-"), key.WithHelp("-", "close session")),
 		SessionSwitch: key.NewBinding(key.WithKeys("ctrl+g"), key.WithHelp("^g", "switch session")),
@@ -102,7 +105,7 @@ func (k Keymap) HelpView(styles Styles) string {
 		{"Global", []key.Binding{k.Quit, k.Help, k.Palette, k.ToggleSidebar, k.CycleTheme, k.CycleAgent, k.Interrupt}},
 		{"Navigation", []key.Binding{k.NextView, k.PrevView, k.ViewTools, k.ViewSessions, k.ViewEFM, k.ViewConfig, k.ViewHistory, k.ViewTodos, k.ViewChat, k.ViewDAG, k.ViewContext, k.ViewDashboard}},
 		{"Tools", []key.Binding{k.RunTool, k.ShowHelp, k.ToolUp, k.ToolDown}},
-		{"Chat", []key.Binding{k.Submit, k.Cancel, k.Search, k.CopyMessage, k.ScrollUp, k.ScrollDown}},
+		{"Chat", []key.Binding{k.Submit, k.Cancel, k.Search, k.CopyMessage, k.ScrollUp, k.ScrollDown, k.CompactToggle}},
 		{"Sessions", []key.Binding{k.NewSession, k.CloseSession, k.SessionSwitch}},
 		{"Model", []key.Binding{k.ModelSelect}},
 		{"Subagents", []key.Binding{k.Subagents}},
@@ -154,6 +157,7 @@ type KeyOverrides struct {
 	CopyMessage   []string `json:"copy_message,omitempty"`
 	ScrollUp      []string `json:"scroll_up,omitempty"`
 	ScrollDown    []string `json:"scroll_down,omitempty"`
+	CompactToggle []string `json:"compact_toggle,omitempty"`
 	NewSession    []string `json:"new_session,omitempty"`
 	CloseSession  []string `json:"close_session,omitempty"`
 	SessionSwitch []string `json:"session_switch,omitempty"`
@@ -236,6 +240,7 @@ func (k *Keymap) ApplyOverrides(ov KeyOverrides) {
 	k.applyOverride(&k.CopyMessage, ov.CopyMessage)
 	k.applyOverride(&k.ScrollUp, ov.ScrollUp)
 	k.applyOverride(&k.ScrollDown, ov.ScrollDown)
+	k.applyOverride(&k.CompactToggle, ov.CompactToggle)
 	k.applyOverride(&k.NewSession, ov.NewSession)
 	k.applyOverride(&k.CloseSession, ov.CloseSession)
 	k.applyOverride(&k.SessionSwitch, ov.SessionSwitch)

@@ -101,6 +101,10 @@ func (i *Input) RawValue() string {
 	return i.textarea.Value()
 }
 
+func (i *Input) SetValue(v string) {
+	i.textarea.SetValue(v)
+}
+
 func (i *Input) Attachments() []*attachments.Attachment {
 	return i.attachments
 }

@@ -20,14 +20,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
 	agentrunner "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/tui"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"
-	"regexp"
 )
-
-var ansiRegexp = regexp.MustCompile(`\x1b\[[0-9;]*m`)
-
-func stripANSI(s string) string {
-	return ansiRegexp.ReplaceAllString(s, "")
-}
 
 // ── messages.go ─────────────────────────────────────────────────────────────
 
