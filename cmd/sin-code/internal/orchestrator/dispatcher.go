@@ -2,13 +2,16 @@
 // Purpose: dispatcher — runs plan tasks in parallel with dependency-aware
 // scheduling. Tasks whose DependsOn are still running block until those
 // complete. Results are merged into a shared scratchpad.
+//
+// Issue #283: replaced 50ms polling loop with event-driven channel-based
+// dispatch. Task completion sends on notifyCh, which wakes the scheduler
+// instantly to check newly-ready dependents. Zero polling latency.
 package orchestrator
 
 import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 )
 
 type Dispatcher struct {
@@ -28,6 +31,15 @@ func NewDispatcher(registry *Registry, scratch *Scratchpad, maxParallel int) *Di
 	}
 }
 
+// TaskEvent is fired when a task changes state. The TUI DAG visualizer
+// (issue #286) subscribes to these for live updates.
+type TaskEvent struct {
+	TaskID string
+	Status TaskStatus
+	Result string
+	Error  string
+}
+
 func (d *Dispatcher) Dispatch(ctx context.Context, plan *Plan) error {
 	plan.Started = timeNow()
 	tasks := plan.Tasks
@@ -41,55 +53,35 @@ func (d *Dispatcher) Dispatch(ctx context.Context, plan *Plan) error {
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, d.maxPar)
 
-	// sin-debt: global mutex on plan-level state, upgrade: per-task mutex map when plan count > 200
+	// Event-driven notify channel: task completion wakes the scheduler
+	// instantly. Replaces the old 50ms time.After polling (issue #283).
+	notifyCh := make(chan string, len(tasks))
 	errCh := make(chan error, len(tasks))
+
+	// Launch initial ready tasks, then wait on notifyCh for completions.
+	d.launchReady(ctx, plan, tasks, &mu, completed, &wg, sem, notifyCh, errCh)
 
 	for {
 		mu.Lock()
-		ready := []*Task{}
+		allDone := true
 		for _, t := range tasks {
-			if t.Status != TaskPending {
-				continue
-			}
-			if allDepsDone(t, completed) {
-				ready = append(ready, t)
+			if t.Status == TaskPending || t.Status == TaskRunning {
+				allDone = false
+				break
 			}
 		}
 		mu.Unlock()
-		if len(ready) == 0 {
-			mu.Lock()
-			allDone := true
-			for _, t := range tasks {
-				if t.Status == TaskPending || t.Status == TaskRunning {
-					allDone = false
-					break
-				}
-			}
-			mu.Unlock()
-			if allDone {
-				break
-			}
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(50 * time.Millisecond):
-			}
-			continue
+		if allDone {
+			break
 		}
-		for _, task := range ready {
-			mu.Lock()
-			task.Status = TaskRunning
-			now := timeNow()
-			task.Started = &now
-			mu.Unlock()
-			wg.Add(1)
-			sem <- struct{}{}
-			go func(t *Task) {
-				defer wg.Done()
-				defer func() { <-sem }()
-				d.runOne(ctx, plan, t, &mu, completed, errCh)
-			}(task)
+		// Wait for a task to complete (event-driven, no polling).
+		select {
+		case <-ctx.Done():
+			wg.Wait()
+			return ctx.Err()
+		case <-notifyCh:
 		}
+		d.launchReady(ctx, plan, tasks, &mu, completed, &wg, sem, notifyCh, errCh)
 	}
 
 	wg.Wait()
@@ -114,7 +106,38 @@ func (d *Dispatcher) Dispatch(ctx context.Context, plan *Plan) error {
 	return nil
 }
 
-func (d *Dispatcher) runOne(ctx context.Context, plan *Plan, task *Task, mu *sync.Mutex, completed map[string]bool, errCh chan error) {
+// launchReady finds all pending tasks whose dependencies are complete and
+// launches them as goroutines. Must be called with mu NOT held.
+func (d *Dispatcher) launchReady(ctx context.Context, plan *Plan, tasks []*Task, mu *sync.Mutex, completed map[string]bool, wg *sync.WaitGroup, sem chan struct{}, notifyCh chan<- string, errCh chan error) {
+	mu.Lock()
+	ready := []*Task{}
+	for _, t := range tasks {
+		if t.Status != TaskPending {
+			continue
+		}
+		if allDepsDone(t, completed) {
+			ready = append(ready, t)
+		}
+	}
+	for _, task := range ready {
+		task.Status = TaskRunning
+		now := timeNow()
+		task.Started = &now
+	}
+	mu.Unlock()
+
+	for _, task := range ready {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(t *Task) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			d.runOne(ctx, plan, t, mu, completed, notifyCh, errCh)
+		}(task)
+	}
+}
+
+func (d *Dispatcher) runOne(ctx context.Context, plan *Plan, task *Task, mu *sync.Mutex, completed map[string]bool, notifyCh chan<- string, errCh chan error) {
 	agent, ok := d.registry.Get(task.AgentName)
 	if !ok {
 		agent, _ = d.registry.ForType(task.Type)
@@ -127,6 +150,7 @@ func (d *Dispatcher) runOne(ctx context.Context, plan *Plan, task *Task, mu *syn
 		task.Completed = &now
 		completed[task.ID] = true
 		mu.Unlock()
+		notifyCh <- task.ID
 		errCh <- fmt.Errorf("no agent for %s", task.Type)
 		return
 	}
@@ -146,6 +170,8 @@ func (d *Dispatcher) runOne(ctx context.Context, plan *Plan, task *Task, mu *syn
 	}
 	completed[task.ID] = true
 	mu.Unlock()
+	// Notify the scheduler instantly — no polling delay (issue #283).
+	notifyCh <- task.ID
 }
 
 func allDepsDone(t *Task, completed map[string]bool) bool {
