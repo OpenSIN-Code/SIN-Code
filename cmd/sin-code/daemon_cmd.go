@@ -22,6 +22,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
@@ -44,6 +45,8 @@ var (
 	autonomyLoadTriggersHook      = autonomy.LoadTriggers
 	loopbuilderBuildHook          = loopbuilder.Build
 	daemonDiskFreeHook            = resource.DiskFree
+	daemonAutoDreamNewHook        = memory.NewAutoDream
+	daemonLoadMergedConfigHook    = internal.LoadMergedConfig
 )
 
 // daemonOptions bundles the parsed CLI flags so the worker pool and
@@ -168,14 +171,36 @@ func runDaemon(ctx context.Context, opt daemonOptions) error {
 		}
 	}()
 
-	// Register triggers for every configured repo (cwd + --repos),
-	// de-duplicated so passing cwd explicitly is harmless.
+	var dream *memory.AutoDream
+	sinCfg, _ := daemonLoadMergedConfigHook()
+	if sinCfg.MemoryAutoDream {
+		interval := 5 * time.Minute
+		if d, err := time.ParseDuration(sinCfg.MemoryAutoDreamInterval); err == nil && d > 0 {
+			interval = d
+		}
+		dream = daemonAutoDreamNewHook(memStore, memory.WithInterval(interval))
+		dream.Start(ctx)
+		fmt.Printf("daemon: autoDream started (interval=%s)\n", interval)
+		defer func() {
+			dream.Stop()
+			fmt.Println("daemon: autoDream stopped")
+		}()
+	}
+
+	dreamFunc := func(ctx context.Context) error {
+		if dream == nil {
+			return nil
+		}
+		_, err := dream.RunOnce(ctx)
+		return err
+	}
+
 	for _, repo := range dedupeRepos(cwd, opt.repos) {
 		triggers := autonomyLoadTriggersHook(repo)
 		if len(triggers) == 0 {
 			continue
 		}
-		runner := &autonomy.Runner{Queue: queue, Workspace: repo, Triggers: triggers}
+		runner := &autonomy.Runner{Queue: queue, Workspace: repo, Triggers: triggers, DreamFunc: dreamFunc}
 		go func() { _ = runner.Run(ctx) }()
 		fmt.Printf("daemon: %d triggers active for %s\n", len(triggers), repo)
 	}
@@ -310,18 +335,19 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 	}
 
 	loop, cleanup, err := loopbuilderBuildHook(ctx, loopbuilder.Config{
-		Workspace:              goal.Workspace,
-		SessionID:              sess.ID,
-		GoalID:                 fmt.Sprintf("%d", goal.ID),
-		MaxTurns:               opt.maxTurns,
-		VerifyMode:             "poc",
-		VerifyCmd:              opt.verifyCmd,
-		Headless:               true,
-		Contract:               contract,
-		AllowContinuation:      opt.maxContinuations > 0,
-		CoverageRequiredTools:  splitList(opt.requireTools),
-		CoverageForbiddenTools: splitList(opt.forbidTools),
-		FusionEnabled:          opt.fusionOnVerifyFail,
+		Workspace:                   goal.Workspace,
+		SessionID:                   sess.ID,
+		GoalID:                      fmt.Sprintf("%d", goal.ID),
+		MaxTurns:                    opt.maxTurns,
+		VerifyMode:                  "poc",
+		VerifyCmd:                   opt.verifyCmd,
+		Headless:                    true,
+		Contract:                    contract,
+		AllowContinuation:           opt.maxContinuations > 0,
+		CoverageRequiredTools:       splitList(opt.requireTools),
+		CoverageForbiddenTools:      splitList(opt.forbidTools),
+		FusionEnabled:               opt.fusionOnVerifyFail,
+		SessionStore:                store,
 		ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
 			baseTool := combinedTool(goal.Workspace, mgr)
 			baseSpecs := combinedSpecs(mgr)

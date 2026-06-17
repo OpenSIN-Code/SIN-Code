@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"charm.land/glamour/v2"
 	"charm.land/lipgloss/v2"
 )
 
@@ -251,20 +250,17 @@ func renderMarkdownSimple(text string, styles Styles, width int) string {
 	if text == "" {
 		return ""
 	}
-
-	r, err := glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
-		glamour.WithWordWrap(width),
-	)
-	if err != nil {
+	if !hasMarkdownSyntax(text) {
 		return strings.TrimRight(text, "\n")
 	}
-
+	r := getCachedRenderer(width)
+	if r == nil {
+		return strings.TrimRight(text, "\n")
+	}
 	rendered, err := r.Render(text)
 	if err != nil {
 		return strings.TrimRight(text, "\n")
 	}
-
 	return strings.TrimSpace(rendered)
 }
 

@@ -5,6 +5,7 @@ package orchestrator
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -16,6 +17,7 @@ type Orchestrator struct {
 	Aggregator  *Aggregator
 	Scratchpad  *Scratchpad
 	MaxParallel int
+	Episodes    *EpisodeStore
 }
 
 func New() *Orchestrator {
@@ -56,9 +58,19 @@ func (o *Orchestrator) Run(ctx context.Context, prompt string, opts ...RunOption
 		opt(cfg)
 	}
 	plan := o.Planner.BuildPlan(prompt)
+	if o.Episodes != nil && o.Episodes.hasSchema {
+		if eps, err := o.Episodes.Similar(ctx, prompt, 3); err == nil && len(eps) > 0 {
+			if prior := PlanningPrior(eps); prior != "" {
+				if len(plan.Tasks) > 0 {
+					plan.Tasks[0].Description = prior + "\n\n" + plan.Tasks[0].Description
+				}
+			}
+		}
+	}
 	disp := o.Dispatcher
 	if cfg.maxParallel > 0 {
 		disp = NewDispatcher(o.Registry, o.Scratchpad, cfg.maxParallel)
+		disp.PreWarm = o.Dispatcher.PreWarm
 	}
 	timeout := cfg.timeout
 	if timeout > 0 {
@@ -67,9 +79,33 @@ func (o *Orchestrator) Run(ctx context.Context, prompt string, opts ...RunOption
 		defer cancel()
 	}
 	if err := disp.Dispatch(ctx, plan); err != nil {
+		if o.Episodes != nil && o.Episodes.hasSchema {
+			_ = o.Episodes.Record(ctx, &Episode{
+				Intent:     string(plan.Intent),
+				TaskTitle:  prompt,
+				PlanJSON:   planToJSON(plan),
+				Score:      0,
+				Passed:     false,
+				Rounds:     len(plan.Tasks),
+				CreatedAt:  timeNow(),
+			})
+		}
 		return nil, err
 	}
-	return o.Aggregator.Aggregate(plan), nil
+	result := o.Aggregator.Aggregate(plan)
+	if o.Episodes != nil && o.Episodes.hasSchema {
+		_ = o.Episodes.Record(ctx, &Episode{
+			Intent:     string(plan.Intent),
+			TaskTitle:  prompt,
+			PlanJSON:   planToJSON(plan),
+			Diff:       result.Summary,
+			Score:      float64(result.OKTasks) / float64(maxInt(result.TotalTasks, 1)),
+			Passed:     result.FailedTasks == 0 && result.TotalTasks > 0,
+			Rounds:     result.TotalTasks,
+			CreatedAt:  timeNow(),
+		})
+	}
+	return result, nil
 }
 
 type runConfig struct {
@@ -94,4 +130,12 @@ func (o *Orchestrator) Plan(prompt string) *Plan {
 func (o *Orchestrator) String() string {
 	return fmt.Sprintf("Orchestrator{agents=%d, scratchpad=%d entries}",
 		len(o.Registry.List()), len(o.Scratchpad.ReadAll()))
+}
+
+func planToJSON(plan *Plan) json.RawMessage {
+	data, err := json.Marshal(plan)
+	if err != nil {
+		return json.RawMessage(`{}`)
+	}
+	return data
 }

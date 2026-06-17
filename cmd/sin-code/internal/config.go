@@ -79,6 +79,41 @@ type SinCodeConfig struct {
 	FusionMinQuorum        int      `toml:"fusion.min_quorum"`
 	FusionPerProviderTimeoutS int   `toml:"fusion.per_provider_timeout_s"`
 	FusionDifficultyGate   bool     `toml:"fusion.difficulty_gate"`
+	// Memory: autoDream background consolidation + context priming.
+	MemoryAutoDream          bool   `toml:"memory.autodream"`
+	MemoryAutoDreamInterval  string `toml:"memory.autodream_interval"`
+	MemoryPrimeOnStart       bool   `toml:"memory.prime_on_start"`
+	// Orchestrator: episodic replay of verified plans.
+	OrchestratorEpisodicMemory bool `toml:"orchestrator.episodic_memory"`
+	// Orchestrator: DeepPlanner produces parallel DAG plans (issue #282).
+	OrchestratorDeepPlanner bool `toml:"orchestrator.deep_planner"`
+	// Orchestrator: PatternDB learns task sequences from past sessions (issue #288).
+	OrchestratorPatternLearning bool `toml:"orchestrator.pattern_learning"`
+	// Orchestrator: PreWarmManager pre-warms agents before deps complete (issue #285).
+	OrchestratorPreWarm bool `toml:"orchestrator.prewarm"`
+	// ChatLazyTools enables lazy tool loading (issue #270). When true,
+	// only a tool_search meta-tool is sent initially; the LLM discovers
+	// real tools on demand, reducing tool-prompt tokens from ~134K to ~5K.
+	// Default false; env SIN_LAZY_TOOLS=1 also enables.
+	ChatLazyTools bool `toml:"chat.lazy_tools"`
+	// LLMPromptCache enables TTL-based prompt prefix caching (issue #277).
+	// When true, a PromptCache is created and passed to the provider
+	// adapter. The adapter only uses it for Anthropic/Claude models
+	// (SupportsCaching). Default true.
+	LLMPromptCache bool `toml:"llm.prompt_cache"`
+	// AgentLoopCompactionStrategy controls context compaction (issue #278).
+	// "off" (default) disables compaction; "summarize"|"truncate"|
+	// "selective"|"sliding"|"sliding-window"|"hybrid" enables it.
+	AgentLoopCompactionStrategy string `toml:"agentloop.compaction_strategy"`
+	// AgentLoopCompactionThreshold is the fraction of maxTurns at which
+	// compaction triggers (default 0.8 = 80%).
+	AgentLoopCompactionThreshold float64 `toml:"agentloop.compaction_threshold"`
+	// AgentLoopFrustrationDetection enables user frustration tracking
+	// (issue #271). When true, the loop appends an adaptive system-prompt
+	// suffix when frustration is detected. Default false.
+	AgentLoopFrustrationDetection bool `toml:"agentloop.frustration_detection"`
+	// Permission: YOLO risk threshold (issue #272).
+	PermissionYoloRiskThreshold string `toml:"permission.yolo_risk_threshold"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -109,12 +144,25 @@ func defaultConfig() SinCodeConfig {
 		TestTimeoutSeconds:       300,
 		TestUseLLM:               false,
 		TestRepairRounds:         3,
+		ChatLazyTools:            false,
+		LLMPromptCache:           true,
+		AgentLoopCompactionStrategy:  "off",
+		AgentLoopCompactionThreshold: 0.8,
+		AgentLoopFrustrationDetection: false,
 		FusionEnabled:            false,
 		FusionProviders:          []string{"minimax-m3", "kimi-k2p7-code-fast", "kimi-k2p7-code", "deepseek-v4-pro", "qwen-3p7-plus", "glm-5p2"},
 		FusionMaxCostUSD:         5.0,
 		FusionMinQuorum:          2,
 		FusionPerProviderTimeoutS: 120,
 		FusionDifficultyGate:     true,
+		MemoryAutoDream:          false,
+		MemoryAutoDreamInterval:  "5m",
+		MemoryPrimeOnStart:       false,
+		OrchestratorEpisodicMemory:    false,
+		OrchestratorDeepPlanner:       false,
+		OrchestratorPatternLearning:   false,
+		OrchestratorPreWarm:           false,
+		PermissionYoloRiskThreshold:   "",
 	}
 }
 
@@ -542,6 +590,44 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.TestUseLLM), nil
 	case "test.repair_rounds":
 		return fmt.Sprintf("%d", cfg.TestRepairRounds), nil
+	case "chat.lazy_tools":
+		return fmt.Sprintf("%v", cfg.ChatLazyTools), nil
+	case "llm.prompt_cache":
+		return fmt.Sprintf("%v", cfg.LLMPromptCache), nil
+	case "fusion.enabled":
+		return fmt.Sprintf("%v", cfg.FusionEnabled), nil
+	case "fusion.providers":
+		return strings.Join(cfg.FusionProviders, ","), nil
+	case "fusion.max_cost_usd":
+		return fmt.Sprintf("%v", cfg.FusionMaxCostUSD), nil
+	case "fusion.min_quorum":
+		return fmt.Sprintf("%d", cfg.FusionMinQuorum), nil
+	case "fusion.per_provider_timeout_s":
+		return fmt.Sprintf("%d", cfg.FusionPerProviderTimeoutS), nil
+	case "fusion.difficulty_gate":
+		return fmt.Sprintf("%v", cfg.FusionDifficultyGate), nil
+	case "memory.autodream":
+		return fmt.Sprintf("%v", cfg.MemoryAutoDream), nil
+	case "memory.autodream_interval":
+		return cfg.MemoryAutoDreamInterval, nil
+	case "memory.prime_on_start":
+		return fmt.Sprintf("%v", cfg.MemoryPrimeOnStart), nil
+	case "orchestrator.episodic_memory":
+		return fmt.Sprintf("%v", cfg.OrchestratorEpisodicMemory), nil
+	case "orchestrator.deep_planner":
+		return fmt.Sprintf("%v", cfg.OrchestratorDeepPlanner), nil
+	case "orchestrator.pattern_learning":
+		return fmt.Sprintf("%v", cfg.OrchestratorPatternLearning), nil
+	case "orchestrator.prewarm":
+		return fmt.Sprintf("%v", cfg.OrchestratorPreWarm), nil
+	case "agentloop.compaction_strategy":
+		return cfg.AgentLoopCompactionStrategy, nil
+	case "agentloop.compaction_threshold":
+		return fmt.Sprintf("%v", cfg.AgentLoopCompactionThreshold), nil
+	case "agentloop.frustration_detection":
+		return fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection), nil
+	case "permission.yolo_risk_threshold":
+		return cfg.PermissionYoloRiskThreshold, nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -656,6 +742,63 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 			return fmt.Errorf("test.repair_rounds must be a non-negative integer, got %q", value)
 		}
 		cfg.TestRepairRounds = v
+	case "chat.lazy_tools":
+		cfg.ChatLazyTools = value == "true" || value == "1"
+	case "llm.prompt_cache":
+		cfg.LLMPromptCache = value == "true" || value == "1"
+	case "fusion.enabled":
+		cfg.FusionEnabled = value == "true" || value == "1"
+	case "fusion.providers":
+		cfg.FusionProviders = splitList(value)
+	case "fusion.max_cost_usd":
+		v, err := strconv.ParseFloat(value, 64)
+		if err != nil || v < 0 {
+			return fmt.Errorf("fusion.max_cost_usd must be a non-negative float, got %q", value)
+		}
+		cfg.FusionMaxCostUSD = v
+	case "fusion.min_quorum":
+		v, err := strconv.Atoi(value)
+		if err != nil || v < 0 {
+			return fmt.Errorf("fusion.min_quorum must be a non-negative integer, got %q", value)
+		}
+		cfg.FusionMinQuorum = v
+	case "fusion.per_provider_timeout_s":
+		v, err := strconv.Atoi(value)
+		if err != nil || v <= 0 {
+			return fmt.Errorf("fusion.per_provider_timeout_s must be a positive integer, got %q", value)
+		}
+		cfg.FusionPerProviderTimeoutS = v
+	case "fusion.difficulty_gate":
+		cfg.FusionDifficultyGate = value == "true" || value == "1"
+	case "memory.autodream":
+		cfg.MemoryAutoDream = value == "true" || value == "1"
+	case "memory.autodream_interval":
+		if _, err := time.ParseDuration(value); err != nil {
+			return fmt.Errorf("memory.autodream_interval must be a duration (e.g. 5m), got %q", value)
+		}
+		cfg.MemoryAutoDreamInterval = value
+	case "memory.prime_on_start":
+		cfg.MemoryPrimeOnStart = value == "true" || value == "1"
+	case "orchestrator.episodic_memory":
+		cfg.OrchestratorEpisodicMemory = value == "true" || value == "1"
+	case "orchestrator.deep_planner":
+		cfg.OrchestratorDeepPlanner = value == "true" || value == "1"
+	case "orchestrator.pattern_learning":
+		cfg.OrchestratorPatternLearning = value == "true" || value == "1"
+	case "orchestrator.prewarm":
+		cfg.OrchestratorPreWarm = value == "true" || value == "1"
+	case "agentloop.compaction_strategy":
+		cfg.AgentLoopCompactionStrategy = value
+	case "agentloop.compaction_threshold":
+		v, err := strconv.ParseFloat(value, 64)
+		if err != nil || v <= 0 || v > 1 {
+			return fmt.Errorf("agentloop.compaction_threshold must be between 0 and 1, got %q", value)
+		}
+		cfg.AgentLoopCompactionThreshold = v
+	case "agentloop.frustration_detection":
+		cfg.AgentLoopFrustrationDetection = value == "true" || value == "1"
+	case "permission.yolo_risk_threshold":
+		cfg.PermissionYoloRiskThreshold = value
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}
@@ -695,6 +838,25 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"test.timeout_seconds", fmt.Sprintf("%d", cfg.TestTimeoutSeconds)},
 		{"test.use_llm", fmt.Sprintf("%v", cfg.TestUseLLM)},
 		{"test.repair_rounds", fmt.Sprintf("%d", cfg.TestRepairRounds)},
+		{"chat.lazy_tools", fmt.Sprintf("%v", cfg.ChatLazyTools)},
+		{"llm.prompt_cache", fmt.Sprintf("%v", cfg.LLMPromptCache)},
+		{"fusion.enabled", fmt.Sprintf("%v", cfg.FusionEnabled)},
+		{"fusion.providers", strings.Join(cfg.FusionProviders, ",")},
+		{"fusion.max_cost_usd", fmt.Sprintf("%v", cfg.FusionMaxCostUSD)},
+		{"fusion.min_quorum", fmt.Sprintf("%d", cfg.FusionMinQuorum)},
+		{"fusion.per_provider_timeout_s", fmt.Sprintf("%d", cfg.FusionPerProviderTimeoutS)},
+		{"fusion.difficulty_gate", fmt.Sprintf("%v", cfg.FusionDifficultyGate)},
+		{"memory.autodream", fmt.Sprintf("%v", cfg.MemoryAutoDream)},
+		{"memory.autodream_interval", cfg.MemoryAutoDreamInterval},
+		{"memory.prime_on_start", fmt.Sprintf("%v", cfg.MemoryPrimeOnStart)},
+		{"orchestrator.episodic_memory", fmt.Sprintf("%v", cfg.OrchestratorEpisodicMemory)},
+		{"orchestrator.deep_planner", fmt.Sprintf("%v", cfg.OrchestratorDeepPlanner)},
+		{"orchestrator.pattern_learning", fmt.Sprintf("%v", cfg.OrchestratorPatternLearning)},
+		{"orchestrator.prewarm", fmt.Sprintf("%v", cfg.OrchestratorPreWarm)},
+		{"agentloop.compaction_strategy", cfg.AgentLoopCompactionStrategy},
+		{"agentloop.compaction_threshold", fmt.Sprintf("%v", cfg.AgentLoopCompactionThreshold)},
+		{"agentloop.frustration_detection", fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection)},
+		{"permission.yolo_risk_threshold", cfg.PermissionYoloRiskThreshold},
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Key < pairs[j].Key })
 	return pairs
@@ -831,6 +993,16 @@ func validateConfig(cfg SinCodeConfig) []string {
 	if cfg.TestRepairRounds < 0 {
 		issues = append(issues, fmt.Sprintf("test.repair_rounds must be >= 0, got %d", cfg.TestRepairRounds))
 	}
+	if cfg.AgentLoopCompactionStrategy != "off" && cfg.AgentLoopCompactionStrategy != "" {
+		switch cfg.AgentLoopCompactionStrategy {
+		case "summarize", "truncate", "selective", "sliding", "sliding-window", "hybrid":
+		default:
+			issues = append(issues, fmt.Sprintf("agentloop.compaction_strategy must be off|summarize|truncate|selective|sliding|hybrid, got %q", cfg.AgentLoopCompactionStrategy))
+		}
+	}
+	if cfg.AgentLoopCompactionThreshold <= 0 || cfg.AgentLoopCompactionThreshold > 1 {
+		issues = append(issues, fmt.Sprintf("agentloop.compaction_threshold must be in (0,1], got %v", cfg.AgentLoopCompactionThreshold))
+	}
 	return issues
 }
 
@@ -896,6 +1068,46 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.TestUseLLM = val == "true" || val == "1"
 		case "test.repair_rounds":
 			_, _ = fmt.Sscanf(val, "%d", &cfg.TestRepairRounds)
+		case "fusion.enabled":
+			cfg.FusionEnabled = val == "true" || val == "1"
+		case "fusion.providers":
+			cfg.FusionProviders = parseList(val)
+		case "fusion.max_cost_usd":
+			v, _ := strconv.ParseFloat(val, 64)
+			cfg.FusionMaxCostUSD = v
+		case "fusion.min_quorum":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.FusionMinQuorum)
+		case "fusion.per_provider_timeout_s":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.FusionPerProviderTimeoutS)
+		case "fusion.difficulty_gate":
+			cfg.FusionDifficultyGate = val == "true" || val == "1"
+		case "memory.autodream":
+			cfg.MemoryAutoDream = val == "true" || val == "1"
+		case "memory.autodream_interval":
+			cfg.MemoryAutoDreamInterval = val
+		case "memory.prime_on_start":
+			cfg.MemoryPrimeOnStart = val == "true" || val == "1"
+		case "orchestrator.episodic_memory":
+			cfg.OrchestratorEpisodicMemory = val == "true" || val == "1"
+		case "orchestrator.deep_planner":
+			cfg.OrchestratorDeepPlanner = val == "true" || val == "1"
+		case "orchestrator.pattern_learning":
+			cfg.OrchestratorPatternLearning = val == "true" || val == "1"
+		case "orchestrator.prewarm":
+			cfg.OrchestratorPreWarm = val == "true" || val == "1"
+		case "chat.lazy_tools":
+			cfg.ChatLazyTools = val == "true" || val == "1"
+		case "llm.prompt_cache":
+			cfg.LLMPromptCache = val == "true" || val == "1"
+		case "agentloop.compaction_strategy":
+			cfg.AgentLoopCompactionStrategy = val
+		case "agentloop.compaction_threshold":
+			v, _ := strconv.ParseFloat(val, 64)
+			cfg.AgentLoopCompactionThreshold = v
+		case "agentloop.frustration_detection":
+			cfg.AgentLoopFrustrationDetection = val == "true" || val == "1"
+		case "permission.yolo_risk_threshold":
+			cfg.PermissionYoloRiskThreshold = val
 		}
 	}
 }

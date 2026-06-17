@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
@@ -110,6 +111,7 @@ func NewProviderCompletionWithCache(c *llm.Client, model string, maxTokens int, 
 			httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
 		}
 		var cacheKey string
+		var cacheHit bool
 		if cache != nil && llm.SupportsCaching(model) {
 			var systemPrompt, firstUser string
 			for _, m := range history {
@@ -121,8 +123,13 @@ func NewProviderCompletionWithCache(c *llm.Client, model string, maxTokens int, 
 				}
 			}
 			cacheKey = llm.CacheKey(systemPrompt, firstUser)
+			httpReq.Header.Set("anthropic-beta", "prompt-caching-2024-07-31")
 			if prefixID, ok := cache.Get(cacheKey); ok {
+				cacheHit = true
 				httpReq.Header.Set("X-SIN-Cache-Prefix-ID", prefixID)
+				fmt.Fprintf(os.Stderr, "sin-code: prompt cache HIT (key=%s)\n", cacheKey[:12])
+			} else {
+				fmt.Fprintf(os.Stderr, "sin-code: prompt cache MISS (key=%s)\n", cacheKey[:12])
 			}
 			httpReq.Header.Set("X-SIN-Cache-Key", cacheKey)
 		}
@@ -145,8 +152,14 @@ func NewProviderCompletionWithCache(c *llm.Client, model string, maxTokens int, 
 		if cache != nil && cacheKey != "" {
 			if prefixID := resp.Header.Get("X-SIN-Cache-Prefix-ID"); prefixID != "" {
 				cache.Set(cacheKey, prefixID)
+				if !cacheHit {
+					fmt.Fprintf(os.Stderr, "sin-code: prompt cache stored prefix (key=%s)\n", cacheKey[:12])
+				}
 			} else if out.ID != "" {
 				cache.Set(cacheKey, out.ID)
+				if !cacheHit {
+					fmt.Fprintf(os.Stderr, "sin-code: prompt cache stored id (key=%s)\n", cacheKey[:12])
+				}
 			}
 		}
 		msg := out.Choices[0].Message

@@ -191,7 +191,15 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		os.Getenv("NVIDIA_API_KEY"), os.Getenv("OPENAI_API_KEY"))
 	model := firstNonEmpty(opts.model, agentCfg.Model, os.Getenv("SIN_LLM_MODEL"))
 	client := chatNewLLMClientFn(baseURL, apiKey)
+
+	sinCfg, _ := internal.LoadMergedConfig()
+
+	enableCache := sinCfg.LLMPromptCache
 	completion := chatNewProviderCompletionFn(client, model, agentCfg.MaxTokens, agentCfg.Temperature)
+	if enableCache {
+		cache := llm.NewPromptCache(llm.DefaultCacheTTL)
+		completion = agentloop.NewProviderCompletionWithCache(client, model, agentCfg.MaxTokens, agentCfg.Temperature, cache)
+	}
 
 	perm := permission.New(chatRulesForAgentFn(agentCfg))
 	perm.Yolo = opts.yolo
@@ -355,10 +363,30 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		Ask:        ask,
 	}
 
-	if opts.lazyTools {
+	lazyTools := opts.lazyTools || sinCfg.ChatLazyTools || os.Getenv("SIN_LAZY_TOOLS") == "1"
+	if lazyTools {
 		loader := mcpclient.NewLazyToolLoader(allSpecsAsMCPClient(mcpMgr))
 		loop.LocalSpec = lazyCombinedSpecs()
 		loop.LocalTool = lazyCombinedTool(workspace, mcpMgr, loader, loop)
+	}
+
+	if sinCfg.AgentLoopCompactionStrategy != "off" && sinCfg.AgentLoopCompactionStrategy != "" {
+		strategy, err := agentloop.ParseCompactionStrategy(sinCfg.AgentLoopCompactionStrategy)
+		if err != nil {
+			fmt.Fprintf(chatStderr, "warn: invalid compaction strategy %q: %v\n", sinCfg.AgentLoopCompactionStrategy, err)
+		} else {
+			compactor := agentloop.NewCompactor(nil)
+			compactor.Threshold = sinCfg.AgentLoopCompactionThreshold
+			if compactor.Threshold <= 0 {
+				compactor.Threshold = agentloop.DefaultCompactionThreshold
+			}
+			loop.Compactor = compactor
+			loop.CompactionStrategy = strategy
+		}
+	}
+
+	if sinCfg.AgentLoopFrustrationDetection {
+		loop.Frustration = agentloop.NewFrustrationDetector()
 	}
 
 	if opts.fusionOnVerifyFail {
@@ -386,6 +414,27 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 			fusionCfg.FusionPerProviderTimeoutS = 120
 		}
 		loopbuilder.WireFusion(loop, fusionCfg, gate, client, nil, nil, hookEngine)
+	}
+
+	if sinCfg, err := internal.LoadMergedConfig(); err == nil {
+		if sinCfg.AgentLoopCompactionStrategy != "" {
+			strategy, serr := agentloop.ParseCompactionStrategy(sinCfg.AgentLoopCompactionStrategy)
+			if serr != nil {
+				strategy = agentloop.DefaultCompactionStrategy()
+			}
+			loop.Compactor = agentloop.NewCompactor(nil)
+			loop.CompactionStrategy = strategy
+		}
+		if sinCfg.AgentLoopFrustrationDetection {
+			loop.Frustration = agentloop.NewFrustrationDetector()
+		}
+		if opts.yolo && sinCfg.PermissionYoloRiskThreshold != "" {
+			classifier := permission.NewRiskClassifier()
+			if level, perr := permission.ParseRiskLevel(sinCfg.PermissionYoloRiskThreshold); perr == nil {
+				classifier.SetThreshold(level)
+			}
+			perm.Risk = classifier
+		}
 	}
 
 	dispatchUserPrompt := func(prompt string) {

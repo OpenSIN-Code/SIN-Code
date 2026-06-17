@@ -68,6 +68,7 @@ const (
 
 	MemoryWrite   = "memory.write"
 	MemoryCompact = "memory.compact"
+	MemoryPrime   = "memory.prime"
 
 	CommitPre  = "commit.pre"
 	CommitPost = "commit.post"

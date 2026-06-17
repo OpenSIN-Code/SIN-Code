@@ -18,6 +18,7 @@ type Dispatcher struct {
 	registry *Registry
 	scratch  *Scratchpad
 	maxPar   int
+	PreWarm  *PreWarmManager
 }
 
 func NewDispatcher(registry *Registry, scratch *Scratchpad, maxParallel int) *Dispatcher {
@@ -123,6 +124,9 @@ func (d *Dispatcher) launchReady(ctx context.Context, plan *Plan, tasks []*Task,
 		task.Status = TaskRunning
 		now := timeNow()
 		task.Started = &now
+		if d.PreWarm != nil {
+			d.PreWarm.PreWarmDependents(ctx, tasks, task.ID)
+		}
 	}
 	mu.Unlock()
 
@@ -162,11 +166,17 @@ func (d *Dispatcher) runOne(ctx context.Context, plan *Plan, task *Task, mu *syn
 	if err != nil {
 		task.Status = TaskFailed
 		task.Error = err.Error()
+		if d.PreWarm != nil {
+			d.PreWarm.CancelDependents(plan.Tasks, task.ID)
+		}
 	} else {
 		task.Status = TaskCompleted
 		task.Result = out
 		task.TokensUsed = estimateTokens(out)
 		task.Cost = estimateCost(task.TokensUsed, agent.Config().Model)
+		if d.PreWarm != nil {
+			d.PreWarm.Cleanup(task.ID)
+		}
 	}
 	completed[task.ID] = true
 	mu.Unlock()

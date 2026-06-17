@@ -24,6 +24,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
@@ -81,6 +82,54 @@ type Config struct {
 	FusionPerProviderTimeoutS int
 	FusionDifficultyGate     bool
 	FusionProfilesDir        string
+
+	// DeepPlanner: when true, the orchestrator uses the parallel DAG
+	// DeepPlanner instead of the legacy linear Planner (issue #282).
+	// Also activated by SIN_DEEP_PLANNER=1 or config
+	// orchestrator.deep_planner=true.
+	DeepPlannerEnabled bool
+
+	// PatternLearning: when true, completed plans are recorded into a
+	// PatternDB and matched patterns feed into the DeepPlanner (issue #288).
+	// Also activated by config orchestrator.pattern_learning=true.
+	PatternLearningEnabled bool
+
+	// PreWarmEnabled: when true, the dispatcher pre-warms dependent agents
+	// before their dependencies complete (issue #285).
+	// Also activated by config orchestrator.prewarm=true.
+	PreWarmEnabled bool
+
+	// CompactionStrategy: when non-empty, wires a Compactor into the agent
+	// loop with the named strategy (issue #278).
+	// Also activated by config agentloop.compaction_strategy=<strategy>.
+	CompactionStrategy string
+
+	// FrustrationDetection: when true, wires a FrustrationDetector into the
+	// agent loop (issue #271).
+	// Also activated by config agentloop.frustration_detection=true.
+	FrustrationDetectionEnabled bool
+
+	// YoloRiskThreshold: when non-empty and Yolo is true, wires a
+	// RiskClassifier into the permission engine so YOLO auto-approves
+	// only low/medium/high risk tools (issue #272).
+	// Also activated by config permission.yolo_risk_threshold=<level>.
+	YoloRiskThreshold string
+
+	// MemoryPrimeEnabled: when true, wires a MemoryPrime function that
+	// queries the long-term memory store and injects relevant memories
+	// into the conversation before the first turn.
+	// Also activated by config memory.prime_on_start=true.
+	MemoryPrimeEnabled bool
+
+	// MemoryStore is the long-term memory store used for MemoryPrime.
+	// When nil and MemoryPrimeEnabled is true, Build opens a default store.
+	MemoryStore *memory.Store
+
+	// EpisodicMemoryEnabled: when true, the orchestrator records verified
+	// plans as episodes and injects similar past episodes as a planning
+	// prior on new plan creation.
+	// Also activated by config orchestrator.episodic_memory=true.
+	EpisodicMemoryEnabled bool
 }
 
 // Build constructs a fully wired agentloop.Loop with all mandates applied
@@ -104,6 +153,37 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		if sinCfg, err := internal.LoadMergedConfig(); err == nil {
 			cfg.FusionEnabled = sinCfg.FusionEnabled
 		}
+	}
+
+	// Apply config-file / env defaults for standalone orchestrator features.
+	if sinCfg, err := internal.LoadMergedConfig(); err == nil {
+		if !cfg.DeepPlannerEnabled {
+			cfg.DeepPlannerEnabled = sinCfg.OrchestratorDeepPlanner
+		}
+		if !cfg.PatternLearningEnabled {
+			cfg.PatternLearningEnabled = sinCfg.OrchestratorPatternLearning
+		}
+		if !cfg.PreWarmEnabled {
+			cfg.PreWarmEnabled = sinCfg.OrchestratorPreWarm
+		}
+		if cfg.CompactionStrategy == "" {
+			cfg.CompactionStrategy = sinCfg.AgentLoopCompactionStrategy
+		}
+		if !cfg.FrustrationDetectionEnabled {
+			cfg.FrustrationDetectionEnabled = sinCfg.AgentLoopFrustrationDetection
+		}
+		if cfg.YoloRiskThreshold == "" {
+			cfg.YoloRiskThreshold = sinCfg.PermissionYoloRiskThreshold
+		}
+		if !cfg.MemoryPrimeEnabled {
+			cfg.MemoryPrimeEnabled = sinCfg.MemoryPrimeOnStart
+		}
+		if !cfg.EpisodicMemoryEnabled {
+			cfg.EpisodicMemoryEnabled = sinCfg.OrchestratorEpisodicMemory
+		}
+	}
+	if os.Getenv("SIN_DEEP_PLANNER") == "1" {
+		cfg.DeepPlannerEnabled = true
 	}
 	if cfg.FusionEnabled {
 		if sinCfg, err := internal.LoadMergedConfig(); err == nil {
@@ -150,10 +230,24 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	model := firstNonEmpty(cfg.Model, agentCfg.Model, os.Getenv("SIN_LLM_MODEL"))
 	client := llm.NewClient(baseURL, apiKey)
 	completion := agentloop.NewProviderCompletion(client, model, agentCfg.MaxTokens, agentCfg.Temperature)
+	if sinCfg, err := internal.LoadMergedConfig(); err == nil {
+		if sinCfg.LLMPromptCache {
+			cache := llm.NewPromptCache(llm.DefaultCacheTTL)
+			completion = agentloop.NewProviderCompletionWithCache(client, model, agentCfg.MaxTokens, agentCfg.Temperature, cache)
+		}
+	}
 
 	perm := permission.New(internal.RulesForAgent(agentCfg))
 	perm.Yolo = cfg.Yolo
 	perm.Headless = cfg.Headless
+
+	if cfg.Yolo && cfg.YoloRiskThreshold != "" {
+		classifier := permission.NewRiskClassifier()
+		if level, err := permission.ParseRiskLevel(cfg.YoloRiskThreshold); err == nil {
+			classifier.SetThreshold(level)
+		}
+		perm.Risk = classifier
+	}
 
 	hookEngine := hooks.New(loadHooks(cfg.Workspace))
 
@@ -243,6 +337,41 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		loop.CompressMessages = headroomHook.CompressMessages
 	}
 
+	// Compactor (issue #278): opt-in via config agentloop.compaction_strategy.
+	// Chained after CompressMessages — the compactor runs when
+	// ShouldCompact(msgCount, maxTurns, threshold) is true.
+	if cfg.CompactionStrategy != "" {
+		strategy, serr := agentloop.ParseCompactionStrategy(cfg.CompactionStrategy)
+		if serr != nil {
+			fmt.Fprintf(os.Stderr, "warn: invalid compaction strategy %q: %v (falling back to hybrid)\n", cfg.CompactionStrategy, serr)
+			strategy = agentloop.DefaultCompactionStrategy()
+		}
+		loop.Compactor = agentloop.NewCompactor(nil)
+		loop.CompactionStrategy = strategy
+	}
+
+	// FrustrationDetector (issue #271): opt-in via config
+	// agentloop.frustration_detection. Appends a system-prompt suffix
+	// when user frustration is detected.
+	if cfg.FrustrationDetectionEnabled {
+		loop.Frustration = agentloop.NewFrustrationDetector()
+	}
+
+	if cfg.MemoryPrimeEnabled {
+		memStore := cfg.MemoryStore
+		if memStore == nil {
+			if s, err := memory.Open(""); err == nil {
+				memStore = s
+			}
+		}
+		if memStore != nil {
+			store := memStore
+			loop.MemoryPrime = func(ctx context.Context, prompt string) (string, error) {
+				return store.Prime(prompt, cfg.Workspace, 10)
+			}
+		}
+	}
+
 	// SIN Fusion v1 (issue #290): wire verify-tournament when enabled.
 	WireFusion(loop, cfg, gate, client, memStore, ledgerStore, hookEngine)
 
@@ -255,6 +384,60 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		return nil
 	}
 	return loop, cleanup, nil
+}
+
+// OrchestratorDeps holds the standalone orchestrator components wired by
+// WireOrchestrator. Callers use these to build a Dispatcher with
+// pre-warming, feed patterns to the DeepPlanner, and record completed
+// plans into the PatternDB.
+type OrchestratorDeps struct {
+	DeepPlanner *orchestrator.DeepPlanner
+	PreWarm     *orchestrator.PreWarmManager
+	PatternDB   *orchestrator.PatternDB
+}
+
+// WireOrchestrator builds and wires the standalone orchestrator components
+// (DeepPlanner, PreWarmManager, PatternDB) based on the Config flags. Returns
+// an OrchestratorDeps struct; fields are nil when the corresponding feature
+// is not enabled (backward compat: everything is opt-in).
+//
+// When DeepPlannerEnabled is true, a DeepPlanner replaces the legacy linear
+// Planner. When PatternLearningEnabled is true, a PatternDB is created and
+// injected into the DeepPlanner via SetPatternDB so learned patterns refine
+// probability scores. When PreWarmEnabled is true, a PreWarmManager is
+// created for use with a Dispatcher.
+func WireOrchestrator(cfg Config, registry *orchestrator.Registry) *OrchestratorDeps {
+	deps := &OrchestratorDeps{}
+	if !cfg.DeepPlannerEnabled {
+		return deps
+	}
+	agents := orchestrator.DefaultAgents()
+	if registry != nil {
+		agents = registry.List()
+	}
+	deps.DeepPlanner = orchestrator.NewDeepPlanner(agents)
+
+	if cfg.PatternLearningEnabled {
+		deps.PatternDB, _ = orchestrator.NewPatternDB(nil)
+		deps.DeepPlanner.SetPatternDB(deps.PatternDB)
+	}
+
+	if cfg.PreWarmEnabled && registry != nil {
+		deps.PreWarm = orchestrator.NewPreWarmManager(registry, 0, 0)
+	}
+
+	return deps
+}
+
+// RecordPlanCompletion records a completed plan into the PatternDB if
+// pattern learning is enabled. This should be called after a plan's
+// dispatch completes (success or failure). No-op when deps.PatternDB
+// is nil (pattern learning disabled).
+func (deps *OrchestratorDeps) RecordPlanCompletion(ctx context.Context, plan *orchestrator.Plan) {
+	if deps == nil || deps.PatternDB == nil || plan == nil {
+		return
+	}
+	_ = deps.PatternDB.RecordSequence(ctx, plan)
 }
 
 // WireFusion wires a SIN Fusion v1 verify-tournament (issue #290) into

@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
@@ -203,6 +204,29 @@ type Loop struct {
 	// nil preserves exact legacy behavior. Only active when verify_mode
 	// == "poc" (issue #290).
 	TournamentRunner TournamentRunner
+
+	// Frustration, when set, tracks user message patterns for frustration
+	// signals and appends a system-prompt suffix when detected (issue #271).
+	// Optional — nil preserves legacy behavior.
+	Frustration *FrustrationDetector
+
+	// Compactor, when set, is consulted before each turn to compact the
+	// message history when it exceeds the compaction threshold (issue #278).
+	// Optional — nil preserves legacy behavior. Chained after
+	// CompressMessages if both are set.
+	Compactor *Compactor
+	// CompactionStrategy controls which compaction algorithm the Compactor
+	// uses. Default is CompactionHybrid. Only used when Compactor is set.
+	CompactionStrategy CompactionStrategy
+	// CompactionMaxTokens is the token budget for compacted messages.
+	// Zero defaults to 8000.
+	CompactionMaxTokens int
+
+	// MemoryPrime, when set, is called before the first turn to inject
+	// relevant memories from the long-term store into the conversation.
+	// The returned string is appended as a user message before the prompt.
+	// Optional — nil preserves legacy behavior.
+	MemoryPrime func(ctx context.Context, prompt string) (string, error)
 }
 
 // TournamentRunner is the interface for fusion verify-tournaments (issue
@@ -290,7 +314,13 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 	}
 
 	if l.Perm != nil {
-		switch l.Perm.Check(tc.Name) {
+		var pol permission.Policy
+		if l.Perm.Risk != nil {
+			pol = l.Perm.CheckWithArgs(tc.Name, tc.Args)
+		} else {
+			pol = l.Perm.Check(tc.Name)
+		}
+		switch pol {
 		case permission.Deny:
 			l.fire(ctx, hooks.ToolDenied, tc.Name, map[string]any{"policy": "deny"})
 			l.recordUsage(ctx, tc.Name, ledger.OutcomeDenied)
@@ -372,6 +402,17 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	}
 	msgs = append(msgs, session.Message{Role: "user", Content: prompt})
 
+	if l.Frustration != nil {
+		l.Frustration.Track(prompt, time.Now())
+	}
+
+	if l.MemoryPrime != nil {
+		if primed, err := l.MemoryPrime(ctx, prompt); err == nil && strings.TrimSpace(primed) != "" {
+			l.fire(ctx, hooks.MemoryPrime, "", map[string]any{"chars": len(primed)})
+			msgs = append(msgs, session.Message{Role: "user", Content: primed})
+		}
+	}
+
 	// Learning loop closed: inject accumulated workspace lessons before the
 	// first turn so the agent never repeats a recorded mistake.
 	if l.Lessons != nil {
@@ -411,6 +452,26 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			})
 			pendingInjects = nil
 		}
+		if l.Compactor != nil {
+			if ShouldCompact(len(msgs), maxTurns, l.Compactor.Threshold) {
+				maxTkns := l.CompactionMaxTokens
+				if maxTkns <= 0 {
+					maxTkns = 8000
+				}
+				cpre := l.fire(ctx, hooks.CompactionPre, "", map[string]any{
+					"messages_before": len(msgs),
+					"strategy":        l.CompactionStrategy.String(),
+					"max_tokens":      maxTkns,
+				})
+				msgs = l.Compactor.Compact(ctx, msgs, l.CompactionStrategy, maxTkns)
+				for _, inj := range cpre.PromptInjects {
+					msgs = append(msgs, session.Message{Role: "user", Content: inj})
+				}
+				if err := l.saveHistory(ctx, sess, msgs); err != nil {
+					return nil, err
+				}
+			}
+		}
 		reqMsgs := msgs
 		if l.CompressMessages != nil {
 			if compressed, cerr := l.CompressMessages(ctx, msgs); cerr == nil && compressed != nil {
@@ -420,7 +481,11 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 		// Mandate M6: the tool-preference block is prepended fresh each
 		// turn so the model cannot compress it away.
 		if l.SystemPrompt != "" {
-			reqMsgs = append([]session.Message{{Role: "system", Content: l.SystemPrompt}}, reqMsgs...)
+			sysContent := l.SystemPrompt
+			if l.Frustration != nil {
+				sysContent += l.Frustration.SystemPromptSuffix()
+			}
+			reqMsgs = append([]session.Message{{Role: "system", Content: sysContent}}, reqMsgs...)
 		}
 		resp, err := l.Completion(ctx, reqMsgs, tools)
 		if err != nil {
