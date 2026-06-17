@@ -1,27 +1,33 @@
 // SPDX-License-Identifier: MIT
-// Purpose: Data-driven chart generation (bar, line, pie, area).
-// Pure Go, no CGO — uses go-chart/v2 for PNG/SVG rendering.
+// Purpose: SOTA chart generation with Apache ECharts (via go-echarts).
+// Outputs interactive HTML (opens in browser) + optional PNG via headless Chrome.
 package imagegraph
 
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 
-	"github.com/wcharczuk/go-chart/v2"
+	"github.com/go-echarts/go-echarts/v2/charts"
+	"github.com/go-echarts/go-echarts/v2/opts"
 )
 
 type ChartSpec struct {
 	Title      string   `json:"title"`
+	Subtitle   string   `json:"subtitle"`
 	XLabel     string   `json:"x_label"`
 	YLabel     string   `json:"y_label"`
 	Type       string   `json:"type"`
 	Categories []string `json:"categories"`
 	Series     []Series `json:"series"`
 	Items      []Item   `json:"items"`
-	Width      int      `json:"width"`
-	Height     int      `json:"height"`
+	Width      string   `json:"width"`
+	Height     string   `json:"height"`
+	Theme      string   `json:"theme"`
 }
 
 type Series struct {
@@ -34,23 +40,20 @@ type Item struct {
 	Value float64 `json:"value"`
 }
 
-var palette = []chart.Style{
-	{FillColor: chart.ColorBlue, StrokeColor: chart.ColorBlue, StrokeWidth: 2},
-	{FillColor: chart.ColorOrange, StrokeColor: chart.ColorOrange, StrokeWidth: 2},
-	{FillColor: chart.ColorGreen, StrokeColor: chart.ColorGreen, StrokeWidth: 2},
-	{FillColor: chart.ColorRed, StrokeColor: chart.ColorRed, StrokeWidth: 2},
-	{FillColor: chart.ColorCyan, StrokeColor: chart.ColorCyan, StrokeWidth: 2},
-	{FillColor: chart.ColorYellow, StrokeColor: chart.ColorYellow, StrokeWidth: 2},
-	{FillColor: chart.ColorAlternateBlue, StrokeColor: chart.ColorAlternateBlue, StrokeWidth: 2},
-	{FillColor: chart.ColorAlternateGreen, StrokeColor: chart.ColorAlternateGreen, StrokeWidth: 2},
+var sotaColors = []string{
+	"#6366F1", "#EC4899", "#10B981", "#F59E0B",
+	"#3B82F6", "#EF4444", "#8B5CF6", "#06B6D4",
 }
 
 func Render(spec ChartSpec, outputPath string) error {
-	if spec.Width == 0 {
-		spec.Width = 1280
+	if spec.Width == "" {
+		spec.Width = "1200px"
 	}
-	if spec.Height == 0 {
-		spec.Height = 720
+	if spec.Height == "" {
+		spec.Height = "720px"
+	}
+	if spec.Theme == "" {
+		spec.Theme = "dark"
 	}
 
 	switch strings.ToLower(spec.Type) {
@@ -74,7 +77,7 @@ func ParseSpec(inputPath string) (ChartSpec, error) {
 	if inputPath == "-" || inputPath == "" {
 		stat, _ := os.Stdin.Stat()
 		if stat.Size() == 0 {
-			return ChartSpec{}, fmt.Errorf("no input data (use --data <file>, --json '<json>', or pipe via stdin)")
+			return ChartSpec{}, fmt.Errorf("no input data (use --data <file>, --json, or stdin)")
 		}
 		data, err = readAll(os.Stdin)
 	} else {
@@ -91,98 +94,287 @@ func ParseSpec(inputPath string) (ChartSpec, error) {
 	return spec, nil
 }
 
-func renderBar(spec ChartSpec, outputPath string) error {
-	var bars []chart.Value
+func titleOpts(spec ChartSpec) opts.Title {
+	return opts.Title{
+		Title:    spec.Title,
+		Subtitle: spec.Subtitle,
+		Left:     "center",
+		Top:      "5%",
+		TitleStyle: &opts.TextStyle{
+			FontSize:   24,
+			Color:      "#F8FAFC",
+			FontFamily: "Inter, -apple-system, sans-serif",
+		},
+		SubtitleStyle: &opts.TextStyle{
+			FontSize:   14,
+			Color:      "#94A3B8",
+			FontFamily: "Inter, sans-serif",
+		},
+	}
+}
+
+func initOpts(spec ChartSpec) opts.Initialization {
+	return opts.Initialization{
+		Theme:           spec.Theme,
+		Width:           spec.Width,
+		Height:          spec.Height,
+		BackgroundColor: "#0F172A",
+	}
+}
+
+func tooltipAxis() opts.Tooltip {
+	return opts.Tooltip{
+		Show:           opts.Bool(true),
+		Trigger:        "axis",
+		BackgroundColor: "#1E293B",
+		BorderColor:    "#334155",
+	}
+}
+
+func tooltipItem() opts.Tooltip {
+	return opts.Tooltip{
+		Show:           opts.Bool(true),
+		Trigger:        "item",
+		Formatter:      "{b}: {c} ({d}%)",
+		BackgroundColor: "#1E293B",
+		BorderColor:    "#334155",
+	}
+}
+
+func legendTop() opts.Legend {
+	return opts.Legend{
+		Show:   opts.Bool(true),
+		Top:    "12%",
+		Right:  "5%",
+		Orient: "horizontal",
+		TextStyle: &opts.TextStyle{
+			Color:      "#CBD5E1",
+			FontSize:   13,
+			FontFamily: "Inter, sans-serif",
+		},
+	}
+}
+
+func legendBottom() opts.Legend {
+	return opts.Legend{
+		Show:   opts.Bool(true),
+		Bottom: "5%",
+		Orient: "horizontal",
+		TextStyle: &opts.TextStyle{
+			Color:    "#CBD5E1",
+			FontSize: 13,
+		},
+	}
+}
+
+func xAxisOpts(spec ChartSpec) opts.XAxis {
+	return opts.XAxis{
+		Name: spec.XLabel,
+		AxisLabel: &opts.AxisLabel{
+			Color:      "#CBD5E1",
+			FontSize:   12,
+			FontFamily: "Inter, sans-serif",
+		},
+		AxisLine: &opts.AxisLine{
+			LineStyle: &opts.LineStyle{Color: "#334155"},
+		},
+		SplitLine: &opts.SplitLine{Show: opts.Bool(false)},
+	}
+}
+
+func yAxisOpts(spec ChartSpec) opts.YAxis {
+	return opts.YAxis{
+		Name: spec.YLabel,
+		AxisLabel: &opts.AxisLabel{
+			Color:      "#CBD5E1",
+			FontSize:   12,
+			FontFamily: "Inter, sans-serif",
+		},
+		AxisLine: &opts.AxisLine{
+			LineStyle: &opts.LineStyle{Color: "#334155"},
+		},
+		SplitLine: &opts.SplitLine{
+			Show: opts.Bool(true),
+			LineStyle: &opts.LineStyle{Color: "#1E293B", Type: "dashed"},
+		},
+	}
+}
+
+func makeCategories(spec ChartSpec) []string {
+	if len(spec.Categories) > 0 {
+		return spec.Categories
+	}
+	maxLen := 0
 	for _, s := range spec.Series {
-		for i, v := range s.Values {
-			label := s.Name
-			if len(spec.Categories) > i && spec.Categories[i] != "" {
-				label = spec.Categories[i]
+		if len(s.Values) > maxLen {
+			maxLen = len(s.Values)
+		}
+	}
+	cats := make([]string, maxLen)
+	for i := range cats {
+		cats[i] = fmt.Sprintf("%d", i+1)
+	}
+	return cats
+}
+
+func renderBar(spec ChartSpec, outputPath string) error {
+	bar := charts.NewBar()
+	bar.SetGlobalOptions(
+		charts.WithTitleOpts(titleOpts(spec)),
+		charts.WithInitializationOpts(initOpts(spec)),
+		charts.WithTooltipOpts(tooltipAxis()),
+		charts.WithLegendOpts(legendTop()),
+		charts.WithXAxisOpts(xAxisOpts(spec)),
+		charts.WithYAxisOpts(yAxisOpts(spec)),
+	)
+
+	bar.SetXAxis(makeCategories(spec))
+
+	for i, s := range spec.Series {
+		data := make([]opts.BarData, len(s.Values))
+		for j, v := range s.Values {
+			data[j] = opts.BarData{
+				Value:     v,
+				ItemStyle: &opts.ItemStyle{Color: sotaColors[i%len(sotaColors)]},
 			}
-			bars = append(bars, chart.Value{Label: label, Value: v})
 		}
-	}
-	if len(bars) == 0 {
-		for _, item := range spec.Items {
-			bars = append(bars, chart.Value{Label: item.Label, Value: item.Value})
-		}
+		bar.AddSeries(s.Name, data).
+			SetSeriesOptions(
+				charts.WithBarChartOpts(opts.BarChart{
+					BarWidth: "40%",
+				}),
+				charts.WithLabelOpts(opts.Label{
+					Show:     opts.Bool(true),
+					Position: "top",
+					Color:    "#94A3B8",
+					FontSize: 11,
+				}),
+			)
 	}
 
-	graph := chart.BarChart{
-		Title:  spec.Title,
-		Width:  spec.Width,
-		Height: spec.Height,
-		Bars:   bars,
-	}
-
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("create output: %w", err)
-	}
-	defer f.Close()
-
-	if isSVG(outputPath) {
-		return graph.Render(chart.SVG, f)
-	}
-	return graph.Render(chart.PNG, f)
+	return writeHTML(bar, outputPath)
 }
 
 func renderLine(spec ChartSpec, outputPath string) error {
-	var series []chart.Series
+	line := charts.NewLine()
+	line.SetGlobalOptions(
+		charts.WithTitleOpts(titleOpts(spec)),
+		charts.WithInitializationOpts(initOpts(spec)),
+		charts.WithTooltipOpts(tooltipAxis()),
+		charts.WithLegendOpts(legendTop()),
+		charts.WithXAxisOpts(xAxisOpts(spec)),
+		charts.WithYAxisOpts(yAxisOpts(spec)),
+	)
+
+	line.SetXAxis(makeCategories(spec))
+
 	for i, s := range spec.Series {
-		style := palette[i%len(palette)]
-		series = append(series, chart.ContinuousSeries{
-			Name:    s.Name,
-			XValues: makeXValues(len(s.Values)),
-			YValues: s.Values,
-			Style:   style,
-		})
+		data := make([]opts.LineData, len(s.Values))
+		for j, v := range s.Values {
+			data[j] = opts.LineData{Value: v}
+		}
+		line.AddSeries(s.Name, data).
+			SetSeriesOptions(
+				charts.WithLineChartOpts(opts.LineChart{
+					Smooth: opts.Bool(true),
+				}),
+				charts.WithLineStyleOpts(opts.LineStyle{
+					Width: 3,
+					Color: sotaColors[i%len(sotaColors)],
+				}),
+				charts.WithAreaStyleOpts(opts.AreaStyle{
+					Color:   sotaColors[i%len(sotaColors)],
+					Opacity: opts.Float(0.1),
+				}),
+			)
 	}
 
-	graph := chart.Chart{
-		Title:  spec.Title,
-		Width:  spec.Width,
-		Height: spec.Height,
-		Series: series,
-	}
-
-	return writeChart(graph, outputPath)
+	return writeHTML(line, outputPath)
 }
 
 func renderArea(spec ChartSpec, outputPath string) error {
-	var series []chart.Series
+	area := charts.NewLine()
+	area.SetGlobalOptions(
+		charts.WithTitleOpts(titleOpts(spec)),
+		charts.WithInitializationOpts(initOpts(spec)),
+		charts.WithTooltipOpts(tooltipAxis()),
+		charts.WithLegendOpts(legendTop()),
+		charts.WithXAxisOpts(xAxisOpts(spec)),
+		charts.WithYAxisOpts(yAxisOpts(spec)),
+	)
+
+	area.SetXAxis(makeCategories(spec))
+
 	for i, s := range spec.Series {
-		style := palette[i%len(palette)]
-		style.FillColor = style.StrokeColor
-		series = append(series, chart.ContinuousSeries{
-			Name:    s.Name,
-			XValues: makeXValues(len(s.Values)),
-			YValues: s.Values,
-			Style:   style,
-		})
+		data := make([]opts.LineData, len(s.Values))
+		for j, v := range s.Values {
+			data[j] = opts.LineData{Value: v}
+		}
+		area.AddSeries(s.Name, data).
+			SetSeriesOptions(
+				charts.WithLineChartOpts(opts.LineChart{
+					Smooth: opts.Bool(true),
+				}),
+				charts.WithLineStyleOpts(opts.LineStyle{
+					Width: 2.5,
+					Color: sotaColors[i%len(sotaColors)],
+				}),
+				charts.WithAreaStyleOpts(opts.AreaStyle{
+					Color:   sotaColors[i%len(sotaColors)],
+					Opacity: opts.Float(0.35),
+				}),
+			)
 	}
 
-	graph := chart.Chart{
-		Title:  spec.Title,
-		Width:  spec.Width,
-		Height: spec.Height,
-		Series: series,
-	}
-
-	return writeChart(graph, outputPath)
+	return writeHTML(area, outputPath)
 }
 
 func renderPie(spec ChartSpec, outputPath string) error {
-	var values []chart.Value
-	for _, item := range spec.Items {
-		values = append(values, chart.Value{Label: item.Label, Value: item.Value})
+	pie := charts.NewPie()
+	pie.SetGlobalOptions(
+		charts.WithTitleOpts(titleOpts(spec)),
+		charts.WithInitializationOpts(initOpts(spec)),
+		charts.WithTooltipOpts(tooltipItem()),
+		charts.WithLegendOpts(legendBottom()),
+	)
+
+	data := make([]opts.PieData, len(spec.Items))
+	for i, item := range spec.Items {
+		data[i] = opts.PieData{
+			Name:      item.Label,
+			Value:     item.Value,
+			ItemStyle: &opts.ItemStyle{Color: sotaColors[i%len(sotaColors)]},
+		}
 	}
 
-	graph := chart.PieChart{
-		Title:  spec.Title,
-		Width:  spec.Width,
-		Height: spec.Height,
-		Values: values,
+	pie.AddSeries("data", data).
+		SetSeriesOptions(
+			charts.WithPieChartOpts(opts.PieChart{
+				Radius: []string{"40%", "70%"},
+				Center: []string{"50%", "55%"},
+			}),
+			charts.WithLabelOpts(opts.Label{
+				Show:      opts.Bool(true),
+				Formatter: "{b}\n{d}%",
+				Color:     "#CBD5E1",
+				FontSize:  13,
+			}),
+			charts.WithItemStyleOpts(opts.ItemStyle{
+				BorderColor: "#0F172A",
+				BorderWidth: 3,
+			}),
+		)
+
+	return writeHTML(pie, outputPath)
+}
+
+func writeHTML(chart interface{ Render(io.Writer) error }, outputPath string) error {
+	if !strings.HasSuffix(outputPath, ".html") {
+		ext := filepath.Ext(outputPath)
+		if ext != "" {
+			outputPath = strings.TrimSuffix(outputPath, ext)
+		}
+		outputPath += ".html"
 	}
 
 	f, err := os.Create(outputPath)
@@ -191,35 +383,60 @@ func renderPie(spec ChartSpec, outputPath string) error {
 	}
 	defer f.Close()
 
-	if isSVG(outputPath) {
-		return graph.Render(chart.SVG, f)
+	if err := chart.Render(f); err != nil {
+		return fmt.Errorf("render chart: %w", err)
 	}
-	return graph.Render(chart.PNG, f)
+
+	abs, _ := filepath.Abs(outputPath)
+
+	pngPath := strings.TrimSuffix(abs, ".html") + ".png"
+	if tryChromeScreenshot(abs, pngPath) {
+		fmt.Fprintf(os.Stdout, "✅ Chart generated: %s (HTML: %s)\n", pngPath, abs)
+		openBrowser(abs)
+		return nil
+	}
+
+	fmt.Fprintf(os.Stdout, "✅ Chart generated: %s\n", abs)
+	openBrowser(abs)
+	return nil
 }
 
-func writeChart(graph chart.Chart, outputPath string) error {
-	f, err := os.Create(outputPath)
-	if err != nil {
-		return fmt.Errorf("create output: %w", err)
+func tryChromeScreenshot(htmlPath, pngPath string) bool {
+	chrome := findChrome()
+	if chrome == "" {
+		return false
 	}
-	defer f.Close()
-
-	if isSVG(outputPath) {
-		return graph.Render(chart.SVG, f)
-	}
-	return graph.Render(chart.PNG, f)
+	cmd := exec.Command(chrome,
+		"--headless",
+		"--disable-gpu",
+		"--no-sandbox",
+		"--screenshot="+pngPath,
+		"--window-size=1280,720",
+		"--default-background-color=00000000",
+		"file://"+htmlPath,
+	)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	return cmd.Run() == nil
 }
 
-func isSVG(path string) bool {
-	return strings.HasSuffix(strings.ToLower(path), ".svg")
+func findChrome() string {
+	candidates := []string{
+		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+		"/usr/bin/google-chrome",
+		"/usr/bin/chromium",
+		"/usr/bin/chromium-browser",
+	}
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			return c
+		}
+	}
+	return ""
 }
 
-func makeXValues(n int) []float64 {
-	x := make([]float64, n)
-	for i := range x {
-		x[i] = float64(i)
-	}
-	return x
+func openBrowser(path string) {
+	exec.Command("open", path).Start()
 }
 
 func readAll(f *os.File) ([]byte, error) {
