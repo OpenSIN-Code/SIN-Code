@@ -492,7 +492,7 @@ func TestSubmitSyncBusy(t *testing.T) {
 		<-hold
 		return &agentloop.Completion{Text: "x", Raw: session.Message{Role: "assistant", Content: "x"}}, nil
 	})
-	_, err := r.Submit(context.Background(), "first")
+	done, err := r.Submit(context.Background(), "first")
 	if err != nil {
 		t.Fatalf("first Submit: %v", err)
 	}
@@ -502,6 +502,7 @@ func TestSubmitSyncBusy(t *testing.T) {
 		t.Errorf("SubmitSync err = %v, want ErrBusy", err)
 	}
 	close(hold)
+	<-done // wait for async submit to finish before cleanup
 }
 
 func TestLoopIsWiredFromBuilder(t *testing.T) {
