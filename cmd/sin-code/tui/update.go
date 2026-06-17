@@ -22,6 +22,7 @@ func (m *Model) Init() tea.Cmd {
 		m.Spinner.Init(),
 		ListenForNotifications(),
 		RefreshTodosCmd(),
+		InitGitRefresh(),
 	}
 	return tea.Batch(cmds...)
 }
@@ -268,6 +269,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(cmds...)
 
+	case GitRefreshMsg:
+		HandleGitRefresh(m, msg)
+		return m, nil
+
+	case FilePreviewMsg:
+		HandleFilePreviewMsg(m, msg)
+		return m, nil
+
+	case DiffPopupMsg:
+		m.DiffPopupOpen = !m.DiffPopupOpen
+		return m, nil
+
 	case tea.KeyPressMsg:
 		if m.NotificationBanner != nil {
 			k := msg.String()
@@ -395,6 +408,12 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, keymap.Subagents):
 		m.OpenSubagents()
+		return m, nil
+	case keyStr == "ctrl+d":
+		m.DiffPopupOpen = !m.DiffPopupOpen
+		return m, nil
+	case keyStr == "ctrl+f" && m.FilePreview != "":
+		m.ClearFilePreview()
 		return m, nil
 	case key.Matches(msg, keymap.SessionSwitch):
 		m.OpenSessionSwitcher()
@@ -741,6 +760,16 @@ func (m *Model) View() tea.View {
 	}
 	if m.Mode == ModePermissionDialog {
 		popup := RenderPermissionDialog(m.PermissionDialog, m.Styles, m.Width, m.Height)
+		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
+	}
+
+	if m.DiffPopupOpen {
+		popup := RenderDiffPopupView(m.Styles, m.Width, m.Height)
+		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
+	}
+
+	if m.FilePreview != "" {
+		popup := RenderFilePreview(m, m.Styles, m.Width, m.Height)
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
 	}
 

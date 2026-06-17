@@ -122,6 +122,7 @@ type Model struct {
 	// File preview
 	FilePreview     string
 	FilePreviewPath string
+	DiffPopupOpen   bool
 }
 
 func (m *Model) ctx() context.Context {
