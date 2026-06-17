@@ -27,12 +27,17 @@ type wireTool struct {
 	Function wireFunction `json:"function"`
 }
 
+type wireThinking struct {
+	Type string `json:"type,omitempty"` // "enabled" | "disabled"
+}
+
 type wireRequest struct {
 	Model       string            `json:"model"`
 	Messages    []session.Message `json:"messages"`
 	Tools       []wireTool        `json:"tools,omitempty"`
 	MaxTokens   int               `json:"max_tokens,omitempty"`
 	Temperature float64           `json:"temperature,omitempty"`
+	Thinking    *wireThinking     `json:"thinking,omitempty"`
 }
 
 type wireToolCall struct {
