@@ -82,6 +82,14 @@ func DefaultHints(view ViewKind) []HintPair {
 			{"n", "next"},
 			{"q", "quit"},
 		}
+	case ViewDAG:
+		return []HintPair{
+			{"Tab", "view"},
+			{"↑/↓", "navigate"},
+			{"r", "refresh"},
+			{"p", "plan"},
+			{"q", "quit"},
+		}
 	default:
 		return []HintPair{
 			{"Tab", "view"},

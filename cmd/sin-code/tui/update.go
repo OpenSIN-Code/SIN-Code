@@ -17,6 +17,21 @@ import (
 
 var keymap = DefaultKeymap()
 
+// Additional bindings not in the keymap struct
+var (
+	keyBannerOpen    = key.NewBinding(key.WithKeys("o"), key.WithHelp("o", "open banner"))
+	keyBannerDismiss = key.NewBinding(key.WithKeys("d"), key.WithHelp("d", "dismiss banner"))
+	keyBannerNext    = key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "next banner"))
+	keyPgUp          = key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "scroll up"))
+	keyPgDn          = key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdn", "scroll down"))
+	keyDiffPopup     = key.NewBinding(key.WithKeys("ctrl+d"), key.WithHelp("^d", "diff popup"))
+	keyClosePreview  = key.NewBinding(key.WithKeys("ctrl+f"), key.WithHelp("^f", "close preview"))
+	keyLeft          = key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "left"))
+	keyRight         = key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "right"))
+	keyUp            = key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up"))
+	keyDown          = key.NewBinding(key.WithKeys("down", "j"), key.WithHelp("↓/j", "down"))
+)
+
 func (m *Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		m.Spinner.Init(),
@@ -281,6 +296,31 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.DiffPopupOpen = !m.DiffPopupOpen
 		return m, nil
 
+	case ReloadMsg:
+		HandleReload(m)
+		return m, nil
+
+	case VerifyUpdateMsg:
+		HandleVerifyUpdate(&m.VerifyPanel, msg)
+		return m, nil
+
+	case ToolCallTreeMsg:
+		if m.ToolTree == nil {
+			m.ToolTree = &ToolCallTree{}
+		}
+		m.ToolTree.AddNode(msg.ParentID, msg.Node)
+		return m, nil
+
+	case ToolCallUpdateMsg:
+		if m.ToolTree != nil {
+			m.ToolTree.UpdateNode(msg.ID, msg.Status, msg.Output, msg.Duration, msg.Error)
+		}
+		return m, nil
+
+	case SessionTreeMsg:
+		m.SessionTree = BuildSessionTree(msg.Sessions)
+		return m, nil
+
 	case tea.KeyPressMsg:
 		// Ctrl+X and Ctrl+C quit immediately from any view/mode
 		if msg.Code == 'x' && msg.Mod&tea.ModCtrl != 0 {
@@ -344,13 +384,11 @@ func isGlobalHotkey(msg tea.KeyMsg) bool {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	keyStr := msg.String()
-
 	if m.Mode == ModePalette {
 		return m.handlePaletteKey(msg)
 	}
 	if m.Mode == ModeSubagents {
-		if keyStr == "esc" || keyStr == "ctrl+a" {
+		if key.Matches(msg, keymap.Interrupt) || key.Matches(msg, keymap.Subagents) {
 			m.CloseSubagents()
 		}
 		return m, nil
@@ -420,10 +458,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keymap.Subagents):
 		m.OpenSubagents()
 		return m, nil
-	case keyStr == "ctrl+d":
+	case key.Matches(msg, keyDiffPopup):
 		m.DiffPopupOpen = !m.DiffPopupOpen
 		return m, nil
-	case keyStr == "ctrl+f" && m.FilePreview != "":
+	case key.Matches(msg, keyClosePreview) && m.FilePreview != "":
 		m.ClearFilePreview()
 		return m, nil
 	case key.Matches(msg, keymap.SessionSwitch):
@@ -484,13 +522,13 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-	case keyStr == "pgup":
+	case key.Matches(msg, keyPgUp):
 		if m.ViewKind == ViewChat {
 			m.ChatViewport.PageUp()
 			m.updateChatFocusFromViewport()
 			return m, nil
 		}
-	case keyStr == "pgdn":
+	case key.Matches(msg, keyPgDn):
 		if m.ViewKind == ViewChat {
 			m.ChatViewport.PageDown()
 			m.updateChatFocusFromViewport()
@@ -513,6 +551,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.TodoSel > 0 {
 				m.TodoSel--
 			}
+		case ViewDAG:
+			if m.DAGState.Selected > 0 {
+				m.DAGState.Selected--
+			}
 		}
 		return m, nil
 	case key.Matches(msg, keymap.ToolDown):
@@ -532,24 +574,28 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.TodoSel < len(m.TodoItems)-1 {
 				m.TodoSel++
 			}
+		case ViewDAG:
+			if m.DAGState.Selected < len(m.DAGState.Tasks)-1 {
+				m.DAGState.Selected++
+			}
 		}
 		return m, nil
-	case keyStr == "up_left" || keyStr == "left" || keyStr == "h":
+	case key.Matches(msg, keyLeft):
 		return m, nil
-	case keyStr == "right" || keyStr == "l":
+	case key.Matches(msg, keyRight):
 		return m, nil
-	case keyStr == "o":
+	case key.Matches(msg, keyBannerOpen):
 		if m.NotificationBanner != nil {
 			m.AppendHistory(ViewTodos.String(), "banner-open", m.NotificationBanner.Title, true)
 		}
 		return m, nil
-	case keyStr == "d":
+	case key.Matches(msg, keyBannerDismiss):
 		if m.NotificationBanner != nil {
 			m.DismissBanner()
 			m.AppendHistory(ViewTodos.String(), "banner-dismiss", "", true)
 		}
 		return m, nil
-	case keyStr == "n":
+	case key.Matches(msg, keyBannerNext):
 		if m.pendingAsk != nil {
 			m.answerPendingAsk(false)
 			m.ClosePermissionDialog()
@@ -732,6 +778,8 @@ func (m *Model) View() tea.View {
 	case ViewChat:
 		m.initChatInput()
 		content = m.renderChat(m.Styles, m.contentWidth(), contentHeight)
+	case ViewDAG:
+		content = RenderDAGView(m.DAGState, m.Styles, m.contentWidth(), contentHeight)
 	}
 
 	if m.NotificationBanner != nil {
@@ -782,6 +830,17 @@ func (m *Model) View() tea.View {
 	if m.FilePreview != "" {
 		popup := RenderFilePreview(m, m.Styles, m.Width, m.Height)
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
+	}
+
+	// Verify panel overlay in chat mode
+	if m.ViewKind == ViewChat && m.VerifyPanel.State != VerifyIdle {
+		vp := RenderVerifyPanel(m.VerifyPanel, m.Styles, m.contentWidth())
+		layout = vp + "\n" + layout
+	}
+
+	// Tool call tree overlay when toggled
+	if m.ToolTree != nil && len(m.ToolTree.Nodes) > 0 && m.Mode == ModeNormal && m.ViewKind == ViewChat {
+		// Show as a compact panel below chat if there are recent tool calls
 	}
 
 	v := tea.NewView(layout)
@@ -986,31 +1045,90 @@ func copyToClipboard(text string) {
 }
 
 func (m *Model) handleMouseAction(action MouseAction) tea.Cmd {
+	switch action.Kind {
+	case "click":
+		return m.handleMouseClick(action)
+	case "scroll_up":
+		return m.handleMouseScrollUp(action)
+	case "scroll_down":
+		return m.handleMouseScrollDown(action)
+	}
+	return nil
+}
+
+func (m *Model) handleMouseClick(action MouseAction) tea.Cmd {
 	switch action.Target {
 	case "sidebar":
-		return nil
+		return m.handleSidebarClick(action)
 	case "chat":
-		if m.ViewKind == ViewChat && m.ChatInput != nil {
+		if m.ChatInput != nil {
 			return m.ChatInput.Focus()
 		}
 		return nil
 	case "tabs":
-		return nil
+		return m.handleTabsClick(action)
 	case "footer":
 		return nil
 	case "right_panel":
 		return nil
 	}
+	return nil
+}
 
-	if action.Kind == "scroll_up" {
-		if m.ViewKind == ViewChat {
-			m.ChatViewport.ScrollUp(1)
+func (m *Model) handleSidebarClick(action MouseAction) tea.Cmd {
+	const tabBarHeight = 3
+	const sidebarHeaderHeight = 2 // header + separator
+
+	relY := action.Y - tabBarHeight
+	numMainItems := len(m.Sidebar.Items)
+
+	// Check if we're in the tool sub-items area (only when ViewTools is active)
+	if m.Sidebar.SelectedView() == ViewTools {
+		subStart := sidebarHeaderHeight + numMainItems + 2 // separator + "Subcommands" header
+		toolIdx := relY - subStart
+		if toolIdx >= 0 && toolIdx < len(m.Sidebar.ToolSubItems) {
+			m.Sidebar.ToolSel = toolIdx
+			return nil
 		}
 	}
-	if action.Kind == "scroll_down" {
-		if m.ViewKind == ViewChat {
-			m.ChatViewport.ScrollDown(1)
-		}
+
+	// Main items area
+	if relY < sidebarHeaderHeight {
+		return nil // clicked on header/separator
+	}
+
+	itemIdx := relY - sidebarHeaderHeight
+	if itemIdx >= 0 && itemIdx < numMainItems {
+		m.Sidebar.Selected = itemIdx
+		m.SwitchView(m.Sidebar.SelectedView())
+	}
+
+	return nil
+}
+
+func (m *Model) handleTabsClick(action MouseAction) tea.Cmd {
+	const tabStartX = 12 // "⚡ sin-code" header + space
+	const tabWidth = 15
+	if action.X < tabStartX {
+		return nil
+	}
+	idx := (action.X - tabStartX) / tabWidth
+	if idx >= 0 && idx < len(m.Tabs.Sessions) {
+		m.Tabs.Select(idx)
+	}
+	return nil
+}
+
+func (m *Model) handleMouseScrollUp(action MouseAction) tea.Cmd {
+	if m.ViewKind == ViewChat {
+		m.ChatViewport.ScrollUp(3)
+	}
+	return nil
+}
+
+func (m *Model) handleMouseScrollDown(action MouseAction) tea.Cmd {
+	if m.ViewKind == ViewChat {
+		m.ChatViewport.ScrollDown(3)
 	}
 	return nil
 }

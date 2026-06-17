@@ -121,6 +121,26 @@ type FilePreviewState struct {
 	DiffPopupOpen   bool
 }
 
+type DAGTaskRow struct {
+	ID             string
+	Type           string
+	Description    string
+	Status         string
+	Probability    float64
+	PreWarmed      bool
+	ExpectedOutput string
+	DependsOn      []string
+	AgentName      string
+	TokensUsed     int
+	Cost           float64
+}
+
+type DAGState struct {
+	Tasks    []DAGTaskRow
+	Selected int
+	Prompt   string
+}
+
 type Model struct {
 	ctxFn     func() context.Context
 	Program   teaProgramIface
@@ -155,6 +175,16 @@ type Model struct {
 	ConfigState
 	HistoryState
 	FilePreviewState
+	DAGState
+
+	// Verification gate panel
+	VerifyPanel VerifyPanel
+
+	// Tool call tree
+	ToolTree *ToolCallTree
+
+	// Session tree
+	SessionTree *SessionTree
 }
 
 func (m *Model) ctx() context.Context {

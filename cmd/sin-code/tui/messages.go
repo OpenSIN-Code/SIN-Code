@@ -12,6 +12,7 @@ const (
 	ViewHistory
 	ViewTodos
 	ViewChat
+	ViewDAG
 )
 
 func (v ViewKind) String() string {
@@ -30,6 +31,8 @@ func (v ViewKind) String() string {
 		return "Todos"
 	case ViewChat:
 		return "Chat"
+	case ViewDAG:
+		return "DAG"
 	}
 	return "Unknown"
 }
@@ -50,6 +53,8 @@ func (v ViewKind) Short() string {
 		return "6·Todos"
 	case ViewChat:
 		return "7·Chat"
+	case ViewDAG:
+		return "8·DAG"
 	}
 	return "?·"
 }

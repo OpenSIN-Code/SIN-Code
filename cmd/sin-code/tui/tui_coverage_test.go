@@ -1145,6 +1145,7 @@ func TestViewKindShortAll(t *testing.T) {
 		{ViewHistory, "5·History"},
 		{ViewTodos, "6·Todos"},
 		{ViewChat, "7·Chat"},
+		{ViewDAG, "8·DAG"},
 	}
 	for _, tc := range cases {
 		if got := tc.v.Short(); got != tc.want {
