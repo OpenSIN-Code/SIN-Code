@@ -6,7 +6,7 @@
 >
 > **Last verified against main:** v3.18.0 (2026-06-16) —
 > bundled skills reorganized into category directories and renamed to
-> `skill-<category>-<name>`; `github-skills/` category added; 34 bundled skills
+> `skill-<category>-<name>`; `github-skills/` category added; 35 bundled skills
 > embedded in the binary. Branch protection on `main` permanently relaxed to
 > **Last verified against main:** v3.19.0 (2026-06-16) —
 > `sin-code serve --compress-tools` wired (issue #173): ponytail-tag
@@ -14,7 +14,7 @@
 > manifest on the wire (delete|stdlib|native|yagni|shrink tags,
 > byte-stable per `(tool_spec, ruleset)`). Bundled skills reorganized
 > into category directories and renamed to `skill-<category>-<name>`;
-> `github-skills/` category added; 34 bundled skills embedded in the
+> `github-skills/` category added; 35 bundled skills embedded in the
 > binary. Branch protection on `main` permanently relaxed to
 > `required_approving_review_count: 0` for solo-maintainer workflow.
 > `sin-code install` (issue #170) — new 40th subcommand; root `install.sh`
@@ -202,7 +202,7 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   └─ 40 subcommands
   ├─ sin-code audit         ← v3.18.0: repo-wide complexity audit (issue #180)
   ├─ sin-code ceo-audit     ← v3.18.0: 48-gate CEO audit with complexity gate (issue #180)
-  └─ 41 subcommands
+  └─ 42 subcommands
   ├─ sin-code review        ← v3.19.0: ponytail complexity review (issue #179)
   ├─ sin-code image-graph   ← v3.20.0: SOTA ECharts chart generation (bar/line/pie/area)
   └─ 42 subcommands (v3.20.0)
@@ -311,7 +311,7 @@ SIN-Code/
 │   └── mcp.json.example
 │
 ├── cmd/
-│   ├── sin-code/              ← MAIN BINARY (41 subcommands — v3.19.0)
+│   ├── sin-code/              ← MAIN BINARY (42 subcommands — v3.20.0)
 │   │   ├── main.go            ← cobra root; AddCommand for all subcommands
 │   │   ├── tui.go, webui_cmd.go
 │   │   ├── chat_cmd.go        ← v3.4.0: chat + -p headless
@@ -413,7 +413,7 @@ SIN-Code/
 │       SIN-Code-SCA-Tool-Go, SIN-Code-Secrets-Scanner
 │
 ├── src/sin_code_bundle/       ← Python companion: `sin` CLI + `sin-serve`
-├── skills/                    ← 34 bundled skills in category directories
+├── skills/                    ← 35 bundled skills in category directories
 │   ├── browser-skills/
 │   ├── code-skills/
 │   ├── debug-skills/
@@ -619,8 +619,9 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.19.0 | ACTIVE | `autoactivate` hooklife subpackage (#176): `cmd/sin-code/internal/hooklife/autoactivate` — per-session rule injection on `SessionStart` + `UserPrompt`. `--activate <rule>` + `--no-trigger` flags on `sin-code chat`; project-local `.sin-code/autoactivate.toml`; deterministic byte-stable `RuleSet.Render()`; race-safe (mandate M7). Hooks register against any `*hooklife.Registry` via `Activator.Register(reg)`. |
 | v3.17.0 | ✅ SHIPPED | TUI runtime DB .gitignore, MCP warning deduplication, marketplace update test hardening, skills 33 → 34 |
 | v3.18.0 | ✅ SHIPPED | `sin-code install` single-binary installer (issue #170), curl/bash + PowerShell shims, SHA256-verified release downloads |
-| v3.19.0 | ACTIVE | `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format (`delete`, `stdlib`, `native`, `yagni`, `shrink`), `// sin-debt:` marker support (issue #177), text/json/markdown output, race-clean tests |
+| v3.19.0 | ✅ SHIPPED | `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format (`delete`, `stdlib`, `native`, `yagni`, `shrink`), `// sin-debt:` marker support (issue #177), text/json/markdown output, race-clean tests |
 | v3.20.0 | ✅ SHIPPED | Tool coverage, M6 enforcement, catalog, telemetry (issues #249, #253, #248, #250, #252, #251): agent profiles expose full `sin_*` + MCP prefix surface; system prompt injects SIN-tool preference fragment; runtime `ToolCoverageEnforcer` rejects missing/forbidden tool usage; `ledger tools` heatmap/coverage/unused; orchestrator planner emits mandatory `ToolChain` per intent; `sin-code catalog` unifies 46+ MCP tools, 17+ chat tools, and 14+ external MCP prefixes. |
+| v3.20.0 | ✅ SHIPPED | `sin-code image-graph` — SOTA ECharts chart generation (bar/line/pie/area); `skill-github-readme` bundled as 35th skill. 42 subcommands, 35 bundled skills. |
 | v3.21.0 | ✅ SHIPPED | Test-First Verify-Loop (RFC-test-automation.md): `sin_test` + `sin_test_generate` + `sin_quality_gate` + `sin_mutation` + `sin_fuzz` + `sin_property`; `tool.post` hook payload path; `test.*` config keys; `evals/test-generation.json` golden dataset. |
 | v3.22.0 | ACTIVE | SIN Fusion v1: Verify-Tournament (issue #290) — multi-model fan-out on verify.fail, Fireworks pool (6 models), thinking mode, cost-governor, difficulty gate, PoC-only |
 
@@ -787,9 +788,9 @@ same anchor (`SIN-CODE-SKILL`) so a downstream parser finds both
 per-skill bundles and per-profile mirrors with one regex. Profile
 renders are idempotent (rerun with unchanged source = byte-identical
 output), exactly as skilldist demands.
-``` (v3.18.0: 41 subcommands — `debt` is issue #177, sin-debt markers; `install` is issue #170; `eval`, `evalset`, `prp`, `instinct`, `assets`, `hooks`, `rtk`, `codegraph`, `spec` follow)
+``` (v3.18.0: 42 subcommands — `debt` is issue #177, sin-debt markers; `install` is issue #170; `eval`, `evalset`, `prp`, `instinct`, `assets`, `hooks`, `rtk`, `codegraph`, `spec` follow)
 Audit:     audit, ceo-audit
-``` (v3.18.0: 41 subcommands, up from 39 in v3.13.0)
+``` (v3.18.0: 42 subcommands, up from 39 in v3.13.0)
            config, self-update, hub, ledger, summary, review, image-graph
 ``` (v3.20.0: 42 subcommands — `image-graph` added: SOTA ECharts chart generation)
 
