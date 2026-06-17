@@ -3,6 +3,7 @@
 package chat
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -702,5 +703,204 @@ func TestInputIsFilePathHomeSuccess(t *testing.T) {
 func TestImageExtGIF(t *testing.T) {
 	if got := imageExt("GIF89a..."); got != "gif" {
 		t.Errorf("expected gif, got %q", got)
+	}
+}
+
+func TestFormatAttachmentSize(t *testing.T) {
+	cases := []struct {
+		in   int64
+		want string
+	}{
+		{0, "0B"},
+		{512, "512B"},
+		{1023, "1023B"},
+		{1024, "1.0KB"},
+		{1536, "1.5KB"},
+		{1048576, "1.0MB"},
+		{1572864, "1.5MB"},
+	}
+	for _, c := range cases {
+		if got := formatAttachmentSize(c.in); got != c.want {
+			t.Errorf("formatAttachmentSize(%d) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestAttachmentIcon(t *testing.T) {
+	if got := attachmentIcon("x.png", ""); got != "🖼" {
+		t.Errorf("png: %q", got)
+	}
+	if got := attachmentIcon("x.go", ""); got != "📄" {
+		t.Errorf("go: %q", got)
+	}
+	if got := attachmentIcon("x.zip", ""); got != "📦" {
+		t.Errorf("zip: %q", got)
+	}
+	if got := attachmentIcon("", "image/png"); got != "🖼" {
+		t.Errorf("mime image: %q", got)
+	}
+	if got := attachmentIcon("", "application/octet-stream"); got != "📦" {
+		t.Errorf("mime binary: %q", got)
+	}
+	if got := attachmentIcon("x.unknown", ""); got != "📎" {
+		t.Errorf("unknown: %q", got)
+	}
+}
+
+func TestInputViewAttachmentChipsMoreThanThree(t *testing.T) {
+	i := newTestInput(t)
+	for k := 0; k < 5; k++ {
+		i.AttachBytes([]byte("x"), fmt.Sprintf("f%d.txt", k))
+	}
+	view := i.View()
+	if !strings.Contains(view, "and 3 more...") {
+		t.Errorf("expected 'and 3 more...', got %q", view)
+	}
+	if !strings.Contains(view, "f0.txt (1B)") {
+		t.Errorf("expected first chip, got %q", view)
+	}
+	if !strings.Contains(view, "f1.txt (1B)") {
+		t.Errorf("expected second chip, got %q", view)
+	}
+	if strings.Contains(view, "f2.txt") {
+		t.Errorf("third attachment should be hidden, got %q", view)
+	}
+}
+
+func TestInputViewMultiLineIndicator(t *testing.T) {
+	i := newTestInput(t)
+	i.textarea.SetValue("line1\nline2\nline3")
+	view := i.View()
+	if !strings.Contains(view, "3 lines") {
+		t.Errorf("expected line count, got %q", view)
+	}
+	if !strings.Contains(view, "17 chars") {
+		t.Errorf("expected char count, got %q", view)
+	}
+}
+
+func TestInputFilePickerTabEnterEscCancel(t *testing.T) {
+	i := newTestInput(t)
+	i.filePicker.cwd = t.TempDir()
+	i.textarea.SetValue("/attach")
+	_, submit := i.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if submit != nil {
+		t.Error("tab should not submit")
+	}
+	if !i.filePicker.active {
+		t.Error("picker should activate on tab with /attach")
+	}
+	if i.RawValue() != "" {
+		t.Errorf("textarea should be cleared, got %q", i.RawValue())
+	}
+	_, _ = i.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if i.filePicker.active {
+		t.Error("picker should cancel on esc")
+	}
+}
+
+func TestInputFilePickerTabWithoutAttachNoop(t *testing.T) {
+	i := newTestInput(t)
+	i.textarea.SetValue("hello")
+	_, _ = i.Update(tea.KeyPressMsg{Code: tea.KeyTab})
+	if i.filePicker.active {
+		t.Error("picker should not activate without /attach")
+	}
+}
+
+func TestInputFilePickerAttachFile(t *testing.T) {
+	i := newTestInput(t)
+	dir := t.TempDir()
+	file := filepath.Join(dir, "pickme.txt")
+	if err := os.WriteFile(file, []byte("hi"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	i.filePicker.cwd = dir
+	i.enterFilePicker()
+	if !i.filePicker.active {
+		t.Fatal("picker should be active")
+	}
+	idx := -1
+	for j, it := range i.filePicker.items {
+		if it.name == "pickme.txt" {
+			idx = j
+		}
+	}
+	if idx < 0 {
+		t.Fatalf("pickme.txt not in items: %+v", i.filePicker.items)
+	}
+	i.filePicker.selected = idx
+	i.confirmPicker()
+	if i.filePicker.active {
+		t.Error("picker should close after attaching file")
+	}
+	if len(i.attachments) != 1 {
+		t.Errorf("expected 1 attachment, got %d", len(i.attachments))
+	}
+	if i.attachments[0].Name != "pickme.txt" {
+		t.Errorf("got %q", i.attachments[0].Name)
+	}
+}
+
+func TestInputFilePickerDirectoryNavigation(t *testing.T) {
+	i := newTestInput(t)
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "subdir")
+	if err := os.Mkdir(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	i.filePicker.cwd = dir
+	i.enterFilePicker()
+	idx := -1
+	for j, it := range i.filePicker.items {
+		if it.name == "subdir" {
+			idx = j
+		}
+	}
+	if idx < 0 {
+		t.Fatalf("subdir not listed: %+v", i.filePicker.items)
+	}
+	i.filePicker.selected = idx
+	i.confirmPicker()
+	if !i.filePicker.active {
+		t.Error("picker should stay active after entering dir")
+	}
+	if i.filePicker.cwd != sub {
+		t.Errorf("expected cwd %s, got %s", sub, i.filePicker.cwd)
+	}
+}
+
+func TestInputFilePickerMoveClamp(t *testing.T) {
+	i := newTestInput(t)
+	i.filePicker.cwd = t.TempDir()
+	i.enterFilePicker()
+	n := len(i.filePicker.items)
+	if n == 0 {
+		t.Fatal("expected at least one item (..)")
+	}
+	i.movePicker(-5)
+	if i.filePicker.selected != 0 {
+		t.Errorf("expected 0, got %d", i.filePicker.selected)
+	}
+	i.movePicker(n + 5)
+	if i.filePicker.selected != n-1 {
+		t.Errorf("expected %d, got %d", n-1, i.filePicker.selected)
+	}
+}
+
+func TestInputFilePickerViewActive(t *testing.T) {
+	i := newTestInput(t)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "a.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	i.filePicker.cwd = dir
+	i.enterFilePicker()
+	view := i.View()
+	if !strings.Contains(view, "Attach a file") {
+		t.Errorf("picker view should show header, got %q", view)
+	}
+	if !strings.Contains(view, "a.txt") {
+		t.Errorf("picker view should list a.txt, got %q", view)
 	}
 }

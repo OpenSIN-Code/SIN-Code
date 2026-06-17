@@ -36,19 +36,13 @@ func (m *Model) ClosePermissionDialog() {
 func (m *Model) handlePermissionDialogKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	switch key {
-	case "y", "Y":
+	case "y", "Y", "enter":
 		m.answerPendingAsk(true)
 		m.ClosePermissionDialog()
 		return m, nil
-	case "n", "N", "esc":
+	case "n", "N", "esc", "backspace":
 		m.answerPendingAsk(false)
 		m.ClosePermissionDialog()
-		return m, nil
-	case "up", "k":
-		// Scroll diff up (future enhancement)
-		return m, nil
-	case "down", "j":
-		// Scroll diff down (future enhancement)
 		return m, nil
 	}
 	return m, nil
@@ -108,11 +102,10 @@ func RenderPermissionDialog(state PermissionDialogState, styles Styles, width, h
 
 	b.WriteString(styles.StatusWarn.Render("Allow this action?"))
 	b.WriteString("\n")
-	b.WriteString(styles.StatusOK.Render("  [y] Allow"))
+	b.WriteString(styles.StatusOK.Render("  [y/Enter] Allow"))
 	b.WriteString("  ")
-	b.WriteString(styles.StatusErr.Render("[n] Deny"))
-	b.WriteString("\n\n")
-	b.WriteString(styles.Muted.Render("Press y to allow, n to deny"))
+	b.WriteString(styles.StatusErr.Render("[n/Esc] Deny"))
+	b.WriteString("\n")
 
-	return b.String()
+	return styles.Popup.Render(b.String())
 }
