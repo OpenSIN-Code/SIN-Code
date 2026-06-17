@@ -307,14 +307,23 @@ Beide Banner sind **custom-designed SVGs** (NICHT shields.io badges). Sie nutzen
 - **Logo** embedded als base64 data URI (GitHub strips relative `<image href>`)
 
 **Design-Spec Header:**
-- Format: 1200×280 px (hero format, breit)
+- Format: 1400×380 px (hero format, breit)
 - Font: `ui-sans-serif, system-ui` (Stripe/Linear style, weight 500-600)
-- Dark: `#0A0E14` bg, `#00D9FF`/`#7B3FE4` accents
+- Dark: `#0B1120` bg, `#00D9FF`/`#7B3FE4` accents
 - Light: `#FAFAFA` bg, `#00A8D8`/`#8B5CF6` accents
 - Logo: 60×60px, base64 embedded (8KB), `feGaussianBlur` glow
-- Metric Cards: dark cards mit accent top-bar, grossen Zahlen, kleinen Labels
+- Metric Cards: minimalistisch — grosse Zahlen (42px) + dunner accent underline, KEINE card boxes
 - HUD corners: L-shaped accent lines in 4 Ecken
 - Scanning line + pulse ring (subtle animation, GitHub-safe)
+
+**Architecture Flow — HARD RULES:**
+- **MAX 3 NODES VERTIKAL PRO SPALTE** — wenn mehr als 3 Nodes, starte neue Spalte rechts
+- Alle Nodes gleiche Groesse (140×44px) — KEINE unterschiedlichen Node-Groessen
+- KEINE gruene Status-Dots auf Nodes (siehe "haessliche gruene dinger")
+- Connection-Lines: animated marching ants (`stroke-dashoffset`) + traveling dots
+- Terminal-Code-Card: macOS traffic-light dots, title bar, drop shadow, farbiges `$` prompt
+- API Keys Metric: `∞` (infinity) statt hardcoded Zahlen — Keys sind unbegrenzt generierbar
+- Layout: 2-Spalten-System wenn 5+ Nodes (Spalte 1: 3 Nodes, Spalte 2: 2 Nodes)
 
 **WICHTIG — Logo als base64:**
 GitHub sanitizes SVGs und strips `<image href="./logo.png">` mit relativen Pfaden.
