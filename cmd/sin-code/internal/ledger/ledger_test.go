@@ -6,8 +6,10 @@ package ledger
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func testStore(t *testing.T) *Store {
@@ -142,5 +144,122 @@ func TestRace(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestSessionsOrdering(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	base := time.Now().UTC()
+	// Record in chronological order: a first, then b, then c.
+	for i, sid := range []string{"a", "b", "c"} {
+		if _, err := s.Record(ctx, Entry{SessionID: sid, Type: TypeUserPrompt, Data: map[string]any{}, CreatedAt: base.Add(time.Duration(i) * time.Second)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Add a newer entry to session a so it should be first.
+	if _, err := s.Record(ctx, Entry{SessionID: "a", Type: TypeToolCall, Data: map[string]any{}, CreatedAt: base.Add(10 * time.Second)}); err != nil {
+		t.Fatal(err)
+	}
+	sessions, err := s.Sessions(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"a", "c", "b"}
+	if len(sessions) != len(want) {
+		t.Fatalf("expected %d sessions, got %d: %v", len(want), len(sessions), sessions)
+	}
+	for i, w := range want {
+		if sessions[i] != w {
+			t.Fatalf("expected sessions[%d]=%s, got %s (full %v)", i, w, sessions[i], sessions)
+		}
+	}
+}
+
+func TestSessionsBackfill(t *testing.T) {
+	ctx := context.Background()
+	db := filepath.Join(t.TempDir(), "ledger.db")
+	// First open: create schema and insert rows without session_index support (simulated by direct insert).
+	s1, err := Open(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s1.Record(ctx, Entry{SessionID: "old", Type: TypeUserPrompt, Data: map[string]any{}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s1.Close(); err != nil {
+		t.Fatal(err)
+	}
+	// Second open triggers migration/backfill.
+	s2, err := Open(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s2.Close()
+	sessions, err := s2.Sessions(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sessions) != 1 || sessions[0] != "old" {
+		t.Fatalf("expected [old], got %v", sessions)
+	}
+}
+
+func TestSessionsRace(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	for i := 0; i < 20; i++ {
+		i := i
+		t.Run("record", func(t *testing.T) {
+			t.Parallel()
+			sid := fmt.Sprintf("race-%d", i%5)
+			if _, err := s.Record(ctx, Entry{SessionID: sid, Type: TypeToolCall, Data: map[string]any{"i": i}}); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+	for i := 0; i < 10; i++ {
+		t.Run("sessions", func(t *testing.T) {
+			t.Parallel()
+			if _, err := s.Sessions(ctx, 10); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestSessionsPerformance(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skip performance test in short mode")
+	}
+	s := testStore(t)
+	ctx := context.Background()
+	base := time.Now().UTC()
+	const sessions = 20
+	const entriesPerSession = 50
+	for i := 0; i < sessions; i++ {
+		sid := fmt.Sprintf("session-%04d", i)
+		for j := 0; j < entriesPerSession; j++ {
+			if _, err := s.Record(ctx, Entry{
+				SessionID: sid,
+				Type:      TypeToolCall,
+				Data:      map[string]any{},
+				CreatedAt: base.Add(time.Duration(i*entriesPerSession+j) * time.Millisecond),
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	start := time.Now()
+	got, err := s.Sessions(ctx, 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	elapsed := time.Since(start)
+	if len(got) != sessions {
+		t.Fatalf("expected %d sessions, got %d", sessions, len(got))
+	}
+	if elapsed > 50*time.Millisecond {
+		t.Fatalf("Sessions took %s, expected <50ms", elapsed)
 	}
 }

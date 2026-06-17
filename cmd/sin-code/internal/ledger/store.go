@@ -135,9 +135,23 @@ CREATE INDEX IF NOT EXISTS idx_tool_usage_outcome ON tool_usage(outcome);
 CREATE INDEX IF NOT EXISTS idx_tool_usage_created ON tool_usage(created_at);
 CREATE INDEX IF NOT EXISTS idx_tool_usage_session ON tool_usage(session_id);
 
-PRAGMA user_version = 2;
+CREATE TABLE IF NOT EXISTS session_index (
+    session_id TEXT PRIMARY KEY,
+    last_seen_at TEXT NOT NULL,
+    entry_count INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_session_index_last_seen ON session_index(last_seen_at);
+
+PRAGMA user_version = 3;
 `
-	_, err := s.db.Exec(schema)
+	if _, err := s.db.Exec(schema); err != nil {
+		return err
+	}
+	// Backfill from ledger: idempotent, bounded by existing rows.
+	_, err := s.db.Exec(`
+		INSERT OR REPLACE INTO session_index (session_id, last_seen_at, entry_count)
+		SELECT session_id, MAX(created_at), COUNT(*) FROM ledger GROUP BY session_id
+	`)
 	return err
 }
 
@@ -159,11 +173,27 @@ func (s *Store) Record(ctx context.Context, e Entry) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_, err = s.db.ExecContext(ctx, `
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO ledger (id, session_id, type, data, summary, created_at)
 		VALUES (?, ?, ?, ?, ?, ?)
-	`, e.ID, e.SessionID, string(e.Type), data, e.Summary, e.CreatedAt.Format(time.RFC3339Nano))
-	if err != nil {
+	`, e.ID, e.SessionID, string(e.Type), data, e.Summary, e.CreatedAt.Format(time.RFC3339Nano)); err != nil {
+		return "", err
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO session_index (session_id, last_seen_at, entry_count)
+		VALUES (?, ?, 1)
+		ON CONFLICT(session_id) DO UPDATE SET
+			last_seen_at = excluded.last_seen_at,
+			entry_count = session_index.entry_count + 1
+	`, e.SessionID, e.CreatedAt.Format(time.RFC3339Nano)); err != nil {
+		return "", err
+	}
+	if err := tx.Commit(); err != nil {
 		return "", err
 	}
 	return e.ID, nil
@@ -207,15 +237,14 @@ func (s *Store) QueryByType(ctx context.Context, sessionID string, t EntryType, 
 	return scanRows(rows)
 }
 
-// sin-debt: DISTINCT query scans entire ledger, upgrade: maintain session_id index table when ledger entries > 1M
-// Sessions returns all distinct session IDs, newest first.
+// Sessions returns all distinct session IDs ordered by latest activity, newest first.
 func (s *Store) Sessions(ctx context.Context, limit int) ([]string, error) {
 	if limit <= 0 {
 		limit = 1000
 	}
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT DISTINCT session_id FROM ledger
-		ORDER BY created_at DESC
+		SELECT session_id FROM session_index
+		ORDER BY last_seen_at DESC
 		LIMIT ?
 	`, limit)
 	if err != nil {
