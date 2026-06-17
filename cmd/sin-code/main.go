@@ -104,6 +104,7 @@ func init() {
 		NewAuditCmd(), NewCEOAUDITCmd(), // v3.18.0 — complexity audit (issue #180) + 48-gate CEO audit
 		NewCoverCmd(),                   // Coverage-Drohne: scan, check, gaps, generate, hook
 		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + evalset + prp workflow
+		NewImageGraphCmd(),              // image-graph: deterministic chart generation (bar/line/pie/area)
 	)
 
 	// Pass build-time version to self-update module.
