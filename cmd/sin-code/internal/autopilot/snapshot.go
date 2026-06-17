@@ -22,7 +22,15 @@ func NewSnapshotter(workspace string) *Snapshotter {
 	return &Snapshotter{Workspace: workspace}
 }
 
+// testGitHook is swapped by coverage tests to inject deterministic git
+// failures without running the real git binary.
+var testGitHook func(ctx context.Context, snap *Snapshotter, args []string) (string, error)
+
 func (s *Snapshotter) git(ctx context.Context, args ...string) (string, error) {
+	if testGitHook != nil {
+		return testGitHook(ctx, s, args)
+	}
+
 	cmd := exec.CommandContext(ctx, "git", args...) // #nosec G204
 	cmd.Dir = s.Workspace
 	var out, errb bytes.Buffer

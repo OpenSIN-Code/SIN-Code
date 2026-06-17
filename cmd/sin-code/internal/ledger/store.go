@@ -19,6 +19,15 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// Package-level hooks for testing error branches without mocking the
+// SQLite driver. Production defaults are never changed by the package.
+var (
+	userHomeDir = os.UserHomeDir
+	sqlOpen     = sql.Open
+	migrateFn   = (*Store).migrate
+	rowsScan    = (*sql.Rows).Scan
+)
+
 // EntryType classifies a ledger event.
 type EntryType string
 
@@ -63,7 +72,7 @@ func DefaultPath() string {
 	if h := os.Getenv("SIN_CODE_HOME"); h != "" {
 		return filepath.Join(h, "ledger.db")
 	}
-	home, err := os.UserHomeDir()
+	home, err := userHomeDir()
 	if err != nil {
 		return "ledger.db"
 	}
@@ -78,13 +87,13 @@ func Open(path string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", path)
+	db, err := sqlOpen("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
 	s := &Store{db: db}
-	if err := s.migrate(); err != nil {
+	if err := migrateFn(s); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -213,7 +222,7 @@ func (s *Store) Sessions(ctx context.Context, limit int) ([]string, error) {
 	var out []string
 	for rows.Next() {
 		var sid string
-		if err := rows.Scan(&sid); err != nil {
+		if err := rowsScan(rows, &sid); err != nil {
 			return nil, err
 		}
 		out = append(out, sid)
@@ -227,7 +236,7 @@ func scanRows(rows *sql.Rows) ([]Entry, error) {
 		var e Entry
 		var data string
 		var created string
-		if err := rows.Scan(&e.ID, &e.SessionID, &e.Type, &data, &e.Summary, &created); err != nil {
+		if err := rowsScan(rows, &e.ID, &e.SessionID, &e.Type, &data, &e.Summary, &created); err != nil {
 			return nil, err
 		}
 		if err := json.Unmarshal([]byte(data), &e.Data); err != nil {

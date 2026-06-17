@@ -11,12 +11,22 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
 	_ "modernc.org/sqlite"
+)
+
+// Package-level hooks for testing error branches without mocking the
+// SQLite driver. Production defaults are nil and never alter behavior.
+var (
+	errTestOpen       = errors.New("forced open")
+	testOpenDBErr     error
+	testOpenPragmaErr error
+	testOpenSchemaErr error
 )
 
 type EntryType string
@@ -59,14 +69,31 @@ func Open(path string) (*Store, error) {
 	if path == "" {
 		path = DefaultPath()
 	}
-	db, err := sql.Open("sqlite", path)
+	var db *sql.DB
+	var err error
+	if testOpenDBErr != nil {
+		err = testOpenDBErr
+	} else {
+		db, err = sql.Open("sqlite", path)
+	}
 	if err != nil {
 		return nil, err
 	}
-	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+
+	if testOpenPragmaErr != nil {
+		err = testOpenPragmaErr
+	} else {
+		_, err = db.Exec(`PRAGMA foreign_keys = ON`)
+	}
+	if err != nil {
+		_ = db.Close()
 		return nil, err
 	}
-	schema := `
+
+	if testOpenSchemaErr != nil {
+		err = testOpenSchemaErr
+	} else {
+		schema := `
 CREATE TABLE IF NOT EXISTS lessons (
   id TEXT PRIMARY KEY,
   type TEXT NOT NULL,
@@ -81,7 +108,10 @@ CREATE INDEX IF NOT EXISTS idx_lessons_workspace ON lessons(workspace);
 CREATE INDEX IF NOT EXISTS idx_lessons_type ON lessons(type);
 CREATE INDEX IF NOT EXISTS idx_lessons_occurrences ON lessons(occurrences DESC);
 `
-	if _, err := db.Exec(schema); err != nil {
+		_, err = db.Exec(schema)
+	}
+	if err != nil {
+		_ = db.Close()
 		return nil, err
 	}
 	return &Store{db: db}, nil

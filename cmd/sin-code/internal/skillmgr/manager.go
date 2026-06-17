@@ -15,6 +15,15 @@ import (
 	"time"
 )
 
+// Package-level hooks for testing without real git/python/go/network calls.
+// Production defaults are the standard library functions.
+var (
+	_osStat             = os.Stat
+	_osMkdirAll         = os.MkdirAll
+	_execCommandContext = exec.CommandContext
+	_filepathGlob       = filepath.Glob
+)
+
 const orgURL = "https://github.com/OpenSIN-Code/"
 
 type SkillStatus struct {
@@ -74,16 +83,16 @@ func Install(ctx context.Context, name string) (*SkillStatus, error) {
 
 	cctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
-		cmd := exec.CommandContext(cctx, "git", "-C", dir, "pull", "--ff-only", "--quiet")
+	if _, err := _osStat(filepath.Join(dir, ".git")); err == nil {
+		cmd := _execCommandContext(cctx, "git", "-C", dir, "pull", "--ff-only", "--quiet")
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return st, fmt.Errorf("git pull: %w\n%s", err, out)
 		}
 	} else {
-		if err := os.MkdirAll(SkillsDir(), 0o755); err != nil {
+		if err := _osMkdirAll(SkillsDir(), 0o755); err != nil {
 			return st, err
 		}
-		cmd := exec.CommandContext(cctx, "git", "clone", "--depth", "1", "--quiet", orgURL+repo, dir)
+		cmd := _execCommandContext(cctx, "git", "clone", "--depth", "1", "--quiet", orgURL+repo, dir)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return st, fmt.Errorf("git clone: %w\n%s", err, out)
 		}
@@ -99,7 +108,7 @@ func Status(ctx context.Context) []SkillStatus {
 	for name, repo := range KnownSkills() {
 		st := SkillStatus{Name: name, Repo: repo}
 		dir := filepath.Join(SkillsDir(), repo)
-		if _, err := os.Stat(dir); err == nil {
+		if _, err := _osStat(dir); err == nil {
 			st.Installed = true
 			cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			st.Runnable, st.Detail = verifyEntrypoint(cctx, dir)
@@ -113,8 +122,8 @@ func Status(ctx context.Context) []SkillStatus {
 // verifyEntrypoint finds and smoke-tests the MCP entrypoint.
 func verifyEntrypoint(ctx context.Context, dir string) (bool, string) {
 	entry := filepath.Join(dir, "mcp_server.py")
-	if _, err := os.Stat(entry); err == nil {
-		cmd := exec.CommandContext(ctx, "python3", entry, "--list-tools")
+	if _, err := _osStat(entry); err == nil {
+		cmd := _execCommandContext(ctx, "python3", entry, "--list-tools")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			return false, fmt.Sprintf("entrypoint exists but smoke test failed: %v", err)
@@ -127,16 +136,16 @@ func verifyEntrypoint(ctx context.Context, dir string) (bool, string) {
 		}
 		return true, "entrypoint responds (tool list format unknown)"
 	}
-	if matches, _ := filepath.Glob(filepath.Join(dir, "src", "*", "__main__.py")); len(matches) > 0 {
+	if matches, _ := _filepathGlob(filepath.Join(dir, "src", "*", "__main__.py")); len(matches) > 0 {
 		return true, "python module entrypoint: " + matches[0]
 	}
-	if _, err := os.Stat(filepath.Join(dir, "package.json")); err == nil {
+	if _, err := _osStat(filepath.Join(dir, "package.json")); err == nil {
 		return true, "node entrypoint (package.json)"
 	}
-	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+	if _, err := _osStat(filepath.Join(dir, "go.mod")); err == nil {
 		// Go-native skill: build the binary into the repo root so the MCP
 		// registry can use the full path (SIN_SKILLS_DIR/<repo>/<binary>).
-		cmd := exec.CommandContext(ctx, "go", "build", "-o", "sin-websearch", "./cmd/sin-websearch")
+		cmd := _execCommandContext(ctx, "go", "build", "-o", "sin-websearch", "./cmd/sin-websearch")
 		cmd.Dir = dir
 		if _, err := cmd.CombinedOutput(); err != nil {
 			return false, fmt.Sprintf("go entrypoint exists but build failed: %v", err)

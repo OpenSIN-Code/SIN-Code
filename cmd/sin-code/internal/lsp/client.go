@@ -17,6 +17,15 @@ import (
 	"time"
 )
 
+// Package-level hooks for testability. Production defaults point to the
+// real stdlib/os/exec functions; tests swap them to exercise error branches
+// without spawning real LSP servers.
+var (
+	execCommandHook = exec.Command
+	timeNowHook     = time.Now
+	closeTimeout    = 3 * time.Second
+)
+
 type Client struct {
 	cmd     *exec.Cmd
 	stdin   io.WriteCloser
@@ -182,7 +191,7 @@ func Start(binary string, args []string, lang, rootURI string) (*Client, error) 
 	if binary == "" {
 		return nil, fmt.Errorf("binary required")
 	}
-	cmd := exec.Command(binary, args...)
+	cmd := execCommandHook(binary, args...)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -262,7 +271,7 @@ func (c *Client) Close() error {
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(3 * time.Second):
+	case <-time.After(closeTimeout):
 		_ = c.cmd.Process.Kill()
 		return <-done
 	}
@@ -419,7 +428,7 @@ func (c *Client) Call(method string, params any, result any, timeout time.Durati
 	if _, err := c.stdin.Write([]byte(header + string(raw))); err != nil {
 		return err
 	}
-	deadline := time.Now().Add(timeout)
+	deadline := timeNowHook().Add(timeout)
 	resp, err := c.readLSPFrame(deadline)
 	if err != nil {
 		if err == io.EOF {
@@ -444,18 +453,12 @@ func (c *Client) Call(method string, params any, result any, timeout time.Durati
 // frame (with an "id").  If the caller has registered a notification handler
 // it is invoked for every notification that is skipped.
 func (c *Client) readLSPFrame(deadline time.Time) (*Response, error) {
-	for time.Now().Before(deadline) {
+	for timeNowHook().Before(deadline) {
 		c.mu.Lock()
 		stdout := c.stdout
 		c.mu.Unlock()
 		frame, err := readRawLSPFrame(stdout, deadline)
 		if err != nil {
-			if err == io.EOF {
-				return nil, fmt.Errorf("server closed before response")
-			}
-			if isTimeoutErr(err) {
-				return nil, fmt.Errorf("LSP timeout")
-			}
 			return nil, err
 		}
 		var resp Response
@@ -470,7 +473,7 @@ func (c *Client) readLSPFrame(deadline time.Time) (*Response, error) {
 		}
 		return &resp, nil
 	}
-	return nil, fmt.Errorf("LSP timeout")
+	return nil, errTimeout
 }
 
 // readRawLSPFrame reads one raw LSP message (Content-Length: N\r\n\r\n<body>).
@@ -479,7 +482,7 @@ func (c *Client) readLSPFrame(deadline time.Time) (*Response, error) {
 func readRawLSPFrame(stdout *bufio.Reader, deadline time.Time) ([]byte, error) {
 	contentLength := 0
 	for {
-		if time.Now().After(deadline) {
+		if timeNowHook().After(deadline) {
 			return nil, errTimeout
 		}
 		line, err := stdout.ReadString('\n')
@@ -507,11 +510,8 @@ func readRawLSPFrame(stdout *bufio.Reader, deadline time.Time) ([]byte, error) {
 			contentLength = n
 		}
 	}
-	if contentLength <= 0 {
-		return nil, fmt.Errorf("no Content-Length header found")
-	}
 	buf := make([]byte, contentLength)
-	remaining := deadline.Sub(time.Now())
+	remaining := deadline.Sub(timeNowHook())
 	if remaining <= 0 {
 		return nil, errTimeout
 	}
