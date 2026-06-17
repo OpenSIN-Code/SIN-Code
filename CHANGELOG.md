@@ -4,6 +4,26 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — SIN Fusion v1: Verify-Tournament (issue #290)
+- **`internal/fusion/`** — new package: multi-model verify-tournament for verify-fail recovery
+- When the sacred verify-gate (M3) fails, the task is fanned out to N Fireworks models in parallel (MiniMax M3, Kimi K2.7 Code Fast, Kimi K2.7 Code, DeepSeek V4 Pro, Qwen 3.7 Plus, GLM 5.2). First PoC-pass wins; losers cancelled via `context.WithCancel`
+- **`fireworks_pool.go`** — 6-model Fireworks lineup, all via SINator pool router, thinking/reasoning mode enabled
+- **`difficulty.go`** — `ShouldTournament()` classifies verify-fail as structural (→ tournament) or stylistic (→ legacy retry); `DifficultyInput` struct with orchestrator confidence signals; 6-step decision order
+- **`tournament.go`** — goroutine fan-out + buffered channel + first-pass-wins + deterministic tie-break (cost → latency → provider name) + cost-governor (USD kill-switch) + quorum check + 10ms timed drain
+- **`provider_pool.go`** — loads profiles/*.toml as tournament participants (generic fallback)
+- **`agentloop/loop.go`** — `TournamentRunner` interface wired into verify-fail path; PoC-mode only (not oracle — load-bearing risk)
+- **`provider_adapter.go`** — `NewProviderCompletionWithThinking()` sends `{"thinking":{"type":"enabled"}}` for Fireworks models
+- **`loopbuilder/builder.go`** — `SessionStore` field + `WireFusion()` exported function; per-provider `llm.Client` + `Loop.Run()` with thinking; config-file defaults auto-load
+- **`config.go`** — 6 new config keys: `fusion.enabled`, `fusion.providers`, `fusion.max_cost_usd`, `fusion.min_quorum`, `fusion.per_provider_timeout_s`, `fusion.difficulty_gate`
+- **`hooks/hooks.go`** — `FusionDispatch = "fusion.dispatch"` event
+- **`permission_defaults.go`** — `fusion__tournament` = ask, `fusion__status`/`fusion__config` = allow
+- **`ledger/store.go`** — `TypeFusionTournament` constant + enriched data (providers_count, winner_cost_usd, winner_duration_ms, winner_verified)
+- **`evalharness`** — `FusionArm()` constructor + `FirstToPassRate` metric in Totals + snapshot support
+- CLI flags: `--fusion-on-verify-fail`, `--fusion-providers`, `--fusion-max-cost` (chat + daemon)
+- Config `get`/`set`/`show`/`validate` handlers for 6 `fusion.*` keys
+- 264 tests, all `-race` clean (mandate M7)
+- `fusion.enabled = false` (default) → exact legacy behavior, zero regression
+
 ### Added — Runtime DB migration to user-config-dir (issue #265)
 - `cmd/sin-code/internal/tui/agent_runner.go` no longer writes
   `lessons.db` / `sessions.db` directly inside the workspace's
