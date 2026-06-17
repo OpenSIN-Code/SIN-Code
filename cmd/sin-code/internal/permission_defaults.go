@@ -118,6 +118,23 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "fusion__oracle_tournament", Policy: "ask"},
 		{Tool: "fusion__status", Policy: "allow"},
 		{Tool: "fusion__config", Policy: "allow"},
+		// Read-only todo MCP tools (issue #323). In headless mode (daemon),
+		// "ask" resolves to "deny" — so the daemon could not read todos
+		// without --yolo. Read-only tools are "allow"; destructive tools
+		// (add, complete, claim, dep_add) stay at "ask" (M4).
+		{Tool: "sin_todo_list", Policy: "allow"},    // read-only query
+		{Tool: "sin_todo_show", Policy: "allow"},    // read-only detail
+		{Tool: "sin_todo_ready", Policy: "allow"},   // read-only query
+		{Tool: "sin_todo_blocked", Policy: "allow"}, // read-only query
+		{Tool: "sin_todo_search", Policy: "allow"},  // read-only search
+		{Tool: "sin_todo_prime", Policy: "allow"},   // read-only context
+		{Tool: "sin_todo_stats", Policy: "allow"},   // read-only stats
+		{Tool: "sin_todo_deps", Policy: "allow"},    // read-only dependency tree
+		// Destructive todo tools — stay at "ask" (M4: mutating ops need confirmation).
+		{Tool: "sin_todo_add", Policy: "ask"},
+		{Tool: "sin_todo_complete", Policy: "ask"},
+		{Tool: "sin_todo_claim", Policy: "ask"},
+		{Tool: "sin_todo_dep_add", Policy: "ask"},
 		// Backstop catch-all (mirrors sin_bash default at line 44 for unmatched prefixes).
 		{Tool: "autodev__*", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},

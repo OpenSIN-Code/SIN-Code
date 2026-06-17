@@ -36,6 +36,36 @@ func TestPermissionDefaultRules(t *testing.T) {
 	if !hasProfileRender {
 		t.Errorf("expected profile__render ask rule (issue #175), got %+v", rules)
 	}
+
+	// v3.22.0 (issue #323): read-only todo MCP tools default to allow;
+	// mutating todo tools default to ask.
+	eng := permission.New(rules)
+	readOnlyTodos := []string{
+		"sin_todo_list",
+		"sin_todo_show",
+		"sin_todo_search",
+		"sin_todo_stats",
+		"sin_todo_ready",
+		"sin_todo_blocked",
+		"sin_todo_deps",
+		"sin_todo_prime",
+	}
+	for _, tool := range readOnlyTodos {
+		if got := eng.Check(tool); got != permission.Allow {
+			t.Errorf("%s expected Allow, got %s", tool, got)
+		}
+	}
+	mutatingTodos := []string{
+		"sin_todo_add",
+		"sin_todo_complete",
+		"sin_todo_claim",
+		"sin_todo_dep_add",
+	}
+	for _, tool := range mutatingTodos {
+		if got := eng.Check(tool); got != permission.Ask {
+			t.Errorf("%s expected Ask, got %s", tool, got)
+		}
+	}
 }
 
 func TestPermissionRulesForAgent(t *testing.T) {
