@@ -168,6 +168,31 @@ func (m *Model) updateChatMetrics(tokens int, cost float64, duration time.Durati
 	if m.Footer.TokensPct > 1.0 {
 		m.Footer.TokensPct = 1.0
 	}
+	
+	// Auto-compact when approaching context window limit (80%)
+	if m.Footer.TokensPct >= 0.8 && !m.Footer.Compacted {
+		m.autoCompactContext()
+	}
+}
+
+func (m *Model) autoCompactContext() {
+	if len(m.ChatHistory) <= 50 {
+		return
+	}
+	
+	// Keep last 20 messages + summary of older ones
+	summary := fmt.Sprintf("[context compacted: %d messages removed to free up space]", len(m.ChatHistory)-20)
+	m.ChatHistory = append([]string{"system: " + summary}, m.ChatHistory[len(m.ChatHistory)-20:]...)
+	m.Footer.Compacted = true
+	
+	m.SetBanner(&NotificationItem{
+		ID:      "auto-compact",
+		Title:   "Context Compacted",
+		Message: fmt.Sprintf("Reduced from %d to 20 messages to stay within token limit", len(m.ChatHistory)),
+		Type:    "info",
+	})
+	
+	m.AppendHistory(ViewChat.String(), "auto-compact", summary, true)
 }
 
 func (m *Model) setStreaming(streaming bool) {

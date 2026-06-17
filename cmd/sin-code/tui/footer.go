@@ -17,6 +17,7 @@ type Footer struct {
 	Cost        string
 	Duration    time.Duration
 	Streaming   bool
+	Compacted   bool
 	Width       int
 	ShowHints   bool
 	HintKeys    []HintPair
