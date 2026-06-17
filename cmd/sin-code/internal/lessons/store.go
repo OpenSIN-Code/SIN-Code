@@ -486,7 +486,6 @@ func Tokens(e Entry) []string {
 	return out
 }
 
-// sin-debt: linear scan over all lessons per briefing call, upgrade: switch to top-K precomputed index when entry count > 10k
 // Briefing renders the top workspace lessons as a compact prompt prefix.
 // Only entries with occurrences >= 2 qualify (repetition is signal, single
 // is noise). Capped at 10 lessons / ~2KB to protect the context window.
