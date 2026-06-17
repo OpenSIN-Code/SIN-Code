@@ -24,6 +24,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autolevel"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/checkpoint"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/commands"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife/autoactivate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
@@ -53,9 +54,9 @@ var (
 	chatAskFn                   agentloop.AskFunc
 	chatPrintResultFn           = printResult
 	chatRunOverrideFn           func(context.Context, *session.Session, string) (*agentloop.Result, error)
-	chatStdout      io.Writer   = os.Stdout
-	chatStderr      io.Writer   = os.Stderr
-	chatStdin       io.Reader   = os.Stdin
+	chatStdout                  io.Writer = os.Stdout
+	chatStderr                  io.Writer = os.Stderr
+	chatStdin                   io.Reader = os.Stdin
 )
 
 type chatOptions struct {
@@ -104,6 +105,7 @@ type chatOptions struct {
 	// classifier is deterministic (regex + substring, no LLM) so
 	// M3 is honoured: every mode pick is operator-visible.
 	autolevel bool
+	lazyTools bool
 }
 
 func NewChatCmd() *cobra.Command {
@@ -124,7 +126,8 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --worktree <name>        run inside a git worktree (issue #194 part 2)
   sin-code chat --rewind <checkpoint>    restore workspace to a checkpoint before running
   sin-code chat --sandbox <backend>      landlock|seatbelt|bubblewrap|none (issue #199)
-  sin-code chat --autolevel              prompt-intent based permission auto-classifier (issue #198)`,
+  sin-code chat --autolevel              prompt-intent based permission auto-classifier (issue #198)
+  sin-code chat --lazy-tools             lazy tool loading via tool_search (issue #270)`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context(), opts)
 		},
@@ -148,6 +151,7 @@ func NewChatCmd() *cobra.Command {
 	f.StringVar(&opts.rewind, "rewind", "", "restore workspace to the named checkpoint before the chat starts")
 	f.StringVar(&opts.sandbox, "sandbox", "", "sandbox backend: landlock|seatbelt|bubblewrap|none (default: platform-native)")
 	f.BoolVar(&opts.autolevel, "autolevel", false, "auto-classify permission mode from prompt intent (issue #198)")
+	f.BoolVar(&opts.lazyTools, "lazy-tools", false, "enable lazy tool loading: send only tool_search meta-tool instead of all tools (issue #270)")
 	return cmd
 }
 
@@ -333,7 +337,13 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		Ask:        ask,
 	}
 
-		dispatchUserPrompt := func(prompt string) {
+	if opts.lazyTools {
+		loader := mcpclient.NewLazyToolLoader(allSpecsAsMCPClient(mcpMgr))
+		loop.LocalSpec = lazyCombinedSpecs()
+		loop.LocalTool = lazyCombinedTool(workspace, mcpMgr, loader, loop)
+	}
+
+	dispatchUserPrompt := func(prompt string) {
 		pd := hooklifeRunner.Dispatch(ctx, hooklife.Event{
 			Phase:   hooklife.UserPrompt,
 			Tool:    "ChatPrompt",
@@ -546,4 +556,44 @@ func boolStr(b bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+// chatSideLLM adapts *llm.Client to the commands.SideLLM interface so
+// built-in slash commands (issue #276 /btw) can fire one-shot completions
+// without depending on the llm package directly.
+type chatSideLLM struct {
+	c     *llm.Client
+	model string
+}
+
+func (a chatSideLLM) Complete(ctx context.Context, system, user string) (string, error) {
+	resp, err := a.c.Chat(ctx, llm.ChatRequest{
+		Model: a.model,
+		Messages: []llm.Message{
+			{Role: "system", Content: system},
+			{Role: "user", Content: user},
+		},
+	})
+	if err != nil {
+		return "", err
+	}
+	return resp.ExtractText(), nil
+}
+
+// chatUndercover is the session-wide undercover mode shared between the
+// /undercover slash command and the commit path. Construction is cheap;
+// the chat loop reads .Enabled() before committing (issue #274).
+var chatUndercover = commands.NewUndercoverMode()
+
+// newBuiltinCommandRegistry builds the registry of Go-implemented slash
+// commands for a chat session. The LLM adapter is wired from the live
+// client/model so /btw can answer side questions (issue #276). The
+// /undercover command is always available and reuses the package-level
+// chatUndercover mode so toggles persist across turns (issue #274).
+// This is registration only — the chat loop itself is unchanged.
+func newBuiltinCommandRegistry(client *llm.Client, model string) *commands.Registry {
+	r := commands.NewRegistry()
+	r.Register(commands.NewBTWCommand(chatSideLLM{c: client, model: model}, ""))
+	r.Register(commands.NewUndercoverCommand(chatUndercover))
+	return r
 }
