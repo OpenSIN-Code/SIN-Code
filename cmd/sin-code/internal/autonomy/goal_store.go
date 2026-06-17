@@ -8,6 +8,7 @@ package autonomy
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 // GoalStore wraps an open Queue, exposing the subset of operations the
@@ -77,6 +78,15 @@ func (s *GoalStore) FailGoal(ctx context.Context, id int64, sessionID, errMsg st
 		return fmt.Errorf("autonomy: goal store not initialized")
 	}
 	return s.queue.Fail(ensureCtx(ctx), id, sessionID, errMsg)
+}
+
+// LeaseGoal atomically claims the highest-priority leasable goal. Returns
+// (nil, nil) when no goal is available.
+func (s *GoalStore) LeaseGoal(ctx context.Context, leaseDur time.Duration) (*Goal, error) {
+	if s == nil || s.queue == nil {
+		return nil, fmt.Errorf("autonomy: goal store not initialized")
+	}
+	return s.queue.Lease(ensureCtx(ctx), leaseDur)
 }
 
 // Close releases the underlying queue.

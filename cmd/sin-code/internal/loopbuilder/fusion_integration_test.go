@@ -149,6 +149,37 @@ func TestFusionIntegration_WireFusionNoopWhenGateOff(t *testing.T) {
 	}
 }
 
+func TestFusionIntegration_WireFusionOracleMode(t *testing.T) {
+	loop := &agentloop.Loop{}
+	gate := verify.NewGate("oracle", nil, nil)
+	cfg := Config{
+		FusionEnabled:    true,
+		FusionOracleMode: true,
+		FusionProviders:  []string{"minimax-m3", "glm-5p2"},
+		FusionMaxCostUSD: 10.0,
+		FusionMinQuorum:  2,
+	}
+
+	WireFusion(loop, cfg, gate, nil, nil, nil, nil)
+
+	if loop.TournamentRunner == nil {
+		t.Fatal("expected TournamentRunner to be non-nil in oracle mode")
+	}
+	adapter, ok := loop.TournamentRunner.(*fusionAdapter)
+	if !ok {
+		t.Fatalf("expected *fusionAdapter, got %T", loop.TournamentRunner)
+	}
+	if adapter.t.Mode != fusion.ModeOracle {
+		t.Errorf("expected oracle mode, got %q", adapter.t.Mode)
+	}
+	if adapter.t.OracleJudge == nil {
+		t.Error("expected OracleJudge to be wired in oracle mode")
+	}
+	if adapter.t.MaxCostUSD != 2.0 {
+		t.Errorf("expected oracle max cost capped at 2.0, got %v", adapter.t.MaxCostUSD)
+	}
+}
+
 func TestFusionIntegration_TournamentEndToEndAllFail(t *testing.T) {
 	mockRunFunc := func(ctx context.Context, prov fusion.ProviderConfig, sess *session.Session, prompt string) (*agentloop.Result, error) {
 		return &agentloop.Result{

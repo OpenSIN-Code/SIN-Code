@@ -25,7 +25,7 @@ on:
       datasets:
         description: 'Comma-separated dataset paths (default: all golden datasets)'
         required: false
-        default: 'evals/critical.json,evals/test-generation.json,evals/mutation.json,evals/fuzzing.json,evals/property.json,evals/quality-gate.json,evals/three-arm-example.json,evals/skill-code.json,evals/skill-debug.json,evals/skill-github.json'
+        default: 'evals/critical.json,evals/test-generation.json,evals/mutation.json,evals/fuzzing.json,evals/property.json,evals/quality-gate.json,evals/three-arm-example.json,evals/skill-code.json,evals/skill-debug.json,evals/skill-github.json,evals/skill-browser.json,evals/skill-design.json,evals/skill-ecosystem.json,evals/skill-infrastructure.json,evals/skill-memory.json,evals/skill-planning.json,evals/skill-process.json,evals/skill-shop.json'
       min_pass_rate:
         description: 'Minimum pass rate (0.0..1.0)'
         required: false

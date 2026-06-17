@@ -140,7 +140,8 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --lazy-tools             lazy tool loading via tool_search (issue #270)
   sin-code chat --fusion-on-verify-fail  enable SIN Fusion verify-tournament on verify.fail (issue #290)
   sin-code chat --fusion-providers <list> override Fireworks models for the tournament (comma-separated)
-  sin-code chat --fusion-max-cost <usd>   USD kill-switch per tournament invocation (default 5.0)`,
+  sin-code chat --fusion-max-cost <usd>   USD kill-switch per tournament invocation (default 5.0)
+  Oracle-mode fusion is experimental; set fusion.oracle_mode=true via config. Prefer PoC mode for verifiable tasks.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context(), opts)
 		},
