@@ -439,13 +439,18 @@ func TestInitChatRunnerError(t *testing.T) {
 func TestHandleChatSubmitWithRunnerProgram(t *testing.T) {
 	origRunner := newChatRunnerHook
 	origStream := chatRunnerStreamHook
+	origAR := newAgentRunnerHook
 	newChatRunnerHook = func() (*chat.Runner, error) { return &chat.Runner{}, nil }
 	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, error) {
 		return "async reply", nil
 	}
+	newAgentRunnerHook = func(ctx context.Context, cfg agentrunner.Config) (*agentrunner.AgentRunner, error) {
+		return nil, fmt.Errorf("no agent runner in test")
+	}
 	defer func() {
 		newChatRunnerHook = origRunner
 		chatRunnerStreamHook = origStream
+		newAgentRunnerHook = origAR
 	}()
 
 	sender := newFakeProgram()
@@ -533,17 +538,12 @@ func TestHandleAgentRunnerEventKinds(t *testing.T) {
 		{agentrunner.EventTurn, chatAgent},
 		{agentrunner.EventTool, chatTool},
 		{agentrunner.EventVerify, chatVerify},
-		{agentrunner.EventAsk, chatAsk},
 		{agentrunner.EventDone, chatDone},
 		{agentrunner.EventError, chatError},
 		{agentrunner.EventKind(0), chatSystem},
 	}
 	for _, tc := range cases {
 		ev := agentrunner.AgentEvent{Kind: tc.kind, Detail: "d", Result: "r", ToolName: "t", Err: nil}
-		if tc.kind == agentrunner.EventAsk {
-			ev.AskReply = make(chan bool, 1)
-			ev.Detail = "prompt"
-		}
 		m.handleAgentRunnerEvent(AgentRunnerMsg{Event: ev})
 		last := m.ChatHistory[len(m.ChatHistory)-1]
 		if last.Kind != tc.want {
@@ -1472,19 +1472,23 @@ func TestUpdateChatSubmit(t *testing.T) {
 	m := NewModel()
 	m.ViewKind = ViewChat
 	m.initChatInput()
-	// Attach a fake program to avoid synchronous path and verify async
 	sender := newFakeProgram()
 	m.Program = sender
 
 	origRunner := newChatRunnerHook
-	origRun := chatRunnerRunHook
+	origStream := chatRunnerStreamHook
+	origAR := newAgentRunnerHook
 	newChatRunnerHook = func() (*chat.Runner, error) { return &chat.Runner{}, nil }
-	chatRunnerRunHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string) (string, error) {
+	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, error) {
 		return "async", nil
+	}
+	newAgentRunnerHook = func(ctx context.Context, cfg agentrunner.Config) (*agentrunner.AgentRunner, error) {
+		return nil, fmt.Errorf("no agent runner in test")
 	}
 	defer func() {
 		newChatRunnerHook = origRunner
-		chatRunnerRunHook = origRun
+		chatRunnerStreamHook = origStream
+		newAgentRunnerHook = origAR
 	}()
 
 	m.initChatRunner()

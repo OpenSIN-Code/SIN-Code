@@ -81,7 +81,9 @@ func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 		m.pendingAsk = ev.AskReply
 		m.OpenPermissionDialog(ev.ToolName, ev.Detail, "")
 		m.setStreaming(false)
-		cm = ChatMessage{Kind: chatAsk, Detail: ev.Detail}
+		// Don't add to chat history — the permission dialog IS the
+		// visual feedback. A 🔒 entry would clutter the scrollback.
+		return
 	case agentrunner.EventDone:
 		cm = ChatMessage{Kind: chatDone, Detail: ev.Result}
 		m.setStreaming(false)

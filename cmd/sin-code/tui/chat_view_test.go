@@ -2,12 +2,15 @@
 package tui
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
 
+	agentrunner "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/tui"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"
 )
 
@@ -109,10 +112,18 @@ func TestRenderChatViewIncludesChatView(t *testing.T) {
 func TestHandleChatSubmit(t *testing.T) {
 	prev, had := os.LookupEnv("SIN_NIM_API_KEY")
 	os.Unsetenv("SIN_NIM_API_KEY")
+	// Stub AgentRunner to return nil so ChatRunner fallback is tested
+	origAR := newAgentRunnerHook
+	newAgentRunnerHook = func(ctx context.Context, cfg agentrunner.Config) (*agentrunner.AgentRunner, error) {
+		return nil, fmt.Errorf("no agent runner in test")
+	}
 	t.Cleanup(func() {
 		if had {
 			os.Setenv("SIN_NIM_API_KEY", prev)
+		} else {
+			os.Unsetenv("SIN_NIM_API_KEY")
 		}
+		newAgentRunnerHook = origAR
 	})
 
 	m := NewModel()
@@ -127,13 +138,25 @@ func TestHandleChatSubmit(t *testing.T) {
 	}
 }
 
+// stubNoAgentRunner makes submitAgentPrompt return nil so ChatRunner
+// fallback is tested. Call cleanup() in t.Cleanup.
+func stubNoAgentRunner() (cleanup func()) {
+	orig := newAgentRunnerHook
+	newAgentRunnerHook = func(ctx context.Context, cfg agentrunner.Config) (*agentrunner.AgentRunner, error) {
+		return nil, fmt.Errorf("no agent runner in test")
+	}
+	return func() { newAgentRunnerHook = orig }
+}
+
 func TestHandleChatSubmitWithAttachments(t *testing.T) {
 	prev, had := os.LookupEnv("SIN_NIM_API_KEY")
 	os.Unsetenv("SIN_NIM_API_KEY")
+	cleanup := stubNoAgentRunner()
 	t.Cleanup(func() {
 		if had {
 			os.Setenv("SIN_NIM_API_KEY", prev)
 		}
+		cleanup()
 	})
 
 	m := NewModel()
@@ -174,10 +197,12 @@ func TestChatHistoryTrimmedAt500(t *testing.T) {
 func TestHandleChatSubmitNoKeyWritesAssistantEntry(t *testing.T) {
 	prev, had := os.LookupEnv("SIN_NIM_API_KEY")
 	os.Unsetenv("SIN_NIM_API_KEY")
+	cleanup := stubNoAgentRunner()
 	t.Cleanup(func() {
 		if had {
 			os.Setenv("SIN_NIM_API_KEY", prev)
 		}
+		cleanup()
 	})
 
 	m := NewModel()
@@ -204,6 +229,7 @@ func TestHandleChatSubmitWithRunnerWritesThinkingPlaceholder(t *testing.T) {
 	prevLLM, hadLLM := os.LookupEnv("SIN_LLM_API_KEY")
 	os.Setenv("SIN_NIM_API_KEY", "fake-key")
 	os.Unsetenv("SIN_LLM_API_KEY")
+	cleanup := stubNoAgentRunner()
 	t.Cleanup(func() {
 		if hadNIM {
 			os.Setenv("SIN_NIM_API_KEY", prevNIM)
@@ -213,6 +239,7 @@ func TestHandleChatSubmitWithRunnerWritesThinkingPlaceholder(t *testing.T) {
 		if hadLLM {
 			os.Setenv("SIN_LLM_API_KEY", prevLLM)
 		}
+		cleanup()
 	})
 
 	m := NewModel()

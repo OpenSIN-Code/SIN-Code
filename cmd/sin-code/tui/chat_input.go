@@ -132,14 +132,21 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	m.AppendHistory(ViewChat.String(), "chat-submit", entry, true)
 
 	m.initChatRunner()
-	if m.ChatRunner == nil {
-		m.appendChat(ChatMessage{Kind: chatSystem, Text: "(no API key — set SIN_NIM_API_KEY)"})
-	}
 
 	agentCmd := m.submitAgentPrompt(submit.Text)
 
-	if m.ChatRunner == nil {
+	// If the AgentRunner is active, it IS the full agent loop (LLM +
+	// tools + verification). Running ChatRunner in parallel produces
+	// duplicate, interleaved responses. Skip ChatRunner entirely.
+	if agentCmd != nil {
+		m.setStreaming(true)
 		return agentCmd
+	}
+
+	// No AgentRunner — fall back to raw ChatRunner (LLM call only).
+	if m.ChatRunner == nil {
+		m.appendChat(ChatMessage{Kind: chatSystem, Text: "(no API key — set SIN_NIM_API_KEY)"})
+		return nil
 	}
 
 	m.appendChat(ChatMessage{Kind: chatThinking})
@@ -154,7 +161,7 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	if prog == nil {
 		text, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
 		applyChatResponseMsg(m, chat.ChatResponseMsg{Text: text, Error: err}, thinkingIdx)
-		return agentCmd
+		return nil
 	}
 	go func() {
 		text, err := chatRunnerStreamHook(runner, m.ctx(), prompt, historySnapshot, func(chunk string) {
@@ -162,7 +169,7 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		})
 		prog.Send(chat.ChatResponseMsg{Text: text, Error: err})
 	}()
-	return agentCmd
+	return nil
 }
 
 func applyChatResponseMsg(m *Model, msg chat.ChatResponseMsg, idx int) {
