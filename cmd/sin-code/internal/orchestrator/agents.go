@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -18,8 +19,17 @@ type Agent interface {
 	Run(ctx context.Context, task *Task, scratch *Scratchpad) (string, error)
 }
 
+// PreWarmer is an optional interface that agents can implement to support
+// pre-warming (issue #285). PreWarm loads the system prompt and prepares
+// context without starting the LLM call. When the dependency completes,
+// Run starts faster because the agent is already warmed up.
+type PreWarmer interface {
+	PreWarm(ctx context.Context, task *Task) error
+}
+
 type MockAgent struct {
-	cfg AgentConfig
+	cfg          AgentConfig
+	preWarmCalls atomic.Int64 // race-safe counter for PreWarm invocations
 }
 
 func NewMockAgent(cfg AgentConfig) *MockAgent {
@@ -42,9 +52,30 @@ func (m *MockAgent) Run(ctx context.Context, task *Task, scratch *Scratchpad) (s
 	fmt.Fprintf(&out, "Type: %s\n", task.Type)
 	fmt.Fprintf(&out, "Description: %s\n", task.Description)
 	fmt.Fprintf(&out, "Model: %s\n", m.cfg.Model)
+	if task.PreWarmed {
+		fmt.Fprintf(&out, "PreWarmed: yes\n")
+	}
 	result := out.String()
 	scratch.Write(m.cfg.Name, "outputs:"+task.ID, result)
 	return result, nil
+}
+
+// PreWarm simulates warming up the agent by recording the call. Real LLM
+// agents (issue #287) would load their system prompt and scan the codebase
+// here without making an LLM API call.
+func (m *MockAgent) PreWarm(ctx context.Context, task *Task) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	m.preWarmCalls.Add(1)
+	return nil
+}
+
+// PreWarmCount returns the number of times PreWarm was called (for testing).
+func (m *MockAgent) PreWarmCount() int64 {
+	return m.preWarmCalls.Load()
 }
 
 func DefaultAgents() []AgentConfig {

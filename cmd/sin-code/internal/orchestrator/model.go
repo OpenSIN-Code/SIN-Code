@@ -67,6 +67,11 @@ type Task struct {
 	// ExpectedOutput is a short description of what the task should
 	// produce. Used by the verify gate and the TUI DAG visualizer.
 	ExpectedOutput string `json:"expected_output,omitempty"`
+	// PreWarmed is set to true when the agent for this task has been
+	// pre-warmed (system prompt loaded, context prepared) before its
+	// dependencies completed (issue #285). The TUI DAG visualizer shows
+	// pre-warmed tasks with a distinct icon.
+	PreWarmed bool `json:"pre_warmed,omitempty"`
 }
 
 type ToolChain struct {
