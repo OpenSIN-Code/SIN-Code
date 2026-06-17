@@ -51,33 +51,38 @@ sin-code image-graph     ->  "Daten visualisieren" (sin-code image-graph)
 
 ---
 
-## DIE SOTA-README-FORMEL
+## DIE SOTA-README-BLUEPRINT
 
-Based on research of the 5 most successful open-source repos on GitHub:
+Based on deep research of 10 top GitHub repos (186k to 3.6k stars):
 
 ```
-Hero Image -> 3-4 Badges -> Tagline -> 3 Quick Links -> Quick Start -> 
-Features (bullets) -> Examples/Proof -> Docs Link -> Community -> Contributing -> License -> Star History
+Hero Image (optional) -> Badges -> Tagline -> Quick Links -> Quick Start -> 
+Features -> Stats/Charts -> Models/Details -> API/Usage -> 
+Architecture -> Contributing -> License -> Footer
 ```
 
-### Anti-Patterns (VERBOTTEN)
+**Keine starren Regeln — orientiere dich an den Top-Repos, passe an dein Repo an.**
 
-| Pattern | Warum schlecht | Sota-Alternative |
-|---------|---------------|-----------------|
-| Mermaid-Diagramme im README | Kein Top-Repo nutzt sie; GitHub rendert sie unzuverlaessig | Link zu `/docs/architecture.md` |
-| `<details>` collapsible sections | Versteckt Inhalt = schlechte UX | Alles sichtbar, kurze Sektionen |
-| Navigation-Anchor-Links | Kein Top-Repo nutzt sie; GitHub hat schon TOC | Weglassen |
-| HTML-Tabellen fuer Layout | Sieht aus wie 2015 | Markdown-Code-Bloecke |
-| Emoji in Headings | Unprofessionell; kein Top-Repo macht das | Klare Text-Headings |
-| 6+ Badges | Cluttered; wirkt verzweifelt | Max 3-4 relevante Badges |
-| Feature-Tabelle mit ✅ | Wirtsdlich; schwer lesbar | Bullet-List mit Bold-Termen |
-| Deutsch im README | International = English | Immer English |
-| `back to top` Links | Veraltet; GitHub hat Scroll | Weglassen |
-| Footer-Banner ("Powered by") | Wird als Werbung wahrgenommen | Subtle `<sub>` Text |
+### Patterns — wann nutzen, wann nicht
+
+Diese Patterns sind **Werkzeuge**, keine Anti-Patterns. Nutze sie bewusst:
+
+| Pattern | Wann nutzen | Wann NICHT |
+|---------|------------|-----------|
+| Mermaid-Diagramm | Komplexe Architektur mit >5 Komponenten, Flows, Sequences | Bei einfachen 3-Komponenten-Setups — dann reicht Text |
+| `<details>` sections | Lange Config-Beispiele, Troubleshooting, optionale Details | Für Kern-Features — die sollen sichtbar sein |
+| Navigation-Links | Bei READMEs >200 Zeilen mit vielen Sektionen | Bei kurzen READMEs <100 Zeilen — dann clutter |
+| HTML-Tabellen-Layout | 3-Spalten Quick-Start (Clone/Install/Run), Side-by-Side Vergleiche | Für normale Tabellen — Markdown-Tabelle ist sauberer |
+| Emoji in Headings | Bei fun/playful Projekten (LlamaIndex nutzt 🦙) | Bei Enterprise/B2B Projekten — dort unprofessionell |
+| 6+ Badges | Wenn sie ALLE relevant sind (PyPI + Downloads + CI + Discord + License + Version = LlamaIndex pattern) | Wenn es nur filler sind (Last-Commit, Topics) |
+| Feature-Tabelle mit ✅ | Feature-Vergleich gegen Konkurrenten (✅ vs ❌) | Bei eigener Feature-Liste — Bullets sind besser |
+| `back to top` Links | Bei READMEs >300 Zeilen | Bei kurzen READMEs — GitHub hat Scroll |
+| Footer-Banner ("Powered by") | Wenn es ein echtes Branding gibt (Supabase "Made with Supabase" ist SOTA) | Wenn es nur Werbung ist ohne Mehrwert |
+| Deutsch im README | Nur wenn das Repo explizit DACH-only ist | Default = English für internationalen Reach |
 
 ---
 
-## DIE 10 GEBOTE DES SOTA README
+## SOTA-PATTERNS (von 10 Top-Repos gelernt)
 
 ### 1. Hero Image (PFlicht bei visuellen Repos)
 
@@ -115,10 +120,12 @@ Ein einzelnes PNG-Bild oben, das das Projekt oder sein Ergebnis zeigt.
 - Package registry (PyPI/npm/crates.io) — **immer** wenn published
 - License — **immer**
 - Stars (social) — **optional** ab 100+ stars
+- Downloads (PyPI stats) — **gut fuer Popularitaet** (LangChain nutzt es)
 - CI status — **optional** wenn gruen
 - Discord/Community — **optional** wenn aktiv
+- Version — **gut** (LangChain, LlamaIndex nutzen es)
 
-**NIEMALS:** Last-Commit, Downloads-total, Topics, Python-version, Framework-logos. Das ist Clutter.
+**LlamaIndex hat 7 Badges** (Downloads, Build, Contributors, Discord, Twitter, Reddit, Ask AI) — und das sieht gut aus weil sie ALLE relevant sind. 6+ ist ok wenn jeder Badge echten Mehrwert bringt. **Filler-Badges** (Last-Commit, Topics, Framework-logos ohne Kontext) = weg.
 
 ### 3. Tagline (Ein Satz, kursiv, zentriert)
 
@@ -270,7 +277,7 @@ Most keys are suspended (431) due to Fireworks spending caps, while **43 remain 
 </p>
 ```
 
-**Keine for-the-badge Banner.** Keine Emoji-Links. Subtil ist professionell.
+**Supabase** hat eine "Made with Supabase" badge-section — for-the-badge style, und das ist SOTA (104k stars). Wenn es echtes Branding ist: nutze es. Wenn es nur Werbung ohne Mehrwert ist: `<sub>` Text.
 
 ---
 
@@ -459,21 +466,21 @@ Befolge die 10 Gebote. Nutze das Template. English only.
 ## QUALITY CHECKLIST (vor commit)
 
 - [ ] Hero Image (wenn visuelles Repo) — VOLLBREITE, kein width-Attribut
-- [ ] Max 3-4 Badges — PyPI/npm + License + Stars
-- [ ] Ein-Zeiliger Tagline (kursiv, zentriert)
-- [ ] 3-5 Quick Links (pipe-separated mit `|`, nicht dot)
-- [ ] Quick Start: 1-2 Code-Bloecke, max 5 Zeilen
-- [ ] Features als Bullet-List (keine Tabelle)
-- [ ] Charts VOLLBREITE (kein `width="640"`) — oder in Kontext eingebettet mit Text davor/danach
+- [ ] Badges — nur relevante, kein Filler (6+ ok wenn alle Mehrwert bringen)
+- [ ] Tagline — ein Satz Nutzen, kursiv zentriert
+- [ ] Quick Links — pipe-separated `|`, 3-5 links (bei langen READMEs)
+- [ ] Quick Start — 1-2 Code-Bloecke, max 5 Zeilen
+- [ ] Features — Bullet-List mit `**Bold** — description`
+- [ ] Charts VOLLBREITE — kein `width="640"`, in Kontext eingebettet
 - [ ] Charts auf GitHub lesbar (heller Hintergrund fuer PNGs)
-- [ ] Kein Mermaid-Diagramm im README
-- [ ] Keine `<details>` collapsible sections
-- [ ] Kein Emoji in Headings
-- [ ] English only (kein Deutsch)
-- [ ] Keine hardcoded Zahlen (live geholt)
+- [ ] Mermaid — nur bei komplexer Architektur (>5 Komponenten), nicht bei einfachen Setups
+- [ ] `<details>` — nur fuer optionale Details/Troubleshooting, nicht fuer Kern-Features
+- [ ] Emoji in Headings — nur bei fun/playful Projekten
+- [ ] English default (Deutsch nur bei DACH-only repos)
+- [ ] Keine hardcoded Zahlen (live geholt per curl/gh)
 - [ ] Star History Chart (wenn 100+ stars)
-- [ ] Minimaler Footer (`<sub>` Text, kein for-the-badge Banner)
-- [ ] llms.txt (optional, wenn AI-discoverability gewuenscht)
+- [ ] Footer — subtil `<sub>` oder for-the-badge wenn echtes Branding
+- [ ] llms.txt (optional)
 
 ---
 
