@@ -49,6 +49,7 @@ const (
 	EventDone
 	EventError
 	EventAsk
+	EventTextChunk
 )
 
 // String returns a stable lower-case identifier.
@@ -66,6 +67,8 @@ func (k EventKind) String() string {
 		return "error"
 	case EventAsk:
 		return "ask"
+	case EventTextChunk:
+		return "text-chunk"
 	default:
 		return fmt.Sprintf("event-%d", int(k))
 	}
@@ -76,6 +79,7 @@ type AgentEvent struct {
 	Kind     EventKind
 	Detail   string
 	Result   string
+	Text     string
 	ToolName string
 	Err      error
 	AskReply chan bool
@@ -200,6 +204,7 @@ func NewAgentRunner(ctx context.Context, cfg Config) (*AgentRunner, error) {
 		return nil, fmt.Errorf("agentrunner: build loop: %w", err)
 	}
 	loop.Ask = runner.bridgeAsk
+	runner.wrapCompletionForStreaming()
 	runner.loop = loop
 	runner.cleanup = cleanup
 	return runner, nil
@@ -318,6 +323,51 @@ func (r *AgentRunner) emit(ctx context.Context, kind EventKind, detail, result, 
 		Result:   result,
 		ToolName: toolName,
 		Err:      err,
+	}
+	select {
+	case r.Events <- ev:
+	case <-r.closed:
+	case <-ctx.Done():
+	}
+}
+
+// wrapCompletionForStreaming wraps the loop's Completion function so
+// that text responses are emitted as EventTextChunk events in real
+// time. Each LLM turn's text is sent word-by-word so the TUI can
+// render streaming output.
+func (r *AgentRunner) wrapCompletionForStreaming() {
+	if r.loop == nil || r.loop.Completion == nil {
+		return
+	}
+	original := r.loop.Completion
+	r.loop.Completion = func(ctx context.Context, history []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error) {
+		result, err := original(ctx, history, tools)
+		if err == nil && result != nil && result.Text != "" {
+			r.streamText(ctx, result.Text)
+		}
+		return result, err
+	}
+}
+
+// streamText emits the text as word-by-word EventTextChunk events
+// so the TUI renders a typewriter effect.
+func (r *AgentRunner) streamText(ctx context.Context, text string) {
+	words := strings.Fields(text)
+	var sb strings.Builder
+	for i, w := range words {
+		if i > 0 {
+			sb.WriteString(" ")
+			r.emitTextChunk(ctx, " ")
+		}
+		sb.WriteString(w)
+		r.emitTextChunk(ctx, w)
+	}
+}
+
+func (r *AgentRunner) emitTextChunk(ctx context.Context, chunk string) {
+	ev := AgentEvent{
+		Kind: EventTextChunk,
+		Text: chunk,
 	}
 	select {
 	case r.Events <- ev:

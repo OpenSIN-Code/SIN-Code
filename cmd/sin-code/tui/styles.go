@@ -110,6 +110,11 @@ type Styles struct {
 	Bold       lipgloss.Style
 	Muted      lipgloss.Style
 	UserMsg    lipgloss.Style
+
+	UserBlock      lipgloss.Style
+	AssistantBlock lipgloss.Style
+	ToolCard       lipgloss.Style
+	ToolCardHdr    lipgloss.Style
 }
 
 func c(s string) color.Color { return lipgloss.Color(s) }
@@ -211,6 +216,29 @@ func NewStyles(theme Theme) Styles {
 	s.Bold = lipgloss.NewStyle().Bold(true)
 	s.Muted = lipgloss.NewStyle().Foreground(c(t.TextDim))
 	s.UserMsg = lipgloss.NewStyle().Foreground(c(t.Accent))
+
+	s.UserBlock = lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(c(t.Accent)).
+		BorderLeftForeground(c(t.Accent)).
+		Padding(0, 1).
+		MarginBottom(0)
+
+	s.AssistantBlock = lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(c(t.TextDim)).
+		BorderLeftForeground(c(t.AccentDim)).
+		Padding(0, 1).
+		MarginBottom(0)
+
+	s.ToolCard = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(c(t.AccentDim)).
+		Padding(0, 1)
+
+	s.ToolCardHdr = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(c(t.Accent))
 
 	return s
 }

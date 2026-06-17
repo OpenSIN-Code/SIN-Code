@@ -8,11 +8,14 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	"charm.land/lipgloss/v2"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"
 )
+
+var keymap = DefaultKeymap()
 
 func (m *Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{
@@ -283,6 +286,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, cmd
 		}
 		return m.handleKey(msg)
+
+	case tea.MouseMsg:
+		action := ResolveMouse(msg, m.Width, m.Height, m.Sidebar.Width, m.rightWidth())
+		return m, m.handleMouseAction(action)
 	}
 
 	return m, tea.Batch(cmds...)
@@ -313,13 +320,13 @@ func isGlobalHotkey(msg tea.KeyMsg) bool {
 }
 
 func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	key := msg.String()
+	keyStr := msg.String()
 
 	if m.Mode == ModePalette {
 		return m.handlePaletteKey(msg)
 	}
 	if m.Mode == ModeSubagents {
-		if key == "esc" || key == "ctrl+x" {
+		if keyStr == "esc" || keyStr == "ctrl+x" {
 			m.CloseSubagents()
 		}
 		return m, nil
@@ -340,12 +347,12 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleSearchKey(msg)
 	}
 
-	switch key {
-	case "ctrl+c", "q":
+	switch {
+	case key.Matches(msg, keymap.Quit):
 		m.saveChatHistory()
 		m.Quitting = true
 		return m, tea.Quit
-	case "y":
+	case key.Matches(msg, keymap.CopyMessage):
 		if m.pendingAsk != nil {
 			m.answerPendingAsk(true)
 			m.ClosePermissionDialog()
@@ -368,68 +375,68 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-	case "esc":
+	case key.Matches(msg, keymap.Interrupt):
 		m.AppendHistory(m.ViewKind.String(), "interrupt", "Esc pressed", true)
 		return m, nil
-	case "tab":
+	case key.Matches(msg, keymap.NextView):
 		m.NextView()
 		return m, nil
-	case "shift+tab":
+	case key.Matches(msg, keymap.PrevView):
 		m.PreviousView()
 		return m, nil
-	case "ctrl+b":
+	case key.Matches(msg, keymap.ToggleSidebar):
 		m.Sidebar.Toggle()
 		return m, nil
-	case "ctrl+p":
+	case key.Matches(msg, keymap.Palette):
 		m.OpenPalette()
 		return m, nil
-	case "ctrl+f":
+	case key.Matches(msg, keymap.Search):
 		m.OpenSearch()
 		return m, nil
-	case "ctrl+x":
+	case key.Matches(msg, keymap.Subagents):
 		m.OpenSubagents()
 		return m, nil
-	case "ctrl+g":
+	case key.Matches(msg, keymap.SessionSwitch):
 		m.OpenSessionSwitcher()
 		return m, nil
-	case "ctrl+m":
+	case key.Matches(msg, keymap.ModelSelect):
 		m.OpenModelSelector()
 		return m, nil
-	case "1":
+	case key.Matches(msg, keymap.ViewTools):
 		m.SwitchView(ViewTools)
 		return m, nil
-	case "2":
+	case key.Matches(msg, keymap.ViewSessions):
 		m.SwitchView(ViewSessions)
 		return m, nil
-	case "3":
+	case key.Matches(msg, keymap.ViewEFM):
 		m.SwitchView(ViewEFM)
 		return m, nil
-	case "4":
+	case key.Matches(msg, keymap.ViewConfig):
 		m.SwitchView(ViewConfig)
 		return m, nil
-	case "5":
+	case key.Matches(msg, keymap.ViewHistory):
 		m.SwitchView(ViewHistory)
 		return m, nil
-	case "6":
+	case key.Matches(msg, keymap.ViewTodos):
 		m.SwitchView(ViewTodos)
 		return m, nil
-	case "7":
+	case key.Matches(msg, keymap.ViewChat):
 		m.SwitchView(ViewChat)
 		return m, nil
-	case "t":
+	case key.Matches(msg, keymap.CycleTheme):
 		m.CycleTheme()
 		m.AppendHistory(m.ViewKind.String(), "theme", Themes[m.ThemeIdx].Name, true)
 		return m, nil
-	case "a":
+	case key.Matches(msg, keymap.CycleAgent):
 		m.Footer.CycleAgent()
 		m.AppendHistory(m.ViewKind.String(), "agent", m.Footer.AgentName(), true)
 		return m, nil
-	case "r":
+	case key.Matches(msg, keymap.RunTool):
 		if m.ViewKind == ViewTools {
 			m.RunSelected()
 		}
 		return m, nil
-	case "enter":
+	case key.Matches(msg, keymap.ShowHelp):
 		if m.ViewKind == ViewChat && len(m.ChatHistory) > 0 {
 			idx := m.ChatFocusIdx
 			if idx >= 0 && idx < len(m.ChatHistory) {
@@ -447,19 +454,19 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-	case "pgup":
+	case keyStr == "pgup":
 		if m.ViewKind == ViewChat {
 			m.ChatViewport.PageUp()
 			m.updateChatFocusFromViewport()
 			return m, nil
 		}
-	case "pgdn":
+	case keyStr == "pgdn":
 		if m.ViewKind == ViewChat {
 			m.ChatViewport.PageDown()
 			m.updateChatFocusFromViewport()
 			return m, nil
 		}
-	case "up", "k":
+	case key.Matches(msg, keymap.ToolUp):
 		if m.ViewKind == ViewChat && !m.ChatViewport.AtBottom() {
 			m.ChatViewport.ScrollUp(1)
 			m.updateChatFocusFromViewport()
@@ -478,7 +485,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-	case "down", "j":
+	case key.Matches(msg, keymap.ToolDown):
 		if m.ViewKind == ViewChat && !m.ChatViewport.AtBottom() {
 			m.ChatViewport.ScrollDown(1)
 			m.updateChatFocusFromViewport()
@@ -497,24 +504,22 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-	case "up_left", "left", "h":
-		_ = key
+	case keyStr == "up_left" || keyStr == "left" || keyStr == "h":
 		return m, nil
-	case "right", "l":
-		_ = key
+	case keyStr == "right" || keyStr == "l":
 		return m, nil
-	case "o":
+	case keyStr == "o":
 		if m.NotificationBanner != nil {
 			m.AppendHistory(ViewTodos.String(), "banner-open", m.NotificationBanner.Title, true)
 		}
 		return m, nil
-	case "d":
+	case keyStr == "d":
 		if m.NotificationBanner != nil {
 			m.DismissBanner()
 			m.AppendHistory(ViewTodos.String(), "banner-dismiss", "", true)
 		}
 		return m, nil
-	case "n":
+	case keyStr == "n":
 		if m.pendingAsk != nil {
 			m.answerPendingAsk(false)
 			m.ClosePermissionDialog()
@@ -524,13 +529,13 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.BannerNext()
 		}
 		return m, nil
-	case "+":
+	case key.Matches(msg, keymap.NewSession):
 		if m.ViewKind == ViewSessions {
 			m.Tabs.Add("")
 			m.AppendHistory(ViewSessions.String(), "session-add", "", true)
 		}
 		return m, nil
-	case "-":
+	case key.Matches(msg, keymap.CloseSession):
 		if m.ViewKind == ViewSessions {
 			m.Tabs.Close(m.Tabs.ActiveIdx)
 			m.AppendHistory(ViewSessions.String(), "session-close", "", true)
@@ -901,4 +906,34 @@ func copyToClipboard(text string) {
 	cmd := exec.Command("pbcopy")
 	cmd.Stdin = strings.NewReader(text)
 	_ = cmd.Run()
+}
+
+func (m *Model) handleMouseAction(action MouseAction) tea.Cmd {
+	switch action.Target {
+	case "sidebar":
+		return nil
+	case "chat":
+		if m.ViewKind == ViewChat && m.ChatInput != nil {
+			return m.ChatInput.Focus()
+		}
+		return nil
+	case "tabs":
+		return nil
+	case "footer":
+		return nil
+	case "right_panel":
+		return nil
+	}
+
+	if action.Kind == "scroll_up" {
+		if m.ViewKind == ViewChat {
+			m.ChatViewport.ScrollUp(1)
+		}
+	}
+	if action.Kind == "scroll_down" {
+		if m.ViewKind == ViewChat {
+			m.ChatViewport.ScrollDown(1)
+		}
+	}
+	return nil
 }

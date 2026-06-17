@@ -40,7 +40,7 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 	mdRenderer := newMarkdownRenderer(styles)
 
 	for i, msg := range m.ChatHistory {
-		rendered := renderChatMessageCompact(msg, mdRenderer, styles, width, i == m.ChatFocusIdx)
+		rendered := renderChatMessageCompact(msg, mdRenderer, styles, width, i == m.ChatFocusIdx, m.Spinner)
 		content.WriteString(rendered)
 	}
 
@@ -72,7 +72,7 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 	return b.String()
 }
 
-func renderChatMessageCompact(msg ChatMessage, md *markdownRenderer, styles Styles, width int, focused bool) string {
+func renderChatMessageCompact(msg ChatMessage, md *markdownRenderer, styles Styles, width int, focused bool, spinner Spinner) string {
 	var b strings.Builder
 
 	focusPrefix := ""
@@ -82,34 +82,39 @@ func renderChatMessageCompact(msg ChatMessage, md *markdownRenderer, styles Styl
 
 	switch msg.Kind {
 	case chatUser:
-		b.WriteString(styles.UserMsg.Render(focusPrefix + "> "))
-		b.WriteString(styles.Content.Render(msg.Text))
+		label := styles.Bold.Render("You")
+		body := wrapText(msg.Text, width-6)
+		block := styles.UserBlock.Width(width - 4).Render(label + "\n" + body)
+		b.WriteString(block)
 		b.WriteString("\n")
 
 	case chatAssistant:
 		rendered := md.render(msg.Text)
-		b.WriteString(rendered)
-		if !strings.HasSuffix(rendered, "\n") {
-			b.WriteString("\n")
-		}
+		label := styles.Bold.Render("Assistant")
+		block := styles.AssistantBlock.Width(width - 4).Render(label + "\n" + strings.TrimRight(rendered, "\n"))
+		b.WriteString(block)
+		b.WriteString("\n")
 
 	case chatTool:
 		if msg.Expanded {
-			b.WriteString(styles.AccentText.Render(focusPrefix + "⚡ " + msg.Tool))
-			b.WriteString("\n")
+			hdr := styles.ToolCardHdr.Render(focusPrefix + "⚡ " + msg.Tool)
+			var cardBody strings.Builder
+			cardBody.WriteString(hdr)
+			cardBody.WriteString("\n")
 			if msg.ToolInput != "" {
-				b.WriteString(styles.Muted.Render("  input: "))
-				b.WriteString(styles.Muted.Render(msg.ToolInput))
-				b.WriteString("\n")
+				cardBody.WriteString(styles.Muted.Render("  input: "))
+				cardBody.WriteString(styles.Muted.Render(msg.ToolInput))
+				cardBody.WriteString("\n")
 			}
 			output := msg.ToolOutput
 			if output == "" {
 				output = msg.Detail
 			}
 			if output != "" {
-				b.WriteString(renderToolOutput(output, styles, width))
-				b.WriteString("\n")
+				cardBody.WriteString(renderToolOutput(output, styles, width))
 			}
+			card := styles.ToolCard.Width(width - 4).Render(cardBody.String())
+			b.WriteString(card)
 		} else {
 			if msg.Result {
 				b.WriteString(styles.StatusOK.Render(focusPrefix + "✓ " + msg.Tool))
@@ -160,7 +165,9 @@ func renderChatMessageCompact(msg ChatMessage, md *markdownRenderer, styles Styl
 		b.WriteString("\n")
 
 	case chatThinking:
-		b.WriteString(renderSpinner("thinking...", styles))
+		b.WriteString(spinner.ViewThemed(styles.Spinner, styles.Theme))
+		b.WriteString(" ")
+		b.WriteString(styles.AccentText.Render("thinking..."))
 		b.WriteString("\n")
 
 	case chatSystem:
