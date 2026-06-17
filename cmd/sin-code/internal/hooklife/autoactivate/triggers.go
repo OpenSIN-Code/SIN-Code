@@ -38,12 +38,17 @@ type Default struct {
 	NoTrigger bool // when true, prompt-based triggers are ignored
 }
 
+// openFileHook is the file opener used by LoadFile. It is a package-level
+// hook so tests can exercise the non-IsNotExist error path without relying
+// on filesystem permissions or OS-specific behavior.
+var openFileHook = os.Open
+
 // LoadFile parses a single `.sin-code/autoactivate.toml` file. Returns
 // an empty RuleSet and zero Default when the file does not exist;
 // never errors for a missing file (privacy-first: silent, opt-in by
 // presence).
 func LoadFile(path string) (RuleSet, Default, error) {
-	f, err := os.Open(path)
+	f, err := openFileHook(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return RuleSet{}, Default{}, nil

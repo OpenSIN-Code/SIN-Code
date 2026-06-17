@@ -655,10 +655,191 @@ func TestRaceMultipleSessionsIndependent(t *testing.T) {
 					return
 				}
 				if !st.AutoOn {
-					t.Errorf("AutoOn lost mid-race: %s", sid)
-				}
+			t.Errorf("AutoOn lost mid-race: %s", sid)
 			}
-		}(g)
+		}
+	}(g)
 	}
 	wg.Wait()
 }
+
+// --- targeted coverage for previously uncovered lines ---
+
+func TestOnSessionStartEmptySessionID(t *testing.T) {
+	a := NewActivator(nil)
+	st := a.OnSessionStart("", StartOptions{AutoOn: true, Defaults: newTestBuiltins()})
+	if st.SessionID != "" || st.AutoOn || len(st.ActiveRules) != 0 {
+		t.Errorf("empty sessionID should yield zero SessionState, got %+v", st)
+	}
+	if a.Count() != 0 {
+		t.Errorf("empty sessionID must not create a session")
+	}
+}
+
+func TestOnUserPromptInitializesEmptyActiveRules(t *testing.T) {
+	a := NewActivator(nil)
+	a.OnSessionStart(sidA, StartOptions{AutoOn: true})
+	rules, ok := a.OnUserPrompt(sidA, "anything")
+	if ok || rules != nil {
+		t.Errorf("expected (nil, false) for empty active rules, got (%v, %v)", rules, ok)
+	}
+}
+
+func TestActivateInitializesNilActiveRules(t *testing.T) {
+	a := NewActivator(nil)
+	a.OnSessionStart(sidA, StartOptions{AutoOn: true})
+	a.Activate(sidA, Rule{Name: "manual", Body: "manual rule"})
+	st, _ := a.Snapshot(sidA)
+	if !st.ActiveRules.Has("manual") {
+		t.Errorf("Activate should initialize nil ActiveRules")
+	}
+}
+
+func TestSetAutoOnGuardsAndUpdates(t *testing.T) {
+	a := NewActivator(nil)
+	a.OnSessionStart(sidA, StartOptions{AutoOn: false})
+	a.SetAutoOn("", true)
+	a.SetAutoOn(sidA, true)
+	st, _ := a.Snapshot(sidA)
+	if !st.AutoOn {
+		t.Errorf("SetAutoOn should update known session")
+	}
+}
+
+func TestSnapshotEmptySessionID(t *testing.T) {
+	a := NewActivator(nil)
+	_, ok := a.Snapshot("")
+	if ok {
+		t.Errorf("empty sessionID snapshot should return false")
+	}
+}
+
+func TestSessionStartHookRunInactive(t *testing.T) {
+	a := NewActivator(nil)
+	h := SessionStartHook{Act: a, AutoOn: false}
+	d := h.Run(context.Background(), hooklife.Event{
+		Phase: hooklife.SessionStart,
+		Meta:  map[string]string{"session_id": sidA},
+	})
+	if d.Verdict != hooklife.Allow || d.Message != "" {
+		t.Errorf("inactive session should yield Allow with empty message, got %+v", d)
+	}
+}
+
+func TestUserPromptHookRunInactive(t *testing.T) {
+	a := NewActivator(nil)
+	a.OnSessionStart(sidA, StartOptions{AutoOn: false})
+	h := UserPromptHook{Act: a}
+	d := h.Run(context.Background(), hooklife.Event{
+		Phase: hooklife.UserPrompt,
+		Meta:  map[string]string{"session_id": sidA, "prompt": "hi"},
+	})
+	if d.Verdict != hooklife.Allow || d.Message != "" {
+		t.Errorf("off session should yield Allow with empty message, got %+v", d)
+	}
+}
+
+func TestPromptFromEventFallbacks(t *testing.T) {
+	if got := promptFromEvent(hooklife.Event{Args: map[string]string{"prompt": "args"}}); got != "args" {
+		t.Errorf("Args fallback failed: %q", got)
+	}
+	if got := promptFromEvent(hooklife.Event{Meta: map[string]string{"other": "x"}}); got != "" {
+		t.Errorf("empty prompt should return empty string, got %q", got)
+	}
+}
+
+func TestSessionIDFromMetaSid(t *testing.T) {
+	if got := sessionIDFromMeta(map[string]string{"sid": "s2"}); got != "s2" {
+		t.Errorf("sid fallback failed: %q", got)
+	}
+}
+
+func TestTriggerOverrideFromMetaVariations(t *testing.T) {
+	if triggerOverrideFromMeta(nil) {
+		t.Errorf("nil meta should return false")
+	}
+	if !triggerOverrideFromMeta(map[string]string{"no-trigger": "true"}) {
+		t.Errorf("no-trigger key should be recognized")
+	}
+}
+
+func TestHookIDs(t *testing.T) {
+	if got := (SessionStartHook{}).ID(); got != "autoactivate-session-start" {
+		t.Errorf("SessionStartHook ID = %q", got)
+	}
+	if got := (UserPromptHook{}).ID(); got != "autoactivate-user-prompt" {
+		t.Errorf("UserPromptHook ID = %q", got)
+	}
+}
+
+func TestRuleSetEqualMissingKey(t *testing.T) {
+	a := RuleSet{}
+	a.Add(Rule{Name: "x"})
+	b := RuleSet{}
+	b.Add(Rule{Name: "y"})
+	if a.Equal(b) {
+		t.Errorf("RuleSet.Equal should return false when keys differ")
+	}
+}
+
+func TestLoadFileOpenError(t *testing.T) {
+	orig := openFileHook
+	openFileHook = func(name string) (*os.File, error) {
+		return nil, errors.New("open denied")
+	}
+	defer func() { openFileHook = orig }()
+
+	_, _, err := LoadFile(filepath.Join(t.TempDir(), "any.toml"))
+	if err == nil {
+		t.Fatalf("expected open error")
+	}
+	if os.IsNotExist(err) {
+		t.Errorf("expected non-IsNotExist error, got %v", err)
+	}
+}
+
+func TestParseInvalidSection(t *testing.T) {
+	body := "[ ]\nname = \"x\"\nbody = \"y\""
+	rs, _, err := parse(strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if rs.Has("x") {
+		t.Errorf("invalid section should be skipped")
+	}
+}
+
+func TestParseMalformedLine(t *testing.T) {
+	body := "[rule]\nname = \"x\"\nnot-a-key-value\nbody = \"y\""
+	rs, _, err := parse(strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if !rs.Has("x") {
+		t.Errorf("rule should still be flushed despite malformed line")
+	}
+}
+
+func TestParseRuleNameChangeFlush(t *testing.T) {
+	body := "[rule]\nname = \"alpha\"\nbody = \"first\"\nname = \"beta\"\nbody = \"second\""
+	rs, _, err := parse(strings.NewReader(body))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if !rs.Has("alpha") || !rs.Has("beta") {
+		t.Errorf("expected both alpha and beta rules, got %v", rs.Names())
+	}
+	if rs["alpha"].Body != "first" {
+		t.Errorf("alpha body = %q, want first", rs["alpha"].Body)
+	}
+	if rs["beta"].Body != "second" {
+		t.Errorf("beta body = %q, want second", rs["beta"].Body)
+	}
+}
+
+func TestStripSectionEmptyName(t *testing.T) {
+	if _, ok := stripSection("[ ]"); ok {
+		t.Errorf("stripSection should reject empty name")
+	}
+}
+
