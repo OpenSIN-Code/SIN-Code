@@ -20,6 +20,7 @@ const (
 	ModeArgInput
 	ModeSessionSwitcher
 	ModeModelSelector
+	ModePermissionDialog
 )
 
 type PaletteState struct {
@@ -75,6 +76,7 @@ type Model struct {
 	Palette           PaletteState
 	SessionSwitcher   SessionSwitcherState
 	ModelSelector     ModelSelectorState
+	PermissionDialog  PermissionDialogState
 	ArgInput          ArgInputState
 	History           []HistoryEntry
 	EFMStks           []EFMStack

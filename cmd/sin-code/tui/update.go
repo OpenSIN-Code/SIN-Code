@@ -299,6 +299,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.Mode == ModeModelSelector {
 		return m.handleModelSelectorKey(msg)
 	}
+	if m.Mode == ModePermissionDialog {
+		return m.handlePermissionDialogKey(msg)
+	}
 
 	switch key {
 	case "ctrl+c", "q":
@@ -625,6 +628,10 @@ func (m *Model) View() tea.View {
 	}
 	if m.Mode == ModeModelSelector {
 		popup := RenderModelSelector(m.ModelSelector, m.Styles, m.Width, m.Height)
+		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
+	}
+	if m.Mode == ModePermissionDialog {
+		popup := RenderPermissionDialog(m.PermissionDialog, m.Styles, m.Width, m.Height)
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
 	}
 

@@ -97,7 +97,9 @@ func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 		line = "verify: " + ev.Detail
 	case agentrunner.EventAsk:
 		m.pendingAsk = ev.AskReply
-		line = "ask: " + ev.Detail + " — press y/N"
+		// Open permission dialog with tool info
+		m.OpenPermissionDialog(ev.ToolName, ev.Detail, "")
+		line = "ask: " + ev.Detail + " — permission dialog opened"
 	case agentrunner.EventDone:
 		line = "agent: done: " + ev.Result
 	case agentrunner.EventError:
