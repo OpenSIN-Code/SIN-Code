@@ -274,15 +274,54 @@ Most keys are suspended (431) due to Fireworks spending caps, while **43 remain 
 
 **tldraw pattern** — dual-theme SVG, funktioniert in Light und Dark mode.
 
-### 10. Footer (Minimal, subtil)
+### 10. SIN AI Branding Footer (PFLICHT für alle SIN AI Repos)
+
+Jedes SIN AI Repo MUSS diesen Footer haben — einzigartiges, ultra krasses Branding:
 
 ```html
+---
+
+<!-- SIN AI BRANDING -->
 <p align="center">
-  <sub>Built by <a href="https://example.com">YourOrg</a>. MIT Licensed.</sub>
+  <a href="https://sin.ai">
+    <img src="https://img.shields.io/badge/⚡_SIN_AI-Enterprise_Agent_Platform-7B3FE4?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="SIN AI" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://sin.ai">
+    <img src="https://img.shields.io/badge/🌐_Website-sin.ai-00D9FF?style=flat-square&labelColor=0D1117" alt="Website" />
+  </a>
+  <a href="https://sin.ai/dashboard">
+    <img src="https://img.shields.io/badge/📊_Dashboard-Live-00D9FF?style=flat-square&labelColor=0D1117" alt="Dashboard" />
+  </a>
+  <a href="https://sin.ai/agents">
+    <img src="https://img.shields.io/badge/🤖_Agents-Autonomous-00D9FF?style=flat-square&labelColor=0D1117" alt="Agents" />
+  </a>
+  <a href="https://github.com/SIN-Rotator">
+    <img src="https://img.shields.io/badge/📦_GitHub-SIN--Rotator-00D9FF?style=flat-square&labelColor=0D1117" alt="GitHub" />
+  </a>
+</p>
+
+<p align="center">
+  <sub>Enterprise AI Agents die autonom arbeiten — powered by <a href="https://sin.ai"><strong>SIN AI</strong></a></sub>
 </p>
 ```
 
-**Supabase** hat eine "Made with Supabase" badge-section — for-the-badge style, und das ist SOTA (104k stars). Wenn es echtes Branding ist: nutze es. Wenn es nur Werbung ohne Mehrwert ist: `<sub>` Text.
+**Design-Spec:**
+- **Tier 1**: Grosses `for-the-badge` SIN AI Badge — Purple `7B3FE4` auf Dark `0D1117`, mit ⚡ Lightning Bolt
+- **Tier 2**: 4 `flat-square` Link-Badges — Cyan `00D9FF` auf Dark `0D1117`, mit Emojis (🌐 📊 🤖 📦)
+- **Tier 3**: Subtiler `<sub>` Text mit SIN AI Link
+- **Farben**: Purple = SIN AI Primary, Cyan = SIN AI Accent, Dark = GitHub Dark
+- **Separator**: `<hr>` (---) davor trennt Content vom Branding
+
+**WARUM das ultra krass ist:**
+- 3-Tier vertikaler Aufbau = visuell impressive wie ein Brand-Block
+- Dark LabelColor `0D1117` auf allen Badges = cohesive premium look
+- for-the-badge + flat-square Mix = Hierarchie (große Brand -> kleine Links)
+- Cyan `00D9FF` auf Dark = Neon-Glow-Feeling ohne CSS
+- ⚡ Lightning Bolt = SIN AI Brand Mark, einzigartig auf GitHub
+- Jedes Badge klickbar = echtes Navigation-Element, nicht nur Deko
 
 ---
 
@@ -387,8 +426,32 @@ Distributed under the **MIT License**. See [LICENSE](LICENSE) for details.
   </picture>
 </a>
 
+---
+
+<!-- SIN AI BRANDING (PFLICHT) -->
 <p align="center">
-  <sub>Built by <a href="https://{{ORG_URL}}">{{ORG_NAME}}</a>. MIT Licensed.</sub>
+  <a href="https://sin.ai">
+    <img src="https://img.shields.io/badge/⚡_SIN_AI-Enterprise_Agent_Platform-7B3FE4?style=for-the-badge&logo=github&logoColor=white&labelColor=0D1117" alt="SIN AI" />
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://sin.ai">
+    <img src="https://img.shields.io/badge/🌐_Website-sin.ai-00D9FF?style=flat-square&labelColor=0D1117" alt="Website" />
+  </a>
+  <a href="https://sin.ai/dashboard">
+    <img src="https://img.shields.io/badge/📊_Dashboard-Live-00D9FF?style=flat-square&labelColor=0D1117" alt="Dashboard" />
+  </a>
+  <a href="https://sin.ai/agents">
+    <img src="https://img.shields.io/badge/🤖_Agents-Autonomous-00D9FF?style=flat-square&labelColor=0D1117" alt="Agents" />
+  </a>
+  <a href="https://github.com/SIN-Rotator">
+    <img src="https://img.shields.io/badge/📦_GitHub-SIN--Rotator-00D9FF?style=flat-square&labelColor=0D1117" alt="GitHub" />
+  </a>
+</p>
+
+<p align="center">
+  <sub>Enterprise AI Agents die autonom arbeiten — powered by <a href="https://sin.ai"><strong>SIN AI</strong></a></sub>
 </p>
 ```
 
@@ -484,7 +547,7 @@ Befolge die 10 Gebote. Nutze das Template. English only.
 - [ ] English default (Deutsch nur bei DACH-only repos)
 - [ ] Keine hardcoded Zahlen (live geholt per curl/gh)
 - [ ] Star History Chart (wenn 100+ stars)
-- [ ] Footer — subtil `<sub>` oder for-the-badge wenn echtes Branding
+- [ ] SIN AI Branding Footer (PFLICHT — 3-Tier: for-the-badge + flat-square links + sub text)
 - [ ] llms.txt (optional)
 
 ---
