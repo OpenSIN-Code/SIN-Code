@@ -44,6 +44,12 @@ type wireToolCall struct {
 	} `json:"function"`
 }
 
+type wireUsage struct {
+	PromptTokens     int `json:"prompt_tokens"`
+	CompletionTokens int `json:"completion_tokens"`
+	TotalTokens      int `json:"total_tokens"`
+}
+
 type wireResponse struct {
 	Choices []struct {
 		Message struct {
@@ -53,6 +59,7 @@ type wireResponse struct {
 		} `json:"message"`
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
+	Usage wireUsage `json:"usage,omitempty"`
 }
 
 // marshalToolCallsHook is swapped by coverage tests to exercise the JSON
@@ -132,6 +139,10 @@ func NewProviderCompletion(c *llm.Client, model string, maxTokens int, temperatu
 			}
 			calls = append(calls, ToolCall{ID: tc.ID, Name: tc.Function.Name, Args: args})
 		}
-		return &Completion{Text: msg.Content, ToolCalls: calls, Raw: raw}, nil
+		return &Completion{Text: msg.Content, ToolCalls: calls, Raw: raw, Usage: Usage{
+			PromptTokens:     out.Usage.PromptTokens,
+			CompletionTokens: out.Usage.CompletionTokens,
+			TotalTokens:      out.Usage.TotalTokens,
+		}}, nil
 	}
 }

@@ -105,11 +105,65 @@ func UseNIM() bool {
 	return os.Getenv("SIN_NIM_API_KEY") != ""
 }
 
+// UseLoopAgent returns true when the orchestrator should use LoopAgent
+// (full agentloop.Loop with tool-use, verify gate, session isolation)
+// instead of LLMAgent (single chat call). Opt-in via SIN_LOOP_AGENTS=1
+// so existing behavior is preserved. Issue #287.
+func UseLoopAgent() bool {
+	return os.Getenv("SIN_LOOP_AGENTS") == "1"
+}
+
 func defaultAgentFactory(cfg AgentConfig) Agent {
+	if UseLoopAgent() && UseLLM() {
+		client := defaultLLMClient(cfg)
+		if client != nil {
+			return NewLoopAgent(cfg, client)
+		}
+	}
 	if UseLLM() {
 		return NewLLMAgent(cfg)
 	}
 	return NewMockAgent(cfg)
+}
+
+// defaultLLMClient creates an *llm.Client for the given agent config,
+// inferring the provider from env when not specified. Returns nil when
+// no client can be constructed (missing API key, unknown provider).
+func defaultLLMClient(cfg AgentConfig) *llm.Client {
+	providerName := cfg.Provider
+	if providerName == "" {
+		providerName = inferProviderFromEnv()
+	}
+	if providerName == "" {
+		providerName = "nim"
+	}
+	prov, err := llm.LookupProvider(providerName)
+	if err != nil {
+		return nil
+	}
+	baseURL := prov.BaseURL
+	if cfg.BaseURL != "" {
+		baseURL = cfg.BaseURL
+	}
+	if baseURL == "" {
+		if envBase := os.Getenv("SIN_LLM_BASE_URL"); envBase != "" {
+			baseURL = envBase
+		}
+	}
+	if baseURL == "" {
+		return nil
+	}
+	apiKey := ""
+	if prov.APIKeyEnv != "" {
+		apiKey = os.Getenv(prov.APIKeyEnv)
+	}
+	if apiKey == "" {
+		apiKey = os.Getenv("SIN_LLM_API_KEY")
+	}
+	if apiKey == "" && providerName != "ollama" {
+		return nil
+	}
+	return llm.NewClient(baseURL, apiKey)
 }
 
 // UseLLM returns true if any LLM provider is configured.
