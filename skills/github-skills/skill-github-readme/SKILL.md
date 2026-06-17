@@ -1,6 +1,6 @@
 ---
 name: skill-github-readme
-description: "Transform ANY repository into a visually stunning, instantly understandable experience. Mermaid diagrams, benefit-focused infographics, 3-second-hook psychology, CI badges, llms.txt, social preview. Embeds sin-image-graph charts for benchmark data."
+description: "Transform ANY repository into a visually stunning, instantly understandable experience. Mermaid diagrams, benefit-focused infographics, 3-second-hook psychology, CI badges, llms.txt, social preview. Embeds skill-code-graph charts for benchmark data."
 license: MIT
 compatibility:
   - opencode
@@ -10,7 +10,7 @@ metadata:
   mode: autonomous-visual-enhancement
   language: de
   coupled_with: skill-github-governance
-  integrates_with: sin-image-graph
+  integrates_with: skill-code-graph
   version: "3.0"
   last_updated: "2026-06-17"
   lifecycle: external
@@ -48,10 +48,10 @@ skill-github-governance  →  "Was muss gemacht werden?" (Issues, Roadmaps, Disp
         ↓ coupled
 skill-github-readme      →  "Wie sieht es aus?" (README, Diagramme, Badges, llms.txt)
         ↓ can embed
-sin-image-graph          →  "Daten visualisieren" (sin-code image-graph: bar/line/pie/area)
+skill-code-graph          →  "Daten visualisieren" (sin-code image-graph: bar/line/pie/area)
 ```
 
-**sin-image-graph Integration:** Wenn die README Benchmark-Daten enthält, rufe
+**skill-code-graph Integration:** Wenn die README Benchmark-Daten enthält, rufe
 `sin-code image-graph --type bar --data bench.json --output bench` auf und bette
 das generierte HTML/PNG in die README ein. SOTA Charts mit Gradienten, Glow-Effekten
 und Animationen — kostenlos und deterministisch.

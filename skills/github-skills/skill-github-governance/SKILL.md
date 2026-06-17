@@ -212,5 +212,5 @@ skill-github-governance  →  "Was muss gemacht werden?"
         ↓ coupled
 skill-github-readme      →  "Wie sieht es aus?"
         ↓ can embed
-sin-image-graph          →  "Daten visualisieren" (sin-code image-graph)
+skill-code-graph          →  "Daten visualisieren" (sin-code image-graph)
 ```
