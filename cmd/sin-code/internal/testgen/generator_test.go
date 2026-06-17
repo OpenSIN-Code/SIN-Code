@@ -45,7 +45,7 @@ func Greet(name string) string {
 		t.Fatal(err)
 	}
 
-	got, err := generateFallback(context.Background(), src, nil)
+	got, err := generateFallback(context.Background(), src, nil, nil)
 	if err != nil {
 		t.Fatalf("generateFallback: %v", err)
 	}
@@ -72,7 +72,7 @@ func add(a, b int) int { return a + b }
 		t.Fatal(err)
 	}
 
-	_, err := generateFallback(context.Background(), src, nil)
+	_, err := generateFallback(context.Background(), src, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for file with no exported functions")
 	}

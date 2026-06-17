@@ -339,8 +339,9 @@ func toolTestGenerate(ctx context.Context, args map[string]any) (string, error) 
 	}
 
 	var llmFn func(context.Context, string) (string, error)
+	var casesByFunc map[string][]testgen.TestCase
 	if useLLM {
-		llmFn = buildTestgenLLMFn(ctx)
+		casesByFunc, llmFn = buildTestgenLLMFn(ctx, file)
 	}
 
 	res := testgen.Generate(ctx, testgen.Options{
@@ -349,6 +350,7 @@ func toolTestGenerate(ctx context.Context, args map[string]any) (string, error) 
 		UseLLM:    llmFn,
 		Overwrite: overwrite,
 		Timeout:   testTimeout,
+		Cases:     casesByFunc,
 	})
 
 	if res.Error != "" {
@@ -361,18 +363,26 @@ func toolTestGenerate(ctx context.Context, args map[string]any) (string, error) 
 	return string(b), nil
 }
 
-// buildTestgenLLMFn returns a closure wired to the configured OpenAI-
-// compatible chat client and the LLM case-filler. When the API key is
-// missing it returns nil so the caller falls back to the stub scaffold
-// (graceful degradation per M4). Both env and config are honoured.
-func buildTestgenLLMFn(ctx context.Context) func(context.Context, string) (string, error) {
+// buildTestgenLLMFn returns the per-file `Cases` map and a
+// `UseLLM`-compatible closure. When the API key is missing it returns
+// (nil, nil) so the caller falls back to the stub scaffold (graceful
+// degradation per M4). Both env and config are honoured. The map is
+// keyed by `testKey` (free `Name` or `Receiver_Name` for methods).
+func buildTestgenLLMFn(ctx context.Context, file string) (map[string][]testgen.TestCase, func(context.Context, string) (string, error)) {
 	cfg := testConfig()
 	apiKey := strings.TrimSpace(os.Getenv("LLM_API_KEY"))
 	if apiKey == "" {
 		apiKey = strings.TrimSpace(cfg.LLMAPIKey)
 	}
 	if apiKey == "" {
-		return nil
+		return nil, nil
+	}
+	if file == "" {
+		return nil, nil
+	}
+	fns, ferr := testgen.FunctionsFromSource(file)
+	if ferr != nil || len(fns) == 0 {
+		return nil, nil
 	}
 	baseURL := strings.TrimSpace(cfg.LLMBaseURL)
 	if baseURL == "" {
@@ -380,46 +390,31 @@ func buildTestgenLLMFn(ctx context.Context) func(context.Context, string) (strin
 	}
 	client := llm.NewClient(baseURL, apiKey)
 	model := cfg.LLMModel
-	return func(ctx context.Context, code string) (string, error) {
-		// Conservative case filler: extract the first exported func
-		// signature and ask the model for one JSON array of cases.
-		// Output shape: `{"name":"function","cases":[...]}` — the
-		// generator logs the raw response for the agent to splice
-		// (Phase 5+). Today we just record it; the per-function
-		// template splice is a follow-up.
-		fns := extractFuncInfoFromSource(code)
-		if len(fns) == 0 {
-			return "", fmt.Errorf("sin_test_generate: no exported function found for LLM fill")
-		}
-		res, err := testgen.FillCasesWithLLM(ctx, client, model, fns[0], testgen.LLMOpts{
-			MaxRepairIters: 0,
-		})
+	casesByFunc := make(map[string][]testgen.TestCase, len(fns))
+	for _, fn := range fns {
+		res, err := testgen.FillCasesWithLLM(ctx, client, model, fn, testgen.LLMOpts{MaxRepairIters: 0})
 		if err != nil {
-			return "", err
-		}
-		b, _ := json.Marshal(res)
-		return string(b), nil
-	}
-}
-
-// extractFuncInfoFromSource is a tiny regex-free shim over the testgen
-// FuncInfo extraction. It returns at most one FuncInfo for now — Phase 5+
-// will loop over every exported func.
-func extractFuncInfoFromSource(code string) []testgen.FuncInfo {
-	var out []testgen.FuncInfo
-	// Look for "func Name(" or "func (r Type) Name(".
-	for _, line := range strings.Split(code, "\n") {
-		trim := strings.TrimSpace(line)
-		if !strings.HasPrefix(trim, "func ") {
+			// One bad function does not poison the rest of the batch
+			// — log via stderr and let the scaffold fall back to its
+			// zero-value case for this function.
+			fmt.Fprintf(os.Stderr, "sin_test_generate: LLM fill %q: %v\n", fn.Name, err)
 			continue
 		}
-		// crude cap; real lifecycle: FuncInfo.Name, Args, Returns
-		out = append(out, testgen.FuncInfo{Name: trim})
-		if len(out) >= 1 {
-			break
+		// testKey matches the lookup the template does.
+		key := fn.Name
+		if fn.IsMethod {
+			key = fn.Receiver + "_" + fn.Name
 		}
+		casesByFunc[key] = res.Cases
 	}
-	return out
+	// Return a closure so the testgen package can re-extract FuncInfo on
+	// its own when generating outside this path (stub-only path uses
+	// the casesByFunc map directly; the closure stays for parity).
+	closure := func(ctx context.Context, code string) (string, error) {
+		b, _ := json.Marshal(casesByFunc)
+		return string(b), nil
+	}
+	return casesByFunc, closure
 }
 
 func toolQualityGate(ctx context.Context, args map[string]any) (string, error) {

@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -51,6 +52,18 @@ type Options struct {
 
 	// Timeout caps the generate + verify cycle.
 	Timeout time.Duration
+
+	// Cases, when present, is spliced into the generated test instead of
+	// the basic-case scaffold. Key is the function name (possibly with
+	// receiver prefix). Functions without an entry fall back to the
+	// zero-value scaffold.
+	Cases map[string][]TestCase
+
+	// MaxRepairIters bounds the generate/execute/repair loop. 0 disables
+	// repair; default is 3. After each compile or test failure, the LLM
+	// is re-prompted with the failing output up to (max - 1) additional
+	// times.
+	MaxRepairIters int
 }
 
 // Result reports what was generated and whether it compiles.
@@ -96,7 +109,7 @@ func generateForFile(ctx context.Context, opts Options) Result {
 		gen = append(gen, outFile)
 	} else {
 		// Fallback: parse file and emit minimal table-driven scaffolding.
-		code, err := generateFallback(ctx, file, opts.UseLLM)
+		code, err := generateFallback(ctx, file, opts.UseLLM, opts.Cases)
 		if err != nil {
 			return Result{Error: fmt.Sprintf("fallback generation failed: %v", err)}
 		}
@@ -147,7 +160,14 @@ func generateForPackage(ctx context.Context, opts Options) Result {
 
 	var generated []string
 	for _, f := range files {
-		res := generateForFile(ctx, Options{File: f, UseLLM: opts.UseLLM, Overwrite: opts.Overwrite, Timeout: opts.Timeout})
+		res := generateForFile(ctx, Options{
+			File:         f,
+			UseLLM:       opts.UseLLM,
+			Overwrite:    opts.Overwrite,
+			Timeout:      opts.Timeout,
+			Cases:        opts.Cases,
+			MaxRepairIters: opts.MaxRepairIters,
+		})
 		if res.Error != "" {
 			return res
 		}
@@ -270,8 +290,10 @@ func findGoFiles(pkg string) ([]string, error) {
 
 // generateFallback produces a minimal table-driven test from a Go source file
 // without requiring gotests. It targets exported functions with simple
-// signatures; complex inputs are left as TODO for the agent to fill.
-func generateFallback(ctx context.Context, file string, llm func(context.Context, string) (string, error)) (string, error) {
+// signatures; LLM-supplied cases (in cases) are spliced into the table
+// when a matching entry exists. Functions missing an entry fall back to
+// the zero-value scaffold.
+func generateFallback(ctx context.Context, file string, llm func(context.Context, string) (string, error), cases map[string][]TestCase) (string, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
 	if err != nil {
@@ -292,16 +314,21 @@ func generateFallback(ctx context.Context, file string, llm func(context.Context
 	if len(funcs) == 0 {
 		return "", fmt.Errorf("no exported functions found in %s", file)
 	}
+	if cases == nil {
+		cases = map[string][]TestCase{}
+	}
 
 	data := struct {
 		Package string
 		Marker  string
 		Funcs   []FuncInfo
+		Cases   map[string][]TestCase
 		HasLLM  bool
 	}{
 		Package: pkgName,
 		Marker:  GeneratedMarker,
 		Funcs:   funcs,
+		Cases:   cases,
 		HasLLM:  llm != nil,
 	}
 
@@ -405,6 +432,123 @@ func zeroValue(t string) string {
 	}
 }
 
+// jsonLiteral renders a JSON-decoded value as a Go struct/array/map
+// literal. Supported types: nil, bool, float64, int, string, []any,
+// map[string]any. Unsupported types fall back to nil so a bad field
+// never breaks the entire generated test.
+func jsonLiteral(v any) string {
+	switch x := v.(type) {
+	case nil:
+		return "nil"
+	case bool:
+		if x {
+			return "true"
+		}
+		return "false"
+	case float64:
+		// JSON numbers decode as float64. Try integer form first so the
+		// common case emits `2` instead of `2.0`.
+		if float64(int(x)) == x {
+			return fmt.Sprintf("%d", int(x))
+		}
+		return fmt.Sprintf("%v", x)
+	case float32:
+		return fmt.Sprintf("%v", x)
+	case int:
+		return fmt.Sprintf("%d", x)
+	case int64:
+		return fmt.Sprintf("%d", x)
+	case string:
+		return fmt.Sprintf("%q", x)
+	case []any:
+		parts := make([]string, 0, len(x))
+		for _, e := range x {
+			parts = append(parts, jsonLiteral(e))
+		}
+		return "{" + strings.Join(parts, ", ") + "}"
+	case map[string]any:
+		keys := make([]string, 0, len(x))
+		for k := range x {
+			keys = append(keys, k)
+		}
+		// Stable order so the generated test is byte-stable.
+		sort.Strings(keys)
+		parts := make([]string, 0, len(x))
+		for _, k := range keys {
+			parts = append(parts, fmt.Sprintf("%q: %s", k, jsonLiteral(x[k])))
+		}
+		return "{" + strings.Join(parts, ", ") + "}"
+	default:
+		return "nil"
+	}
+}
+
+// testKey is the map key used to look up per-function LLM cases. It
+// matches both method (`Receiver_Name`) and free-function (`Name`)
+// spellings of describeFunc output.
+func testKey(fn FuncInfo) string {
+	if fn.IsMethod {
+		return fn.Receiver + "_" + fn.Name
+	}
+	return fn.Name
+}
+
+// FunctionsFromSource is a public parser entry point so the chat tool
+// can ask the LLM for cases for every exported function in a source
+// file without re-implementing describeFunc in caller code.
+func FunctionsFromSource(file string) ([]FuncInfo, error) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, file, nil, parser.ParseComments)
+	if err != nil {
+		return nil, err
+	}
+	var out []FuncInfo
+	for _, decl := range f.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || !ast.IsExported(fn.Name.Name) {
+			continue
+		}
+		out = append(out, describeFunc(fn))
+	}
+	return out, nil
+}
+
+// renderCaseRow writes one `tests := []struct{...}{...}` element for
+// the LLM-supplied TestCase. Unknown arg names or want names produce a
+// zero-value fallback so the partial row still compiles.
+func renderCaseRow(fn FuncInfo, tc TestCase) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "\t\t{\n")
+	fmt.Fprintf(&b, "\t\t\tname: %q,\n", tc.Name)
+	if len(fn.Args) > 0 {
+		fmt.Fprintf(&b, "\t\t\targs: args{\n")
+		for _, a := range fn.Args {
+			if v, ok := tc.Args[a.Name]; ok {
+				fmt.Fprintf(&b, "\t\t\t\t%s: %s,\n", a.Name, jsonLiteral(v))
+			} else {
+				fmt.Fprintf(&b, "\t\t\t\t%s: %s,\n", a.Name, zeroValue(a.Type))
+			}
+		}
+		fmt.Fprintf(&b, "\t\t\t},\n")
+	}
+	for _, r := range fn.Returns {
+		// Skip the `error` slot — it is encoded via WantErr.
+		if r.Type == "error" {
+			continue
+		}
+		// Convention: want<returnedName> (matches existing template).
+		field := "want" + strings.Title(r.Name)
+		if v, ok := tc.Wants[r.Name]; ok {
+			fmt.Fprintf(&b, "\t\t\t%s: %s,\n", field, jsonLiteral(v))
+		} else {
+			fmt.Fprintf(&b, "\t\t\t%s: %s,\n", field, zeroValue(r.Type))
+		}
+	}
+	fmt.Fprintf(&b, "\t\t\twantErr: %v,\n", tc.WantErr)
+	fmt.Fprintf(&b, "\t\t},\n")
+	return b.String()
+}
+
 var fallbackTemplate = template.Must(template.New("test").Funcs(template.FuncMap{
 	"simpleType": simpleType,
 	"zeroValue":  zeroValue,
@@ -421,6 +565,16 @@ var fallbackTemplate = template.Must(template.New("test").Funcs(template.FuncMap
 			parts = append(parts, fmt.Sprintf("%s %s", a.Name, a.Type))
 		}
 		return strings.Join(parts, ", ")
+	},
+	"hasCasesFor": func(fn FuncInfo, cases map[string][]TestCase) bool {
+		_, ok := cases[testKey(fn)]
+		return ok
+	},
+	"casesFor": func(fn FuncInfo, cases map[string][]TestCase) []TestCase {
+		return cases[testKey(fn)]
+	},
+	"renderCase": func(fn FuncInfo, tc TestCase) string {
+		return renderCaseRow(fn, tc)
 	},
 	"joinReturns": func(rets []Param) string {
 		var parts []string
@@ -456,6 +610,8 @@ func Test{{ if .IsMethod }}{{ .Receiver }}_{{ end }}{{ .Name }}(t *testing.T) {
 		{{ range .Returns }}want{{ .Name }} {{ .Type }}
 		{{ end }}wantErr bool
 	}{
+		{{ if hasCasesFor . $.Cases }}{{ range (casesFor . $.Cases) }}{{ renderCase $fn . }}
+		{{ end }}{{ else }}
 		{
 			name: "basic case",
 			{{ if .Args }}args: args{
@@ -465,6 +621,7 @@ func Test{{ if .IsMethod }}{{ .Receiver }}_{{ end }}{{ .Name }}(t *testing.T) {
 			{{ range .Returns }}want{{ .Name }}: {{ zeroValue .Type }},
 			{{ end }}wantErr: false,
 		},
+		{{ end }}
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
