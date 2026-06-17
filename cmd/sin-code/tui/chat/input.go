@@ -40,6 +40,7 @@ type Input struct {
 	history       []string
 	historyCursor int
 	filePicker    filePickerState
+	pasteDetected bool
 }
 
 func NewInput(store *attachments.Store) *Input {
@@ -113,6 +114,11 @@ func (i *Input) Clear() {
 	i.textarea.Reset()
 	i.attachments = nil
 	i.filePicker.active = false
+	i.pasteDetected = false
+}
+
+func (i *Input) WasPaste() bool {
+	return i.pasteDetected
 }
 
 func (i *Input) Attach(path string) error {
@@ -209,6 +215,7 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
 		i.handlePaste(msg.Content)
+		i.pasteDetected = true
 		return nil, nil
 	case tea.KeyPressMsg:
 		if i.filePicker.active {

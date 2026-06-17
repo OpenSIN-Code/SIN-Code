@@ -11,10 +11,18 @@ import (
 var (
 	cachedRenderer *glamour.TermRenderer
 	cachedWidth    int
-	rendererMu     sync.Mutex
+	rendererMu     sync.RWMutex
 )
 
 func getCachedRenderer(width int) *glamour.TermRenderer {
+	rendererMu.RLock()
+	if cachedRenderer != nil && cachedWidth == width {
+		r := cachedRenderer
+		rendererMu.RUnlock()
+		return r
+	}
+	rendererMu.RUnlock()
+
 	rendererMu.Lock()
 	defer rendererMu.Unlock()
 	if cachedRenderer != nil && cachedWidth == width {
@@ -32,6 +40,26 @@ func getCachedRenderer(width int) *glamour.TermRenderer {
 	return r
 }
 
+func hasMarkdownSyntax(s string) bool {
+	if strings.Contains(s, "\n1. ") || strings.Contains(s, "\n2. ") || strings.Contains(s, "\n3. ") {
+		return true
+	}
+	if !strings.ContainsAny(s, "*#`[]()>-_|") {
+		return false
+	}
+	return strings.Contains(s, "**") ||
+		strings.Contains(s, "__") ||
+		strings.HasPrefix(s, "#") ||
+		strings.Contains(s, "\n#") ||
+		strings.Contains(s, "```") ||
+		strings.Contains(s, "`") ||
+		(strings.Contains(s, "[") && strings.Contains(s, "]") && strings.Contains(s, "(")) ||
+		strings.Contains(s, "\n- ") ||
+		strings.Contains(s, "\n* ") ||
+		strings.Contains(s, "\n> ") ||
+		strings.Contains(s, "\n|")
+}
+
 type markdownRenderer struct {
 	styles Styles
 }
@@ -45,6 +73,10 @@ func newMarkdownRenderer(styles Styles) *markdownRenderer {
 func (m *markdownRenderer) render(text string) string {
 	if text == "" {
 		return ""
+	}
+
+	if !hasMarkdownSyntax(text) {
+		return strings.TrimRight(text, "\n") + "\n"
 	}
 
 	r := getCachedRenderer(80)
@@ -103,6 +135,14 @@ func renderMarkdown(text string, styles Styles) string {
 }
 
 func renderMarkdownWithWidth(text string, width int, styles Styles) string {
+	if text == "" {
+		return ""
+	}
+
+	if !hasMarkdownSyntax(text) {
+		return strings.TrimRight(text, "\n") + "\n"
+	}
+
 	r := getCachedRenderer(width)
 	if r == nil {
 		return strings.TrimRight(text, "\n") + "\n"
