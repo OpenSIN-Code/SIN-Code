@@ -365,14 +365,7 @@ Resize logo to 60×60 before encoding (~8KB base64).
 ```markdown
 <a name="readme-top"></a>
 
-<!-- HERO BANNER (custom SVG, repo-specific, dual-mode) -->
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./assets/hero-banner.svg" />
-  <source media="(prefers-color-scheme: light)" srcset="./assets/hero-banner-light.svg" />
-  <img src="./assets/hero-banner.svg" alt="{{REPO_NAME}}" />
-</picture>
-
-<!-- BADGES (max 3-4, optional) -->
+<!-- BADGES (max 3-4) -->
 <p align="center">
   <a href="https://pypi.org/project/{{PACKAGE}}/">
     <img src="https://img.shields.io/pypi/v/{{PACKAGE}}" alt="PyPI" />
@@ -396,6 +389,13 @@ Resize logo to 60×60 before encoding (~8KB base64).
   <a href="#features">Features</a> |
   <a href="#documentation">Documentation</a>
 </p>
+
+<!-- HERO BANNER (custom SVG, repo-specific, dual-mode) -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./assets/hero-banner.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="./assets/hero-banner-light.svg" />
+  <img src="./assets/hero-banner.svg" alt="{{REPO_NAME}}" />
+</picture>
 
 ---
 
