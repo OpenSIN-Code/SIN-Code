@@ -16,6 +16,9 @@ metadata:
   version: "4.0"
   last_updated: "2026-06-17"
   sources: "OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/visual-repo"
+required_tools:
+  - sin_write
+  - sin_image_graph
 lifecycle: external
 ---
 

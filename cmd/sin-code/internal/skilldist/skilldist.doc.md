@@ -54,10 +54,10 @@ without the padding still parses correctly.
 | `rule` | `<home>/<InstallPath-with-<skill>>` (single file, .md or .mdc) | writes RenderBlock; replaces prior block for same skill |
 | `marker` | `<home>/<InstallPath>` (single shared file, no `<skill>` placeholder) | appends RenderBlock; preserves other skills' blocks |
 
-## Registered targets (8, alphabetical)
+## Registered targets (11, alphabetical)
 
 Format `dir`: `claude-code`, `gemini`, `opencode`.
-Format `rule`: `cline`, `codex`, `cursor`, `windsurf`.
+Format `rule`: `aider`, `cline`, `codex`, `continue`, `cursor`, `windsurf`, `zed`.
 Format `marker`: `copilot`.
 
 The `sin-code skill install <name> --agent all` command runs through every
@@ -89,7 +89,7 @@ can diff log output across machines.
   into `~/.claude/skills/` or `~/.agents/skills/`.
 
 Neither path shipped a `--agent` flag. Issue #169 fills the gap: take a bundled
-Skill and route it to one of 8 agent families with a marker-fenced block so
+Skill and route it to one of 11 agent families with a marker-fenced block so
 the install is idempotent across re-runs. The marker-fence guarantees no
 duplicate blocks grow on the disk even after dozens of updates.
 
@@ -111,3 +111,5 @@ duplicate blocks grow on the disk even after dozens of updates.
 
 - **v1.0.0 / 2026-06-16** — initial implementation (issue #169). 8 targets,
   3 formats, 1 marker convention. Race-safe in every code path.
+- **v1.1.0 / 2026-06-17** — expanded to 11 targets: `aider`, `continue`, `zed`
+  added (rule format). 3 formats unchanged.

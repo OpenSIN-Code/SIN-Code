@@ -10,6 +10,8 @@ compatibility:
 metadata:
   author: SIN-Code
   version: 1.0.0
+required_tools:
+  - sin_execute
 lifecycle: external
 sources:
   - 

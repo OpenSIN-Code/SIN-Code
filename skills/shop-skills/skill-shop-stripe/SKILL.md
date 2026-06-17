@@ -10,6 +10,9 @@ compatibility:
 metadata:
   author: SIN-Code
   version: 1.0.0
+required_tools:
+  - sin_execute
+  - sin_write
 lifecycle: external
 sources:
   - https://github.com/SIN-Shop-Center/SIN-Stripe-Bundle

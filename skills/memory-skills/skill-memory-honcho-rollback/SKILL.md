@@ -10,6 +10,8 @@ compatibility:
 metadata:
   author: SIN-Code
   version: 3.20.0
+required_tools:
+  - sin_memory_search
 lifecycle: external
 ---
 

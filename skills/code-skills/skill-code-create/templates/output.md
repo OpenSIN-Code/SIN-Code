@@ -23,6 +23,7 @@ Docs: ../SKILL.md
 ## Naming
 - Bundled name: `skill-{category}-{descriptive-name}`
 - Frontmatter `name:` matches directory name.
+- `required_tools` (if present): YAML list of SIN tools.
 
 ## Validation
 - `python3 scripts/validate_skill.py --all-bundled --strict`: pass
