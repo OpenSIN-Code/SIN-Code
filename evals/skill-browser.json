@@ -1,0 +1,53 @@
+{
+  "name": "Skill Eval: browser-skills (issue #171)",
+  "version": "0.1.0",
+  "description": "Four-arm eval for browser-skills. Measures skill-vs-terse delta for browser automation tasks. Run with: sin-code eval run --dataset evals/skill-browser.json --arm baseline,terse,lazy_skill,skill-browser-tools",
+  "test_cases": [
+    {
+      "id": "skill_browser_automation_navigate",
+      "prompt": "Navigate to a web page, wait for it to load, and extract the title and all h1 headings. Return them as structured JSON.",
+      "description": "skill-browser-tools should use sin_scout to inspect the page structure and sin_execute to run the browser automation.",
+      "tags": ["browser", "automation", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["title", "h1", "json"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "browser-automation",
+        "metric_locus": "lines",
+        "target_skill": "skill-browser-tools",
+        "expected_tools": ["sin_scout", "sin_execute"]
+      }
+    },
+    {
+      "id": "skill_browser_inspect_page_structure",
+      "prompt": "Inspect a web page's DOM structure: count all form elements, list input fields with their types, and identify any broken links.",
+      "description": "skill-browser-tools should use sin_scout for DOM inspection and sin_execute for the browser query.",
+      "tags": ["browser", "inspection", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["form", "input", "link"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "browser-inspection",
+        "metric_locus": "lines",
+        "target_skill": "skill-browser-tools",
+        "expected_tools": ["sin_scout", "sin_execute"]
+      }
+    }
+  ]
+}

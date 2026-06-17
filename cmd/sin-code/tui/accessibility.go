@@ -115,6 +115,8 @@ func (a *AccessibilityMode) Describe(view ViewKind) string {
 		parts = append(parts, "DAG view. Use up and down arrows to navigate tasks.")
 	case ViewLSP:
 		parts = append(parts, "LSP diagnostics view. Shows language server protocol diagnostics.")
+	case ViewKanban:
+		parts = append(parts, "Kanban board view. Use up and down arrows to navigate cards. Use left and right arrows to move cards between columns.")
 	default:
 		parts = append(parts, "Use Tab to switch views. Press question mark for help.")
 	}

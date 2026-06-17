@@ -92,7 +92,7 @@ func TestClose_NilDB(t *testing.T) {
 
 func TestFingerprint_MarshalError(t *testing.T) {
 	ctx := map[string]any{"bad": make(chan int)}
-	id := Fingerprint(TypeConstraint, "/tmp", ctx)
+	id := LessonFingerprint(TypeConstraint, "/tmp", ctx)
 	if id == "" {
 		t.Fatal("expected non-empty id even on marshal error")
 	}

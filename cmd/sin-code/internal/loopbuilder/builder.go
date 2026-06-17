@@ -90,6 +90,7 @@ type Config struct {
 	FusionMinQuorum           int
 	FusionPerProviderTimeoutS int
 	FusionDifficultyGate      bool
+	FusionOracleMode          bool
 	FusionProfilesDir         string
 
 	// DeepPlanner: when true, the orchestrator uses the parallel DAG
@@ -218,10 +219,13 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 			if cfg.FusionPerProviderTimeoutS == 0 {
 				cfg.FusionPerProviderTimeoutS = sinCfg.FusionPerProviderTimeoutS
 			}
-			if !cfg.FusionDifficultyGate {
-				cfg.FusionDifficultyGate = sinCfg.FusionDifficultyGate
-			}
+		if !cfg.FusionDifficultyGate {
+			cfg.FusionDifficultyGate = sinCfg.FusionDifficultyGate
 		}
+		if !cfg.FusionOracleMode {
+			cfg.FusionOracleMode = sinCfg.FusionOracleMode
+		}
+	}
 		if cfg.FusionMaxCostUSD == 0 {
 			cfg.FusionMaxCostUSD = 5.0
 		}
@@ -464,13 +468,14 @@ func (deps *OrchestratorDeps) RecordPlanCompletion(ctx context.Context, plan *or
 // construct their loop manually (e.g. chat_cmd.go) can opt into fusion
 // without duplicating the wiring logic.
 //
-// Only active when cfg.FusionEnabled is true and the gate is in PoC mode
-// (not oracle — load-bearing risk: oracle "first to pass" is selection on
-// judge noise, not correctness). Requires >=2 providers from the Fireworks
-// pool; otherwise the call is a no-op and the loop keeps legacy behavior.
+// Only active when cfg.FusionEnabled is true and the gate is in PoC or Oracle
+// mode (issue #344). Oracle mode requires explicit FusionOracleMode=true and
+// wires a judge that evaluates all candidates together, not first-pass-wins.
+// Requires >=2 providers from the Fireworks pool; otherwise the call is a
+// no-op and the loop keeps legacy behavior.
 func WireFusion(loop *agentloop.Loop, cfg Config, gate *verify.Gate, client *llm.Client,
 	memStore *lessons.Store, ledgerStore *ledger.Store, hookEngine *hooks.Engine) {
-	if !cfg.FusionEnabled || gate.Mode() != verify.ModePoC {
+	if !cfg.FusionEnabled || (gate.Mode() != verify.ModePoC && gate.Mode() != verify.ModeOracle) {
 		return
 	}
 	providers := fusion.LoadFireworksPool(nil, cfg.FusionProviders)
@@ -503,9 +508,18 @@ func WireFusion(loop *agentloop.Loop, cfg Config, gate *verify.Gate, client *llm
 			return provLoop.Run(ctx, sess, prompt)
 		}
 	}
+	mode := fusion.ModePoC
+	if cfg.FusionOracleMode {
+		mode = fusion.ModeOracle
+	}
+	maxCost := cfg.FusionMaxCostUSD
+	if cfg.FusionOracleMode && maxCost > 2.0 {
+		// Oracle mode defaults to a tighter cap unless explicitly higher.
+		maxCost = 2.0
+	}
 	tournament := &fusion.Tournament{
 		Providers:          providers,
-		MaxCostUSD:         cfg.FusionMaxCostUSD,
+		MaxCostUSD:         maxCost,
 		MinQuorum:          cfg.FusionMinQuorum,
 		PerProviderTimeout: time.Duration(cfg.FusionPerProviderTimeoutS) * time.Second,
 		Workspace:          cfg.Workspace,
@@ -516,6 +530,11 @@ func WireFusion(loop *agentloop.Loop, cfg Config, gate *verify.Gate, client *llm
 		VerifyFn:           func(ctx context.Context, ws string) verify.Result { return gate.Run(ctx, ws) },
 		ForkFunc:           forkFunc,
 		RunFunc:            runFunc,
+		Mode:               mode,
+	}
+	if cfg.FusionOracleMode {
+		judge := fusion.NewLLMOracleJudge(client, cfg.Model)
+		tournament.OracleJudge = judge.Judge
 	}
 	loop.TournamentRunner = &fusionAdapter{t: tournament, gate: gate, cfg: cfg, client: client, memStore: memStore}
 }

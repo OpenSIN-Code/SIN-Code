@@ -1,20 +1,29 @@
 // SPDX-License-Identifier: MIT
-// Platform abstraction: no-op file locking for Windows.
-// Windows has no syscall.Flock equivalent in the Go syscall package.
-// Cross-process serialisation relies on O_APPEND atomicity for small
-// writes (POSIX guarantee honoured by the Windows NT kernel for
-// FILE_APPEND_DATA) plus the in-process sync.Mutex in mailbox.go.
-// A future revision may use LockFileEx for true cross-process locks.
+// Platform abstraction: LockFileEx-based file locking for Windows.
+// Uses golang.org/x/sys/windows for LockFileEx/UnlockFileEx — the
+// standard syscall package only exposes the simpler LockFile/UnlockFile
+// which lack the exclusive-lock flag. Cross-process advisory locking
+// via a 1-byte exclusive byte-range lock on the file handle.
 //go:build windows
 
 package agentteams
 
-// flockLock is a no-op on Windows. See file header for rationale.
+import (
+	"golang.org/x/sys/windows"
+)
+
+// flockLock acquires an exclusive lock via LockFileEx (blocking).
 func flockLock(fd int) error {
-	return nil
+	var ol windows.Overlapped
+	return windows.LockFileEx(
+		windows.Handle(fd),
+		windows.LOCKFILE_EXCLUSIVE_LOCK,
+		0, 0, 1, &ol,
+	)
 }
 
-// flockUnlock is a no-op on Windows.
+// flockUnlock releases a previously acquired lock via UnlockFileEx.
 func flockUnlock(fd int) error {
-	return nil
+	var ol windows.Overlapped
+	return windows.UnlockFileEx(windows.Handle(fd), 0, 0, 1, &ol)
 }

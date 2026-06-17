@@ -1937,8 +1937,8 @@ func TestPrevView(t *testing.T) {
 	m := NewModel()
 	m.ViewKind = ViewTools
 	m.PrevView()
-	if m.ViewKind != ViewLSP {
-		t.Errorf("PrevView = %v, want LSP", m.ViewKind)
+	if m.ViewKind != ViewKanban {
+		t.Errorf("PrevView = %v, want Kanban", m.ViewKind)
 	}
 }
 
@@ -2218,8 +2218,8 @@ func TestPreviousViewCoverage(t *testing.T) {
 	m := NewModel()
 	m.ViewKind = ViewTools
 	m.PreviousView()
-	if m.ViewKind != ViewLSP {
-		t.Errorf("PreviousView = %v, want LSP", m.ViewKind)
+	if m.ViewKind != ViewMemory {
+		t.Errorf("PreviousView = %v, want Memory", m.ViewKind)
 	}
 }
 

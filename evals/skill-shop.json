@@ -1,0 +1,53 @@
+{
+  "name": "Skill Eval: shop-skills (issue #171)",
+  "version": "0.1.0",
+  "description": "Four-arm eval for shop-skills. Measures skill-vs-terse delta for e-commerce integration tasks. Run with: sin-code eval run --dataset evals/skill-shop.json --arm baseline,terse,lazy_skill,skill-shop-stripe",
+  "test_cases": [
+    {
+      "id": "skill_shop_stripe_integration",
+      "prompt": "Create a Stripe checkout integration for a SaaS subscription product with monthly and annual plans. Include webhook handling for payment events and a config file for the Stripe API keys.",
+      "description": "skill-shop-stripe should use sin_execute to validate the Stripe SDK setup and sin_write to produce the integration code and config.",
+      "tags": ["shop", "stripe", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["stripe", "checkout", "webhook"],
+        "output_avoids": ["panic", "TODO", "sk_live_"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "shop-stripe",
+        "metric_locus": "lines",
+        "target_skill": "skill-shop-stripe",
+        "expected_tools": ["sin_execute", "sin_write"]
+      }
+    },
+    {
+      "id": "skill_shop_cj_dropshipping_setup",
+      "prompt": "Set up a CJ Dropshipping integration: configure the API connection, map product categories from CJ to the local store schema, and create a sync script that pulls new products every 24 hours.",
+      "description": "skill-shop-cj-dropshipping should use sin_execute to test the CJ API connection and sin_harvest to fetch and inspect the product feed.",
+      "tags": ["shop", "cj", "dropshipping"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["cj", "dropshipping", "sync"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "shop-cj-dropshipping",
+        "metric_locus": "lines",
+        "target_skill": "skill-shop-cj-dropshipping",
+        "expected_tools": ["sin_execute", "sin_harvest"]
+      }
+    }
+  ]
+}

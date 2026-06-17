@@ -1,0 +1,53 @@
+{
+  "name": "Skill Eval: planning-skills (issue #171)",
+  "version": "0.1.0",
+  "description": "Four-arm eval for planning-skills. Measures skill-vs-terse delta for architecture and task decomposition tasks. Run with: sin-code eval run --dataset evals/skill-planning.json --arm baseline,terse,lazy_skill,skill-planning-enterprise",
+  "test_cases": [
+    {
+      "id": "skill_planning_enterprise_architecture",
+      "prompt": "Break down the architecture for an enterprise e-commerce platform into service boundaries: inventory, checkout, payments, notifications, and analytics. Show the dependency graph and identify hot paths.",
+      "description": "skill-planning-enterprise should use sin_sckg for dependency graph analysis and sin_orchestrate for multi-service decomposition.",
+      "tags": ["planning", "enterprise", "architecture"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["service", "dependency", "inventory"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "planning-enterprise",
+        "metric_locus": "lines",
+        "target_skill": "skill-planning-enterprise",
+        "expected_tools": ["sin_sckg", "sin_orchestrate"]
+      }
+    },
+    {
+      "id": "skill_planning_task_decomposition",
+      "prompt": "Decompose a complex feature 'implement OAuth2 SSO with SAML fallback' into a DAG of implementation tasks with dependencies, effort estimates, and risk annotations.",
+      "description": "skill-planning-enterprise should use sin_sckg to map existing auth code and sin_orchestrate to schedule the task DAG.",
+      "tags": ["planning", "decomposition", "dag"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["oauth", "saml", "task"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "planning-enterprise",
+        "metric_locus": "lines",
+        "target_skill": "skill-planning-enterprise",
+        "expected_tools": ["sin_sckg", "sin_orchestrate"]
+      }
+    }
+  ]
+}

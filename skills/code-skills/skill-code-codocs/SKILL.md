@@ -10,6 +10,7 @@ compatibility:
 metadata:
   author: SIN-Code
   version: 3.20.0
+  sources: "OpenSIN-Code/SIN-Code (native)"
 required_tools:
   - sin_edit
   - sin_read

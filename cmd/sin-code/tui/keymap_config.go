@@ -62,6 +62,7 @@ func DefaultKeymapConfig() KeymapConfig {
 			"view_dag":       km.ViewDAG.Keys(),
 			"view_context":   km.ViewContext.Keys(),
 			"view_dashboard": km.ViewDashboard.Keys(),
+		"view_kanban":    km.ViewKanban.Keys(),
 			"model_select":   km.ModelSelect.Keys(),
 			"subagents":      km.Subagents.Keys(),
 		},
@@ -139,6 +140,7 @@ func (c KeymapConfig) ToKeymap() Keymap {
 	applyCtx(&km.ViewDAG, g, "view_dag")
 	applyCtx(&km.ViewContext, g, "view_context")
 	applyCtx(&km.ViewDashboard, g, "view_dashboard")
+	applyCtx(&km.ViewKanban, g, "view_kanban")
 	applyCtx(&km.ModelSelect, g, "model_select")
 	applyCtx(&km.Subagents, g, "subagents")
 

@@ -1,0 +1,53 @@
+{
+  "name": "Skill Eval: memory-skills (issue #171)",
+  "version": "0.1.0",
+  "description": "Four-arm eval for memory-skills. Measures skill-vs-terse delta for behavioral memory and secret management tasks. Run with: sin-code eval run --dataset evals/skill-memory.json --arm baseline,terse,lazy_skill,skill-memory-honcho",
+  "test_cases": [
+    {
+      "id": "skill_memory_honcho_preference_store",
+      "prompt": "Store a user preference: 'The user prefers tab indentation over spaces and wants all Go code to use camelCase for private fields.' Then search for all stored preferences about code formatting.",
+      "description": "skill-memory-honcho should use sin_memory_add to store and sin_memory_search to retrieve preferences.",
+      "tags": ["memory", "honcho", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["preference", "tab", "camelCase"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "memory-honcho",
+        "metric_locus": "lines",
+        "target_skill": "skill-memory-honcho",
+        "expected_tools": ["sin_memory_add", "sin_memory_search"]
+      }
+    },
+    {
+      "id": "skill_memory_infisical_secret_retrieval",
+      "prompt": "Retrieve the API key named 'STRIPE_SECRET_KEY' from Infisical and provide instructions for rotating it. Do not expose the actual key value in the output.",
+      "description": "skill-memory-infisical should use sin_execute for the infisical CLI and sin_harvest to verify the secret metadata without leaking the value.",
+      "tags": ["memory", "infisical", "secrets"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["infisical", "rotate", "STRIPE_SECRET_KEY"],
+        "output_avoids": ["panic", "TODO", "sk_live_"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "memory-infisical",
+        "metric_locus": "lines",
+        "target_skill": "skill-memory-infisical",
+        "expected_tools": ["sin_execute", "sin_harvest"]
+      }
+    }
+  ]
+}

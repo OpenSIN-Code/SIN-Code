@@ -31,8 +31,8 @@ func TestNewModelDefaults(t *testing.T) {
 	if len(m.Tabs.Sessions) != 1 {
 		t.Errorf("expected 1 default session, got %d", len(m.Tabs.Sessions))
 	}
-	if len(m.Sidebar.Items) != 10 {
-		t.Errorf("expected 10 sidebar items, got %d", len(m.Sidebar.Items))
+	if len(m.Sidebar.Items) != 12 {
+		t.Errorf("expected 12 sidebar items, got %d", len(m.Sidebar.Items))
 	}
 }
 

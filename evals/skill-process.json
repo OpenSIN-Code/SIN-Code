@@ -1,0 +1,53 @@
+{
+  "name": "Skill Eval: process-skills (issue #171)",
+  "version": "0.1.0",
+  "description": "Four-arm eval for process-skills. Measures skill-vs-terse delta for goal tracking and adversarial review tasks. Run with: sin-code eval run --dataset evals/skill-process.json --arm baseline,terse,lazy_skill,skill-process-goal",
+  "test_cases": [
+    {
+      "id": "skill_process_goal_tracking",
+      "prompt": "Create a goal 'migrate all REST endpoints to GraphQL' with subtasks, checkpoints, and a progress report showing current status and blockers.",
+      "description": "skill-process-goal should use sin_orchestrate to manage the goal DAG and sin_sckg to map the current REST endpoint surface.",
+      "tags": ["process", "goal", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["goal", "subtask", "checkpoint"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "process-goal",
+        "metric_locus": "lines",
+        "target_skill": "skill-process-goal",
+        "expected_tools": ["sin_orchestrate", "sin_sckg"]
+      }
+    },
+    {
+      "id": "skill_process_grill_adversarial_review",
+      "prompt": "Grill the following design decision: 'We will use a single PostgreSQL database with read replicas for all microservices instead of per-service databases.' Surface hidden assumptions and resolve the decision tree.",
+      "description": "skill-process-grill should use sin_sckg to understand the current architecture and sin_grasp to analyze the database access patterns.",
+      "tags": ["process", "grill", "adversarial"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["assumption", "database", "replica"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "process-grill",
+        "metric_locus": "lines",
+        "target_skill": "skill-process-grill",
+        "expected_tools": ["sin_sckg", "sin_grasp"]
+      }
+    }
+  ]
+}

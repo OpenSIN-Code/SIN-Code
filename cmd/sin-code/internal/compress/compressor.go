@@ -453,7 +453,7 @@ func applyLessonsAtomic(kept []rawEntry, paths Paths) error {
 		ws := "*"
 		var ctx map[string]any
 		_ = json.Unmarshal([]byte(parts[0]), &ctx)
-		id := lessons.Fingerprint(typ, ws, ctx)
+		id := lessons.LessonFingerprint(typ, ws, ctx)
 		keepIDs[id] = true
 		if err := s.Record(context.Background(), lessons.Entry{
 			ID:          id,

@@ -1,0 +1,53 @@
+{
+  "name": "Skill Eval: ecosystem-skills (issue #171)",
+  "version": "0.1.0",
+  "description": "Four-arm eval for ecosystem-skills. Measures skill-vs-terse delta for context bridging and marketplace tasks. Run with: sin-code eval run --dataset evals/skill-ecosystem.json --arm baseline,terse,lazy_skill,skill-ecosystem-context",
+  "test_cases": [
+    {
+      "id": "skill_ecosystem_context_bridge_query",
+      "prompt": "Query the unified context bridge for information about the authentication module: its structure, recent decisions, and any stored preferences related to auth.",
+      "description": "skill-ecosystem-context should use sin_memory_search for preferences and sin_sckg for code structure.",
+      "tags": ["ecosystem", "context", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["auth", "context", "module"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "ecosystem-context",
+        "metric_locus": "lines",
+        "target_skill": "skill-ecosystem-context",
+        "expected_tools": ["sin_memory_search", "sin_sckg"]
+      }
+    },
+    {
+      "id": "skill_ecosystem_marketplace_search",
+      "prompt": "Search the skill marketplace for any skill related to 'testing' or 'quality assurance'. List the results with their descriptions and install status.",
+      "description": "skill-ecosystem-marketplace should query the marketplace via sin_execute.",
+      "tags": ["ecosystem", "marketplace", "loc"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "45s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["marketplace", "skill", "search"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "ecosystem-marketplace",
+        "metric_locus": "lines",
+        "target_skill": "skill-ecosystem-marketplace",
+        "expected_tools": ["sin_execute"]
+      }
+    }
+  ]
+}

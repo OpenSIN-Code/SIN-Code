@@ -1,0 +1,53 @@
+{
+  "name": "Skill Eval: design-skills (issue #171)",
+  "version": "0.1.0",
+  "description": "Four-arm eval for design-skills. Measures skill-vs-terse delta for frontend and image generation tasks. Run with: sin-code eval run --dataset evals/skill-design.json --arm baseline,terse,lazy_skill,skill-design-frontend",
+  "test_cases": [
+    {
+      "id": "skill_design_frontend_component",
+      "prompt": "Create a responsive React card component with a title, subtitle, body text, and a call-to-action button. Include WCAG 2.2 AA compliance annotations.",
+      "description": "skill-design-frontend should produce a design-system-consistent component and write it via sin_write.",
+      "tags": ["design", "frontend", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["component", "responsive", "wcag"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "design-frontend",
+        "metric_locus": "lines",
+        "target_skill": "skill-design-frontend",
+        "expected_tools": ["sin_image_graph", "sin_write"]
+      }
+    },
+    {
+      "id": "skill_design_image_generation",
+      "prompt": "Generate a bar chart visualization showing quarterly revenue data for Q1-Q4 2024. Output the chart as an ECharts configuration.",
+      "description": "skill-design-image should produce a chart config via sin_image_graph.",
+      "tags": ["design", "image", "chart"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "45s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["bar", "echarts", "revenue"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "design-image",
+        "metric_locus": "lines",
+        "target_skill": "skill-design-image",
+        "expected_tools": ["sin_image_graph"]
+      }
+    }
+  ]
+}

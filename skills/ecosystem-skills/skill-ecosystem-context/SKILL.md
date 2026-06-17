@@ -10,6 +10,7 @@ compatibility:
 metadata:
   author: SIN-Code
   version: 3.20.0
+  sources: "OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/context-bridge"
 required_tools:
   - sin_memory_search
   - sin_sckg

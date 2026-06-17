@@ -32,6 +32,7 @@ type Keymap struct {
 	ViewDAG      key.Binding
 	ViewContext  key.Binding
 	ViewDashboard key.Binding
+	ViewKanban    key.Binding
 
 	RunTool  key.Binding
 	ShowHelp key.Binding
@@ -77,6 +78,7 @@ func DefaultKeymap() Keymap {
 		ViewDAG:        key.NewBinding(key.WithKeys("8"), key.WithHelp("8", "dag")),
 		ViewContext:    key.NewBinding(key.WithKeys("9"), key.WithHelp("9", "context")),
 		ViewDashboard:  key.NewBinding(key.WithKeys("0"), key.WithHelp("0", "dashboard")),
+		ViewKanban:     key.NewBinding(key.WithKeys("ctrl+k"), key.WithHelp("^k", "kanban")),
 		RunTool:       key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "run")),
 		ShowHelp:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "help")),
 		ToolUp:        key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("up/k", "up")),
@@ -103,7 +105,7 @@ func (k Keymap) HelpView(styles Styles) string {
 		bindings []key.Binding
 	}{
 		{"Global", []key.Binding{k.Quit, k.Help, k.Palette, k.ToggleSidebar, k.CycleTheme, k.CycleAgent, k.Interrupt}},
-		{"Navigation", []key.Binding{k.NextView, k.PrevView, k.ViewTools, k.ViewSessions, k.ViewEFM, k.ViewConfig, k.ViewHistory, k.ViewTodos, k.ViewChat, k.ViewDAG, k.ViewContext, k.ViewDashboard}},
+		{"Navigation", []key.Binding{k.NextView, k.PrevView, k.ViewTools, k.ViewSessions, k.ViewEFM, k.ViewConfig, k.ViewHistory, k.ViewTodos, k.ViewChat, k.ViewDAG, k.ViewContext, k.ViewDashboard, k.ViewKanban}},
 		{"Tools", []key.Binding{k.RunTool, k.ShowHelp, k.ToolUp, k.ToolDown}},
 		{"Chat", []key.Binding{k.Submit, k.Cancel, k.Search, k.CopyMessage, k.ScrollUp, k.ScrollDown, k.CompactToggle}},
 		{"Sessions", []key.Binding{k.NewSession, k.CloseSession, k.SessionSwitch}},
@@ -147,6 +149,7 @@ type KeyOverrides struct {
 	ViewDAG      []string `json:"view_dag,omitempty"`
 	ViewContext  []string `json:"view_context,omitempty"`
 	ViewDashboard []string `json:"view_dashboard,omitempty"`
+	ViewKanban    []string `json:"view_kanban,omitempty"`
 	RunTool       []string `json:"run_tool,omitempty"`
 	ShowHelp      []string `json:"show_help,omitempty"`
 	ToolUp        []string `json:"tool_up,omitempty"`
@@ -230,6 +233,7 @@ func (k *Keymap) ApplyOverrides(ov KeyOverrides) {
 	k.applyOverride(&k.ViewDAG, ov.ViewDAG)
 	k.applyOverride(&k.ViewContext, ov.ViewContext)
 	k.applyOverride(&k.ViewDashboard, ov.ViewDashboard)
+	k.applyOverride(&k.ViewKanban, ov.ViewKanban)
 	k.applyOverride(&k.RunTool, ov.RunTool)
 	k.applyOverride(&k.ShowHelp, ov.ShowHelp)
 	k.applyOverride(&k.ToolUp, ov.ToolUp)

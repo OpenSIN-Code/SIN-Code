@@ -556,13 +556,15 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 					})
 				}
 
-				// SIN Fusion v1: if a TournamentRunner is wired and the
-				// failure is structural, fan out to N providers instead
-				// of retrying with the same model. First PoC-pass wins.
-				// Only active in PoC mode (not oracle — load-bearing risk:
-				// oracle "first to pass" is selection on judge noise).
-				if l.TournamentRunner != nil && l.Gate.Mode() == verify.ModePoC &&
-					l.TournamentRunner.ShouldRun(res) {
+			// SIN Fusion v1: if a TournamentRunner is wired and the
+			// failure is structural, fan out to N providers instead
+			// of retrying with the same model. First PoC-pass wins.
+			// Oracle mode is also supported when the tournament is
+			// explicitly configured for oracle (issue #344); the
+			// tournament judge selects the winner, not first-pass-wins.
+			if l.TournamentRunner != nil &&
+				(l.Gate.Mode() == verify.ModePoC || l.Gate.Mode() == verify.ModeOracle) &&
+				l.TournamentRunner.ShouldRun(res) {
 					output, tokens, terr := l.TournamentRunner.Run(ctx)
 					if terr == nil && output != "" {
 						l.fire(ctx, hooks.VerifyPass, "", map[string]any{

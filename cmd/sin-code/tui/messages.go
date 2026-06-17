@@ -16,9 +16,11 @@ const (
 	ViewContextViz
 	ViewAgentDashboard
 	ViewLSP
+	ViewMemory
+	ViewKanban
 )
 
-const viewCount = 11
+const viewCount = 13
 
 func (v ViewKind) String() string {
 	switch v {
@@ -44,6 +46,10 @@ func (v ViewKind) String() string {
 		return "Dashboard"
 	case ViewLSP:
 		return "LSP"
+	case ViewMemory:
+		return "Memory"
+	case ViewKanban:
+		return "Kanban"
 	}
 	return "Unknown"
 }
@@ -72,6 +78,10 @@ func (v ViewKind) Short() string {
 		return "0·Dashboard"
 	case ViewLSP:
 		return "L·LSP"
+	case ViewMemory:
+		return "m·Memory"
+	case ViewKanban:
+		return "K·Kanban"
 	}
 	return "?·"
 }
@@ -89,6 +99,13 @@ type CountsMsg struct {
 
 type TodosLoadedMsg struct {
 	Items []TodoRow
+}
+
+// TodosRefreshMsg carries both counts and items from a single store
+// query, emitted by RefreshTodosCmd.
+type TodosRefreshMsg struct {
+	Counts CountsMsg
+	Items  []TodoRow
 }
 
 type TodoRow struct {

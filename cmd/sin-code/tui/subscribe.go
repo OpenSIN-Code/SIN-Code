@@ -10,6 +10,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
 )
 
 // NotificationSource is the interface used by NotificationMsg to access
@@ -38,10 +39,82 @@ func ListenForNotifications() tea.Cmd {
 	}
 }
 
-// RefreshTodosCmd returns a tea.Cmd that re-counts todos.
+// todoOpenHook is a test seam for opening the todo store. Defaults to
+// todo.Open(""); tests override to point at a temp bbolt DB.
+var todoOpenHook = todo.Open
+
+// todoDataHook is a test seam that loads todo counts and items from the
+// store. Defaults to opening the real bbolt store and querying
+// ComputeStats + ListFiltered; tests override to avoid hitting disk.
+var todoDataHook = func() (CountsMsg, []TodoRow, error) {
+	store, err := todoOpenHook("")
+	if err != nil {
+		return CountsMsg{}, nil, err
+	}
+	defer store.Close()
+
+	stats, err := store.ComputeStats()
+	if err != nil {
+		return CountsMsg{}, nil, err
+	}
+
+	// Count overdue: open todos with DueAt in the past.
+	all, err := store.List()
+	if err != nil {
+		return CountsMsg{}, nil, err
+	}
+
+	now := time.Now()
+	openCount := 0
+	overdueCount := 0
+	for _, t := range all {
+		if t.IsOpen() {
+			openCount++
+			if t.DueAt != nil && t.DueAt.Before(now) {
+				overdueCount++
+			}
+		}
+	}
+
+	counts := CountsMsg{
+		Open:    openCount,
+		Ready:   stats.Ready,
+		Blocked: stats.Blocked,
+		Overdue: overdueCount,
+	}
+
+	// Load open todos for the list view.
+	items, err := store.ListFiltered(todo.ListFilter{Status: todo.StatusOpen})
+	if err != nil {
+		return counts, nil, err
+	}
+
+	rows := make([]TodoRow, 0, len(items))
+	for _, t := range items {
+		rows = append(rows, TodoRow{
+			ID:       t.ID,
+			Title:    t.Title,
+			Priority: string(t.Priority),
+			Status:   string(t.Status),
+			Type:     string(t.Type),
+			Assignee: t.Assignee,
+		})
+	}
+
+	return counts, rows, nil
+}
+
+// RefreshTodosCmd returns a tea.Cmd that queries the real todo bbolt
+// store and returns a TodosRefreshMsg with live counts and items.
+// Returns an empty CountsMsg on error (graceful degradation — the TUI
+// never crashes when the store is unavailable).
 func RefreshTodosCmd() tea.Cmd {
 	return func() tea.Msg {
-		return CountsMsg{Open: 0, Blocked: 0, Overdue: 0, Ready: 0}
+		counts, items, err := todoDataHook()
+		if err != nil {
+			return CountsMsg{}
+		}
+		return TodosRefreshMsg{Counts: counts, Items: items}
 	}
 }
 

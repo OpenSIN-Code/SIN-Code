@@ -79,6 +79,7 @@ type SinCodeConfig struct {
 	FusionMinQuorum        int      `toml:"fusion.min_quorum"`
 	FusionPerProviderTimeoutS int   `toml:"fusion.per_provider_timeout_s"`
 	FusionDifficultyGate   bool     `toml:"fusion.difficulty_gate"`
+	FusionOracleMode       bool     `toml:"fusion.oracle_mode"`
 	// Memory: autoDream background consolidation + context priming.
 	MemoryAutoDream          bool   `toml:"memory.autodream"`
 	MemoryAutoDreamInterval  string `toml:"memory.autodream_interval"`
@@ -155,6 +156,7 @@ func defaultConfig() SinCodeConfig {
 		FusionMinQuorum:          2,
 		FusionPerProviderTimeoutS: 120,
 		FusionDifficultyGate:     true,
+		FusionOracleMode:         false,
 		MemoryAutoDream:          false,
 		MemoryAutoDreamInterval:  "5m",
 		MemoryPrimeOnStart:       false,
@@ -606,6 +608,8 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%d", cfg.FusionPerProviderTimeoutS), nil
 	case "fusion.difficulty_gate":
 		return fmt.Sprintf("%v", cfg.FusionDifficultyGate), nil
+	case "fusion.oracle_mode":
+		return fmt.Sprintf("%v", cfg.FusionOracleMode), nil
 	case "memory.autodream":
 		return fmt.Sprintf("%v", cfg.MemoryAutoDream), nil
 	case "memory.autodream_interval":
@@ -770,6 +774,8 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.FusionPerProviderTimeoutS = v
 	case "fusion.difficulty_gate":
 		cfg.FusionDifficultyGate = value == "true" || value == "1"
+	case "fusion.oracle_mode":
+		cfg.FusionOracleMode = value == "true" || value == "1"
 	case "memory.autodream":
 		cfg.MemoryAutoDream = value == "true" || value == "1"
 	case "memory.autodream_interval":
@@ -846,6 +852,7 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"fusion.min_quorum", fmt.Sprintf("%d", cfg.FusionMinQuorum)},
 		{"fusion.per_provider_timeout_s", fmt.Sprintf("%d", cfg.FusionPerProviderTimeoutS)},
 		{"fusion.difficulty_gate", fmt.Sprintf("%v", cfg.FusionDifficultyGate)},
+		{"fusion.oracle_mode", fmt.Sprintf("%v", cfg.FusionOracleMode)},
 		{"memory.autodream", fmt.Sprintf("%v", cfg.MemoryAutoDream)},
 		{"memory.autodream_interval", cfg.MemoryAutoDreamInterval},
 		{"memory.prime_on_start", fmt.Sprintf("%v", cfg.MemoryPrimeOnStart)},
@@ -1081,6 +1088,8 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			_, _ = fmt.Sscanf(val, "%d", &cfg.FusionPerProviderTimeoutS)
 		case "fusion.difficulty_gate":
 			cfg.FusionDifficultyGate = val == "true" || val == "1"
+		case "fusion.oracle_mode":
+			cfg.FusionOracleMode = val == "true" || val == "1"
 		case "memory.autodream":
 			cfg.MemoryAutoDream = val == "true" || val == "1"
 		case "memory.autodream_interval":
