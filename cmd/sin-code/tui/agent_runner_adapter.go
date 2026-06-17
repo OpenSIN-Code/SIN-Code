@@ -87,13 +87,27 @@ func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 	var line string
 	switch ev.Kind {
 	case agentrunner.EventTurn:
-		line = "agent: turn start: " + ev.Detail
+		line = "turn start: " + ev.Detail
 	case agentrunner.EventTool:
-		prefix := "tool"
-		if ev.ToolName != "" {
-			prefix = "tool(" + ev.ToolName + ")"
+		// Normalize incoming tool events so chat_view can render them as clean
+		// tool-call / tool-result bubbles. Two shapes arrive:
+		//   - "tool: sin_bash"   (tool call about to run)
+		//   - "tool result: sin_bash — output" (tool result)
+		if strings.HasPrefix(ev.Detail, "tool result: ") {
+			line = "tool result: " + strings.TrimPrefix(ev.Detail, "tool result: ")
+		} else if strings.HasPrefix(ev.Detail, "tool: ") {
+			name := strings.TrimPrefix(ev.Detail, "tool: ")
+			if ev.ToolName != "" {
+				name = ev.ToolName
+			}
+			line = "tool(" + name + "): calling"
+		} else {
+			prefix := "tool"
+			if ev.ToolName != "" {
+				prefix = "tool(" + ev.ToolName + ")"
+			}
+			line = prefix + ": " + ev.Detail
 		}
-		line = prefix + ": " + ev.Detail
 	case agentrunner.EventVerify:
 		line = "verify: " + ev.Detail
 	case agentrunner.EventAsk:

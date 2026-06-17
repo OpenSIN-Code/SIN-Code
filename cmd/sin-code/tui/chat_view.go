@@ -75,18 +75,24 @@ func renderChatMessageCompact(msg chatMsg, md *markdownRenderer, styles Styles, 
 		b.WriteString("\n")
 
 	case chatTool:
-		b.WriteString(styles.Muted.Render("⚡ "))
-		b.WriteString(styles.Muted.Render(msg.Tool))
-		if msg.Detail != "" {
-			b.WriteString(styles.Muted.Render(": " + msg.Detail))
+		if msg.Result {
+			b.WriteString(styles.StatusOK.Render("✓ " + msg.Tool))
+			if msg.Detail != "" {
+				b.WriteString(styles.Muted.Render(" → " + msg.Detail))
+			}
+		} else {
+			b.WriteString(styles.AccentText.Render("⚡ " + msg.Tool))
+			if msg.Detail != "" {
+				b.WriteString(styles.Muted.Render(" " + msg.Detail))
+			}
 		}
 		b.WriteString("\n")
 
 	case chatVerify:
 		status := "pending"
-		if strings.Contains(msg.Detail, "pass") {
+		if strings.Contains(msg.Detail, "PASS") {
 			status = "pass"
-		} else if strings.Contains(msg.Detail, "fail") {
+		} else if strings.Contains(msg.Detail, "FAIL") {
 			status = "fail"
 		}
 		b.WriteString(renderVerificationCompact(status, msg.Detail, styles))
@@ -113,7 +119,8 @@ func renderChatMessageCompact(msg chatMsg, md *markdownRenderer, styles Styles, 
 		b.WriteString("\n")
 
 	case chatAgent:
-		b.WriteString(styles.AccentText.Render("⟳ " + msg.Detail))
+		// Show turn start as a subtle status line, not a full bubble.
+		b.WriteString(styles.Muted.Render("  ⟳ agent " + msg.Text))
 		b.WriteString("\n")
 	}
 

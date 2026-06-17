@@ -171,6 +171,7 @@ type chatMsg struct {
 	Text    string
 	Tool    string
 	Detail  string
+	Result  bool // true for tool-result entries
 }
 
 func parseChatEntry(entry string) chatMsg {
@@ -193,7 +194,7 @@ func parseChatEntry(entry string) chatMsg {
 		return chatMsg{Kind: chatSystem, Text: strings.TrimPrefix(entry, "assistant: ")}
 	case strings.HasPrefix(entry, "assistant: turn start:"):
 		detail := strings.TrimPrefix(entry, "assistant: turn start: ")
-		return chatMsg{Kind: chatAgent, Text: detail, Detail: detail}
+		return chatMsg{Kind: chatAgent, Text: "turn start", Detail: detail}
 	case strings.HasPrefix(entry, "assistant: tool("):
 		rest := strings.TrimPrefix(entry, "assistant: tool(")
 		idx := strings.Index(rest, ")")
@@ -204,6 +205,15 @@ func parseChatEntry(entry string) chatMsg {
 			detail = strings.TrimPrefix(rest[idx+1:], ": ")
 		}
 		return chatMsg{Kind: chatTool, Tool: tool, Text: detail, Detail: detail}
+	case strings.HasPrefix(entry, "assistant: tool result:"):
+		rest := strings.TrimPrefix(entry, "assistant: tool result: ")
+		name := ""
+		idx := strings.Index(rest, " — ")
+		if idx >= 0 {
+			name = rest[:idx]
+			rest = rest[idx+3:]
+		}
+		return chatMsg{Kind: chatTool, Tool: name, Text: rest, Detail: rest, Result: true}
 	case strings.HasPrefix(entry, "assistant: verify:"):
 		detail := strings.TrimPrefix(entry, "assistant: verify: ")
 		return chatMsg{Kind: chatVerify, Text: detail, Detail: detail}
