@@ -13,8 +13,8 @@ metadata:
   language: en
   coupled_with: skill-github-governance
   integrates_with: sin-code image-graph
-  version: "4.0"
-  last_updated: "2026-06-17"
+  version: "5.0"
+  last_updated: "2026-06-18"
   sources: "OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/visual-repo"
 required_tools:
   - sin_write
@@ -22,7 +22,7 @@ required_tools:
 lifecycle: external
 ---
 
-> SIN-Code Bundled Skill v4.0 — SOTA README Standard. Based on research of 5 top GitHub repos (Anthropic SDK 3.6k stars, OpenAI Python 31k stars, Vercel Next.js 140k stars, tldraw 48k stars, screenshot-to-code 73k stars). Macht JEDES Repo visuell verstaendlich, AI-discoverable, und professionell.
+> SIN-Code Bundled Skill v5.0 — SOTA README Standard. Based on deep research of 10 top GitHub repos (Anthropic SDK 3.6k, OpenAI Python 31k, Vercel Next.js 140k, tldraw 48k, screenshot-to-code 73k, Microsoft VS Code 186k, Rust 114k, LangChain 140k, Supabase 104k, LlamaIndex 50k). Macht JEDES Repo visuell verstaendlich, AI-discoverable, und professionell.
 
 # skill-github-readme (SOTA README Standard)
 
@@ -56,33 +56,38 @@ sin-code image-graph     ->  "Daten visualisieren" (sin-code image-graph)
 
 ---
 
-## DIE SOTA-README-FORMEL
+## DIE SOTA-README-BLUEPRINT
 
-Based on research of the 5 most successful open-source repos on GitHub:
+Based on deep research of 10 top GitHub repos (186k to 3.6k stars):
 
 ```
-Hero Image -> 3-4 Badges -> Tagline -> 3 Quick Links -> Quick Start -> 
-Features (bullets) -> Examples/Proof -> Docs Link -> Community -> Contributing -> License -> Star History
+Hero Image (optional) -> Badges -> Tagline -> Quick Links -> Quick Start -> 
+Features -> Stats/Charts -> Models/Details -> API/Usage -> 
+Architecture -> Contributing -> License -> Footer
 ```
 
-### Anti-Patterns (VERBOTTEN)
+**Keine starren Regeln — orientiere dich an den Top-Repos, passe an dein Repo an.**
 
-| Pattern | Warum schlecht | Sota-Alternative |
-|---------|---------------|-----------------|
-| Mermaid-Diagramme im README | Kein Top-Repo nutzt sie; GitHub rendert sie unzuverlaessig | Link zu `/docs/architecture.md` |
-| `<details>` collapsible sections | Versteckt Inhalt = schlechte UX | Alles sichtbar, kurze Sektionen |
-| Navigation-Anchor-Links | Kein Top-Repo nutzt sie; GitHub hat schon TOC | Weglassen |
-| HTML-Tabellen fuer Layout | Sieht aus wie 2015 | Markdown-Code-Bloecke |
-| Emoji in Headings | Unprofessionell; kein Top-Repo macht das | Klare Text-Headings |
-| 6+ Badges | Cluttered; wirkt verzweifelt | Max 3-4 relevante Badges |
-| Feature-Tabelle mit ✅ | Wirtsdlich; schwer lesbar | Bullet-List mit Bold-Termen |
-| Deutsch im README | International = English | Immer English |
-| `back to top` Links | Veraltet; GitHub hat Scroll | Weglassen |
-| Footer-Banner ("Powered by") | Wird als Werbung wahrgenommen | Subtle `<sub>` Text |
+### Patterns — wann nutzen, wann nicht
+
+Diese Patterns sind **Werkzeuge**, keine Anti-Patterns. Nutze sie bewusst:
+
+| Pattern | Wann nutzen | Wann NICHT |
+|---------|------------|-----------|
+| Mermaid-Diagramm | Komplexe Architektur mit >5 Komponenten, Flows, Sequences | Bei einfachen 3-Komponenten-Setups — dann reicht Text |
+| `<details>` sections | Lange Config-Beispiele, Troubleshooting, optionale Details | Für Kern-Features — die sollen sichtbar sein |
+| Navigation-Links | Bei READMEs >200 Zeilen mit vielen Sektionen | Bei kurzen READMEs <100 Zeilen — dann clutter |
+| HTML-Tabellen-Layout | 3-Spalten Quick-Start (Clone/Install/Run), Side-by-Side Vergleiche | Für normale Tabellen — Markdown-Tabelle ist sauberer |
+| Emoji in Headings | Bei fun/playful Projekten (LlamaIndex nutzt 🦙) | Bei Enterprise/B2B Projekten — dort unprofessionell |
+| 6+ Badges | Wenn sie ALLE relevant sind (PyPI + Downloads + CI + Discord + License + Version = LlamaIndex pattern) | Wenn es nur filler sind (Last-Commit, Topics) |
+| Feature-Tabelle mit ✅ | Feature-Vergleich gegen Konkurrenten (✅ vs ❌) | Bei eigener Feature-Liste — Bullets sind besser |
+| `back to top` Links | Bei READMEs >300 Zeilen | Bei kurzen READMEs — GitHub hat Scroll |
+| Footer-Banner ("Powered by") | Wenn es ein echtes Branding gibt (Supabase "Made with Supabase" ist SOTA) | Wenn es nur Werbung ist ohne Mehrwert |
+| Deutsch im README | Nur wenn das Repo explizit DACH-only ist | Default = English für internationalen Reach |
 
 ---
 
-## DIE 10 GEBOTE DES SOTA README
+## SOTA-PATTERNS (von 10 Top-Repos gelernt)
 
 ### 1. Hero Image (PFlicht bei visuellen Repos)
 
@@ -120,10 +125,12 @@ Ein einzelnes PNG-Bild oben, das das Projekt oder sein Ergebnis zeigt.
 - Package registry (PyPI/npm/crates.io) — **immer** wenn published
 - License — **immer**
 - Stars (social) — **optional** ab 100+ stars
+- Downloads (PyPI stats) — **gut fuer Popularitaet** (LangChain nutzt es)
 - CI status — **optional** wenn gruen
 - Discord/Community — **optional** wenn aktiv
+- Version — **gut** (LangChain, LlamaIndex nutzen es)
 
-**NIEMALS:** Last-Commit, Downloads-total, Topics, Python-version, Framework-logos. Das ist Clutter.
+**LlamaIndex hat 7 Badges** (Downloads, Build, Contributors, Discord, Twitter, Reddit, Ask AI) — und das sieht gut aus weil sie ALLE relevant sind. 6+ ist ok wenn jeder Badge echten Mehrwert bringt. **Filler-Badges** (Last-Commit, Topics, Framework-logos ohne Kontext) = weg.
 
 ### 3. Tagline (Ein Satz, kursiv, zentriert)
 
@@ -135,17 +142,19 @@ Ein einzelnes PNG-Bild oben, das das Projekt oder sein Ergebnis zeigt.
 
 **Regel:** Ein Satz der den **Nutzen** sagt, nicht das Feature. Max 15 Worte.
 
-### 4. Quick Links (3 Links, punkt-getrennt)
+### 4. Quick Links (Pipe-separated, Rust pattern)
 
 ```html
 <p align="center">
-  <a href="#quick-start">Quick Start</a> ·
-  <a href="#features">Features</a> ·
-  <a href="#documentation">Documentation</a>
+  <a href="#quick-start">Quick Start</a> |
+  <a href="#features">Features</a> |
+  <a href="#models">Models</a> |
+  <a href="#api">API</a> |
+  <a href="#contributing">Contributing</a>
 </p>
 ```
 
-**Max 3-5 Links.** tldraw nutzt: `Docs . Examples . Starter kits`. Mehr als 5 = Clutter.
+**Pipe `|` nicht dot `·`.** Rust (114k stars) nutzt `Website | Getting started | Learn | Documentation | Contributing`. Max 3-5 links.
 
 ### 5. Quick Start (1-2 Code-Bloecke, maximal 5 Zeilen)
 
@@ -212,6 +221,43 @@ Trusted by teams at **Google**, **Shopify**, **BlackRock**, **Autodesk**, **Clic
 - Vorher/Nachher-Vergleich wenn moeglich
 - **Keine** dunklen Charts die auf GitHub nicht lesbar sind
 
+### 8a. Chart Embedding — VOLLE BREITE (PFLICHT!)
+
+**Charts und Bilder MUESSEN volle Breite nutzen.** Kein `width="640"` — das macht sie small und "lost".
+
+**FALSCH (chart sieht lost aus):**
+```html
+<p align="center">
+  <img src="./assets/pool-status.png" alt="Pool Status" width="640" />
+</p>
+```
+
+**RICHTIG (volle breite, impactful):**
+```markdown
+![Pool Status](./assets/pool-status.png)
+```
+
+Oder fuer zentrierte Vollbreite ohne width:
+```html
+<p align="center">
+  <img src="./assets/pool-status.png" alt="Pool Status" />
+</p>
+```
+
+**Warum:** GitHub's content area is ~800px wide. `width="640"` schrumpft das Bild und laesst es "lost" aussehen. VS Code (186k stars), Supabase (104k stars), tldraw (48k stars) — alle nutzen VOLLBREITE Bilder ohne width-Attribut.
+
+**Alternativ: Charts in Kontext einbetten** — nicht alleine floaten. Umgebe sie mit beschreibendem Text davor UND danach:
+
+```markdown
+The pool currently manages **484 keys** across 10 proxies:
+
+![Pool Status](./assets/pool-status.png)
+
+Most keys are suspended (431) due to Fireworks spending caps, while **43 remain available** for rotation.
+```
+
+**Chart-Qualitaet:** Charts muessen auf GitHub's Light-Mode lesbar sein. Wenn du dunkle Charts generierst (sin-code image-graph), generiere sie mit hellem Hintergrund oder teste mit `sin-brain_open_image_in_preview` vor commit.
+
 ### 9. Star History (Optional, am Ende)
 
 ```html
@@ -236,7 +282,7 @@ Trusted by teams at **Google**, **Shopify**, **BlackRock**, **Autodesk**, **Clic
 </p>
 ```
 
-**Keine for-the-badge Banner.** Keine Emoji-Links. Subtil ist professionell.
+**Supabase** hat eine "Made with Supabase" badge-section — for-the-badge style, und das ist SOTA (104k stars). Wenn es echtes Branding ist: nutze es. Wenn es nur Werbung ohne Mehrwert ist: `<sub>` Text.
 
 ---
 
@@ -247,7 +293,7 @@ Trusted by teams at **Google**, **Shopify**, **BlackRock**, **Autodesk**, **Clic
 
 <!-- HERO IMAGE (only if visual product) -->
 <p align="center">
-  <img src="./assets/hero.png" alt="{{REPO_NAME}}" width="800" />
+  <img src="./assets/hero.png" alt="{{REPO_NAME}}" />
 </p>
 
 <!-- BADGES (max 3-4) -->
@@ -268,10 +314,10 @@ Trusted by teams at **Google**, **Shopify**, **BlackRock**, **Autodesk**, **Clic
   <em>{{ONE_SENTENCE_BENEFIT}}</em>
 </p>
 
-<!-- QUICK LINKS (max 3-5) -->
+<!-- QUICK LINKS (pipe-separated, Rust pattern) -->
 <p align="center">
-  <a href="#quick-start">Quick Start</a> &middot;
-  <a href="#features">Features</a> &middot;
+  <a href="#quick-start">Quick Start</a> |
+  <a href="#features">Features</a> |
   <a href="#documentation">Documentation</a>
 </p>
 
@@ -424,22 +470,22 @@ Befolge die 10 Gebote. Nutze das Template. English only.
 
 ## QUALITY CHECKLIST (vor commit)
 
-- [ ] Hero Image (wenn visuelles Repo) — eine PNG, max 1920x400
-- [ ] Max 3-4 Badges — PyPI/npm + License + Stars
-- [ ] Ein-Zeiliger Tagline (kursiv, zentriert)
-- [ ] 3-5 Quick Links (punkt-getrennt)
-- [ ] Quick Start: 1-2 Code-Bloecke, max 5 Zeilen
-- [ ] Features als Bullet-List (keine Tabelle)
-- [ ] Kein Mermaid-Diagramm im README
-- [ ] Keine `<details>` collapsible sections
-- [ ] Keine Navigation-Anchor-Links (ausser Quick Links oben)
-- [ ] Kein Emoji in Headings
-- [ ] English only (kein Deutsch)
-- [ ] Keine hardcoded Zahlen (live geholt)
+- [ ] Hero Image (wenn visuelles Repo) — VOLLBREITE, kein width-Attribut
+- [ ] Badges — nur relevante, kein Filler (6+ ok wenn alle Mehrwert bringen)
+- [ ] Tagline — ein Satz Nutzen, kursiv zentriert
+- [ ] Quick Links — pipe-separated `|`, 3-5 links (bei langen READMEs)
+- [ ] Quick Start — 1-2 Code-Bloecke, max 5 Zeilen
+- [ ] Features — Bullet-List mit `**Bold** — description`
+- [ ] Charts VOLLBREITE — kein `width="640"`, in Kontext eingebettet
 - [ ] Charts auf GitHub lesbar (heller Hintergrund fuer PNGs)
+- [ ] Mermaid — nur bei komplexer Architektur (>5 Komponenten), nicht bei einfachen Setups
+- [ ] `<details>` — nur fuer optionale Details/Troubleshooting, nicht fuer Kern-Features
+- [ ] Emoji in Headings — nur bei fun/playful Projekten
+- [ ] English default (Deutsch nur bei DACH-only repos)
+- [ ] Keine hardcoded Zahlen (live geholt per curl/gh)
 - [ ] Star History Chart (wenn 100+ stars)
-- [ ] Minimaler Footer (`<sub>` Text, kein for-the-badge Banner)
-- [ ] llms.txt (optional, wenn AI-discoverability gewuenscht)
+- [ ] Footer — subtil `<sub>` oder for-the-badge wenn echtes Branding
+- [ ] llms.txt (optional)
 
 ---
 
@@ -468,14 +514,33 @@ echo '{"title":"Pool Status","items":[{"label":"Available","value":41},{"label":
 
 ---
 
-## REFERENZ-REPOS ( fuer Inspiration)
+## REFERENZ-REPOS (fuer Inspiration)
+
+Deep research of 10 top GitHub repos:
 
 | Repo | Stars | Key Pattern |
 |------|-------|-------------|
+| [microsoft/vscode](https://github.com/microsoft/vscode) | 186k | Full-width hero screenshot, 3 badges, no emoji headings |
+| [rust-lang/rust](https://github.com/rust-lang/rust) | 114k | Hero SVG, pipe-separated links, "Why Rust?" bold bullets |
+| [langchain-ai/langchain](https://github.com/langchain-ai/langchain) | 140k | Dark logo, 4 badges, Tip callouts, ecosystem bold links |
+| [supabase/supabase](https://github.com/supabase/supabase) | 104k | Dual-mode hero (light/dark), full-width dashboard, SVG architecture |
 | [vercel/next.js](https://github.com/vercel/next.js) | 140k | Hero logo, 4 badges, ultra-minimal |
 | [openai/openai-python](https://github.com/openai/openai-python) | 31k | PyPI badge, code-heavy, clean sections |
 | [tldraw/tldraw](https://github.com/tldraw/tldraw) | 48k | Hero image, 4 badges, bullet features, star history |
 | [abi/screenshot-to-code](https://github.com/abi/screenshot-to-code) | 73k | GIF demos, no badges, example-driven |
+| [run-llama/llama_index](https://github.com/run-llama/llama_index) | 50k | 6 badges, big docs blockquote, code-heavy examples |
 | [anthropics/anthropic-sdk-python](https://github.com/anthropics/anthropic-sdk-python) | 3.6k | PyPI badge, ultra-clean, minimal |
 
 **These are the gold standard. Study them before writing any README.**
+
+### Key findings from deep research:
+
+1. **Images = VOLLBREITE**: Kein einziges Top-Repo nutzt `width="640"`. VS Code, Supabase, tldraw — alle volle Breite.
+2. **Architektur = SVG Datei**: Supabase speichert Architektur als `.svg` im Repo, nicht als Mermaid oder ASCII.
+3. **Quick Links = Pipe-separated**: Rust nutzt `Website | Getting started | Learn | Documentation | Contributing`.
+4. **"Why X?" Sektion**: Rust und LangChain nutzen beide eine "Why?" Sektion mit bold terms und em-dash.
+5. **Keine Navigation-Anchor-Links**: Nirgends in Top-Repos.
+6. **Dashboard-Screenshots**: Supabase und VS Code — volle Breite, klickbar.
+7. **GitHub Alerts**: LangChain nutzt `> [!TIP]` callouts, Supabase nutzt `> [!NOTE]`.
+8. **Dual-mode hero**: Supabase nutzt `#gh-light-mode-only` und `#gh-dark-mode-only` fuer dark/light Switch.
+9. **Logo als SVG**: Rust und LangChain nutzen SVG logos im Repo, nicht PNG.
