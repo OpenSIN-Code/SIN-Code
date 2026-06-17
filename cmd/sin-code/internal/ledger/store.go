@@ -52,6 +52,9 @@ const (
 	// TypeReflection records a self-critique pass that found issues and forced
 	// another work turn before stop-gate evaluation.
 	TypeReflection EntryType = "reflection"
+	// TypeFusionTournament records a multi-provider verify-tournament
+	// outcome (issue #290).
+	TypeFusionTournament EntryType = "fusion_tournament"
 )
 
 // Entry is one row in the ledger.

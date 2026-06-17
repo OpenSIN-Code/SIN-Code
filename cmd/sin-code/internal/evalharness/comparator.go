@@ -84,10 +84,11 @@ type Totals struct {
 	Tokens         []int     `json:"-"`
 	LatencyMS      []int     `json:"-"`
 	LOC            []int     `json:"-"`
-	SkillName      string    `json:"skill_name,omitempty"`
-	VerbosityLevel string    `json:"verbosity,omitempty"`
-	SystemPrompt   string    `json:"-"` // used to compute shortHash for snapshots
-	PricingName    string    `json:"pricing_name,omitempty"`
+	SkillName       string    `json:"skill_name,omitempty"`
+	VerbosityLevel  string    `json:"verbosity,omitempty"`
+	SystemPrompt    string    `json:"-"` // used to compute shortHash for snapshots
+	PricingName     string    `json:"pricing_name,omitempty"`
+	FirstToPassRate float64   `json:"first_to_pass_rate,omitempty"`
 }
 
 // PassRate returns the integer-pass / total ratio as a 0..1 float.
@@ -189,6 +190,9 @@ func Compare(ctx context.Context, set EvalSet, arms []Arm, opts CompareOptions) 
 			t.Tokens = append(t.Tokens, cc.Tokens)
 			t.LatencyMS = append(t.LatencyMS, int(cc.Result.Duration/time.Millisecond))
 			t.LOC = append(t.LOC, cc.LOC)
+			if arm.FusionEnabled {
+				t.FirstToPassRate = 0.0
+			}
 			report.TotalsByArm[arm.ID] = t
 			done++
 			if opts.OnProgress != nil {

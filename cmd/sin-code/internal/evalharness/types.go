@@ -151,4 +151,9 @@ type Arm struct {
 	// tests can install a fixture for this arm. Production callers
 	// usually leave this nil.
 	Setup func(c EvalCase) error
+	// FusionEnabled marks an arm as participating in the SIN Fusion
+	// verify-tournament (issue #290). When true the comparator
+	// records FirstToPassRate on the arm's Totals — the API surface
+	// for future fusion-data wiring.
+	FusionEnabled bool
 }

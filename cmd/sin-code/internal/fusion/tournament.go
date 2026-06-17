@@ -21,6 +21,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -212,12 +213,24 @@ func (t *Tournament) Run(ctx context.Context) (*Result, error) {
 		if c.VerifyResult.Passed {
 			cancel()
 			remaining := drainChannel(ch)
+			passers := []Candidate{c}
 			for _, r := range remaining {
-				r.VerifyResult = verify.Result{Passed: false, Mode: verify.ModePoC, Report: "cancelled (winner already found)"}
-				losers = append(losers, r)
+				if r.VerifyResult.Passed {
+					passers = append(passers, r)
+				} else {
+					r.VerifyResult = verify.Result{Passed: false, Mode: verify.ModePoC, Report: "cancelled (winner already found)"}
+					losers = append(losers, r)
+				}
+			}
+			winner := t.tieBreak(passers)
+			for _, p := range passers {
+				if p.Provider != winner.Provider {
+					p.VerifyResult = verify.Result{Passed: true, Mode: verify.ModePoC, Report: "tied: lost tie-break"}
+					losers = append(losers, p)
+				}
 			}
 			result := &Result{
-				Winner:       &c,
+				Winner:       winner,
 				Losers:       losers,
 				TotalCostUSD: safeCost(),
 				DurationMs:   time.Since(start).Milliseconds(),
@@ -251,6 +264,7 @@ func (t *Tournament) Run(ctx context.Context) (*Result, error) {
 // (they were cancelled mid-run).
 func drainChannel(ch <-chan Candidate) []Candidate {
 	var out []Candidate
+	timeout := time.After(10 * time.Millisecond)
 	for {
 		select {
 		case c, ok := <-ch:
@@ -258,10 +272,28 @@ func drainChannel(ch <-chan Candidate) []Candidate {
 				return out
 			}
 			out = append(out, c)
-		default:
+		case <-timeout:
 			return out
 		}
 	}
+}
+
+func (t *Tournament) tieBreak(candidates []Candidate) *Candidate {
+	if len(candidates) == 0 {
+		return nil
+	}
+	sorted := make([]Candidate, len(candidates))
+	copy(sorted, candidates)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].CostUSD != sorted[j].CostUSD {
+			return sorted[i].CostUSD < sorted[j].CostUSD
+		}
+		if sorted[i].LatencyMs != sorted[j].LatencyMs {
+			return sorted[i].LatencyMs < sorted[j].LatencyMs
+		}
+		return sorted[i].Provider < sorted[j].Provider
+	})
+	return &sorted[0]
 }
 
 func (t *Tournament) perProviderTimeout() time.Duration {
@@ -290,9 +322,17 @@ func (t *Tournament) recordOutcome(ctx context.Context, result *Result) {
 			"duration_ms":    result.DurationMs,
 			"all_failed":     result.AllFailed,
 		}
+		providersCount := len(result.Losers)
+		if result.Winner != nil {
+			providersCount++
+		}
+		data["providers_count"] = providersCount
 		if result.Winner != nil {
 			data["winner_provider"] = result.Winner.Provider
 			data["winner_session"] = result.Winner.SessionID
+			data["winner_cost_usd"] = result.Winner.CostUSD
+			data["winner_duration_ms"] = result.Winner.LatencyMs
+			data["winner_verified"] = result.Winner.VerifyResult.Passed
 		}
 		loserNames := make([]string, len(result.Losers))
 		for i, l := range result.Losers {
@@ -305,7 +345,7 @@ func (t *Tournament) recordOutcome(ctx context.Context, result *Result) {
 		}
 		_, _ = t.Ledger.Record(ctx, ledger.Entry{
 			SessionID: t.HookSessionID,
-			Type:      ledger.EntryType("fusion_tournament"),
+			Type:      ledger.TypeFusionTournament,
 			Data:      data,
 			Summary:   summary,
 		})

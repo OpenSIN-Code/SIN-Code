@@ -156,6 +156,9 @@ self-escalate permissions.
 | `gh_query` | allow | contributing (Bridged-External) | read-only: issue/pr/release/workflow-run/repo |
 | `gh_health` | allow | contributing (Bridged-External) | PATH + auth probe, no side effects |
 | `gh_execute` | ask | contributing (Bridged-External) | mutating ops require human confirmation (M4) |
+| `fusion__tournament` | ask | autonomy (Fusion) | spawns sub-agents, costs money |
+| `fusion__status` | allow | autonomy (Fusion) | read-only tournament status |
+| `fusion__config` | allow | autonomy (Fusion) | read-only config query |
 
 ### M5 — Module path
 `github.com/OpenSIN-Code/SIN-Code` (since v3.0.0). The old path
@@ -546,6 +549,17 @@ Hook payload: `tool.post` events for `sin_write`/`sin_edit` now include the
 edited file path in `data.path` and expose it as `$SIN_HOOK_DATA_PATH` to
 command hooks.
 
+### SIN Fusion v1: Verify-Tournament (issue #290)
+
+| Config key | Type | Default | Used by |
+|---|---|---|---|
+| `fusion.enabled` | bool | `false` | loopbuilder — enables tournament on verify.fail |
+| `fusion.providers` | comma-separated list | `["minimax-m3", "kimi-k2p7-code-fast", "kimi-k2p7-code", "deepseek-v4-pro", "qwen-3p7-plus", "glm-5p2"]` | fireworks_pool — which models to fan out to |
+| `fusion.max_cost_usd` | float | `5.0` | tournament — USD kill-switch per invocation |
+| `fusion.min_quorum` | int | `1` | tournament — minimum passers before declaring winner |
+| `fusion.per_provider_timeout_s` | int | `120` | tournament — per-model wall-clock timeout |
+| `fusion.difficulty_gate` | bool | `true` | difficulty.go — filter stylistic failures to legacy retry |
+
 ### Verbosity / compression mode (issue #167)
 
 | Config key | Allowed values | Default |
@@ -607,6 +621,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.19.0 | ACTIVE | `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format (`delete`, `stdlib`, `native`, `yagni`, `shrink`), `// sin-debt:` marker support (issue #177), text/json/markdown output, race-clean tests |
 | v3.20.0 | ✅ SHIPPED | Tool coverage, M6 enforcement, catalog, telemetry (issues #249, #253, #248, #250, #252, #251): agent profiles expose full `sin_*` + MCP prefix surface; system prompt injects SIN-tool preference fragment; runtime `ToolCoverageEnforcer` rejects missing/forbidden tool usage; `ledger tools` heatmap/coverage/unused; orchestrator planner emits mandatory `ToolChain` per intent; `sin-code catalog` unifies 46+ MCP tools, 17+ chat tools, and 14+ external MCP prefixes. |
 | v3.21.0 | ✅ SHIPPED | Test-First Verify-Loop (RFC-test-automation.md): `sin_test` + `sin_test_generate` + `sin_quality_gate` + `sin_mutation` + `sin_fuzz` + `sin_property`; `tool.post` hook payload path; `test.*` config keys; `evals/test-generation.json` golden dataset. |
+| v3.22.0 | ACTIVE | SIN Fusion v1: Verify-Tournament (issue #290) — multi-model fan-out on verify.fail, Fireworks pool (6 models), thinking mode, cost-governor, difficulty gate, PoC-only |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -779,7 +794,8 @@ Audit:     audit, ceo-audit
 `governor.block`, `memory.{write,compact}`, `commit.{pre,post}`,
 `push.pre`, `task.{complete,abort}`, `compaction.pre`,
 `goal.{enqueued,started,verified,exhausted}` (v3.5.0),
-`trigger.fired` (v3.5.0), `skill.{installed,failed}` (v3.5.0).
+`trigger.fired` (v3.5.0), `skill.{installed,failed}` (v3.5.0),
+`fusion.dispatch` (v3.22.0, issue #290).
 
 ### Ponytail tag set — MCP-tool-description compressor (issue #173, v3.19.0)
 

@@ -454,3 +454,76 @@ func TestTournament_DeterministicTieBreak(t *testing.T) {
 		t.Fatal("expected winner")
 	}
 }
+
+func TestTournament_TieBreak(t *testing.T) {
+	vs := newVerifyState()
+	var barrier sync.WaitGroup
+	barrier.Add(3)
+
+	providers := map[string]*fakeProvider{
+		"alpha": {name: "alpha", delay: 5 * time.Millisecond, output: "CORRECT", tokens: 100},
+		"beta":  {name: "beta", delay: 5 * time.Millisecond, output: "CORRECT", tokens: 100},
+		"gamma": {name: "gamma", delay: 5 * time.Millisecond, output: "CORRECT", tokens: 100},
+	}
+
+	runFunc := func(ctx context.Context, prov ProviderConfig, sess *session.Session, prompt string) (*agentloop.Result, error) {
+		fp := providers[prov.Name]
+		if fp == nil {
+			return nil, errors.New("unknown provider: " + prov.Name)
+		}
+		fp.calls.Add(1)
+		select {
+		case <-time.After(fp.delay):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		vs.set(prov.Name, fp.output)
+		barrier.Done()
+		barrier.Wait()
+		return &agentloop.Result{
+			SessionID: sess.ID,
+			Summary:   fp.output,
+			Verified:  false,
+			Turns:     1,
+			Tokens:    fp.tokens,
+		}, nil
+	}
+
+	provCfgs := []ProviderConfig{
+		{Name: "alpha", InputPer1M: 1.0, OutputPer1M: 1.0},
+		{Name: "beta", InputPer1M: 3.0, OutputPer1M: 3.0},
+		{Name: "gamma", InputPer1M: 2.0, OutputPer1M: 2.0},
+	}
+
+	tournament := &Tournament{
+		Providers:       provCfgs,
+		RunFunc:         runFunc,
+		ForkFunc:        makeForkFunc(),
+		VerifyFn:        makeVerifyFn(vs, "CORRECT"),
+		MinQuorum:       2,
+		Workspace:       "/test/ws",
+		Prompt:          "do the thing",
+		SourceSessionID: "src-1",
+	}
+
+	result, err := tournament.Run(context.Background())
+	if err != nil {
+		t.Fatalf("expected winner, got error: %v", err)
+	}
+	if result.Winner == nil {
+		t.Fatal("expected winner")
+	}
+	if result.Winner.Provider != "alpha" {
+		t.Errorf("expected winner 'alpha' (lowest cost), got %q", result.Winner.Provider)
+	}
+
+	passerLosers := 0
+	for _, l := range result.Losers {
+		if l.VerifyResult.Passed && l.VerifyResult.Report == "tied: lost tie-break" {
+			passerLosers++
+		}
+	}
+	if passerLosers != 2 {
+		t.Errorf("expected 2 tied losers with Passed=true, got %d (total losers: %d)", passerLosers, len(result.Losers))
+	}
+}

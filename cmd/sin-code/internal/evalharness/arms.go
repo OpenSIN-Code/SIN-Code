@@ -108,6 +108,15 @@ func VerbosityArm(level string, reader func() (string, error)) Arm {
 	}
 }
 
+// FusionArm returns a copy of base with FusionEnabled set to true.
+// The caller is expected to supply a unique ID when stacking onto
+// an existing arm (e.g. a terse-derived fusion arm) so TotalsByArm
+// keys don't collide with the non-fusion control.
+func FusionArm(base Arm) Arm {
+	base.FusionEnabled = true
+	return base
+}
+
 // DefaultArms is the canonical 4-arm harness referenced by the CLI
 // flag `--arm baseline,terse,lazy_skill,<user>`. The fourth slot is
 // filled in by the CLI from the user-supplied --skill (or skill-code-create

@@ -39,6 +39,7 @@ type SnapshotRow struct {
 	MedianScore      float64 `json:"median_score"`
 	PassRate         float64 `json:"pass_rate"`
 	WeightedScore    float64 `json:"weighted_score"`
+	FirstToPassRate  float64 `json:"first_to_pass_rate,omitempty"`
 	SkillName        string  `json:"skill_name,omitempty"`
 	VerbosityLevel   string  `json:"verbosity,omitempty"`
 	SystemPromptHash string  `json:"system_prompt_hash,omitempty"` // sha-like fingerprint; see header
@@ -160,6 +161,7 @@ func BuildSnapshot(report CompareReport, header SnapshotHeader) Snapshot {
 			Passed:          t.Passed,
 			PassRate:        t.PassRate(),
 			WeightedScore:   t.WeightedScore,
+			FirstToPassRate: t.FirstToPassRate,
 			MedianLOC:       medianInt(t.LOC),
 			MedianLatencyMS: medianInt(t.LatencyMS),
 			MedianUSD:       medianFloat(t.USD),
@@ -278,6 +280,7 @@ func DiffSnapshots(a, b Snapshot) ([]SnapshotRowDelta, error) {
 			changes.ArmID = id
 			changes.PassRate = rb.PassRate - ra.PassRate
 			changes.WeightedScore = rb.WeightedScore - ra.WeightedScore
+			changes.FirstToPassRate = rb.FirstToPassRate - ra.FirstToPassRate
 			changes.MedianLOC = rb.MedianLOC - ra.MedianLOC
 			changes.MedianLatencyMS = rb.MedianLatencyMS - ra.MedianLatencyMS
 			changes.MedianUSD = rb.MedianUSD - ra.MedianUSD

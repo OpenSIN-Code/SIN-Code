@@ -36,6 +36,8 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/logger"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui"
 )
 
 // chat hook variables — injected by coverage tests to avoid real I/O, network
@@ -110,6 +112,7 @@ type chatOptions struct {
 	fusionOnVerifyFail bool
 	fusionProviders    string
 	fusionMaxCost      float64
+	noTUI              bool
 }
 
 func NewChatCmd() *cobra.Command {
@@ -162,11 +165,16 @@ func NewChatCmd() *cobra.Command {
 	f.BoolVar(&opts.fusionOnVerifyFail, "fusion-on-verify-fail", false, "enable SIN Fusion verify-tournament on verify.fail (issue #290)")
 	f.StringVar(&opts.fusionProviders, "fusion-providers", "", "comma-separated Fireworks model names for the tournament (e.g. minimax-m3,kimi-k2p7-code,glm-5p2)")
 	f.Float64Var(&opts.fusionMaxCost, "fusion-max-cost", 5.0, "USD kill-switch per tournament invocation (issue #290)")
+	f.BoolVar(&opts.noTUI, "no-tui", false, "skip TUI and use plain CLI loop")
 	return cmd
 }
 
 func runChat(ctx context.Context, opts *chatOptions) error {
 	headless := opts.prompt != ""
+
+	if !opts.noTUI && !headless && !opts.jsonOut && isTerminal(os.Stdout) {
+		return runChatTUI(ctx, opts)
+	}
 
 	var agentCfg orchestrator.AgentConfig
 	if opts.agent != "" {
@@ -633,4 +641,58 @@ func newBuiltinCommandRegistry(client *llm.Client, model string) *commands.Regis
 	r.Register(commands.NewBTWCommand(chatSideLLM{c: client, model: model}, ""))
 	r.Register(commands.NewUndercoverCommand(chatUndercover))
 	return r
+}
+
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return (info.Mode() & os.ModeCharDevice) != 0
+}
+
+func runChatTUI(ctx context.Context, opts *chatOptions) error {
+	logger.SetLevel(logger.LevelError)
+
+	pm := tui.NewModel()
+	pm.SwitchView(tui.ViewChat)
+	ws, _ := chatGetwdFn()
+	pm.Workspace = ws
+	pm.SetContextFn(func() context.Context { return ctx })
+
+	maxTurns := opts.maxTurns
+	if maxTurns == 0 {
+		maxTurns = 80
+	}
+	pm.AgentConfig = tui.AgentRunnerConfig{
+		Yolo:       opts.yolo,
+		MaxTurns:   maxTurns,
+		Model:      opts.model,
+		VerifyMode: opts.verifyMode,
+		VerifyCmd:  opts.verifyCmd,
+	}
+
+	pm.OnRun = func(name string, args []string) error {
+		c := getSubcommand(name)
+		if c == nil {
+			return fmt.Errorf("unknown subcommand: %s", name)
+		}
+		c.SetArgs(args)
+		c.SetOut(os.Stdout)
+		c.SetErr(os.Stderr)
+		return c.Execute()
+	}
+
+	if ov := loadTUIKeyOverrides(); ov != nil {
+		km := tui.DefaultKeymap()
+		km.ApplyOverrides(*ov)
+		tui.SetKeymap(km)
+	}
+
+	guard := tui.SetupPlatformGuard()
+	defer guard.Cleanup()
+
+	return tui.RunProgram(pm, tui.ProgramOptions{
+		Sigusr2Reload: true,
+	})
 }
