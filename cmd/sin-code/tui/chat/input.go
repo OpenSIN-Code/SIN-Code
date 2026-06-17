@@ -44,7 +44,7 @@ type Input struct {
 
 func NewInput(store *attachments.Store) *Input {
 	ta := textarea.New()
-	ta.Placeholder = "Type a message... (/attach, /clear, Ctrl+S send)"
+	ta.Placeholder = "Type a message... (Enter to send · Shift+Enter for newline · /attach for files)"
 	ta.ShowLineNumbers = false
 	ta.Prompt = ""
 	ta.SetWidth(80)
@@ -226,25 +226,12 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 		}
 		switch msg.String() {
 		case "ctrl+s", "ctrl+enter":
-			val := strings.TrimSpace(i.RawValue())
-			if strings.HasPrefix(val, "/") {
-				handled, err := i.HandleSlashCommand(val)
-				if err != nil {
-					i.textarea.SetValue("[error: " + err.Error() + "]")
-				}
-				if handled {
-					return nil, nil
-				}
-			}
-			text := i.RawValue()
-			if text != "" {
-				i.history = append(i.history, text)
-				i.historyCursor = len(i.history)
-			}
-			return nil, &SubmitMsg{
-				Text:        text,
-				Attachments: i.attachments,
-			}
+			return i.submit()
+		case "enter":
+			return i.submit()
+		case "shift+enter":
+			i.textarea.InsertString("\n")
+			return nil, nil
 		case "ctrl+d":
 			if i.textarea.Value() == "" && len(i.attachments) == 0 {
 				return tea.Quit, nil
@@ -372,6 +359,28 @@ func imageExt(content string) string {
 type SubmitMsg struct {
 	Text        string
 	Attachments []*attachments.Attachment
+}
+
+func (i *Input) submit() (tea.Cmd, *SubmitMsg) {
+	val := strings.TrimSpace(i.RawValue())
+	if strings.HasPrefix(val, "/") {
+		handled, err := i.HandleSlashCommand(val)
+		if err != nil {
+			i.textarea.SetValue("[error: " + err.Error() + "]")
+		}
+		if handled {
+			return nil, nil
+		}
+	}
+	text := i.RawValue()
+	if text != "" {
+		i.history = append(i.history, text)
+		i.historyCursor = len(i.history)
+	}
+	return nil, &SubmitMsg{
+		Text:        text,
+		Attachments: i.attachments,
+	}
 }
 
 func (i *Input) View() string {

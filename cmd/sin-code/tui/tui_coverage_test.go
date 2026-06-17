@@ -2330,10 +2330,10 @@ func TestHandleKeySubagentsEsc(t *testing.T) {
 	}
 }
 
-func TestHandleKeySubagentsCtrlX(t *testing.T) {
+func TestHandleKeySubagentsCtrlA(t *testing.T) {
 	m := NewModel()
 	m.OpenSubagents()
-	m.Update(tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
+	m.Update(tea.KeyPressMsg{Code: 'a', Mod: tea.ModCtrl})
 	if m.Mode != ModeNormal {
 		t.Error("expected ModeNormal")
 	}

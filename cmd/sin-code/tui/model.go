@@ -59,70 +59,102 @@ type teaProgramIface interface {
 	Send(msg any)
 }
 
-type Model struct {
-	// Layout
-	Width    int
-	Height   int
+type LayoutState struct {
+	Width      int
+	Height     int
+	Ready      bool
+	RightPanel bool
+}
+
+type ThemeState struct {
 	ThemeIdx int
+	Styles   Styles
+}
+
+type ChatState struct {
+	ChatInput     *chatInput
+	ChatHistory   []ChatMessage
+	ChatRunner    *chat.Runner
+	ChatViewport  viewport.Model
+	ChatFocusIdx  int
+	SearchQuery   string
+	SearchMatches []int
+	SearchInput   textinput.Model
+}
+
+type AgentState struct {
+	AgentRunner *agentrunner.AgentRunner
+	pendingAsk  chan bool
+}
+
+type ToolState struct {
+	ToolList  list.Model
+	ToolItems []list.Item
+}
+
+type TodoState struct {
+	TodoItems []TodoRow
+	TodoSel   int
+}
+
+type NotificationState struct {
+	NotificationBanner *NotificationItem
+	Notifications      []NotificationItem
+}
+
+type EFMState struct {
+	EFMStks []EFMStack
+}
+
+type ConfigState struct {
+	Config    []ConfigEntry
+	ConfigSel int
+}
+
+type HistoryState struct {
+	History []HistoryEntry
+}
+
+type FilePreviewState struct {
+	FilePreview     string
+	FilePreviewPath string
+	DiffPopupOpen   bool
+}
+
+type Model struct {
+	ctxFn     func() context.Context
+	Program   teaProgramIface
+	Workspace string
+	OnRun     func(name string, args []string) error
+
+	LayoutState
+	ThemeState
+
 	ViewKind ViewKind
 	Mode     Mode
 	Quitting bool
-	Ready    bool
 	Loading  bool
 
-	// Subcomponents
-	Tabs       Tabs
-	Sidebar    Sidebar
-	Footer     Footer
-	Spinner    Spinner
-	Styles     Styles
-	RightPanel bool
+	Tabs    Tabs
+	Sidebar Sidebar
+	Footer  Footer
+	Spinner Spinner
 
-	// Views
 	Palette          PaletteState
 	SessionSwitcher  SessionSwitcherState
 	ModelSelector    ModelSelectorState
 	PermissionDialog PermissionDialogState
 	ArgInput         ArgInputState
-	History          []HistoryEntry
-	EFMStks          []EFMStack
-	Config           []ConfigEntry
-	ConfigSel        int
 
-	ToolList  list.Model
-	ToolItems []list.Item
-
-	TodoItems []TodoRow
-	TodoSel   int
-
-	NotificationBanner *NotificationItem
-	Notifications      []NotificationItem
-
-	// Chat
-	ChatInput     *chatInput
-	ChatHistory   []ChatMessage
-	ChatViewport  viewport.Model
-	ChatFocusIdx  int
-	ChatRunner    *chat.Runner
-	Program       teaProgramIface
-	ctxFn         func() context.Context
-
-	SearchQuery   string
-	SearchMatches []int
-	SearchInput   textinput.Model
-
-	// Agent runner
-	AgentRunner *agentrunner.AgentRunner
-	pendingAsk  chan bool
-
-	Workspace string
-
-	OnRun func(name string, args []string) error
-
-	// File preview
-	FilePreview     string
-	FilePreviewPath string
-	DiffPopupOpen   bool
+	ChatState
+	AgentState
+	ToolState
+	TodoState
+	NotificationState
+	EFMState
+	ConfigState
+	HistoryState
+	FilePreviewState
 }
 
 func (m *Model) ctx() context.Context {
@@ -228,26 +260,40 @@ func NewModel() *Model {
 	searchInput.SetWidth(60)
 
 	m := &Model{
-		Width:        80,
-		Height:       24,
-		ThemeIdx:     0,
-		ViewKind:     ViewChat,
-		Mode:         ModeNormal,
-		Tabs:         NewTabs(),
-		Sidebar:      NewSidebar(),
-		Footer:       footer,
-		Spinner:      NewSpinner(),
-		Styles:       s,
-		RightPanel:   true,
-		History:      []HistoryEntry{},
-		EFMStks:      []EFMStack{},
-		Config:       DefaultConfigEntries(),
-		ToolList:     l,
-		ToolItems:    items,
-		ArgInput:     ArgInputState{Input: ti},
-		Palette:      PaletteState{Open: false, Sel: 0, Items: defaultPaletteCommands(), Filter: defaultPaletteCommands()},
-		ChatViewport: viewport.New(viewport.WithWidth(80), viewport.WithHeight(20)),
-		SearchInput:  searchInput,
+		LayoutState: LayoutState{
+			Width:      80,
+			Height:     24,
+			RightPanel: true,
+		},
+		ThemeState: ThemeState{
+			ThemeIdx: 0,
+			Styles:   s,
+		},
+		ViewKind: ViewChat,
+		Mode:     ModeNormal,
+		Tabs:     NewTabs(),
+		Sidebar:  NewSidebar(),
+		Footer:   footer,
+		Spinner:  NewSpinner(),
+		Palette:  PaletteState{Open: false, Sel: 0, Items: defaultPaletteCommands(), Filter: defaultPaletteCommands()},
+		ArgInput: ArgInputState{Input: ti},
+		HistoryState: HistoryState{
+			History: []HistoryEntry{},
+		},
+		EFMState: EFMState{
+			EFMStks: []EFMStack{},
+		},
+		ConfigState: ConfigState{
+			Config: DefaultConfigEntries(),
+		},
+		ToolState: ToolState{
+			ToolList:  l,
+			ToolItems: items,
+		},
+		ChatState: ChatState{
+			ChatViewport: viewport.New(viewport.WithWidth(80), viewport.WithHeight(20)),
+			SearchInput:  searchInput,
+		},
 	}
 	m.Footer.SetView(ViewChat)
 	m.Footer.ShowHints = false

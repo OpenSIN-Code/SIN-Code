@@ -53,7 +53,7 @@ type Keymap struct {
 
 func DefaultKeymap() Keymap {
 	return Keymap{
-		Quit:          key.NewBinding(key.WithKeys("q", "ctrl+c"), key.WithHelp("q", "quit")),
+		Quit:          key.NewBinding(key.WithKeys("q", "ctrl+c", "ctrl+x"), key.WithHelp("q/^x", "quit")),
 		Help:          key.NewBinding(key.WithKeys("?"), key.WithHelp("?", "help")),
 		Palette:       key.NewBinding(key.WithKeys("ctrl+p"), key.WithHelp("^p", "palette")),
 		ToggleSidebar: key.NewBinding(key.WithKeys("ctrl+b"), key.WithHelp("^b", "sidebar")),
@@ -83,7 +83,7 @@ func DefaultKeymap() Keymap {
 		CloseSession:  key.NewBinding(key.WithKeys("-"), key.WithHelp("-", "close session")),
 		SessionSwitch: key.NewBinding(key.WithKeys("ctrl+g"), key.WithHelp("^g", "switch session")),
 		ModelSelect:   key.NewBinding(key.WithKeys("ctrl+m"), key.WithHelp("^m", "model")),
-		Subagents:     key.NewBinding(key.WithKeys("ctrl+x"), key.WithHelp("^x", "subagents")),
+		Subagents:     key.NewBinding(key.WithKeys("ctrl+a"), key.WithHelp("^a", "subagents")),
 	}
 }
 

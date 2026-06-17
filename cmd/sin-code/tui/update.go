@@ -339,7 +339,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handlePaletteKey(msg)
 	}
 	if m.Mode == ModeSubagents {
-		if keyStr == "esc" || keyStr == "ctrl+x" {
+		if keyStr == "esc" || keyStr == "ctrl+a" {
 			m.CloseSubagents()
 		}
 		return m, nil

@@ -111,12 +111,16 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 			"  /clear  Clear chat history\n" +
 			"  /help   Show this help message\n\n" +
 			"Keys:\n" +
-			"  Ctrl+S  Send message\n" +
-			"  Ctrl+C  Quit\n" +
-			"  Esc     Interrupt\n" +
-			"  y/n     Allow/deny permission dialog\n" +
-			"  PgUp/PgDn  Scroll chat history\n" +
-			"  1-7     Jump to view (Tools, Sessions, EFM, Config, History, Todos, Chat)"
+			"  Enter        Send message\n" +
+			"  Shift+Enter  Insert newline\n" +
+			"  Ctrl+S       Send message (alternative)\n" +
+			"  Ctrl+C/X     Quit\n" +
+			"  Ctrl+M       Switch model\n" +
+			"  Ctrl+G       Switch session\n" +
+			"  Esc          Interrupt\n" +
+			"  y/n          Allow/deny permission dialog\n" +
+			"  PgUp/PgDn    Scroll chat history\n" +
+			"  1-7          Jump to view (Tools, Sessions, EFM, Config, History, Todos, Chat)"
 		m.appendChat(ChatMessage{Kind: chatSystem, Text: helpText})
 		return nil
 	}

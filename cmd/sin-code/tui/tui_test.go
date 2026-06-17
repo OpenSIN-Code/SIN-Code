@@ -238,7 +238,7 @@ func TestCommandPaletteSelect(t *testing.T) {
 
 func TestSubagentsPopup(t *testing.T) {
 	m := NewModel()
-	m.Update(tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
+	m.Update(tea.KeyPressMsg{Code: 'a', Mod: tea.ModCtrl})
 	if m.Mode != ModeSubagents {
 		t.Errorf("expected ModeSubagents, got %v", m.Mode)
 	}
@@ -259,6 +259,12 @@ func TestQuitKeys(t *testing.T) {
 	m2.Update(tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl})
 	if !m2.Quitting {
 		t.Error("expected Quitting after ctrl+c")
+	}
+
+	m3 := NewModel()
+	m3.Update(tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
+	if !m3.Quitting {
+		t.Error("expected Quitting after ctrl+x")
 	}
 }
 
