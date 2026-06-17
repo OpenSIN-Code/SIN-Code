@@ -41,6 +41,78 @@ metadata:
 
 ---
 
+## VOR DER README: LIVE-DATEN HOLEN (PFLICHT!)
+
+**BEVOR du eine Zeile README schreibst — IMMER zuerst Live-Daten sammeln!**
+
+### Schritt 1: Repo analysieren
+
+```bash
+# Git-Statistik
+git log --oneline | wc -l          # Commit count
+git log --oneline -5               # Letzte Commits
+git remote -v                      # Remote URL
+gh repo view --json stargazerCount,forkCount,description  # GitHub stats
+```
+
+### Schritt 2: Live-Metriken holen (PFLICHT!)
+
+**JEDES Repo das Live-Daten hat (API, Backend, Pool, etc.) — HOLE DIE LIVE DATEN:**
+
+```bash
+# Beispiel: Pool-Stats API
+curl -s http://localhost:8100/api/v1/pool/stats | python3 -m json.tool
+
+# Beispiel: Health-Check
+curl -s http://localhost:8100/health
+
+# Beispiel: GitHub Stats
+gh repo view OWNER/REPO --json stargazerCount,forkCount,description
+```
+
+### Schritt 3: Statische Daten vermeiden
+
+| FALSCH | RICHTIG |
+|--------|---------|
+| "261 Keys" (hardcoded aus alter README) | `curl` → live `total/available/suspended` |
+| "~5 available" (geraten) | `curl` → exakt `available` aus API |
+| "10 Proxys" (hardcoded) | `ls config/fireworks-pool*.yaml \| wc -l` |
+| "V19.14" (veraltet) | `git describe --tags` oder `git log --oneline -1` |
+
+**REGEL:** Wenn das Repo einen API-Endpoint, eine Datenbank, oder Live-Metriken hat — HOLE SIE.
+NIEMALS Zahlen aus einer alten README übernehmen. IMMER live prüfen.
+
+### Schritt 4: Charts generieren (PFLICHT bei Daten!)
+
+**Wenn das Repo numerische Daten hat (Pool-Stats, Modelle, Benchmarks, Metriken) —
+GENERIERE CHARTS mit `sin-code image-graph` und bette sie ein:**
+
+```bash
+# Pie chart für Pool-Status
+echo '{"title":"Pool Status","type":"pie","items":[{"label":"Available","value":41},{"label":"Suspended","value":431}]}' \
+  | sin-code image-graph --type pie --output assets/pool-status
+
+# Bar chart für Model-Vergleich
+echo '{"title":"Model Context","y_label":"Tokens","type":"bar","categories":["Model A","Model B"],"series":[{"name":"Context","values":[128,256]}]}' \
+  | sin-code image-graph --type bar --output assets/model-context
+
+# Line chart für Zeitreihen
+echo '{"title":"Latency","y_label":"ms","type":"line","categories":["12h","13h"],"series":[{"name":"Pool A","values":[50,45]}]}' \
+  | sin-code image-graph --type line --output assets/latency
+```
+
+**Einbettung in README:**
+```markdown
+<p align="center">
+  <img src="./assets/pool-status.png" alt="Pool Status" width="640" />
+</p>
+```
+
+**REGEL:** Jede README mit numerischen Daten MUSS mindestens 1 Chart enthalten.
+Charts werden in `assets/` gespeichert und mit relativem Pfad eingebettet.
+
+---
+
 ## SKILL-KOPPLUNG & INTEGRATION
 
 ```
