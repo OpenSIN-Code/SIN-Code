@@ -4,6 +4,9 @@ package autonomy
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -185,5 +188,134 @@ func TestWorktreeManagerAutoPrune(t *testing.T) {
 	}
 	if !found {
 		t.Error("expected old worktree to be pruned")
+	}
+}
+
+func newRealRepo(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = root
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+	run("init", "-q", "-b", "main")
+	run("config", "user.email", "test@example.com")
+	run("config", "user.name", "Test")
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("base"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "README")
+	run("commit", "-q", "-m", "init")
+	return root
+}
+
+func runGit(t *testing.T, root string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = root
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+	}
+}
+
+func TestWorktreeManagerPredictConflictsClean(t *testing.T) {
+	root := newRealRepo(t)
+
+	if err := os.WriteFile(filepath.Join(root, "new.txt"), []byte("main"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "add", "new.txt")
+	runGit(t, root, "commit", "-q", "-m", "main new")
+
+	runGit(t, root, "checkout", "-q", "-b", "feature", "HEAD~1")
+	if err := os.WriteFile(filepath.Join(root, "feature.txt"), []byte("feature"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "add", "feature.txt")
+	runGit(t, root, "commit", "-q", "-m", "feature")
+	runGit(t, root, "checkout", "-q", "main")
+
+	m := NewWorktreeManager(root)
+	r, err := m.PredictConflicts("feature", "main")
+	if err != nil {
+		t.Fatalf("PredictConflicts: %v", err)
+	}
+	if !r.Clean {
+		t.Fatalf("expected clean merge, got %+v", r)
+	}
+	if r.Tree == "" {
+		t.Fatal("expected a tree hash")
+	}
+}
+
+func TestWorktreeManagerPredictConflictsConflict(t *testing.T) {
+	root := newRealRepo(t)
+
+	runGit(t, root, "checkout", "-q", "-b", "feature")
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("feature"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "commit", "-q", "-am", "feature")
+
+	runGit(t, root, "checkout", "-q", "main")
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("main"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "commit", "-q", "-am", "main")
+
+	m := NewWorktreeManager(root)
+	r, err := m.PredictConflicts("feature", "main")
+	if err != nil {
+		t.Fatalf("PredictConflicts: %v", err)
+	}
+	if r.Clean {
+		t.Fatal("expected conflict")
+	}
+	if len(r.ConflictPaths) != 1 || r.ConflictPaths[0] != "README" {
+		t.Fatalf("unexpected conflict paths: %v", r.ConflictPaths)
+	}
+}
+
+func TestWorktreeManagerPredictConflictsUnknownTarget(t *testing.T) {
+	root := newRealRepo(t)
+	m := NewWorktreeManager(root)
+	_, err := m.PredictConflicts("feature", "missing")
+	if err == nil {
+		t.Fatal("expected error for unknown target branch")
+	}
+}
+
+func TestWorktreeManagerPredictConflictsWithSource(t *testing.T) {
+	root := newRealRepo(t)
+
+	runGit(t, root, "checkout", "-q", "-b", "worktree-foo")
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("wt"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "commit", "-q", "-am", "worktree")
+
+	runGit(t, root, "checkout", "-q", "main")
+	if err := os.WriteFile(filepath.Join(root, "README"), []byte("main"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, root, "commit", "-q", "-am", "main")
+
+	m := NewWorktreeManager(root)
+	r, err := m.PredictConflictsWithSource("worktree-foo", "main")
+	if err != nil {
+		t.Fatalf("PredictConflictsWithSource: %v", err)
+	}
+	if r.Clean {
+		t.Fatal("expected conflict")
+	}
+	if r.Source != "worktree-foo" {
+		t.Fatalf("expected source worktree-foo, got %q", r.Source)
+	}
+	if len(r.ConflictPaths) != 1 || r.ConflictPaths[0] != "README" {
+		t.Fatalf("unexpected conflict paths: %v", r.ConflictPaths)
 	}
 }

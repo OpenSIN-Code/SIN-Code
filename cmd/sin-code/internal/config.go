@@ -115,6 +115,9 @@ type SinCodeConfig struct {
 	AgentLoopFrustrationDetection bool `toml:"agentloop.frustration_detection"`
 	// Permission: YOLO risk threshold (issue #272).
 	PermissionYoloRiskThreshold string `toml:"permission.yolo_risk_threshold"`
+	// Worktree conflict prediction (issue #319).
+	WorktreeConflictCheck string `toml:"worktree.conflict_check"`
+	WorktreeTargetBranch  string `toml:"worktree.target_branch"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -165,6 +168,8 @@ func defaultConfig() SinCodeConfig {
 		OrchestratorPatternLearning:   false,
 		OrchestratorPreWarm:           false,
 		PermissionYoloRiskThreshold:   "",
+		WorktreeConflictCheck:         "off",
+		WorktreeTargetBranch:          "",
 	}
 }
 

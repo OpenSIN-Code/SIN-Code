@@ -95,6 +95,12 @@ type chatOptions struct {
 	// independently. Mirrors Claude Code's headless --from-pr
 	// rerun-on-checkpoint pattern.
 	rewind string
+	// targetBranch names the integration branch used for conflict
+	// prediction before creating a worktree (issue #319).
+	targetBranch string
+	// conflictCheck controls whether we predict merge conflicts with the
+	// target branch before creating a worktree: off, warn, abort.
+	conflictCheck string
 	// sandbox selects the syscall-filter backend used to wrap every
 	// `sin_bash` invocation in this chat session.
 	//   landlock    — Linux-only, kernel-level (default when on Linux)
@@ -134,6 +140,8 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --no-trigger             disable prompt-phrase activation
   sin-code chat --mode plan|acceptEdits|bypass  session-wide permission mode (issue #193)
   sin-code chat --worktree <name>        run inside a git worktree (issue #194 part 2)
+  sin-code chat --target-branch <name>   integration branch for worktree conflict prediction (issue #319)
+  sin-code chat --conflict-check <mode>  off|warn|abort — action on predicted worktree conflicts (issue #319)
   sin-code chat --rewind <checkpoint>    restore workspace to a checkpoint before running
   sin-code chat --sandbox <backend>      landlock|seatbelt|bubblewrap|none (issue #199)
   sin-code chat --autolevel              prompt-intent based permission auto-classifier (issue #198)
@@ -162,6 +170,8 @@ func NewChatCmd() *cobra.Command {
 	f.BoolVar(&opts.noTrigger, "no-trigger", false, "disable prompt-phrase activation (issue #176)")
 	f.StringVar(&opts.mode, "mode", "", "permission mode: default|plan|acceptEdits|bypass (issue #193)")
 	f.StringVar(&opts.worktree, "worktree", "", "run inside a fresh git worktree at .sin-code/worktrees/<name> (issue #194)")
+	f.StringVar(&opts.targetBranch, "target-branch", "", "integration branch for worktree conflict prediction (issue #319)")
+	f.StringVar(&opts.conflictCheck, "conflict-check", "", "conflict prediction before worktree: off|warn|abort (default from config)")
 	f.StringVar(&opts.rewind, "rewind", "", "restore workspace to the named checkpoint before the chat starts")
 	f.StringVar(&opts.sandbox, "sandbox", "", "sandbox backend: landlock|seatbelt|bubblewrap|none (default: platform-native)")
 	f.BoolVar(&opts.autolevel, "autolevel", false, "auto-classify permission mode from prompt intent (issue #198)")
@@ -240,6 +250,33 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	// running, and the JSON contract's `summary` includes the worktree
 	// path so headless consumers can pipe it for bookkeeping.
 	if opts.worktree != "" {
+		// Conflict prediction (issue #319): use the target branch from the
+		// CLI flag or project/user config, and the configured action mode.
+		checkMode := opts.conflictCheck
+		if checkMode == "" {
+			checkMode = sinCfg.WorktreeConflictCheck
+		}
+		targetBranch := opts.targetBranch
+		if targetBranch == "" {
+			targetBranch = sinCfg.WorktreeTargetBranch
+		}
+		if checkMode != "off" && targetBranch != "" {
+			report, perr := isolation.PredictWorktreeConflicts(workspace, opts.worktree, targetBranch)
+			if perr != nil {
+				return fmt.Errorf("chat: --worktree=%s conflict check: %w", opts.worktree, perr)
+			}
+			if !report.Clean {
+				switch checkMode {
+				case "abort":
+					return fmt.Errorf("chat: --worktree=%s: predicted conflicts with %s: %s; aborting",
+						opts.worktree, targetBranch, strings.Join(report.ConflictPaths, ", "))
+				case "warn":
+					fmt.Fprintf(chatStderr, "sin-code chat: predicted conflicts with %s: %s\n",
+						targetBranch, strings.Join(report.ConflictPaths, ", "))
+				}
+			}
+		}
+
 		wt, werr := isolation.Create(workspace, opts.worktree)
 		if werr != nil {
 			return fmt.Errorf("chat: --worktree=%s: %w", opts.worktree, werr)

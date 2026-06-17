@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/isolation"
 )
 
 // WorktreeInfo describes a single worktree from the manager's perspective.
@@ -136,6 +138,30 @@ func (m *WorktreeManager) Create(branch string) (string, error) {
 		return "", fmt.Errorf("worktree_mgr: create: %s: %w", strings.TrimSpace(out), err)
 	}
 	return path, nil
+}
+
+// PredictConflicts predicts whether the branch `branch` can be cleanly
+// merged with `target` using `git merge-tree`. It returns an isolation
+// ConflictReport; non-conflict git failures are returned as errors.
+func (m *WorktreeManager) PredictConflicts(branch, target string) (isolation.ConflictReport, error) {
+	if branch == "" || target == "" {
+		return isolation.ConflictReport{}, fmt.Errorf("worktree_mgr: branch and target required")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return isolation.PredictConflicts(m.root, target, branch)
+}
+
+// PredictConflictsWithSource is the same as PredictConflicts but allows the
+// caller to name the exact source ref (for example an existing
+// `worktree-<name>` branch). The target is the integration branch.
+func (m *WorktreeManager) PredictConflictsWithSource(source, target string) (isolation.ConflictReport, error) {
+	if source == "" || target == "" {
+		return isolation.ConflictReport{}, fmt.Errorf("worktree_mgr: source and target required")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return isolation.PredictConflicts(m.root, target, source)
 }
 
 // Merge merges the given branch back into the current branch of the
