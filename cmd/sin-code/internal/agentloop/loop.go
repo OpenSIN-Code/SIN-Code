@@ -303,7 +303,11 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 		}
 		return "TOOL ERROR: " + err.Error(), injects
 	}
-	post := l.fire(ctx, hooks.ToolPost, tc.Name, map[string]any{"output_bytes": len(res)})
+	postData := map[string]any{"output_bytes": len(res)}
+	if p := mutatedPath(tc); p != "" {
+		postData["path"] = p
+	}
+	post := l.fire(ctx, hooks.ToolPost, tc.Name, postData)
 	injects = append(injects, post.PromptInjects...)
 	l.record(ctx, ledger.TypeToolCall, map[string]any{"tool": tc.Name}, "tool call: "+tc.Name)
 	l.recordUsage(ctx, tc.Name, ledger.OutcomeOK)

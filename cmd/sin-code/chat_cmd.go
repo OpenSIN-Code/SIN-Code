@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
@@ -408,15 +409,34 @@ func loadHooks(workspace string) []hooks.Hook {
 	paths := []string{}
 	if cfg, err := os.UserConfigDir(); err == nil {
 		paths = append(paths, filepath.Join(cfg, "sin-code", "hooks.json"))
+		paths = append(paths, filepath.Join(cfg, "sin-code", "hooks.yaml"))
+		paths = append(paths, filepath.Join(cfg, "sin-code", "hooks.yml"))
 	}
 	paths = append(paths, filepath.Join(workspace, ".sin-code", "hooks.json"))
+	paths = append(paths, filepath.Join(workspace, ".sin-code", "hooks.yaml"))
+	paths = append(paths, filepath.Join(workspace, ".sin-code", "hooks.yml"))
 	for _, p := range paths {
 		data, err := os.ReadFile(p)
 		if err != nil {
 			continue
 		}
 		var hs []hooks.Hook
-		if err := json.Unmarshal(data, &hs); err != nil {
+		if strings.HasSuffix(p, ".json") {
+			err = json.Unmarshal(data, &hs)
+		} else {
+			// YAML may be a top-level list or wrapped under `hooks:`.
+			var list []hooks.Hook
+			if yerr := yaml.Unmarshal(data, &list); yerr == nil {
+				hs = list
+			} else {
+				var wrapped struct {
+					Hooks []hooks.Hook `yaml:"hooks"`
+				}
+				err = yaml.Unmarshal(data, &wrapped)
+				hs = wrapped.Hooks
+			}
+		}
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "warn: skipping invalid hooks file %s: %v\n", p, err)
 			continue
 		}

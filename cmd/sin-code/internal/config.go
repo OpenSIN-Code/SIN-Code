@@ -60,6 +60,11 @@ type SinCodeConfig struct {
 	ToolsDeny              []string `toml:"permissions.tools_deny"`
 	PathsMCPConfig         string   `toml:"paths.mcp_config"`
 	PathsSkillsDir         string   `toml:"paths.skills_dir"`
+	// Test-First Verify-Loop thresholds (RFC-test-automation.md).
+	TestCoverageThreshold float64 `toml:"test.coverage_threshold"`
+	TestMutationThreshold float64 `toml:"test.mutation_threshold"`
+	TestAutoGenerate      bool    `toml:"test.auto_generate"`
+	TestTimeoutSeconds    int     `toml:"test.timeout_seconds"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -84,6 +89,10 @@ func defaultConfig() SinCodeConfig {
 		ToolsDeny:                []string{},
 		PathsMCPConfig:           filepath.Join("~", ".sin-code", "mcp.json"),
 		PathsSkillsDir:           "",
+		TestCoverageThreshold:    0.0,
+		TestMutationThreshold:    0.0,
+		TestAutoGenerate:         false,
+		TestTimeoutSeconds:       300,
 	}
 }
 
@@ -407,13 +416,23 @@ permissions.tools_deny = %q
 
 paths.mcp_config = %q
 paths.skills_dir = %q
+
+# Test-First Verify-Loop defaults (RFC-test-automation.md).
+# coverage_threshold: minimum coverage percent for sin_quality_gate (0 = disabled)
+# mutation_threshold: minimum mutation score for sin_mutation (0 = disabled)
+# auto_generate: run sin_test_generate after every sin_write/sin_edit to .go files
+test.coverage_threshold = %v
+test.mutation_threshold = %v
+test.auto_generate = %v
+test.timeout_seconds = %d
 `, cfg.Theme, cfg.DefaultTimeout, cfg.DefaultFormat, cfg.MCPServerEnabled,
 		cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMMaxTokens, cfg.LLMTemperature,
 		cfg.LLMStyle,
 		cfg.AgentVerifyMode, cfg.AgentMaxTurns, cfg.AgentHeadless, cfg.AgentYolo,
 		strings.Join(cfg.AgentLoopRequiredTools, ","), strings.Join(cfg.AgentLoopForbiddenTools, ","),
 		strings.Join(cfg.ToolsAllow, ","), strings.Join(cfg.ToolsDeny, ","),
-		cfg.PathsMCPConfig, cfg.PathsSkillsDir)
+		cfg.PathsMCPConfig, cfg.PathsSkillsDir,
+		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds)
 }
 
 func initConfig() error {
@@ -485,6 +504,14 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return cfg.PathsMCPConfig, nil
 	case "paths.skills_dir":
 		return cfg.PathsSkillsDir, nil
+	case "test.coverage_threshold":
+		return fmt.Sprintf("%v", cfg.TestCoverageThreshold), nil
+	case "test.mutation_threshold":
+		return fmt.Sprintf("%v", cfg.TestMutationThreshold), nil
+	case "test.auto_generate":
+		return fmt.Sprintf("%v", cfg.TestAutoGenerate), nil
+	case "test.timeout_seconds":
+		return fmt.Sprintf("%d", cfg.TestTimeoutSeconds), nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -571,6 +598,26 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.PathsMCPConfig = value
 	case "paths.skills_dir":
 		cfg.PathsSkillsDir = value
+	case "test.coverage_threshold":
+		v, err := strconv.ParseFloat(value, 64)
+		if err != nil || v < 0 || v > 100 {
+			return fmt.Errorf("test.coverage_threshold must be a percent between 0 and 100, got %q", value)
+		}
+		cfg.TestCoverageThreshold = v
+	case "test.mutation_threshold":
+		v, err := strconv.ParseFloat(value, 64)
+		if err != nil || v < 0 || v > 100 {
+			return fmt.Errorf("test.mutation_threshold must be a percent between 0 and 100, got %q", value)
+		}
+		cfg.TestMutationThreshold = v
+	case "test.auto_generate":
+		cfg.TestAutoGenerate = value == "true" || value == "1"
+	case "test.timeout_seconds":
+		v, err := strconv.Atoi(value)
+		if err != nil || v <= 0 {
+			return fmt.Errorf("test.timeout_seconds must be a positive integer, got %q", value)
+		}
+		cfg.TestTimeoutSeconds = v
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}
@@ -604,6 +651,10 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"permissions.tools_deny", strings.Join(cfg.ToolsDeny, ",")},
 		{"paths.mcp_config", cfg.PathsMCPConfig},
 		{"paths.skills_dir", cfg.PathsSkillsDir},
+		{"test.coverage_threshold", fmt.Sprintf("%v", cfg.TestCoverageThreshold)},
+		{"test.mutation_threshold", fmt.Sprintf("%v", cfg.TestMutationThreshold)},
+		{"test.auto_generate", fmt.Sprintf("%v", cfg.TestAutoGenerate)},
+		{"test.timeout_seconds", fmt.Sprintf("%d", cfg.TestTimeoutSeconds)},
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Key < pairs[j].Key })
 	return pairs
@@ -725,6 +776,15 @@ func validateConfig(cfg SinCodeConfig) []string {
 	if cfg.AgentMaxTurns <= 0 {
 		issues = append(issues, fmt.Sprintf("agent.max_turns must be > 0, got %d", cfg.AgentMaxTurns))
 	}
+	if cfg.TestCoverageThreshold < 0 || cfg.TestCoverageThreshold > 100 {
+		issues = append(issues, fmt.Sprintf("test.coverage_threshold must be 0..100, got %v", cfg.TestCoverageThreshold))
+	}
+	if cfg.TestMutationThreshold < 0 || cfg.TestMutationThreshold > 100 {
+		issues = append(issues, fmt.Sprintf("test.mutation_threshold must be 0..100, got %v", cfg.TestMutationThreshold))
+	}
+	if cfg.TestTimeoutSeconds <= 0 {
+		issues = append(issues, fmt.Sprintf("test.timeout_seconds must be > 0, got %d", cfg.TestTimeoutSeconds))
+	}
 	return issues
 }
 
@@ -776,6 +836,16 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.PathsMCPConfig = val
 		case "paths.skills_dir":
 			cfg.PathsSkillsDir = val
+		case "test.coverage_threshold":
+			v, _ := strconv.ParseFloat(val, 64)
+			cfg.TestCoverageThreshold = v
+		case "test.mutation_threshold":
+			v, _ := strconv.ParseFloat(val, 64)
+			cfg.TestMutationThreshold = v
+		case "test.auto_generate":
+			cfg.TestAutoGenerate = val == "true"
+		case "test.timeout_seconds":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.TestTimeoutSeconds)
 		}
 	}
 }

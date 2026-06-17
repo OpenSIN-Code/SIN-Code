@@ -515,6 +515,36 @@ Compress snapshots: `~/.local/share/sin-code/compress-snapshots/<plan-id>.json`
 snapshot is content-addressed (Plan.ID is `plan-<sha256-prefix>`) and is
 the rollback artifact for `sin-code compress rollback <id>` (issue #172).
 
+### Test-First Verify-Loop (RFC-test-automation.md)
+
+Chat tools that close the loop from code written to tests verified:
+
+| Tool | Policy | Purpose |
+|---|---|---|
+| `sin_test` | allow | Run tests with `-race`, `-cover`, structured JSON output. |
+| `sin_test_generate` | ask | Generate table-driven Go tests (mutating — writes files). |
+| `sin_quality_gate` | allow | Pipeline: `build` → `vet` → `test` → optional `staticcheck`/`gosec`/`govulncheck`. |
+| `sin_mutation` | allow | Wrap `gremlins unleash` if present on PATH. |
+| `sin_fuzz` | allow | Run `go test -fuzz` targets. |
+| `sin_property` | allow | Run property-based tests (`rapid` / `testing/quick`). |
+
+Auto-generation: `sin_write`/`sin_edit` automatically invoke `sin_test_generate`
+when `SIN_AUTO_GENERATE_TESTS=1` is set or `test.auto_generate = true` is
+configured. The default is off for performance/privacy.
+
+**Config keys:**
+
+| Config key | Type | Default | Used by |
+|---|---|---|---|
+| `test.coverage_threshold` | float (0–100) | `0` | `sin_quality_gate` default |
+| `test.mutation_threshold` | float (0–100) | `0` | `sin_mutation` default |
+| `test.auto_generate` | bool | `false` | Auto-trigger `sin_test_generate` on writes |
+| `test.timeout_seconds` | int | `300` | Default timeout for test tools |
+
+Hook payload: `tool.post` events for `sin_write`/`sin_edit` now include the
+edited file path in `data.path` and expose it as `$SIN_HOOK_DATA_PATH` to
+command hooks.
+
 ### Verbosity / compression mode (issue #167)
 
 | Config key | Allowed values | Default |
@@ -575,6 +605,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.18.0 | ✅ SHIPPED | `sin-code install` single-binary installer (issue #170), curl/bash + PowerShell shims, SHA256-verified release downloads |
 | v3.19.0 | ACTIVE | `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format (`delete`, `stdlib`, `native`, `yagni`, `shrink`), `// sin-debt:` marker support (issue #177), text/json/markdown output, race-clean tests |
 | v3.20.0 | ✅ SHIPPED | Tool coverage, M6 enforcement, catalog, telemetry (issues #249, #253, #248, #250, #252, #251): agent profiles expose full `sin_*` + MCP prefix surface; system prompt injects SIN-tool preference fragment; runtime `ToolCoverageEnforcer` rejects missing/forbidden tool usage; `ledger tools` heatmap/coverage/unused; orchestrator planner emits mandatory `ToolChain` per intent; `sin-code catalog` unifies 46+ MCP tools, 17+ chat tools, and 14+ external MCP prefixes. |
+| v3.21.0 | ✅ SHIPPED | Test-First Verify-Loop (RFC-test-automation.md): `sin_test` + `sin_test_generate` + `sin_quality_gate` + `sin_mutation` + `sin_fuzz` + `sin_property`; `tool.post` hook payload path; `test.*` config keys; `evals/test-generation.json` golden dataset. |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.

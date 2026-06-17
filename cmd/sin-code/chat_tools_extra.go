@@ -21,10 +21,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/chromedp/chromedp"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgen"
 	"github.com/OpenSIN-Code/SIN-Code/pkg/browser/cdp"
@@ -35,6 +37,21 @@ const (
 	gitTimeout   = 30 * time.Second
 	testTimeout  = 5 * time.Minute
 )
+
+var testConfigCache struct {
+	once sync.Once
+	cfg  internal.SinCodeConfig
+	err  error
+}
+
+// testConfig returns the merged sin-code config, loading it once. Errors
+// degrade to the zero value so tools still work without a config file.
+func testConfig() internal.SinCodeConfig {
+	testConfigCache.once.Do(func() {
+		testConfigCache.cfg, testConfigCache.err = internal.LoadMergedConfig()
+	})
+	return testConfigCache.cfg
+}
 
 // extraSpecs is appended to builtinSpecs() in chat_tools.go.
 func extraSpecs() []agentloopToolSpecAlias {
@@ -73,6 +90,26 @@ func extraSpecs() []agentloopToolSpecAlias {
 				"json":      str("emit structured JSON instead of plain text (default false)"),
 				"steps":     str("comma-separated steps to run (default all: build,vet,test,staticcheck,gosec,govulncheck)"),
 				"race":      str("run go test with -race (default true)"),
+			})},
+		{Name: "sin_mutation", Description: "Run mutation testing with gremlins if available on PATH. Returns a structured report with mutation score. Set json=true for machine-readable output.",
+			InputSchema: obj(map[string]any{
+				"threshold": str("minimum mutation score percent required (default 0 = disabled)"),
+				"package":   str("package pattern to mutate (default ./...)"),
+				"timeout":   str("timeout, e.g. 10m (default 10m)"),
+				"json":      str("emit structured JSON instead of plain text (default false)"),
+			})},
+		{Name: "sin_fuzz", Description: "Run native Go fuzz targets for a package or file. Returns a structured report with fuzzing results.",
+			InputSchema: obj(map[string]any{
+				"package":   str("package pattern containing fuzz targets (default ./...)"),
+				"duration":  str("fuzz duration, e.g. 30s (default 30s)"),
+				"timeout":   str("overall timeout, e.g. 5m (default 5m)"),
+				"json":      str("emit structured JSON instead of plain text (default false)"),
+			})},
+		{Name: "sin_property", Description: "Run property-based tests via rapid or testing/quick if available. Returns a structured report.",
+			InputSchema: obj(map[string]any{
+				"package":   str("package pattern containing property tests (default ./...)"),
+				"timeout":   str("timeout, e.g. 5m (default 5m)"),
+				"json":      str("emit structured JSON instead of plain text (default false)"),
 			})},
 		// Browser CDP tools — headless Chrome via Chrome DevTools Protocol.
 		// sin_browser_navigate starts a fresh recording session; subsequent
@@ -132,6 +169,12 @@ func extraTool(ctx context.Context, name string, args map[string]any) (string, e
 		return toolTestGenerate(ctx, args)
 	case "sin_quality_gate":
 		return toolQualityGate(ctx, args)
+	case "sin_mutation":
+		return toolMutation(ctx, args)
+	case "sin_fuzz":
+		return toolFuzz(ctx, args)
+	case "sin_property":
+		return toolProperty(ctx, args)
 	case "sin_browser_navigate":
 		return toolBrowserNavigate(ctx, argStr(args, "url"), argStr(args, "step"), argStr(args, "wait_sec"), argStr(args, "save_baseline"))
 	case "sin_browser_findings":
@@ -298,7 +341,7 @@ func toolTestGenerate(ctx context.Context, args map[string]any) (string, error) 
 
 func toolQualityGate(ctx context.Context, args map[string]any) (string, error) {
 	covStr := argStr(args, "coverage")
-	var threshold float64
+	threshold := testConfig().TestCoverageThreshold
 	if covStr != "" {
 		v, err := strconv.ParseFloat(covStr, 64)
 		if err != nil {
@@ -360,6 +403,186 @@ func toolQualityGate(ctx context.Context, args map[string]any) (string, error) {
 		}
 	}
 	return sb.String(), nil
+}
+
+func toolMutation(ctx context.Context, args map[string]any) (string, error) {
+	pkg := argStr(args, "package")
+	if pkg == "" {
+		pkg = "./..."
+	}
+	thresholdStr := argStr(args, "threshold")
+	threshold := testConfig().TestMutationThreshold
+	if thresholdStr != "" {
+		v, err := strconv.ParseFloat(thresholdStr, 64)
+		if err != nil {
+			return "", fmt.Errorf("sin_mutation: invalid threshold %q", thresholdStr)
+		}
+		threshold = v
+	}
+	timeout := argStr(args, "timeout")
+	if timeout == "" {
+		timeout = "10m"
+	}
+	dur, err := time.ParseDuration(timeout)
+	if err != nil {
+		return "", fmt.Errorf("sin_mutation: invalid timeout %q", timeout)
+	}
+
+	if _, err := exec.LookPath("gremlins"); err != nil {
+		return "", fmt.Errorf("sin_mutation: gremlins not found on PATH; install from https://github.com/go-gremlins/gremlins")
+	}
+
+	cctx, cancel := context.WithTimeout(ctx, dur)
+	defer cancel()
+
+	cmdArgs := []string{"unleash", "--test-cpu=1", pkg}
+	if threshold > 0 {
+		cmdArgs = append(cmdArgs, fmt.Sprintf("--threshold=%.2f", threshold))
+	}
+	cmd := exec.CommandContext(cctx, "gremlins", cmdArgs...)
+	out, err := cmd.CombinedOutput()
+	text := string(out)
+	if len(text) > maxToolOutput {
+		text = text[:maxToolOutput] + "\n[... truncated]"
+	}
+	passed := err == nil
+	score := extractMutationScore(text)
+
+	jsonOut := argBool(args, "json", false)
+	if jsonOut {
+		report := map[string]any{
+			"status":    "PASS",
+			"package":   pkg,
+			"threshold": threshold,
+			"score":     score,
+			"output":    text,
+		}
+		if !passed {
+			report["status"] = "FAIL"
+		}
+		b, _ := json.MarshalIndent(report, "", "  ")
+		return string(b), nil
+	}
+
+	status := "PASS"
+	if !passed {
+		status = "FAIL"
+	}
+	return fmt.Sprintf("MUTATION %s (score=%.2f%% threshold=%.2f%%)\n%s", status, score, threshold, text), nil
+}
+
+func extractMutationScore(out string) float64 {
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, "Mutation Score") || strings.Contains(line, "score") {
+			for _, field := range strings.Fields(line) {
+				field = strings.TrimSuffix(strings.TrimSuffix(field, "%"), ".")
+				if v, err := strconv.ParseFloat(field, 64); err == nil && v >= 0 && v <= 100 {
+					return v
+				}
+			}
+		}
+	}
+	return 0
+}
+
+func toolFuzz(ctx context.Context, args map[string]any) (string, error) {
+	pkg := argStr(args, "package")
+	if pkg == "" {
+		pkg = "./..."
+	}
+	duration := argStr(args, "duration")
+	if duration == "" {
+		duration = "30s"
+	}
+	if _, err := time.ParseDuration(duration); err != nil {
+		return "", fmt.Errorf("sin_fuzz: invalid duration %q", duration)
+	}
+	timeout := argStr(args, "timeout")
+	if timeout == "" {
+		timeout = "5m"
+	}
+	dur, err := time.ParseDuration(timeout)
+	if err != nil {
+		return "", fmt.Errorf("sin_fuzz: invalid timeout %q", timeout)
+	}
+
+	cctx, cancel := context.WithTimeout(ctx, dur)
+	defer cancel()
+
+	cmd := exec.CommandContext(cctx, "go", "test", pkg, "-run=^$", fmt.Sprintf("-fuzz=Fuzz.*"), fmt.Sprintf("-fuzztime=%s", duration))
+	out, err := cmd.CombinedOutput()
+	text := string(out)
+	if len(text) > maxToolOutput {
+		text = text[:maxToolOutput] + "\n[... truncated]"
+	}
+	passed := err == nil
+
+	jsonOut := argBool(args, "json", false)
+	if jsonOut {
+		report := map[string]any{
+			"status":   "PASS",
+			"package":  pkg,
+			"duration": duration,
+			"output":   text,
+		}
+		if !passed {
+			report["status"] = "FAIL"
+		}
+		b, _ := json.MarshalIndent(report, "", "  ")
+		return string(b), nil
+	}
+
+	status := "PASS"
+	if !passed {
+		status = "FAIL"
+	}
+	return fmt.Sprintf("FUZZ %s\n%s", status, text), nil
+}
+
+func toolProperty(ctx context.Context, args map[string]any) (string, error) {
+	pkg := argStr(args, "package")
+	if pkg == "" {
+		pkg = "./..."
+	}
+	timeout := argStr(args, "timeout")
+	if timeout == "" {
+		timeout = "5m"
+	}
+	dur, err := time.ParseDuration(timeout)
+	if err != nil {
+		return "", fmt.Errorf("sin_property: invalid timeout %q", timeout)
+	}
+
+	cctx, cancel := context.WithTimeout(ctx, dur)
+	defer cancel()
+
+	cmd := exec.CommandContext(cctx, "go", "test", pkg, "-run=TestProperty|TestRapid|TestQuick", "-count=1")
+	out, err := cmd.CombinedOutput()
+	text := string(out)
+	if len(text) > maxToolOutput {
+		text = text[:maxToolOutput] + "\n[... truncated]"
+	}
+	passed := err == nil
+
+	jsonOut := argBool(args, "json", false)
+	if jsonOut {
+		report := map[string]any{
+			"status":  "PASS",
+			"package": pkg,
+			"output":  text,
+		}
+		if !passed {
+			report["status"] = "FAIL"
+		}
+		b, _ := json.MarshalIndent(report, "", "  ")
+		return string(b), nil
+	}
+
+	status := "PASS"
+	if !passed {
+		status = "FAIL"
+	}
+	return fmt.Sprintf("PROPERTY %s\n%s", status, text), nil
 }
 
 // extractCoverage tries to pull the total coverage line from `go test -cover` output.
@@ -609,14 +832,22 @@ func toolBrowserDiff(windowStr string) (string, error) {
 
 // autoGenerateTests enables the Phase 2 tool.post behaviour: after
 // sin_write/sin_edit touch a .go file, sin_test_generate is invoked
-// automatically. Default off for performance/privacy.
+// automatically. Default off for performance/privacy; can be overridden by
+// SIN_AUTO_GENERATE_TESTS=1 or test.auto_generate=true in config.
 var autoGenerateTests = os.Getenv("SIN_AUTO_GENERATE_TESTS") == "1"
+
+func autoGenerateEnabled() bool {
+	if autoGenerateTests {
+		return true
+	}
+	return testConfig().TestAutoGenerate
+}
 
 // maybeGenerateTest runs sin_test_generate for a freshly edited .go file
 // when auto-generation is enabled. It returns a short human-readable note
 // that is appended to the tool result.
 func maybeGenerateTest(path string) string {
-	if !autoGenerateTests || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+	if !autoGenerateEnabled() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 		return ""
 	}
 	res := testgen.Generate(context.Background(), testgen.Options{File: path, Timeout: 30 * time.Second})

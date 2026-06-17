@@ -1,0 +1,67 @@
+{
+  "name": "Test Generation Golden Dataset",
+  "version": "1.0.0",
+  "description": "Evaluates the agent's ability to generate and run Go tests using sin_test_generate and sin_test (issue #75 / RFC-test-automation).",
+  "test_cases": [
+    {
+      "id": "generate_test_for_add",
+      "prompt": "There is a Go file calc.go with package calc and a function Add(a, b int) int. Use sin_test_generate to generate tests for it, then run sin_test to verify the tests pass.",
+      "description": "Smoke test for sin_test_generate + sin_test workflow.",
+      "tags": ["test-generation", "go"],
+      "constraints": {
+        "max_turns": 6,
+        "require_verify": false,
+        "timeout": "120s",
+        "must_use_tools": ["sin_test_generate", "sin_test"]
+      },
+      "expected": {
+        "output_contains": ["test_passed", "PASS"],
+        "min_quality": 0.8
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "workflow"
+      }
+    },
+    {
+      "id": "generate_test_with_existing_file",
+      "prompt": "A file reverse.go contains package reverse with func Reverse(s string) string. The test file reverse_test.go does not exist yet. Generate tests with sin_test_generate and run them.",
+      "description": "Tests generation of a previously untested file.",
+      "tags": ["test-generation", "go"],
+      "constraints": {
+        "max_turns": 6,
+        "require_verify": false,
+        "timeout": "120s",
+        "must_use_tools": ["sin_test_generate", "sin_test"]
+      },
+      "expected": {
+        "output_contains": ["test_passed", "PASS"],
+        "min_quality": 0.8
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "workflow"
+      }
+    },
+    {
+      "id": "quality_gate_passes",
+      "prompt": "Run the quality gate with sin_quality_gate on the current workspace and ensure it returns PASS.",
+      "description": "Verifies the sin_quality_gate tool can run successfully.",
+      "tags": ["quality-gate", "go"],
+      "constraints": {
+        "max_turns": 4,
+        "require_verify": false,
+        "timeout": "120s",
+        "must_use_tools": ["sin_quality_gate"]
+      },
+      "expected": {
+        "output_contains": ["\"status\": \"PASS\"", "PASS"],
+        "min_quality": 0.8
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "tool"
+      }
+    }
+  ]
+}

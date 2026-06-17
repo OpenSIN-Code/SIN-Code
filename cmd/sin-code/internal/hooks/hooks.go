@@ -172,8 +172,12 @@ func (e *Engine) fireCommand(ctx context.Context, h Hook, p Payload) (blocked bo
 	cmd.Dir = p.Workspace
 	cmd.Env = append(os.Environ(),
 		"SIN_HOOK_EVENT="+p.Event,
+		"SIN_HOOK_TOOL_NAME="+p.Name,
 		"SIN_SESSION_ID="+p.SessionID,
 	)
+	if path, ok := p.Data["path"].(string); ok {
+		cmd.Env = append(cmd.Env, "SIN_HOOK_DATA_PATH="+path)
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 

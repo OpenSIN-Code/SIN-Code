@@ -1214,3 +1214,56 @@ func TestConfig_ToolCoverageRoundtrip(t *testing.T) {
 		t.Errorf("parsed forbidden_tools: %v", parsed.AgentLoopForbiddenTools)
 	}
 }
+
+func TestConfig_TestThresholdRoundtrip(t *testing.T) {
+	cfg := defaultConfig()
+	if err := setConfigValueIn("test.coverage_threshold", "80", &cfg); err != nil {
+		t.Fatalf("set coverage threshold: %v", err)
+	}
+	if err := setConfigValueIn("test.mutation_threshold", "50", &cfg); err != nil {
+		t.Fatalf("set mutation threshold: %v", err)
+	}
+	if err := setConfigValueIn("test.auto_generate", "true", &cfg); err != nil {
+		t.Fatalf("set auto_generate: %v", err)
+	}
+	if err := setConfigValueIn("test.timeout_seconds", "600", &cfg); err != nil {
+		t.Fatalf("set timeout_seconds: %v", err)
+	}
+
+	if got, _ := getConfigValueFrom("test.coverage_threshold", cfg); got != "80" {
+		t.Errorf("coverage threshold get: %q", got)
+	}
+	if got, _ := getConfigValueFrom("test.mutation_threshold", cfg); got != "50" {
+		t.Errorf("mutation threshold get: %q", got)
+	}
+	if got, _ := getConfigValueFrom("test.auto_generate", cfg); got != "true" {
+		t.Errorf("auto_generate get: %q", got)
+	}
+	if got, _ := getConfigValueFrom("test.timeout_seconds", cfg); got != "600" {
+		t.Errorf("timeout_seconds get: %q", got)
+	}
+
+	pairs := configPairs(cfg, true)
+	var found int
+	for _, p := range pairs {
+		switch p.Key {
+		case "test.coverage_threshold", "test.mutation_threshold", "test.auto_generate", "test.timeout_seconds":
+			found++
+		}
+	}
+	if found != 4 {
+		t.Errorf("expected 4 test config pairs, found %d", found)
+	}
+}
+
+func TestConfig_TestThresholdValidation(t *testing.T) {
+	if err := setConfigValueIn("test.coverage_threshold", "101", &SinCodeConfig{}); err == nil {
+		t.Error("expected error for coverage threshold > 100")
+	}
+	if err := setConfigValueIn("test.mutation_threshold", "-1", &SinCodeConfig{}); err == nil {
+		t.Error("expected error for negative mutation threshold")
+	}
+	if err := setConfigValueIn("test.timeout_seconds", "0", &SinCodeConfig{}); err == nil {
+		t.Error("expected error for timeout_seconds <= 0")
+	}
+}

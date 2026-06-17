@@ -4,10 +4,13 @@ package agentloop
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 )
@@ -159,6 +162,62 @@ func TestRun_ToolCallRoundTrip(t *testing.T) {
 	}
 	if res.Turns != 2 {
 		t.Fatalf("turns want 2, got %d", res.Turns)
+	}
+}
+
+func TestRun_ToolPostPayloadPath(t *testing.T) {
+	s := setupSession(t)
+	gate := verify.NewGate("poc",
+		func(ctx context.Context, ws string) (bool, string, error) { return true, "ok", nil },
+		nil)
+
+	captureFile := filepath.Join(t.TempDir(), "payload.json")
+	hookEngine := hooks.New([]hooks.Hook{
+		{Event: "tool.post", Matcher: "sin_write", Type: "command",
+			Command: "cat > " + captureFile},
+	})
+
+	toolCalls := 0
+	loop := &Loop{
+		Gate:      gate,
+		Workspace: "/tmp",
+		Hooks:     hookEngine,
+		LocalTool: func(ctx context.Context, name string, args map[string]any) (string, error) {
+			toolCalls++
+			return "ok", nil
+		},
+		Completion: func(ctx context.Context, msgs []session.Message, tools []ToolSpec) (*Completion, error) {
+			if toolCalls == 0 {
+				return &Completion{
+					Text: "",
+					ToolCalls: []ToolCall{{
+						ID:   "t1",
+						Name: "sin_write",
+						Args: map[string]any{"path": "foo/bar.go"},
+					}},
+					Raw: session.Message{Role: "assistant", Content: ""},
+				}, nil
+			}
+			return &Completion{Text: "done", Raw: session.Message{Role: "assistant", Content: "done"}}, nil
+		},
+	}
+	if _, err := loop.Run(context.Background(), s, "x"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(captureFile)
+	if err != nil {
+		t.Fatalf("capture file not written: %v", err)
+	}
+	var payload hooks.Payload
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatalf("invalid payload JSON: %v", err)
+	}
+	if payload.Name != "sin_write" {
+		t.Fatalf("expected sin_write payload, got %q", payload.Name)
+	}
+	path, ok := payload.Data["path"].(string)
+	if !ok || path != "foo/bar.go" {
+		t.Fatalf("expected path=foo/bar.go in payload, got %v", payload.Data)
 	}
 }
 

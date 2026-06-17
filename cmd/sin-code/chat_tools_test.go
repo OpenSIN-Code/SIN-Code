@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -217,5 +218,82 @@ func TestToolQualityGate(t *testing.T) {
 	}
 	if !strings.Contains(out, "\"name\": \"test\"") {
 		t.Fatalf("expected test step in output, got: %s", out)
+	}
+}
+
+func TestToolMutationMissingGremlins(t *testing.T) {
+	if _, err := exec.LookPath("gremlins"); err == nil {
+		t.Skip("gremlins is on PATH; skipping missing-tool test")
+	}
+	_, err := toolMutation(context.Background(), map[string]any{
+		"package":   "./...",
+		"threshold": "50",
+		"timeout":   "5s",
+	})
+	if err == nil || !strings.Contains(err.Error(), "gremlins not found") {
+		t.Fatalf("expected gremlins not found error, got: %v", err)
+	}
+}
+
+func TestToolFuzzNoFuzzTargets(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/fuzz\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "lib.go"), []byte("package fuzz\n\nfunc Identity(x int) int { return x }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origDir)
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := toolFuzz(context.Background(), map[string]any{
+		"package":  ".",
+		"duration": "1s",
+		"timeout":  "10s",
+		"json":     "true",
+	})
+	if err != nil {
+		t.Fatalf("toolFuzz: %v", err)
+	}
+	if !strings.Contains(out, "\"status\":") {
+		t.Fatalf("expected status in output, got: %s", out)
+	}
+}
+
+func TestToolPropertyNoTests(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/prop\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "lib.go"), []byte("package prop\n\nfunc Identity(x int) int { return x }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(origDir)
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := toolProperty(context.Background(), map[string]any{
+		"package": ".",
+		"timeout": "10s",
+		"json":    "true",
+	})
+	if err != nil {
+		t.Fatalf("toolProperty: %v", err)
+	}
+	if !strings.Contains(out, "\"status\":") {
+		t.Fatalf("expected status in output, got: %s", out)
 	}
 }

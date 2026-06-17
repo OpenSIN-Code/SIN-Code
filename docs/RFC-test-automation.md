@@ -122,9 +122,9 @@ cmd/sin-code/internal/testgate/
 | `sin_test` | Extend | Run tests with `-race`, `-cover`, `-count=1`, `-timeout`, and emit structured JSON. |
 | `sin_test_generate` | New | Generate table-driven Go tests for a file or package. Uses `gotests` if available; otherwise pure-stdlib scaffolding. Optional LLM fills in test cases. |
 | `sin_quality_gate` | ✅ Implemented | Pipeline: build → test → vet → staticcheck → gosec → govulncheck → coverage threshold. |
-| `sin_mutation` | Future | Wrap `gremlins unleash` and enforce mutation score threshold. |
-| `sin_fuzz` | Future | Generate / run `go test -fuzz` targets. |
-| `sin_property` | Future | Generate property-based tests via `rapid` or `testing/quick`. |
+| `sin_mutation` | ✅ Implemented | Wrap `gremlins unleash` and enforce mutation score threshold. |
+| `sin_fuzz` | ✅ Implemented | Generate / run `go test -fuzz` targets. |
+| `sin_property` | ✅ Implemented | Generate property-based tests via `rapid` or `testing/quick`. |
 
 ---
 
@@ -275,24 +275,24 @@ This is already possible; the RFC standardises the JSON schema.
 - [ ] Add integration testscript for `sin_test` and `sin_test_generate`.
 - [ ] Update `AGENTS.md` if behaviour changes.
 
-### Phase 2 — Hook Automation (in progress)
+### Phase 2 — Hook Automation (completed)
 
 - [x] Add `tool.post` auto-trigger for `sin_write`/`sin_edit` (via `SIN_AUTO_GENERATE_TESTS=1`).
 - [x] Implement `sin_quality_gate` as verify runner.
-- [ ] Add `tool.post` hook payload support for `sin_edit`/`sin_write` through `hooks.json`.
-- [ ] Add `.sin-code/hooks.yaml` example.
+- [x] Add `tool.post` hook payload support for `sin_edit`/`sin_write` through `hooks.json` / `hooks.yaml`.
+- [x] Add `.sin-code/hooks.yaml` example.
 
-### Phase 3 — Advanced Gates
+### Phase 3 — Advanced Gates (in progress)
 
-- `sin_mutation` (gremlins integration).
-- `sin_fuzz` (native Go fuzzing).
-- `sin_property` (rapid/testing/quick).
-- Coverage + mutation thresholds in config.
+- [x] `sin_mutation` (gremlins integration).
+- [x] `sin_fuzz` (native Go fuzzing).
+- [x] `sin_property` (rapid/testing/quick).
+- [ ] Coverage + mutation thresholds in config.
 
 ### Phase 4 — Golden Dataset
 
-- Add eval cases for test generation in `evals/`.
-- Wire into CI via n8n (M1).
+- [x] Add eval cases for test generation in `evals/`.
+- [ ] Wire into CI via n8n (M1).
 
 ---
 

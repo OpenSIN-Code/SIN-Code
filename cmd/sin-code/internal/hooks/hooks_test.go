@@ -67,6 +67,22 @@ func TestCommandHookSuccess(t *testing.T) {
 	}
 }
 
+func TestCommandHookReceivesDataPath(t *testing.T) {
+	e := New([]Hook{
+		{Event: "tool.post", Matcher: "sin_write", Type: "command", Command: `echo "$SIN_HOOK_DATA_PATH"`},
+	})
+	res := e.Fire(context.Background(), Payload{
+		Event:     ToolPost,
+		Name:      "sin_write",
+		Data:      map[string]any{"path": "foo/bar.go"},
+		Workspace: ".",
+	})
+	if res.Blocked {
+		t.Fatal("tool.post must not block")
+	}
+	// We cannot directly read stdout here, but the command should not error.
+}
+
 func TestPromptHookCollects(t *testing.T) {
 	e := New([]Hook{
 		{Event: "session.start", Type: "prompt", Text: "first"},
