@@ -277,6 +277,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.TodoSel >= len(m.TodoItems) {
 			m.TodoSel = 0
 		}
+		if m.KanbanView != nil {
+			m.KanbanView.SetTodos(msg.Items)
+		}
+		return m, nil
+
+	case TodosRefreshMsg:
+		m.Sidebar.TodoOpen = msg.Counts.Open
+		m.Sidebar.TodoBlocked = msg.Counts.Blocked
+		m.Sidebar.TodoOverdue = msg.Counts.Overdue
+		m.Sidebar.TodoReady = msg.Counts.Ready
+		m.TodoItems = msg.Items
+		if m.TodoSel >= len(m.TodoItems) {
+			m.TodoSel = 0
+		}
+		if m.KanbanView != nil {
+			m.KanbanView.SetTodos(msg.Items)
+		}
 		return m, nil
 
 	case BannerKeyMsg:
@@ -647,6 +664,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keymap.ViewDashboard):
 		m.SwitchView(ViewAgentDashboard)
 		return m, nil
+	case key.Matches(msg, keymap.ViewKanban):
+		m.SwitchView(ViewKanban)
+		return m, nil
 	case key.Matches(msg, keymap.CycleTheme):
 		m.CycleTheme()
 		m.AppendHistory(m.ViewKind.String(), "theme", Themes[m.ThemeIdx].Name, true)
@@ -715,6 +735,10 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.AgentDashboardState.Selected > 0 {
 				m.AgentDashboardState.Selected--
 			}
+		case ViewMemory:
+			m.MemoryBrowser.MoveUp()
+		case ViewKanban:
+			m.KanbanView.MoveUp()
 		}
 		return m, nil
 	case key.Matches(msg, keymap.ToolDown):
@@ -742,11 +766,23 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if m.AgentDashboardState.Selected < len(m.AgentDashboardState.Sessions)-1 {
 				m.AgentDashboardState.Selected++
 			}
+		case ViewMemory:
+			m.MemoryBrowser.MoveDown()
+		case ViewKanban:
+			m.KanbanView.MoveDown()
 		}
 		return m, nil
 	case key.Matches(msg, keyLeft):
+		if m.ViewKind == ViewKanban {
+			m.KanbanView.MoveLeft()
+			return m, nil
+		}
 		return m, nil
 	case key.Matches(msg, keyRight):
+		if m.ViewKind == ViewKanban {
+			m.KanbanView.MoveRight()
+			return m, nil
+		}
 		return m, nil
 	case key.Matches(msg, keyBannerOpen):
 		if m.NotificationBanner != nil {
@@ -971,6 +1007,10 @@ func (m *Model) View() tea.View {
 		content = RenderAgentDashboardView(m.AgentDashboardState, m.Styles, m.contentWidth(), contentHeight)
 	case ViewLSP:
 		content = RenderLSPView(m.LSPState, m.Styles, m.contentWidth(), contentHeight)
+	case ViewMemory:
+		content = m.MemoryBrowser.Render(m.Styles, m.contentWidth(), contentHeight)
+	case ViewKanban:
+		content = m.KanbanView.Render(m.Styles, m.contentWidth(), contentHeight)
 	}
 
 	if m.NotificationBanner != nil {

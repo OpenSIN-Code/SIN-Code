@@ -328,6 +328,7 @@ func TestDogfoodViewSwitching(t *testing.T) {
 		ViewTools, ViewSessions, ViewEFM, ViewConfig,
 		ViewHistory, ViewTodos, ViewChat, ViewDAG,
 		ViewContextViz, ViewAgentDashboard, ViewLSP,
+		ViewMemory, ViewKanban,
 	}
 
 	for _, v := range views {

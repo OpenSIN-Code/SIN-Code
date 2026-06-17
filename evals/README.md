@@ -16,6 +16,14 @@ Versioned JSON datasets for `sin-code eval` (see `docs/eval.md`).
 | `skill-code.json` | 3 | comparator | Four-arm eval for code-skills (build, refactor, plan). Run with `--arm baseline,terse,lazy_skill,skill-code-build` |
 | `skill-debug.json` | 2 | comparator | Four-arm eval for debug-skills (deep RCA). Run with `--arm baseline,terse,lazy_skill,skill-debug-deep` |
 | `skill-github.json` | 2 | comparator | Four-arm eval for github-skills (actions, readme). Run with `--arm baseline,terse,lazy_skill,skill-github-actions` |
+| `skill-browser.json` | 2 | comparator | Four-arm eval for browser-skills (automation, page inspection). Run with `--arm baseline,terse,lazy_skill,skill-browser-tools` |
+| `skill-design.json` | 2 | comparator | Four-arm eval for design-skills (frontend component, image generation). Run with `--arm baseline,terse,lazy_skill,skill-design-frontend` |
+| `skill-ecosystem.json` | 2 | comparator | Four-arm eval for ecosystem-skills (context bridge, marketplace). Run with `--arm baseline,terse,lazy_skill,skill-ecosystem-context` |
+| `skill-infrastructure.json` | 2 | comparator | Four-arm eval for infrastructure-skills (cloudflare tunnel, supabase setup). Run with `--arm baseline,terse,lazy_skill,skill-infrastructure-cloudflare` |
+| `skill-memory.json` | 2 | comparator | Four-arm eval for memory-skills (honcho preferences, infisical secrets). Run with `--arm baseline,terse,lazy_skill,skill-memory-honcho` |
+| `skill-planning.json` | 2 | comparator | Four-arm eval for planning-skills (enterprise architecture, task decomposition). Run with `--arm baseline,terse,lazy_skill,skill-planning-enterprise` |
+| `skill-process.json` | 2 | comparator | Four-arm eval for process-skills (goal tracking, adversarial grill). Run with `--arm baseline,terse,lazy_skill,skill-process-goal` |
+| `skill-shop.json` | 2 | comparator | Four-arm eval for shop-skills (stripe integration, CJ dropshipping). Run with `--arm baseline,terse,lazy_skill,skill-shop-stripe` |
 
 Run `sin-code eval list --dir evals` to discover datasets programmatically.
 

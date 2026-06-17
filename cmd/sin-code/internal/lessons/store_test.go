@@ -132,7 +132,7 @@ func contains(s, sub string) bool {
 }
 
 func TestFingerprintIs64Hex(t *testing.T) {
-	fp := Fingerprint(TypeConstraint, "/tmp", map[string]any{"k": "v"})
+	fp := LessonFingerprint(TypeConstraint, "/tmp", map[string]any{"k": "v"})
 	if len(fp) != 64 {
 		t.Fatalf("expected 64-hex fingerprint, got len=%d: %s", len(fp), fp)
 	}

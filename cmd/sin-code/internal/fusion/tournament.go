@@ -100,6 +100,8 @@ type Tournament struct {
 	RunFunc            RunFunc
 	ForkFunc           ForkFunc
 	VerifyFn           func(ctx context.Context, workspace string) verify.Result
+	OracleJudge        OracleJudgeFn
+	Mode               Mode
 	MaxCostUSD         float64
 	MinQuorum          int
 	PerProviderTimeout time.Duration
@@ -118,6 +120,13 @@ type Tournament struct {
 // first candidate whose VerifyResult passes wins; all others are
 // cancelled. Returns ErrAllProvidersFailed if none pass.
 func (t *Tournament) Run(ctx context.Context) (*Result, error) {
+	if t.Mode == ModeOracle {
+		return t.runOracle(ctx)
+	}
+	return t.runPoC(ctx)
+}
+
+func (t *Tournament) runPoC(ctx context.Context) (*Result, error) {
 	start := time.Now()
 
 	if len(t.Providers) < t.MinQuorum {
@@ -132,6 +141,7 @@ func (t *Tournament) Run(ctx context.Context) (*Result, error) {
 
 	t.fireHook(ctx, "fusion.dispatch", map[string]any{
 		"providers": len(t.Providers),
+		"mode":      "poc",
 	})
 
 	ctx, cancel := context.WithCancel(ctx)

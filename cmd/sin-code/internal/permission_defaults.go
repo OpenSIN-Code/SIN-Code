@@ -115,6 +115,7 @@ func DefaultPermissionRules() []permission.Rule {
 		// Tournament spawns N parallel loops = N× cost — needs confirmation.
 		// Status/config are read-only.
 		{Tool: "fusion__tournament", Policy: "ask"},
+		{Tool: "fusion__oracle_tournament", Policy: "ask"},
 		{Tool: "fusion__status", Policy: "allow"},
 		{Tool: "fusion__config", Policy: "allow"},
 		// Backstop catch-all (mirrors sin_bash default at line 44 for unmatched prefixes).

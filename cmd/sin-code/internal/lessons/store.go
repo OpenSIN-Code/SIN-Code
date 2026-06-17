@@ -7,6 +7,7 @@ package lessons
 
 import (
 	"context"
+	"crypto/sha1"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -234,7 +235,7 @@ func (s *Store) migrateFingerprints() error {
 		if err := json.Unmarshal([]byte(r.ctx), &ctxMap); err != nil {
 			ctxMap = nil
 		}
-		newID := Fingerprint(EntryType(r.typ), r.ws, ctxMap)
+		newID := LessonFingerprint(EntryType(r.typ), r.ws, ctxMap)
 		if _, err := tx.Exec(`
 			UPDATE lessons SET id = ? WHERE id = ?
 		`, newID, r.id); err != nil {
@@ -256,7 +257,7 @@ func (s *Store) Close() error {
 // a deterministic variant ID is used so the distinct lesson is preserved.
 func (s *Store) Record(ctx context.Context, e Entry) error {
 	if e.ID == "" {
-		e.ID = Fingerprint(e.Type, e.Workspace, e.Context)
+		e.ID = LessonFingerprint(e.Type, e.Workspace, e.Context)
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	ctxJSON, err := json.Marshal(e.Context)
@@ -450,11 +451,20 @@ WHERE occurrences = 1 AND last_seen < ?
 	return int(n), nil
 }
 
-// Fingerprint is the stable identity of a lesson (type+workspace+context).
+// LessonFingerprint is the stable identity of a lesson (type+workspace+context).
 // Uses full 64-hex SHA-256 to avoid 64-bit birthday collisions.
-func Fingerprint(t EntryType, ws string, ctx map[string]any) string {
+func LessonFingerprint(t EntryType, ws string, ctx map[string]any) string {
 	data, _ := json.Marshal(map[string]any{"type": t, "ws": ws, "ctx": ctx})
 	h := sha256.Sum256(data)
+	return hex.EncodeToString(h[:])
+}
+
+// Fingerprint computes a 40-hex SHA-1 digest of the given content string.
+// This is the generic fingerprint function used for collision-resistant
+// content hashing (issue #340). SHA-1 provides 160 bits (40 hex chars),
+// reducing the birthday-bound collision risk to ~2^80 entries.
+func Fingerprint(content string) string {
+	h := sha1.Sum([]byte(content))
 	return hex.EncodeToString(h[:])
 }
 

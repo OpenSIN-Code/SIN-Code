@@ -1,0 +1,53 @@
+{
+  "name": "Skill Eval: infrastructure-skills (issue #171)",
+  "version": "0.1.0",
+  "description": "Four-arm eval for infrastructure-skills. Measures skill-vs-terse delta for infra recovery and setup tasks. Run with: sin-code eval run --dataset evals/skill-infrastructure.json --arm baseline,terse,lazy_skill,skill-infrastructure-cloudflare",
+  "test_cases": [
+    {
+      "id": "skill_infra_cloudflare_tunnel_recovery",
+      "prompt": "A Cloudflare tunnel returns Error 1033. Diagnose the issue and provide the exact recovery steps including the cloudflared watchdog status and tunnel credential verification.",
+      "description": "skill-infrastructure-cloudflare should use sin_execute for diagnostic commands and sin_harvest to fetch tunnel status.",
+      "tags": ["infrastructure", "cloudflare", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["cloudflared", "tunnel", "1033"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "infrastructure-cloudflare",
+        "metric_locus": "lines",
+        "target_skill": "skill-infrastructure-cloudflare",
+        "expected_tools": ["sin_execute", "sin_harvest"]
+      }
+    },
+    {
+      "id": "skill_infra_supabase_setup",
+      "prompt": "Set up a new Supabase project configuration: define the database schema for a blog (posts, authors, comments), create the migration SQL, and write a connection config file.",
+      "description": "skill-infrastructure-supabase should use sin_execute for schema validation and sin_write for the config file.",
+      "tags": ["infrastructure", "supabase", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["supabase", "schema", "migration"],
+        "output_avoids": ["panic", "TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "infrastructure-supabase",
+        "metric_locus": "lines",
+        "target_skill": "skill-infrastructure-supabase",
+        "expected_tools": ["sin_execute", "sin_write"]
+      }
+    }
+  ]
+}

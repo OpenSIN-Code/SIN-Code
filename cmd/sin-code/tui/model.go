@@ -244,6 +244,12 @@ type Model struct {
 	// Agent dashboard state
 	AgentDashboardState AgentDashboardState
 
+	// Memory browser state (issue #355)
+	MemoryBrowser *MemoryBrowser
+
+	// Kanban board view (#328)
+	KanbanView *KanbanView
+
 	// Layout debug mode (issue #279)
 	DebugLayout bool
 
@@ -422,6 +428,8 @@ func NewModel() *Model {
 		},
 		ContextState:        DefaultContextState(),
 		AgentDashboardState: DefaultAgentDashboardState(),
+		MemoryBrowser:       NewMemoryBrowser(),
+		KanbanView:          NewKanbanView(),
 		AgentConfig: AgentRunnerConfig{
 			Yolo:       false,
 			MaxTurns:   20,

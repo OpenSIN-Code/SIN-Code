@@ -30,22 +30,25 @@ import (
 // strictly typed; Body is bytes so callers can carry JSON, plan-text,
 // shell-output, or any structured content.
 type Message struct {
-	ID      string    `json:"id"`      // content-addressed; dedupes on Send
-	From    string    `json:"from"`    // sender role-id or session-id
-	To      string    `json:"to"`      // recipient role-id or "broadcast"
-	Subject string    `json:"subject"` // one-line intent (no newlines)
-	Body    string    `json:"body"`    // free-form body, multi-line OK
-	SentAt  time.Time `json:"sent_at"` // UTC, RFC3339
-	Resolved bool     `json:"resolved,omitempty"` // for request/response pattern
+	ID       string      `json:"id"`                // content-addressed; dedupes on Send
+	From     string      `json:"from"`              // sender role-id or session-id
+	To       string      `json:"to"`                // recipient role-id or "broadcast"
+	Type     MessageType `json:"type,omitempty"`    // typed message kind (issue #316)
+	Subject  string      `json:"subject"`           // one-line intent (no newlines)
+	Body     string      `json:"body"`              // free-form body, multi-line OK
+	SentAt   time.Time   `json:"sent_at"`           // UTC, RFC3339 — serves as Timestamp
+	ReplyTo  string      `json:"reply_to,omitempty"` // original message ID for replies (#316)
+	Resolved bool        `json:"resolved,omitempty"`  // for request/response pattern
 }
 
 // Mailbox is the file-backed agent-team inbox. Idempotent Open()
 // creates the underlying directory on first use. Concurrent
 // consumers/producers are supported via per-Open file lock.
 type Mailbox struct {
-	dir    string
-	path   string // <dir>/inbox.jsonl
-	mu     sync.Mutex // serialises Open-and-flush within the same process
+	dir      string
+	path     string       // <dir>/inbox.jsonl
+	mu       sync.Mutex   // serialises Open-and-flush within the same process
+	lockFile *os.File     // file handle held by explicit Lock/Unlock (#342)
 }
 
 // Open creates or opens the agent-team mailbox rooted at
@@ -269,4 +272,53 @@ func splitLines(contents []byte) [][]byte {
 		out = append(out, contents[last:])
 	}
 	return out
+}
+
+// Lock acquires an exclusive file lock on the mailbox file. The lock
+// is held until Unlock is called. Platform-specific locking is provided
+// by flockLock/flockUnlock (issue #342). On unsupported platforms the
+// lock is a no-op but the file handle is still tracked for Unlock.
+//
+// The in-process mutex (m.mu) is released before the blocking flock
+// call to prevent deadlock with Send/Unlock (M7).
+func (m *Mailbox) Lock() error {
+	m.mu.Lock()
+	if m.lockFile != nil {
+		m.mu.Unlock()
+		return errors.New("agentteams: already locked")
+	}
+	f, err := os.OpenFile(m.path, os.O_CREATE|os.O_RDWR, 0o644)
+	if err != nil {
+		m.mu.Unlock()
+		return fmt.Errorf("agentteams: lock open: %w", err)
+	}
+	m.lockFile = f
+	m.mu.Unlock()
+
+	// Blocking flock call — outside m.mu to prevent deadlock.
+	if err := flockLock(int(f.Fd())); err != nil {
+		m.mu.Lock()
+		m.lockFile = nil
+		m.mu.Unlock()
+		f.Close()
+		return fmt.Errorf("agentteams: lock: %w", err)
+	}
+	return nil
+}
+
+// Unlock releases the exclusive file lock acquired by Lock. Safe to
+// call even if Lock was never called (returns nil). The underlying file
+// handle is always closed. The flockUnlock and Close calls happen
+// outside m.mu to prevent deadlock (M7).
+func (m *Mailbox) Unlock() error {
+	m.mu.Lock()
+	f := m.lockFile
+	m.lockFile = nil
+	m.mu.Unlock()
+
+	if f == nil {
+		return nil
+	}
+	_ = flockUnlock(int(f.Fd()))
+	return f.Close()
 }

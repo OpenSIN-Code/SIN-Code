@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS ledger (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ledger_session ON ledger(session_id);
+CREATE INDEX IF NOT EXISTS idx_ledger_session_id ON ledger(session_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_type ON ledger(type);
 CREATE INDEX IF NOT EXISTS idx_ledger_created ON ledger(created_at);
 
@@ -245,6 +246,39 @@ func (s *Store) Sessions(ctx context.Context, limit int) ([]string, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT session_id FROM session_index
 		ORDER BY last_seen_at DESC
+		LIMIT ?
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var sid string
+		if err := rowsScan(rows, &sid); err != nil {
+			return nil, err
+		}
+		out = append(out, sid)
+	}
+	return out, rows.Err()
+}
+
+// DistinctSessions returns all distinct session IDs from the ledger table,
+// ordered by the most recent entry for each session. This uses the
+// idx_ledger_session_id index to avoid a full table scan (issues #338/#339).
+//
+// Unlike Sessions() which reads from the maintained session_index table,
+// DistinctSessions() queries the ledger table directly via a GROUP BY
+// that leverages the session_id index. This is the fallback path for
+// callers that need the raw distinct set without the index-table upsert.
+func (s *Store) DistinctSessions(ctx context.Context, limit int) ([]string, error) {
+	if limit <= 0 {
+		limit = 1000
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT session_id FROM ledger
+		GROUP BY session_id
+		ORDER BY MAX(created_at) DESC
 		LIMIT ?
 	`, limit)
 	if err != nil {

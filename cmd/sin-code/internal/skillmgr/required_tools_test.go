@@ -295,6 +295,20 @@ func TestMergeRequiredTools_SkillWithNoRequiredToolsSkipped(t *testing.T) {
 	}
 }
 
+func TestMergeRequiredTools_EmptyAndWhitespaceSkillNamesSkipped(t *testing.T) {
+	fakeFS := fstest.MapFS{
+		"skill-a/SKILL.md": &fstest.MapFile{
+			Data: []byte("---\nname: skill-a\nrequired_tools:\n  - sin_edit\n---\n\nbody\n"),
+		},
+	}
+	// Empty and whitespace-only skill names must be skipped (line 112-113);
+	// only the real skill contributes its tools.
+	merged := MergeRequiredTools(nil, []string{"", "  ", "skill-a"}, fakeFS)
+	if len(merged) != 1 || merged[0] != "sin_edit" {
+		t.Fatalf("expected [sin_edit], got %v", merged)
+	}
+}
+
 func TestMergeRequiredTools_EmbeddedRealSkills(t *testing.T) {
 	skillFS, err := skills.ListFS()
 	if err != nil {

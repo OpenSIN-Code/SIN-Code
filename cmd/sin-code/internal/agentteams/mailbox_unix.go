@@ -2,7 +2,7 @@
 // Platform abstraction: flock-based file locking for Unix-like systems
 // (darwin, linux, freebsd, …). Windows has no syscall.Flock; see
 // mailbox_windows.go for the no-op counterpart.
-//go:build !windows
+//go:build unix
 
 package agentteams
 

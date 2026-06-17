@@ -110,6 +110,22 @@ func DefaultHints(view ViewKind) []HintPair {
 			{"f", "fork"},
 			{"q", "quit"},
 		}
+	case ViewMemory:
+		return []HintPair{
+			{"Tab", "view"},
+			{"↑/↓", "navigate"},
+			{"/", "search"},
+			{"Enter", "detail"},
+			{"q", "quit"},
+		}
+	case ViewKanban:
+		return []HintPair{
+			{"Tab", "view"},
+			{"↑/↓", "navigate"},
+			{"←/→", "move card"},
+			{"^k", "toggle"},
+			{"q", "quit"},
+		}
 	default:
 		return []HintPair{
 			{"Tab", "view"},

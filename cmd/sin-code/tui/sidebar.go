@@ -21,6 +21,8 @@ func DefaultSidebarItems() []SidebarItem {
 		{View: ViewDAG, Icon: "◊", Label: "DAG", Shortcut: "8"},
 		{View: ViewContextViz, Icon: "▣", Label: "Context", Shortcut: "9"},
 		{View: ViewAgentDashboard, Icon: "⬡", Label: "Dashboard", Shortcut: "0"},
+		{View: ViewMemory, Icon: "🧠", Label: "Memory", Shortcut: "m"},
+		{View: ViewKanban, Icon: "▮", Label: "Kanban", Shortcut: "K"},
 	}
 }
 

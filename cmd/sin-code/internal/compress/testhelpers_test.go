@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS lessons (
 // We can't import the private lessons.Fingerprint... oh wait — it
 // IS exported (see internal/lessons/store.go:174). Use it directly.
 func fingerprintFor(t, ws string, ctx_ map[string]any) string {
-	return lessons.Fingerprint(lessons.EntryType(t), ws, ctx_)
+	return lessons.LessonFingerprint(lessons.EntryType(t), ws, ctx_)
 }
 
 // lessonFpBody kept for documentation purposes only — was the
