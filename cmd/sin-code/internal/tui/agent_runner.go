@@ -17,7 +17,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -85,16 +84,22 @@ type AgentEvent struct {
 // Config bundles the construction-time knobs the TUI passes when
 // building a runner. Zero values are sensible defaults.
 type Config struct {
-	Workspace   string
-	SessionID   string
-	AgentName   string
-	Model       string
-	BaseURL     string
-	MaxTurns    int
-	VerifyMode  string
-	VerifyCmd   string
-	Yolo        bool
-	Headless    bool
+	Workspace string
+	// DBHome overrides the user-config directory that hosts
+	// sessions.db and lessons.db. Empty (the default) means
+	// "use os.UserConfigDir()/sin-code/workspaces/<ws-hash>/…".
+	// Tests pass a t.TempDir() value to keep state hermetic; the
+	// CLI is happy with the default (issue #62 / #265).
+	DBHome     string
+	SessionID  string
+	AgentName  string
+	Model      string
+	BaseURL    string
+	MaxTurns   int
+	VerifyMode string
+	VerifyCmd  string
+	Yolo       bool
+	Headless   bool
 	AutoApprove bool
 	AskTimeout  time.Duration
 	ToolFactory func(*mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec)
@@ -144,10 +149,14 @@ func NewAgentRunner(ctx context.Context, cfg Config) (*AgentRunner, error) {
 	if cfg.AskTimeout == 0 {
 		cfg.AskTimeout = defaultAskTimeout
 	}
-	dbPath := filepath.Join(cfg.Workspace, ".sin-code", "sessions.db")
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
-		return nil, fmt.Errorf("agentrunner: mkdir sessions: %w", err)
+	dbHome, err := ResolveDBHome(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("agentrunner: resolve db home: %w", err)
 	}
+	if err := ensureDBHome(dbHome); err != nil {
+		return nil, fmt.Errorf("agentrunner: ensure db home: %w", err)
+	}
+	dbPath := dbHome.SessionsPath()
 	store, err := sessionOpen(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("agentrunner: open sessions: %w", err)
@@ -157,7 +166,7 @@ func NewAgentRunner(ctx context.Context, cfg Config) (*AgentRunner, error) {
 		_ = store.Close()
 		return nil, fmt.Errorf("agentrunner: start session: %w", err)
 	}
-	lessonPath := filepath.Join(cfg.Workspace, ".sin-code", "lessons.db")
+	lessonPath := dbHome.LessonsPath()
 	memStore, _ := lessons.Open(lessonPath) //nolint:errcheck
 
 	runner := &AgentRunner{

@@ -4,6 +4,33 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-16
 
+### Added — Runtime DB migration to user-config-dir (issue #265)
+- `cmd/sin-code/internal/tui/agent_runner.go` no longer writes
+  `lessons.db` / `sessions.db` directly inside the workspace's
+  `.sin-code/` directory. The TUI agent runner now resolves its DB
+  home through `internal/tui/dbhome.go:ResolveDBHome`:
+  - default → `os.UserConfigDir()/sin-code/workspaces/<sha256-prefix12(abs(ws))>/`
+  - `Config.DBHome != ""` → that path (used by tests)
+  - per-workspace isolation keyed by a stable 12-char sha256 of
+    `abs(Workspace)` so two projects never collide on the same row
+- New `Config.DBHome string` field on the TUI runner; empty is the
+  default (`UserConfigDir()`).
+- Workspace trees are no longer touched by `sin-code chat` — the
+  legacy `.gitignore` rule for `cmd/sin-code/tui/.sin-code/`
+  becomes defence-in-depth only.
+- 12 new tests in `cmd/sin-code/internal/tui/dbhome_test.go` cover
+  the home resolution (`DefaultPath`, `DBHome` override, empty
+  workspace rejection, error propagation from `os.UserConfigDir`,
+  byte-stability, workspace-hash case-folding for macOS) plus the
+  `agent_runner_test.go` `TestNewAgentRunner_UsesDBHomeWhenSet` and
+  `TestNewAgentRunner_DefaultsAreUserScoped` integration tests.
+- Existing `TestNewAgentRunnerCreatesSinCodeDir` flipped to assert
+  that `.sin-code/` does NOT exist under the workspace (the
+  migration removes the leak). Legacy
+  `TestNewAgentRunnerErrorPaths` (workspace-as-file rejection) was
+  likewise retired — the old code path is gone.
+- AGENTS.md §11.1 updated to reflect the new layout.
+
 ### Added — Tool coverage & SIN-tool preference enforcement
 - **Agent profile tool surface (issue #249)** — bundled `profiles/fireworks.toml`
   and `profiles/qwen-relay.toml` now set `tools_allow` to the full `sin_*`

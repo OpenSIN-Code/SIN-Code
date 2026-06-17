@@ -156,7 +156,7 @@ func NewModel() *Model {
 		Width:      80,
 		Height:     24,
 		ThemeIdx:   0,
-		ViewKind:   ViewTools,
+		ViewKind:   ViewChat,
 		Mode:       ModeNormal,
 		Tabs:       NewTabs(),
 		Sidebar:    NewSidebar(),

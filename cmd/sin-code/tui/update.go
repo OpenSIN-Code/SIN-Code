@@ -642,11 +642,11 @@ func (m *Model) View() tea.View {
 
 func (m *Model) contentWidth() int {
 	left := 0
-	if !m.Sidebar.Collapsed {
+	if m.ViewKind != ViewChat && !m.Sidebar.Collapsed {
 		left = m.Sidebar.Width
 	}
 	right := 0
-	if m.RightPanel {
+	if m.RightPanel && m.ViewKind != ViewChat {
 		if m.Width > 100 {
 			right = 32
 		} else if m.Width > 60 {
