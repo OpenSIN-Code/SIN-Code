@@ -66,6 +66,12 @@ type Engine struct {
 	// reshapes the effective policy before the Yolo/Headless
 	// fallback runs.
 	Mode Mode
+	// Risk, when set alongside Yolo, replaces the blanket Ask→Allow
+	// promotion with risk-based classification (issue #272). Only
+	// operations at or below Risk.Threshold() are auto-approved;
+	// higher-risk operations stay Ask (→ Deny in headless). Nil
+	// preserves legacy blanket-Yolo behavior.
+	Risk *RiskClassifier
 }
 
 func New(rules []Rule) *Engine {
@@ -84,14 +90,10 @@ func (e *Engine) SetMode(m Mode) error {
 	}
 }
 
-// Check returns the effective policy for a tool name.
-// First matching rule wins; no match defaults to Ask. The mode
-// then reshapes the result:
-//   - plan:     Edit/Write/Bash become Ask (read-only tools stay Allow)
-//   - acceptEdits: Edit/Write become Allow; everything else stays
-//   - bypass:   every Allow-list tool becomes Allow; Deny is NEVER
-//               overridden
-func (e *Engine) Check(tool string) Policy {
+// resolveRules applies rule matching and mode reshaping, returning the
+// policy before the Yolo/Headless/Risk fallback. Shared by Check and
+// CheckWithArgs.
+func (e *Engine) resolveRules(tool string) Policy {
 	p := Ask
 	for _, r := range e.rules {
 		if matched, _ := path.Match(strings.ToLower(r.Tool), strings.ToLower(tool)); matched {
@@ -99,34 +101,73 @@ func (e *Engine) Check(tool string) Policy {
 			break
 		}
 	}
-	// Mode reshape (issue #193). Each mode is a no-op on the legacy
-	// "default" mode.
 	switch e.Mode {
 	case ModePlan:
-		// Force mutating tools to Ask regardless of the rule.
 		if isMutatingTool(tool) {
 			p = Ask
 		}
 	case ModeAcceptEdits:
-		// Edit/Write are allowed; everything else stays.
 		if isEditTool(tool) {
 			p = Allow
 		}
 	case ModeBypass:
-		// Every Allow-list tool becomes Allow; Deny stays Deny.
 		if p != Deny {
 			p = Allow
 		}
 	}
+	return p
+}
+
+// Check returns the effective policy for a tool name.
+// First matching rule wins; no match defaults to Ask. The mode
+// then reshapes the result:
+//   - plan:     Edit/Write/Bash become Ask (read-only tools stay Allow)
+//   - acceptEdits: Edit/Write become Allow; everything else stays
+//   - bypass:   every Allow-list tool becomes Allow; Deny is NEVER
+//               overridden
+//
+// When Yolo is true and a RiskClassifier is set (issue #272), the
+// Ask→Allow promotion is gated by risk classification instead of
+// being unconditional.
+func (e *Engine) Check(tool string) Policy {
+	p := e.resolveRules(tool)
 	if p == Ask {
-		if e.Yolo {
-			return Allow
-		}
-		if e.Headless {
-			return Deny
-		}
+		return e.yoloResolve(tool, nil)
 	}
 	return p
+}
+
+// CheckWithArgs is like Check but passes tool arguments to the risk
+// classifier so dangerous argument patterns (rm -rf, sudo, git push
+// --force, etc.) can elevate the risk level even when the tool name
+// alone would be medium or low (issue #272).
+func (e *Engine) CheckWithArgs(tool string, args map[string]any) Policy {
+	p := e.resolveRules(tool)
+	if p == Ask {
+		return e.yoloResolve(tool, args)
+	}
+	return p
+}
+
+// yoloResolve applies the Yolo/Headless/Risk fallback to an Ask policy.
+func (e *Engine) yoloResolve(tool string, args map[string]any) Policy {
+	if e.Yolo {
+		if e.Risk != nil {
+			level := e.Risk.Classify(tool, args)
+			if level <= e.Risk.Threshold() {
+				return Allow
+			}
+			if e.Headless {
+				return Deny
+			}
+			return Ask
+		}
+		return Allow
+	}
+	if e.Headless {
+		return Deny
+	}
+	return Ask
 }
 
 // isMutatingTool returns true for tools that change files or

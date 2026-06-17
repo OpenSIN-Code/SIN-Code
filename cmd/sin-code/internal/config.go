@@ -69,6 +69,13 @@ type SinCodeConfig struct {
 	// to fill realistic test cases (otherwise it emits a table-driven
 	// scaffold with zero-value tasks). Off by default — privacy/cost.
 	TestUseLLM bool `toml:"test.use_llm"`
+	// SIN Fusion v1: verify-tournament config (issue #290).
+	FusionEnabled          bool     `toml:"fusion.enabled"`
+	FusionProviders        []string `toml:"fusion.providers"`
+	FusionMaxCostUSD       float64  `toml:"fusion.max_cost_usd"`
+	FusionMinQuorum        int      `toml:"fusion.min_quorum"`
+	FusionPerProviderTimeoutS int   `toml:"fusion.per_provider_timeout_s"`
+	FusionDifficultyGate   bool     `toml:"fusion.difficulty_gate"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -98,6 +105,12 @@ func defaultConfig() SinCodeConfig {
 		TestAutoGenerate:         false,
 		TestTimeoutSeconds:       300,
 		TestUseLLM:               false,
+		FusionEnabled:            false,
+		FusionProviders:          []string{"minimax-m3", "kimi-k2p7-code-fast", "kimi-k2p7-code", "deepseek-v4-pro", "qwen-3p7-plus", "glm-5p2"},
+		FusionMaxCostUSD:         5.0,
+		FusionMinQuorum:          2,
+		FusionPerProviderTimeoutS: 120,
+		FusionDifficultyGate:     true,
 	}
 }
 

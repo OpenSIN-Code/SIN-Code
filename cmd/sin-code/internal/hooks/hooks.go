@@ -87,6 +87,9 @@ const (
 	// Skill lifecycle.
 	SkillInstalled = "skill.installed"
 	SkillFailed    = "skill.failed"
+
+	// Fusion lifecycle (issue #290).
+	FusionDispatch = "fusion.dispatch"
 )
 
 // blockable events: a blocking hook result is honored only for these.

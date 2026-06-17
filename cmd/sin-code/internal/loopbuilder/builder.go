@@ -17,6 +17,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/eval"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/fusion"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
@@ -65,6 +66,18 @@ type Config struct {
 	// to the agent loop's tool-coverage enforcer (issue #248).
 	CoverageRequiredTools  []string
 	CoverageForbiddenTools []string
+
+	// SIN Fusion v1 (issue #290): when FusionEnabled is true and ≥2
+	// providers are available, a verify-tournament is wired into the
+	// loop. On verify.fail, the task is fanned out to N providers in
+	// parallel; the first to pass the PoC gate wins.
+	FusionEnabled            bool
+	FusionProviders          []string
+	FusionMaxCostUSD         float64
+	FusionMinQuorum          int
+	FusionPerProviderTimeoutS int
+	FusionDifficultyGate     bool
+	FusionProfilesDir        string
 }
 
 // Build constructs a fully wired agentloop.Loop with all mandates applied
@@ -192,6 +205,36 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		loop.CompressMessages = headroomHook.CompressMessages
 	}
 
+	// SIN Fusion v1 (issue #290): wire verify-tournament when enabled.
+	// Only active in PoC mode (not oracle — load-bearing risk: oracle
+	// "first to pass" is selection on judge noise, not correctness).
+	//
+	// Provider pool: uses the Fireworks multi-model pool — all models
+	// share the same base URL + API key (SINator pool router handles
+	// key rotation). Diversity comes from different model architectures
+	// (MiniMax M3, Kimi K2.7, DeepSeek V4 Pro, Qwen 3.7, GLM 5.2), not
+	// different providers.
+	if cfg.FusionEnabled && gate.Mode() == verify.ModePoC {
+		providers := fusion.LoadFireworksPool(nil, cfg.FusionProviders)
+		if len(providers) >= 2 {
+			tournament := &fusion.Tournament{
+				Providers:          providers,
+				MaxCostUSD:         cfg.FusionMaxCostUSD,
+				MinQuorum:          cfg.FusionMinQuorum,
+				PerProviderTimeout: time.Duration(cfg.FusionPerProviderTimeoutS) * time.Second,
+				Workspace:          cfg.Workspace,
+				Lessons:            memStore,
+				Ledger:             ledgerStore,
+				Hooks:              hookEngine,
+				HookSessionID:      cfg.SessionID,
+				VerifyFn:           func(ctx context.Context, ws string) verify.Result { return gate.Run(ctx, ws) },
+				ForkFunc:           nil,
+				RunFunc:            nil,
+			}
+			loop.TournamentRunner = &fusionAdapter{t: tournament, gate: gate, cfg: cfg, client: client, memStore: memStore}
+		}
+	}
+
 	cleanup := func() error {
 		mcpMgr.Close()
 		if ledgerStore != nil {
@@ -250,4 +293,39 @@ func commandRunner(command string) verify.Runner {
 		}
 		return true, report, nil
 	}
+}
+
+// fusionAdapter wraps a fusion.Tournament to satisfy the
+// agentloop.TournamentRunner interface. It bridges the loop's
+// ShouldRun/Run calls to the tournament's internal logic, injecting
+// the fork function and run function that require loopbuilder-scoped
+// dependencies (session store, llm client, etc.) (issue #290).
+type fusionAdapter struct {
+	t        *fusion.Tournament
+	gate     *verify.Gate
+	cfg      Config
+	client   *llm.Client
+	memStore *lessons.Store
+}
+
+func (a *fusionAdapter) ShouldRun(vr verify.Result) bool {
+	return fusion.ShouldTournament(vr)
+}
+
+func (a *fusionAdapter) Run(ctx context.Context) (string, int, error) {
+	// Phase 1: the fork and run funcs are not yet wired to real session
+	// stores and loop builders. The tournament runs with whatever was
+	// configured at construction time. If ForkFunc/RunFunc are nil, the
+	// tournament returns an error and the loop falls back to legacy retry.
+	if a.t.ForkFunc == nil || a.t.RunFunc == nil {
+		return "", 0, fmt.Errorf("fusion: tournament not fully wired (phase 1 — fork/run funcs nil)")
+	}
+	result, err := a.t.Run(ctx)
+	if err != nil {
+		return "", 0, err
+	}
+	if result.Winner == nil {
+		return "", 0, fmt.Errorf("fusion: no winner")
+	}
+	return result.Winner.Output, result.Winner.TokensUsed, nil
 }
