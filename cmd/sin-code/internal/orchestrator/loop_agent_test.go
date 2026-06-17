@@ -640,3 +640,52 @@ func (f *fakeMemoryStore) Prime(query, project string, topK int) (string, error)
 	return f.primeText, nil
 }
 func (f *fakeMemoryStore) Close() error { return nil }
+
+func TestLoopAgentImplementsPreWarmer(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer srv.Close()
+
+	a := newLoopTestAgent(t, srv, AgentConfig{
+		Name: "coder", Type: TaskCode, Model: "haiku",
+	})
+
+	// LoopAgent must implement PreWarmer so PreWarmManager (#285) works
+	// with real LLM-backed agents, not just MockAgent.
+	var pw PreWarmer = a
+	if err := pw.PreWarm(context.Background(), &Task{ID: "tk-pw", Description: "test"}); err != nil {
+		t.Errorf("PreWarm failed: %v", err)
+	}
+}
+
+func TestLoopAgentPreWarmCachesPrompt(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	defer srv.Close()
+
+	a := newLoopTestAgent(t, srv, AgentConfig{
+		Name: "coder", Type: TaskCode, Model: "haiku",
+	})
+
+	// Before PreWarm: no cached prompt.
+	a.promptMu.RLock()
+	cached := a.preWarmedPrompt
+	a.promptMu.RUnlock()
+	if cached != "" {
+		t.Error("preWarmedPrompt should be empty before PreWarm")
+	}
+
+	// After PreWarm: prompt should be cached.
+	err := a.PreWarm(context.Background(), &Task{ID: "tk-pw", Description: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	a.promptMu.RLock()
+	cached = a.preWarmedPrompt
+	a.promptMu.RUnlock()
+	if cached == "" {
+		t.Error("preWarmedPrompt should be set after PreWarm")
+	}
+	if !strings.Contains(cached, "coder") {
+		t.Errorf("cached prompt should contain agent name, got: %q", cached)
+	}
+}

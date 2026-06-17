@@ -39,8 +39,10 @@ type LoopAgent struct {
 	maxTurns  int
 	workspace string
 
-	sessionOnce sync.Once
-	sessionErr  error
+	sessionOnce      sync.Once
+	sessionErr       error
+	preWarmedPrompt  string
+	promptMu         sync.RWMutex
 }
 
 // LoopAgentOption configures a LoopAgent at construction time.
@@ -129,6 +131,14 @@ func (a *LoopAgent) Run(ctx context.Context, task *Task, scratch *Scratchpad) (s
 	systemPrompt, err := loadLoopSystemPromptHook(a.cfg)
 	if err != nil {
 		return "", fmt.Errorf("load system prompt: %w", err)
+	}
+
+	// Use pre-warmed prompt if available (issue #285 integration).
+	a.promptMu.RLock()
+	preWarmed := a.preWarmedPrompt
+	a.promptMu.RUnlock()
+	if preWarmed != "" {
+		systemPrompt = preWarmed
 	}
 
 	priorInputs, _ := scratch.Read("inputs")
@@ -294,4 +304,28 @@ func (a *LoopAgent) primeContext(task *Task) (string, error) {
 	}
 	defer store.Close()
 	return store.Prime(task.Description, "", 5)
+}
+
+// PreWarm loads the system prompt and opens the session store without
+// making an LLM call. This implements the PreWarmer interface (issue
+// #285) so the PreWarmManager can pre-warm LoopAgent instances before
+// their dependencies complete, reducing cold-start latency.
+func (a *LoopAgent) PreWarm(ctx context.Context, task *Task) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	prompt, err := loadLoopSystemPromptHook(a.cfg)
+	if err != nil {
+		return err
+	}
+
+	a.promptMu.Lock()
+	a.preWarmedPrompt = prompt
+	a.promptMu.Unlock()
+
+	_, err = a.ensureSessions()
+	return err
 }
