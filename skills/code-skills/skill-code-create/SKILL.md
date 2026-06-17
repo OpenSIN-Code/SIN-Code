@@ -19,7 +19,7 @@ lifecycle: native
 
 Create a new SIN-Code / OpenCode compatible skill from a template. Produces a valid skill directory with `SKILL.md`, `context/`, `frameworks/`, `tasks/`, `templates/`, and optional `scripts/` / `tests/` / `lib/`.
 
-As of **v3.20.0**, SIN-Code ships **36 bundled skills** embedded in the `sin-code` binary under `skills/<category>-skills/`. All bundled skills follow the naming convention `skill-<category>-<descriptive-name>`. New skills must be created in the correct category directory and added to the registry/docs before they are discoverable by agents.
+As of **v3.20.0**, SIN-Code ships **37 bundled skills** embedded in the `sin-code` binary under `skills/<category>-skills/`. All bundled skills follow the naming convention `skill-<category>-<descriptive-name>`. New skills must be created in the correct category directory and added to the registry/docs before they are discoverable by agents.
 
 ## When to Use
 
