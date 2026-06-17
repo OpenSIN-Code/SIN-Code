@@ -50,10 +50,11 @@ func (m *Model) initAgentRunner() *agentrunner.AgentRunner {
 		ws = "."
 	}
 	r, err := newAgentRunnerHook(m.ctx(), agentrunner.Config{
-		Workspace: ws,
-		Headless:  false, // TUI is interactive — show the Ask dialog
-		Yolo:      false, // never auto-allow in interactive mode
-		MaxTurns:  20,    // tighter than CLI default to keep the UI snappy
+		Workspace:   ws,
+		Headless:    false, // TUI is interactive — show the Ask dialog
+		Yolo:        false, // never auto-allow in interactive mode
+		MaxTurns:    20,    // tighter than CLI default to keep the UI snappy
+		ToolFactory: tuiToolFactory(ws),
 	})
 	if err != nil {
 		return nil

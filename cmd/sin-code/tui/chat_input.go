@@ -132,7 +132,7 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		text, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
 		prog.Send(chat.ChatResponseMsg{Text: text, Error: err})
 	}()
-	return nil
+	return agentCmd
 }
 
 // applyChatResponseMsg replaces the "thinking..." placeholder at idx with
