@@ -6,6 +6,7 @@ package grill
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -426,3 +427,208 @@ func TestMainPath(t *testing.T) {
 		t.Errorf("expected path=%q, got %q", want, got)
 	}
 }
+
+// ── coverage of error paths and edge cases ─────────────────────────
+
+func TestNewManager_MkdirAllError(t *testing.T) {
+	old := osMkdirAllHook
+	osMkdirAllHook = func(string, os.FileMode) error { return os.ErrPermission }
+	defer func() { osMkdirAllHook = old }()
+	if _, err := NewManager(t.TempDir()); err == nil {
+		t.Error("expected error when MkdirAll fails")
+	}
+}
+
+func TestDir(t *testing.T) {
+	m := newTestManager(t)
+	if got := m.Dir(); got != m.dir {
+		t.Errorf("Dir() = %q, want %q", got, m.dir)
+	}
+}
+
+func TestStart_SaveError(t *testing.T) {
+	m := newTestManager(t)
+	old := osWriteFileHook
+	osWriteFileHook = func(string, []byte, os.FileMode) error { return os.ErrPermission }
+	defer func() { osWriteFileHook = old }()
+	if _, err := m.Start("topic"); err == nil {
+		t.Error("expected error when save fails")
+	}
+}
+
+func TestGet_LoadError(t *testing.T) {
+	m := newTestManager(t)
+	old := osReadFileHook
+	osReadFileHook = func(string) ([]byte, error) { return nil, os.ErrNotExist }
+	defer func() { osReadFileHook = old }()
+	if _, err := m.Get("nonexistent"); err == nil {
+		t.Error("expected error when load fails")
+	}
+}
+
+func TestNext_SessionNotFound(t *testing.T) {
+	m := newTestManager(t)
+	if _, _, err := m.Next("nonexistent"); err == nil {
+		t.Error("expected error for nonexistent session")
+	}
+}
+
+func TestNext_SaveError(t *testing.T) {
+	m := newTestManager(t)
+	s, _ := m.Start("x")
+	old := osWriteFileHook
+	osWriteFileHook = func(string, []byte, os.FileMode) error { return os.ErrPermission }
+	defer func() { osWriteFileHook = old }()
+	if _, _, err := m.Next(s.ID); err == nil {
+		t.Error("expected error when save fails")
+	}
+}
+
+func TestNext_NoOpenDecisions(t *testing.T) {
+	m := newTestManager(t)
+	s, _ := m.Start("x")
+	if err := m.Answer(s.ID, "d0", "done"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := m.Next(s.ID); err == nil {
+		t.Error("expected error when no open decisions")
+	}
+}
+
+func TestAnswer_SessionNotFound(t *testing.T) {
+	m := newTestManager(t)
+	if err := m.Answer("nonexistent", "d0", "x"); err == nil {
+		t.Error("expected error for nonexistent session")
+	}
+}
+
+func TestStatus_SessionNotFound(t *testing.T) {
+	m := newTestManager(t)
+	if _, _, _, _, err := m.Status("nonexistent"); err == nil {
+		t.Error("expected error for nonexistent session")
+	}
+}
+
+func TestStatus_CountsAnsweredAndDeferred(t *testing.T) {
+	m := newTestManager(t)
+	s, _ := m.Start("x")
+	if err := m.Answer(s.ID, "d0", "partial"); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write a deferred decision directly to disk and reload via a fresh manager.
+	raw := []byte(`{
+		"id": "deferred-id",
+		"topic": "x",
+		"started_at": "2026-06-17T00:00:00Z",
+		"updated_at": "2026-06-17T00:00:00Z",
+		"decisions": [
+			{"id": "d0", "question": "q", "status": "deferred", "asked_at": "2026-06-17T00:00:00Z"}
+		],
+		"open_questions": 0
+	}`)
+	if err := os.WriteFile(filepath.Join(m.Dir(), "deferred-id.json"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m2, _ := NewManager(m.Dir())
+
+	resolved, open, answered, deferred, err := m2.Status("deferred-id")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved != 0 || open != 0 || answered != 0 || deferred != 1 {
+		t.Errorf("deferred counts mismatch: resolved=%d open=%d answered=%d deferred=%d", resolved, open, answered, deferred)
+	}
+
+	resolved, open, answered, deferred, err = m.Status(s.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved != 0 || open != 0 || answered != 1 || deferred != 0 {
+		t.Errorf("answered counts mismatch: resolved=%d open=%d answered=%d deferred=%d", resolved, open, answered, deferred)
+	}
+}
+
+func TestSynthesize_SessionNotFound(t *testing.T) {
+	m := newTestManager(t)
+	if _, err := m.Synthesize("nonexistent"); err == nil {
+		t.Error("expected error for nonexistent session")
+	}
+}
+
+func TestSave_MarshalError(t *testing.T) {
+	m := newTestManager(t)
+	s, _ := m.Start("x")
+	old := jsonMarshalHook
+	jsonMarshalHook = func(any, string, string) ([]byte, error) { return nil, os.ErrInvalid }
+	defer func() { jsonMarshalHook = old }()
+	if err := m.save(s); err == nil {
+		t.Error("expected error when marshal fails")
+	}
+}
+
+func TestSave_WriteFileError(t *testing.T) {
+	m := newTestManager(t)
+	s, _ := m.Start("x")
+	old := osWriteFileHook
+	osWriteFileHook = func(string, []byte, os.FileMode) error { return os.ErrPermission }
+	defer func() { osWriteFileHook = old }()
+	if err := m.save(s); err == nil {
+		t.Error("expected error when write fails")
+	}
+}
+
+func TestLoad_ReadFileError(t *testing.T) {
+	m := newTestManager(t)
+	old := osReadFileHook
+	osReadFileHook = func(string) ([]byte, error) { return nil, os.ErrNotExist }
+	defer func() { osReadFileHook = old }()
+	if _, err := m.load("x"); err == nil {
+		t.Error("expected error when read fails")
+	}
+}
+
+func TestLoad_UnmarshalError(t *testing.T) {
+	m := newTestManager(t)
+	path := m.path("x")
+	if err := os.WriteFile(path, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	old := jsonUnmarshalHook
+	jsonUnmarshalHook = func([]byte, any) error { return os.ErrInvalid }
+	defer func() { jsonUnmarshalHook = old }()
+	if _, err := m.load("x"); err == nil {
+		t.Error("expected error when unmarshal fails")
+	}
+}
+
+func TestCatalogQuestion_EmptyCatalog(t *testing.T) {
+	old := Catalog
+	Catalog = nil
+	defer func() { Catalog = old }()
+	if got := catalogQuestion("x", 0); got != "What is the assumption behind this step?" {
+		t.Errorf("unexpected fallback: %q", got)
+	}
+}
+
+func TestCatalogQuestion_EmptyQuestions(t *testing.T) {
+	old := Catalog
+	Catalog = []AntiPattern{{Name: "Empty", Description: "desc", Questions: []string{}}}
+	defer func() { Catalog = old }()
+	if got := catalogQuestion("x", 0); got != "desc" {
+		t.Errorf("unexpected fallback: %q", got)
+	}
+}
+
+func TestAnswer_SkipResolves(t *testing.T) {
+	m := newTestManager(t)
+	s, _ := m.Start("x")
+	if err := m.Answer(s.ID, "d0", "skip"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := m.Get(s.ID)
+	if got.Decisions[0].Status != "resolved" {
+		t.Errorf("expected status=resolved for answer=skip, got %q", got.Decisions[0].Status)
+	}
+}
+

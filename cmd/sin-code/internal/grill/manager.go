@@ -14,6 +14,17 @@ import (
 	"time"
 )
 
+// hook variables make filesystem and JSON error paths testable
+// without changing public behavior.
+var (
+	osMkdirAllHook    = os.MkdirAll
+	osWriteFileHook   = os.WriteFile
+	osReadFileHook    = os.ReadFile
+	osRenameHook      = os.Rename
+	jsonMarshalHook   = json.MarshalIndent
+	jsonUnmarshalHook = json.Unmarshal
+)
+
 // Manager is a process-wide registry of grilling sessions. It is
 // safe for concurrent use (the operator may run `grill next` and
 // `grill answer` in parallel from a TUI shell, for example).
@@ -26,7 +37,7 @@ type Manager struct {
 // NewManager opens (or creates) the grill directory. Sessions are
 // loaded lazily on first access; the manager is cheap to construct.
 func NewManager(dir string) (*Manager, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := osMkdirAllHook(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("grill: create dir: %w", err)
 	}
 	return &Manager{dir: dir, sessions: map[string]*Session{}}, nil
@@ -230,25 +241,25 @@ func (s *Session) recomputeOpen() {
 // rename, so a crash mid-write never leaves a half-written file.
 func (m *Manager) save(s *Session) error {
 	path := m.path(s.ID)
-	b, err := json.MarshalIndent(s, "", "  ")
+	b, err := jsonMarshalHook(s, "", "  ")
 	if err != nil {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if err := osWriteFileHook(tmp, b, 0o644); err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	return osRenameHook(tmp, path)
 }
 
 func (m *Manager) load(id string) (*Session, error) {
 	path := m.path(id)
-	b, err := os.ReadFile(path)
+	b, err := osReadFileHook(path)
 	if err != nil {
 		return nil, fmt.Errorf("grill: load %s: %w", id, err)
 	}
 	var s Session
-	if err := json.Unmarshal(b, &s); err != nil {
+	if err := jsonUnmarshalHook(b, &s); err != nil {
 		return nil, fmt.Errorf("grill: parse %s: %w", id, err)
 	}
 	// Sort decisions by ID for stable rendering. The IDs are
