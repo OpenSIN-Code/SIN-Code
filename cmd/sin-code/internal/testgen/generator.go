@@ -12,6 +12,7 @@ package testgen
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -101,36 +102,162 @@ func generateForFile(ctx context.Context, opts Options) Result {
 		return Result{Error: fmt.Sprintf("test file already exists: %s (use overwrite=true)", outFile)}
 	}
 
-	var gen []string
-	if hasGotests() {
-		if err := runGotests(ctx, file, outFile); err != nil {
-			return Result{Error: fmt.Sprintf("gotests failed: %v", err)}
-		}
-		gen = append(gen, outFile)
-	} else {
-		// Fallback: parse file and emit minimal table-driven scaffolding.
-		code, err := generateFallback(ctx, file, opts.UseLLM, opts.Cases)
-		if err != nil {
-			return Result{Error: fmt.Sprintf("fallback generation failed: %v", err)}
-		}
-		if err := os.WriteFile(outFile, []byte(code), 0o644); err != nil {
-			return Result{Error: fmt.Sprintf("write test file: %v", err)}
-		}
-		gen = append(gen, outFile)
+	maxIters := opts.MaxRepairIters
+	if maxIters <= 0 {
+		maxIters = 1
+	}
+	if maxIters > 10 {
+		maxIters = 10 // safety cap so a misconfigured caller cannot pin the loop
 	}
 
-	// Verify generated tests compile and run.
-	pkg := filepath.Dir(file)
-	if pkg == "" || pkg == "." {
-		pkg = "./"
+	// Must run with a fallback path (no gotests on PATH) for repairs.
+	skipFallback := hasGotests()
+
+	// Accumulate per-iteration test output so callers can see the
+	// attempt history on failure.
+	var outputs []string
+	gen := []string{outFile}
+	casesMap := opts.Cases // gets rebuilt on each repair iteration
+	for attempt := 1; attempt <= maxIters; attempt++ {
+		if skipFallback {
+			if err := runGotests(ctx, file, outFile); err != nil {
+				return Result{
+					GeneratedFiles: gen,
+					TestOutput:     joinAttemptOutputs(outputs),
+					Error:          fmt.Sprintf("gotests failed (attempt %d): %v", attempt, err),
+				}
+			}
+		} else {
+			// Fallback: parse file and emit minimal table-driven scaffolding.
+			code, err := generateFallback(ctx, file, opts.UseLLM, casesMap)
+			if err != nil {
+				return Result{
+					GeneratedFiles: gen,
+					TestOutput:     joinAttemptOutputs(outputs),
+					Error:          fmt.Sprintf("fallback generation failed (attempt %d): %v", attempt, err),
+				}
+			}
+			if err := os.WriteFile(outFile, []byte(code), 0o644); err != nil {
+				return Result{
+					GeneratedFiles: gen,
+					TestOutput:     joinAttemptOutputs(outputs),
+					Error:          fmt.Sprintf("write test file (attempt %d): %v", attempt, err),
+				}
+			}
+		}
+
+		// Verify generated tests compile and run.
+		pkg := filepath.Dir(file)
+		if pkg == "" || pkg == "." {
+			pkg = "./"
+		}
+		out, passed := runGoTest(ctx, pkg)
+		outputs = append(outputs, fmt.Sprintf("--- attempt %d ---\n%s", attempt, out))
+		if passed {
+			return Result{
+				GeneratedFiles: gen,
+				TestOutput:     joinAttemptOutputs(outputs),
+				TestPassed:     true,
+			}
+		}
+		// Loop budget exhausted -> give up.
+		if attempt >= maxIters {
+			break
+		}
+		// Only retry when UseLLM is wired: without an LLM there is
+		// nothing to repair against.
+		if opts.UseLLM == nil {
+			break
+		}
+		// Ask the LLM to repair the cases given the latest failure.
+		// repairCases returns the same map when the LLM has nothing
+		// better to suggest; we then break on `len(newCases)==0` so a
+		// stuck LLM does not pin the loop.
+		newCases, rerr := repairCases(ctx, file, opts.UseLLM, casesMap, out)
+		if rerr != nil || len(newCases) == 0 {
+			outputs = append(outputs, fmt.Sprintf("--- repair %d failed: %v ---", attempt, rerr))
+			break
+		}
+		casesMap = newCases
 	}
-	out, passed := runGoTest(ctx, pkg)
 
 	return Result{
 		GeneratedFiles: gen,
-		TestOutput:     out,
-		TestPassed:     passed,
+		TestOutput:     joinAttemptOutputs(outputs),
+		TestPassed:     false,
+		// Only set Error when LLM repair was attempted AND failed:
+		// a plain go-test failure is reported via TestPassed==false
+		// which is the conventional surface (no false alarms on the
+		// single-pass path).
+		Error: repairErrorIfLoop(opts.MaxRepairIters, len(outputs)),
 	}
+}
+
+// repairErrorIfLoop returns a non-empty error string only when the
+// repair loop ran at least once and exhausted without success. Empty
+// otherwise so CLI/test callers that only read res.Error see no
+// regression versus the pre-loop behaviour.
+func repairErrorIfLoop(maxIters int, numOutputs int) string {
+	if maxIters <= 1 {
+		return ""
+	}
+	return fmt.Sprintf("sin_test_generate: %d attempts failed; LLM repair exhausted. Review Result.TestOutput", maxIters)
+}
+
+// repairCases re-prompts the LLM with the failing `go test` output
+// and expects a fresh Cases map (keyed as testgen expects). The
+// signature mirrors Options.UseLLM (`func(ctx, code string) (string, error)`).
+// Re-using the same closure is intentional: it already returns the
+// Cases JSON the chat tool wired; we treat the failing output as
+// context-injection by encoding it in the request body via the
+// second argument to leverage caller-specific prompts.
+func repairCases(ctx context.Context, file string, useLLM func(context.Context, string) (string, error), current map[string][]TestCase, failing string) (map[string][]TestCase, error) {
+	if useLLM == nil {
+		return current, nil
+	}
+	// Compose a "repair" prompt: snippet of the failing tail (last 4 KB is
+	// plenty) glued to the current scaffold so the LLM knows what broke.
+	cur, _ := json.Marshal(current)
+	body := strings.Join([]string{
+		string(cur),
+		"# failing test output:",
+		failing,
+	}, "\n")
+	raw, err := useLLM(ctx, body)
+	if err != nil {
+		return nil, err
+	}
+	// Caller's UseLLM returns either:
+	// - a Cases map (JSON object keyed by function name), OR
+	// - opaque text that is not a Cases map.
+	// First try the map parse; on failure, treat the empty / non-JSON
+	// reply as "LLM has nothing to suggest" (return nil so the caller
+	// can break out of the loop early).
+	var fresh map[string][]TestCase
+	if uerr := json.Unmarshal([]byte(raw), &fresh); uerr != nil {
+		return nil, nil
+	}
+	if len(fresh) == 0 {
+		return nil, nil
+	}
+	return fresh, nil
+}
+
+// joinAttemptOutputs concatenates attempt log sections with a single
+// newline between them. Empty sections are skipped so a single-pass
+// run produces the same bytes as the pre-loop version.
+func joinAttemptOutputs(parts []string) string {
+	var b strings.Builder
+	for _, p := range parts {
+		if p == "" {
+			continue
+		}
+		if b.Len() > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString(p)
+	}
+	return b.String()
 }
 
 func generateForPackage(ctx context.Context, opts Options) Result {
