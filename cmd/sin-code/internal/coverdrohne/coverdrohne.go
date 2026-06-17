@@ -4,6 +4,7 @@
 package coverdrohne
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -28,11 +29,19 @@ var mkdirAllHook = os.MkdirAll
 // writeFileModeHook is swappable for tests that exercise the hook install write error path.
 var writeFileModeHook = func(name string, data []byte, perm os.FileMode) error { return os.WriteFile(name, data, perm) }
 
+// readDirHook is swappable for tests that exercise the drain read-dir error path.
+var readDirHook = os.ReadDir
+
 // scanWithProfileHook is swappable for tests that exercise the scanWithProfile error path.
 var scanWithProfileHook = scanWithProfile
 
 // jsonMarshalIndentHook is swappable for tests that exercise the JSON marshal error path.
 var jsonMarshalIndentHook = json.MarshalIndent
+
+// EnqueueGoal is an optional callback that wires `sin-code cover drain` into
+// the autonomy queue. When set, drain calls it for each request. If nil,
+// drain only generates the detailed request JSON.
+var EnqueueGoal func(ctx context.Context, prompt, workspace string) error
 
 // NewCommand returns the `sin-code cover` cobra command.
 func NewCommand() *cobra.Command {
@@ -47,6 +56,7 @@ and reports which ones are below the configured threshold.
   sin-code cover check --min 100       # exit 1 if any package below 100%
   sin-code cover gaps --package <pkg>  # uncovered functions/blocks for a package
   sin-code cover generate --package <pkg> --out req.json  # AI test-gen request
+  sin-code cover drain                 # consume .sin-code/coverage-requests/*.json
   sin-code cover hook                  # print a git pre-commit coverage gate
   sin-code cover hook --install        # install .git/hooks/pre-commit`,
 	}
@@ -55,6 +65,7 @@ and reports which ones are below the configured threshold.
 		newCheckCmd(),
 		newGapsCmd(),
 		newGenerateCmd(),
+		newDrainCmd(),
 		newHookCmd(),
 	)
 	return cmd
@@ -250,6 +261,123 @@ func newGenerateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&out, "out", "", "output file (default: stdout)")
 	cmd.Flags().StringVar(&packages, "packages", "./cmd/sin-code/...", "package pattern")
 	cmd.Flags().StringVar(&root, "root", ".", "module root directory")
+	return cmd
+}
+
+// newDrainCmd returns `sin-code cover drain`. It reads the queued request
+// files produced by the auto-coverage hook and materializes a full test-gen
+// request for each package (including live coverage + gaps). If EnqueueGoal is
+// set, each request is also pushed into the autonomy goal queue.
+func newDrainCmd() *cobra.Command {
+	var root string
+	var packages string
+	var enqueue bool
+	var outDir string
+	cmd := &cobra.Command{
+		Use:   "drain",
+		Short: "Consume queued coverage requests and generate detailed test-gen prompts",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reqDir := filepath.Join(root, ".sin-code/coverage-requests")
+			entries, err := readDirHook(reqDir)
+			if err != nil {
+				return fmt.Errorf("cannot read request queue: %w", err)
+			}
+			var generated int
+			var enqueued int
+			w := cmd.OutOrStdout()
+			for _, entry := range entries {
+				if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+					continue
+				}
+				src := filepath.Join(reqDir, entry.Name())
+				data, err := readFileHook(src)
+				if err != nil {
+					fmt.Fprintf(w, "skip %s: read error: %v\n", entry.Name(), err)
+					continue
+				}
+				var req map[string]string
+				if err := json.Unmarshal(data, &req); err != nil {
+					fmt.Fprintf(w, "skip %s: invalid JSON: %v\n", entry.Name(), err)
+					continue
+				}
+				pkg, ok := req["package"]
+				if !ok || pkg == "" {
+					fmt.Fprintf(w, "skip %s: missing package\n", entry.Name())
+					continue
+				}
+				generated++
+				coverprofile, err := runCoverageProfile(root, packages)
+				if err != nil {
+					fmt.Fprintf(w, "skip %s: coverage profile failed: %v\n", pkg, err)
+					continue
+				}
+				defer os.RemoveAll(filepath.Dir(coverprofile))
+
+				results, err := scanWithProfileHook(root, packages, coverprofile)
+				if err != nil {
+					fmt.Fprintf(w, "skip %s: scan failed: %v\n", pkg, err)
+					continue
+				}
+				var target *PackageCoverage
+				for i := range results {
+					if strings.Contains(results[i].ImportPath, pkg) {
+						target = &results[i]
+						break
+					}
+				}
+				if target == nil {
+					fmt.Fprintf(w, "skip %s: not found in coverage scan\n", pkg)
+					continue
+				}
+				gaps, err := Gaps(coverprofile, root)
+				if err != nil {
+					fmt.Fprintf(w, "skip %s: gaps failed: %v\n", pkg, err)
+					continue
+				}
+				gaps = filterGapsByPackage(gaps, pkg)
+				detailed := map[string]any{
+					"package":  target.ImportPath,
+					"coverage": target.Coverage,
+					"gaps":     gaps,
+					"prompt": fmt.Sprintf("Add Go tests to bring %s from %.1f%% to 100%% coverage. "+
+						"Target the uncovered functions/blocks listed in gaps.", target.ImportPath, target.Coverage),
+				}
+				destDir := outDir
+				if destDir == "" {
+					destDir = filepath.Join(reqDir, "generated")
+				}
+				if err := mkdirAllHook(destDir, 0o755); err != nil {
+					fmt.Fprintf(w, "skip %s: cannot create output dir: %v\n", pkg, err)
+					continue
+				}
+				dest := filepath.Join(destDir, strings.ReplaceAll(pkg, "/", "--")+".json")
+				b, err := jsonMarshalIndentHook(detailed, "", "  ")
+				if err != nil {
+					fmt.Fprintf(w, "skip %s: marshal failed: %v\n", pkg, err)
+					continue
+				}
+				if err := writeFileHook(dest, b, 0o644); err != nil {
+					fmt.Fprintf(w, "skip %s: write failed: %v\n", pkg, err)
+					continue
+				}
+				fmt.Fprintf(w, "generated %s\n", dest)
+				if enqueue && EnqueueGoal != nil {
+					if err := EnqueueGoal(cmd.Context(), detailed["prompt"].(string), root); err != nil {
+						fmt.Fprintf(w, "enqueue %s failed: %v\n", pkg, err)
+						continue
+					}
+					enqueued++
+					fmt.Fprintf(w, "enqueued %s\n", pkg)
+				}
+			}
+			fmt.Fprintf(w, "drained %d requests, generated %d, enqueued %d\n", len(entries), generated, enqueued)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&root, "root", ".", "module root directory")
+	cmd.Flags().StringVar(&packages, "packages", "./cmd/sin-code/...", "package pattern")
+	cmd.Flags().BoolVar(&enqueue, "enqueue", false, "enqueue a goal for each generated request")
+	cmd.Flags().StringVar(&outDir, "out-dir", "", "directory for generated requests (default: .sin-code/coverage-requests/generated)")
 	return cmd
 }
 

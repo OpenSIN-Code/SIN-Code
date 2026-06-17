@@ -3,6 +3,7 @@
 package coverdrohne
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"go/ast"
@@ -965,6 +966,499 @@ func TestPackageImportPathOutsideRoot(t *testing.T) {
 	outside := filepath.Join(tmp, "..", "other", "bar.go")
 	if got := PackageImportPath(tmp, outside); got != outside {
 		t.Errorf("PackageImportPath = %q, want %q", got, outside)
+	}
+}
+
+// --- drain ---
+
+func TestDrainReadDirError(t *testing.T) {
+	readDirHook = func(name string) ([]os.DirEntry, error) {
+		return nil, fmt.Errorf("read dir err")
+	}
+	defer func() { readDirHook = os.ReadDir }()
+	cmd := newDrainCmd()
+	cmd.SetOut(&strings.Builder{})
+	cmd.SetArgs([]string{"--root", t.TempDir()})
+	if err := cmd.Execute(); err == nil || !strings.Contains(err.Error(), "read dir err") {
+		t.Fatalf("error = %v", err)
+	}
+}
+
+func TestDrainEmptyQueue(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tmp, ".sin-code/coverage-requests"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "drained 0 requests") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainInvalidJSON(t *testing.T) {
+	tmp := t.TempDir()
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "bad.json"), []byte("not json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "invalid JSON") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainMissingPackage(t *testing.T) {
+	tmp := t.TempDir()
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "bad.json"), []byte(`{"file":"x.go"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "missing package") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainOneRequest(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/demo\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "pkg.json"), []byte(`{"package":"example.com/demo/pkg"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkdirTempCmd = func(dir, pattern string) (string, error) {
+		return t.TempDir(), nil
+	}
+	defer func() { mkdirTempCmd = os.MkdirTemp }()
+	runGoTestHook = func(dir, packages, coverprofile string) ([]byte, error) {
+		_ = os.WriteFile(coverprofile, []byte("mode: set\n"), 0o644)
+		return []byte("ok  example.com/demo/pkg  0.010s  coverage: 50.0% of statements\n"), nil
+	}
+	defer func() { runGoTestHook = defaultRunGoTest }()
+
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp, "--packages", "./..."})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, "generated") {
+		t.Errorf("output = %q", out)
+	}
+	if !strings.Contains(out, "drained 1 requests, generated 1, enqueued 0") {
+		t.Errorf("summary = %q", out)
+	}
+}
+
+func TestDrainCoverageProfileError(t *testing.T) {
+	tmp := t.TempDir()
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "pkg.json"), []byte(`{"package":"example.com/demo/pkg"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkdirTempCmd = func(dir, pattern string) (string, error) {
+		return "", fmt.Errorf("mkdir err")
+	}
+	defer func() { mkdirTempCmd = os.MkdirTemp }()
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "coverage profile failed") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainEnqueue(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/demo\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "pkg.json"), []byte(`{"package":"example.com/demo/pkg"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkdirTempCmd = func(dir, pattern string) (string, error) {
+		return t.TempDir(), nil
+	}
+	defer func() { mkdirTempCmd = os.MkdirTemp }()
+	runGoTestHook = func(dir, packages, coverprofile string) ([]byte, error) {
+		_ = os.WriteFile(coverprofile, []byte("mode: set\n"), 0o644)
+		return []byte("ok  example.com/demo/pkg  0.010s  coverage: 50.0% of statements\n"), nil
+	}
+	defer func() { runGoTestHook = defaultRunGoTest }()
+
+	var called bool
+	EnqueueGoal = func(ctx context.Context, prompt, workspace string) error {
+		called = true
+		return nil
+	}
+	defer func() { EnqueueGoal = nil }()
+
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp, "--packages", "./...", "--enqueue"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !called {
+		t.Fatal("EnqueueGoal not called")
+	}
+	if !strings.Contains(buf.String(), "enqueued 1") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainSkipsDirAndNonJSON(t *testing.T) {
+	tmp := t.TempDir()
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(filepath.Join(reqDir, "subdir"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "readme.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "drained 2 requests, generated 0, enqueued 0") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainReadFileError(t *testing.T) {
+	tmp := t.TempDir()
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "pkg.json"), []byte(`{"package":"x"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	readFileHook = func(name string) ([]byte, error) {
+		return nil, fmt.Errorf("read err")
+	}
+	defer func() { readFileHook = os.ReadFile }()
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "read error") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainScanWithProfileError(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/demo\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "pkg.json"), []byte(`{"package":"example.com/demo/pkg"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkdirTempCmd = func(dir, pattern string) (string, error) {
+		return t.TempDir(), nil
+	}
+	defer func() { mkdirTempCmd = os.MkdirTemp }()
+	runGoTestHook = func(dir, packages, coverprofile string) ([]byte, error) {
+		_ = os.WriteFile(coverprofile, []byte("mode: set\n"), 0o644)
+		return []byte("ok  example.com/demo/pkg  0.010s  coverage: 50.0% of statements\n"), nil
+	}
+	defer func() { runGoTestHook = defaultRunGoTest }()
+	scanWithProfileHook = func(root, packages, coverprofile string) ([]PackageCoverage, error) {
+		return nil, fmt.Errorf("scan err")
+	}
+	defer func() { scanWithProfileHook = scanWithProfile }()
+
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp, "--packages", "./..."})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "scan failed") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainTargetNotFound(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/demo\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "pkg.json"), []byte(`{"package":"other"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkdirTempCmd = func(dir, pattern string) (string, error) {
+		return t.TempDir(), nil
+	}
+	defer func() { mkdirTempCmd = os.MkdirTemp }()
+	runGoTestHook = func(dir, packages, coverprofile string) ([]byte, error) {
+		_ = os.WriteFile(coverprofile, []byte("mode: set\n"), 0o644)
+		return []byte("ok  example.com/demo/pkg  0.010s  coverage: 50.0% of statements\n"), nil
+	}
+	defer func() { runGoTestHook = defaultRunGoTest }()
+	scanWithProfileHook = func(root, packages, coverprofile string) ([]PackageCoverage, error) {
+		return []PackageCoverage{{ImportPath: "example.com/demo/pkg", Coverage: 100}}, nil
+	}
+	defer func() { scanWithProfileHook = scanWithProfile }()
+
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp, "--packages", "./..."})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "not found in coverage scan") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainGapsError(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/demo\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "pkg.json"), []byte(`{"package":"example.com/demo/pkg"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkdirTempCmd = func(dir, pattern string) (string, error) {
+		return t.TempDir(), nil
+	}
+	defer func() { mkdirTempCmd = os.MkdirTemp }()
+	runGoTestHook = func(dir, packages, coverprofile string) ([]byte, error) {
+		_ = os.WriteFile(coverprofile, []byte("mode: set\n"), 0o644)
+		return []byte("ok  example.com/demo/pkg  0.010s  coverage: 50.0% of statements\n"), nil
+	}
+	defer func() { runGoTestHook = defaultRunGoTest }()
+	openFileHook = func(name string) (*os.File, error) {
+		return nil, fmt.Errorf("open err")
+	}
+	defer func() { openFileHook = os.Open }()
+
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp, "--packages", "./..."})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "gaps failed") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainMkdirOutputError(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/demo\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "pkg.json"), []byte(`{"package":"example.com/demo/pkg"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkdirTempCmd = func(dir, pattern string) (string, error) {
+		return t.TempDir(), nil
+	}
+	defer func() { mkdirTempCmd = os.MkdirTemp }()
+	runGoTestHook = func(dir, packages, coverprofile string) ([]byte, error) {
+		_ = os.WriteFile(coverprofile, []byte("mode: set\n"), 0o644)
+		return []byte("ok  example.com/demo/pkg  0.010s  coverage: 50.0% of statements\n"), nil
+	}
+	defer func() { runGoTestHook = defaultRunGoTest }()
+	mkdirAllHook = func(path string, perm os.FileMode) error {
+		return fmt.Errorf("mkdir all err")
+	}
+	defer func() { mkdirAllHook = os.MkdirAll }()
+
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp, "--packages", "./..."})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "cannot create output dir") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainMarshalError(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/demo\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "pkg.json"), []byte(`{"package":"example.com/demo/pkg"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkdirTempCmd = func(dir, pattern string) (string, error) {
+		return t.TempDir(), nil
+	}
+	defer func() { mkdirTempCmd = os.MkdirTemp }()
+	runGoTestHook = func(dir, packages, coverprofile string) ([]byte, error) {
+		_ = os.WriteFile(coverprofile, []byte("mode: set\n"), 0o644)
+		return []byte("ok  example.com/demo/pkg  0.010s  coverage: 50.0% of statements\n"), nil
+	}
+	defer func() { runGoTestHook = defaultRunGoTest }()
+	jsonMarshalIndentHook = func(v any, prefix, indent string) ([]byte, error) {
+		return nil, fmt.Errorf("marshal err")
+	}
+	defer func() { jsonMarshalIndentHook = json.MarshalIndent }()
+
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp, "--packages", "./..."})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "marshal failed") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainWriteFileError(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/demo\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "pkg.json"), []byte(`{"package":"example.com/demo/pkg"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkdirTempCmd = func(dir, pattern string) (string, error) {
+		return t.TempDir(), nil
+	}
+	defer func() { mkdirTempCmd = os.MkdirTemp }()
+	runGoTestHook = func(dir, packages, coverprofile string) ([]byte, error) {
+		_ = os.WriteFile(coverprofile, []byte("mode: set\n"), 0o644)
+		return []byte("ok  example.com/demo/pkg  0.010s  coverage: 50.0% of statements\n"), nil
+	}
+	defer func() { runGoTestHook = defaultRunGoTest }()
+	writeFileHook = func(name string, data []byte, perm os.FileMode) error {
+		return fmt.Errorf("write err")
+	}
+	defer func() { writeFileHook = os.WriteFile }()
+
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp, "--packages", "./..."})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "write failed") {
+		t.Errorf("output = %q", buf.String())
+	}
+}
+
+func TestDrainEnqueueError(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/demo\n\ngo 1.23\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reqDir := filepath.Join(tmp, ".sin-code/coverage-requests")
+	if err := os.MkdirAll(reqDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(reqDir, "pkg.json"), []byte(`{"package":"example.com/demo/pkg"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	mkdirTempCmd = func(dir, pattern string) (string, error) {
+		return t.TempDir(), nil
+	}
+	defer func() { mkdirTempCmd = os.MkdirTemp }()
+	runGoTestHook = func(dir, packages, coverprofile string) ([]byte, error) {
+		_ = os.WriteFile(coverprofile, []byte("mode: set\n"), 0o644)
+		return []byte("ok  example.com/demo/pkg  0.010s  coverage: 50.0% of statements\n"), nil
+	}
+	defer func() { runGoTestHook = defaultRunGoTest }()
+	EnqueueGoal = func(ctx context.Context, prompt, workspace string) error {
+		return fmt.Errorf("enqueue err")
+	}
+	defer func() { EnqueueGoal = nil }()
+
+	cmd := newDrainCmd()
+	buf := &strings.Builder{}
+	cmd.SetOut(buf)
+	cmd.SetArgs([]string{"--root", tmp, "--packages", "./...", "--enqueue"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "enqueue example.com/demo/pkg failed") {
+		t.Errorf("output = %q", buf.String())
 	}
 }
 
