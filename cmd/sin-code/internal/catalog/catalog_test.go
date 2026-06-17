@@ -752,3 +752,99 @@ func TestFilterUnused_FallsBackToName(t *testing.T) {
 		t.Errorf("expected x marked used by name fallback, got %d", len(got))
 	}
 }
+
+func TestChatSource_Name(t *testing.T) {
+	if got := (ChatSource{}).Name(); got != "chat" {
+		t.Errorf("expected chat, got %s", got)
+	}
+}
+
+func TestChatSource_Get(t *testing.T) {
+	src := ChatSource{}
+
+	_, ok, err := src.Get(context.Background(), KindAgent, "sin_read")
+	if err != nil || ok {
+		t.Errorf("expected not-found for wrong kind, got ok=%v err=%v", ok, err)
+	}
+
+	got, ok, err := src.Get(context.Background(), KindChat, "sin_read")
+	if err != nil || !ok {
+		t.Fatalf("expected sin_read, got ok=%v err=%v", ok, err)
+	}
+	if got.Name != "sin_read" {
+		t.Errorf("expected sin_read, got %s", got.Name)
+	}
+
+	_, ok, err = src.Get(context.Background(), KindChat, "does-not-exist")
+	if err != nil || ok {
+		t.Errorf("expected not-found, got ok=%v err=%v", ok, err)
+	}
+}
+
+func TestExternalSource_Name(t *testing.T) {
+	if got := (ExternalSource{}).Name(); got != "external" {
+		t.Errorf("expected external, got %s", got)
+	}
+}
+
+func TestExternalSource_Get(t *testing.T) {
+	src := ExternalSource{}
+
+	_, ok, err := src.Get(context.Background(), KindHub, "browser")
+	if err != nil || ok {
+		t.Errorf("expected not-found for wrong kind, got ok=%v err=%v", ok, err)
+	}
+
+	got, ok, err := src.Get(context.Background(), KindExternal, "browser")
+	if err != nil || !ok {
+		t.Fatalf("expected browser, got ok=%v err=%v", ok, err)
+	}
+	if got.Name != "browser" || !got.Destructive {
+		t.Errorf("unexpected asset: %+v", got)
+	}
+
+	_, ok, err = src.Get(context.Background(), KindExternal, "missing")
+	if err != nil || ok {
+		t.Errorf("expected not-found, got ok=%v err=%v", ok, err)
+	}
+}
+
+func TestMCPSource_Name(t *testing.T) {
+	if got := (MCPSource{}).Name(); got != "mcp" {
+		t.Errorf("expected mcp, got %s", got)
+	}
+}
+
+func TestMCPSource_GetNotFound(t *testing.T) {
+	src := MCPSource{}
+	_, ok, err := src.Get(context.Background(), KindMCP, "does-not-exist")
+	if err != nil || ok {
+		t.Errorf("expected not-found, got ok=%v err=%v", ok, err)
+	}
+}
+
+func TestMCPSource_GetWrongKind(t *testing.T) {
+	src := MCPSource{}
+	_, ok, err := src.Get(context.Background(), KindChat, "sin_discover")
+	if err != nil || ok {
+		t.Errorf("expected not-found for wrong kind, got ok=%v err=%v", ok, err)
+	}
+}
+
+func TestFirstSentence(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"Hello world", "Hello world"},
+		{"A sentence. Another.", "A sentence."},
+		{"First\nSecond.\nThird.", "First\nSecond."},
+		{"Something — rest", "Something "},
+		{strings.Repeat("x", 120), strings.Repeat("x", 120)},
+		{strings.Repeat("y", 121), strings.Repeat("y", 120) + "..."},
+	}
+	for _, c := range cases {
+		if got := firstSentence(c.in); got != c.want {
+			t.Errorf("firstSentence(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
