@@ -129,7 +129,7 @@ func NewDaemonCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&noBaseline, "no-baseline", false, "disable the always-on SinCode loop baseline (tests/debug/docs/completeness DoD); also via SIN_BASELINE=off")
 	cmd.Flags().StringVar(&requireTools, "require-tools", "", "comma-separated tool names the model must invoke before completion (issue #248)")
 	cmd.Flags().StringVar(&forbidTools, "forbid-tools", "", "comma-separated tool names that block completion if invoked (issue #248)")
-	cmd.Flags().BoolVar(&fusionOnVerifyFail, "fusion-on-verify-fail", false, "enable SIN Fusion verify-tournament on verify.fail (issue #290)")
+	cmd.Flags().BoolVar(&fusionOnVerifyFail, "fusion-on-verify-fail", false, "enable SIN Fusion verify-tournament on verify.fail (issue #290). Oracle mode is experimental; set fusion.oracle_mode=true via config.")
 	return cmd
 }
 

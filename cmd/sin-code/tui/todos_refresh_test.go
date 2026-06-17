@@ -12,9 +12,11 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
 )
 
-// tempTodoDB creates a temp bbolt DB for the todo store and returns a
-// cleanup function that restores the original hook.
-func tempTodoDB(t *testing.T) (*todo.Store, func()) {
+// setupTodoDB creates a temp bbolt DB, seeds it with the given todos,
+// closes it, and wires todoOpenHook to reopen it. Returns a cleanup fn.
+// The store must be closed before RefreshTodosCmd is called to avoid
+// bbolt lock contention.
+func setupTodoDB(t *testing.T, seed ...*todo.Todo) func() {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "todo.db")
@@ -22,6 +24,13 @@ func tempTodoDB(t *testing.T) (*todo.Store, func()) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
+	for _, td := range seed {
+		if err := store.Add(td); err != nil {
+			t.Fatalf("Add: %v", err)
+		}
+	}
+	_ = store.Close()
+
 	orig := todoOpenHook
 	todoOpenHook = func(p string) (*todo.Store, error) {
 		if p == "" {
@@ -29,59 +38,70 @@ func tempTodoDB(t *testing.T) (*todo.Store, func()) {
 		}
 		return todo.Open(p)
 	}
-	return store, func() {
+	return func() {
 		todoOpenHook = orig
-		_ = store.Close()
 	}
 }
 
 // TestRefreshTodosCmdReturnsRealCounts verifies that RefreshTodosCmd
 // queries the real store and returns non-zero counts when todos exist.
 func TestRefreshTodosCmdReturnsRealCounts(t *testing.T) {
-	store, cleanup := tempTodoDB(t)
-	defer cleanup()
-
-	// Seed the store with real todos.
-	if err := store.Add(&todo.Todo{Title: "Task A", Priority: todo.PriorityP0, Status: todo.StatusOpen}); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Add(&todo.Todo{Title: "Task B", Priority: todo.PriorityP1, Status: todo.StatusOpen}); err != nil {
-		t.Fatal(err)
-	}
-	if err := store.Add(&todo.Todo{Title: "Task C", Priority: todo.PriorityP2, Status: todo.StatusBlocked}); err != nil {
-		t.Fatal(err)
+	dir := t.TempDir()
+	path := filepath.Join(dir, "todo.db")
+	store, err := todo.Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
 	}
 
-	// The default todoDataHook uses todoOpenHook, which is overridden
-	// above to point at our temp DB. No need to reset todoDataHook.
+	// Create two todos: A (open) blocks B (open) → B is "blocked".
+	todoA := &todo.Todo{Title: "Task A", Priority: todo.PriorityP0, Status: todo.StatusOpen}
+	todoB := &todo.Todo{Title: "Task B", Priority: todo.PriorityP1, Status: todo.StatusOpen}
+	if err := store.Add(todoA); err != nil {
+		t.Fatalf("Add A: %v", err)
+	}
+	if err := store.Add(todoB); err != nil {
+		t.Fatalf("Add B: %v", err)
+	}
+	if err := store.AddDep(todo.Dependency{From: todoB.ID, To: todoA.ID, Type: todo.DepBlocks}); err != nil {
+		t.Fatalf("AddDep: %v", err)
+	}
+	_ = store.Close()
+
+	orig := todoOpenHook
+	todoOpenHook = func(p string) (*todo.Store, error) {
+		if p == "" {
+			return todo.Open(path)
+		}
+		return todo.Open(p)
+	}
+	defer func() { todoOpenHook = orig }()
 
 	cmd := RefreshTodosCmd()
 	msg := cmd()
 
 	refresh, ok := msg.(TodosRefreshMsg)
 	if !ok {
-		// Graceful degradation might return CountsMsg if store is nil.
-		// But with our hook, it should return TodosRefreshMsg.
 		t.Fatalf("expected TodosRefreshMsg, got %T", msg)
 	}
 
-	if refresh.Counts.Open != 3 {
-		t.Errorf("expected Open=3, got %d", refresh.Counts.Open)
+	if refresh.Counts.Open != 2 {
+		t.Errorf("expected Open=2, got %d", refresh.Counts.Open)
 	}
 	if refresh.Counts.Blocked != 1 {
 		t.Errorf("expected Blocked=1, got %d", refresh.Counts.Blocked)
+	}
+	if refresh.Counts.Ready != 1 {
+		t.Errorf("expected Ready=1, got %d", refresh.Counts.Ready)
 	}
 }
 
 // TestRefreshTodosCmdReturnsRealItems verifies that RefreshTodosCmd
 // returns real todo items from the store, not an empty list.
 func TestRefreshTodosCmdReturnsRealItems(t *testing.T) {
-	store, cleanup := tempTodoDB(t)
+	cleanup := setupTodoDB(t,
+		&todo.Todo{Title: "Real Todo", Priority: todo.PriorityP0, Status: todo.StatusOpen, Type: todo.TypeBug},
+	)
 	defer cleanup()
-
-	if err := store.Add(&todo.Todo{Title: "Real Todo", Priority: todo.PriorityP0, Status: todo.StatusOpen, Type: todo.TypeBug}); err != nil {
-		t.Fatal(err)
-	}
 
 	cmd := RefreshTodosCmd()
 	msg := cmd()
@@ -105,24 +125,15 @@ func TestRefreshTodosCmdReturnsRealItems(t *testing.T) {
 // TestRefreshTodosCmdOverdueComputed verifies that overdue todos (open
 // with DueAt in the past) are counted correctly.
 func TestRefreshTodosCmdOverdueComputed(t *testing.T) {
-	store, cleanup := tempTodoDB(t)
-	defer cleanup()
-
 	past := time.Now().Add(-24 * time.Hour)
 	future := time.Now().Add(24 * time.Hour)
 
-	// Overdue: open with past DueAt.
-	if err := store.Add(&todo.Todo{Title: "Overdue", Priority: todo.PriorityP0, Status: todo.StatusOpen, DueAt: &past}); err != nil {
-		t.Fatal(err)
-	}
-	// Not overdue: open with future DueAt.
-	if err := store.Add(&todo.Todo{Title: "Future", Priority: todo.PriorityP1, Status: todo.StatusOpen, DueAt: &future}); err != nil {
-		t.Fatal(err)
-	}
-	// Not overdue: done with past DueAt (closed todos don't count).
-	if err := store.Add(&todo.Todo{Title: "Closed", Priority: todo.PriorityP2, Status: todo.StatusDone, DueAt: &past}); err != nil {
-		t.Fatal(err)
-	}
+	cleanup := setupTodoDB(t,
+		&todo.Todo{Title: "Overdue", Priority: todo.PriorityP0, Status: todo.StatusOpen, DueAt: &past},
+		&todo.Todo{Title: "Future", Priority: todo.PriorityP1, Status: todo.StatusOpen, DueAt: &future},
+		&todo.Todo{Title: "Closed", Priority: todo.PriorityP2, Status: todo.StatusDone, DueAt: &past},
+	)
+	defer cleanup()
 
 	cmd := RefreshTodosCmd()
 	msg := cmd()
@@ -144,7 +155,6 @@ func TestRefreshTodosCmdOverdueComputed(t *testing.T) {
 // returns CountsMsg{} (zeros) when the store is unavailable, rather
 // than crashing.
 func TestRefreshTodosCmdGracefulDegradation(t *testing.T) {
-	// Point the hook at a non-existent path to force an error.
 	origOpen := todoOpenHook
 	todoOpenHook = func(p string) (*todo.Store, error) {
 		return nil, os.ErrNotExist
@@ -154,7 +164,6 @@ func TestRefreshTodosCmdGracefulDegradation(t *testing.T) {
 	cmd := RefreshTodosCmd()
 	msg := cmd()
 
-	// Should return CountsMsg{} (graceful degradation, not a crash).
 	c, ok := msg.(CountsMsg)
 	if !ok {
 		t.Fatalf("expected CountsMsg on error, got %T", msg)
@@ -197,7 +206,6 @@ func TestTodosRefreshMsgUpdatesModel(t *testing.T) {
 		t.Errorf("expected first item ID 'st-1', got %q", m.TodoItems[0].ID)
 	}
 
-	// Kanban view should also be populated.
 	if m.KanbanView == nil {
 		t.Fatal("expected KanbanView to be initialized")
 	}

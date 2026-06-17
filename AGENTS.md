@@ -560,6 +560,9 @@ command hooks.
 | `fusion.min_quorum` | int | `1` | tournament — minimum passers before declaring winner |
 | `fusion.per_provider_timeout_s` | int | `120` | tournament — per-model wall-clock timeout |
 | `fusion.difficulty_gate` | bool | `true` | difficulty.go — filter stylistic failures to legacy retry |
+| `fusion.oracle_mode` | bool | `false` | loopbuilder — oracle-mode tournament with judge safety (issue #344) |
+
+Oracle mode is **opt-in and gated**: it only activates when `fusion.enabled = true`, `fusion.oracle_mode = true`, and the gate is in `oracle` mode. Unlike PoC mode, oracle mode does **not** use first-pass-wins; all candidates run to completion, a single judge evaluates all outputs in randomized order, and the highest-scoring candidate wins. Default cost cap is tighter ($2.00) and `fusion__oracle_tournament` is `ask` policy (M4).
 
 ### Verbosity / compression mode (issue #167)
 
@@ -623,7 +626,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.20.0 | ✅ SHIPPED | Tool coverage, M6 enforcement, catalog, telemetry (issues #249, #253, #248, #250, #252, #251): agent profiles expose full `sin_*` + MCP prefix surface; system prompt injects SIN-tool preference fragment; runtime `ToolCoverageEnforcer` rejects missing/forbidden tool usage; `ledger tools` heatmap/coverage/unused; orchestrator planner emits mandatory `ToolChain` per intent; `sin-code catalog` unifies 46+ MCP tools, 17+ chat tools, and 14+ external MCP prefixes. |
 | v3.20.0 | ✅ SHIPPED | `sin-code image-graph` — SOTA ECharts chart generation (bar/line/pie/area); `skill-github-readme` bundled. 42 subcommands, 37 bundled skills. |
 | v3.21.0 | ✅ SHIPPED | Test-First Verify-Loop (RFC-test-automation.md): `sin_test` + `sin_test_generate` + `sin_quality_gate` + `sin_mutation` + `sin_fuzz` + `sin_property`; `tool.post` hook payload path; `test.*` config keys; `evals/test-generation.json` golden dataset. |
-| v3.22.0 | ACTIVE | SIN Fusion v1: Verify-Tournament (issue #290) — multi-model fan-out on verify.fail, Fireworks pool (6 models), thinking mode, cost-governor, difficulty gate, PoC-only |
+| v3.22.0 | ACTIVE | SIN Fusion v1: Verify-Tournament (issue #290) — multi-model fan-out on verify.fail, Fireworks pool (6 models), thinking mode, cost-governor, difficulty gate; oracle-mode tournament with judge safety (issue #344) |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.

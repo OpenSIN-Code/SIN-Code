@@ -54,6 +54,29 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 - Profile distribution table: 8 → 11 targets.
 - CLI `--agent` flag help text and doc comments updated.
 
+### Added — SOTA Skill Infrastructure (PR #359, #360, #361)
+
+- **required_tools on all 37 skills**: 28 remaining skills now declare their
+  SIN tool dependencies. Every skill has a deterministic tool binding enforced
+  by the `ToolCoverageEnforcer` at runtime.
+- **skill-code-create teaches required_tools**: SKILL.md, frameworks/standards,
+  templates/prompt+output, tasks/workflow all updated to scaffold the
+  `required_tools` field in new skills.
+- **8 new eval datasets**: skill-browser, skill-design, skill-ecosystem,
+  skill-infrastructure, skill-memory, skill-planning, skill-process, skill-shop.
+  All 11 categories now have eval coverage. Wired into `eval-n8n.yml` CI.
+- **12 external skills: sources: field**: All `lifecycle: external` skills
+  now document their origin in `metadata.sources`.
+- **skill-code-graph**: empty dirs filled with .md files, .gitkeep removed,
+  lifecycle moved to top-level frontmatter.
+- **Stale counts fixed**: README.md (34→37 skills, 40→42 subcommands),
+  AGENTS.md (35→37), skill-code-create (36→37).
+- **skillmgr 100% coverage**: edge case test for empty/whitespace skill names.
+- **TUI WIP integrated**: 12 untracked files (model_switcher, help_overlay,
+  file_picker, mouse, render_cache, theme_custom, crash_recovery, etc.)
+  integrated. `go build ./cmd/sin-code/...` passes clean.
+- **Doc consistency**: skilldist.doc.md (4 fixes), release-notes/v3.20.0.md.
+
 ### Added — SIN Fusion v1: Verify-Tournament (issue #290)
 
 The largest release in SIN-Code history. Two epics (21 issues), ~50 new
@@ -458,6 +481,15 @@ gate (M3).
 - Config `get`/`set`/`show`/`validate` handlers for 6 `fusion.*` keys
 - 264 tests, all `-race` clean (mandate M7)
 - `fusion.enabled = false` (default) → exact legacy behavior, zero regression
+
+### Added — SIN Fusion Oracle-mode tournament (issue #344)
+- **`internal/fusion/oracle.go`** — `Mode`/`ModeOracle` + `OracleJudgeFn` + `LLMOracleJudge` with structured JSON rubric (correctness/completeness/risk), randomized candidate order, and deterministic score tie-break
+- **`tournament.go`** — `Tournament.Mode` + `OracleJudge` fields; `Run()` dispatches to `runPoC()` or `runOracle()`; oracle mode runs all candidates to completion, then judges all outputs together
+- **`agentloop/loop.go`** — tournament now active in both PoC and oracle modes when configured
+- **`loopbuilder/builder.go`** — `FusionOracleMode` config + oracle tournament wiring; tighter default $2.00 cost cap for oracle mode
+- **`config.go`** — `fusion.oracle_mode` config key with `get`/`set`/`show`/`validate` handlers
+- **`permission_defaults.go`** — `fusion__oracle_tournament` = ask (M4)
+- Oracle-mode tests: judge correctness, all-run-to-completion, cost-cap, judge-error, race safety, position bias, nil judge, JSON/markdown verdict parsing, score clamping
 
 ### Added — Runtime DB migration to user-config-dir (issue #265)
 - `cmd/sin-code/internal/tui/agent_runner.go` no longer writes

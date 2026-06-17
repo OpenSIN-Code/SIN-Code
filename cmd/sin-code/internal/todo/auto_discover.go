@@ -97,9 +97,11 @@ func (d *AutoDiscover) ScanDir(root string, maxDepth int) ([]TodoMarker, error) 
 			}
 			if maxDepth > 0 {
 				rel, _ := filepath.Rel(root, path)
-				depth := strings.Count(rel, string(filepath.Separator))
-				if depth >= maxDepth {
-					return filepath.SkipDir
+				if rel != "." {
+					depth := strings.Count(rel, string(filepath.Separator)) + 1
+					if depth >= maxDepth {
+						return filepath.SkipDir
+					}
 				}
 			}
 			return nil

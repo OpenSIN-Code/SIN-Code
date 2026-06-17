@@ -2218,8 +2218,8 @@ func TestPreviousViewCoverage(t *testing.T) {
 	m := NewModel()
 	m.ViewKind = ViewTools
 	m.PreviousView()
-	if m.ViewKind != ViewMemory {
-		t.Errorf("PreviousView = %v, want Memory", m.ViewKind)
+	if m.ViewKind != ViewKanban {
+		t.Errorf("PreviousView = %v, want Kanban", m.ViewKind)
 	}
 }
 

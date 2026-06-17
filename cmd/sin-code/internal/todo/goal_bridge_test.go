@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
 )
@@ -141,7 +142,13 @@ func TestSyncStatusGoalFailedReopensTodo(t *testing.T) {
 	_ = ts.Add(td)
 	g, _ := b.TodoToGoal(td)
 	gid := strconv.FormatInt(g.ID, 10)
-	_ = gs.FailGoal(context.Background(), g.ID, "", "boom")
+	for i := 0; i < 3; i++ {
+		leased, _ := gs.LeaseGoal(context.Background(), time.Minute)
+		if leased == nil {
+			break
+		}
+		_ = gs.FailGoal(context.Background(), leased.ID, "", "boom")
+	}
 	if err := b.SyncStatus(gid, td.ID); err != nil {
 		t.Fatalf("SyncStatus: %v", err)
 	}
