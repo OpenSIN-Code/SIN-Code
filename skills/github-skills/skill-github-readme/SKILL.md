@@ -5,6 +5,8 @@ license: MIT
 compatibility:
   - opencode
   - sin-code
+  - claude-code
+  - codex
 metadata:
   audience: all-engineering-levels
   mode: autonomous-visual-enhancement
@@ -13,8 +15,8 @@ metadata:
   integrates_with: sin-image-graph
   version: "3.0"
   last_updated: "2026-06-17"
-  lifecycle: external
   sources: "OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/visual-repo"
+lifecycle: external
 ---
 
 > SIN-Code Bundled Skill v3.0 — Enterprise Visual Standard. Macht JEDES Repo visuell verständlich, AI-discoverable, und professionell — für Developer UND Nicht-Developer.

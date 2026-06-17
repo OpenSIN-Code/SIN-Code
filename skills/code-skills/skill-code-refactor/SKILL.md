@@ -2,8 +2,18 @@
 name: skill-code-refactor
 description: Refactor a symbol with full SIN impact analysis and Oracle verification. Use when the user asks to refactor, rename, or restructure a symbol while preserving behavior.
 license: MIT
-compatibility: 
-metadata: 
+compatibility:
+  - sin-code
+  - opencode
+  - claude-code
+  - codex
+metadata:
+  author: SIN-Code
+  version: 3.20.0
+required_tools:
+  - sin_sckg
+  - sin_oracle
+  - sin_test
 lifecycle: native
 ---
 

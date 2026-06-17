@@ -2,6 +2,58 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [Unreleased]
+
+### Added — SOTA Skill Infrastructure
+
+- **Skill frontmatter standardization**: All 36 bundled skills now have
+  filled `compatibility:` (sin-code, opencode, claude-code, codex) and
+  `metadata:` (author, version 3.20.0) frontmatter fields. The validator
+  (`scripts/validate_skill.py`) enforces `required_tools` as a YAML list
+  in `--strict` mode.
+- **`required_tools` frontmatter field**: 8 key skills now declare their
+  required SIN tools (e.g. `skill-code-build` requires `sin_edit`,
+  `sin_test`, `sin_quality_gate`). Parsed at runtime by
+  `cmd/sin-code/internal/skillmgr/required_tools.go` and merged additively
+  (deduplicated, sorted) into `agentloop.Loop.CoverageRequiredTools` via
+  `loopbuilder.Config.ActiveSkills`. When a skill is activated, the
+  `ToolCoverageEnforcer` (issue #248) rejects task completion if the
+  required tools were not invoked. 17 race-clean tests.
+- **3 new skilldist targets**: `aider` (`.aider/conventions/<skill>.md`,
+  rule format), `continue` (`.continue/rules/<skill>.md`, rule format),
+  `zed` (`.zed/rules/<skill>.md`, rule format). Total targets: 8 → 11.
+  Non-breaking (adding targets is allowed per AGENTS.md §10).
+- **3 new skilldist targets in profile distribution**: `aider`, `continue`,
+  `zed` added to `cmd/sin-code/internal/profile/target.go` with
+  `sin-code.md` profile paths. Profile tests updated.
+- **3 skill eval datasets**: `evals/skill-code.json` (3 cases: build /
+  refactor / plan), `evals/skill-debug.json` (2 cases: race / nil-pointer
+  RCA), `evals/skill-github.json` (2 cases: actions / readme). All
+  four-arm comparator compatible (baseline / terse / lazy_skill /
+  target-skill). Wired into `.github/workflows/eval-n8n.yml` n8n-delegated
+  CI (mandate M1).
+
+### Fixed — Skill Validation
+
+- **`skill-github-governance`**: `lifecycle: external` was nested under
+  `metadata:` instead of top-level frontmatter — validator rejected it
+  in `--strict` mode. Fixed: `lifecycle` is now a top-level key.
+- **`skill-github-readme`**: `lifecycle: external` nesting issue (same as
+  governance). Additionally, `context/`, `frameworks/`, `tasks/`,
+  `templates/` directories were empty — validator flagged them in strict
+  mode. Fixed: all four directories now contain `.md` files with triggers,
+  standards, workflow, and templates.
+- **`skill-code-create`**: Version references updated from v3.17.0 →
+  v3.20.0, skill count 34 → 36, frontmatter `compatibility` + `metadata`
+  filled. External duplicate `~/.config/opencode/skills/skill-create/`
+  removed.
+
+### Updated — AGENTS.md §10
+
+- Skill distribution table: 8 → 11 targets (aider, continue, zed added).
+- Profile distribution table: 8 → 11 targets.
+- CLI `--agent` flag help text and doc comments updated.
+
 ## [v3.20.0] - 2026-06-17
 
 The largest release in SIN-Code history. Two epics (21 issues), ~50 new

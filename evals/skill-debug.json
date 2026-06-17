@@ -1,0 +1,53 @@
+{
+  "name": "Skill Eval: debug-skills (issue #171)",
+  "version": "0.1.0",
+  "description": "Four-arm eval for debug-skills. Measures skill-vs-terse delta for debugging tasks. Run with: sin-code eval run --dataset evals/skill-debug.json --arm baseline,terse,lazy_skill,skill-debug-deep",
+  "test_cases": [
+    {
+      "id": "skill_debug_race_condition",
+      "prompt": "Debug a Go function that has a data race on a shared counter. Identify the root cause and propose a fix.",
+      "description": "skill-debug-deep should use sin_scout + sin_grasp for RCA and sin_poc for fix verification.",
+      "tags": ["debug", "go", "race"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["race", "mutex", "sync"],
+        "output_avoids": ["panic"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "debug-rca",
+        "metric_locus": "lines",
+        "target_skill": "skill-debug-deep",
+        "expected_tools": ["sin_scout", "sin_grasp", "sin_poc"]
+      }
+    },
+    {
+      "id": "skill_debug_nil_pointer",
+      "prompt": "Debug a nil pointer dereference in a Go HTTP handler. Show the root cause and minimal fix.",
+      "description": "skill-debug-deep should trace the nil origin and propose a minimal safe fix.",
+      "tags": ["debug", "go", "nil"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "45s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["nil", "pointer", "check"],
+        "output_avoids": ["TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "debug-rca",
+        "metric_locus": "lines",
+        "target_skill": "skill-debug-deep",
+        "expected_tools": ["sin_grasp", "sin_poc"]
+      }
+    }
+  ]
+}

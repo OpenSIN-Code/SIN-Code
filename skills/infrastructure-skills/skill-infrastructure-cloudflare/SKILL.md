@@ -3,8 +3,10 @@ name: skill-infrastructure-cloudflare
 description: Cloudflare skill — Workers, Pages, Workers AI, R2, KV, D1, Cache, Tunnels, DNS, WAF.
 license: MIT
 compatibility:
-  - opencode
   - sin-code
+  - opencode
+  - claude-code
+  - codex
 metadata:
   author: SIN-Code
   version: 1.0.0

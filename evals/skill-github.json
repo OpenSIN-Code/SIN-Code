@@ -1,0 +1,51 @@
+{
+  "name": "Skill Eval: github-skills (issue #171)",
+  "version": "0.1.0",
+  "description": "Four-arm eval for github-skills. Measures skill-vs-terse delta for GitHub workflow tasks. Run with: sin-code eval run --dataset evals/skill-github.json --arm baseline,terse,lazy_skill,skill-github-actions",
+  "test_cases": [
+    {
+      "id": "skill_github_actions_ci_workflow",
+      "prompt": "Create a GitHub Actions CI workflow that runs go test on push to main. Use n8n delegation (M1).",
+      "description": "skill-github-actions should produce an n8n-delegated workflow, not a runner-based one.",
+      "tags": ["github", "ci", "yaml"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "45s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["n8n", "webhook", "sin-github-action"],
+        "output_avoids": ["runs-on: ubuntu-latest\n  steps:\n    - uses: actions/checkout"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "github-ci",
+        "metric_locus": "lines",
+        "target_skill": "skill-github-actions"
+      }
+    },
+    {
+      "id": "skill_github_readme_structure",
+      "prompt": "Create a README.md structure for a CLI tool repo called 'mycli'. Include badges, quick start, and llms.txt.",
+      "description": "skill-github-readme should produce enterprise visual standard output with template variables.",
+      "tags": ["github", "readme", "loc"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "45s",
+        "require_verify": false
+      },
+      "expected": {
+        "output_contains": ["llms.txt", "badges", "Quick Start"],
+        "output_avoids": ["TODO"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "github-readme",
+        "metric_locus": "lines",
+        "target_skill": "skill-github-readme"
+      }
+    }
+  ]
+}

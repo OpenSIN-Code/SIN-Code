@@ -3,8 +3,10 @@ name: skill-infrastructure-oci-vm
 description: OCI VM inventory, access, and management skill — Frankfurt Always Free Tier.
 license: MIT
 compatibility:
-  - opencode
   - sin-code
+  - opencode
+  - claude-code
+  - codex
 metadata:
   author: SIN-Code
   version: 1.0.0

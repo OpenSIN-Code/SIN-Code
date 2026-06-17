@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Package skilldist distributes a bundled SIN-Code Skill artifact to one of
-// eight supported agent families: Claude Code, Codex, Gemini, opencode,
-// Cursor, Windsurf, Cline, and GitHub Copilot. The package is the source of
-// truth for the per-agent install path templates and is consumed exclusively
-// by `cmd/sin-code/skill_cmd.go` (the `sin-code skill install --agent <id>`
-// surface).
+// eleven supported agent families: Claude Code, Codex, Gemini, opencode,
+// Cursor, Windsurf, Cline, GitHub Copilot, Aider, Continue, and Zed. The
+// package is the source of truth for the per-agent install path templates
+// and is consumed exclusively by `cmd/sin-code/skill_cmd.go` (the
+// `sin-code skill install --agent <id>` surface).
 //
 // # Marker-fenced idempotency
 //
@@ -104,7 +104,7 @@ type Target struct {
 //	AGENTS.md §10             (the naming-and-stability matrix),
 //	CHANGELOG.md [Unreleased] (the additions bullet).
 //
-// The set is intentionally small (8 entries today). Verify-gated expansion
+// The set is intentionally small (11 entries today). Verify-gated expansion
 // is fine, but every new entry adds a maintenance row in three places.
 var Targets = map[string]Target{
 	"claude-code": {
@@ -154,6 +154,24 @@ var Targets = map[string]Target{
 		DisplayName: "GitHub Copilot",
 		InstallPath: ".github/copilot-instructions.md",
 		Format:      FormatMarker,
+	},
+	"aider": {
+		Name:        "aider",
+		DisplayName: "Aider",
+		InstallPath: ".aider/conventions/<skill>.md",
+		Format:      FormatRule,
+	},
+	"continue": {
+		Name:        "continue",
+		DisplayName: "Continue",
+		InstallPath: ".continue/rules/<skill>.md",
+		Format:      FormatRule,
+	},
+	"zed": {
+		Name:        "zed",
+		DisplayName: "Zed",
+		InstallPath: ".zed/rules/<skill>.md",
+		Format:      FormatRule,
 	},
 }
 

@@ -2,7 +2,8 @@
 // Purpose: `sin-code profile` — render the single-source-of-truth
 // project profile (docs/agent-profiles/sin-profile.md, issue #175)
 // into the per-agent mirror files (Claude Code, Codex, opencode,
-// Gemini CLI, Cursor, Windsurf, Cline, GitHub Copilot) and verify
+// Gemini CLI, Cursor, Windsurf, Cline, GitHub Copilot, Aider, Continue,
+// Zed) and verify
 // the mirrors stay byte-stable against the source.
 //
 // Subcommands:
@@ -36,8 +37,8 @@ func NewProfileCmd() *cobra.Command {
 		Long: `sin-code profile renders docs/agent-profiles/sin-profile.md — the
 single-source-of-truth project profile — into the per-agent mirror files
 SIN-Code installs into every supported host agent: Claude Code,
-opencode, Gemini CLI, Codex, Cursor, Windsurf, Cline, and GitHub
-Copilot. Edit the source markdown, run "sin-code profile render all",
+opencode, Gemini CLI, Codex, Cursor, Windsurf, Cline, GitHub
+Copilot, Aider, Continue, and Zed. Edit the source markdown, run "sin-code profile render all",
 and the bytes stable across every host agent.
 
 CI integrations should call "sin-code profile verify" — it refuses to

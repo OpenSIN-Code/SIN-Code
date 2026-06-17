@@ -4,7 +4,7 @@ Docs: ../SKILL.md
 
 ## Technology Stack
 
-- SIN-Code skill standard (v3.17.0).
+- SIN-Code skill standard (v3.20.0).
 - `scripts/validate_skill.py` for validation (recurses one level deep under `skills/` for `--all-bundled`).
 - Optional `scripts/create_skill.py` for scaffolding.
 - `skills/flatfs.go` flattens category directories for `skillsmith` embedding.

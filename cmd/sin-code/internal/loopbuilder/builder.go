@@ -28,10 +28,12 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/skillmgr"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/stopgate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
+	"github.com/OpenSIN-Code/SIN-Code/skills"
 )
 
 type Config struct {
@@ -71,17 +73,24 @@ type Config struct {
 	CoverageRequiredTools  []string
 	CoverageForbiddenTools []string
 
+	// ActiveSkills lists skill names whose `required_tools` frontmatter
+	// field should be merged into CoverageRequiredTools (additive,
+	// deduplicated). The skills are looked up in the embedded
+	// skills.ListFS(). Non-skill rule names are silently skipped.
+	// See skillmgr.MergeRequiredTools (issue #248 skill activation path).
+	ActiveSkills []string
+
 	// SIN Fusion v1 (issue #290): when FusionEnabled is true and ≥2
 	// providers are available, a verify-tournament is wired into the
 	// loop. On verify.fail, the task is fanned out to N providers in
 	// parallel; the first to pass the PoC gate wins.
-	FusionEnabled            bool
-	FusionProviders          []string
-	FusionMaxCostUSD         float64
-	FusionMinQuorum          int
+	FusionEnabled             bool
+	FusionProviders           []string
+	FusionMaxCostUSD          float64
+	FusionMinQuorum           int
 	FusionPerProviderTimeoutS int
-	FusionDifficultyGate     bool
-	FusionProfilesDir        string
+	FusionDifficultyGate      bool
+	FusionProfilesDir         string
 
 	// DeepPlanner: when true, the orchestrator uses the parallel DAG
 	// DeepPlanner instead of the legacy linear Planner (issue #282).
@@ -145,6 +154,16 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 			if len(cfg.CoverageForbiddenTools) == 0 {
 				cfg.CoverageForbiddenTools = sinCfg.AgentLoopForbiddenTools
 			}
+		}
+	}
+
+	// Merge required_tools from activated skills' SKILL.md frontmatter
+	// into CoverageRequiredTools (additive, deduplicated, sorted).
+	// Non-skill rule names in ActiveSkills are silently skipped.
+	if len(cfg.ActiveSkills) > 0 {
+		if skillFS, err := skills.ListFS(); err == nil {
+			cfg.CoverageRequiredTools = skillmgr.MergeRequiredTools(
+				cfg.CoverageRequiredTools, cfg.ActiveSkills, skillFS)
 		}
 	}
 

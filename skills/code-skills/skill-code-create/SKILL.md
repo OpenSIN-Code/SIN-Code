@@ -2,8 +2,14 @@
 name: skill-code-create
 description: Creates and validates new SIN-Code / OpenCode skills. Use when the user says "create skill", "new skill", "skill-code-create", "/skill-code-create", or asks how to build a skill.
 license: MIT
-compatibility: 
-metadata: 
+compatibility:
+  - sin-code
+  - opencode
+metadata:
+  author: SIN-Code
+  version: 3.20.0
+required_tools:
+  - sin_write
 lifecycle: native
 ---
 
@@ -13,7 +19,7 @@ lifecycle: native
 
 Create a new SIN-Code / OpenCode compatible skill from a template. Produces a valid skill directory with `SKILL.md`, `context/`, `frameworks/`, `tasks/`, `templates/`, and optional `scripts/` / `tests/` / `lib/`.
 
-As of **v3.17.0**, SIN-Code ships **34 bundled skills** embedded in the `sin-code` binary under `skills/<category>-skills/`. All bundled skills follow the naming convention `skill-<category>-<descriptive-name>`. New skills must be created in the correct category directory and added to the registry/docs before they are discoverable by agents.
+As of **v3.20.0**, SIN-Code ships **36 bundled skills** embedded in the `sin-code` binary under `skills/<category>-skills/`. All bundled skills follow the naming convention `skill-<category>-<descriptive-name>`. New skills must be created in the correct category directory and added to the registry/docs before they are discoverable by agents.
 
 ## When to Use
 
@@ -45,7 +51,7 @@ ADD CONTEXT/FRAMEWORKS/TASKS/TEMPLATES → VALIDATE → UPDATE REGISTRY & DOCS �
 8. Update `README.md`, `AGENTS.md`, `CHANGELOG.md`, and `ECOSYSTEM.md` if the skill is bundled.
 9. Verify `go build ./...` still works and `go test ./...` passes.
 
-## Bundled Skill Categories (v3.17.0)
+## Bundled Skill Categories (v3.20.0)
 
 | Category | Directory | Examples |
 |---|---|---|

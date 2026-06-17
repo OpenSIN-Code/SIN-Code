@@ -681,7 +681,7 @@ Skills ported from external repos (e.g. `Infra-SIN-OpenCode-Stack`,
 ### Skill distribution to external agents (issue #169)
 
 `sin-code skill install <name> --agent <target>` distributes a bundled
-Skill artifact to one of eight registered agent families. The single
+Skill artifact to one of eleven registered agent families. The single
 source of truth is `cmd/sin-code/internal/skilldist/Targets`:
 
 | Target | Format | Install path template (relative to `$SIN_CODE_HOME`) |
@@ -694,6 +694,9 @@ source of truth is `cmd/sin-code/internal/skilldist/Targets`:
 | `windsurf` | `rule` | `.windsurf/rules/<skill>.md` |
 | `cline` | `rule` | `.clinerules/<skill>.md` |
 | `copilot` | `marker` | `.github/copilot-instructions.md` |
+| `aider` | `rule` | `.aider/conventions/<skill>.md` |
+| `continue` | `rule` | `.continue/rules/<skill>.md` |
+| `zed` | `rule` | `.zed/rules/<skill>.md` |
 
 **Marker-fence contract.** Every write for `rule` and `marker` Formats
 goes through `ParseMarkers` so a subsequent install with the same
@@ -772,6 +775,9 @@ sync if the table moves.
 | windsurf      | rule    | `.windsurf/rules/sin-code.md`                               |
 | cline         | rule    | `.clinerules/sin-code.md`                                   |
 | copilot       | marker  | `.github/copilot-instructions.md`                           |
+| aider         | rule    | `.aider/conventions/sin-code.md`                            |
+| continue      | rule    | `.continue/rules/sin-code.md`                               |
+| zed           | rule    | `.zed/rules/sin-code.md`                                    |
 
 The four marker-fence outputs (`rule` + `marker`) wrap the body in
 `<!-- SIN-CODE-SKILL-START: sin-code -->` … `<!-- SIN-CODE-SKILL-END:   sin-code -->`

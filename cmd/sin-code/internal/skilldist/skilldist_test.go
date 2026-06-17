@@ -28,8 +28,8 @@ func allTargets() []Target {
 // maintainer is forced through the policy update first.
 func TestTargets_AllPresent(t *testing.T) {
 	want := []string{
-		"claude-code", "cline", "codex", "copilot",
-		"cursor", "gemini", "opencode", "windsurf",
+		"aider", "claude-code", "cline", "codex", "continue",
+		"copilot", "cursor", "gemini", "opencode", "windsurf", "zed",
 	}
 	got := TargetNames()
 	if !reflect.DeepEqual(got, want) {

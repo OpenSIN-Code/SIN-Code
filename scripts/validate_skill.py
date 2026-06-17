@@ -36,6 +36,7 @@ RECOMMENDED_DIRS = ("scripts", "tests", "lib")
 REQUIRED_FRONTMATTER = ("name", "description")
 STRICT_FRONTMATTER = ("lifecycle",)
 VALID_LIFECYCLES = ("native", "external", "deprecated")
+OPTIONAL_FRONTMATTER = ("license", "compatibility", "metadata", "required_tools")
 
 # Pattern for valid skill names (OpenCode spec).
 NAME_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
@@ -126,6 +127,16 @@ class SkillValidator:
             lc = front.get("lifecycle", "")
             if lc and lc not in VALID_LIFECYCLES:
                 self.add("error", f"Invalid lifecycle {lc!r} (expected one of {VALID_LIFECYCLES})", skill_md)
+
+        # Optional required_tools field (issue #248 binding): if present,
+        # must be a YAML list of SIN tool names. The ToolCoverageEnforcer
+        # in agentloop reads this to reject skill-done without tool usage.
+        rt = front.get("required_tools")
+        if rt is not None:
+            if not isinstance(rt, list):
+                self.add("error", "required_tools must be a YAML list", skill_md)
+            elif not all(isinstance(t, str) and t for t in rt):
+                self.add("error", "required_tools list contains empty or non-string entries", skill_md)
 
         name = front.get("name")
         if name and not NAME_RE.match(name):

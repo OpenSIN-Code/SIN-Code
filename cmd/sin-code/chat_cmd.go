@@ -30,14 +30,16 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/isolation"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/logger"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/loopbuilder"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/skillmgr"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/logger"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui"
+	"github.com/OpenSIN-Code/SIN-Code/skills"
 )
 
 // chat hook variables — injected by coverage tests to avoid real I/O, network
@@ -107,8 +109,8 @@ type chatOptions struct {
 	// `plan | acceptEdits | bypass | default` automatically. The
 	// classifier is deterministic (regex + substring, no LLM) so
 	// M3 is honoured: every mode pick is operator-visible.
-	autolevel bool
-	lazyTools bool
+	autolevel          bool
+	lazyTools          bool
 	fusionOnVerifyFail bool
 	fusionProviders    string
 	fusionMaxCost      float64
@@ -363,6 +365,27 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		Hooks:      hookEngine,
 		Perm:       perm,
 		Ask:        ask,
+	}
+
+	// Apply config-file defaults for tool coverage (issue #248) and merge
+	// required_tools from activated skills' SKILL.md frontmatter. The
+	// --activate list may contain skill names (e.g. "skill-code-build")
+	// whose required_tools are additive to any config-level constraints.
+	// Non-skill rule names are silently skipped by MergeRequiredTools.
+	{
+		coverageReq := loop.CoverageRequiredTools
+		if len(coverageReq) == 0 {
+			coverageReq = sinCfg.AgentLoopRequiredTools
+		}
+		if len(act.Rules) > 0 {
+			if skillFS, err := skills.ListFS(); err == nil {
+				coverageReq = skillmgr.MergeRequiredTools(coverageReq, act.Rules, skillFS)
+			}
+		}
+		loop.CoverageRequiredTools = coverageReq
+		if len(loop.CoverageForbiddenTools) == 0 {
+			loop.CoverageForbiddenTools = sinCfg.AgentLoopForbiddenTools
+		}
 	}
 
 	lazyTools := opts.lazyTools || sinCfg.ChatLazyTools || os.Getenv("SIN_LAZY_TOOLS") == "1"

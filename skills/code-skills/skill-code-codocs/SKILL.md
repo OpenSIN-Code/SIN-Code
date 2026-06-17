@@ -2,8 +2,14 @@
 name: skill-code-codocs
 description: Maintain the two-layer documentation standard (CoDocs .doc.md companions + inline comments) for every meaningful code file.
 license: MIT
-compatibility: 
-metadata: 
+compatibility:
+  - sin-code
+  - opencode
+  - claude-code
+  - codex
+metadata:
+  author: SIN-Code
+  version: 3.20.0
 lifecycle: external
 ---
 

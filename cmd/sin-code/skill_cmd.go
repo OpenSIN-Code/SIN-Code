@@ -10,8 +10,9 @@
 //
 //   - Distribution (skilldist, issue #169): takes a bundled SKILL.md (one of
 //     the 34 embedded skills under skills/<cat>-skills/<name>/) and writes
-//     it into one of eight supported agent families (Claude Code, Codex,
-//     Gemini, opencode, Cursor, Windsurf, Cline, GitHub Copilot) using a
+//     it into one of eleven supported agent families (Claude Code, Codex,
+//     Gemini, opencode, Cursor, Windsurf, Cline, GitHub Copilot, Aider,
+//     Continue, Zed) using a
 //     marker-fenced block so a re-run replaces the block in place. Triggered
 //     by `sin-code skill install <name> --agent <target>` or `--agent all`.
 //
@@ -209,7 +210,7 @@ block between <!-- SIN-CODE-SKILL-START: <name> --> and
 		},
 	}
 	installCmd.Flags().StringVar(&agentFlag, "agent", "",
-		"target agent (claude-code|codex|gemini|opencode|cursor|windsurf|cline|copilot|all); "+
+		"target agent (claude-code|codex|gemini|opencode|cursor|windsurf|cline|copilot|aider|continue|zed|all); "+
 			"or $SIN_CODE_AGENT. Empty = ecosystem install mode.")
 
 	// list shows the install status of bundled skills against each

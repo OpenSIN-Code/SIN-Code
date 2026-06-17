@@ -2,8 +2,17 @@
 name: skill-code-plan
 description: Break an approved specification into concrete, executable tasks. Use when the user has a spec and needs an implementation plan.
 license: MIT
-compatibility: 
-metadata: 
+compatibility:
+  - sin-code
+  - opencode
+  - claude-code
+  - codex
+metadata:
+  author: SIN-Code
+  version: 3.20.0
+required_tools:
+  - sin_sckg
+  - sin_map
 lifecycle: native
 ---
 

@@ -3,8 +3,10 @@ name: skill-infrastructure-supabase
 description: Supabase self-hosted skill — SQL migrations, RLS policies, Auth, Storage, Realtime, Edge Functions, Triggers, Backups.
 license: MIT
 compatibility:
-  - opencode
   - sin-code
+  - opencode
+  - claude-code
+  - codex
 metadata:
   author: SIN-Code
   version: 1.0.0
