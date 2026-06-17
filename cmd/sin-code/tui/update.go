@@ -296,6 +296,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.Mode == ModeSessionSwitcher {
 		return m.handleSessionSwitcherKey(msg)
 	}
+	if m.Mode == ModeModelSelector {
+		return m.handleModelSelectorKey(msg)
+	}
 
 	switch key {
 	case "ctrl+c", "q":
@@ -327,6 +330,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "ctrl+g":
 		m.OpenSessionSwitcher()
+		return m, nil
+	case "ctrl+m":
+		m.OpenModelSelector()
 		return m, nil
 	case "1":
 		m.SwitchView(ViewTools)
@@ -615,6 +621,10 @@ func (m *Model) View() tea.View {
 	}
 	if m.Mode == ModeSessionSwitcher {
 		popup := RenderSessionSwitcher(m.SessionSwitcher, m.Tabs, m.Styles, m.Width, m.Height)
+		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
+	}
+	if m.Mode == ModeModelSelector {
+		popup := RenderModelSelector(m.ModelSelector, m.Styles, m.Width, m.Height)
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
 	}
 

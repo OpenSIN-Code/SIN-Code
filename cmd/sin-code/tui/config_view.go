@@ -16,6 +16,7 @@ func DefaultConfigEntries() []ConfigEntry {
 	return []ConfigEntry{
 		{Key: "theme", Value: "default", Hint: "default|Dracula|Nord|Solarized|Monokai", Kind: "select"},
 		{Key: "agent", Value: "Build", Hint: "Build|Audit|Stats", Kind: "select"},
+		{Key: "llm.model", Value: "qwen3-coder-plus", Hint: "qwen3-coder-plus|qwen3-235b-a22b|deepseek-v3|llama-3.3-70b|gpt-4o", Kind: "select"},
 		{Key: "sidebar", Value: "visible", Hint: "visible|collapsed", Kind: "select"},
 		{Key: "default-view", Value: "Tools", Hint: "Tools|Sessions|EFM|Config|History", Kind: "select"},
 		{Key: "cooldown-seconds", Value: "60", Hint: "1-3600", Kind: "number"},

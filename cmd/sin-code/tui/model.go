@@ -19,6 +19,7 @@ const (
 	ModeSubagents
 	ModeArgInput
 	ModeSessionSwitcher
+	ModeModelSelector
 )
 
 type PaletteState struct {
@@ -73,6 +74,7 @@ type Model struct {
 
 	Palette           PaletteState
 	SessionSwitcher   SessionSwitcherState
+	ModelSelector     ModelSelectorState
 	ArgInput          ArgInputState
 	History           []HistoryEntry
 	EFMStks           []EFMStack
