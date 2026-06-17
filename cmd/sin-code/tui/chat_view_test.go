@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: MIT
-// Purpose: tests for the TUI chat view integration (ViewChat, sidebar item,
-// key handling).
 package tui
 
 import (
@@ -80,13 +78,18 @@ func TestRenderChatEmpty(t *testing.T) {
 
 func TestRenderChatWithHistory(t *testing.T) {
 	m := NewModel()
-	m.ChatHistory = []string{"first message", "second message"}
+	m.ChatHistory = []ChatMessage{
+		{Kind: chatUser, Text: "first message"},
+		{Kind: chatAssistant, Text: "second message"},
+	}
 	out := m.renderChat(m.Styles, 80, 20)
 	if !strings.Contains(out, "first message") {
-		t.Error("expected first message")
+		t.Errorf("expected first message in:\n%s", out[:min(300, len(out))])
 	}
-	if !strings.Contains(out, "second message") {
-		t.Error("expected second message")
+	// Markdown renderer may wrap text across lines, so check for
+	// the key words separately.
+	if !strings.Contains(out, "second") {
+		t.Errorf("expected 'second' in:\n%s", out[:min(300, len(out))])
 	}
 }
 
@@ -104,8 +107,6 @@ func TestRenderChatViewIncludesChatView(t *testing.T) {
 }
 
 func TestHandleChatSubmit(t *testing.T) {
-	// Ensure no API key so the runner is nil and handleChatSubmit appends
-	// the in-band "no API key" assistant entry synchronously.
 	prev, had := os.LookupEnv("SIN_NIM_API_KEY")
 	os.Unsetenv("SIN_NIM_API_KEY")
 	t.Cleanup(func() {
@@ -121,8 +122,8 @@ func TestHandleChatSubmit(t *testing.T) {
 		t.Errorf("expected 2 entries (user + assistant no-key), got %d: %+v",
 			len(m.ChatHistory), m.ChatHistory)
 	}
-	if !strings.HasPrefix(m.ChatHistory[1], "assistant:") {
-		t.Errorf("expected assistant entry second, got %q", m.ChatHistory[1])
+	if m.ChatHistory[1].Kind != chatSystem {
+		t.Errorf("expected system entry second, got kind %d", m.ChatHistory[1].Kind)
 	}
 }
 
@@ -146,7 +147,7 @@ func TestHandleChatSubmitWithAttachments(t *testing.T) {
 	if len(m.ChatHistory) != 2 {
 		t.Errorf("expected 2 entries, got %d", len(m.ChatHistory))
 	}
-	if !strings.Contains(m.ChatHistory[0], "x.txt") {
+	if !strings.Contains(m.ChatHistory[0].Text, "x.txt") {
 		t.Error("expected attachment in user entry")
 	}
 }
@@ -183,8 +184,8 @@ func TestHandleChatSubmitNoKeyWritesAssistantEntry(t *testing.T) {
 	m.initChatInput()
 	handleChatSubmit(m, chat.SubmitMsg{Text: "x"})
 	last := m.ChatHistory[len(m.ChatHistory)-1]
-	if !strings.Contains(last, "no API key") {
-		t.Errorf("expected no-API-key assistant entry, got %q", last)
+	if !strings.Contains(last.Text, "no API key") {
+		t.Errorf("expected no-API-key assistant entry, got %q", last.Text)
 	}
 }
 
@@ -221,62 +222,64 @@ func TestHandleChatSubmitWithRunnerWritesThinkingPlaceholder(t *testing.T) {
 	if len(m.ChatHistory) < 2 {
 		t.Fatalf("expected at least 2 entries, got %d", len(m.ChatHistory))
 	}
-	// First entry: the user message. Last entry: the "thinking..."
-	// placeholder. We can't assert "thinking..." is *the* last entry here
-	// because the background goroutine may have completed already in CI
-	// if a real SIN_NIM_API_KEY happened to be set in the user shell —
-	// the test above sets the key to "fake-key" so the call WILL fail,
-	// but the goroutine is still racy vs. this assertion.
 	last := m.ChatHistory[len(m.ChatHistory)-1]
-	if last == "assistant: thinking..." ||
-		strings.HasPrefix(last, "assistant: (error:") ||
-		strings.HasPrefix(last, "assistant: ") {
+	if last.Kind == chatThinking ||
+		last.Kind == chatError ||
+		last.Kind == chatAssistant {
 		// ok
 	} else {
-		t.Errorf("unexpected last entry: %q", last)
+		t.Errorf("unexpected last entry kind: %d", last.Kind)
 	}
 }
 
 func TestHandleChatResponseReplacesPlaceholder(t *testing.T) {
 	m := NewModel()
 	m.initChatInput()
-	m.ChatHistory = []string{
-		"hello",
-		"assistant: thinking...",
+	m.ChatHistory = []ChatMessage{
+		{Kind: chatUser, Text: "hello"},
+		{Kind: chatThinking},
 	}
 	m.handleChatResponse(chat.ChatResponseMsg{Text: "world"})
-	if got := m.ChatHistory[len(m.ChatHistory)-1]; got != "assistant: world" {
-		t.Errorf("got %q", got)
+	if got := m.ChatHistory[len(m.ChatHistory)-1]; got.Text != "world" {
+		t.Errorf("got %q", got.Text)
 	}
 }
 
 func TestHandleChatResponseAppendsWhenNoPlaceholder(t *testing.T) {
 	m := NewModel()
 	m.initChatInput()
-	m.ChatHistory = []string{"hello"}
+	m.ChatHistory = []ChatMessage{{Kind: chatUser, Text: "hello"}}
 	m.handleChatResponse(chat.ChatResponseMsg{Text: "world"})
-	if got := m.ChatHistory[len(m.ChatHistory)-1]; got != "assistant: world" {
-		t.Errorf("got %q", got)
+	if got := m.ChatHistory[len(m.ChatHistory)-1]; got.Text != "world" {
+		t.Errorf("got %q", got.Text)
 	}
 }
 
 func TestHandleChatResponseError(t *testing.T) {
 	m := NewModel()
 	m.initChatInput()
-	m.ChatHistory = []string{"hello", "assistant: thinking..."}
+	m.ChatHistory = []ChatMessage{
+		{Kind: chatUser, Text: "hello"},
+		{Kind: chatThinking},
+	}
 	m.handleChatResponse(chat.ChatResponseMsg{Error: errFake{}})
-	if got := m.ChatHistory[len(m.ChatHistory)-1]; !strings.Contains(got, "error") {
-		t.Errorf("expected error entry, got %q", got)
+	last := m.ChatHistory[len(m.ChatHistory)-1]
+	if last.Kind != chatError {
+		t.Errorf("expected error entry, got kind %d", last.Kind)
 	}
 }
 
 func TestHandleChatResponseEmpty(t *testing.T) {
 	m := NewModel()
 	m.initChatInput()
-	m.ChatHistory = []string{"hello", "assistant: thinking..."}
+	m.ChatHistory = []ChatMessage{
+		{Kind: chatUser, Text: "hello"},
+		{Kind: chatThinking},
+	}
 	m.handleChatResponse(chat.ChatResponseMsg{Text: ""})
-	if got := m.ChatHistory[len(m.ChatHistory)-1]; !strings.Contains(got, "empty") {
-		t.Errorf("expected empty marker, got %q", got)
+	last := m.ChatHistory[len(m.ChatHistory)-1]
+	if !strings.Contains(last.Text, "empty") {
+		t.Errorf("expected empty marker, got %q", last.Text)
 	}
 }
 

@@ -144,6 +144,7 @@ func TestViewJumpKeys(t *testing.T) {
 func TestTabNextView(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.ViewKind = ViewTools // Tab switches views only outside chat mode
 	start := m.ViewKind
 	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	if m.ViewKind == start {
@@ -154,6 +155,7 @@ func TestTabNextView(t *testing.T) {
 func TestShiftTabPrevView(t *testing.T) {
 	m := NewModel()
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.ViewKind = ViewTools
 	m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	mid := m.ViewKind
 	m.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift})

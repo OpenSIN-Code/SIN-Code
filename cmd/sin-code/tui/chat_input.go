@@ -89,8 +89,11 @@ func chatHistoryToStrings(history []ChatMessage) []string {
 
 func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	entry := submit.Text
+	trimmed := strings.TrimSpace(entry)
 
-	if strings.TrimSpace(entry) == "/clear" {
+	// Model-level slash commands
+	switch trimmed {
+	case "/clear":
 		m.ChatHistory = nil
 		m.setStreaming(false)
 		m.Footer.Tokens = 0
@@ -99,6 +102,22 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		m.Footer.Compacted = false
 		m.ChatFocusIdx = 0
 		m.AppendHistory(ViewChat.String(), "chat-clear", "chat history cleared", true)
+		return nil
+	case "/help":
+		helpText := "Available commands:\n\n" +
+			"  /attach <path>  Attach a file to the next message\n" +
+			"  /attach-glob <pattern>  Attach files matching a glob pattern\n" +
+			"  /detach <name|index>  Remove an attachment\n" +
+			"  /clear  Clear chat history\n" +
+			"  /help   Show this help message\n\n" +
+			"Keys:\n" +
+			"  Ctrl+S  Send message\n" +
+			"  Ctrl+C  Quit\n" +
+			"  Esc     Interrupt\n" +
+			"  y/n     Allow/deny permission dialog\n" +
+			"  PgUp/PgDn  Scroll chat history\n" +
+			"  1-7     Jump to view (Tools, Sessions, EFM, Config, History, Todos, Chat)"
+		m.appendChat(ChatMessage{Kind: chatSystem, Text: helpText})
 		return nil
 	}
 

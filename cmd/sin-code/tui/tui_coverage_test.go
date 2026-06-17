@@ -438,14 +438,14 @@ func TestInitChatRunnerError(t *testing.T) {
 
 func TestHandleChatSubmitWithRunnerProgram(t *testing.T) {
 	origRunner := newChatRunnerHook
-	origRun := chatRunnerRunHook
+	origStream := chatRunnerStreamHook
 	newChatRunnerHook = func() (*chat.Runner, error) { return &chat.Runner{}, nil }
-	chatRunnerRunHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string) (string, error) {
+	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, error) {
 		return "async reply", nil
 	}
 	defer func() {
 		newChatRunnerHook = origRunner
-		chatRunnerRunHook = origRun
+		chatRunnerStreamHook = origStream
 	}()
 
 	sender := newFakeProgram()
@@ -528,15 +528,15 @@ func TestHandleAgentRunnerEventKinds(t *testing.T) {
 
 	cases := []struct {
 		kind agentrunner.EventKind
-		want string
+		want chatMsgKind
 	}{
-		{agentrunner.EventTurn, "turn start"},
-		{agentrunner.EventTool, "tool"},
-		{agentrunner.EventVerify, "verify"},
-		{agentrunner.EventAsk, "ask"},
-		{agentrunner.EventDone, "done"},
-		{agentrunner.EventError, "ERROR"},
-		{agentrunner.EventKind(0), "agent"},
+		{agentrunner.EventTurn, chatAgent},
+		{agentrunner.EventTool, chatTool},
+		{agentrunner.EventVerify, chatVerify},
+		{agentrunner.EventAsk, chatAsk},
+		{agentrunner.EventDone, chatDone},
+		{agentrunner.EventError, chatError},
+		{agentrunner.EventKind(0), chatSystem},
 	}
 	for _, tc := range cases {
 		ev := agentrunner.AgentEvent{Kind: tc.kind, Detail: "d", Result: "r", ToolName: "t", Err: nil}
@@ -546,15 +546,15 @@ func TestHandleAgentRunnerEventKinds(t *testing.T) {
 		}
 		m.handleAgentRunnerEvent(AgentRunnerMsg{Event: ev})
 		last := m.ChatHistory[len(m.ChatHistory)-1]
-		if !strings.Contains(last, tc.want) {
-			t.Errorf("kind %v: expected %q in %q", tc.kind, tc.want, last)
+		if last.Kind != tc.want {
+			t.Errorf("kind %v: expected chat kind %v, got %v", tc.kind, tc.want, last.Kind)
 		}
 	}
 }
 
 func TestHandleAgentRunnerEventHistoryCap(t *testing.T) {
 	m := NewModel()
-	m.ChatHistory = make([]string, 500)
+	m.ChatHistory = make([]ChatMessage, 500)
 	m.handleAgentRunnerEvent(AgentRunnerMsg{Event: agentrunner.AgentEvent{Kind: agentrunner.EventTurn, Detail: "x"}})
 	if len(m.ChatHistory) != 500 {
 		t.Errorf("history cap should keep last 500, got %d", len(m.ChatHistory))
@@ -610,8 +610,8 @@ func TestSubmitAgentPromptSubmitError(t *testing.T) {
 		t.Error("expected nil command on submit error")
 	}
 	last := m.ChatHistory[len(m.ChatHistory)-1]
-	if !strings.Contains(last, "unavailable") {
-		t.Errorf("expected unavailable marker, got %q", last)
+	if !strings.Contains(last.Text, "unavailable") {
+		t.Errorf("expected unavailable marker, got %q", last.Text)
 	}
 }
 
@@ -628,8 +628,8 @@ func TestRunAgentSkillPromptNilRunner(t *testing.T) {
 		t.Error("expected nil command when runner creation fails")
 	}
 	last := m.ChatHistory[len(m.ChatHistory)-1]
-	if !strings.Contains(last, "sin-code mcp call") {
-		t.Errorf("expected CLI hint, got %q", last)
+	if !strings.Contains(last.Text, "sin-code mcp call") {
+		t.Errorf("expected CLI hint, got %q", last.Text)
 	}
 }
 
@@ -654,8 +654,8 @@ func TestRunAgentSkillPromptSubmitError(t *testing.T) {
 		t.Error("expected nil command on submit error")
 	}
 	last := m.ChatHistory[len(m.ChatHistory)-1]
-	if !strings.Contains(last, "error") {
-		t.Errorf("expected error marker, got %q", last)
+	if !strings.Contains(last.Text, "error") {
+		t.Errorf("expected error marker, got %q", last.Text)
 	}
 }
 
@@ -961,30 +961,30 @@ func TestHandleArgInputKeyUpdatesInput(t *testing.T) {
 func TestHandleChatResponseNoPlaceholder(t *testing.T) {
 	m := NewModel()
 	m.initChatInput()
-	m.ChatHistory = []string{"hello"}
+	m.ChatHistory = []ChatMessage{{Kind: chatUser, Text: "hello"}}
 	m.handleChatResponse(chat.ChatResponseMsg{Text: "world"})
-	if last := m.ChatHistory[len(m.ChatHistory)-1]; last != "assistant: world" {
-		t.Errorf("got %q", last)
+	if last := m.ChatHistory[len(m.ChatHistory)-1]; last.Kind != chatAssistant || last.Text != "world" {
+		t.Errorf("got %+v", last)
 	}
 }
 
 func TestHandleChatResponseEmptyNoPlaceholder(t *testing.T) {
 	m := NewModel()
 	m.initChatInput()
-	m.ChatHistory = []string{"hello"}
+	m.ChatHistory = []ChatMessage{{Kind: chatUser, Text: "hello"}}
 	m.handleChatResponse(chat.ChatResponseMsg{Text: ""})
-	if last := m.ChatHistory[len(m.ChatHistory)-1]; !strings.Contains(last, "empty") {
-		t.Errorf("expected empty marker, got %q", last)
+	if last := m.ChatHistory[len(m.ChatHistory)-1]; !strings.Contains(last.Text, "empty") {
+		t.Errorf("expected empty marker, got %q", last.Text)
 	}
 }
 
 func TestHandleChatResponseErrorNoPlaceholder(t *testing.T) {
 	m := NewModel()
 	m.initChatInput()
-	m.ChatHistory = []string{"hello"}
+	m.ChatHistory = []ChatMessage{{Kind: chatUser, Text: "hello"}}
 	m.handleChatResponse(chat.ChatResponseMsg{Error: errFake{}})
-	if last := m.ChatHistory[len(m.ChatHistory)-1]; !strings.Contains(last, "error") {
-		t.Errorf("expected error marker, got %q", last)
+	if last := m.ChatHistory[len(m.ChatHistory)-1]; !strings.Contains(last.Text, "error") {
+		t.Errorf("expected error marker, got %q", last.Text)
 	}
 }
 
@@ -1170,7 +1170,7 @@ func TestListItemMethods(t *testing.T) {
 // chat_view.go line wrapping
 func TestRenderChatWrapsLongLines(t *testing.T) {
 	m := NewModel()
-	m.ChatHistory = []string{strings.Repeat("a", 100)}
+	m.ChatHistory = []ChatMessage{{Kind: chatUser, Text: strings.Repeat("a", 100)}}
 	out := m.renderChat(NewStyles(Themes[0]), 80, 20)
 	if !strings.Contains(out, "a") {
 		t.Error("expected long line to be rendered")
@@ -1461,7 +1461,7 @@ func TestHandleChatSubmitThinkingCap(t *testing.T) {
 	m := NewModel()
 	m.initChatInput()
 	m.initChatRunner()
-	m.ChatHistory = make([]string, 500)
+	m.ChatHistory = make([]ChatMessage, 500)
 	handleChatSubmit(m, chat.SubmitMsg{Text: "hi"})
 	if len(m.ChatHistory) != 500 {
 		t.Errorf("expected cap at 500, got %d", len(m.ChatHistory))
@@ -1568,7 +1568,7 @@ func TestRunAgentSkillPromptHistoryCap(t *testing.T) {
 
 	m := NewModel()
 	m.initChatInput()
-	m.ChatHistory = make([]string, 500)
+	m.ChatHistory = make([]ChatMessage, 500)
 	m.runAgentSkillPrompt("websearch", "")
 	if len(m.ChatHistory) != 500 {
 		t.Errorf("expected cap at 500, got %d", len(m.ChatHistory))
@@ -1590,7 +1590,7 @@ func TestRunAgentSkillPromptSubmitErrorCap(t *testing.T) {
 
 	m := NewModel()
 	m.initChatInput()
-	m.ChatHistory = make([]string, 500)
+	m.ChatHistory = make([]ChatMessage, 500)
 	m.runAgentSkillPrompt("websearch", "")
 	if len(m.ChatHistory) != 500 {
 		t.Errorf("expected cap at 500, got %d", len(m.ChatHistory))
@@ -2347,10 +2347,10 @@ func TestComposeLayoutTinyCoverage(t *testing.T) {
 
 func TestApplyChatResponseEmptyText(t *testing.T) {
 	m := NewModel()
-	m.ChatHistory = []string{"user: hi"}
+	m.ChatHistory = []ChatMessage{{Kind: chatUser, Text: "hi"}}
 	applyChatResponseMsg(m, chat.ChatResponseMsg{Text: ""}, 0)
-	if m.ChatHistory[0] != "assistant: (empty response)" {
-		t.Errorf("unexpected: %q", m.ChatHistory[0])
+	if m.ChatHistory[0].Kind != chatAssistant || m.ChatHistory[0].Text != "(empty response)" {
+		t.Errorf("unexpected: %+v", m.ChatHistory[0])
 	}
 }
 
@@ -2581,14 +2581,14 @@ func TestContentWidthClamp(t *testing.T) {
 func TestHandleChatResponseHistoryLimit(t *testing.T) {
 	m := NewModel()
 	for i := 0; i < 505; i++ {
-		m.ChatHistory = append(m.ChatHistory, fmt.Sprintf("user: %d", i))
+		m.ChatHistory = append(m.ChatHistory, ChatMessage{Kind: chatUser, Text: fmt.Sprintf("user: %d", i)})
 	}
 	m.handleChatResponse(chat.ChatResponseMsg{Text: "hello"})
 	if len(m.ChatHistory) != 500 {
 		t.Errorf("len = %d, want 500", len(m.ChatHistory))
 	}
-	if !strings.HasPrefix(m.ChatHistory[499], "assistant:") {
-		t.Errorf("expected assistant at end: %q", m.ChatHistory[499])
+	if m.ChatHistory[499].Kind != chatAssistant || m.ChatHistory[499].Text != "hello" {
+		t.Errorf("expected assistant at end: %+v", m.ChatHistory[499])
 	}
 }
 
@@ -2623,10 +2623,10 @@ func TestTabsViewPaddingLargeWidth(t *testing.T) {
 
 func TestUpdateChatResponseMsg(t *testing.T) {
 	m := NewModel()
-	m.ChatHistory = []string{"user: hi"}
+	m.ChatHistory = []ChatMessage{{Kind: chatUser, Text: "hi"}}
 	m.Update(chat.ChatResponseMsg{Text: "hello"})
-	if !strings.Contains(m.ChatHistory[1], "hello") {
-		t.Errorf("expected assistant response: %v", m.ChatHistory)
+	if !strings.Contains(m.ChatHistory[1].Text, "hello") {
+		t.Errorf("expected assistant response: %+v", m.ChatHistory)
 	}
 }
 

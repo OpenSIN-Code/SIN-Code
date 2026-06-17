@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -150,11 +151,6 @@ func (m *Model) RunSelected() {
 
 func (m *Model) runTool(name string, args []string) {
 	m.AppendHistory(m.ViewKind.String(), "run:"+name, strings.Join(args, " "), true)
-	// Issue #53: skill-palette entries (websearch, browser, scheduler,
-	// ...) route through the AgentRunner so the TUI actually runs the
-	// loop instead of printing a CLI hint. The TUI's m.OnRun is left
-	// in place as a fallback for subcommands that don't map to a
-	// skill.
 	if isSkillName(name) {
 		skillArgs := strings.Join(args, " ")
 		if skillArgs == "" {
@@ -162,8 +158,6 @@ func (m *Model) runTool(name string, args []string) {
 		}
 		cmd := m.runAgentSkillPrompt(name, skillArgs)
 		if cmd != nil {
-			// The update loop will subscribe to AgentRunnerMsg
-			// events; nothing else to do here.
 			_ = cmd
 		}
 	}
@@ -174,10 +168,6 @@ func (m *Model) runTool(name string, args []string) {
 	}
 }
 
-// isSkillName reports whether the given subcommand name maps to a
-// skill the AgentRunner can execute via the live MCP tool surface.
-// Used by runTool to route skill-palette entries through the runner
-// (issue #53) instead of just printing a CLI hint.
 func isSkillName(name string) bool {
 	switch name {
 	case "websearch", "browser", "scheduler", "goal-mode", "grill-me",
@@ -258,30 +248,33 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.handleChatResponse(msg)
 		return m, nil
 
+	case ChatChunkMsg:
+		if msg.Idx >= 0 && msg.Idx < len(m.ChatHistory) {
+			m.ChatHistory[msg.Idx].Kind = chatAssistant
+			m.ChatHistory[msg.Idx].Text += msg.Text
+		}
+		return m, nil
+
+	case ChatCopyMsg:
+		return m, nil
+
 	case AgentRunnerMsg:
 		m.handleAgentRunnerEvent(msg)
-		// Re-subscribe so the next event also fires. When the runner
-		// is closed (msg.Closed), we drop the subscription.
 		if !msg.Closed && m.AgentRunner != nil {
 			cmds = append(cmds, listenAgentRunnerCmd(m.AgentRunner))
 		}
 		return m, tea.Batch(cmds...)
 
 	case tea.KeyPressMsg:
-		// Banner keys (o/d/n) take priority when a banner is visible.
 		if m.NotificationBanner != nil {
 			k := msg.String()
 			if k == "o" || k == "d" || k == "n" {
 				return m.handleKey(msg)
 			}
 		}
-		// Modals (permission dialog, palette, etc.) must receive keys before
-		// the view-specific handler, otherwise the chat input swallows them.
 		if m.Mode != ModeNormal {
 			return m.handleKey(msg)
 		}
-		// Global hotkeys work even in chat mode — they must not be
-		// consumed by the textarea.
 		if isGlobalHotkey(msg) {
 			return m.handleKey(msg)
 		}
@@ -295,20 +288,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-// isGlobalHotkey reports whether a key should be handled by handleKey
-// even when the chat input is focused. This prevents the textarea from
-// swallowing navigation and control keys.
 func isGlobalHotkey(msg tea.KeyMsg) bool {
 	key := msg.String()
-	// Ctrl+S and Ctrl+Enter are chat submit keys — must go to the
-	// textarea, not handleKey.
+	// Chat input keys — must go to textarea, not handleKey
 	if key == "ctrl+s" || key == "ctrl+enter" || key == "ctrl+d" {
+		return false
+	}
+	// In chat mode, tab/shift+tab should stay in the textarea
+	// (indentation), not switch views. Use Ctrl+Tab for view switching.
+	if key == "tab" || key == "shift+tab" {
 		return false
 	}
 	switch {
 	case strings.HasPrefix(key, "ctrl+"):
-		return true
-	case key == "tab", key == "shift+tab":
 		return true
 	case key == "esc", key == "q":
 		return true
@@ -344,18 +336,37 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.Mode == ModePermissionDialog {
 		return m.handlePermissionDialogKey(msg)
 	}
+	if m.Mode == ModeSearch {
+		return m.handleSearchKey(msg)
+	}
 
 	switch key {
 	case "ctrl+c", "q":
 		m.Quitting = true
 		return m, tea.Quit
 	case "y":
-		// Agent ask permission dialog: y = allow.
 		if m.pendingAsk != nil {
 			m.answerPendingAsk(true)
 			m.ClosePermissionDialog()
 			return m, nil
 		}
+		if m.ViewKind == ViewChat && len(m.ChatHistory) > 0 {
+			idx := m.ChatFocusIdx
+			if idx >= 0 && idx < len(m.ChatHistory) {
+				text := m.ChatHistory[idx].Text
+				if text == "" {
+					text = m.ChatHistory[idx].Detail
+				}
+				copyToClipboard(text)
+				m.SetBanner(&NotificationItem{
+					ID:      fmt.Sprintf("copy-%d", time.Now().UnixNano()),
+					Title:   "Copied!",
+					Message: "Message text copied to clipboard",
+					Type:    "info",
+				})
+			}
+		}
+		return m, nil
 	case "esc":
 		m.AppendHistory(m.ViewKind.String(), "interrupt", "Esc pressed", true)
 		return m, nil
@@ -370,6 +381,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "ctrl+p":
 		m.OpenPalette()
+		return m, nil
+	case "ctrl+f":
+		m.OpenSearch()
 		return m, nil
 	case "ctrl+x":
 		m.OpenSubagents()
@@ -415,6 +429,16 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "enter":
+		if m.ViewKind == ViewChat && len(m.ChatHistory) > 0 {
+			idx := m.ChatFocusIdx
+			if idx >= 0 && idx < len(m.ChatHistory) {
+				cm := &m.ChatHistory[idx]
+				if cm.Kind == chatTool {
+					cm.Expanded = !cm.Expanded
+					return m, nil
+				}
+			}
+		}
 		if m.ViewKind == ViewTools {
 			tool := m.Sidebar.SelectedTool()
 			if tool != nil {
@@ -422,7 +446,24 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+	case "pgup":
+		if m.ViewKind == ViewChat {
+			m.ChatViewport.PageUp()
+			m.updateChatFocusFromViewport()
+			return m, nil
+		}
+	case "pgdn":
+		if m.ViewKind == ViewChat {
+			m.ChatViewport.PageDown()
+			m.updateChatFocusFromViewport()
+			return m, nil
+		}
 	case "up", "k":
+		if m.ViewKind == ViewChat && !m.ChatViewport.AtBottom() {
+			m.ChatViewport.ScrollUp(1)
+			m.updateChatFocusFromViewport()
+			return m, nil
+		}
 		switch m.ViewKind {
 		case ViewTools:
 			m.Sidebar.ToolMoveUp()
@@ -437,6 +478,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "down", "j":
+		if m.ViewKind == ViewChat && !m.ChatViewport.AtBottom() {
+			m.ChatViewport.ScrollDown(1)
+			m.updateChatFocusFromViewport()
+			return m, nil
+		}
 		switch m.ViewKind {
 		case ViewTools:
 			m.Sidebar.ToolMoveDown()
@@ -468,7 +514,6 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "n":
-		// Agent ask permission dialog: n = deny.
 		if m.pendingAsk != nil {
 			m.answerPendingAsk(false)
 			m.ClosePermissionDialog()
@@ -486,7 +531,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *Model) PreviousView() {
 	v := int(m.ViewKind) - 1
 	if v < 0 {
-		v = 6 // wrap to ViewChat (last view)
+		v = 6
 	}
 	m.SwitchView(ViewKind(v))
 }
@@ -717,11 +762,6 @@ func (m *Model) rightWidth() int {
 	return 20
 }
 
-// handleChatResponse replaces the most recent "assistant: thinking..."
-// placeholder in ChatHistory with the real response (or error). The
-// placeholder is always the last entry because handleChatSubmit appends
-// it immediately before spawning the goroutine, and the Update loop is
-// the only writer to ChatHistory in steady state.
 func (m *Model) handleChatResponse(msg chat.ChatResponseMsg) {
 	m.setStreaming(false)
 	if len(m.ChatHistory) == 0 {
@@ -729,23 +769,19 @@ func (m *Model) handleChatResponse(msg chat.ChatResponseMsg) {
 	}
 	idx := len(m.ChatHistory) - 1
 	last := m.ChatHistory[idx]
-	if !strings.HasPrefix(last, "assistant: thinking...") {
-		// No placeholder — append as a new entry.
+	if last.Kind != chatThinking {
 		if msg.Error != nil {
-			m.ChatHistory = append(m.ChatHistory, "assistant: (error: "+msg.Error.Error()+")")
+			m.appendChat(ChatMessage{Kind: chatError, Text: msg.Error.Error(), Error: msg.Error})
 		} else if msg.Text == "" {
-			m.ChatHistory = append(m.ChatHistory, "assistant: (empty response)")
+			m.appendChat(ChatMessage{Kind: chatAssistant, Text: "(empty response)"})
 		} else {
-			m.ChatHistory = append(m.ChatHistory, "assistant: "+msg.Text)
-		}
-		if len(m.ChatHistory) > 500 {
-			m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
+			m.appendChat(ChatMessage{Kind: chatAssistant, Text: msg.Text})
 		}
 		m.updateSessionPreview()
 		return
 	}
 	if msg.Error != nil {
-		m.ChatHistory[idx] = "assistant: (error: " + msg.Error.Error() + ")"
+		m.ChatHistory[idx] = ChatMessage{Kind: chatError, Text: msg.Error.Error(), Error: msg.Error}
 		m.updateSessionPreview()
 		return
 	}
@@ -753,6 +789,91 @@ func (m *Model) handleChatResponse(msg chat.ChatResponseMsg) {
 	if text == "" {
 		text = "(empty response)"
 	}
-	m.ChatHistory[idx] = "assistant: " + text
+	m.ChatHistory[idx] = ChatMessage{Kind: chatAssistant, Text: text}
 	m.updateSessionPreview()
+}
+
+func (m *Model) OpenSearch() {
+	m.Mode = ModeSearch
+	m.SearchQuery = ""
+	m.SearchMatches = nil
+	m.SearchInput.SetValue("")
+	m.SearchInput.Placeholder = "Search chat..."
+	m.SearchInput.Focus()
+}
+
+func (m *Model) CloseSearch() {
+	m.Mode = ModeNormal
+	m.SearchInput.Blur()
+	m.SearchQuery = ""
+	m.SearchMatches = nil
+}
+
+func (m *Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	key := msg.String()
+	switch key {
+	case "esc":
+		m.CloseSearch()
+		return m, nil
+	case "enter":
+		if len(m.SearchMatches) > 0 {
+			idx := m.ChatFocusIdx
+			found := -1
+			for _, mi := range m.SearchMatches {
+				if mi > idx {
+					found = mi
+					break
+				}
+			}
+			if found < 0 {
+				found = m.SearchMatches[0]
+			}
+			m.ChatFocusIdx = found
+		}
+		return m, nil
+	case "backspace":
+		val := m.SearchInput.Value()
+		if len(val) > 0 {
+			m.SearchInput.SetValue(val[:len(val)-1])
+		}
+		m.updateSearchMatches()
+		return m, nil
+	default:
+		if len(key) == 1 && key[0] >= 32 && key[0] < 127 {
+			m.SearchInput.SetValue(m.SearchInput.Value() + key)
+			m.updateSearchMatches()
+		}
+		return m, nil
+	}
+}
+
+func (m *Model) updateSearchMatches() {
+	m.SearchQuery = m.SearchInput.Value()
+	m.SearchMatches = nil
+	if m.SearchQuery == "" {
+		return
+	}
+	q := strings.ToLower(m.SearchQuery)
+	for i, msg := range m.ChatHistory {
+		text := strings.ToLower(msg.Text + " " + msg.Detail + " " + msg.Tool)
+		if strings.Contains(text, q) {
+			m.SearchMatches = append(m.SearchMatches, i)
+		}
+	}
+}
+
+func (m *Model) updateChatFocusFromViewport() {
+	yOffset := m.ChatViewport.YOffset()
+	if yOffset < 0 {
+		yOffset = 0
+	}
+	if yOffset < len(m.ChatHistory) {
+		m.ChatFocusIdx = yOffset
+	}
+}
+
+func copyToClipboard(text string) {
+	cmd := exec.Command("pbcopy")
+	cmd.Stdin = strings.NewReader(text)
+	_ = cmd.Run()
 }

@@ -2,9 +2,11 @@ package tui
 
 import (
 	"context"
+	"time"
 
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
 	"charm.land/lipgloss/v2"
 
 	agentrunner "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/tui"
@@ -21,6 +23,7 @@ const (
 	ModeSessionSwitcher
 	ModeModelSelector
 	ModePermissionDialog
+	ModeSearch
 )
 
 type PaletteState struct {
@@ -45,17 +48,10 @@ type ArgInputState struct {
 	Input textinput.Model
 }
 
-// teaProgramIface is the subset of *tea.Program the chat runner needs:
-// it just calls Send to push messages back into the event loop.
-// Defined here as a type alias for *tea.Program (declared in
-// chat_program.go) so the model file does not need to import bubbletea.
 type teaProgramIface interface {
 	Send(msg any)
 }
 
-// Model is the top-level TUI model. Program, ChatRunner, and ctxFn are
-// optional — when nil, the chat submit path falls back to synchronous
-// behavior (used by tests and headless invocations).
 type Model struct {
 	Width    int
 	Height   int
@@ -73,15 +69,15 @@ type Model struct {
 	Styles     Styles
 	RightPanel bool
 
-	Palette           PaletteState
-	SessionSwitcher   SessionSwitcherState
-	ModelSelector     ModelSelectorState
-	PermissionDialog  PermissionDialogState
-	ArgInput          ArgInputState
-	History           []HistoryEntry
-	EFMStks           []EFMStack
-	Config            []ConfigEntry
-	ConfigSel         int
+	Palette          PaletteState
+	SessionSwitcher  SessionSwitcherState
+	ModelSelector    ModelSelectorState
+	PermissionDialog PermissionDialogState
+	ArgInput         ArgInputState
+	History          []HistoryEntry
+	EFMStks          []EFMStack
+	Config           []ConfigEntry
+	ConfigSel        int
 
 	ToolList  list.Model
 	ToolItems []list.Item
@@ -92,32 +88,26 @@ type Model struct {
 	NotificationBanner *NotificationItem
 	Notifications      []NotificationItem
 
-	ChatInput   *chatInput
-	ChatHistory []string
-	ChatRunner  *chat.Runner
-	Program     teaProgramIface
-	ctxFn       func() context.Context
+	ChatInput     *chatInput
+	ChatHistory   []ChatMessage
+	ChatViewport  viewport.Model
+	ChatFocusIdx  int
+	ChatRunner    *chat.Runner
+	Program       teaProgramIface
+	ctxFn         func() context.Context
 
-	// AgentRunner is the v3.3.1 (issue #53) full agentloop embed. When
-	// set, chat submits and skill-palette entries route through it
-	// instead of the simple LLM chat runner. Lazily initialized by
-	// initAgentRunner.
+	SearchQuery   string
+	SearchMatches []int
+	SearchInput   textinput.Model
+
 	AgentRunner *agentrunner.AgentRunner
-	// pendingAsk is the AskReply channel for the most recent agent
-	// ask event, or nil if no ask is pending. The chat view's y/N
-	// keypress handler pops it via answerPendingAsk.
-	pendingAsk chan bool
+	pendingAsk  chan bool
 
-	// Workspace is the directory the TUI is operating in. The agent
-	// runner uses this to locate the .sin-code/sessions.db. Set by
-	// main() at startup; defaults to "." if empty.
 	Workspace string
 
 	OnRun func(name string, args []string) error
 }
 
-// ctx returns a context.Context for background goroutines. Defaults to
-// context.Background(); tests can override via SetContextFn.
 func (m *Model) ctx() context.Context {
 	if m.ctxFn != nil {
 		return m.ctxFn()
@@ -125,9 +115,19 @@ func (m *Model) ctx() context.Context {
 	return context.Background()
 }
 
-// SetContextFn lets tests inject a cancellable context.
 func (m *Model) SetContextFn(fn func() context.Context) {
 	m.ctxFn = fn
+}
+
+func (m *Model) appendChat(msg ChatMessage) {
+	msg.Timestamp = time.Now()
+	if msg.ID == 0 {
+		msg.ID = msg.Timestamp.UnixNano()
+	}
+	m.ChatHistory = append(m.ChatHistory, msg)
+	if len(m.ChatHistory) > 500 {
+		m.ChatHistory = m.ChatHistory[len(m.ChatHistory)-500:]
+	}
 }
 
 func NewModel() *Model {
@@ -152,25 +152,32 @@ func NewModel() *Model {
 	l.SetShowHelp(false)
 	l.SetFilteringEnabled(false)
 
+	searchInput := textinput.New()
+	searchInput.Placeholder = "Search chat..."
+	searchInput.CharLimit = 200
+	searchInput.SetWidth(60)
+
 	m := &Model{
-		Width:      80,
-		Height:     24,
-		ThemeIdx:   0,
-		ViewKind:   ViewChat,
-		Mode:       ModeNormal,
-		Tabs:       NewTabs(),
-		Sidebar:    NewSidebar(),
-		Footer:     footer,
-		Spinner:    NewSpinner(),
-		Styles:     s,
-		RightPanel: true,
-		History:    []HistoryEntry{},
-		EFMStks:    []EFMStack{},
-		Config:     DefaultConfigEntries(),
-		ToolList:   l,
-		ToolItems:  items,
-		ArgInput:   ArgInputState{Input: ti},
-		Palette:    PaletteState{Open: false, Sel: 0, Items: defaultPaletteCommands(), Filter: defaultPaletteCommands()},
+		Width:        80,
+		Height:       24,
+		ThemeIdx:     0,
+		ViewKind:     ViewChat,
+		Mode:         ModeNormal,
+		Tabs:         NewTabs(),
+		Sidebar:      NewSidebar(),
+		Footer:       footer,
+		Spinner:      NewSpinner(),
+		Styles:       s,
+		RightPanel:   true,
+		History:      []HistoryEntry{},
+		EFMStks:      []EFMStack{},
+		Config:       DefaultConfigEntries(),
+		ToolList:     l,
+		ToolItems:    items,
+		ArgInput:     ArgInputState{Input: ti},
+		Palette:      PaletteState{Open: false, Sel: 0, Items: defaultPaletteCommands(), Filter: defaultPaletteCommands()},
+		ChatViewport: viewport.New(viewport.WithWidth(80), viewport.WithHeight(20)),
+		SearchInput:  searchInput,
 	}
 	m.Footer.SetView(ViewChat)
 	m.Footer.ShowHints = false

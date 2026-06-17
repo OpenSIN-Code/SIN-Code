@@ -109,6 +109,7 @@ type Styles struct {
 	AccentText lipgloss.Style
 	Bold       lipgloss.Style
 	Muted      lipgloss.Style
+	UserMsg    lipgloss.Style
 }
 
 func c(s string) color.Color { return lipgloss.Color(s) }
@@ -209,6 +210,7 @@ func NewStyles(theme Theme) Styles {
 	s.AccentText = lipgloss.NewStyle().Foreground(c(t.Accent)).Bold(true)
 	s.Bold = lipgloss.NewStyle().Bold(true)
 	s.Muted = lipgloss.NewStyle().Foreground(c(t.TextDim))
+	s.UserMsg = lipgloss.NewStyle().Foreground(c(t.Accent))
 
 	return s
 }

@@ -42,7 +42,7 @@ func TestTUIScreenshots(t *testing.T) {
 	// 3. Chat View (empty)
 	t.Run("ChatView_Empty", func(t *testing.T) {
 		m.ViewKind = ViewChat
-		m.ChatHistory = []string{}
+		m.ChatHistory = []ChatMessage{}
 		view := m.View().Content
 		saveScreenshot(t, screenshotDir, "03_chat_view_empty.txt", view)
 	})
@@ -50,12 +50,12 @@ func TestTUIScreenshots(t *testing.T) {
 	// 4. Chat View (with messages)
 	t.Run("ChatView_WithMessages", func(t *testing.T) {
 		m.ViewKind = ViewChat
-		m.ChatHistory = []string{
-			"Fix the authentication bug in the login endpoint",
-			"assistant: I'll help you fix the authentication bug. Let me analyze the login endpoint code.\n\n## Analysis\n\nThe issue is in the token validation logic:\n\n```go\nif token == \"\" {\n    return nil, errors.New(\"missing token\")\n}\n```\n\nThis doesn't handle expired tokens properly.",
-			"tool(sin_edit): auth/login.go:42-48",
-			"verify: pass — all tests green",
-			"assistant: ✅ Fixed! The authentication bug has been resolved. All tests pass.",
+		m.ChatHistory = []ChatMessage{
+			{Kind: chatUser, Text: "Fix the authentication bug in the login endpoint"},
+			{Kind: chatAssistant, Text: "I'll help you fix the authentication bug. Let me analyze the login endpoint code.\n\n## Analysis\n\nThe issue is in the token validation logic:\n\n```go\nif token == \"\" {\n    return nil, errors.New(\"missing token\")\n}\n```\n\nThis doesn't handle expired tokens properly."},
+			{Kind: chatTool, Tool: "sin_edit", Detail: "auth/login.go:42-48"},
+			{Kind: chatVerify, Detail: "pass — all tests green"},
+			{Kind: chatAssistant, Text: "✅ Fixed! The authentication bug has been resolved. All tests pass."},
 		}
 		m.Footer.Tokens = 15234
 		m.Footer.TokensPct = 0.12
@@ -68,9 +68,9 @@ func TestTUIScreenshots(t *testing.T) {
 	// 5. Chat View (streaming)
 	t.Run("ChatView_Streaming", func(t *testing.T) {
 		m.ViewKind = ViewChat
-		m.ChatHistory = []string{
-			"Refactor the database layer",
-			"assistant: thinking...",
+		m.ChatHistory = []ChatMessage{
+			{Kind: chatUser, Text: "Refactor the database layer"},
+			{Kind: chatThinking},
 		}
 		m.Footer.Streaming = true
 		view := m.View().Content
@@ -183,7 +183,7 @@ func TestTUIScreenshots(t *testing.T) {
 		m.Footer.Cost = "$0.137"
 		m.Footer.Duration = 2*time.Minute + 15*time.Second
 		m.Footer.Streaming = false
-		m.ChatHistory = []string{"Test message"}
+		m.ChatHistory = []ChatMessage{{Kind: chatUser, Text: "Test message"}}
 		view := m.View().Content
 		saveScreenshot(t, screenshotDir, "13_footer_metrics.txt", view)
 	})

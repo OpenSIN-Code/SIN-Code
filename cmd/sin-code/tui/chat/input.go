@@ -146,6 +146,8 @@ func (i *Input) HandleSlashCommand(line string) (handled bool, err error) {
 		return true, nil
 	case "/clear":
 		return false, nil
+	case "/help":
+		return false, nil
 	case "/detach":
 		if len(parts) < 2 {
 			return true, fmt.Errorf("usage: /detach <name|index>")

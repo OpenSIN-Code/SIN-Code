@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: MIT
-// Purpose: Modern chat view with markdown rendering, chat bubbles, and
-// token/cost/time tracking. Built on existing ChatHistory structure.
 package tui
 
 import (
@@ -19,9 +17,6 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 		height = 6
 	}
 
-	var b strings.Builder
-
-	// Reserve space for input at bottom (3 lines textarea + 1 separator)
 	inputHeight := 4
 	chatHeight := height - inputHeight
 	if chatHeight < 3 {
@@ -30,39 +25,54 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 
 	if len(m.ChatHistory) == 0 {
 		welcome := "Send a message to get started.\n\nCtrl+S to send · /clear to reset · /attach for files"
-		b.WriteString(lipgloss.Place(width, chatHeight, lipgloss.Center, lipgloss.Center, styles.Muted.Render(welcome)))
-	} else {
-		start := len(m.ChatHistory) - chatHeight
-		if start < 0 {
-			start = 0
-		}
-
-		mdRenderer := newMarkdownRenderer(styles)
-
-		for _, entry := range m.ChatHistory[start:] {
-			msg := parseChatEntry(entry)
-			rendered := renderChatMessageCompact(msg, mdRenderer, styles, width)
-			b.WriteString(rendered)
-		}
+		return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, styles.Muted.Render(welcome))
 	}
 
-	// Subtle separator + input field at bottom
+	var content strings.Builder
+	mdRenderer := newMarkdownRenderer(styles)
+
+	for i, msg := range m.ChatHistory {
+		rendered := renderChatMessageCompact(msg, mdRenderer, styles, width, i == m.ChatFocusIdx)
+		content.WriteString(rendered)
+	}
+
+	m.ChatViewport.SetWidth(width)
+	m.ChatViewport.SetHeight(chatHeight)
+	m.ChatViewport.SetContent(content.String())
+	if !m.ChatViewport.AtBottom() {
+		m.ChatViewport.GotoBottom()
+	}
+
+	var b strings.Builder
+	b.WriteString(m.ChatViewport.View())
+
+	if m.Mode == ModeSearch {
+		b.WriteString("\n")
+		b.WriteString(styles.AccentText.Render("/" + m.SearchInput.View()))
+	}
+
 	b.WriteString("\n")
 	b.WriteString(styles.Muted.Render(strings.Repeat("─", width)))
 	b.WriteString("\n")
 	if m.ChatInput != nil {
+		m.ChatInput.SetSize(width, 3)
 		b.WriteString(m.ChatInput.View())
 	}
 
 	return b.String()
 }
 
-func renderChatMessageCompact(msg chatMsg, md *markdownRenderer, styles Styles, width int) string {
+func renderChatMessageCompact(msg ChatMessage, md *markdownRenderer, styles Styles, width int, focused bool) string {
 	var b strings.Builder
+
+	focusPrefix := ""
+	if focused {
+		focusPrefix = "▸ "
+	}
 
 	switch msg.Kind {
 	case chatUser:
-		b.WriteString(styles.AccentText.Render("> "))
+		b.WriteString(styles.UserMsg.Render(focusPrefix + "> "))
 		b.WriteString(styles.Content.Render(msg.Text))
 		b.WriteString("\n")
 
@@ -74,19 +84,38 @@ func renderChatMessageCompact(msg chatMsg, md *markdownRenderer, styles Styles, 
 		}
 
 	case chatTool:
-		if msg.Result {
-			b.WriteString(styles.StatusOK.Render("  ✓ " + msg.Tool))
+		if msg.Expanded {
+			b.WriteString(styles.AccentText.Render(focusPrefix + "⚡ " + msg.Tool))
+			b.WriteString("\n")
+			if msg.ToolInput != "" {
+				b.WriteString(styles.Muted.Render("  input: "))
+				b.WriteString(styles.Muted.Render(msg.ToolInput))
+				b.WriteString("\n")
+			}
 			if msg.Detail != "" {
-				detail := msg.Detail
-				if len(detail) > 60 {
-					detail = detail[:57] + "..."
-				}
-				b.WriteString(styles.Muted.Render(" → " + detail))
+				b.WriteString(styles.Muted.Render("  output: "))
+				b.WriteString(styles.Muted.Render(msg.Detail))
+				b.WriteString("\n")
 			}
 		} else {
-			b.WriteString(styles.AccentText.Render("  ⚡ " + msg.Tool))
-			if msg.Detail != "" {
-				b.WriteString(styles.Muted.Render(" " + msg.Detail))
+			if msg.Result {
+				b.WriteString(styles.StatusOK.Render(focusPrefix + "✓ " + msg.Tool))
+				if msg.Detail != "" {
+					detail := msg.Detail
+					if len(detail) > 60 {
+						detail = detail[:57] + "..."
+					}
+					b.WriteString(styles.Muted.Render(" → " + detail))
+				}
+			} else {
+				b.WriteString(styles.AccentText.Render(focusPrefix + "⚡ " + msg.Tool))
+				if msg.Detail != "" {
+					detail := msg.Detail
+					if len(detail) > 60 {
+						detail = detail[:57] + "..."
+					}
+					b.WriteString(styles.Muted.Render(" " + detail))
+				}
 			}
 		}
 		b.WriteString("\n")
@@ -102,7 +131,7 @@ func renderChatMessageCompact(msg chatMsg, md *markdownRenderer, styles Styles, 
 		b.WriteString("\n")
 
 	case chatAsk:
-		b.WriteString(styles.StatusWarn.Render("  🔒 " + msg.Detail))
+		b.WriteString(styles.StatusWarn.Render(focusPrefix + "🔒 " + msg.Detail))
 		b.WriteString("\n")
 
 	case chatDone:
@@ -110,11 +139,15 @@ func renderChatMessageCompact(msg chatMsg, md *markdownRenderer, styles Styles, 
 		if len(detail) > 80 {
 			detail = detail[:77] + "..."
 		}
-		b.WriteString(styles.StatusOK.Render("  ✓ " + detail))
+		b.WriteString(styles.StatusOK.Render(focusPrefix + "✓ " + detail))
 		b.WriteString("\n")
 
 	case chatError:
-		b.WriteString(renderError(msg.Text, styles))
+		errText := msg.Text
+		if errText == "" && msg.Error != nil {
+			errText = msg.Error.Error()
+		}
+		b.WriteString(renderError(errText, styles))
 		b.WriteString("\n")
 
 	case chatThinking:
@@ -122,11 +155,11 @@ func renderChatMessageCompact(msg chatMsg, md *markdownRenderer, styles Styles, 
 		b.WriteString("\n")
 
 	case chatSystem:
-		b.WriteString(styles.StatusWarn.Render("  ⚠ " + msg.Text))
+		b.WriteString(styles.StatusWarn.Render(focusPrefix + "⚠ " + msg.Text))
 		b.WriteString("\n")
 
 	case chatAgent:
-		b.WriteString(styles.Muted.Render("  ⟳ " + msg.Text))
+		b.WriteString(styles.Muted.Render(focusPrefix + "⟳ " + msg.Text))
 		b.WriteString("\n")
 	}
 
@@ -184,8 +217,7 @@ func (m *Model) updateChatMetrics(tokens int, cost float64, duration time.Durati
 	if m.Footer.TokensPct > 1.0 {
 		m.Footer.TokensPct = 1.0
 	}
-	
-	// Auto-compact when approaching context window limit (80%)
+
 	if m.Footer.TokensPct >= 0.8 && !m.Footer.Compacted {
 		m.autoCompactContext()
 	}
@@ -195,19 +227,18 @@ func (m *Model) autoCompactContext() {
 	if len(m.ChatHistory) <= 50 {
 		return
 	}
-	
-	// Keep last 20 messages + summary of older ones
+
 	summary := fmt.Sprintf("[context compacted: %d messages removed to free up space]", len(m.ChatHistory)-20)
-	m.ChatHistory = append([]string{"system: " + summary}, m.ChatHistory[len(m.ChatHistory)-20:]...)
+	m.ChatHistory = append([]ChatMessage{{Kind: chatSystem, Text: summary}}, m.ChatHistory[len(m.ChatHistory)-20:]...)
 	m.Footer.Compacted = true
-	
+
 	m.SetBanner(&NotificationItem{
 		ID:      "auto-compact",
 		Title:   "Context Compacted",
 		Message: fmt.Sprintf("Reduced from %d to 20 messages to stay within token limit", len(m.ChatHistory)),
 		Type:    "info",
 	})
-	
+
 	m.AppendHistory(ViewChat.String(), "auto-compact", summary, true)
 }
 
@@ -219,11 +250,11 @@ func (m *Model) updateSessionPreview() {
 	if len(m.ChatHistory) == 0 {
 		return
 	}
-	
+
 	for i := len(m.ChatHistory) - 1; i >= 0; i-- {
-		entry := m.ChatHistory[i]
-		if strings.HasPrefix(entry, "assistant: ") {
-			preview := strings.TrimPrefix(entry, "assistant: ")
+		msg := m.ChatHistory[i]
+		if msg.Kind == chatAssistant {
+			preview := msg.Text
 			if len(preview) > 60 {
 				preview = preview[:57] + "..."
 			}
