@@ -69,6 +69,8 @@ swarm mode, skill bootstrapping, and methodology skills.
 
 **Bounded Autonomy (v3.5.0):** Goal queue + cron/file triggers + skill-lifecycle manager + autonomous daemon. Three hard safety invariants: no gate → no daemon; headless → ask=deny; budget exhausted → hook summons the human.
 
+**SinCode Loop System (always-on Definition-of-Done):** Every goal automatically carries the "self-evident" follow-through — write tests, debug, remove scaffolding, finish the job, and keep `README`/`CHANGELOG`/`AGENTS.md`/`MASTER_TODO`/`.doc.md` CoDocs in sync — so you never have to tell an agent to do that work again. The baseline is merged into every contract, stated to the worker up front, and enforced by the independent stop-gate. ON by default in `daemon` and `auto run`; escape with `--no-baseline` or `SIN_BASELINE=off`.
+
 **Self-Extending (v3.4.0+):** `sin_bootstrap_skill` writes Python MCP servers from natural-language specs, tests them, and deploys them on the fly (defense-in-depth: requires `SIN_ALLOW_BOOTSTRAP=1`).
 
 **Time-Travel Debugging:** Fork any session at any turn to explore parallel solution paths (`sin-code session fork <id> <turn>`).

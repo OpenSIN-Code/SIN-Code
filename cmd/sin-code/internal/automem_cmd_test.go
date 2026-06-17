@@ -18,11 +18,14 @@ func TestOpenAutoMem_Success(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := autoMemDefaultHome
 	oldOpen := autoMemOpen
+	oldProject := autoMemProject
 	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
 	autoMemOpen = auto_mem.Open
+	autoMemProject = ""
 	defer func() {
 		autoMemDefaultHome = oldHome
 		autoMemOpen = oldOpen
+		autoMemProject = oldProject
 	}()
 
 	s, proj, err := openAutoMem()
@@ -103,11 +106,14 @@ func TestAutoMem_ListCmd(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := autoMemDefaultHome
 	oldOpen := autoMemOpen
+	oldProject := autoMemProject
 	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
 	autoMemOpen = auto_mem.Open
+	autoMemProject = ""
 	defer func() {
 		autoMemDefaultHome = oldHome
 		autoMemOpen = oldOpen
+		autoMemProject = oldProject
 	}()
 
 	out, err := captureAutoMemCmd(t, memAutoListCmd, []string{})
@@ -123,13 +129,16 @@ func TestAutoMem_ListCmdJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := autoMemDefaultHome
 	oldOpen := autoMemOpen
+	oldProject := autoMemProject
 	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
 	autoMemOpen = auto_mem.Open
+	autoMemProject = ""
 	oldFormat := autoMemFormat
 	autoMemFormat = "json"
 	defer func() {
 		autoMemDefaultHome = oldHome
 		autoMemOpen = oldOpen
+		autoMemProject = oldProject
 		autoMemFormat = oldFormat
 	}()
 
@@ -146,11 +155,14 @@ func TestAutoMem_ShowCmd(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := autoMemDefaultHome
 	oldOpen := autoMemOpen
+	oldProject := autoMemProject
 	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
 	autoMemOpen = auto_mem.Open
+	autoMemProject = ""
 	defer func() {
 		autoMemDefaultHome = oldHome
 		autoMemOpen = oldOpen
+		autoMemProject = oldProject
 	}()
 
 	store, _, err := openAutoMem()
@@ -174,11 +186,14 @@ func TestAutoMem_AppendCmd(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := autoMemDefaultHome
 	oldOpen := autoMemOpen
+	oldProject := autoMemProject
 	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
 	autoMemOpen = auto_mem.Open
+	autoMemProject = ""
 	defer func() {
 		autoMemDefaultHome = oldHome
 		autoMemOpen = oldOpen
+		autoMemProject = oldProject
 	}()
 
 	out, err := captureAutoMemCmd(t, memAutoAppendCmd, []string{"heading", "body"})
@@ -194,11 +209,14 @@ func TestAutoMem_RmCmd(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := autoMemDefaultHome
 	oldOpen := autoMemOpen
+	oldProject := autoMemProject
 	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
 	autoMemOpen = auto_mem.Open
+	autoMemProject = ""
 	defer func() {
 		autoMemDefaultHome = oldHome
 		autoMemOpen = oldOpen
+		autoMemProject = oldProject
 	}()
 
 	store, _, err := openAutoMem()
@@ -222,11 +240,14 @@ func TestAutoMem_GcCmd(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := autoMemDefaultHome
 	oldOpen := autoMemOpen
+	oldProject := autoMemProject
 	autoMemDefaultHome = func() (string, error) { return tmpDir, nil }
 	autoMemOpen = auto_mem.Open
+	autoMemProject = ""
 	defer func() {
 		autoMemDefaultHome = oldHome
 		autoMemOpen = oldOpen
+		autoMemProject = oldProject
 	}()
 
 	out, err := captureAutoMemCmd(t, memAutoGcCmd, []string{})

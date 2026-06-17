@@ -534,6 +534,25 @@ reports them; `debt check` gates them.
   rendering drift breaks the build (the prerequisite for issue #168's
   ledger-level token-cost hashing).
 
+### Added — SinCode Loop System (always-on Definition-of-Done baseline)
+- **Baseline DoD** (`internal/goalcontract/baseline.go`): an always-on
+  Definition-of-Done that is merged into every resolved contract so the
+  "self-evident" follow-through work is implicit for every goal — the user
+  never has to ask an agent to write tests, debug, remove scaffolding, or
+  update docs again. It adds deterministic predicate checks (tests touched in
+  the diff, `CHANGELOG.md` touched, a `.doc.md` CoDoc beside each changed Go
+  file) plus LLM-judged semantic criteria (tests cover new behavior, no debug
+  leftovers, goal fully addressed, README/CHANGELOG/AGENTS/MASTER_TODO/CoDocs
+  kept in sync). Additive and deduped against auto-detected/explicit criteria.
+- **DoD preamble injection** (`agentloop.Loop.Preamble` + `goalcontract.Preamble`):
+  the loop now states the rubric to the worker up front via `loopbuilder`, so
+  tests/debug/docs/completeness are handled on the first pass instead of after
+  a stop-gate rejection. Advisory only; the stop-gate still enforces.
+- **Always-on, globally escapable**: baseline is ON by default in `daemon` and
+  `auto run`; disable per-invocation with `--no-baseline` or globally with
+  `SIN_BASELINE=off` (`goalcontract.BaselineEnabled`). Fail-open: predicate
+  scripts exit 0 outside a git repo so they never wedge a non-repo workspace.
+
 ### Added — Loop Engineering (decoupled completion authority)
 ### Added — MCP tool-manifest compression (issue #173, v3.19.0)
 - **`internal/mcpcompress/`** — ponytail-tag compressor for

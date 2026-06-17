@@ -445,6 +445,7 @@ func TestPrintCompressionStats(t *testing.T) {
 	p := mcpcompress.All()
 	stats := []mcpcompress.Stats{
 		{Name: "sin_test", Original: 100, Compressed: 80, BytesSaved: 20, Ratio: 0.2},
+		{Name: "sin_negative", Original: 50, Compressed: 60, BytesSaved: -10, Ratio: -0.2},
 	}
 	printCompressionStats(f, p, stats)
 

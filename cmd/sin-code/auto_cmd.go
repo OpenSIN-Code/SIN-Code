@@ -16,6 +16,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autopilot"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/loopbuilder"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
@@ -62,6 +63,7 @@ func newAutoInitCmd() *cobra.Command {
 func newAutoRunCmd() *cobra.Command {
 	var verifyCmd string
 	var budgetMinutes, maxExperiments, maxTurns int
+	var noBaseline bool
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run the autonomous loop until the budget is exhausted",
@@ -104,6 +106,22 @@ func newAutoRunCmd() *cobra.Command {
 			}
 			defer sessStore.Close()
 
+			// Resolve the always-on SinCode loop Definition-of-Done once for
+			// the whole autonomous session: every experiment the autopilot
+			// runs is held to the same baseline (tests/debug/docs/completeness)
+			// via the stop-gate, unless --no-baseline / SIN_BASELINE=off.
+			var autoContract *goalcontract.GoalContract
+			if c, cerr := goalcontract.Resolve(goalcontract.ResolveOptions{
+				Workspace:       workspace,
+				VerifyCmd:       verifyCmd,
+				AutoDetect:      true,
+				IncludeBaseline: goalcontract.BaselineEnabled(noBaseline),
+			}); cerr != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "warn: auto contract resolve failed, continuing without stop-gate: %v\n", cerr)
+			} else if !c.IsEmpty() {
+				autoContract = c
+			}
+
 			runGoal := func(ctx context.Context, goal string) (autopilot.LoopResult, string, error) {
 				sess, err := sessStore.StartOrResume("")
 				if err != nil {
@@ -116,6 +134,7 @@ func newAutoRunCmd() *cobra.Command {
 					VerifyMode: "poc",
 					VerifyCmd:  verifyCmd,
 					Headless:   true,
+					Contract:   autoContract,
 					ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
 						return combinedTool(workspace, mgr), combinedSpecs(mgr)
 					},
@@ -171,6 +190,7 @@ func newAutoRunCmd() *cobra.Command {
 	cmd.Flags().IntVar(&budgetMinutes, "budget-minutes", 0, "wall-clock budget (overrides program.md)")
 	cmd.Flags().IntVar(&maxExperiments, "max-experiments", 0, "experiment cap (overrides program.md)")
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 60, "max agent turns per experiment")
+	cmd.Flags().BoolVar(&noBaseline, "no-baseline", false, "disable the always-on SinCode loop baseline (tests/debug/docs/completeness DoD); also via SIN_BASELINE=off")
 	return cmd
 }
 
