@@ -85,7 +85,12 @@ func DefaultPath() string {
 }
 
 func Open(dbPath string) (*Store, error) {
-	db, err := sqlOpen("sqlite", dbPath)
+	// Use WAL mode + busy timeout for concurrent access safety (issue #284:
+	// parallel sub-agents each get their own session and write concurrently).
+	// The DSN pragmas are modernc.org/sqlite specific (key=value pairs).
+	// busy_timeout(5000) makes concurrent writers wait up to 5s instead of
+	// immediately returning SQLITE_BUSY.
+	db, err := sqlOpen("sqlite", dbPath+"?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)")
 	if err != nil {
 		return nil, err
 	}
