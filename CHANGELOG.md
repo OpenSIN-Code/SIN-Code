@@ -1121,6 +1121,57 @@ These two items together close out the 10-item SOTA map pinned
 in the v3.20.0 roadmap. They will land as separate, dedicated
 PRs with full issue-first branches (M3, M7 unchanged).
 
+### Added — `sdk/` in-process MCP Go-SDK wrapper (issue #202)
+Allows Go programs (including `sin-code` itself and downstream
+agents) to call MCP tools **without spawning a child process**.
+Mirrors Anthropic SDK's "embedded" use mode (Anthropic release
+v2.1, 2026-01-22): agents and tools running in the same process
+no longer need stdio roundtrips or `sin-code serve --transport=http`.
+
+- **New package `cmd/sin-code/sdk/`** (~170 LoC + 130 LoC tests):
+  - `NewServer(name, version) *mcp.Server` — thin wrapper
+    around `mcp.NewServer` with the project's tool capability
+    set as default.
+  - `MustRegisterTool(srv, name, description, handler)` —
+    registers a single tool from a `func(ctx, args) (string, error)`
+    closure. Existing `registerAllMCPTools` is the higher-level
+    multi-tool version; this shim is the easiest single-tool
+    entrypoint.
+  - `NewInProcessSession(srv) (*mcp.ClientSession, error)` —
+    wires `mcp.NewInMemoryTransports()` on both sides and
+    returns the active `*mcp.ClientSession`. The matching
+    `*mcp.ServerSession` is closed automatically when the
+    client shuts down (no goroutine leak — proven by
+    `TestNewInProcessSession_Concurrent`).
+  - `FirstText(res) (string, bool)` — convenience to extract
+    the first `*mcp.TextContent` from a `*mcp.CallToolResult`.
+- **Real MCP roundtrips**: every `CallTool(...)` is a full
+  initialize + capabilities + call + response lifecycle,
+  byte-stable per `(tool, args)` pair. `mcp.Server.Run` is
+  not invoked — instead the SDK's stable `Server.Connect`
+  method drives the server side, eliminating the goroutine-
+  leak class of bugs (the test suite directly exercises this).
+- **Public API surface**: `cmd/sin-code/sdk.{NewServer,
+  MustRegisterTool, NewInProcessSession, FirstText}`.
+  Renaming any is a major bump (mandate §10 — Go embedders
+  rely on the package name).
+- **Tests**: 6 race-clean tests covering list-tools
+  enumeration, argument roundtrip, handler error bubbles,
+  nil-server guard, First-text extraction, and 20-call
+  concurrent stress (under -race, completing in <10 ms).
+  Total runtime ~1s.
+
+Not in this PR (deliberate scope-down):
+- A direct binding between `sdk.NewInProcessSession` and
+  `internal/serve.registerAllMCPTools` lands in a follow-up
+  PR so an embedder can spin up the full 15-tool sin-code
+  registry without rewriting the registration table.
+- `mcp-tools-spec` (declaring types via jsonschema rather
+  than `map[string]any`) is an Anthropic-best-practice
+  follow-up. The current shim uses `InputSchema: {"type":
+  "object"}` for compatibility with the existing tool
+  handlers.
+
 ## [v3.17.0] - 2026-06-13
 
 ### Added
