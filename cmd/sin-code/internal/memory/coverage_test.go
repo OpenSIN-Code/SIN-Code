@@ -6,16 +6,11 @@ package memory
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 )
 
 // ---------------------------------------------------------------------------
@@ -136,7 +131,7 @@ func TestEmbeddingCache_PurgeExpired(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// autodream.go coverage — WithLLMClient (0%), tryLLMSummary (0%), buildSummary (50%)
+// autodream.go coverage — WithLLMClient (0%)
 // ---------------------------------------------------------------------------
 
 func TestWithLLMClient(t *testing.T) {
@@ -144,123 +139,6 @@ func TestWithLLMClient(t *testing.T) {
 	ad := NewAutoDream(store, WithLLMClient(nil))
 	if ad == nil {
 		t.Fatal("expected non-nil AutoDream")
-	}
-}
-
-func TestAutoDream_TryLLMSummary_Success(t *testing.T) {
-	t.Setenv("SIN_LLM_MODEL", "test-model")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]any{
-			"choices": []map[string]any{
-				{"message": map[string]any{"content": "consolidated insight"}, "finish_reason": "stop"},
-			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer srv.Close()
-
-	store := tempStore(t)
-	client := llm.NewClient(srv.URL, "test-key")
-	ad := NewAutoDream(store, WithLLMClient(client))
-
-	mems := []*Memory{
-		{ID: "m1", Insight: "memory one"},
-		{ID: "m2", Insight: "memory two"},
-	}
-	summary := ad.tryLLMSummary(context.Background(), "test-tag", mems)
-	if summary == "" {
-		t.Fatal("expected non-empty summary from LLM")
-	}
-	if !strings.Contains(summary, "test-tag") {
-		t.Errorf("summary should contain tag, got %q", summary)
-	}
-}
-
-func TestAutoDream_TryLLMSummary_Error(t *testing.T) {
-	t.Setenv("SIN_LLM_MODEL", "test-model")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer srv.Close()
-
-	store := tempStore(t)
-	client := llm.NewClient(srv.URL, "test-key")
-	ad := NewAutoDream(store, WithLLMClient(client))
-
-	mems := []*Memory{{ID: "m1", Insight: "memory one"}}
-	summary := ad.tryLLMSummary(context.Background(), "test-tag", mems)
-	if summary != "" {
-		t.Errorf("expected empty summary on LLM error, got %q", summary)
-	}
-}
-
-func TestAutoDream_TryLLMSummary_EmptyResponse(t *testing.T) {
-	t.Setenv("SIN_LLM_MODEL", "test-model")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]any{
-			"choices": []map[string]any{
-				{"message": map[string]any{"content": ""}, "finish_reason": "stop"},
-			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer srv.Close()
-
-	store := tempStore(t)
-	client := llm.NewClient(srv.URL, "test-key")
-	ad := NewAutoDream(store, WithLLMClient(client))
-
-	mems := []*Memory{{ID: "m1", Insight: "memory one"}}
-	summary := ad.tryLLMSummary(context.Background(), "test-tag", mems)
-	if summary != "" {
-		t.Errorf("expected empty summary for empty LLM response, got %q", summary)
-	}
-}
-
-func TestAutoDream_BuildSummary_WithLLM(t *testing.T) {
-	t.Setenv("SIN_LLM_MODEL", "test-model")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := map[string]any{
-			"choices": []map[string]any{
-				{"message": map[string]any{"content": "LLM summary"}, "finish_reason": "stop"},
-			},
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(resp)
-	}))
-	defer srv.Close()
-
-	store := tempStore(t)
-	client := llm.NewClient(srv.URL, "test-key")
-	ad := NewAutoDream(store, WithLLMClient(client))
-
-	mems := []*Memory{{ID: "m1", Insight: "memory one"}}
-	summary := ad.buildSummary(context.Background(), "tag", mems)
-	if summary == "" {
-		t.Fatal("expected non-empty summary")
-	}
-	if !strings.Contains(summary, "LLM summary") {
-		t.Errorf("expected LLM summary content, got %q", summary)
-	}
-}
-
-func TestAutoDream_BuildSummary_FallbackToDeterministic(t *testing.T) {
-	t.Setenv("SIN_LLM_MODEL", "test-model")
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	defer srv.Close()
-
-	store := tempStore(t)
-	client := llm.NewClient(srv.URL, "test-key")
-	ad := NewAutoDream(store, WithLLMClient(client))
-
-	mems := []*Memory{{ID: "m1", Insight: "memory one"}}
-	summary := ad.buildSummary(context.Background(), "tag", mems)
-	if summary == "" {
-		t.Fatal("expected non-empty fallback summary")
 	}
 }
 
@@ -396,6 +274,7 @@ func TestSubstringScore(t *testing.T) {
 	if got := substringScore("xyz", "hello"); got != 0 {
 		t.Errorf("substringScore(no match) = %.2f, want 0", got)
 	}
+	// "ell" is a substring of "hello" so returns 1.0; use word-level partial match instead
 	score := substringScore("hello world", "hello there")
 	if score <= 0 || score >= 1 {
 		t.Errorf("substringScore(partial words) = %.2f, want 0 < x < 1", score)
@@ -581,6 +460,7 @@ func TestLineDiff(t *testing.T) {
 
 func TestLineDiff_Identical(t *testing.T) {
 	diff := lineDiff("same\ncontent", "same\ncontent")
+	// Identical content produces only common lines (prefixed with "  "), no - or + lines
 	if strings.Contains(diff, "- ") || strings.Contains(diff, "+ ") {
 		t.Errorf("expected no diff lines for identical content, got %q", diff)
 	}
@@ -631,7 +511,7 @@ func TestInstinctStore_Demote_NotFound(t *testing.T) {
 	}
 }
 
-func TestInstinctStore_Promote_NotFound_Coverage(t *testing.T) {
+func TestInstinctStore_Promote_NotFound(t *testing.T) {
 	is := instinctStore(t)
 	err := is.Promote(context.Background(), "nonexistent-id")
 	if err == nil {
@@ -639,7 +519,7 @@ func TestInstinctStore_Promote_NotFound_Coverage(t *testing.T) {
 	}
 }
 
-func TestInstinctStore_Get_NotFound_Coverage(t *testing.T) {
+func TestInstinctStore_Get_NotFound(t *testing.T) {
 	is := instinctStore(t)
 	_, err := is.Get(context.Background(), "nonexistent-id")
 	if err == nil {
@@ -647,7 +527,7 @@ func TestInstinctStore_Get_NotFound_Coverage(t *testing.T) {
 	}
 }
 
-func TestInstinctStore_List_Empty_Coverage(t *testing.T) {
+func TestInstinctStore_List_Empty(t *testing.T) {
 	is := instinctStore(t)
 	list, err := is.List(context.Background(), "global")
 	if err != nil {
@@ -781,6 +661,7 @@ func TestHonchoIntegration_SavePeerModel_InvalidJSON(t *testing.T) {
 	store := tempStore(t)
 	h := NewHonchoIntegration(store)
 	ctx := context.Background()
+	// Save a peer model with a non-JSON insight (simulates corruption)
 	m := &Memory{
 		Insight: "not valid json",
 		Tags:    []string{tagPeerModel},

@@ -59,6 +59,7 @@ Available Commands:
   hooks               Inspect and test lifecycle hooks
   hub                 Tool catalog and landing page for sin-code
   ibd                 Intent-Based Diffing — compare code changes against stated intent
+  image-graph         Generate SOTA charts (bar, line, pie, area) as HTML + PNG
   index               Manage persistent incremental code index
   install             Install or verify the sin-code single-binary release
   instinct            Manage learned instincts (continuous learning)

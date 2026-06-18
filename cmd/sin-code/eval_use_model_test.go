@@ -14,9 +14,8 @@ import (
 
 func TestBuildEvalCompletion_MissingKey(t *testing.T) {
 	t.Setenv("LLM_API_KEY", "")
-	oldCfg := loadOrSkipConfig(t)
-	defer restoreEnv(t)
-	_ = oldCfg
+	t.Setenv("SIN_CODE_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
 	_, err := buildEvalCompletion()
 	if err == nil {
 		t.Fatal("expected error when API key is missing")
@@ -29,15 +28,14 @@ func TestBuildEvalCompletion_MissingKey(t *testing.T) {
 func TestBuildEvalCompletion_MissingModel(t *testing.T) {
 	t.Setenv("LLM_API_KEY", "test-key")
 	t.Setenv("LLM_MODEL", "")
+	t.Setenv("SIN_CODE_HOME", t.TempDir())
+	t.Setenv("HOME", t.TempDir())
 	_, err := buildEvalCompletion()
 	if err == nil {
 		t.Fatal("expected error when model is missing")
 	}
 }
 
-// loadOrSkipConfig is a no-op stub so the test does not blow up when
-// the real config loader is in flux; we only care that env-vars are
-// honoured.
 func loadOrSkipConfig(t *testing.T) string {
 	t.Helper()
 	return os.Getenv("SIN_CODE_HOME")
