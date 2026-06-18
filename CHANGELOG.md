@@ -1,29 +1,44 @@
-## context-compaction-modes first PR (2026-06-18)
-
-**Branch**: `feat/context-compaction-modes` (companion to issue #278)
-
-Adds a mode-based compaction layer (`Compact2`) on top of the legacy
-`CompactionStrategy` switch. Three new modes (deterministic, llm,
-hybrid) all preserve verification evidence by default (mandate M3);
-lossy modes (llm, hybrid) write sidecar JSON snapshots to
-`~/.local/share/sin-code/context-snapshots/` so the persisted session
-record stays complete.
-
-Library-only first PR — no loop wiring yet. Follow-up PR will wire
-`Compact2` into `Loop.Run` and add CLI flags + config keys.
-
-Files touched:
-- `cmd/sin-code/internal/agentloop/compaction.go`
-- `cmd/sin-code/internal/agentloop/compaction_test.go`
-- `cmd/sin-code/internal/agentloop/compaction_types.go` (already present)
-- `cmd/sin-code/internal/agentloop/compaction_helpers.go` (already present)
-
-Tests: 7 new `TestCompact2_*` + `TestIdentifyEvidence_FindsMarkers`,
-all race-clean under `go test -race -count=1`.
-
 # Changelog
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
+
+## [v3.23.0] - 2026-06-18
+
+### Added — v3.23.0 Roadmap
+
+- **Autonomous research report (issue #384):** `sin-code research <topic>`
+  enqueues an autonomous goal that searches the web, fetches sources, and
+  synthesizes a Markdown report. Permission split: `research__dry_run`/`list`
+  allow, `research__run` ask (M4).
+
+- **SWE-bench integration tests (issue #363):** Comprehensive 670-line test
+  suite for the `swebench` package covering dataset loading, TestCase
+  conversion, scoring, and JSON serialization.
+
+- **Scientific research skill (issue #387):** New bundled skill
+  `skill-shop-research-scientific` with search strategies for PubMed,
+  USPTO patents, and arXiv preprints.
+
+- **Unified diff tools (issue #365):** `sin_apply_diff` and `sin_generate_diff`
+  chat tools. `sin_apply_diff` validates and applies a unified diff to a file;
+  `sin_generate_diff` generates a unified diff from old/new content. Wired
+  into the permission matrix as allow (same tier as `sin_edit`).
+
+- **Dynamic MCP discovery (issue #368):** `mcpclient.DiscoverConfigs()` scans
+  `~/.config/mcp/servers/*.json`, Claude Desktop, opencode, codex, and
+  `.sin-code/mcp.json`. New CLI verbs: `sin-code mcp discover` and
+  `sin-code mcp add <name>`. Discovered servers are merged into `LoadConfigs()`.
+
+### Fixed — Build Drift on main
+
+- Removed stale `toolretrieval` import from `chat_mcp.go`.
+- Fixed literal-newline syntax errors in `chat_tools.go` `toolBash` output.
+- Restored `extraSpecs()` function structure in `chat_tools_extra.go`.
+- Fixed `fmt.Sscanf` error handling in `browser_interaction.go`.
+- Added missing `repetitionThreshold` / `repetitionWindow` fields and CLI flags
+  to `chat_cmd.go` to match `loopbuilder` wiring.
+- Added `LoopDetector` field to `agentloop.Loop` and wired recording with the
+  `loop.detected` hook event.
 
 ## [v3.22.0] - 2026-06-18
 
