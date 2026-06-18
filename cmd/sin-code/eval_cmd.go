@@ -41,6 +41,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
+	swebench "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/swebench"
 	sinctrace "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/trace"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 )
@@ -76,6 +77,7 @@ Tracing is opt-in via --trace and ships to the chosen exporter.`,
 		newEvalCompareCmd(),
 		newEvalSnapshotCmd(),
 		newEvalDiffCmd(),
+		newEvalSWEBenchCmd(),
 	)
 	return cmd
 }
@@ -782,4 +784,100 @@ func buildScorer(typ, lang, selfCheck string, skipTest bool, binary string) (eva
 	default:
 		return nil, fmt.Errorf("unsupported scorer %q", typ)
 	}
+}
+
+// ── eval swe-bench (issue #363) ──────────────────────────────────────
+
+func newEvalSWEBenchCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "swe-bench",
+		Short: "SWE-bench dataset conversion and scoring (issue #363)",
+		Long: `sin-code eval swe-bench converts SWE-bench instances to the
+Golden Dataset format and scores verification output against expected
+test results.
+
+    sin-code eval swe-bench convert --input swe-bench.json [--output eval.json] [--limit N]
+    sin-code eval swe-bench score   --input swe-bench.json --verify-output out.txt [--json]`,
+	}
+	cmd.AddCommand(newEvalSWEBenchConvertCmd(), newEvalSWEBenchScoreCmd())
+	return cmd
+}
+
+func newEvalSWEBenchConvertCmd() *cobra.Command {
+	var (
+		inputPath  string
+		outputPath string
+		limit      int
+	)
+	cmd := &cobra.Command{
+		Use:   "convert",
+		Short: "Convert a SWE-bench JSON dataset to Golden Dataset format",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ds, err := swebench.LoadDataset(inputPath)
+			if err != nil {
+				return fmt.Errorf("swe-bench convert: load: %w", err)
+			}
+			if limit > 0 && limit < len(ds.Instances) {
+				ds.Instances = ds.Instances[:limit]
+			}
+			cases := swebench.ConvertDataset(ds)
+			if outputPath != "" {
+				if err := swebench.WriteEvalDataset(cases, outputPath); err != nil {
+					return fmt.Errorf("swe-bench convert: write: %w", err)
+				}
+				fmt.Fprintf(os.Stderr, "converted %d instances → %s\n", len(cases), outputPath)
+				return nil
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			return enc.Encode(map[string]any{"name": "swe-bench", "version": "1.0", "test_cases": cases})
+		},
+	}
+	cmd.Flags().StringVar(&inputPath, "input", "", "Path to SWE-bench JSON file (required)")
+	cmd.Flags().StringVar(&outputPath, "output", "", "Output Golden Dataset JSON path (default: stdout)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "Limit to first N instances (0 = all)")
+	_ = cmd.MarkFlagRequired("input")
+	return cmd
+}
+
+func newEvalSWEBenchScoreCmd() *cobra.Command {
+	var (
+		inputPath    string
+		verifyOutput string
+		jsonOut      bool
+	)
+	cmd := &cobra.Command{
+		Use:   "score",
+		Short: "Score SWE-bench verification output against expected tests",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ds, err := swebench.LoadDataset(inputPath)
+			if err != nil {
+				return fmt.Errorf("swe-bench score: load: %w", err)
+			}
+			verifyData, err := os.ReadFile(verifyOutput)
+			if err != nil {
+				return fmt.Errorf("swe-bench score: read verify output: %w", err)
+			}
+			verifyStr := string(verifyData)
+			results := make([]swebench.ScorerResult, 0, len(ds.Instances))
+			for i := range ds.Instances {
+				results = append(results, swebench.ScoreInstance(&ds.Instances[i], verifyStr))
+			}
+			summary := swebench.SummarizeResults(results)
+			if jsonOut {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(summary)
+			}
+			fmt.Printf("SWE-bench Score: %d/%d resolved (%.1f%%), mean score %.3f\n",
+				summary.Resolved, summary.Total, summary.ResolveRate*100, summary.MeanScore)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&inputPath, "input", "", "Path to SWE-bench JSON file (required)")
+	cmd.Flags().StringVar(&verifyOutput, "verify-output", "", "Path to verification output file (required)")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output summary as JSON")
+	_ = cmd.MarkFlagRequired("input")
+	_ = cmd.MarkFlagRequired("verify-output")
+	return cmd
 }
