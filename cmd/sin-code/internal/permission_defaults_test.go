@@ -37,9 +37,38 @@ func TestPermissionDefaultRules(t *testing.T) {
 		t.Errorf("expected profile__render ask rule (issue #175), got %+v", rules)
 	}
 
+	// Construct the permission engine once so the read-only / mutating
+	// assertions below can share it.
+	eng := permission.New(rules)
+
+	// v3.22.0 (issue #382): native_browser split policy. Read-only verbs
+	// (navigate / snapshot / screenshot / wait_for) stay Allow while the
+	// mutating verbs (click / fill / submit) demand user confirmation
+	// (M4). The split mirrors the gh_query / gh_execute precedent.
+	readOnlyNative := []string{
+		"native_browser__navigate",
+		"native_browser__snapshot",
+		"native_browser__screenshot",
+		"native_browser__wait_for",
+	}
+	for _, tool := range readOnlyNative {
+		if got := eng.Check(tool); got != permission.Allow {
+			t.Errorf("%s expected Allow, got %s", tool, got)
+		}
+	}
+	mutatingNative := []string{
+		"native_browser__click",
+		"native_browser__fill",
+		"native_browser__submit",
+	}
+	for _, tool := range mutatingNative {
+		if got := eng.Check(tool); got != permission.Ask {
+			t.Errorf("%s expected Ask, got %s", tool, got)
+		}
+	}
+
 	// v3.22.0 (issue #323): read-only todo MCP tools default to allow;
 	// mutating todo tools default to ask.
-	eng := permission.New(rules)
 	readOnlyTodos := []string{
 		"sin_todo_list",
 		"sin_todo_show",

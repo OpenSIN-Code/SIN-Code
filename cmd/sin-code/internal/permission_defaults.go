@@ -60,6 +60,20 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "sin_browser_snapshot", Policy: "allow"},
 		{Tool: "sin_browser_vitals_flush", Policy: "allow"},
 		{Tool: "sin_browser_diff", Policy: "allow"},
+		// v3.22.0 (issue #382): native_browser facade — split policy mirrors
+		// gh_query/gh_execute (lines 47-49). Read-only verbs (no mutation of
+		// either the local session or the remote site) run free; mutating
+		// verbs are gated on user confirmation (M4). Click / Fill / Submit
+		// can change server-side state via form posts in the future driver
+		// implementations, so they stay at "ask" even though the current
+		// HTTP-direct driver stubs them with ErrUnsupported.
+		{Tool: "native_browser__navigate", Policy: "allow"},
+		{Tool: "native_browser__snapshot", Policy: "allow"},
+		{Tool: "native_browser__screenshot", Policy: "allow"},
+		{Tool: "native_browser__wait_for", Policy: "allow"},
+		{Tool: "native_browser__click", Policy: "ask"},
+		{Tool: "native_browser__fill", Policy: "ask"},
+		{Tool: "native_browser__submit", Policy: "ask"},
 
 		// v3.22.0: sin-analyse-suite — read-only multimodal preprocessing (image, video, PDF, logs, data, audio).
 		// All analyse__* tools are read-only — they never modify input files.
