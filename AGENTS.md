@@ -564,6 +564,42 @@ command hooks.
 
 Oracle mode is **opt-in and gated**: it only activates when `fusion.enabled = true`, `fusion.oracle_mode = true`, and the gate is in `oracle` mode. Unlike PoC mode, oracle mode does **not** use first-pass-wins; all candidates run to completion, a single judge evaluates all outputs in randomized order, and the highest-scoring candidate wins. Default cost cap is tighter ($2.00) and `fusion__oracle_tournament` is `ask` policy (M4).
 
+### Context Compaction Modes (first PR — compaction-modes)
+
+`cmd/sin-code/internal/agentloop/compaction_types.go` adds a mode-based
+compaction layer on top of the legacy `CompactionStrategy` switch
+(issue #278). The new API (`Compect2(ctx, CompactInput) CompactResult`)
+honours mandate **M3**: verification evidence is always preserved
+(`agentloop.compaction_preserve_evidence=true` by default).
+
+| Config key | Type | Default | Used by |
+|---|---|---|---|
+| `agentloop.context_compaction` | enum | `"off"` | loopbuilder — selects the new compaction mode (off\|deterministic\|llm\|hybrid) |
+| `agentloop.compaction_trigger` | enum | `"tokens"` | agentloop — when the compactor fires (turns\|tokens\|both) |
+| `agentloop.context_window` | int | `0` (auto) | agentloop — effective token cap; 0 = `CompactionMaxTokens * 4` |
+| `agentloop.compaction_preserve_evidence` | bool | `true` | agentloop — keep system prompt, first user goal, last N turns, role:tool messages, and any message matching `VERIFICATION PASSED \| VERIFICATION FAILED \| NOT DONE \| Open acceptance criteria` |
+| `agentloop.compaction_recent_turns` | int | `4` | agentloop — number of recent human turns the retain rule keeps |
+| `agentloop.compaction_max_tokens` | int | `8000` | agentloop — token budget for compacted messages |
+
+**Request-only compaction** (mandate M3): when a non-off Mode is
+selected, `Loop.Run` keeps the persisted `msgs` slice full in the
+session DB and produces a deterministically compacted view for the
+model via `Compact2`. The legacy `Compact()` API (used by
+`agentloop.compaction_strategy=…` callers) remains unchanged for
+backward compatibility.
+
+**Sidecar snapshots**: lossy modes (`llm`, `hybrid`) write a
+content-addressed JSON snapshot to
+`~/.local/share/sin-code/context-snapshots/<session-id-hash>/turn-NNNNN.json`
+(atomic temp+rename). The loop's persisted history stays complete; the
+sidecar is the audit/rollback artifact and the surface that downstream
+`compressor_test.go`-style golden harnesses consume (issue #172).
+
+**Byte-stability**: every `Compact2` output is byte-stable per
+`(input, Config)` pair so the eval harness (issue #171), the four-arm
+comparator, and the compress unit tests can pin deterministic
+snapshots.
+
 
 ### Model Performance Registry (issue #395)
 
