@@ -13,7 +13,7 @@ import (
 
 func TestNopRecorder_RecordUsage(t *testing.T) {
 	r := NopRecorder{}
-	err := r.RecordUsage(context.Background(), "sess-1", "claude-haiku-4-5", SourceAdHoc, 100, 50, 150)
+	err := r.RecordUsage(context.Background(), "sess-1", "claude-haiku-4-5", SourceAdHoc, 100, 50, 150, 25)
 	if err != nil {
 		t.Fatalf("NopRecorder should never error, got: %v", err)
 	}
@@ -87,9 +87,10 @@ type fakeRecorder struct {
 type fakeEvent struct {
 	SessionID, Model, Source  string
 	Prompt, Completion, Total int
+	Thinking                  int
 }
 
-func (f *fakeRecorder) RecordUsage(_ context.Context, sessionID, model string, source Source, p, c, t int) error {
+func (f *fakeRecorder) RecordUsage(_ context.Context, sessionID, model string, source Source, p, c, t, thinking int) error {
 	n := atomic.AddInt32(&f.calls, 1)
 	if atomic.LoadInt32(&f.failOn) == n {
 		return errors.New("synthetic failure")
@@ -98,7 +99,7 @@ func (f *fakeRecorder) RecordUsage(_ context.Context, sessionID, model string, s
 	defer f.mu.Unlock()
 	f.events = append(f.events, fakeEvent{
 		SessionID: sessionID, Model: model, Source: string(source),
-		Prompt: p, Completion: c, Total: t,
+		Prompt: p, Completion: c, Total: t, Thinking: thinking,
 	})
 	return nil
 }
@@ -113,7 +114,7 @@ func TestRecorder_ConcurrentSafe(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			_ = f.RecordUsage(context.Background(), "s", "m", SourceAdHoc, i, i, i*2)
+			_ = f.RecordUsage(context.Background(), "s", "m", SourceAdHoc, i, i, i*2, i)
 		}(i)
 	}
 	wg.Wait()
@@ -127,7 +128,7 @@ func TestRecorder_ConcurrentSafe(t *testing.T) {
 func TestRecorder_ErrorIsReported(t *testing.T) {
 	f := &fakeRecorder{failOn: 3}
 	for i := 1; i <= 5; i++ {
-		err := f.RecordUsage(context.Background(), "s", "m", SourceChat, i, i, i*2)
+		err := f.RecordUsage(context.Background(), "s", "m", SourceChat, i, i, i*2, i)
 		wantErr := i == 3
 		if (err != nil) != wantErr {
 			t.Fatalf("call %d: want err=%v, got %v", i, wantErr, err)
