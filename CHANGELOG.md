@@ -29,6 +29,14 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   `.sin-code/mcp.json`. New CLI verbs: `sin-code mcp discover` and
   `sin-code mcp add <name>`. Discovered servers are merged into `LoadConfigs()`.
 
+- **Semantic tool retrieval (issue #364):** Offline TF-IDF embedding index for
+  lazy tool loading. `sin-code chat --lazy-tools --semantic-tools` switches
+  `tool_search` from keyword matching to cosine-similarity ranking. No external
+  embedding service is required; vectors are deterministic and cached at
+  `~/.config/sin-code/tool-embeddings.bin`. New debug CLI:
+  `sin-code tool-search <query>`. Config/env: `chat.semantic_tools`,
+  `SIN_SEMANTIC_TOOLS`.
+
 ### Fixed — Build Drift on main
 
 - Removed stale `toolretrieval` import from `chat_mcp.go`.

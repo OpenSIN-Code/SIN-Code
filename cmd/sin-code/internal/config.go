@@ -106,6 +106,11 @@ type SinCodeConfig struct {
 	// real tools on demand, reducing tool-prompt tokens from ~134K to ~5K.
 	// Default false; env SIN_LAZY_TOOLS=1 also enables.
 	ChatLazyTools bool `toml:"chat.lazy_tools"`
+	// ChatSemanticTools enables offline semantic retrieval for tool_search
+	// (issue #364). When true, the LazyToolLoader uses deterministic TF-IDF
+	// feature vectors instead of keyword matching. Default false; env
+	// SIN_SEMANTIC_TOOLS=1 also enables.
+	ChatSemanticTools bool `toml:"chat.semantic_tools"`
 	// LLMPromptCache enables TTL-based prompt prefix caching (issue #277).
 	// When true, a PromptCache is created and passed to the provider
 	// adapter. The adapter only uses it for Anthropic/Claude models
@@ -180,6 +185,7 @@ func defaultConfig() SinCodeConfig {
 		TestUseLLM:               false,
 		TestRepairRounds:         3,
 		ChatLazyTools:            false,
+		ChatSemanticTools:        false,
 		LLMPromptCache:           true,
 		AgentLoopCompactionStrategy:  "off",
 		AgentLoopCompactionThreshold: 0.8,
@@ -695,6 +701,8 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%d", cfg.TestRepairRounds), nil
 	case "chat.lazy_tools":
 		return fmt.Sprintf("%v", cfg.ChatLazyTools), nil
+	case "chat.semantic_tools":
+		return fmt.Sprintf("%v", cfg.ChatSemanticTools), nil
 	case "llm.prompt_cache":
 		return fmt.Sprintf("%v", cfg.LLMPromptCache), nil
 	case "fusion.enabled":
@@ -873,6 +881,8 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.TestRepairRounds = v
 	case "chat.lazy_tools":
 		cfg.ChatLazyTools = value == "true" || value == "1"
+	case "chat.semantic_tools":
+		cfg.ChatSemanticTools = value == "true" || value == "1"
 	case "llm.prompt_cache":
 		cfg.LLMPromptCache = value == "true" || value == "1"
 	case "fusion.enabled":
@@ -1009,6 +1019,7 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"test.use_llm", fmt.Sprintf("%v", cfg.TestUseLLM)},
 		{"test.repair_rounds", fmt.Sprintf("%d", cfg.TestRepairRounds)},
 		{"chat.lazy_tools", fmt.Sprintf("%v", cfg.ChatLazyTools)},
+		{"chat.semantic_tools", fmt.Sprintf("%v", cfg.ChatSemanticTools)},
 		{"llm.prompt_cache", fmt.Sprintf("%v", cfg.LLMPromptCache)},
 		{"fusion.enabled", fmt.Sprintf("%v", cfg.FusionEnabled)},
 		{"fusion.providers", strings.Join(cfg.FusionProviders, ",")},
@@ -1322,6 +1333,8 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.OrchestratorPreWarm = val == "true" || val == "1"
 		case "chat.lazy_tools":
 			cfg.ChatLazyTools = val == "true" || val == "1"
+		case "chat.semantic_tools":
+			cfg.ChatSemanticTools = val == "true" || val == "1"
 		case "llm.prompt_cache":
 			cfg.LLMPromptCache = val == "true" || val == "1"
 		case "agentloop.compaction_strategy":

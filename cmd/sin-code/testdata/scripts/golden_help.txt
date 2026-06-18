@@ -7,7 +7,8 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
 
   Core analysis:    discover, execute, map, grasp, scout, harvest, orchestrate
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
-  Utility commands: security, sbom, config, self-update, tui, serve, update
+  Utility commands: security, sbom, config, self-update, tui, serve, update,
+                      tool-search
   Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, superpowers,
                     vane, stack, gh, hub, ledger, summary, install, compress,
                     cover
@@ -103,6 +104,7 @@ Available Commands:
   superpowers         Integrate obra/superpowers skills into SIN-Code
   swarm               Race N agent profiles on the same prompt (first verified wins)
   todo                Issue tracker with dependencies, audit log, and project namespaces
+  tool-search         Debug tool relevance ranking
   trace               Configure + verify OpenTelemetry tracer setup
   triage              Read the open issue backlog via gh, score, group, and render
   tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
