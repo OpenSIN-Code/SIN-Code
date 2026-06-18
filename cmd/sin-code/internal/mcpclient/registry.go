@@ -71,6 +71,9 @@ func DefaultServers() []ServerConfig {
 		py("Simone-MCP"),
 		py("SIN-Code-Symfony-Lens"),
 
+		// v3.22.0: sin-analyse-suite — multimodal preprocessing (image, video, PDF, logs, data, audio)
+		goNative("sin-analyse-suite", "sin-analyse", "serve"),
+
 		// External MCP server (Python stdio) — autodev-cli v0.4.0 (Bridged-External, never vendored)
 		{Name: "autodev", Transport: "stdio", Command: "autodev-mcp"},
 	}
@@ -92,6 +95,7 @@ func shortName(repo string) string {
 		"SIN-Browser-Tools":                 "browser",
 		"Simone-MCP":                        "simone",
 		"SIN-Code-Symfony-Lens":             "symfonylens",
+		"sin-analyse-suite":                  "analyse",
 	}
 	if s, ok := m[repo]; ok {
 		return s
