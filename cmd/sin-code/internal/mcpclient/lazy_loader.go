@@ -22,8 +22,11 @@ type ToolSpec struct {
 // LazyToolLoader maintains a searchable keyword index of tool specs.
 // Thread-safe (mandate M7).
 type LazyToolLoader struct {
-	mu    sync.RWMutex
-	specs []ToolSpec
+	mu        sync.RWMutex
+	specs     []ToolSpec
+	semantic  bool
+	index     *SemanticIndex
+	cachePath string
 }
 
 // NewLazyToolLoader creates a loader from the given specs. The input slice
@@ -34,11 +37,52 @@ func NewLazyToolLoader(specs []ToolSpec) *LazyToolLoader {
 	return &LazyToolLoader{specs: copied}
 }
 
+// UseSemantic switches the loader between keyword (false) and semantic (true)
+// retrieval. When enabled, an offline TF-IDF embedding index is built from the
+// loaded specs. If cachePath is non-empty, the loader attempts to load a cached
+// index and falls back to building and saving one.
+func (l *LazyToolLoader) UseSemantic(enabled bool, cachePath string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.semantic = enabled
+	l.cachePath = cachePath
+	if !enabled {
+		l.index = nil
+		return
+	}
+	if cachePath != "" {
+		if idx, ok, _ := LoadCachedSemanticIndex(cachePath, l.specs); ok {
+			l.index = idx
+			return
+		}
+	}
+	l.index = NewSemanticIndex(l.specs)
+	if cachePath != "" {
+		_ = SaveCachedSemanticIndex(cachePath, l.index)
+	}
+}
+
+// IsSemantic reports whether the loader is using semantic retrieval.
+func (l *LazyToolLoader) IsSemantic() bool {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.semantic
+}
+
 // Search returns up to k tools whose name or description match the query.
 // Scoring: exact name match (10), name substring (5), description
 // substring (1). Results are sorted by score descending. Returns nil for
 // an empty query or k <= 0.
 func (l *LazyToolLoader) Search(query string, k int) []ToolSpec {
+	l.mu.RLock()
+	semantic := l.semantic
+	idx := l.index
+	l.mu.RUnlock()
+
+	if semantic && idx != nil {
+		return idx.Search(query, k)
+	}
+
 	query = strings.ToLower(strings.TrimSpace(query))
 	if query == "" || k <= 0 {
 		return nil
