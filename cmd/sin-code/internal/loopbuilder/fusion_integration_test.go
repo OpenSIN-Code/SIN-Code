@@ -9,6 +9,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -299,11 +300,14 @@ func TestFusionIntegration_ShouldRunDifficultyGateOff(t *testing.T) {
 }
 
 func TestFusionIntegration_RunSetsPromptAndSourceSessionID(t *testing.T) {
+	var mu sync.Mutex
 	var capturedPrompt string
 	var capturedSourceSessionID string
 
 	mockRunFunc := func(ctx context.Context, prov fusion.ProviderConfig, sess *session.Session, prompt string) (*agentloop.Result, error) {
+		mu.Lock()
 		capturedPrompt = prompt
+		mu.Unlock()
 		return &agentloop.Result{
 			SessionID: sess.ID,
 			Summary:   "CORRECT",
@@ -312,7 +316,9 @@ func TestFusionIntegration_RunSetsPromptAndSourceSessionID(t *testing.T) {
 		}, nil
 	}
 	mockForkFunc := func(srcSessionID string, turn int) (*session.Session, error) {
+		mu.Lock()
 		capturedSourceSessionID = srcSessionID
+		mu.Unlock()
 		return &session.Session{ID: "fork-session"}, nil
 	}
 	mockVerifyFn := func(ctx context.Context, workspace string) verify.Result {
