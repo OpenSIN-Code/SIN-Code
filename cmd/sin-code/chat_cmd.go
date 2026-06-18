@@ -124,6 +124,13 @@ type chatOptions struct {
 	thinkingBudget     int
 	noTUI              bool
 	watch              string
+
+	contextCompaction      string
+	compactionTrigger      string
+	compactionMaxTokens    int
+	contextWindow          int
+	preserveEvidence       bool
+	compactionRecentTurns  int
 }
 
 func NewChatCmd() *cobra.Command {
@@ -187,6 +194,12 @@ func NewChatCmd() *cobra.Command {
 	f.IntVar(&opts.thinkingBudget, "thinking-budget", 0, "per-request thinking.budget_tokens cap (0 = unbounded; requires --thinking-enabled)")
 	f.BoolVar(&opts.noTUI, "no-tui", false, "skip TUI and use plain CLI loop")
 	f.StringVar(&opts.watch, "watch", "", "watch file patterns (comma-separated, e.g. *.go,*.py) and re-run the last prompt on change")
+	f.StringVar(&opts.contextCompaction, "context-compaction", "", "context compaction mode: off|deterministic|llm|hybrid (issue: compaction-modes)")
+	f.StringVar(&opts.compactionTrigger, "compaction-trigger", "", "compaction trigger: turns|tokens|both (default from config)")
+	f.IntVar(&opts.compactionMaxTokens, "compaction-max-tokens", 0, "compaction token budget (default 8000)")
+	f.IntVar(&opts.contextWindow, "context-window", 0, "effective token cap for compaction (0 = auto)")
+	f.BoolVar(&opts.preserveEvidence, "compaction-preserve-evidence", false, "enable evidence preservation during compaction (M3, default true)")
+	f.IntVar(&opts.compactionRecentTurns, "compaction-recent-turns", 0, "number of recent human turns to retain (default 4)")
 	return cmd
 }
 
@@ -427,6 +440,26 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
 	}
 
+	// CLI flags override config-file defaults for context compaction mode.
+	if opts.contextCompaction != "" {
+		sinCfg.AgentLoopContextCompaction = opts.contextCompaction
+	}
+	if opts.compactionTrigger != "" {
+		sinCfg.AgentLoopCompactionTrigger = opts.compactionTrigger
+	}
+	if opts.compactionMaxTokens > 0 {
+		sinCfg.AgentLoopCompactionMaxTokens = opts.compactionMaxTokens
+	}
+	if opts.contextWindow > 0 {
+		sinCfg.AgentLoopContextWindow = opts.contextWindow
+	}
+	if opts.preserveEvidence {
+		sinCfg.AgentLoopCompactionPreserveEvidence = true
+	}
+	if opts.compactionRecentTurns > 0 {
+		sinCfg.AgentLoopCompactionRecentTurns = opts.compactionRecentTurns
+	}
+
 	// Apply config-file defaults for tool coverage (issue #248) and merge
 	// required_tools from activated skills' SKILL.md frontmatter. The
 	// --activate list may contain skill names (e.g. "skill-code-build")
@@ -472,6 +505,27 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 
 	if sinCfg.AgentLoopFrustrationDetection {
 		loop.Frustration = agentloop.NewFrustrationDetector()
+	}
+
+	// Context compaction mode (issue: compaction-modes): when non-off,
+	// mode-based compaction replaces strategy-based. CLI flags take
+	// precedence over config-file defaults (already merged into sinCfg).
+	if sinCfg.AgentLoopContextCompaction != "" && sinCfg.AgentLoopContextCompaction != "off" {
+		mode, _ := agentloop.ParseContextCompactionMode(sinCfg.AgentLoopContextCompaction)
+		trigger, _ := agentloop.ParseCompactionTrigger(sinCfg.AgentLoopCompactionTrigger)
+		if loop.Compactor == nil {
+			loop.Compactor = agentloop.NewCompactor(nil)
+		}
+		loop.Compactor.Configure(agentloop.CompactorConfig{
+			Mode:             mode,
+			Trigger:          trigger,
+			PreserveEvidence: sinCfg.AgentLoopCompactionPreserveEvidence,
+			RecentTurns:      sinCfg.AgentLoopCompactionRecentTurns,
+			MaxTokens:        sinCfg.AgentLoopCompactionMaxTokens,
+		})
+		if sinCfg.AgentLoopContextWindow > 0 {
+			loop.ContextWindow = sinCfg.AgentLoopContextWindow
+		}
 	}
 
 	if opts.fusionOnVerifyFail {
