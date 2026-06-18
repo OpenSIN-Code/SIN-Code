@@ -4,17 +4,6 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased]
 
-### Added
-
-- **Containerized execution for autonomous goals (issue #389):** New
-  `autonomy.container.enabled` and `autonomy.container.image` config keys plus
-  `sin-code daemon --container` / `--container-image` flags. When enabled, the
-  daemon's verification command runs inside a container via
-  `docker run --rm -v <workspace>:/workspace ... <image>`. Docker is an external
-  binary dependency; the Go code remains CGO-free (M2). Includes a `DockerRunner`
-  and `NoopRunner` in `cmd/sin-code/internal/autonomy/container.go` and race-clean
-  unit tests.
-
 ## [v3.23.0] - 2026-06-18
 
 ### Added — v3.23.0 Roadmap
@@ -42,6 +31,16 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   `.sin-code/mcp.json`. New CLI verbs: `sin-code mcp discover` and
   `sin-code mcp add <name>`. Discovered servers are merged into `LoadConfigs()`.
 
+- **sin_edit/MCP surgical-editor unification (issue #373):** The chat `sin_edit`
+  tool now delegates to the same surgical editor used by the MCP `sin_edit`
+  tool. Added `sin_replace` to preserve the previous naive string-replacement
+  behavior. Both tools are wired through the permission matrix as allow.
+
+- **Reactive permission policy (issue #374):** New `ResultPolicy` scanner in
+  `cmd/sin-code/internal/permission/result_policy.go` inspects tool results for
+  secret/token leakage and destructive-confirmation markers, then escalates or
+  warns via the `tool.post` hook path. New CLI: `sin-code permission result-log`.
+
 - **Semantic tool retrieval (issue #364):** Offline TF-IDF embedding index for
   lazy tool loading. `sin-code chat --lazy-tools --semantic-tools` switches
   `tool_search` from keyword matching to cosine-similarity ranking. No external
@@ -49,6 +48,15 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   `~/.config/sin-code/tool-embeddings.bin`. New debug CLI:
   `sin-code tool-search <query>`. Config/env: `chat.semantic_tools`,
   `SIN_SEMANTIC_TOOLS`.
+
+- **Containerized execution for autonomous goals (issue #389):** New
+  `autonomy.container.enabled` and `autonomy.container.image` config keys plus
+  `sin-code daemon --container` / `--container-image` flags. When enabled, the
+  daemon's verification command runs inside a container via
+  `docker run --rm -v <workspace>:/workspace ... <image>`. Docker is an external
+  binary dependency; the Go code remains CGO-free (M2). Includes a `DockerRunner`
+  and `NoopRunner` in `cmd/sin-code/internal/autonomy/container.go` and race-clean
+  unit tests.
 
 ### Fixed — Build Drift on main
 
