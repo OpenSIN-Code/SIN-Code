@@ -1,3 +1,26 @@
+## context-compaction-modes first PR (2026-06-18)
+
+**Branch**: `feat/context-compaction-modes` (companion to issue #278)
+
+Adds a mode-based compaction layer (`Compact2`) on top of the legacy
+`CompactionStrategy` switch. Three new modes (deterministic, llm,
+hybrid) all preserve verification evidence by default (mandate M3);
+lossy modes (llm, hybrid) write sidecar JSON snapshots to
+`~/.local/share/sin-code/context-snapshots/` so the persisted session
+record stays complete.
+
+Library-only first PR — no loop wiring yet. Follow-up PR will wire
+`Compact2` into `Loop.Run` and add CLI flags + config keys.
+
+Files touched:
+- `cmd/sin-code/internal/agentloop/compaction.go`
+- `cmd/sin-code/internal/agentloop/compaction_test.go`
+- `cmd/sin-code/internal/agentloop/compaction_types.go` (already present)
+- `cmd/sin-code/internal/agentloop/compaction_helpers.go` (already present)
+
+Tests: 7 new `TestCompact2_*` + `TestIdentifyEvidence_FindsMarkers`,
+all race-clean under `go test -race -count=1`.
+
 # Changelog
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
