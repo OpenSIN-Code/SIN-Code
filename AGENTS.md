@@ -668,7 +668,7 @@ Headless JSON contract (stable API — never break without major bump):
 
 ---
 
-## 8. Roadmap (versions 3.0.0 – 3.9.0)
+## 8. Roadmap (versions 3.0.0 – 3.23.0)
 
 | Version | Status | Contents |
 |---|---|---|
@@ -690,13 +690,13 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.16.0 | ✅ SHIPPED | Forge integration (#37): `sin forge` command, `sin status` detection, 16th MCP tool in `mcp_config` |
 | v3.18.0 | ✅ SHIPPED | Memory compaction (`internal/compress/`, `compress_cmd.go`, issue #172): deterministic dedupe + byte-budget + sort, optional LLM summarization (`--strategy llm|hybrid`) with byte-preservation validation, snapshot+rollback for lossless Apply, `compress__plan/apply/rollback` permission defaults (ask-only on `apply`). Closes #172. |
 
-| v3.18.0 | ACTIVE | `sin-code install` + curl|bash shim + PowerShell (issue #170): new 40th subcommand + internal/install/ package, 27-line install.sh mirror + 35-line install.ps1, SHA256-verified single-binary downloads from goreleaser assets |
+| v3.18.0 | ✅ SHIPPED | `sin-code install` + curl|bash shim + PowerShell (issue #170): new 40th subcommand + internal/install/ package, 27-line install.sh mirror + 35-line install.ps1, SHA256-verified single-binary downloads from goreleaser assets |
 | (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
 | v3.19.0 | ✅ SHIPPED | `sin-code serve --compress-tools` (issue #173): ponytail-tag compressor in `internal/mcpcompress/` shrinks the 47-tool manifest on the wire. Tag set `delete|stdlib|native|yagni|shrink`, subset via `--compress-tags`, savings reported via `--print-stats`. Tool names, schemas, and behavior are unchanged (AGENTS.md §10). Closing #173. |
 
-| v3.18.0 | ACTIVE | `sin-code debt` (issue #177) — `// sin-debt: <ceiling>, upgrade: <trigger>` marker convention (ponytail adoption), byte-stable `internal/sindept/` scanner + report, policy gate via `sin-code debt check`, 41st subcommand; alongside `sin-code install` (issue #170), `eval` / `trace` (issue #75), `evalset` / `prp` / `instinct` / `assets` / `hooks` / `rtk` / `codegraph` / `spec` v0 work |
+| v3.18.0 | ✅ SHIPPED | `sin-code debt` (issue #177) — `// sin-debt: <ceiling>, upgrade: <trigger>` marker convention (ponytail adoption), byte-stable `internal/sindept/` scanner + report, policy gate via `sin-code debt check`, 41st subcommand; alongside `sin-code install` (issue #170), `eval` / `trace` (issue #75), `evalset` / `prp` / `instinct` / `assets` / `hooks` / `rtk` / `codegraph` / `spec` v0 work |
 | (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
-| v3.19.0 | ACTIVE | `autoactivate` hooklife subpackage (#176): `cmd/sin-code/internal/hooklife/autoactivate` — per-session rule injection on `SessionStart` + `UserPrompt`. `--activate <rule>` + `--no-trigger` flags on `sin-code chat`; project-local `.sin-code/autoactivate.toml`; deterministic byte-stable `RuleSet.Render()`; race-safe (mandate M7). Hooks register against any `*hooklife.Registry` via `Activator.Register(reg)`. |
+| v3.19.0 | ✅ SHIPPED | `autoactivate` hooklife subpackage (#176): `cmd/sin-code/internal/hooklife/autoactivate` — per-session rule injection on `SessionStart` + `UserPrompt`. `--activate <rule>` + `--no-trigger` flags on `sin-code chat`; project-local `.sin-code/autoactivate.toml`; deterministic byte-stable `RuleSet.Render()`; race-safe (mandate M7). Hooks register against any `*hooklife.Registry` via `Activator.Register(reg)`. |
 | v3.17.0 | ✅ SHIPPED | TUI runtime DB .gitignore, MCP warning deduplication, marketplace update test hardening, skills 33 → 34 |
 | v3.18.0 | ✅ SHIPPED | `sin-code install` single-binary installer (issue #170), curl/bash + PowerShell shims, SHA256-verified release downloads |
 | v3.19.0 | ✅ SHIPPED | `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format (`delete`, `stdlib`, `native`, `yagni`, `shrink`), `// sin-debt:` marker support (issue #177), text/json/markdown output, race-clean tests |
@@ -705,6 +705,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.21.0 | ✅ SHIPPED | Test-First Verify-Loop (RFC-test-automation.md): `sin_test` + `sin_test_generate` + `sin_quality_gate` + `sin_mutation` + `sin_fuzz` + `sin_property`; `tool.post` hook payload path; `test.*` config keys; `evals/test-generation.json` golden dataset. |
 | v3.22.0 | ✅ SHIPPED | SIN Fusion v1 enhancements: **Plan-Merge mode** (issue #393 — N planners → judge merges → 1 coder → verify, preserves all insights); **Oracle as default** (issue #394 — quality over cost, was: PoC first-pass-wins); **Model Performance Registry** (issue #395 — `modelperf.db`, `fusion benchmark/rank/recommend` CLI, auto-wired into `loopbuilder`). |
 | v3.22.0 | ✅ SHIPPED | pre-existing fixes stacked into the same release: `llm/provider.go`+`recorder.go`+`stream.go` ThinkingTokens + 8-arg `RecordUsage`; `agentloop/compaction_helpers.go` for `compaction_types.go`; vet fix in `orchestrator/event_dispatch_test.go`. |
+| v3.23.0 | ✅ SHIPPED | v3.23.0 roadmap batch 1: autonomous research report (`sin-code research`, issue #384), SWE-bench test suite (issue #363), scientific research skill (issue #387), `sin_apply_diff`/`sin_generate_diff` chat tools (issue #365), dynamic MCP server discovery (`sin-code mcp discover/add`, issue #368). Also repaired main build drift from parallel-agent WIP. Remaining open: #364, #373, #374, #388, #389. |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
