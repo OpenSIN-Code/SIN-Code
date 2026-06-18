@@ -107,6 +107,7 @@ func init() {
 		NewImageGraphCmd(),              // image-graph: deterministic chart generation (bar/line/pie/area)
 		NewStatusCmd(),                    // v3.22.0
 		NewFusionCmd(),                    // v3.22.0 — fusion benchmark/rank/recommend (issue #395) — readiness/status snapshot (issue #326)
+		NewResearchCmd(),                  // v3.23.0 — autonomous research-report generation (issue #384)
 	)
 
 	// Pass build-time version to self-update module.

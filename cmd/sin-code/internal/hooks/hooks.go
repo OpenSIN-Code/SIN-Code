@@ -56,6 +56,9 @@ const (
 	// Token budget lifecycle (issue #151).
 	BudgetWarn      = "budget.warn"
 	BudgetExhausted = "budget.exhausted"
+	// LoopDetected fires when the agent loop repeats the same tool call or
+	// sequence past the configured threshold (issue #377).
+	LoopDetected = "loop.detected"
 	// ReflectIssues fires when the self-reflection pass finds problems the
 	// worker must fix before completion is evaluated.
 	ReflectIssues = "reflect.issues"

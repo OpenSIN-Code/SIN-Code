@@ -123,6 +123,10 @@ type Loop struct {
 	// identical-criteria fingerprint count.
 	MaxStopRejects int
 	SessionID      string
+	// LoopDetector, if set, observes tool calls during the run and flags
+	// observer loops (repeated identical tool calls or repeated sequences).
+	// When a loop is detected the loop returns a non-nil error. Issue #377.
+	LoopDetector *LoopDetector
 	// SystemPrompt is prepended to every model request as a system
 	// message. It is immutable for the lifetime of the loop (mandate M7).
 	SystemPrompt string
@@ -1104,6 +1108,10 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			reflectedThisProposal = false
 			if l.Coverage != nil {
 				l.Coverage.Record(tc.Name)
+			}
+			if l.LoopDetector != nil && l.LoopDetector.Record(tc.Name) {
+				l.fire(ctx, hooks.LoopDetected, "", map[string]any{"tool": tc.Name})
+				return nil, fmt.Errorf("observer loop detected: repeated tool calls (last tool %s)", tc.Name)
 			}
 			if !toolsSeen[tc.Name] {
 				toolsSeen[tc.Name] = true

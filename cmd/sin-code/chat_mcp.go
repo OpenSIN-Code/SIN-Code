@@ -15,7 +15,6 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/toolretrieval"
 )
 
 // mcp hook variables — injected by coverage tests to mock external MCP calls.
