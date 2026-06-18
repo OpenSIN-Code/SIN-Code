@@ -76,6 +76,7 @@ Tracing is opt-in via --trace and ships to the chosen exporter.`,
 		newEvalCompareCmd(),
 		newEvalSnapshotCmd(),
 		newEvalDiffCmd(),
+		newEvalSwebenchCmd(),
 	)
 	return cmd
 }
@@ -782,4 +783,65 @@ func buildScorer(typ, lang, selfCheck string, skipTest bool, binary string) (eva
 	default:
 		return nil, fmt.Errorf("unsupported scorer %q", typ)
 	}
+}
+
+// ── eval swebench (issue #363) ──────────────────────────────────────
+
+func newEvalSwebenchCmd() *cobra.Command {
+	var (
+		datasetPath string
+		outputPath  string
+		workspace   string
+		maxTurns    int
+		timeout     time.Duration
+		sinCodeBin  string
+		dryRun      bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "swebench",
+		Short: "Run SWE-bench evaluation harness (issue #363)",
+		Long: `Run sin-code against a SWE-bench dataset and evaluate the results.
+
+SWE-bench measures an agent's ability to fix real GitHub issues. This harness:
+  - Loads SWE-bench JSON instances
+  - Runs sin-code against each issue
+  - Applies the predicted patch
+  - Evaluates with test_patch
+  - Records pass/fail
+
+Examples:
+
+  sin-code eval swebench --dataset swebench.json --output results.json
+  sin-code eval swebench --dataset swebench.json --dry-run
+  sin-code eval swebench --dataset swebench.json --workspace /tmp/swe --max-turns 200`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := eval.SweConfig{
+				DatasetPath: datasetPath,
+				OutputPath:  outputPath,
+				Workspace:   workspace,
+				MaxTurns:    maxTurns,
+				Timeout:     timeout,
+				SinCodeBin:  sinCodeBin,
+				DryRun:      dryRun,
+			}
+			report, err := eval.RunSweBench(cmd.Context(), cfg)
+			if err != nil {
+				return fmt.Errorf("swebench: %w", err)
+			}
+			eval.SwePrintSummary(os.Stdout, report)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&datasetPath, "dataset", "d", "", "Path to SWE-bench JSON dataset (required)")
+	cmd.Flags().StringVarP(&outputPath, "output", "o", "swebench-results.json", "Output results JSON path")
+	cmd.Flags().StringVarP(&workspace, "workspace", "w", "", "Workspace directory for repo clones")
+	cmd.Flags().IntVar(&maxTurns, "max-turns", 100, "Max agent turns per instance")
+	cmd.Flags().DurationVar(&timeout, "timeout", 30*time.Minute, "Timeout per instance")
+	cmd.Flags().StringVar(&sinCodeBin, "sin-code-bin", "", "Path to sin-code binary (default: auto-detect)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate dataset without running agents")
+
+	_ = cmd.MarkFlagRequired("dataset")
+	return cmd
 }
