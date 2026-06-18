@@ -117,6 +117,7 @@ type chatOptions struct {
 	// M3 is honoured: every mode pick is operator-visible.
 	autolevel          bool
 	lazyTools          bool
+	semanticTools      bool
 	fusionOnVerifyFail bool
 	fusionProviders    string
 	fusionMaxCost      float64
@@ -157,6 +158,7 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --sandbox <backend>      landlock|seatbelt|bubblewrap|none (issue #199)
   sin-code chat --autolevel              prompt-intent based permission auto-classifier (issue #198)
   sin-code chat --lazy-tools             lazy tool loading via tool_search (issue #270)
+  sin-code chat --semantic-tools        use offline semantic retrieval for tool_search (issue #364)
   sin-code chat --fusion-on-verify-fail  enable SIN Fusion verify-tournament on verify.fail (issue #290)
   sin-code chat --fusion-providers <list> override Fireworks models for the tournament (comma-separated)
   sin-code chat --fusion-max-cost <usd>   USD kill-switch per tournament invocation (default 5.0)
@@ -189,6 +191,7 @@ func NewChatCmd() *cobra.Command {
 	f.StringVar(&opts.sandbox, "sandbox", "", "sandbox backend: landlock|seatbelt|bubblewrap|none (default: platform-native)")
 	f.BoolVar(&opts.autolevel, "autolevel", false, "auto-classify permission mode from prompt intent (issue #198)")
 	f.BoolVar(&opts.lazyTools, "lazy-tools", false, "enable lazy tool loading: send only tool_search meta-tool instead of all tools (issue #270)")
+	f.BoolVar(&opts.semanticTools, "semantic-tools", false, "use offline semantic retrieval for tool_search instead of keyword matching (issue #364)")
 	f.BoolVar(&opts.fusionOnVerifyFail, "fusion-on-verify-fail", false, "enable SIN Fusion verify-tournament on verify.fail (issue #290)")
 	f.StringVar(&opts.fusionProviders, "fusion-providers", "", "comma-separated Fireworks model names for the tournament (e.g. minimax-m3,kimi-k2p7-code,glm-5p2)")
 	f.Float64Var(&opts.fusionMaxCost, "fusion-max-cost", 5.0, "USD kill-switch per tournament invocation (issue #290)")
@@ -444,6 +447,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		Ask:                     ask,
 		ThinkingEnabled:         thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
+		ResultPolicy:            permission.NewResultPolicy(),
 	}
 
 	if opts.repetitionThreshold > 0 {
@@ -494,6 +498,10 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	lazyTools := opts.lazyTools || sinCfg.ChatLazyTools || os.Getenv("SIN_LAZY_TOOLS") == "1"
 	if lazyTools {
 		loader := mcpclient.NewLazyToolLoader(allSpecsAsMCPClient(mcpMgr))
+		semanticTools := opts.semanticTools || sinCfg.ChatSemanticTools || os.Getenv("SIN_SEMANTIC_TOOLS") == "1"
+		if semanticTools {
+			loader.UseSemantic(true, mcpclient.DefaultSemanticIndexCache())
+		}
 		loop.LocalSpec = lazyCombinedSpecs()
 		loop.LocalTool = lazyCombinedTool(workspace, mcpMgr, loader, loop)
 	}

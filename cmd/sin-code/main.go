@@ -30,7 +30,8 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
 
   Core analysis:    discover, execute, map, grasp, scout, harvest, orchestrate
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
-  Utility commands: security, sbom, config, self-update, tui, serve, update
+  Utility commands: security, sbom, config, self-update, tui, serve, update,
+                      tool-search
   Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, superpowers,
                     vane, stack, gh, hub, ledger, summary, install, compress,
                     cover
@@ -80,7 +81,7 @@ func init() {
 	rootCmd.AddCommand(internal.OrchestratorPlanCmd)
 	rootCmd.AddCommand(tuiCmd)
 	rootCmd.AddCommand(webuiCmd)
-	rootCmd.AddCommand(NewChatCmd(), NewSessionsCmd(), NewMCPCmd(),
+	rootCmd.AddCommand(NewChatCmd(), NewSessionsCmd(), NewMCPCmd(), NewToolSearchCmd(),
 		NewGoalCmd(), NewDaemonCmd(), NewSkillCmd(), NewSwarmCmd(), NewSuperpowersCmd(), NewDoxCmd(),
 		NewVaneCmd(), NewStackCmd(), NewGhCmd(), NewHubCmd(),
 		NewLedgerCmd(), NewSummaryCmd(), NewAutodevCmd(), // v3.4.0 + v3.5.0 + v3.6.0 + v3.7.0 + v3.8.0 + v3.9.0 + v3.12.0 + v3.13.0 + autodev-bridge
@@ -108,6 +109,7 @@ func init() {
 		NewStatusCmd(),                    // v3.22.0
 		NewFusionCmd(),                    // v3.22.0 — fusion benchmark/rank/recommend (issue #395) — readiness/status snapshot (issue #326)
 		NewResearchCmd(),                  // v3.23.0 — autonomous research-report generation (issue #384)
+		NewPermissionCmd(),                // v3.23.0 — reactive permission policy from tool results (issue #374)
 	)
 
 	// Pass build-time version to self-update module.

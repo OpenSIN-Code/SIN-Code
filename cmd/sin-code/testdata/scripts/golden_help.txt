@@ -7,7 +7,8 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
 
   Core analysis:    discover, execute, map, grasp, scout, harvest, orchestrate
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
-  Utility commands: security, sbom, config, self-update, tui, serve, update
+  Utility commands: security, sbom, config, self-update, tui, serve, update,
+                      tool-search
   Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, superpowers,
                     vane, stack, gh, hub, ledger, summary, install, compress,
                     cover
@@ -49,6 +50,7 @@ Available Commands:
   eval                Run Golden Dataset evaluation suites
   evalset             Eval-driven development harness (EvalSets, Runs, regression compare)
   execute             Execute shell commands safely with secret redaction and timeout
+  fusion              SIN Fusion - status, config, benchmarking, model selection
   gh                  Bridge to the GitHub CLI (gh) with a 3-tier verb-allowlist policy
   goal                Manage the autonomous goal queue
   grasp               Deep code understanding for a single file
@@ -74,11 +76,13 @@ Available Commands:
   orchestrator-agents List available agents (default + user-defined + plugin)
   orchestrator-plan   Build a plan from a prompt (no execution)
   orchestrator-run    Run a prompt through the multi-agent orchestrator (Pre-LLM router → planner → parallel agents)
+  permission          Reactive permission engine utilities
   plugin              Manage user-installed plugins (subcommands, agents, tools, hooks)
   poc                 Proof-of-Correctness — verify code satisfies its specification
   profile             Render & verify the single-source-of-truth agent profile (issue #175)
   prp                 Product Requirement Prompt workflow (plan→implement→verify→pr)
   read                Read files with hashline anchors, outline, and size guards
+  research            Autonomous research-report generation (issue #384)
   review              Review code for complexity and other quality dimensions
   rewind              Restore the workspace to a prior checkpoint
   rtk                 Bridge to rtk (Rust Token Killer) to cut LLM token usage 60-90%
@@ -94,11 +98,13 @@ Available Commands:
   skills              List and install bundled project-local skills
   spec                Author, validate & inspect *.spec.md contracts (Spec-Layer)
   stack               Manage the DOX + Superpowers + Vane methodology stack
+  status              Print a readiness snapshot of the local SIN-Code state
   subagent            Run a subtask in an isolated session, return summary (issue #192)
   summary             Build a deterministic summary from the session ledger
   superpowers         Integrate obra/superpowers skills into SIN-Code
   swarm               Race N agent profiles on the same prompt (first verified wins)
   todo                Issue tracker with dependencies, audit log, and project namespaces
+  tool-search         Debug tool relevance ranking
   trace               Configure + verify OpenTelemetry tracer setup
   triage              Read the open issue backlog via gh, score, group, and render
   tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)

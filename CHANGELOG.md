@@ -2,6 +2,19 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Containerized execution for autonomous goals (issue #389):** New
+  `autonomy.container.enabled` and `autonomy.container.image` config keys plus
+  `sin-code daemon --container` / `--container-image` flags. When enabled, the
+  daemon's verification command runs inside a container via
+  `docker run --rm -v <workspace>:/workspace ... <image>`. Docker is an external
+  binary dependency; the Go code remains CGO-free (M2). Includes a `DockerRunner`
+  and `NoopRunner` in `cmd/sin-code/internal/autonomy/container.go` and race-clean
+  unit tests.
+
 ## [v3.23.0] - 2026-06-18
 
 ### Added — v3.23.0 Roadmap
@@ -28,6 +41,14 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   `~/.config/mcp/servers/*.json`, Claude Desktop, opencode, codex, and
   `.sin-code/mcp.json`. New CLI verbs: `sin-code mcp discover` and
   `sin-code mcp add <name>`. Discovered servers are merged into `LoadConfigs()`.
+
+- **Semantic tool retrieval (issue #364):** Offline TF-IDF embedding index for
+  lazy tool loading. `sin-code chat --lazy-tools --semantic-tools` switches
+  `tool_search` from keyword matching to cosine-similarity ranking. No external
+  embedding service is required; vectors are deterministic and cached at
+  `~/.config/sin-code/tool-embeddings.bin`. New debug CLI:
+  `sin-code tool-search <query>`. Config/env: `chat.semantic_tools`,
+  `SIN_SEMANTIC_TOOLS`.
 
 ### Fixed — Build Drift on main
 

@@ -55,6 +55,9 @@ const (
 	// TypeFusionTournament records a multi-provider verify-tournament
 	// outcome (issue #290).
 	TypeFusionTournament EntryType = "fusion_tournament"
+	// TypePermissionResult records a reactive permission policy decision
+	// taken after scanning a tool result (issue #374).
+	TypePermissionResult EntryType = "permission_result"
 )
 
 // Entry is one row in the ledger.
