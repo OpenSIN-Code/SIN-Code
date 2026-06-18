@@ -122,6 +122,16 @@ type SinCodeConfig struct {
 	// (issue #271). When true, the loop appends an adaptive system-prompt
 	// suffix when frustration is detected. Default false.
 	AgentLoopFrustrationDetection bool `toml:"agentloop.frustration_detection"`
+	// AgentLoopObserverWindow is the rolling-history size used by
+	// the LoopDetector (issue #377). 0 disables detection entirely;
+	// any negative value is also treated as 0. Default 20.
+	AgentLoopObserverWindow int `toml:"agentloop.observer_window"`
+	// AgentLoopObserverMinRepeats is the minimum repeat count
+	// required to trip the LoopDetector. Default 2.
+	AgentLoopObserverMinRepeats int `toml:"agentloop.observer_min_repeats"`
+	// AgentLoopObserverMinPatternLength is the minimum repeating
+	// pattern length the LoopDetector will consider. Default 3.
+	AgentLoopObserverMinPatternLength int `toml:"agentloop.observer_min_pattern_length"`
 	// Permission: YOLO risk threshold (issue #272).
 	PermissionYoloRiskThreshold string `toml:"permission.yolo_risk_threshold"`
 	// Worktree conflict prediction (issue #319).
@@ -164,6 +174,9 @@ func defaultConfig() SinCodeConfig {
 		AgentLoopCompactionStrategy:  "off",
 		AgentLoopCompactionThreshold: 0.8,
 		AgentLoopFrustrationDetection: false,
+		AgentLoopObserverWindow:           20,
+		AgentLoopObserverMinRepeats:       2,
+		AgentLoopObserverMinPatternLength: 3,
 		FusionEnabled:            false,
 		FusionProviders:          []string{"minimax-m3", "kimi-k2p7-code-fast", "kimi-k2p7-code", "deepseek-v4-pro", "qwen-3p7-plus", "glm-5p2"},
 		FusionMaxCostUSD:         5.0,
@@ -657,6 +670,12 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.AgentLoopCompactionThreshold), nil
 	case "agentloop.frustration_detection":
 		return fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection), nil
+	case "agentloop.observer_window":
+		return fmt.Sprintf("%d", cfg.AgentLoopObserverWindow), nil
+	case "agentloop.observer_min_repeats":
+		return fmt.Sprintf("%d", cfg.AgentLoopObserverMinRepeats), nil
+	case "agentloop.observer_min_pattern_length":
+		return fmt.Sprintf("%d", cfg.AgentLoopObserverMinPatternLength), nil
 	case "permission.yolo_risk_threshold":
 		return cfg.PermissionYoloRiskThreshold, nil
 	case "worktree.conflict_check":
@@ -842,6 +861,24 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.AgentLoopCompactionThreshold = v
 	case "agentloop.frustration_detection":
 		cfg.AgentLoopFrustrationDetection = value == "true" || value == "1"
+	case "agentloop.observer_window":
+		v, err := strconv.Atoi(value)
+		if err != nil || v < 0 {
+			return fmt.Errorf("agentloop.observer_window must be a non-negative integer, got %q", value)
+		}
+		cfg.AgentLoopObserverWindow = v
+	case "agentloop.observer_min_repeats":
+		v, err := strconv.Atoi(value)
+		if err != nil || v < 1 {
+			return fmt.Errorf("agentloop.observer_min_repeats must be a positive integer, got %q", value)
+		}
+		cfg.AgentLoopObserverMinRepeats = v
+	case "agentloop.observer_min_pattern_length":
+		v, err := strconv.Atoi(value)
+		if err != nil || v < 1 {
+			return fmt.Errorf("agentloop.observer_min_pattern_length must be a positive integer, got %q", value)
+		}
+		cfg.AgentLoopObserverMinPatternLength = v
 	case "permission.yolo_risk_threshold":
 		cfg.PermissionYoloRiskThreshold = value
 	case "worktree.conflict_check":
@@ -911,6 +948,9 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"agentloop.compaction_strategy", cfg.AgentLoopCompactionStrategy},
 		{"agentloop.compaction_threshold", fmt.Sprintf("%v", cfg.AgentLoopCompactionThreshold)},
 		{"agentloop.frustration_detection", fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection)},
+		{"agentloop.observer_window", fmt.Sprintf("%d", cfg.AgentLoopObserverWindow)},
+		{"agentloop.observer_min_repeats", fmt.Sprintf("%d", cfg.AgentLoopObserverMinRepeats)},
+		{"agentloop.observer_min_pattern_length", fmt.Sprintf("%d", cfg.AgentLoopObserverMinPatternLength)},
 		{"permission.yolo_risk_threshold", cfg.PermissionYoloRiskThreshold},
 		{"worktree.conflict_check", cfg.WorktreeConflictCheck},
 		{"worktree.target_branch", cfg.WorktreeTargetBranch},
@@ -971,8 +1011,11 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 			"yolo":        cfg.AgentYolo,
 		},
 		"agentloop": map[string]any{
-			"required_tools": cfg.AgentLoopRequiredTools,
-			"forbidden_tools": cfg.AgentLoopForbiddenTools,
+			"required_tools":              cfg.AgentLoopRequiredTools,
+			"forbidden_tools":             cfg.AgentLoopForbiddenTools,
+			"observer_window":             cfg.AgentLoopObserverWindow,
+			"observer_min_repeats":        cfg.AgentLoopObserverMinRepeats,
+			"observer_min_pattern_length": cfg.AgentLoopObserverMinPatternLength,
 		},
 		"permissions": map[string]any{
 			"tools_allow": cfg.ToolsAllow,
@@ -1012,6 +1055,9 @@ func showTOML(cfg SinCodeConfig, mask bool) error {
 		TestUseLLM:               cfg.TestUseLLM, TestRepairRounds: cfg.TestRepairRounds,
 		WorktreeConflictCheck:    cfg.WorktreeConflictCheck,
 		WorktreeTargetBranch:     cfg.WorktreeTargetBranch,
+		AgentLoopObserverWindow:           cfg.AgentLoopObserverWindow,
+		AgentLoopObserverMinRepeats:       cfg.AgentLoopObserverMinRepeats,
+		AgentLoopObserverMinPatternLength: cfg.AgentLoopObserverMinPatternLength,
 	}))
 	return nil
 }
@@ -1065,6 +1111,15 @@ func validateConfig(cfg SinCodeConfig) []string {
 	}
 	if cfg.AgentLoopCompactionThreshold <= 0 || cfg.AgentLoopCompactionThreshold > 1 {
 		issues = append(issues, fmt.Sprintf("agentloop.compaction_threshold must be in (0,1], got %v", cfg.AgentLoopCompactionThreshold))
+	}
+	if cfg.AgentLoopObserverWindow < 0 {
+		issues = append(issues, fmt.Sprintf("agentloop.observer_window must be >= 0, got %d", cfg.AgentLoopObserverWindow))
+	}
+	if cfg.AgentLoopObserverMinRepeats < 1 {
+		issues = append(issues, fmt.Sprintf("agentloop.observer_min_repeats must be >= 1, got %d", cfg.AgentLoopObserverMinRepeats))
+	}
+	if cfg.AgentLoopObserverMinPatternLength < 1 {
+		issues = append(issues, fmt.Sprintf("agentloop.observer_min_pattern_length must be >= 1, got %d", cfg.AgentLoopObserverMinPatternLength))
 	}
 	if cfg.WorktreeConflictCheck != "" && cfg.WorktreeConflictCheck != "off" && cfg.WorktreeConflictCheck != "warn" && cfg.WorktreeConflictCheck != "abort" {
 		issues = append(issues, fmt.Sprintf("worktree.conflict_check must be 'off', 'warn', or 'abort', got %q", cfg.WorktreeConflictCheck))
@@ -1178,6 +1233,12 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.AgentLoopCompactionThreshold = v
 		case "agentloop.frustration_detection":
 			cfg.AgentLoopFrustrationDetection = val == "true" || val == "1"
+		case "agentloop.observer_window":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopObserverWindow)
+		case "agentloop.observer_min_repeats":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopObserverMinRepeats)
+		case "agentloop.observer_min_pattern_length":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopObserverMinPatternLength)
 		case "permission.yolo_risk_threshold":
 			cfg.PermissionYoloRiskThreshold = val
 		case "worktree.conflict_check":

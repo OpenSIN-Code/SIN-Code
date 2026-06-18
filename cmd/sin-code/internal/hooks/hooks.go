@@ -91,6 +91,14 @@ const (
 
 	// Fusion lifecycle (issue #290).
 	FusionDispatch = "fusion.dispatch"
+
+	// LoopDetected fires when the LoopDetector refuses dispatch
+	// because the worker entered a repeated tool-call sequence
+	// (issue #377). The data payload carries pattern_length,
+	// repeats and tool name so telemetry / UI / audit pipelines can
+	// surface the stall. Not blockable — the loop has already been
+	// broken by the dispatch site.
+	LoopDetected = "loop.detected"
 )
 
 // blockable events: a blocking hook result is honored only for these.

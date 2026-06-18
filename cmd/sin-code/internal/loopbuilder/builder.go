@@ -121,6 +121,22 @@ type Config struct {
 	// Also activated by config agentloop.frustration_detection=true.
 	FrustrationDetectionEnabled bool
 
+	// ObserverWindow: rolling-history size for the LoopDetector
+	// (issue #377). Defaults to 20 when zero. Set to a negative
+	// value or 0 to disable detection entirely.
+	// Also activated by config agentloop.observer_window=<n>.
+	ObserverWindow int
+
+	// ObserverMinPatternLength: minimum repeating pattern length the
+	// LoopDetector considers. Defaults to 3 when zero.
+	// Also activated by config agentloop.observer_min_pattern_length=<n>.
+	ObserverMinPatternLength int
+
+	// ObserverMinRepeats: minimum repeat count (>=) required to trip
+	// the LoopDetector. Defaults to 2 when zero.
+	// Also activated by config agentloop.observer_min_repeats=<n>.
+	ObserverMinRepeats int
+
 	// YoloRiskThreshold: when non-empty and Yolo is true, wires a
 	// RiskClassifier into the permission engine so YOLO auto-approves
 	// only low/medium/high risk tools (issue #272).
@@ -206,6 +222,15 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		}
 		if !cfg.FrustrationDetectionEnabled {
 			cfg.FrustrationDetectionEnabled = sinCfg.AgentLoopFrustrationDetection
+		}
+		if cfg.ObserverWindow == 0 {
+			cfg.ObserverWindow = sinCfg.AgentLoopObserverWindow
+		}
+		if cfg.ObserverMinPatternLength == 0 {
+			cfg.ObserverMinPatternLength = sinCfg.AgentLoopObserverMinPatternLength
+		}
+		if cfg.ObserverMinRepeats == 0 {
+			cfg.ObserverMinRepeats = sinCfg.AgentLoopObserverMinRepeats
 		}
 		if cfg.YoloRiskThreshold == "" {
 			cfg.YoloRiskThreshold = sinCfg.PermissionYoloRiskThreshold
@@ -409,6 +434,19 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	// when user frustration is detected.
 	if cfg.FrustrationDetectionEnabled {
 		loop.Frustration = agentloop.NewFrustrationDetector()
+	}
+
+	// LoopDetector / Observer (issue #377): opt-in via config
+	// agentloop.observer_*. Wires a LoopDetector that refrains from
+	// dispatching any tool call that would close a repeated-sequence
+	// cycle. Window <= 0 disables detection entirely so legacy
+	// callers see no behaviour change.
+	if cfg.ObserverWindow > 0 {
+		loop.Observer = agentloop.NewLoopDetector(
+			cfg.ObserverWindow,
+			cfg.ObserverMinPatternLength,
+			cfg.ObserverMinRepeats,
+		)
 	}
 
 	if cfg.MemoryPrimeEnabled {

@@ -9,6 +9,11 @@
 //  4. SlidingWindow— keep first turn (system prompt) + last N turns
 //  5. Hybrid       — summarize old turns + keep recent turns verbatim
 //
+// Plus three Context Compaction Modes introduced by the compaction-modes PR:
+//   - deterministic — evidence-preserving selective compaction
+//   - llm           — single summarizer-driven system message
+//   - hybrid        — evidence preservation + summarization of the middle
+//
 // The compactor is called proactively when len(messages) > maxTurns * 0.8,
 // not reactively after hitting the limit.
 //
@@ -23,6 +28,15 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
+
+// evidenceMarkers are the substrings a message must contain to be
+// classified as verification evidence. Matches are case-sensitive.
+var evidenceMarkers = []string{
+	"VERIFICATION PASSED",
+	"VERIFICATION FAILED",
+	"NOT DONE",
+	"Open acceptance criteria",
+}
 
 type CompactionStrategy int
 
@@ -45,6 +59,7 @@ type CompactionStats struct {
 	TokensBefore int64
 	TokensAfter  int64
 	LastStrategy string
+	LastMode     string
 }
 
 type SummarizerFunc func(ctx context.Context, msgs []session.Message) (string, error)
@@ -53,8 +68,9 @@ type Compactor struct {
 	Summarizer SummarizerFunc
 	Threshold  float64
 
-	mu   sync.Mutex
-	stats CompactionStats
+	mu     sync.Mutex
+	stats  CompactionStats
+	Config CompactorConfig
 }
 
 func NewCompactor(summarizer SummarizerFunc) *Compactor {
@@ -162,6 +178,131 @@ func (c *Compactor) Stats() CompactionStats {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.stats
+}
+
+func (c *Compactor) Configure(cfg CompactorConfig) {
+	cfg.Normalize()
+	if cfg.Mode == ContextCompactionOff {
+		cfg.Threshold = 0
+	}
+	c.mu.Lock()
+	c.Config = cfg
+	if cfg.Mode == ContextCompactionOff {
+		c.Threshold = 0
+	} else if cfg.Threshold > 0 {
+		c.Threshold = cfg.Threshold
+	}
+	c.mu.Unlock()
+}
+
+func (c *Compactor) config() CompactorConfig {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	cfg := c.Config
+	cfg.Normalize()
+	return cfg
+}
+
+func (c *Compactor) Compact2(ctx context.Context, input CompactInput) (CompactResult, error) {
+	tokensBefore := estimateTokens(input.Messages)
+	res := CompactResult{
+		TokensBefore: tokensBefore,
+		Mode:         input.Mode,
+	}
+
+	if input.Mode == "" {
+		strat := input.Strategy
+		if strat == 0 {
+			strat = DefaultCompactionStrategy()
+		}
+		kept := c.Compact(ctx, input.Messages, strat, input.MaxTokens)
+		res.Kept = kept
+		res.TokensAfter = estimateTokens(kept)
+		res.Dropped = diffMessages(input.Messages, kept)
+		return res, nil
+	}
+
+	if input.Mode == ContextCompactionOff {
+		res.Kept = input.Messages
+		res.TokensAfter = tokensBefore
+		res.Dropped = nil
+		c.recordRun("", res.Mode.String(), tokensBefore, res.TokensAfter)
+		return res, nil
+	}
+
+	cfg := c.config()
+	if cfg.MaxTokens == 0 {
+		cfg.MaxTokens = input.MaxTokens
+	}
+	if cfg.MaxTokens == 0 {
+		cfg.MaxTokens = 8000
+	}
+	res.Mode = cfg.Mode
+
+	switch cfg.Mode {
+	case ContextCompactionDeterministic:
+		res.Kept = compactDeterministicMode(input, cfg)
+	case ContextCompactionLLM:
+		kept, summary, err := c.compactLLMMode(ctx, input, cfg)
+		if err != nil {
+			return res, err
+		}
+		res.Kept = kept
+		res.Summary = summary
+	case ContextCompactionHybrid:
+		kept, summary, err := c.compactHybridMode(ctx, input, cfg)
+		if err != nil {
+			return res, err
+		}
+		res.Kept = kept
+		res.Summary = summary
+	default:
+		res.Kept = input.Messages
+		res.TokensAfter = tokensBefore
+		c.recordRun("", res.Mode.String(), tokensBefore, res.TokensAfter)
+		return res, fmt.Errorf("agentloop: unsupported compaction mode %q", cfg.Mode)
+	}
+
+	res.TokensAfter = estimateTokens(res.Kept)
+	res.Dropped = diffMessages(input.Messages, res.Kept)
+	c.recordRun("", res.Mode.String(), tokensBefore, res.TokensAfter)
+	return res, nil
+}
+
+func (c *Compactor) recordRun(strategyName, modeName string, tokensBefore, tokensAfter int) {
+	c.mu.Lock()
+	c.stats.Compactions++
+	c.stats.TokensBefore += int64(tokensBefore)
+	c.stats.TokensAfter += int64(tokensAfter)
+	if strategyName != "" {
+		c.stats.LastStrategy = strategyName
+	}
+	if modeName != "" {
+		c.stats.LastMode = modeName
+	}
+	c.mu.Unlock()
+}
+
+func ShouldCompactTokens(tokens, ctxWin int, threshold float64) bool {
+	if ctxWin <= 0 {
+		return false
+	}
+	if threshold <= 0 {
+		threshold = DefaultCompactionThreshold
+	}
+	if threshold > 1 {
+		threshold = 1
+	}
+	return tokens >= int(float64(ctxWin)*threshold)
+}
+
+func containsEvidence(content string) bool {
+	for _, marker := range evidenceMarkers {
+		if strings.Contains(content, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Compactor) compactSummarize(ctx context.Context, messages []session.Message, maxTokens int) []session.Message {
@@ -303,4 +444,162 @@ func deterministicSummary(msgs []session.Message) string {
 		b.WriteString(fmt.Sprintf("  [%s] %s\n", role, content))
 	}
 	return b.String()
+}
+
+func retainEvidence(msgs []session.Message, cfg CompactorConfig) []session.Message {
+	if len(msgs) == 0 {
+		return nil
+	}
+	seen := make(map[int]bool)
+	recent := cfg.RecentTurns
+	if recent <= 0 {
+		recent = 4
+	}
+	humanTurns := 0
+	out := make([]session.Message, 0, len(msgs))
+	if msgs[0].Role == "system" {
+		out = append(out, msgs[0])
+		seen[0] = true
+	}
+	for _, idx := range evidenceIndices(msgs) {
+		if !seen[idx] {
+			out = append(out, msgs[idx])
+			seen[idx] = true
+		}
+	}
+	for i := len(msgs) - 1; i >= 0 && humanTurns < recent; i-- {
+		if seen[i] {
+			continue
+		}
+		if msgs[i].Role == "user" {
+			out = append(out, msgs[i])
+			seen[i] = true
+			humanTurns++
+		}
+	}
+	return out
+}
+
+func evidenceIndices(msgs []session.Message) []int {
+	out := make([]int, 0)
+	for i, m := range msgs {
+		if containsEvidence(m.Content) {
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
+func compactDeterministicMode(input CompactInput, cfg CompactorConfig) []session.Message {
+	if len(input.Messages) == 0 {
+		return input.Messages
+	}
+	retained := retainEvidence(input.Messages, cfg)
+	if len(retained) == 0 {
+		return input.Messages
+	}
+	if cfg.PreserveEvidence {
+		out := make([]session.Message, 0, len(input.Messages))
+		for _, m := range input.Messages {
+			if isInRetained(m, retained) || m.Role == "tool" || len(m.ToolCalls) > 0 || m.Role == "system" {
+				out = append(out, m)
+			}
+		}
+		return out
+	}
+	out := make([]session.Message, 0, len(input.Messages))
+	for _, m := range input.Messages {
+		if isInRetained(m, retained) {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func isInRetained(m session.Message, retain []session.Message) bool {
+	for _, r := range retain {
+		if r.Role == m.Role && r.Content == m.Content && r.ToolCallID == m.ToolCallID {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Compactor) compactLLMMode(ctx context.Context, input CompactInput, cfg CompactorConfig) ([]session.Message, string, error) {
+	if len(input.Messages) == 0 {
+		return input.Messages, "", nil
+	}
+	var summary string
+	if c.Summarizer != nil {
+		s, err := c.Summarizer(ctx, input.Messages)
+		if err != nil {
+			return nil, "", err
+		}
+		summary = s
+	} else {
+		summary = deterministicSummary(input.Messages)
+	}
+	if cfg.PreserveEvidence {
+		for _, idx := range evidenceIndices(input.Messages) {
+			summary += "\n[EVIDENCE " + input.Messages[idx].Role + "] " + input.Messages[idx].Content
+		}
+	}
+	kept := []session.Message{{Role: "system", Content: summaryPrefix + summary}}
+	return kept, summary, nil
+}
+
+func (c *Compactor) compactHybridMode(ctx context.Context, input CompactInput, cfg CompactorConfig) ([]session.Message, string, error) {
+	if len(input.Messages) == 0 {
+		return input.Messages, "", nil
+	}
+	recent := cfg.RecentTurns
+	if recent <= 0 {
+		recent = 4
+	}
+	recentCount := recent * 2
+	if recentCount >= len(input.Messages) {
+		summary := deterministicSummary(input.Messages)
+		return []session.Message{{Role: "system", Content: summaryPrefix + summary}}, summary, nil
+	}
+	old := input.Messages[:len(input.Messages)-recentCount]
+	recentMsgs := input.Messages[len(input.Messages)-recentCount:]
+	var summary string
+	if c.Summarizer != nil {
+		s, err := c.Summarizer(ctx, old)
+		if err != nil {
+			return nil, "", err
+		}
+		summary = s
+	} else {
+		summary = deterministicSummary(old)
+	}
+	if cfg.PreserveEvidence {
+		for _, idx := range evidenceIndices(old) {
+			summary += "\n[EVIDENCE " + old[idx].Role + "] " + old[idx].Content
+		}
+	}
+	out := make([]session.Message, 0, recentCount+1)
+	out = append(out, session.Message{Role: "system", Content: summaryPrefix + summary})
+	out = append(out, recentMsgs...)
+	return out, summary, nil
+}
+
+func diffMessages(all, retain []session.Message) []session.Message {
+	if len(all) == 0 {
+		return nil
+	}
+	dropped := make([]session.Message, 0)
+	for _, m := range all {
+		found := false
+		for _, r := range retain {
+			if r.Role == m.Role && r.Content == m.Content && r.ToolCallID == m.ToolCallID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			dropped = append(dropped, m)
+		}
+	}
+	return dropped
 }
