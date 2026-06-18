@@ -69,6 +69,20 @@ func Open(path string) (*Queue, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Enable WAL journal mode + a small busy-timeout so concurrent
+	// readers (sub-goal poll loops) do not block each other or a
+	// concurrent writer (lease / complete). WAL is the canonical
+	// choice for embedded SQL with multiple in-process readers +
+	// writers; modernc.org/sqlite honours it for cross-connection
+	// reads-with-writer concurrency. (issue #385).
+	if _, err := _dbExec(db, `PRAGMA journal_mode = WAL`); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("autonomy: journal_mode=WAL: %w", err)
+	}
+	if _, err := _dbExec(db, `PRAGMA busy_timeout = 5000`); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("autonomy: busy_timeout: %w", err)
+	}
 	schema := `
 CREATE TABLE IF NOT EXISTS goals (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -255,6 +269,21 @@ func (q *Queue) Get(ctx context.Context, id int64) (*Goal, error) {
 	g.CreatedAt, _ = time.Parse(time.RFC3339, created)
 	g.UpdatedAt, _ = time.Parse(time.RFC3339, updated)
 	return &g, nil
+}
+
+// GetStatus returns just the goal's status, or an error if the ID does
+// not resolve. Polled by synchronous sub-goal callers (`spawn_subgoal`,
+// issue #385); a typed wrapper around Get so the polling loop does not
+// materialise a full Goal on every tick.
+func (q *Queue) GetStatus(ctx context.Context, id int64) (GoalStatus, error) {
+	g, err := q.Get(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	if g == nil {
+		return "", fmt.Errorf("autonomy: goal %d not found", id)
+	}
+	return g.Status, nil
 }
 
 // Children returns the direct children of parentID, oldest first.

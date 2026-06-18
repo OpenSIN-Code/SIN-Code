@@ -122,6 +122,14 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "fusion__oracle_tournament", Policy: "ask"},
 		{Tool: "fusion__status", Policy: "allow"},
 		{Tool: "fusion__config", Policy: "allow"},
+		// v3.22.x / issue #385: synchronous sub-goal delegation
+		// (`spawn_subgoal`). The call pins the parent loop until
+		// the sub-goal terminates or times out — measurable cost
+		// (model tokens + wall-clock) and a real side-effect (writes
+		// a row to the autonomy queue). Gated to "ask" so headless
+		// runs (incl. daemon) refuse without explicit approval
+		// (M4: destructive / cost-bearing ops need confirmation).
+		{Tool: "spawn_subgoal", Policy: "ask"},
 		// Read-only todo MCP tools (issue #323). In headless mode (daemon),
 		// "ask" resolves to "deny" — so the daemon could not read todos
 		// without --yolo. Read-only tools are "allow"; destructive tools

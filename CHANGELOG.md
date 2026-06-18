@@ -27,6 +27,29 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [v3.22.0] - 2026-06-18
 
+### Added — Synchronous `spawn_subgoal` (issue #385)
+
+- Chat-side `spawn_subgoal` tool: blocking sub-goal delegation through
+  the autonomy queue. The parent tool call BLOCKS until the sub-goal
+  terminates, fails, or times out — distinct from the daemon's existing
+  async depth-first sub-goal variant. Each sub-goal still passes the
+  verify gate (mandate M3): the parent never gains a success shortcut
+  by delegating.
+- New `agentloop.SpawnSubgoalSpec()` (additive: AgentSpec / SpawnSubgoal-
+  Request / SpawnSubgoalResult), `autonomy.Queue.GetStatus(ctx, id)`
+  typed wrapper, chat dispatcher wired through `extraSpecs()`.
+- Permission default: `spawn_subgoal` → `ask` (M4: cost-bearing + writes
+  queue rows; headless daemon refuses without `--yolo`).
+- Config keys: `autonomy.max_subgoal_depth` (default `2`),
+  `autonomy.subgoal_timeout_s` (default `300`). Wired through
+  `get/setConfigValue`, `configPairs`, `validateConfig`, and `applyMap`.
+- `cmd/sin-code/internal/autonomy/queue.go`: WAL journal mode + 5s busy
+  timeout to allow the polling-reader + lease-writer in the same process
+  without SQLite BUSY contention.
+- 7 race-clean tests in `cmd/sin-code/internal/agentloop/spawn_subgoal_test.go`:
+  SyncSuccess / SyncTimeout / DepthLimit / MaxDepthFlag / NilQueue /
+  EmptyDescription / EffectiveMaxDepth.
+
 ### Added — SIN Fusion v1 Enhancements (v3.22.0)
 
 - **Plan-Merge mode (issue #393):** New `ModePlanMerge` tournament mode —

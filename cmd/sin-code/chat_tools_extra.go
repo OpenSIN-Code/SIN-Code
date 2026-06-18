@@ -27,6 +27,8 @@ import (
 	"github.com/chromedp/chromedp"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgen"
@@ -144,6 +146,11 @@ func extraSpecs() []agentloopToolSpecAlias {
 			InputSchema: obj(map[string]any{
 				"window": str("correlation window in sequence steps for the current session (default 25)"),
 			})},
+		// v3.22.x / issue #385: synchronous sub-goal delegation.
+		// The spec is owned by the agentloop package so it stays
+		// byte-identical across callers (chat / TUI / daemon
+		// registry). Permission default is `ask` (M4: cost-bearing).
+		agentloop.SpawnSubgoalSpec(),
 	}
 }
 
@@ -198,9 +205,116 @@ func extraTool(ctx context.Context, name string, args map[string]any) (string, e
 		return toolBrowserVitalsFlush(ctx)
 	case "sin_browser_diff":
 		return toolBrowserDiff(argStr(args, "window"))
+	case "spawn_subgoal":
+		return toolSpawnSubgoal(ctx, args)
 	default:
 		return "", fmt.Errorf("unknown tool %q", name)
 	}
+}
+
+// toolSpawnSubgoal enqueues a child goal in the autonomy queue and
+// BLOCKS until the sub-goal terminates, fails, or the configured
+// synchronous timeout elapses (issue #385). Each sub-goal still passes
+// the verify gate (M3): the parent never gains a success shortcut by
+// delegating.
+//
+// Spawning pins the parent's loop while the worker drains the queue,
+// so it is gated `ask` in permission_defaults.go. Headless mode
+// (incl. `sin-code daemon`) refuses without --yolo (M4).
+//
+// Config:
+//   - autonomy.max_subgoal_depth: ceiling (default 2)
+//   - autonomy.subgoal_timeout_s: max sync wait (default 300s)
+// Tools caller session has no parent goal in the queue, so parentID=0
+// and parentDepth=0; the depth check still halves runaway recursion.
+func toolSpawnSubgoal(ctx context.Context, args map[string]any) (string, error) {
+	cfg := testConfig()
+	maxDepth := cfg.AutonomyMaxSubgoalDepth
+	if maxDepth <= 0 {
+		maxDepth = agentloop.SpawnSubgoalDefaultMaxDepth
+	}
+	defaultTimeout := time.Duration(cfg.AutonomySubgoalTimeoutS) * time.Second
+	if defaultTimeout <= 0 {
+		defaultTimeout = agentloop.SpawnSubgoalDefaultTimeout
+	}
+
+	req := agentloop.SpawnSubgoalRequest{
+		Title:       argStr(args, "title"),
+		Description: argStr(args, "description"),
+		Workspace:   argStr(args, "workspace"),
+		MaxTurns:    argInt(args, "max_turns"),
+		MaxDepth:    argInt(args, "max_depth"),
+		Poll:        argDuration(args, "poll"),
+	}
+	if t := argDuration(args, "timeout"); t > 0 {
+		req.Timeout = t
+	} else {
+		req.Timeout = defaultTimeout
+	}
+
+	q, err := autonomy.Open(autonomy.DefaultPath())
+	if err != nil {
+		return "", fmt.Errorf("spawn_subgoal: open queue: %w", err)
+	}
+	defer q.Close()
+
+	res, serr := agentloop.SpawnSubgoal(ctx, q, 0, 0, maxDepth, req)
+	if serr != nil {
+		// Surface error as a structured string so the LLM can route.
+		// Don't include security-sensitive context; the queue path is OK.
+		return "", fmt.Errorf("spawn_subgoal: %w", serr)
+	}
+	data, merr := json.Marshal(res)
+	if merr != nil {
+		return "", fmt.Errorf("spawn_subgoal: marshal: %w", merr)
+	}
+	return string(data), nil
+}
+
+// argInt is a typed convenience around argStr + strconv.Atoi so the
+// caller-side parser can stay in the chat tool surface.
+func argInt(args map[string]any, key string) int {
+	s, ok := args[key]
+	if !ok {
+		return 0
+	}
+	switch v := s.(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	case string:
+		n, err := strconv.Atoi(strings.TrimSpace(v))
+		if err != nil {
+			return 0
+		}
+		return n
+	}
+	return 0
+}
+
+// argDuration parses "5m", "30s", "1500ms" — same shape the rest of
+// the chat tool surface supports. Zero (no field, empty string, or a
+// parse error) falls back to the package / config default the caller
+// already wired.
+func argDuration(args map[string]any, key string) time.Duration {
+	s, ok := args[key]
+	if !ok {
+		return 0
+	}
+	switch v := s.(type) {
+	case string:
+		d, err := time.ParseDuration(strings.TrimSpace(v))
+		if err != nil {
+			return 0
+		}
+		return d
+	case float64:
+		return time.Duration(v) * time.Second
+	case int:
+		return time.Duration(v) * time.Second
+	}
+	return 0
 }
 
 func runGit(ctx context.Context, args ...string) (string, error) {

@@ -127,6 +127,16 @@ type SinCodeConfig struct {
 	// Worktree conflict prediction (issue #319).
 	WorktreeConflictCheck string `toml:"worktree.conflict_check"`
 	WorktreeTargetBranch  string `toml:"worktree.target_branch"`
+	// Synchronous sub-goal delegation (issue #385, spawn_subgoal).
+	// AutonomyMaxSubgoalDepth caps the depth of the queue tree a
+	// `spawn_subgoal` call may produce. Default 2 (matches AGENTS.md
+	// §3 spec). The daemon's --max-depth command flag overrides this
+	// at process start; the config value is the chat-session default.
+	AutonomyMaxSubgoalDepth int `toml:"autonomy.max_subgoal_depth"`
+	// AutonomySubgoalTimeoutS bounds the synchronous wait inside
+	// `spawn_subgoal`. Default 300s (5m); values <= 0 are rejected by
+	// validateConfig.
+	AutonomySubgoalTimeoutS int `toml:"autonomy.subgoal_timeout_s"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -181,6 +191,8 @@ func defaultConfig() SinCodeConfig {
 		PermissionYoloRiskThreshold:   "",
 		WorktreeConflictCheck:         "off",
 		WorktreeTargetBranch:          "",
+		AutonomyMaxSubgoalDepth:       2,
+		AutonomySubgoalTimeoutS:       300,
 	}
 }
 
@@ -663,6 +675,10 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return cfg.WorktreeConflictCheck, nil
 	case "worktree.target_branch":
 		return cfg.WorktreeTargetBranch, nil
+	case "autonomy.max_subgoal_depth":
+		return fmt.Sprintf("%d", cfg.AutonomyMaxSubgoalDepth), nil
+	case "autonomy.subgoal_timeout_s":
+		return fmt.Sprintf("%d", cfg.AutonomySubgoalTimeoutS), nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -851,6 +867,18 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.WorktreeConflictCheck = value
 	case "worktree.target_branch":
 		cfg.WorktreeTargetBranch = value
+	case "autonomy.max_subgoal_depth":
+		v, err := strconv.Atoi(value)
+		if err != nil || v < 0 {
+			return fmt.Errorf("autonomy.max_subgoal_depth must be a non-negative integer, got %q", value)
+		}
+		cfg.AutonomyMaxSubgoalDepth = v
+	case "autonomy.subgoal_timeout_s":
+		v, err := strconv.Atoi(value)
+		if err != nil || v <= 0 {
+			return fmt.Errorf("autonomy.subgoal_timeout_s must be a positive integer, got %q", value)
+		}
+		cfg.AutonomySubgoalTimeoutS = v
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}
@@ -914,6 +942,8 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"permission.yolo_risk_threshold", cfg.PermissionYoloRiskThreshold},
 		{"worktree.conflict_check", cfg.WorktreeConflictCheck},
 		{"worktree.target_branch", cfg.WorktreeTargetBranch},
+		{"autonomy.max_subgoal_depth", fmt.Sprintf("%d", cfg.AutonomyMaxSubgoalDepth)},
+		{"autonomy.subgoal_timeout_s", fmt.Sprintf("%d", cfg.AutonomySubgoalTimeoutS)},
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Key < pairs[j].Key })
 	return pairs
@@ -1069,6 +1099,12 @@ func validateConfig(cfg SinCodeConfig) []string {
 	if cfg.WorktreeConflictCheck != "" && cfg.WorktreeConflictCheck != "off" && cfg.WorktreeConflictCheck != "warn" && cfg.WorktreeConflictCheck != "abort" {
 		issues = append(issues, fmt.Sprintf("worktree.conflict_check must be 'off', 'warn', or 'abort', got %q", cfg.WorktreeConflictCheck))
 	}
+	if cfg.AutonomyMaxSubgoalDepth < 0 {
+		issues = append(issues, fmt.Sprintf("autonomy.max_subgoal_depth must be >= 0, got %d", cfg.AutonomyMaxSubgoalDepth))
+	}
+	if cfg.AutonomySubgoalTimeoutS <= 0 {
+		issues = append(issues, fmt.Sprintf("autonomy.subgoal_timeout_s must be > 0, got %d", cfg.AutonomySubgoalTimeoutS))
+	}
 	return issues
 }
 
@@ -1184,6 +1220,10 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.WorktreeConflictCheck = val
 		case "worktree.target_branch":
 			cfg.WorktreeTargetBranch = val
+		case "autonomy.max_subgoal_depth":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AutonomyMaxSubgoalDepth)
+		case "autonomy.subgoal_timeout_s":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AutonomySubgoalTimeoutS)
 		}
 	}
 }
