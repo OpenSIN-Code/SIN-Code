@@ -223,6 +223,12 @@ type Loop struct {
 	// CoverageForbiddenTools lists tools that block completion if invoked.
 	CoverageForbiddenTools []string
 
+	// ResultPolicy, if set, scans every tool result for secret leakage,
+	// destructive operations, and network egress. It can block subsequent
+	// writes or require confirmation for the next destructive tool call
+	// (issue #374). Optional — nil preserves legacy behavior.
+	ResultPolicy *permission.ResultPolicyStore
+
 	// RunOverride, if set, replaces the default Run. Used by the
 	// WebUI v2 chat API (issue #52) so tests can swap in a
 	// deterministic result without wiring a real LLM.
