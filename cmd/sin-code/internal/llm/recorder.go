@@ -70,7 +70,13 @@ type Recorder interface {
 	// if the underlying store fails; the LLM client logs but
 	// does not propagate the error (a failed usage write must not
 	// break the user's request).
-	RecordUsage(ctx context.Context, sessionID, model string, source Source, promptTokens, completionTokens, totalTokens int) error
+	//
+	// thinkingTokens is the optional count of tokens the model spent
+	// on its internal reasoning phase (Claude / Anthropic-style
+	// providers, OpenRouter gateways, etc.). Zero for providers that
+	// do not surface it — never an enforcement signal.
+	RecordUsage(ctx context.Context, sessionID, model string, source Source,
+		promptTokens, completionTokens, totalTokens, thinkingTokens int) error
 }
 
 // NopRecorder is the default Recorder. It implements the interface
@@ -80,7 +86,7 @@ type Recorder interface {
 type NopRecorder struct{}
 
 // RecordUsage for NopRecorder is a no-op. Always returns nil.
-func (NopRecorder) RecordUsage(_ context.Context, _, _ string, _ Source, _, _, _ int) error {
+func (NopRecorder) RecordUsage(_ context.Context, _, _ string, _ Source, _, _, _, _ int) error {
 	return nil
 }
 

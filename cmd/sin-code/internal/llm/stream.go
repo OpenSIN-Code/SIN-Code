@@ -73,6 +73,7 @@ type usageContainer struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+	ThinkingTokens   int `json:"thinking_tokens,omitempty"`
 }
 
 // HasStreaming reports whether ChatStream is available on this
