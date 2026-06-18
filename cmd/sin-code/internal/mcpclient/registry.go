@@ -71,6 +71,9 @@ func DefaultServers() []ServerConfig {
 		py("Simone-MCP"),
 		py("SIN-Code-Symfony-Lens"),
 
+		// v3.22.0: sin-analyse-suite — multimodal preprocessing (image, video, PDF, logs, data, audio)
+		goNative("sin-analyse-suite", "sin-analyse", "serve"),
+
 		// External MCP server (Python stdio) — autodev-cli v0.4.0 (Bridged-External, never vendored)
 		{Name: "autodev", Transport: "stdio", Command: "autodev-mcp"},
 	}
@@ -79,6 +82,7 @@ func DefaultServers() []ServerConfig {
 func shortName(repo string) string {
 	m := map[string]string{
 		"web_search_bundle":                 "websearch",
+		"sin-analyse-suite":                  "analyse",
 		"SIN-Code-Websearch-Skill":          "websearch",
 		"SIN-Code-Scheduler-Skill":          "scheduler",
 		"SIN-Code-Goal-Mode-Skill":          "goalmode",

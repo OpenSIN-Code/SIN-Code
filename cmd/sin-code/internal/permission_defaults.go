@@ -61,6 +61,10 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "sin_browser_vitals_flush", Policy: "allow"},
 		{Tool: "sin_browser_diff", Policy: "allow"},
 
+		// v3.22.0: sin-analyse-suite — read-only multimodal preprocessing (image, video, PDF, logs, data, audio).
+		// All analyse__* tools are read-only — they never modify input files.
+		{Tool: "analyse__*", Policy: "allow"},
+
 		// v3.16.0: autodev-cli bridge (Bridged-External + autodev-mcp stdio MCP).
 		// Qualified name = server-name + "__" + tool-name (registry.go "autodev" + autodev-mcp tools).
 		// Split mirrors the gh precedent at lines 40-42: read-only -> allow, mutating -> ask (M4).

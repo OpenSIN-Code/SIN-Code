@@ -91,6 +91,7 @@ type Config struct {
 	FusionPerProviderTimeoutS int
 	FusionDifficultyGate      bool
 	FusionOracleMode          bool
+	FusionMode                fusion.Mode // issue #394: explicit mode override ("poc" | "oracle" | "plan-merge")
 	FusionProfilesDir         string
 
 	// DeepPlanner: when true, the orchestrator uses the parallel DAG
@@ -124,6 +125,19 @@ type Config struct {
 	// only low/medium/high risk tools (issue #272).
 	// Also activated by config permission.yolo_risk_threshold=<level>.
 	YoloRiskThreshold string
+
+	// ThinkingEnabled flips the wire-side "thinking" block on per request
+	// (Claude / Anthropic-style providers on NIM / OpenRouter gateways).
+	// Also activated by config llm.thinking_enabled=true.
+	// Issue: Thinking Budget Enforcement (first PR).
+	ThinkingEnabled bool
+
+	// ThinkingBudgetPerRequest is the per-request reasoning-token cap
+	// sent on the wire as thinking.budget_tokens (when ThinkingEnabled
+	// is true). 0 = unbounded / provider default.
+	// Also activated by config llm.thinking_budget=<n>.
+	// Issue: Thinking Budget Enforcement (first PR).
+	ThinkingBudgetPerRequest int
 
 	// MemoryPrimeEnabled: when true, wires a MemoryPrime function that
 	// queries the long-term memory store and injects relevant memories
@@ -252,11 +266,25 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		os.Getenv("NVIDIA_API_KEY"), os.Getenv("OPENAI_API_KEY"))
 	model := firstNonEmpty(cfg.Model, agentCfg.Model, os.Getenv("SIN_LLM_MODEL"))
 	client := llm.NewClient(baseURL, apiKey)
-	completion := agentloop.NewProviderCompletion(client, model, agentCfg.MaxTokens, agentCfg.Temperature)
+	thinkingCfg := &agentloop.ThinkingConfig{
+		Enabled: cfg.ThinkingEnabled,
+		Budget:  cfg.ThinkingBudgetPerRequest,
+	}
+	if !thinkingCfg.Enabled {
+		if sinCfg, err := internal.LoadMergedConfig(); err == nil {
+			if sinCfg.LLMThinkingEnabled {
+				thinkingCfg.Enabled = true
+				if thinkingCfg.Budget == 0 {
+					thinkingCfg.Budget = sinCfg.LLMThinkingBudget
+				}
+			}
+		}
+	}
+	completion := agentloop.NewProviderCompletionFull(client, model, agentCfg.MaxTokens, agentCfg.Temperature, nil, thinkingCfg)
 	if sinCfg, err := internal.LoadMergedConfig(); err == nil {
 		if sinCfg.LLMPromptCache {
 			cache := llm.NewPromptCache(llm.DefaultCacheTTL)
-			completion = agentloop.NewProviderCompletionWithCache(client, model, agentCfg.MaxTokens, agentCfg.Temperature, cache)
+			completion = agentloop.NewProviderCompletionFull(client, model, agentCfg.MaxTokens, agentCfg.Temperature, cache, thinkingCfg)
 		}
 	}
 
@@ -305,22 +333,24 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	}
 
 	loop := &agentloop.Loop{
-		Gate:                   gate,
-		LocalTool:              localTool,
-		LocalSpec:              localSpec,
-		Workspace:              cfg.Workspace,
-		MaxTurns:               cfg.MaxTurns,
-		SessionID:              cfg.SessionID,
-		GoalID:                 cfg.GoalID,
-		SystemPrompt:           style.RenderSystemPrompt(cfg.Style),
-		Completion:             completion,
-		Hooks:                  hookEngine,
-		Perm:                   perm,
-		Ask:                    cfg.AskFunc,
-		Lessons:                memStore,
-		Ledger:                 ledgerStore,
-		CoverageRequiredTools:  cfg.CoverageRequiredTools,
-		CoverageForbiddenTools: cfg.CoverageForbiddenTools,
+		Gate:                    gate,
+		LocalTool:               localTool,
+		LocalSpec:               localSpec,
+		Workspace:               cfg.Workspace,
+		MaxTurns:                cfg.MaxTurns,
+		SessionID:               cfg.SessionID,
+		GoalID:                  cfg.GoalID,
+		SystemPrompt:            style.RenderSystemPrompt(cfg.Style),
+		Completion:              completion,
+		Hooks:                   hookEngine,
+		Perm:                    perm,
+		Ask:                     cfg.AskFunc,
+		Lessons:                 memStore,
+		Ledger:                  ledgerStore,
+		CoverageRequiredTools:   cfg.CoverageRequiredTools,
+		CoverageForbiddenTools:  cfg.CoverageForbiddenTools,
+		ThinkingEnabled:         thinkingCfg.Enabled,
+		ThinkingBudgetPerRequest: thinkingCfg.Budget,
 	}
 
 	// Stop-gate (anti-babysitting): when a Definition-of-Done contract is
@@ -508,9 +538,9 @@ func WireFusion(loop *agentloop.Loop, cfg Config, gate *verify.Gate, client *llm
 			return provLoop.Run(ctx, sess, prompt)
 		}
 	}
-	mode := fusion.ModePoC
-	if cfg.FusionOracleMode {
-		mode = fusion.ModeOracle
+	mode := fusion.ModeOracle // issue #394: Oracle is the default (quality over cost)
+	if cfg.FusionMode != "" {
+		mode = cfg.FusionMode // explicit override
 	}
 	maxCost := cfg.FusionMaxCostUSD
 	if cfg.FusionOracleMode && maxCost > 2.0 {
@@ -533,9 +563,23 @@ func WireFusion(loop *agentloop.Loop, cfg Config, gate *verify.Gate, client *llm
 		RunFunc:            runFunc,
 		Mode:               mode,
 	}
-	if cfg.FusionOracleMode {
-		judge := fusion.NewLLMOracleJudge(client, cfg.Model)
+	if mode == fusion.ModeOracle {
+		judgeModel := firstNonEmpty(os.Getenv("SIN_EVALUATOR_MODEL"), cfg.Model)
+		judgeClient := client
+		if evalBase := os.Getenv("SIN_EVALUATOR_BASE_URL"); evalBase != "" {
+			judgeClient = llm.NewClient(evalBase, os.Getenv("SIN_EVALUATOR_API_KEY"))
+		}
+		judge := fusion.NewLLMOracleJudge(judgeClient, judgeModel)
 		tournament.OracleJudge = judge.Judge
+	}
+	if mode == fusion.ModePlanMerge {
+		judgeModel := firstNonEmpty(os.Getenv("SIN_EVALUATOR_MODEL"), cfg.Model)
+		judgeClient := client
+		if evalBase := os.Getenv("SIN_EVALUATOR_BASE_URL"); evalBase != "" {
+			judgeClient = llm.NewClient(evalBase, os.Getenv("SIN_EVALUATOR_API_KEY"))
+		}
+		mergeJudge := fusion.NewLLMPlanMergeJudge(judgeClient, judgeModel)
+		tournament.PlanMergeJudge = mergeJudge.Merge
 	}
 	loop.TournamentRunner = &fusionAdapter{t: tournament, gate: gate, cfg: cfg, client: client, memStore: memStore}
 }

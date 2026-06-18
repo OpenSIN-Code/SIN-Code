@@ -46,6 +46,7 @@
 | SIN-Code-MCP-Server-Builder-Skill | `mcpbuilder__*` | ask | ACTIVE |
 | SIN-Browser-Tools | `browser__*` (106 tools) | ask | ACTIVE |
 | GitHub CLI (gh) | `gh_query`, `gh_health`, `gh_execute` | allow / allow / ask (M4) | ACTIVE |
+| [sin-analyse-suite](https://github.com/OpenSIN-Code/sin-analyse-suite) | `analyse__*` (image, video, PDF, logs, data, audio) | allow (read-only) | ACTIVE |
 | SIN-Code-Share-Skill | `share__*` | ask | ACTIVE |
 | SIN-Code-Skills-Skill | `skills__*` | ask | ACTIVE |
 
