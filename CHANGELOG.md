@@ -2,7 +2,7 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
-## [Unreleased]
+## [v3.22.0] - 2026-06-18
 
 ### Added — SIN Fusion v1 Enhancements (v3.22.0)
 
