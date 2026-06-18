@@ -306,6 +306,171 @@ func (s *Store) ToolUsageByPeriod(ctx context.Context, period string, since, unt
 	return out, rows.Err()
 }
 
+// ── Tool Latency ───────────────────────────────────────────────────
+
+// LatencyRecord is one latency measurement for a tool call.
+type LatencyRecord struct {
+	ToolName   string        `json:"tool_name"`
+	DurationMs int64         `json:"duration_ms"`
+	Outcome    UsageOutcome  `json:"outcome"`
+	SessionID  string        `json:"session_id"`
+	CreatedAt  time.Time     `json:"created_at"`
+}
+
+// AvgLatency is the average latency and count for a tool.
+type AvgLatency struct {
+	ToolName    string  `json:"tool_name"`
+	AvgDuration float64 `json:"avg_duration_ms"`
+	Count       int64   `json:"count"`
+}
+
+// ToolErrorRate holds success/error rate per tool.
+type ToolErrorRate struct {
+	ToolName   string  `json:"tool_name"`
+	TotalCalls int64   `json:"total_calls"`
+	Errors     int64   `json:"errors"`
+	ErrorRate  float64 `json:"error_rate"`
+}
+
+// RecordToolLatency records a single tool latency measurement.
+func (s *Store) RecordToolLatency(ctx context.Context, toolName string, durationMs int64, outcome UsageOutcome, sessionID string) error {
+	if toolName == "" || sessionID == "" {
+		return fmt.Errorf("tool latency requires tool_name and session_id")
+	}
+	if outcome == "" {
+		outcome = OutcomeOK
+	}
+	usageMu.Lock()
+	defer usageMu.Unlock()
+	_, err := s.db.ExecContext(ctx, `
+		INSERT INTO tool_latency (tool_name, duration_ms, outcome, session_id, created_at)
+		VALUES (?, ?, ?, ?, ?)
+	`, toolName, durationMs, string(outcome), sessionID, time.Now().UTC().Format(time.RFC3339Nano))
+	return err
+}
+
+// ToolAvgLatencies returns average latency per tool, optionally filtered by time range.
+func (s *Store) ToolAvgLatencies(ctx context.Context, since, until time.Time) ([]AvgLatency, error) {
+	query := `
+		SELECT tool_name, AVG(duration_ms), COUNT(1)
+		FROM tool_latency
+		WHERE 1=1
+	`
+	var args []any
+	if !since.IsZero() {
+		query += " AND created_at >= ?"
+		args = append(args, since.Format(time.RFC3339Nano))
+	}
+	if !until.IsZero() {
+		query += " AND created_at <= ?"
+		args = append(args, until.Format(time.RFC3339Nano))
+	}
+	query += " GROUP BY tool_name ORDER BY tool_name"
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []AvgLatency
+	for rows.Next() {
+		var al AvgLatency
+		if err := rows.Scan(&al.ToolName, &al.AvgDuration, &al.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, al)
+	}
+	return out, rows.Err()
+}
+
+// ToolLatencyByPeriod buckets average latency by day/week/month.
+func (s *Store) ToolLatencyByPeriod(ctx context.Context, period string, since, until time.Time) (map[string]float64, error) {
+	var timeFmt string
+	switch period {
+	case "day":
+		timeFmt = "%Y-%m-%d"
+	case "week":
+		timeFmt = "%Y-%W"
+	case "month":
+		timeFmt = "%Y-%m"
+	default:
+		return nil, fmt.Errorf("unsupported period %q (use day, week, month)", period)
+	}
+	query := fmt.Sprintf(`
+		SELECT strftime(%q, created_at) AS bucket, AVG(duration_ms)
+		FROM tool_latency
+		WHERE 1=1
+	`, timeFmt)
+	var args []any
+	if !since.IsZero() {
+		query += " AND created_at >= ?"
+		args = append(args, since.Format(time.RFC3339Nano))
+	}
+	if !until.IsZero() {
+		query += " AND created_at <= ?"
+		args = append(args, until.Format(time.RFC3339Nano))
+	}
+	query += " GROUP BY bucket ORDER BY bucket"
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := map[string]float64{}
+	for rows.Next() {
+		var bucket string
+		var avg float64
+		if err := rows.Scan(&bucket, &avg); err != nil {
+			return nil, err
+		}
+		out[bucket] = avg
+	}
+	return out, rows.Err()
+}
+
+// ToolErrorRates computes error rates per tool.
+func (s *Store) ToolErrorRates(ctx context.Context, since, until time.Time) ([]ToolErrorRate, error) {
+	query := `
+		SELECT tool_name,
+			COUNT(1) AS total,
+			SUM(CASE WHEN outcome = 'error' THEN 1 ELSE 0 END) AS errors
+		FROM tool_usage
+		WHERE 1=1
+	`
+	var args []any
+	if !since.IsZero() {
+		query += " AND created_at >= ?"
+		args = append(args, since.Format(time.RFC3339Nano))
+	}
+	if !until.IsZero() {
+		query += " AND created_at <= ?"
+		args = append(args, until.Format(time.RFC3339Nano))
+	}
+	query += " GROUP BY tool_name ORDER BY tool_name"
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []ToolErrorRate
+	for rows.Next() {
+		var ter ToolErrorRate
+		if err := rows.Scan(&ter.ToolName, &ter.TotalCalls, &ter.Errors); err != nil {
+			return nil, err
+		}
+		if ter.TotalCalls > 0 {
+			ter.ErrorRate = float64(ter.Errors) / float64(ter.TotalCalls)
+		}
+		out = append(out, ter)
+	}
+	return out, rows.Err()
+}
+
 // OutcomeTotals returns total counts by outcome.
 func (s *Store) OutcomeTotals(ctx context.Context, since, until time.Time) (map[UsageOutcome]int64, error) {
 	query := `
