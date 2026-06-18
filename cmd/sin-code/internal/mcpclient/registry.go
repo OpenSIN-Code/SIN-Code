@@ -74,6 +74,17 @@ func DefaultServers() []ServerConfig {
 		// v3.22.0: sin-analyse-suite — multimodal preprocessing (image, video, PDF, logs, data, audio)
 		goNative("sin-analyse-suite", "sin-analyse", "serve"),
 
+		// v3.23.0 (issue #381): internal_native_websearch — pure-Go in-process
+		// websearch (cmd/sin-code/internal/native_websearch). DuckDuckGo HTML
+		// endpoint, stdlib net/http + LRU cache (15 min TTL) + token-bucket
+		// rate limiter; no Python dependency. Reserves the native_websearch__*
+		// tool namespace so the catalog + permission matrix recognise it.
+		// Implementation runs in-process behind the chat tools layer;
+		// sin-native-websearch binary is a future stdio shim. ConnectAll warns
+		// and skips the stdio spawn when the binary is absent; permission +
+		// catalog resolution continue to work.
+		goNative("internal_native_websearch", "sin-native-websearch", "serve"),
+
 		// External MCP server (Python stdio) — autodev-cli v0.4.0 (Bridged-External, never vendored)
 		{Name: "autodev", Transport: "stdio", Command: "autodev-mcp"},
 	}
@@ -83,6 +94,7 @@ func shortName(repo string) string {
 	m := map[string]string{
 		"web_search_bundle":                 "websearch",
 		"sin-analyse-suite":                  "analyse",
+		"internal_native_websearch":         "native_websearch",
 		"SIN-Code-Websearch-Skill":          "websearch",
 		"SIN-Code-Scheduler-Skill":          "scheduler",
 		"SIN-Code-Goal-Mode-Skill":          "goalmode",

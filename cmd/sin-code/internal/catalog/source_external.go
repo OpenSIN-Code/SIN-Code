@@ -86,4 +86,5 @@ var externalServers = []externalServer{
 	{name: "simone", namespace: "simone__*", short: "Simone code intelligence", description: "Simone-MCP server (AST/LSP code intelligence).", example: "simone__symbol_search 'Server.Start'", tags: []string{"external", "code"}},
 	{name: "symfonylens", namespace: "symfonylens__*", short: "Symfony lens", description: "SIN-Code-Symfony-Lens MCP server.", example: "symfonylens__analyze_routes /project", tags: []string{"external", "php"}},
 	{name: "websearch", namespace: "websearch__*", short: "Web search", description: "Go-native web_search_bundle MCP server (sin-websearch).", example: "websearch__search 'Go 1.24 release'", tags: []string{"external", "network"}},
+	{name: "native_websearch", namespace: "native_websearch__*", short: "Native web search", description: "Pure-Go in-process websearch (issue #381) — DuckDuckGo HTML endpoint over stdlib net/http with 15-minute LRU cache and token-bucket rate limiter; the external Python skill is no longer required.", example: "native_websearch__search 'Go 1.24 release'", tags: []string{"external", "network", "native"}},
 }

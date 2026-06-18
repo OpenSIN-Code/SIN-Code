@@ -25,6 +25,12 @@ func DefaultPermissionRules() []permission.Rule {
 		// External MCP servers (qualified "server__tool" names).
 		// Read-only / analysis servers run free; action-capable ask.
 		{Tool: "websearch__*", Policy: "allow"},
+		// v3.23.0 (issue #381): native_websearch — pure-Go in-process
+		// websearch (cmd/sin-code/internal/native_websearch). Read-only
+		// network reads (DuckDuckGo HTML); no side effects beyond an in-memory
+		// cache + per-host robots.txt snapshot. Permission tier "allow" so the
+		// LLM can call it without confirmation.
+		{Tool: "native_websearch__*", Policy: "allow"},
 		{Tool: "contextbridge__*", Policy: "allow"},
 		{Tool: "simone__*", Policy: "allow"},
 		{Tool: "symfonylens__*", Policy: "allow"},
