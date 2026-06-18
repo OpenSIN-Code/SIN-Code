@@ -297,3 +297,65 @@ func TestToolPropertyNoTests(t *testing.T) {
 		t.Fatalf("expected status in output, got: %s", out)
 	}
 }
+
+func TestToolEditRejectsAmbiguousOldString(t *testing.T) {
+	autoGenerateTests = false
+	dir := t.TempDir()
+	path := filepath.Join(dir, "file.txt")
+	if err := os.WriteFile(path, []byte("foo foo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := toolEdit(path, "foo", "bar")
+	if err == nil {
+		t.Fatal("expected ambiguous old string to fail")
+	}
+	if !strings.Contains(err.Error(), "matches 2 times") {
+		t.Fatalf("expected ambiguity error, got %v", err)
+	}
+}
+
+func TestToolEditReplacesUniqueString(t *testing.T) {
+	autoGenerateTests = false
+	dir := t.TempDir()
+	path := filepath.Join(dir, "file.txt")
+	if err := os.WriteFile(path, []byte("hello world\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := toolEdit(path, "world", "universe")
+	if err != nil {
+		t.Fatalf("toolEdit: %v", err)
+	}
+	if !strings.Contains(out, "edited") {
+		t.Fatalf("expected edited message, got %q", out)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "hello universe\n" {
+		t.Fatalf("expected replacement, got %q", data)
+	}
+}
+
+func TestToolReplaceNaiveFirstOccurrence(t *testing.T) {
+	autoGenerateTests = false
+	dir := t.TempDir()
+	path := filepath.Join(dir, "file.txt")
+	if err := os.WriteFile(path, []byte("foo foo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	out, err := toolReplace(path, "foo", "bar")
+	if err != nil {
+		t.Fatalf("toolReplace: %v", err)
+	}
+	if !strings.Contains(out, "replaced") {
+		t.Fatalf("expected replaced message, got %q", out)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "bar foo\n" {
+		t.Fatalf("expected first occurrence replacement, got %q", data)
+	}
+}
