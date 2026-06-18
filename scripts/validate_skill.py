@@ -35,7 +35,7 @@ RECOMMENDED_DIRS = ("scripts", "tests", "lib")
 # not yet been migrated. The migration path is `scripts/sync_lifecycle.py`.
 REQUIRED_FRONTMATTER = ("name", "description")
 STRICT_FRONTMATTER = ("lifecycle",)
-VALID_LIFECYCLES = ("native", "external", "deprecated")
+VALID_LIFECYCLES = ("native", "external", "deprecated", "internal")
 OPTIONAL_FRONTMATTER = ("license", "compatibility", "metadata", "required_tools")
 
 # Pattern for valid skill names (OpenCode spec).
