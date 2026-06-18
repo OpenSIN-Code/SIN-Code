@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -45,6 +46,86 @@ func NewMCPCmd() *cobra.Command {
 
 	var jsonOut bool
 	var timeout time.Duration
+
+	discoverCmd := &cobra.Command{
+		Use:   "discover",
+		Short: "List MCP servers discovered from standard config locations (issue #368)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ws, err := mcpHookVars.getwd()
+			if err != nil {
+				return err
+			}
+			cfgs := mcpclient.DiscoverConfigs(ws)
+			if jsonOut {
+				enc := json.NewEncoder(cmd.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(cfgs)
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%-16s %-8s %s\n", "NAME", "TYPE", "TARGET")
+			for _, c := range cfgs {
+				target := c.URL
+				if c.Transport == "stdio" {
+					target = c.Command
+					for _, a := range c.Args {
+						target += " " + a
+					}
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "%-16s %-8s %s\n", c.Name, c.Transport, target)
+			}
+			return nil
+		},
+	}
+	discoverCmd.Flags().BoolVar(&jsonOut, "json", false, "emit JSON")
+
+	addCmd := &cobra.Command{
+		Use:   "add <name>",
+		Short: "Add an MCP server config to ~/.config/mcp/servers/<name>.json",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var (
+				command string
+				url     string
+				argsVal []string
+				env     map[string]string
+			)
+			command, _ = cmd.Flags().GetString("command")
+			url, _ = cmd.Flags().GetString("url")
+			if cmd.Flags().Changed("args") {
+				argsVal, _ = cmd.Flags().GetStringArray("args")
+			}
+			if cmd.Flags().Changed("env") {
+				envList, _ := cmd.Flags().GetStringArray("env")
+				env = map[string]string{}
+				for _, e := range envList {
+					parts := strings.SplitN(e, "=", 2)
+					if len(parts) == 2 {
+						env[parts[0]] = parts[1]
+					}
+				}
+			}
+			transport := "stdio"
+			if url != "" {
+				transport = "sse"
+			}
+			cfg := mcpclient.ServerConfig{
+				Name:      args[0],
+				Transport: transport,
+				Command:   command,
+				Args:      argsVal,
+				URL:       url,
+				Env:       env,
+			}
+			if err := mcpclient.WriteServerConfig(cfg); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "added MCP server %s\n", cfg.Name)
+			return nil
+		},
+	}
+	addCmd.Flags().String("command", "", "stdio command to run")
+	addCmd.Flags().String("url", "", "SSE URL endpoint")
+	addCmd.Flags().StringArray("args", nil, "command arguments (repeatable)")
+	addCmd.Flags().StringArray("env", nil, "environment variables KEY=VALUE (repeatable)")
 
 	listCmd := &cobra.Command{
 		Use:   "list",
@@ -157,6 +238,6 @@ func NewMCPCmd() *cobra.Command {
 	}
 	callCmd.Flags().DurationVar(&timeout, "timeout", 60*time.Second, "total timeout")
 
-	cmd.AddCommand(listCmd, statusCmd, callCmd)
+	cmd.AddCommand(listCmd, statusCmd, callCmd, discoverCmd, addCmd)
 	return cmd
 }

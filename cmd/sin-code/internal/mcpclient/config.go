@@ -24,10 +24,14 @@ type configFile struct {
 // LoadConfigs returns the effective server list for a workspace.
 // Missing files are fine; broken files are logged to stderr and skipped
 // (additive, never fatal — same guarantee as ConnectAll).
+// Merge order: built-in defaults -> discovered configs -> ~/.config/sin-code/mcp.json -> workspace/.sin-code/mcp.json.
 func LoadConfigs(workspace string) []ServerConfig {
 	merged := map[string]fileEntry{}
 	for _, e := range DefaultServers() {
 		merged[e.Name] = fileEntry{ServerConfig: e}
+	}
+	for _, c := range DiscoverConfigs(workspace) {
+		merged[c.Name] = fileEntry{ServerConfig: c}
 	}
 	for _, path := range configPaths(workspace) {
 		entries, err := readConfigFile(path)
