@@ -61,9 +61,9 @@ sin-code image-graph     ->  "Daten visualisieren" (sin-code image-graph)
 Based on deep research of 10 top GitHub repos (186k to 3.6k stars):
 
 ```
-Hero Image (optional) -> Badges -> Tagline -> Quick Links -> Quick Start -> 
-Features -> Stats/Charts -> Models/Details -> API/Usage -> 
-Architecture -> Contributing -> License -> Footer
+H1 Title + One-Line Description -> Badges -> Tagline -> Quick Links ->
+Hero Banner -> Quick Start -> Features -> Stats/Charts -> Models/Details ->
+API/Usage -> Architecture -> Contributing -> License -> Footer Banner
 ```
 
 **Keine starren Regeln — orientiere dich an den Top-Repos, passe an dein Repo an.**
@@ -288,8 +288,6 @@ Beide Banner sind **custom-designed SVGs** (NICHT shields.io badges). Sie nutzen
 #### 10a. Header Hero Banner (individuell pro Repo)
 
 ```html
-<a name="readme-top"></a>
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/hero-banner.svg" />
   <source media="(prefers-color-scheme: light)" srcset="./assets/hero-banner-light.svg" />
@@ -347,8 +345,8 @@ Resize logo to 60×60 before encoding (~8KB base64).
 
 **Was das Footer-Banner zeigt (gleich für alle Repos):**
 - **"OpenSIN AI"** (gradient text, `ui-sans-serif, system-ui`, weight 500)
-- **Tagline**: "Enterprise AI agents that work autonomously"
-- **Repo-specific benefits** (3 Items, pipe-separated, z.B. "484 free API keys · 10-proxy auto-failover · 12 Fireworks models")
+- **Tagline**: "{{REPO_NAME}}" — the GitHub repo name (e.g. `SINator-FireworksAI`)
+- **Repo-specific benefits** (3 Items, pipe-separated, e.g. "484 free API keys · 10-proxy auto-failover · 12 Fireworks models")
 - **OpenSIN logo** (embedded als base64 data URI, 100×100px)
 - **Hex grid + neon glow + pulse ring + scanning line** (gleiche Design Language)
 
@@ -374,6 +372,12 @@ Resize logo to 60×60 before encoding (~8KB base64).
 ```markdown
 <a name="readme-top"></a>
 
+# {{REPO_NAME}}
+
+<p align="center">
+  <em>{{ONE_SENTENCE_BENEFIT}}</em>
+</p>
+
 <!-- BADGES (max 3-4) -->
 <p align="center">
   <a href="https://pypi.org/project/{{PACKAGE}}/">
@@ -385,11 +389,6 @@ Resize logo to 60×60 before encoding (~8KB base64).
   <a href="https://github.com/{{ORG}}/{{REPO}}/stargazers">
     <img src="https://img.shields.io/github/stars/{{ORG}}/{{REPO}}?style=social" alt="Stars" />
   </a>
-</p>
-
-<!-- TAGLINE -->
-<p align="center">
-  <em>{{ONE_SENTENCE_BENEFIT}}</em>
 </p>
 
 <!-- QUICK LINKS (pipe-separated, Rust pattern) -->
@@ -407,8 +406,6 @@ Resize logo to 60×60 before encoding (~8KB base64).
 </picture>
 
 ---
-
-# {{REPO_NAME}}
 
 {{TWO_SENTENCE_DESCRIPTION}}
 
@@ -597,10 +594,15 @@ echo '{"title":"Pool Status","items":[{"label":"Available","value":41},{"label":
 
 **WICHTIG:** Charts muessen auf GitHub (Light-Mode!) lesbar sein. Wenn du dunkle Charts generierst, teste sie vorher mit `sin-brain_open_image_in_preview`. GitHub's README-Viewer ist Light-Mode by default.
 
-**Embed in README:**
+**Embed in README (VOLLBREITE — kein width!):**
+```markdown
+![Chart Title](./assets/chart-name.png)
+```
+
+Oder fuer zentrierte Vollbreite:
 ```html
 <p align="center">
-  <img src="./assets/chart-name.png" alt="Chart Title" width="640" />
+  <img src="./assets/chart-name.png" alt="Chart Title" />
 </p>
 ```
 
