@@ -32,11 +32,13 @@ const (
 // and network calls. Production defaults point to the real implementations.
 var (
 	toolReadFn           = toolRead
-	toolWriteFn          = toolWrite
-	toolEditFn           = toolEdit
-	toolBashFn           = toolBash
-	toolSearchFn         = toolSearch
-	toolBootstrapSkillFn = toolBootstrapSkill
+	toolWriteFn           = toolWrite
+	toolEditFn            = toolEdit
+	toolApplyDiffFn       = toolApplyDiff
+	toolGenerateDiffFn    = toolGenerateDiff
+	toolBashFn            = toolBash
+	toolSearchFn          = toolSearch
+	toolBootstrapSkillFn  = toolBootstrapSkill
 	toolSearchWalkErrFn  = func(_ string, err error) error { return nil }
 	metaBootstrapSkillFn = meta.BootstrapSkill
 )
@@ -57,7 +59,11 @@ func builtinSpecs() []agentloopToolSpecAlias {
 			InputSchema: obj(map[string]any{"path": str("file path"), "content": str("full file content")}, "path", "content")},
 		{Name: "sin_edit", Description: "Replace the first exact occurrence of old with new in a file.",
 			InputSchema: obj(map[string]any{"path": str("file path"), "old": str("exact text to replace"), "new": str("replacement text")}, "path", "old", "new")},
-		{Name: "sin_bash", Description: "Run a shell command in the workspace (120s timeout).",
+		{Name: "sin_apply_diff", Description: "Apply a unified diff to a file. Validates each hunk before applying and reports applied/rejected hunks. (issue #365)",
+			InputSchema: obj(map[string]any{"path": str("file path"), "diff": str("unified diff string")}, "path", "diff")},
+		{Name: "sin_generate_diff", Description: "Generate a unified diff from old and new content. (issue #365)",
+			InputSchema: obj(map[string]any{"old_content": str("original content"), "new_content": str("updated content")}, "old_content", "new_content")},
+		{Name: "sin_bash", Description: "Run a shell command in the workspace (120s timeout).", 
 			InputSchema: obj(map[string]any{"command": str("shell command")}, "command")},
 		{Name: "sin_search", Description: "Search files for a substring; returns file:line matches.",
 			InputSchema: obj(map[string]any{"pattern": str("substring to search"), "dir": str("directory (default .)")}, "pattern")},
@@ -78,6 +84,10 @@ func builtinTool(ctx context.Context, workspace, name string, args map[string]an
 		return toolWriteFn(argStr(args, "path"), argStr(args, "content"))
 	case "sin_edit":
 		return toolEditFn(argStr(args, "path"), argStr(args, "old"), argStr(args, "new"))
+	case "sin_apply_diff":
+		return toolApplyDiffFn(argStr(args, "path"), argStr(args, "diff"))
+	case "sin_generate_diff":
+		return toolGenerateDiffFn(argStr(args, "old_content"), argStr(args, "new_content"))
 	case "sin_bash":
 		return toolBashFn(ctx, argStr(args, "command"))
 	case "sin_search":
@@ -190,6 +200,31 @@ func toolEdit(path, old, new string) (string, error) {
 	result := "edited " + path
 	result += maybeGenerateTest(path)
 	return result, nil
+}
+
+func toolApplyDiff(path, diff string) (string, error) {
+	if path == "" || diff == "" {
+		return "", fmt.Errorf("sin_apply_diff: path and diff required")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	applier := agentloop.NewDiffApplier()
+	updated, err := applier.Apply(string(data), diff)
+	if err != nil {
+		return "", fmt.Errorf("sin_apply_diff: %w", err)
+	}
+	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+		return "", err
+	}
+	result := "applied diff to " + path
+	result += maybeGenerateTest(path)
+	return result, nil
+}
+
+func toolGenerateDiff(oldContent, newContent string) (string, error) {
+	return agentloop.GenerateDiff(oldContent, newContent), nil
 }
 
 // sandboxConfig controls OS-level isolation for sin_bash (issue #367).

@@ -198,6 +198,41 @@ func TestApplyDiff_FileHeadersSkipped(t *testing.T) {
 	}
 }
 
+func TestGenerateDiff_RoundTrip(t *testing.T) {
+	oldContent := "alpha\nbeta\ngamma\n"
+	newContent := "alpha\nBETA\ngamma\n"
+	diff := GenerateDiff(oldContent, newContent)
+	hunks, err := ParseUnifiedDiff(diff)
+	if err != nil {
+		t.Fatalf("ParseUnifiedDiff: %v", err)
+	}
+	result, err := ApplyDiff(oldContent, hunks)
+	if err != nil {
+		t.Fatalf("ApplyDiff: %v", err)
+	}
+	if result != newContent {
+		t.Errorf("round-trip = %q, want %q", result, newContent)
+	}
+}
+
+func TestGenerateDiff_Insertion(t *testing.T) {
+	oldContent := "a\nc\n"
+	newContent := "a\nb\nc\n"
+	diff := GenerateDiff(oldContent, newContent)
+	if !strings.Contains(diff, "+b") {
+		t.Errorf("diff missing inserted line: %s", diff)
+	}
+}
+
+func TestGenerateDiff_Deletion(t *testing.T) {
+	oldContent := "a\nb\nc\n"
+	newContent := "a\nc\n"
+	diff := GenerateDiff(oldContent, newContent)
+	if !strings.Contains(diff, "-b") {
+		t.Errorf("diff missing removed line: %s", diff)
+	}
+}
+
 // isBinary returns true if the content contains NUL bytes, which is the
 // standard heuristic for binary file detection.
 func isBinary(content string) bool {
