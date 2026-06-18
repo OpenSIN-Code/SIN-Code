@@ -37,6 +37,8 @@ validation.
 | `permissions.tools_deny` | []string | `[]` | comma-separated globs |
 | `paths.mcp_config` | string | `~/.sin-code/mcp.json` | any path |
 | `paths.skills_dir` | string | `""` | any path |
+| `autonomy.container.enabled` | bool | `false` | `true`, `false` (issue #389) |
+| `autonomy.container.image` | string | `""` | any container image reference (issue #389) |
 
 ## Why certain decisions were made
 

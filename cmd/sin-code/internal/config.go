@@ -41,11 +41,11 @@ type SinCodeConfig struct {
 	DefaultTimeout   int     `toml:"default_timeout"`
 	DefaultFormat    string  `toml:"default_format"`
 	MCPServerEnabled bool    `toml:"mcp_server_enabled"`
-	LLMBaseURL          string  `toml:"llm.base_url"`
-	LLMAPIKey           string  `toml:"llm.api_key"`
-	LLMModel            string  `toml:"llm.model"`
-	LLMMaxTokens        int     `toml:"llm.max_tokens"`
-	LLMTemperature      float64 `toml:"llm.temperature"`
+	LLMBaseURL       string  `toml:"llm.base_url"`
+	LLMAPIKey        string  `toml:"llm.api_key"`
+	LLMModel         string  `toml:"llm.model"`
+	LLMMaxTokens     int     `toml:"llm.max_tokens"`
+	LLMTemperature   float64 `toml:"llm.temperature"`
 	// LLMThinkingEnabled flips the wire-side "thinking" block on per request
 	// (Claude / Anthropic-style providers on NIM / OpenRouter gateways);
 	// default false. Issue: Thinking Budget Enforcement (first PR).
@@ -58,17 +58,17 @@ type SinCodeConfig struct {
 	// LLMStyle (issue #167) controls the verbosity mode injected into
 	// the agent's system prompt: "default", "verbose", "normal",
 	// "terse", "ultra". Empty == "default" == pass-through.
-	LLMStyle        string   `toml:"llm.style"`
-	AgentVerifyMode string   `toml:"agent.verify_mode"`
-	AgentMaxTurns   int      `toml:"agent.max_turns"`
-	AgentHeadless          bool     `toml:"agent.headless"`
-	AgentYolo              bool     `toml:"agent.yolo"`
-	AgentLoopRequiredTools []string `toml:"agentloop.required_tools"`
+	LLMStyle                string   `toml:"llm.style"`
+	AgentVerifyMode         string   `toml:"agent.verify_mode"`
+	AgentMaxTurns           int      `toml:"agent.max_turns"`
+	AgentHeadless           bool     `toml:"agent.headless"`
+	AgentYolo               bool     `toml:"agent.yolo"`
+	AgentLoopRequiredTools  []string `toml:"agentloop.required_tools"`
 	AgentLoopForbiddenTools []string `toml:"agentloop.forbidden_tools"`
-	ToolsAllow             []string `toml:"permissions.tools_allow"`
-	ToolsDeny              []string `toml:"permissions.tools_deny"`
-	PathsMCPConfig         string   `toml:"paths.mcp_config"`
-	PathsSkillsDir         string   `toml:"paths.skills_dir"`
+	ToolsAllow              []string `toml:"permissions.tools_allow"`
+	ToolsDeny               []string `toml:"permissions.tools_deny"`
+	PathsMCPConfig          string   `toml:"paths.mcp_config"`
+	PathsSkillsDir          string   `toml:"paths.skills_dir"`
 	// Test-First Verify-Loop thresholds (RFC-test-automation.md).
 	TestCoverageThreshold float64 `toml:"test.coverage_threshold"`
 	TestMutationThreshold float64 `toml:"test.mutation_threshold"`
@@ -82,17 +82,17 @@ type SinCodeConfig struct {
 	// when test.use_llm is true. Default 3; 0 disables repair.
 	TestRepairRounds int `toml:"test.repair_rounds"`
 	// SIN Fusion v1: verify-tournament config (issue #290).
-	FusionEnabled          bool     `toml:"fusion.enabled"`
-	FusionProviders        []string `toml:"fusion.providers"`
-	FusionMaxCostUSD       float64  `toml:"fusion.max_cost_usd"`
-	FusionMinQuorum        int      `toml:"fusion.min_quorum"`
-	FusionPerProviderTimeoutS int   `toml:"fusion.per_provider_timeout_s"`
-	FusionDifficultyGate   bool     `toml:"fusion.difficulty_gate"`
-	FusionOracleMode       bool     `toml:"fusion.oracle_mode"`
+	FusionEnabled             bool     `toml:"fusion.enabled"`
+	FusionProviders           []string `toml:"fusion.providers"`
+	FusionMaxCostUSD          float64  `toml:"fusion.max_cost_usd"`
+	FusionMinQuorum           int      `toml:"fusion.min_quorum"`
+	FusionPerProviderTimeoutS int      `toml:"fusion.per_provider_timeout_s"`
+	FusionDifficultyGate      bool     `toml:"fusion.difficulty_gate"`
+	FusionOracleMode          bool     `toml:"fusion.oracle_mode"`
 	// Memory: autoDream background consolidation + context priming.
-	MemoryAutoDream          bool   `toml:"memory.autodream"`
-	MemoryAutoDreamInterval  string `toml:"memory.autodream_interval"`
-	MemoryPrimeOnStart       bool   `toml:"memory.prime_on_start"`
+	MemoryAutoDream         bool   `toml:"memory.autodream"`
+	MemoryAutoDreamInterval string `toml:"memory.autodream_interval"`
+	MemoryPrimeOnStart      bool   `toml:"memory.prime_on_start"`
 	// Orchestrator: episodic replay of verified plans.
 	OrchestratorEpisodicMemory bool `toml:"orchestrator.episodic_memory"`
 	// Orchestrator: DeepPlanner produces parallel DAG plans (issue #282).
@@ -133,6 +133,12 @@ type SinCodeConfig struct {
 	WorktreeConflictCheck string `toml:"worktree.conflict_check"`
 	WorktreeTargetBranch  string `toml:"worktree.target_branch"`
 
+	// Autonomy container execution (issue #389).
+	// When enabled, the daemon's verification command runs inside a container
+	// via `docker run --rm -v <workspace>:/workspace ... <image>`.
+	AutonomyContainerEnabled bool   `toml:"autonomy.container.enabled"`
+	AutonomyContainerImage   string `toml:"autonomy.container.image"`
+
 	// ContextCompactionMode selects the compaction algorithm (issue: compaction-modes).
 	// off | deterministic | llm | hybrid. Empty or off = legacy behaviour.
 	AgentLoopContextCompaction string `toml:"agentloop.context_compaction"`
@@ -156,63 +162,65 @@ type SinCodeConfig struct {
 
 func defaultConfig() SinCodeConfig {
 	return SinCodeConfig{
-		Theme:            "dark",
-		DefaultTimeout:   60,
-		DefaultFormat:    "json",
-		MCPServerEnabled: true,
-		LLMBaseURL:          "https://integrate.api.nvidia.com/v1",
-		LLMAPIKey:           "",
-		LLMModel:            "",
-		LLMMaxTokens:        8192,
-		LLMTemperature:      0.0,
-		LLMThinkingEnabled:  false,
-		LLMThinkingBudget:   0,
-		LLMStyle:            "default",
-		AgentVerifyMode:          "poc",
-		AgentMaxTurns:            80,
-		AgentHeadless:            false,
-		AgentYolo:                false,
-		AgentLoopRequiredTools:   []string{},
-		AgentLoopForbiddenTools:  []string{},
-		ToolsAllow:               []string{},
-		ToolsDeny:                []string{},
-		PathsMCPConfig:           filepath.Join("~", ".sin-code", "mcp.json"),
-		PathsSkillsDir:           "",
-		TestCoverageThreshold:    0.0,
-		TestMutationThreshold:    0.0,
-		TestAutoGenerate:         false,
-		TestTimeoutSeconds:       300,
-		TestUseLLM:               false,
-		TestRepairRounds:         3,
-		ChatLazyTools:            false,
-		ChatSemanticTools:        false,
-		LLMPromptCache:           true,
-		AgentLoopCompactionStrategy:  "off",
-		AgentLoopCompactionThreshold: 0.8,
-		AgentLoopFrustrationDetection: false,
-		FusionEnabled:            false,
-		FusionProviders:          []string{"minimax-m3", "kimi-k2p7-code-fast", "kimi-k2p7-code", "deepseek-v4-pro", "qwen-3p7-plus", "glm-5p2"},
-		FusionMaxCostUSD:         5.0,
-		FusionMinQuorum:          2,
-		FusionPerProviderTimeoutS: 120,
-		FusionDifficultyGate:     true,
-		FusionOracleMode:         false,
-		MemoryAutoDream:          false,
-		MemoryAutoDreamInterval:  "5m",
-		MemoryPrimeOnStart:       false,
-		OrchestratorEpisodicMemory:    false,
-		OrchestratorDeepPlanner:       false,
-		OrchestratorPatternLearning:   false,
-		OrchestratorPreWarm:           false,
-		PermissionYoloRiskThreshold:   "",
-		WorktreeConflictCheck:         "off",
-		WorktreeTargetBranch:          "",
-		AgentLoopContextCompaction:            "off",
-		AgentLoopCompactionTrigger:           "tokens",
-		AgentLoopCompactionMaxTokens:         8000,
-		AgentLoopContextWindow:               0,
-		AgentLoopCompactionPreserveEvidence:  true,
-		AgentLoopCompactionRecentTurns:       4,
+		Theme:                               "dark",
+		DefaultTimeout:                      60,
+		DefaultFormat:                       "json",
+		MCPServerEnabled:                    true,
+		LLMBaseURL:                          "https://integrate.api.nvidia.com/v1",
+		LLMAPIKey:                           "",
+		LLMModel:                            "",
+		LLMMaxTokens:                        8192,
+		LLMTemperature:                      0.0,
+		LLMThinkingEnabled:                  false,
+		LLMThinkingBudget:                   0,
+		LLMStyle:                            "default",
+		AgentVerifyMode:                     "poc",
+		AgentMaxTurns:                       80,
+		AgentHeadless:                       false,
+		AgentYolo:                           false,
+		AgentLoopRequiredTools:              []string{},
+		AgentLoopForbiddenTools:             []string{},
+		ToolsAllow:                          []string{},
+		ToolsDeny:                           []string{},
+		PathsMCPConfig:                      filepath.Join("~", ".sin-code", "mcp.json"),
+		PathsSkillsDir:                      "",
+		TestCoverageThreshold:               0.0,
+		TestMutationThreshold:               0.0,
+		TestAutoGenerate:                    false,
+		TestTimeoutSeconds:                  300,
+		TestUseLLM:                          false,
+		TestRepairRounds:                    3,
+		ChatLazyTools:                       false,
+		ChatSemanticTools:                   false,
+		LLMPromptCache:                      true,
+		AgentLoopCompactionStrategy:         "off",
+		AgentLoopCompactionThreshold:        0.8,
+		AgentLoopFrustrationDetection:       false,
+		FusionEnabled:                       false,
+		FusionProviders:                     []string{"minimax-m3", "kimi-k2p7-code-fast", "kimi-k2p7-code", "deepseek-v4-pro", "qwen-3p7-plus", "glm-5p2"},
+		FusionMaxCostUSD:                    5.0,
+		FusionMinQuorum:                     2,
+		FusionPerProviderTimeoutS:           120,
+		FusionDifficultyGate:                true,
+		FusionOracleMode:                    false,
+		MemoryAutoDream:                     false,
+		MemoryAutoDreamInterval:             "5m",
+		MemoryPrimeOnStart:                  false,
+		OrchestratorEpisodicMemory:          false,
+		OrchestratorDeepPlanner:             false,
+		OrchestratorPatternLearning:         false,
+		OrchestratorPreWarm:                 false,
+		PermissionYoloRiskThreshold:         "",
+		WorktreeConflictCheck:               "off",
+		WorktreeTargetBranch:                "",
+		AutonomyContainerEnabled:            false,
+		AutonomyContainerImage:              "",
+		AgentLoopContextCompaction:          "off",
+		AgentLoopCompactionTrigger:          "tokens",
+		AgentLoopCompactionMaxTokens:        8000,
+		AgentLoopContextWindow:              0,
+		AgentLoopCompactionPreserveEvidence: true,
+		AgentLoopCompactionRecentTurns:      4,
 	}
 }
 
@@ -590,6 +598,12 @@ test.repair_rounds = %d
 worktree.conflict_check = %q
 worktree.target_branch = %q
 
+# Autonomous container execution (issue #389).
+# enabled: run verification commands inside a container (default false)
+# image: container image used for docker run --rm -v <workspace>:/workspace ...
+autonomy.container.enabled = %v
+autonomy.container.image = %q
+
 # Context compaction modes (issue: compaction-modes):
 #   "off" (default) = legacy compaction only
 #   "deterministic" = deterministic dedupe + byte-budget
@@ -610,6 +624,7 @@ agentloop.compaction_recent_turns = %d
 		cfg.PathsMCPConfig, cfg.PathsSkillsDir,
 		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds, cfg.TestUseLLM, cfg.TestRepairRounds,
 		cfg.WorktreeConflictCheck, cfg.WorktreeTargetBranch,
+		cfg.AutonomyContainerEnabled, cfg.AutonomyContainerImage,
 		cfg.AgentLoopContextCompaction, cfg.AgentLoopCompactionTrigger, cfg.AgentLoopCompactionMaxTokens, cfg.AgentLoopContextWindow,
 		cfg.AgentLoopCompactionPreserveEvidence, cfg.AgentLoopCompactionRecentTurns)
 }
@@ -757,6 +772,10 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return cfg.WorktreeConflictCheck, nil
 	case "worktree.target_branch":
 		return cfg.WorktreeTargetBranch, nil
+	case "autonomy.container.enabled":
+		return fmt.Sprintf("%v", cfg.AutonomyContainerEnabled), nil
+	case "autonomy.container.image":
+		return cfg.AutonomyContainerImage, nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -977,6 +996,10 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.WorktreeConflictCheck = value
 	case "worktree.target_branch":
 		cfg.WorktreeTargetBranch = value
+	case "autonomy.container.enabled":
+		cfg.AutonomyContainerEnabled = value == "true" || value == "1"
+	case "autonomy.container.image":
+		cfg.AutonomyContainerImage = value
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}
@@ -1047,6 +1070,8 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"permission.yolo_risk_threshold", cfg.PermissionYoloRiskThreshold},
 		{"worktree.conflict_check", cfg.WorktreeConflictCheck},
 		{"worktree.target_branch", cfg.WorktreeTargetBranch},
+		{"autonomy.container.enabled", fmt.Sprintf("%v", cfg.AutonomyContainerEnabled)},
+		{"autonomy.container.image", cfg.AutonomyContainerImage},
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Key < pairs[j].Key })
 	return pairs
@@ -1104,14 +1129,14 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 			"yolo":        cfg.AgentYolo,
 		},
 		"agentloop": map[string]any{
-			"required_tools":       cfg.AgentLoopRequiredTools,
-			"forbidden_tools":      cfg.AgentLoopForbiddenTools,
-			"context_compaction":   cfg.AgentLoopContextCompaction,
-			"compaction_trigger":   cfg.AgentLoopCompactionTrigger,
-			"compaction_max_tokens": cfg.AgentLoopCompactionMaxTokens,
-			"context_window":       cfg.AgentLoopContextWindow,
+			"required_tools":               cfg.AgentLoopRequiredTools,
+			"forbidden_tools":              cfg.AgentLoopForbiddenTools,
+			"context_compaction":           cfg.AgentLoopContextCompaction,
+			"compaction_trigger":           cfg.AgentLoopCompactionTrigger,
+			"compaction_max_tokens":        cfg.AgentLoopCompactionMaxTokens,
+			"context_window":               cfg.AgentLoopContextWindow,
 			"compaction_preserve_evidence": cfg.AgentLoopCompactionPreserveEvidence,
-			"compaction_recent_turns":     cfg.AgentLoopCompactionRecentTurns,
+			"compaction_recent_turns":      cfg.AgentLoopCompactionRecentTurns,
 		},
 		"permissions": map[string]any{
 			"tools_allow": cfg.ToolsAllow,
@@ -1124,6 +1149,12 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 		"worktree": map[string]any{
 			"conflict_check": cfg.WorktreeConflictCheck,
 			"target_branch":  cfg.WorktreeTargetBranch,
+		},
+		"autonomy": map[string]any{
+			"container": map[string]any{
+				"enabled": cfg.AutonomyContainerEnabled,
+				"image":   cfg.AutonomyContainerImage,
+			},
 		},
 	}
 	enc := json.NewEncoder(os.Stdout)
@@ -1140,17 +1171,19 @@ func showTOML(cfg SinCodeConfig, mask bool) error {
 		Theme: cfg.Theme, DefaultTimeout: cfg.DefaultTimeout, DefaultFormat: cfg.DefaultFormat,
 		MCPServerEnabled: cfg.MCPServerEnabled, LLMBaseURL: cfg.LLMBaseURL, LLMAPIKey: apiKey,
 		LLMModel: cfg.LLMModel, LLMMaxTokens: cfg.LLMMaxTokens, LLMTemperature: cfg.LLMTemperature,
-		LLMStyle:                 cfg.LLMStyle,
-		AgentVerifyMode:          cfg.AgentVerifyMode, AgentMaxTurns: cfg.AgentMaxTurns,
-		AgentHeadless:            cfg.AgentHeadless, AgentYolo: cfg.AgentYolo,
+		LLMStyle:        cfg.LLMStyle,
+		AgentVerifyMode: cfg.AgentVerifyMode, AgentMaxTurns: cfg.AgentMaxTurns,
+		AgentHeadless: cfg.AgentHeadless, AgentYolo: cfg.AgentYolo,
 		AgentLoopRequiredTools: cfg.AgentLoopRequiredTools, AgentLoopForbiddenTools: cfg.AgentLoopForbiddenTools,
-		ToolsAllow:               cfg.ToolsAllow, ToolsDeny: cfg.ToolsDeny,
-		PathsMCPConfig:           cfg.PathsMCPConfig, PathsSkillsDir: cfg.PathsSkillsDir,
-		TestCoverageThreshold:    cfg.TestCoverageThreshold, TestMutationThreshold: cfg.TestMutationThreshold,
-		TestAutoGenerate:         cfg.TestAutoGenerate, TestTimeoutSeconds: cfg.TestTimeoutSeconds,
-		TestUseLLM:               cfg.TestUseLLM, TestRepairRounds: cfg.TestRepairRounds,
-		WorktreeConflictCheck:              cfg.WorktreeConflictCheck,
-		WorktreeTargetBranch:               cfg.WorktreeTargetBranch,
+		ToolsAllow: cfg.ToolsAllow, ToolsDeny: cfg.ToolsDeny,
+		PathsMCPConfig: cfg.PathsMCPConfig, PathsSkillsDir: cfg.PathsSkillsDir,
+		TestCoverageThreshold: cfg.TestCoverageThreshold, TestMutationThreshold: cfg.TestMutationThreshold,
+		TestAutoGenerate: cfg.TestAutoGenerate, TestTimeoutSeconds: cfg.TestTimeoutSeconds,
+		TestUseLLM: cfg.TestUseLLM, TestRepairRounds: cfg.TestRepairRounds,
+		WorktreeConflictCheck:               cfg.WorktreeConflictCheck,
+		WorktreeTargetBranch:                cfg.WorktreeTargetBranch,
+		AutonomyContainerEnabled:            cfg.AutonomyContainerEnabled,
+		AutonomyContainerImage:              cfg.AutonomyContainerImage,
 		AgentLoopContextCompaction:          cfg.AgentLoopContextCompaction,
 		AgentLoopCompactionTrigger:          cfg.AgentLoopCompactionTrigger,
 		AgentLoopCompactionMaxTokens:        cfg.AgentLoopCompactionMaxTokens,
@@ -1232,6 +1265,9 @@ func validateConfig(cfg SinCodeConfig) []string {
 	}
 	if cfg.AgentLoopCompactionRecentTurns <= 0 {
 		issues = append(issues, fmt.Sprintf("agentloop.compaction_recent_turns must be > 0, got %d", cfg.AgentLoopCompactionRecentTurns))
+	}
+	if cfg.AutonomyContainerEnabled && cfg.AutonomyContainerImage == "" {
+		issues = append(issues, "autonomy.container.enabled is true but autonomy.container.image is empty")
 	}
 	return issues
 }
@@ -1346,22 +1382,26 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.AgentLoopFrustrationDetection = val == "true" || val == "1"
 		case "permission.yolo_risk_threshold":
 			cfg.PermissionYoloRiskThreshold = val
-	case "agentloop.context_compaction":
-		cfg.AgentLoopContextCompaction = val
-	case "agentloop.compaction_trigger":
-		cfg.AgentLoopCompactionTrigger = val
-	case "agentloop.compaction_max_tokens":
-		_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionMaxTokens)
-	case "agentloop.context_window":
-		_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopContextWindow)
-	case "agentloop.compaction_preserve_evidence":
-		cfg.AgentLoopCompactionPreserveEvidence = val == "true" || val == "1"
-	case "agentloop.compaction_recent_turns":
-		_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionRecentTurns)
-	case "worktree.conflict_check":
-		cfg.WorktreeConflictCheck = val
-	case "worktree.target_branch":
-		cfg.WorktreeTargetBranch = val
+		case "agentloop.context_compaction":
+			cfg.AgentLoopContextCompaction = val
+		case "agentloop.compaction_trigger":
+			cfg.AgentLoopCompactionTrigger = val
+		case "agentloop.compaction_max_tokens":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionMaxTokens)
+		case "agentloop.context_window":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopContextWindow)
+		case "agentloop.compaction_preserve_evidence":
+			cfg.AgentLoopCompactionPreserveEvidence = val == "true" || val == "1"
+		case "agentloop.compaction_recent_turns":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionRecentTurns)
+		case "worktree.conflict_check":
+			cfg.WorktreeConflictCheck = val
+		case "worktree.target_branch":
+			cfg.WorktreeTargetBranch = val
+		case "autonomy.container.enabled":
+			cfg.AutonomyContainerEnabled = val == "true" || val == "1"
+		case "autonomy.container.image":
+			cfg.AutonomyContainerImage = val
 		}
 	}
 }

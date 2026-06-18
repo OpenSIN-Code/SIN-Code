@@ -20,9 +20,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
@@ -52,22 +52,25 @@ var (
 // daemonOptions bundles the parsed CLI flags so the worker pool and
 // trigger registration share one config value.
 type daemonOptions struct {
-	pollEvery        time.Duration
-	leaseDur         time.Duration
-	verifyCmd        string
-	maxTurns         int
-	concurrency      int
-	repos            []string
-	limits           resource.Limits
-	maxContinuations int
-	maxDepth         int
-	noContract       bool
-	noBaseline       bool
-	requireTools     string
-	forbidTools      string
-	fusionOnVerifyFail bool
-	autoPR             bool
+	pollEvery           time.Duration
+	leaseDur            time.Duration
+	verifyCmd           string
+	maxTurns            int
+	concurrency         int
+	repos               []string
+	limits              resource.Limits
+	maxContinuations    int
+	maxDepth            int
+	noContract          bool
+	noBaseline          bool
+	requireTools        string
+	forbidTools         string
+	fusionOnVerifyFail  bool
+	autoPR              bool
 	repetitionThreshold int
+	containerEnabled    bool
+	containerImage      string
+	containerRunner     autonomy.ContainerRunner
 }
 
 func NewDaemonCmd() *cobra.Command {
@@ -80,6 +83,8 @@ func NewDaemonCmd() *cobra.Command {
 	var maxMemory, minDisk string
 	var requireTools, forbidTools string
 	var repetitionThreshold int
+	var containerEnabled bool
+	var containerImage string
 	cmd := &cobra.Command{
 		Use:   "daemon",
 		Short: "Run the autonomous worker: lease goals, execute, verify, learn",
@@ -100,20 +105,22 @@ func NewDaemonCmd() *cobra.Command {
 				concurrency = 1
 			}
 			return runDaemon(cmd.Context(), daemonOptions{
-				pollEvery:        pollEvery,
-				leaseDur:         leaseDur,
-				verifyCmd:        verifyCmd,
-				maxTurns:         maxTurns,
-				concurrency:      concurrency,
-				repos:            repos,
-				limits:           limits,
-				maxContinuations: maxContinuations,
-				maxDepth:         maxDepth,
-			noContract:       noContract,
-			noBaseline:       noBaseline,
-			requireTools:     requireTools,
-			forbidTools:      forbidTools,
-			fusionOnVerifyFail: fusionOnVerifyFail,
+				pollEvery:          pollEvery,
+				leaseDur:           leaseDur,
+				verifyCmd:          verifyCmd,
+				maxTurns:           maxTurns,
+				concurrency:        concurrency,
+				repos:              repos,
+				limits:             limits,
+				maxContinuations:   maxContinuations,
+				maxDepth:           maxDepth,
+				noContract:         noContract,
+				noBaseline:         noBaseline,
+				requireTools:       requireTools,
+				forbidTools:        forbidTools,
+				fusionOnVerifyFail: fusionOnVerifyFail,
+				containerEnabled:   containerEnabled,
+				containerImage:     containerImage,
 			})
 		},
 	}
@@ -135,6 +142,8 @@ func NewDaemonCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&fusionOnVerifyFail, "fusion-on-verify-fail", false, "enable SIN Fusion verify-tournament on verify.fail (issue #290). Oracle mode is experimental; set fusion.oracle_mode=true via config.")
 	cmd.Flags().BoolVar(&autoPR, "auto-pr", false, "auto-create PR after verification (issue #391)")
 	cmd.Flags().IntVar(&repetitionThreshold, "repetition-threshold", 3, "observer-loop (issue #377)")
+	cmd.Flags().BoolVar(&containerEnabled, "container", false, "run verification commands inside a container (issue #389)")
+	cmd.Flags().StringVar(&containerImage, "container-image", os.Getenv("SIN_CONTAINER_IMAGE"), "container image for verification (defaults to config autonomy.container.image)")
 	return cmd
 }
 
@@ -198,6 +207,22 @@ func runDaemon(ctx context.Context, opt daemonOptions) error {
 		}
 		_, err := dream.RunOnce(ctx)
 		return err
+	}
+
+	// Containerized verification (issue #389): when the CLI flag or the config
+	// enables it, wire a Docker runner. The image must be explicit either from
+	// --container-image or from autonomy.container.image.
+	if opt.containerEnabled || sinCfg.AutonomyContainerEnabled {
+		image := opt.containerImage
+		if image == "" {
+			image = sinCfg.AutonomyContainerImage
+		}
+		if image == "" {
+			return fmt.Errorf("containerization requested but no container image provided; set --container-image or autonomy.container.image")
+		}
+		opt.containerImage = image
+		opt.containerRunner = autonomy.NewDockerRunner()
+		fmt.Printf("daemon: containerized verification enabled (image=%s)\n", image)
 	}
 
 	for _, repo := range dedupeRepos(cwd, opt.repos) {
@@ -340,20 +365,22 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 	}
 
 	loop, cleanup, err := loopbuilderBuildHook(ctx, loopbuilder.Config{
-		Workspace:                   goal.Workspace,
-		SessionID:                   sess.ID,
-		GoalID:                      fmt.Sprintf("%d", goal.ID),
-		MaxTurns:                    opt.maxTurns,
-		VerifyMode:                  "poc",
-		VerifyCmd:                   opt.verifyCmd,
-		Headless:                    true,
-		Contract:                    contract,
-		AllowContinuation:           opt.maxContinuations > 0,
-		CoverageRequiredTools:       splitList(opt.requireTools),
-		CoverageForbiddenTools:      splitList(opt.forbidTools),
-		FusionEnabled:               opt.fusionOnVerifyFail,
-		RepetitionThreshold:         opt.repetitionThreshold,
-		SessionStore:                store,
+		Workspace:              goal.Workspace,
+		SessionID:              sess.ID,
+		GoalID:                 fmt.Sprintf("%d", goal.ID),
+		MaxTurns:               opt.maxTurns,
+		VerifyMode:             "poc",
+		VerifyCmd:              opt.verifyCmd,
+		Headless:               true,
+		Contract:               contract,
+		AllowContinuation:      opt.maxContinuations > 0,
+		CoverageRequiredTools:  splitList(opt.requireTools),
+		CoverageForbiddenTools: splitList(opt.forbidTools),
+		FusionEnabled:          opt.fusionOnVerifyFail,
+		RepetitionThreshold:    opt.repetitionThreshold,
+		ContainerRunner:        opt.containerRunner,
+		ContainerImage:         opt.containerImage,
+		SessionStore:           store,
 		ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
 			baseTool := combinedTool(goal.Workspace, mgr)
 			baseSpecs := combinedSpecs(mgr)
