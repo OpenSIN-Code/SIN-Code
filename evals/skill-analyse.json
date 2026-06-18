@@ -1,0 +1,103 @@
+{
+  "name": "Skill Eval: multimodal-skills / sin-analyse-suite (issue #171)",
+  "version": "0.1.0",
+  "description": "Four-arm eval for the new multimodal-skills category wrapping the sin-analyse-suite MCP. Measures skill-vs-terse delta for read-only multimodal preprocessing (image, PDF, log, data). Run with: sin-code eval run --dataset evals/skill-analyse.json --arm baseline,terse,lazy_skill,skill-multimodal-analyse",
+  "test_cases": [
+    {
+      "id": "skill_analyse_image_dimensions_ocr",
+      "prompt": "Inspect the image at evals/fixtures/sample.png. Use the analyse suite to report its pixel dimensions, MIME type, and run OCR to extract any embedded text. Emit a one-line summary in the form <path>:<line> \u2014 <symbol> \u2014 <tag> \u2014 <hint>.",
+      "description": "skill-multimodal-analyse should call analyse__image_info for dimensions + MIME and analyse__image_ocr for text extraction, then summarize.",
+      "tags": ["category:multimodal-analyse", "needs:analyse", "image", "ocr", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false,
+        "must_use_tools": ["analyse__image_info", "analyse__image_ocr"]
+      },
+      "expected": {
+        "output_contains": ["dimensions", "MIME", "OCR", "analyse__image_info", "analyse__image_ocr"],
+        "output_avoids": ["TODO", "panic", "guess"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "multimodal-image-preprocess",
+        "metric_locus": "lines",
+        "target_skill": "skill-multimodal-analyse",
+        "expected_tools": ["analyse__image_info", "analyse__image_ocr"]
+      }
+    },
+    {
+      "id": "skill_analyse_pdf_text_extract",
+      "prompt": "Given evals/fixtures/sample.pdf, extract all readable text per page using the analyse suite. Return a per-page index and a global word count. No redaction, no summarisation \u2014 raw extraction only.",
+      "description": "skill-multimodal-analyse should call analyse__pdf_extract with a page-range sweep, never mutate the PDF, and report deterministic counts.",
+      "tags": ["category:multimodal-analyse", "needs:analyse", "pdf", "read-only", "loc"],
+      "constraints": {
+        "max_turns": 4,
+        "timeout": "60s",
+        "require_verify": false,
+        "must_use_tools": ["analyse__pdf_extract"]
+      },
+      "expected": {
+        "output_contains": ["page", "words", "analyse__pdf_extract"],
+        "output_avoids": ["write_file", "rm ", "TODO", "rewrite"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "high",
+        "category": "multimodal-pdf-extract",
+        "metric_locus": "lines",
+        "target_skill": "skill-multimodal-analyse",
+        "expected_tools": ["analyse__pdf_extract"]
+      }
+    },
+    {
+      "id": "skill_analyse_log_parse_timeline",
+      "prompt": "Parse the structured log file evals/fixtures/app.log. Use the analyse suite to group entries by severity, identify the top-3 error clusters by repeat count, and emit a deterministic timeline. Do not edit the log.",
+      "description": "skill-multimodal-analyse should call analyse__log_parse with severity bucketing, surface clusters byte-stable, and refuse any mutation verb.",
+      "tags": ["category:multimodal-analyse", "needs:analyse", "logs", "timeline", "loc"],
+      "constraints": {
+        "max_turns": 5,
+        "timeout": "60s",
+        "require_verify": false,
+        "must_use_tools": ["analyse__log_parse"]
+      },
+      "expected": {
+        "output_contains": ["error", "warn", "info", "cluster", "analyse__log_parse"],
+        "output_avoids": ["TODO", "panic", "rewrite_log"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "multimodal-log-analyse",
+        "metric_locus": "lines",
+        "target_skill": "skill-multimodal-analyse",
+        "expected_tools": ["analyse__log_parse"]
+      }
+    },
+    {
+      "id": "skill_analyse_data_format_detect",
+      "prompt": "Given three opaque files evals/fixtures/mystery.{json,csv,parquet}, use the analyse suite to detect each format, infer schema (column names + types for tabular, top-level keys for JSON), and emit a single comparison table. No conversion, no mutation.",
+      "description": "skill-multimodal-analyse should call analyse__data_detect per file, route JSON/CSV/Parquet through one shared schema-inference path, and refuse conversion verbs.",
+      "tags": ["category:multimodal-analyse", "needs:analyse", "data", "schema", "loc"],
+      "constraints": {
+        "max_turns": 6,
+        "timeout": "75s",
+        "require_verify": false,
+        "must_use_tools": ["analyse__data_detect"]
+      },
+      "expected": {
+        "output_contains": ["JSON", "CSV", "Parquet", "schema", "analyse__data_detect"],
+        "output_avoids": ["convert", "TODO", "panic", "rewrite"],
+        "min_quality": 0.0
+      },
+      "metadata": {
+        "priority": "medium",
+        "category": "multimodal-data-detect",
+        "metric_locus": "lines",
+        "target_skill": "skill-multimodal-analyse",
+        "expected_tools": ["analyse__data_detect"]
+      }
+    }
+  ]
+}
