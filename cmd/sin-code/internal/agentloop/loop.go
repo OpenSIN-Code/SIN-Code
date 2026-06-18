@@ -293,6 +293,13 @@ type Loop struct {
 	// The returned string is appended as a user message before the prompt.
 	// Optional — nil preserves legacy behavior.
 	MemoryPrime func(ctx context.Context, prompt string) (string, error)
+
+	// SessionContext, when set, is consulted at the start of a new session
+	// (empty history) and its non-empty preamble is injected as a user
+	// message before the Definition-of-Done preamble and the goal prompt.
+	// Optional — nil preserves legacy behavior. Gated by the caller via
+	// agentloop.session_context.enabled (issue #379).
+	SessionContext *SessionContextBuilder
 }
 
 // TournamentRunner is the interface for fusion verify-tournaments (issue
@@ -675,6 +682,15 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	}
 	l.record(ctx, ledger.TypeUserPrompt, map[string]any{"content": prompt}, "user prompt")
 	msgs := sess.History()
+	// Session-start context injection (issue #379): on a brand-new session
+	// (empty history), build the unified preamble from todos, previous
+	// session summary, and auto-memory. Errors are non-fatal; the loop
+	// continues with the original prompt if the builder fails.
+	if l.SessionContext != nil && len(msgs) == 0 {
+		if preamble, err := l.SessionContext.Build(ctx); err == nil && strings.TrimSpace(preamble) != "" {
+			msgs = append(msgs, session.Message{Role: "user", Content: preamble})
+		}
+	}
 	// SinCode Loop System: state the Definition-of-Done before the goal so the
 	// worker addresses tests/debug/docs/completeness proactively. Enforcement
 	// still lives in the stop-gate; this only improves first-pass quality.

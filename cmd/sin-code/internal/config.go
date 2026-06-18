@@ -158,6 +158,11 @@ type SinCodeConfig struct {
 
 	// CompactionRecentTurns is the number of recent human turns to retain. Default 4.
 	AgentLoopCompactionRecentTurns int `toml:"agentloop.compaction_recent_turns"`
+
+	// AgentLoopSessionContextEnabled enables the unified session-start
+	// context preamble (todos, previous session summary, auto-memory) at the
+	// beginning of a new session. Default true. Issue #379.
+	AgentLoopSessionContextEnabled bool `toml:"agentloop.session_context.enabled"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -221,6 +226,7 @@ func defaultConfig() SinCodeConfig {
 		AgentLoopContextWindow:              0,
 		AgentLoopCompactionPreserveEvidence: true,
 		AgentLoopCompactionRecentTurns:      4,
+		AgentLoopSessionContextEnabled:      true,
 	}
 }
 
@@ -615,6 +621,10 @@ agentloop.compaction_max_tokens = %d
 agentloop.context_window = %d
 agentloop.compaction_preserve_evidence = %v
 agentloop.compaction_recent_turns = %d
+
+# Session-start context injection (issue #379).
+# enabled: prepend todos / previous session summary / auto-memory to the first user message
+agentloop.session_context.enabled = %v
 `, cfg.Theme, cfg.DefaultTimeout, cfg.DefaultFormat, cfg.MCPServerEnabled,
 		cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMMaxTokens, cfg.LLMTemperature,
 		cfg.LLMStyle,
@@ -626,7 +636,8 @@ agentloop.compaction_recent_turns = %d
 		cfg.WorktreeConflictCheck, cfg.WorktreeTargetBranch,
 		cfg.AutonomyContainerEnabled, cfg.AutonomyContainerImage,
 		cfg.AgentLoopContextCompaction, cfg.AgentLoopCompactionTrigger, cfg.AgentLoopCompactionMaxTokens, cfg.AgentLoopContextWindow,
-		cfg.AgentLoopCompactionPreserveEvidence, cfg.AgentLoopCompactionRecentTurns)
+		cfg.AgentLoopCompactionPreserveEvidence, cfg.AgentLoopCompactionRecentTurns,
+		cfg.AgentLoopSessionContextEnabled)
 }
 
 func initConfig() error {
@@ -776,6 +787,8 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.AutonomyContainerEnabled), nil
 	case "autonomy.container.image":
 		return cfg.AutonomyContainerImage, nil
+	case "agentloop.session_context.enabled":
+		return fmt.Sprintf("%v", cfg.AgentLoopSessionContextEnabled), nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -1000,6 +1013,8 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.AutonomyContainerEnabled = value == "true" || value == "1"
 	case "autonomy.container.image":
 		cfg.AutonomyContainerImage = value
+	case "agentloop.session_context.enabled":
+		cfg.AgentLoopSessionContextEnabled = value == "true" || value == "1"
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}
@@ -1072,6 +1087,7 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"worktree.target_branch", cfg.WorktreeTargetBranch},
 		{"autonomy.container.enabled", fmt.Sprintf("%v", cfg.AutonomyContainerEnabled)},
 		{"autonomy.container.image", cfg.AutonomyContainerImage},
+		{"agentloop.session_context.enabled", fmt.Sprintf("%v", cfg.AgentLoopSessionContextEnabled)},
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Key < pairs[j].Key })
 	return pairs
@@ -1137,6 +1153,7 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 			"context_window":               cfg.AgentLoopContextWindow,
 			"compaction_preserve_evidence": cfg.AgentLoopCompactionPreserveEvidence,
 			"compaction_recent_turns":      cfg.AgentLoopCompactionRecentTurns,
+			"session_context_enabled":      cfg.AgentLoopSessionContextEnabled,
 		},
 		"permissions": map[string]any{
 			"tools_allow": cfg.ToolsAllow,
@@ -1190,6 +1207,7 @@ func showTOML(cfg SinCodeConfig, mask bool) error {
 		AgentLoopContextWindow:              cfg.AgentLoopContextWindow,
 		AgentLoopCompactionPreserveEvidence: cfg.AgentLoopCompactionPreserveEvidence,
 		AgentLoopCompactionRecentTurns:      cfg.AgentLoopCompactionRecentTurns,
+		AgentLoopSessionContextEnabled:      cfg.AgentLoopSessionContextEnabled,
 	}))
 	return nil
 }

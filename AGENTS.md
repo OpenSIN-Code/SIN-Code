@@ -601,6 +601,20 @@ honours mandate **M3**: verification evidence is always preserved
 | `agentloop.compaction_recent_turns` | int | `4` | agentloop — number of recent human turns the retain rule keeps |
 | `agentloop.compaction_max_tokens` | int | `8000` | agentloop — token budget for compacted messages |
 
+### Session-start context injection (issue #379)
+
+`cmd/sin-code/internal/agentloop/session_context.go` plus the store adapters
+in `cmd/sin-code/internal/loopbuilder/session_context_stores.go` assemble a
+unified markdown preamble from open todos, the previous session summary, and
+the workspace/user `MEMORY.md`. The preamble is injected as a user message
+before the Definition-of-Done preamble and the first user prompt, but only
+when the session history is empty (i.e. a brand-new session) and the builder
+returns a non-empty result. Errors from any store are non-fatal.
+
+| Config key | Type | Default | Used by |
+|---|---|---|---|
+| `agentloop.session_context.enabled` | bool | `true` | loopbuilder/chat — enables the unified session-start preamble |
+
 **Request-only compaction** (mandate M3): when a non-off Mode is
 selected, `Loop.Run` keeps the persisted `msgs` slice full in the
 session DB and produces a deterministically compacted view for the

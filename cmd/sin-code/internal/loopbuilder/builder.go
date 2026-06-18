@@ -26,6 +26,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
@@ -506,6 +507,23 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		}
 	}
 
+	// Session-start context injection (issue #379): when enabled, assemble a
+	// unified preamble from todos, the previous session summary, and auto-memory
+	// and prepend it to the first user message of a new session.
+	var todoStore *todo.Store
+	if sinCfg, err := internal.LoadMergedConfig(); err == nil && sinCfg.AgentLoopSessionContextEnabled {
+		if ts, terr := todo.Open(""); terr == nil {
+			todoStore = ts
+		}
+		loop.SessionContext = NewDefaultSessionContextBuilder(
+			cfg.Workspace,
+			todoStore,
+			cfg.SessionID,
+			ledgerStore,
+			"",
+		)
+	}
+
 	// SIN Fusion v1 (issue #290): wire verify-tournament when enabled.
 	WireFusion(loop, cfg, gate, client, memStore, ledgerStore, hookEngine)
 
@@ -515,6 +533,10 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 			_ = ledgerStore.Close()
 		}
 		_ = headroomHook.Close()
+
+		if todoStore != nil {
+			_ = todoStore.Close()
+		}
 		return nil
 	}
 	return loop, cleanup, nil
