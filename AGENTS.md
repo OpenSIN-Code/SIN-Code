@@ -564,6 +564,47 @@ command hooks.
 
 Oracle mode is **opt-in and gated**: it only activates when `fusion.enabled = true`, `fusion.oracle_mode = true`, and the gate is in `oracle` mode. Unlike PoC mode, oracle mode does **not** use first-pass-wins; all candidates run to completion, a single judge evaluates all outputs in randomized order, and the highest-scoring candidate wins. Default cost cap is tighter ($2.00) and `fusion__oracle_tournament` is `ask` policy (M4).
 
+
+### Model Performance Registry (issue #395)
+
+\`cmd/sin-code/internal/modelperf/\` — SQLite-backed per-model-per-category
+performance database that drives benchmark-based model selection for Fusion.
+
+| Path | Purpose |
+|------|---------|
+| \`internal/modelperf/store.go\` | SQLite store: upsert, recommend, ranking, categories |
+| \`internal/modelperf/benchmark.go\` | Parallel benchmark runner across providers |
+| \`fusion_cmd.go\` | \`sin-code fusion benchmark/rank/recommend\` subcommands |
+
+**Schema** (\`modelperf.db\`, \`~/.local/share/sin-code/modelperf.db\`):
+
+\`\`\`sql
+CREATE TABLE model_perf (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    model TEXT NOT NULL,
+    category TEXT NOT NULL,
+    dataset TEXT NOT NULL,
+    pass_rate REAL NOT NULL,
+    avg_latency_ms INTEGER DEFAULT 0,
+    avg_cost_usd REAL DEFAULT 0,
+    avg_tokens INTEGER DEFAULT 0,
+    sample_count INTEGER DEFAULT 1,
+    recorded_at TEXT NOT NULL,
+    UNIQUE(model, category, dataset)
+);
+\`\`\`
+
+**Score formula:** \`0.8 * pass_rate + 0.2 * (1 / (1 + avg_cost))\`
+
+**Task categories** (auto-detected from prompt keywords):
+\`code-generation\`, \`debugging\`, \`planning\`, \`refactoring\`,
+\`review\`, \`documentation\`, \`security\`.
+
+**Integration:** \`loopbuilder\` opens \`modelperf.db\`, detects the task
+category from \`Config.TaskDescription\`, queries recommendations, and
+sorts providers: recommended first, then the rest. Cold-start (empty DB)
+falls back to the full provider pool.
+
 ### Verbosity / compression mode (issue #167)
 
 | Config key | Allowed values | Default |

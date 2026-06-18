@@ -4,6 +4,33 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased]
 
+### Added — SIN Fusion v1 Enhancements (v3.22.0)
+
+- **Plan-Merge mode (issue #393):** New `ModePlanMerge` tournament mode —
+  N models plan in parallel, an LLM judge merges the best insights into a
+  Unified Plan, one model codes it, verify-gate validates. Unlike PoC and
+  Oracle which discard N-1 outputs, plan-merge preserves all insights.
+  Config: `fusion.mode = "plan-merge"`.
+
+- **Oracle as default (issue #394):** Default fusion mode changed from PoC
+  (first-pass-wins) to Oracle (all run, judge picks best). Quality over cost.
+  PoC still available via `fusion.mode = "poc"`. New `fusion.mode` config key
+  accepts `"poc" | "oracle" | "plan-merge"`.
+
+- **Model Performance Registry (issue #395):** Persistent per-model-per-category
+  benchmark database (`modelperf.db`) that drives benchmark-based model
+  selection for Fusion. CLI: `sin-code fusion benchmark/rank/recommend`.
+  Recommendation engine blends 80% pass_rate + 20% cost-efficiency.
+  Auto-wired into `loopbuilder` — recommended models are prioritized in
+  tournament provider selection. Cold-start: falls back to full pool.
+
+### Added — Fusion v1 Core (v3.22.0, earlier issues)
+
+- Oracle judge uses `SIN_EVALUATOR_MODEL` with separate client (anti-bias)
+- Confidence-aware difficulty gate: `ShouldRunWithConfidence`
+- `sin-code fusion` CLI subcommand: status/config/providers
+
+
 ### Added — SOTA Skill Infrastructure
 
 - **Skill frontmatter standardization**: All 36 bundled skills now have
