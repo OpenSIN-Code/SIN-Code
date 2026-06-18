@@ -41,11 +41,20 @@ type SinCodeConfig struct {
 	DefaultTimeout   int     `toml:"default_timeout"`
 	DefaultFormat    string  `toml:"default_format"`
 	MCPServerEnabled bool    `toml:"mcp_server_enabled"`
-	LLMBaseURL       string  `toml:"llm.base_url"`
-	LLMAPIKey        string  `toml:"llm.api_key"`
-	LLMModel         string  `toml:"llm.model"`
-	LLMMaxTokens     int     `toml:"llm.max_tokens"`
-	LLMTemperature   float64 `toml:"llm.temperature"`
+	LLMBaseURL          string  `toml:"llm.base_url"`
+	LLMAPIKey           string  `toml:"llm.api_key"`
+	LLMModel            string  `toml:"llm.model"`
+	LLMMaxTokens        int     `toml:"llm.max_tokens"`
+	LLMTemperature      float64 `toml:"llm.temperature"`
+	// LLMThinkingEnabled flips the wire-side "thinking" block on per request
+	// (Claude / Anthropic-style providers on NIM / OpenRouter gateways);
+	// default false. Issue: Thinking Budget Enforcement (first PR).
+	LLMThinkingEnabled bool `toml:"llm.thinking_enabled"`
+	// LLMThinkingBudget is the per-request reasoning-token cap sent on the
+	// wire as thinking.budget_tokens (when LLMThinkingEnabled is true).
+	// 0 means "unbounded / provider default". Default 0.
+	// Issue: Thinking Budget Enforcement (first PR).
+	LLMThinkingBudget int `toml:"llm.thinking_budget"`
 	// LLMStyle (issue #167) controls the verbosity mode injected into
 	// the agent's system prompt: "default", "verbose", "normal",
 	// "terse", "ultra". Empty == "default" == pass-through.
@@ -126,12 +135,14 @@ func defaultConfig() SinCodeConfig {
 		DefaultTimeout:   60,
 		DefaultFormat:    "json",
 		MCPServerEnabled: true,
-		LLMBaseURL:       "https://integrate.api.nvidia.com/v1",
-		LLMAPIKey:        "",
-		LLMModel:         "",
-		LLMMaxTokens:     8192,
-		LLMTemperature:   0.0,
-		LLMStyle:         "default",
+		LLMBaseURL:          "https://integrate.api.nvidia.com/v1",
+		LLMAPIKey:           "",
+		LLMModel:            "",
+		LLMMaxTokens:        8192,
+		LLMTemperature:      0.0,
+		LLMThinkingEnabled:  false,
+		LLMThinkingBudget:   0,
+		LLMStyle:            "default",
 		AgentVerifyMode:          "poc",
 		AgentMaxTurns:            80,
 		AgentHeadless:            false,
@@ -570,6 +581,10 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%d", cfg.LLMMaxTokens), nil
 	case "llm.temperature":
 		return fmt.Sprintf("%v", cfg.LLMTemperature), nil
+	case "llm.thinking_enabled":
+		return fmt.Sprintf("%v", cfg.LLMThinkingEnabled), nil
+	case "llm.thinking_budget":
+		return fmt.Sprintf("%d", cfg.LLMThinkingBudget), nil
 	case "llm.style":
 		return cfg.LLMStyle, nil
 	case "agent.verify_mode":
@@ -702,6 +717,14 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 			return fmt.Errorf("llm.temperature must be between 0 and 2, got %q", value)
 		}
 		cfg.LLMTemperature = v
+	case "llm.thinking_enabled":
+		cfg.LLMThinkingEnabled = value == "true" || value == "1"
+	case "llm.thinking_budget":
+		v, err := strconv.Atoi(value)
+		if err != nil || v < 0 {
+			return fmt.Errorf("llm.thinking_budget must be a non-negative integer, got %q", value)
+		}
+		cfg.LLMThinkingBudget = v
 	case "llm.style":
 		if !isValidStyle(value) {
 			return fmt.Errorf("llm.style must be one of default|verbose|normal|terse|ultra, got %q", value)
@@ -850,6 +873,8 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"llm.model", cfg.LLMModel},
 		{"llm.max_tokens", fmt.Sprintf("%d", cfg.LLMMaxTokens)},
 		{"llm.temperature", fmt.Sprintf("%v", cfg.LLMTemperature)},
+		{"llm.thinking_enabled", fmt.Sprintf("%v", cfg.LLMThinkingEnabled)},
+		{"llm.thinking_budget", fmt.Sprintf("%d", cfg.LLMThinkingBudget)},
 		{"llm.style", cfg.LLMStyle},
 		{"agent.verify_mode", cfg.AgentVerifyMode},
 		{"agent.max_turns", fmt.Sprintf("%d", cfg.AgentMaxTurns)},
@@ -1073,6 +1098,10 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 		case "llm.temperature":
 			v, _ := strconv.ParseFloat(val, 64)
 			cfg.LLMTemperature = v
+		case "llm.thinking_enabled":
+			cfg.LLMThinkingEnabled = val == "true" || val == "1"
+		case "llm.thinking_budget":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.LLMThinkingBudget)
 		case "llm.style":
 			cfg.LLMStyle = val
 		case "agent.verify_mode":

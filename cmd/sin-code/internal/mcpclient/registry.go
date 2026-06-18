@@ -82,6 +82,7 @@ func DefaultServers() []ServerConfig {
 func shortName(repo string) string {
 	m := map[string]string{
 		"web_search_bundle":                 "websearch",
+		"sin-analyse-suite":                  "analyse",
 		"SIN-Code-Websearch-Skill":          "websearch",
 		"SIN-Code-Scheduler-Skill":          "scheduler",
 		"SIN-Code-Goal-Mode-Skill":          "goalmode",
@@ -95,7 +96,6 @@ func shortName(repo string) string {
 		"SIN-Browser-Tools":                 "browser",
 		"Simone-MCP":                        "simone",
 		"SIN-Code-Symfony-Lens":             "symfonylens",
-		"sin-analyse-suite":                  "analyse",
 	}
 	if s, ok := m[repo]; ok {
 		return s

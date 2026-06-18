@@ -37,7 +37,9 @@ func skipIfShortDocker(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Docker-dependent test in short mode")
 	}
-	skipIfShortDocker(t)
+	if !dockerAvailable() {
+		t.Skip("skipping Docker-dependent test: daemon unavailable")
+	}
 }
 
 // skipIfShortNoDocker skips a test when -short is passed (so the
@@ -49,7 +51,9 @@ func skipIfShortNoDocker(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping Docker-dependent test in short mode")
 	}
-	skipIfShortNoDocker(t)
+	if dockerAvailable() {
+		t.Skip("skipping no-Docker error-path test: daemon is available")
+	}
 }
 
 

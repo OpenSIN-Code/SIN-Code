@@ -29,7 +29,8 @@ type wireTool struct {
 }
 
 type wireThinking struct {
-	Type string `json:"type,omitempty"` // "enabled" | "disabled"
+	Type   string `json:"type,omitempty"`           // "enabled" | "disabled"
+	Budget int    `json:"budget_tokens,omitempty"` // cap on per-request reasoning tokens
 }
 
 type wireRequest struct {
@@ -54,6 +55,7 @@ type wireUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+	ThinkingTokens   int `json:"thinking_tokens,omitempty"`
 }
 
 type wireResponse struct {
@@ -84,7 +86,24 @@ func NewProviderCompletion(c *llm.Client, model string, maxTokens int, temperatu
 	return NewProviderCompletionWithCache(c, model, maxTokens, temperature, nil)
 }
 
+// ThinkingConfig is the wire-side configuration for the per-request
+// "thinking" / internal reasoning budget a provider may honor (Claude
+// / Anthropic on NIM-style gateways, OpenRouter, etc.). Nil disables
+// the thinking block on the wire — preserves legacy behavior.
+type ThinkingConfig struct {
+	Enabled bool // send thinking{type:"enabled"} when true
+	Budget  int  // optional budget_tokens cap; 0 = provider default / unbounded
+}
+
 func NewProviderCompletionWithCache(c *llm.Client, model string, maxTokens int, temperature float64, cache *llm.PromptCache) func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
+	return NewProviderCompletionFull(c, model, maxTokens, temperature, cache, nil)
+}
+
+// NewProviderCompletionFull is the canonical factory that wires every
+// optional knob the wireRequest supports — cache + thinking. Nil cache
+// or nil thinking preserves the legacy behavior of the simpler
+// constructors above.
+func NewProviderCompletionFull(c *llm.Client, model string, maxTokens int, temperature float64, cache *llm.PromptCache, thinking *ThinkingConfig) func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
 	return func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
 		wt := make([]wireTool, 0, len(tools))
 		for _, t := range tools {
@@ -94,9 +113,17 @@ func NewProviderCompletionWithCache(c *llm.Client, model string, maxTokens int, 
 				Parameters:  t.InputSchema,
 			}})
 		}
+		var wireThinkingField *wireThinking
+		if thinking != nil && thinking.Enabled {
+			wireThinkingField = &wireThinking{Type: "enabled"}
+			if thinking.Budget > 0 {
+				wireThinkingField.Budget = thinking.Budget
+			}
+		}
 		body, err := json.Marshal(wireRequest{
 			Model: model, Messages: history, Tools: wt,
 			MaxTokens: maxTokens, Temperature: temperature,
+			Thinking: wireThinkingField,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("marshal completion request: %w", err)
@@ -190,6 +217,7 @@ func NewProviderCompletionWithCache(c *llm.Client, model string, maxTokens int, 
 			PromptTokens:     out.Usage.PromptTokens,
 			CompletionTokens: out.Usage.CompletionTokens,
 			TotalTokens:      out.Usage.TotalTokens,
+			ThinkingTokens:   out.Usage.ThinkingTokens,
 		}}, nil
 	}
 }

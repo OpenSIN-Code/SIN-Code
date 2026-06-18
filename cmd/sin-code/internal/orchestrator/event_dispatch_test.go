@@ -84,7 +84,7 @@ func TestDispatchEventDriven_NotifyChannelFires(t *testing.T) {
 
 	var fireCount int64
 	var mu sync.Mutex
-	_ = mu
+	_ = &mu
 
 	// We can't directly observe notifyCh (it's internal), but we can
 	// verify correctness by checking that all tasks complete and the
