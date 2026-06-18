@@ -274,6 +274,8 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	if err != nil {
 		return err
 	}
+
+	setSandboxConfig(opts.sandbox, workspace)
 	// --- worktree isolation (issue #194 part 2) --------------------------
 	// If --worktree=<name> is set, provision a fresh git worktree from
 	// HEAD and run the entire session from inside it. The worktree is
@@ -438,6 +440,10 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		Ask:                     ask,
 		ThinkingEnabled:         thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
+	}
+
+	if opts.repetitionThreshold > 0 {
+		loop.LoopDetector = agentloop.NewLoopDetector(opts.repetitionThreshold, opts.repetitionWindow)
 	}
 
 	// CLI flags override config-file defaults for context compaction mode.

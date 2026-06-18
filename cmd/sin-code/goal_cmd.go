@@ -313,7 +313,7 @@ func NewGoalCmd() *cobra.Command {
 	}
 	reportCmd.Flags().StringVar(&reportFormat, "format", "md", "output format: md|json")
 
-	cmd.AddCommand(addCmd, listCmd, discoverCmd, statusCmd, completeCmd, subtaskCmd, reportCmd)
+	cmd.AddCommand(addCmd, listCmd, discoverCmd, statusCmd, completeCmd, subtaskCmd, reportCmd, newGoalAddFromIssueCmd())
 	return cmd
 }
 

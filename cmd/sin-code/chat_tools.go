@@ -18,6 +18,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/meta"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/sandbox"
 )
 
 const (
@@ -191,21 +192,40 @@ func toolEdit(path, old, new string) (string, error) {
 	return result, nil
 }
 
+// sandboxConfig controls OS-level isolation for sin_bash (issue #367).
+var sandboxConfig struct {
+	enabled   bool
+	workspace string
+}
+
+func setSandboxConfig(backend, workspace string) {
+	sandboxConfig.workspace = workspace
+	if backend == "none" { sandboxConfig.enabled = false } else { sandboxConfig.enabled = true }
+}
+
 func toolBash(ctx context.Context, command string) (string, error) {
-	if command == "" {
-		return "", fmt.Errorf("sin_bash: command required")
-	}
+	if command == "" { return "", fmt.Errorf("sin_bash: command required") }
 	cctx, cancel := context.WithTimeout(ctx, bashTimeout)
 	defer cancel()
+	if sandboxConfig.enabled && sandboxConfig.workspace != "" {
+		policy := sandbox.DefaultPolicy(sandboxConfig.workspace, os.TempDir())
+		cmd, _, err := sandbox.Command(cctx, policy, "sh", "-c", command)
+		if err != nil { return "", fmt.Errorf("sin_bash sandbox: %v", err) }
+		out, err := cmd.CombinedOutput()
+		text := string(out)
+		if len(text) > maxToolOutput { text = text[:maxToolOutput] + "
+[... truncated]" }
+		if err != nil { return fmt.Sprintf("exit error: %v
+%s", err, text), nil }
+		return text, nil
+	}
 	cmd := exec.CommandContext(cctx, "sh", "-c", command)
 	out, err := cmd.CombinedOutput()
 	text := string(out)
-	if len(text) > maxToolOutput {
-		text = text[:maxToolOutput] + "\n[... truncated]"
-	}
-	if err != nil {
-		return fmt.Sprintf("exit error: %v\n%s", err, text), nil
-	}
+	if len(text) > maxToolOutput { text = text[:maxToolOutput] + "
+[... truncated]" }
+	if err != nil { return fmt.Sprintf("exit error: %v
+%s", err, text), nil }
 	return text, nil
 }
 

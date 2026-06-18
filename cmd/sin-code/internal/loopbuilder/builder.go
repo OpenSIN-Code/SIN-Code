@@ -175,6 +175,9 @@ type Config struct {
 	// prior on new plan creation.
 	// Also activated by config orchestrator.episodic_memory=true.
 	EpisodicMemoryEnabled bool
+
+	RepetitionThreshold int
+	RepetitionWindow    int
 }
 
 // Build constructs a fully wired agentloop.Loop with all mandates applied
@@ -372,6 +375,10 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		CoverageForbiddenTools:  cfg.CoverageForbiddenTools,
 		ThinkingEnabled:         thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
+	}
+
+	if cfg.RepetitionThreshold > 0 {
+		loop.LoopDetector = agentloop.NewLoopDetector(cfg.RepetitionThreshold, cfg.RepetitionWindow)
 	}
 
 	// Stop-gate (anti-babysitting): when a Definition-of-Done contract is

@@ -72,7 +72,7 @@ func extraSpecs() []agentloopToolSpecAlias {
 	obj := func(p map[string]any, req ...string) map[string]any {
 		return map[string]any{"type": "object", "properties": p, "required": req}
 	}
-	return []agentloopToolSpecAlias{
+	allSpecs := []agentloopToolSpecAlias{
 		{Name: "sin_git_log", Description: "Show recent commit history (read-only).",
 			InputSchema: obj(map[string]any{"limit": str("number of commits, default 10"), "path": str("optional path filter")})},
 		{Name: "sin_git_diff", Description: "Show working tree diff or diff vs a ref (read-only).",
@@ -147,8 +147,15 @@ func extraSpecs() []agentloopToolSpecAlias {
 	}
 }
 
+	allSpecs = append(allSpecs, registerBrowserInteractionSpecs()...)
+
+	return allSpecs
+}
 // extraTool is called from builtinTool()'s default branch.
 func extraTool(ctx context.Context, name string, args map[string]any) (string, error) {
+	if out, handled, err := dispatchBrowserInteraction(ctx, name, args); handled {
+		return out, err
+	}
 	switch name {
 	case "sin_git_log":
 		n := argStr(args, "limit")

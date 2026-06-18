@@ -66,6 +66,8 @@ type daemonOptions struct {
 	requireTools     string
 	forbidTools      string
 	fusionOnVerifyFail bool
+	autoPR             bool
+	repetitionThreshold int
 }
 
 func NewDaemonCmd() *cobra.Command {
@@ -73,10 +75,11 @@ func NewDaemonCmd() *cobra.Command {
 	var verifyCmd string
 	var maxTurns, concurrency, maxProcs int
 	var maxContinuations, maxDepth int
-	var noContract, noBaseline, fusionOnVerifyFail bool
+	var noContract, noBaseline, fusionOnVerifyFail, autoPR bool
 	var repos []string
 	var maxMemory, minDisk string
 	var requireTools, forbidTools string
+	var repetitionThreshold int
 	cmd := &cobra.Command{
 		Use:   "daemon",
 		Short: "Run the autonomous worker: lease goals, execute, verify, learn",
@@ -130,6 +133,8 @@ func NewDaemonCmd() *cobra.Command {
 	cmd.Flags().StringVar(&requireTools, "require-tools", "", "comma-separated tool names the model must invoke before completion (issue #248)")
 	cmd.Flags().StringVar(&forbidTools, "forbid-tools", "", "comma-separated tool names that block completion if invoked (issue #248)")
 	cmd.Flags().BoolVar(&fusionOnVerifyFail, "fusion-on-verify-fail", false, "enable SIN Fusion verify-tournament on verify.fail (issue #290). Oracle mode is experimental; set fusion.oracle_mode=true via config.")
+	cmd.Flags().BoolVar(&autoPR, "auto-pr", false, "auto-create PR after verification (issue #391)")
+	cmd.Flags().IntVar(&repetitionThreshold, "repetition-threshold", 3, "observer-loop (issue #377)")
 	return cmd
 }
 
@@ -347,6 +352,7 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 		CoverageRequiredTools:       splitList(opt.requireTools),
 		CoverageForbiddenTools:      splitList(opt.forbidTools),
 		FusionEnabled:               opt.fusionOnVerifyFail,
+		RepetitionThreshold:         opt.repetitionThreshold,
 		SessionStore:                store,
 		ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
 			baseTool := combinedTool(goal.Workspace, mgr)
@@ -391,6 +397,12 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 	hookEngine.Fire(ctx, hooks.Payload{Event: hooks.GoalVerified, Data: map[string]any{
 		"goal_id": goal.ID, "turns": res.Turns, "session_id": sess.ID}})
 	fmt.Printf("daemon: goal %d VERIFIED in %d turns (session %s)\n", goal.ID, res.Turns, sess.ID)
+
+	if opt.autoPR {
+		if err := autoCreatePR(ctx, goal, res); err != nil {
+			fmt.Fprintf(os.Stderr, "daemon: goal %d auto-pr failed: %v\n", goal.ID, err)
+		}
+	}
 }
 
 // wrapWithSpawn augments the daemon toolset with `spawn_subgoal`, letting the
