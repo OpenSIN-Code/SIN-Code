@@ -523,6 +523,7 @@ func WireFusion(loop *agentloop.Loop, cfg Config, gate *verify.Gate, client *llm
 		MinQuorum:          cfg.FusionMinQuorum,
 		PerProviderTimeout: time.Duration(cfg.FusionPerProviderTimeoutS) * time.Second,
 		Workspace:          cfg.Workspace,
+		SourceSessionID:    cfg.SessionID,
 		Lessons:            memStore,
 		Ledger:             ledgerStore,
 		Hooks:              hookEngine,
@@ -602,16 +603,19 @@ type fusionAdapter struct {
 }
 
 func (a *fusionAdapter) ShouldRun(vr verify.Result) bool {
+	if !a.cfg.FusionDifficultyGate {
+		return !vr.Passed
+	}
 	return fusion.ShouldTournament(vr)
 }
 
-func (a *fusionAdapter) Run(ctx context.Context) (string, int, error) {
-	// Phase 1: the fork and run funcs are not yet wired to real session
-	// stores and loop builders. The tournament runs with whatever was
-	// configured at construction time. If ForkFunc/RunFunc are nil, the
-	// tournament returns an error and the loop falls back to legacy retry.
+func (a *fusionAdapter) Run(ctx context.Context, prompt string) (string, int, error) {
 	if a.t.ForkFunc == nil || a.t.RunFunc == nil {
 		return "", 0, fmt.Errorf("fusion: tournament not fully wired (phase 1 — fork/run funcs nil)")
+	}
+	a.t.Prompt = prompt
+	if a.t.SourceSessionID == "" {
+		a.t.SourceSessionID = a.cfg.SessionID
 	}
 	result, err := a.t.Run(ctx)
 	if err != nil {

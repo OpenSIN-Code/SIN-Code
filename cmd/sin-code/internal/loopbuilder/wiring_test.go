@@ -212,7 +212,7 @@ func TestWiring_FusionTournamentTriggeredOnVerifyFail(t *testing.T) {
 		},
 		TournamentRunner: &mockTournamentRunner{
 			shouldRun: true,
-			runFn: func(ctx context.Context) (string, int, error) {
+			runFn: func(ctx context.Context, prompt string) (string, int, error) {
 				called = true
 				return "winner output", 100, nil
 			},
@@ -420,16 +420,16 @@ func TestWiring_RecordPlanCompletionNilSafe(t *testing.T) {
 
 type mockTournamentRunner struct {
 	shouldRun bool
-	runFn     func(ctx context.Context) (string, int, error)
+	runFn     func(ctx context.Context, prompt string) (string, int, error)
 }
 
 func (m *mockTournamentRunner) ShouldRun(vr verify.Result) bool {
 	return m.shouldRun
 }
 
-func (m *mockTournamentRunner) Run(ctx context.Context) (string, int, error) {
+func (m *mockTournamentRunner) Run(ctx context.Context, prompt string) (string, int, error) {
 	if m.runFn != nil {
-		return m.runFn(ctx)
+		return m.runFn(ctx, prompt)
 	}
 	return "winner", 50, nil
 }
