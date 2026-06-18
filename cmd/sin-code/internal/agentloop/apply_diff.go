@@ -325,3 +325,63 @@ func splitLines(text string) []string {
 	}
 	return lines
 }
+
+// GenerateDiff produces a unified diff string from old and new content.
+// It uses a simple line-based algorithm that groups consecutive changes into
+// one hunk. The output is valid for ApplyDiff and human-readable.
+func GenerateDiff(oldContent, newContent string) string {
+	oldLines := splitLines(oldContent)
+	newLines := splitLines(newContent)
+
+	// Find common prefix.
+	prefix := 0
+	for prefix < len(oldLines) && prefix < len(newLines) && oldLines[prefix] == newLines[prefix] {
+		prefix++
+	}
+
+	// Find common suffix after the prefix.
+	suffix := 0
+	for suffix < len(oldLines)-prefix && suffix < len(newLines)-prefix &&
+		oldLines[len(oldLines)-1-suffix] == newLines[len(newLines)-1-suffix] {
+		suffix++
+	}
+
+	oldEnd := len(oldLines) - suffix
+	newEnd := len(newLines) - suffix
+
+	ctxBefore := 3
+	if prefix < ctxBefore {
+		ctxBefore = prefix
+	}
+	ctxAfter := 3
+	if oldEnd+ctxAfter > len(oldLines) {
+		ctxAfter = len(oldLines) - oldEnd
+		if ctxAfter < 0 {
+			ctxAfter = 0
+		}
+	}
+
+	oldStart := prefix - ctxBefore + 1
+	newStart := prefix - ctxBefore + 1
+	oldLinesCount := ctxBefore + (oldEnd - prefix) + ctxAfter
+	newLinesCount := ctxBefore + (newEnd - prefix) + ctxAfter
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "--- a/file\n+++ b/file\n")
+	fmt.Fprintf(&b, "@@ -%d,%d +%d,%d @@\n", oldStart, oldLinesCount, newStart, newLinesCount)
+
+	for i := prefix - ctxBefore; i < prefix; i++ {
+		fmt.Fprintf(&b, " %s\n", oldLines[i])
+	}
+	for i := prefix; i < oldEnd; i++ {
+		fmt.Fprintf(&b, "-%s\n", oldLines[i])
+	}
+	for i := prefix; i < newEnd; i++ {
+		fmt.Fprintf(&b, "+%s\n", newLines[i])
+	}
+	for i := oldEnd; i < oldEnd+ctxAfter && i < len(oldLines); i++ {
+		fmt.Fprintf(&b, " %s\n", oldLines[i])
+	}
+
+	return b.String()
+}
