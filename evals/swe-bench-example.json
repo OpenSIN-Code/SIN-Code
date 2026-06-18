@@ -1,0 +1,5 @@
+[
+  {"instance_id":"swe-bench-example-001","repo":"python-django/django","base_commit":"abc","problem_statement":"bulk_create fails on SQLite","patch":"","test_patch":"","FAIL_TO_PASS":["test_batch_size_none"],"PASS_TO_PASS":["test_batch_size_explicit"],"version":"4.2"},
+  {"instance_id":"swe-bench-example-002","repo":"go-gorm/gorm","base_commit":"def","problem_statement":"AutoMigrate does not detect column type changes","patch":"","test_patch":"","FAIL_TO_PASS":["TestAutoMigrateColumnTypeChange"],"PASS_TO_PASS":["TestAutoMigrateBasic"],"version":"1.25"},
+  {"instance_id":"swe-bench-example-003","repo":"python-flask/flask","base_commit":"ghi","problem_statement":"url_for generates incorrect URLs with port","patch":"","test_patch":"","FAIL_TO_PASS":["test_url_for_with_port"],"PASS_TO_PASS":["test_url_for_without_port"],"version":"2.3"}
+]
