@@ -120,6 +120,8 @@ type chatOptions struct {
 	fusionOnVerifyFail bool
 	fusionProviders    string
 	fusionMaxCost      float64
+	thinkingEnabled    bool
+	thinkingBudget     int
 	noTUI              bool
 	watch              string
 }
@@ -149,6 +151,8 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --fusion-on-verify-fail  enable SIN Fusion verify-tournament on verify.fail (issue #290)
   sin-code chat --fusion-providers <list> override Fireworks models for the tournament (comma-separated)
   sin-code chat --fusion-max-cost <usd>   USD kill-switch per tournament invocation (default 5.0)
+  sin-code chat --thinking-enabled       send thinking{type:"enabled"} on each request (per-provider reasoning budget)
+  sin-code chat --thinking-budget <n>    per-request thinking.budget_tokens cap (0 = unbounded / provider default)
   Oracle-mode fusion is experimental; set fusion.oracle_mode=true via config. Prefer PoC mode for verifiable tasks.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context(), opts)
@@ -179,6 +183,8 @@ func NewChatCmd() *cobra.Command {
 	f.BoolVar(&opts.fusionOnVerifyFail, "fusion-on-verify-fail", false, "enable SIN Fusion verify-tournament on verify.fail (issue #290)")
 	f.StringVar(&opts.fusionProviders, "fusion-providers", "", "comma-separated Fireworks model names for the tournament (e.g. minimax-m3,kimi-k2p7-code,glm-5p2)")
 	f.Float64Var(&opts.fusionMaxCost, "fusion-max-cost", 5.0, "USD kill-switch per tournament invocation (issue #290)")
+	f.BoolVar(&opts.thinkingEnabled, "thinking-enabled", false, "send thinking{type:\"enabled\"} on each LLM request (issue: thinking-budget-enforcement)")
+	f.IntVar(&opts.thinkingBudget, "thinking-budget", 0, "per-request thinking.budget_tokens cap (0 = unbounded; requires --thinking-enabled)")
 	f.BoolVar(&opts.noTUI, "no-tui", false, "skip TUI and use plain CLI loop")
 	f.StringVar(&opts.watch, "watch", "", "watch file patterns (comma-separated, e.g. *.go,*.py) and re-run the last prompt on change")
 	return cmd
@@ -210,10 +216,24 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	sinCfg, _ := internal.LoadMergedConfig()
 
 	enableCache := sinCfg.LLMPromptCache
+	thinkingEnabled := opts.thinkingEnabled || sinCfg.LLMThinkingEnabled
+	thinkingBudget := opts.thinkingBudget
+	if thinkingBudget == 0 {
+		thinkingBudget = sinCfg.LLMThinkingBudget
+	}
+	thinkingCfg := &agentloop.ThinkingConfig{
+		Enabled: thinkingEnabled,
+		Budget:  thinkingBudget,
+	}
 	completion := chatNewProviderCompletionFn(client, model, agentCfg.MaxTokens, agentCfg.Temperature)
 	if enableCache {
 		cache := llm.NewPromptCache(llm.DefaultCacheTTL)
-		completion = agentloop.NewProviderCompletionWithCache(client, model, agentCfg.MaxTokens, agentCfg.Temperature, cache)
+		completion = agentloop.NewProviderCompletionFull(client, model, agentCfg.MaxTokens, agentCfg.Temperature, cache, thinkingCfg)
+	} else if thinkingCfg.Enabled {
+		// Thinking-budget requires the *Full constructor so the
+		// thinking{type:"enabled"} block ends up on the wire. With
+		// the legacy factories the request body would not carry it.
+		completion = agentloop.NewProviderCompletionFull(client, model, agentCfg.MaxTokens, agentCfg.Temperature, nil, thinkingCfg)
 	}
 
 	perm := permission.New(chatRulesForAgentFn(agentCfg))
@@ -393,16 +413,18 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	}
 
 	loop := &agentloop.Loop{
-		Gate:       gate,
-		LocalTool:  combinedTool(workspace, mcpMgr),
-		LocalSpec:  combinedSpecs(mcpMgr),
-		Workspace:  workspace,
-		MaxTurns:   opts.maxTurns,
-		SessionID:  sess.ID,
-		Completion: completion,
-		Hooks:      hookEngine,
-		Perm:       perm,
-		Ask:        ask,
+		Gate:                    gate,
+		LocalTool:               combinedTool(workspace, mcpMgr),
+		LocalSpec:               combinedSpecs(mcpMgr),
+		Workspace:               workspace,
+		MaxTurns:                opts.maxTurns,
+		SessionID:               sess.ID,
+		Completion:              completion,
+		Hooks:                   hookEngine,
+		Perm:                    perm,
+		Ask:                     ask,
+		ThinkingEnabled:         thinkingCfg.Enabled,
+		ThinkingBudgetPerRequest: thinkingCfg.Budget,
 	}
 
 	// Apply config-file defaults for tool coverage (issue #248) and merge
