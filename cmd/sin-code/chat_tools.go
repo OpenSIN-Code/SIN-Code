@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	internal "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/meta"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/sandbox"
@@ -32,13 +33,14 @@ const (
 // and network calls. Production defaults point to the real implementations.
 var (
 	toolReadFn           = toolRead
-	toolWriteFn           = toolWrite
-	toolEditFn            = toolEdit
-	toolApplyDiffFn       = toolApplyDiff
-	toolGenerateDiffFn    = toolGenerateDiff
-	toolBashFn            = toolBash
-	toolSearchFn          = toolSearch
-	toolBootstrapSkillFn  = toolBootstrapSkill
+	toolWriteFn          = toolWrite
+	toolEditFn           = toolEdit
+	toolReplaceFn        = toolReplace
+	toolApplyDiffFn      = toolApplyDiff
+	toolGenerateDiffFn   = toolGenerateDiff
+	toolBashFn           = toolBash
+	toolSearchFn         = toolSearch
+	toolBootstrapSkillFn = toolBootstrapSkill
 	toolSearchWalkErrFn  = func(_ string, err error) error { return nil }
 	metaBootstrapSkillFn = meta.BootstrapSkill
 )
@@ -57,13 +59,15 @@ func builtinSpecs() []agentloopToolSpecAlias {
 			InputSchema: obj(map[string]any{"path": str("file path")}, "path")},
 		{Name: "sin_write", Description: "Atomically write content to a file, creating parent dirs.",
 			InputSchema: obj(map[string]any{"path": str("file path"), "content": str("full file content")}, "path", "content")},
-		{Name: "sin_edit", Description: "Replace the first exact occurrence of old with new in a file.",
+		{Name: "sin_edit", Description: "Surgical file edit: replace the first exact occurrence of old with new in a file. Fails if old is ambiguous; use sin_replace for a naive replacement.",
+			InputSchema: obj(map[string]any{"path": str("file path"), "old": str("exact text to replace"), "new": str("replacement text")}, "path", "old", "new")},
+		{Name: "sin_replace", Description: "Naive string replacement: replace the first exact occurrence of old with new in a file (backward-compatible).",
 			InputSchema: obj(map[string]any{"path": str("file path"), "old": str("exact text to replace"), "new": str("replacement text")}, "path", "old", "new")},
 		{Name: "sin_apply_diff", Description: "Apply a unified diff to a file. Validates each hunk before applying and reports applied/rejected hunks. (issue #365)",
 			InputSchema: obj(map[string]any{"path": str("file path"), "diff": str("unified diff string")}, "path", "diff")},
 		{Name: "sin_generate_diff", Description: "Generate a unified diff from old and new content. (issue #365)",
 			InputSchema: obj(map[string]any{"old_content": str("original content"), "new_content": str("updated content")}, "old_content", "new_content")},
-		{Name: "sin_bash", Description: "Run a shell command in the workspace (120s timeout).", 
+		{Name: "sin_bash", Description: "Run a shell command in the workspace (120s timeout).",
 			InputSchema: obj(map[string]any{"command": str("shell command")}, "command")},
 		{Name: "sin_search", Description: "Search files for a substring; returns file:line matches.",
 			InputSchema: obj(map[string]any{"pattern": str("substring to search"), "dir": str("directory (default .)")}, "pattern")},
@@ -84,6 +88,8 @@ func builtinTool(ctx context.Context, workspace, name string, args map[string]an
 		return toolWriteFn(argStr(args, "path"), argStr(args, "content"))
 	case "sin_edit":
 		return toolEditFn(argStr(args, "path"), argStr(args, "old"), argStr(args, "new"))
+	case "sin_replace":
+		return toolReplaceFn(argStr(args, "path"), argStr(args, "old"), argStr(args, "new"))
 	case "sin_apply_diff":
 		return toolApplyDiffFn(argStr(args, "path"), argStr(args, "diff"))
 	case "sin_generate_diff":
@@ -185,19 +191,31 @@ func toolEdit(path, old, new string) (string, error) {
 	if path == "" || old == "" {
 		return "", fmt.Errorf("sin_edit: path and old required")
 	}
+	if err := internal.EditByString(path, old, new); err != nil {
+		return "", fmt.Errorf("sin_edit: %w", err)
+	}
+	result := "edited " + path
+	result += maybeGenerateTest(path)
+	return result, nil
+}
+
+func toolReplace(path, old, new string) (string, error) {
+	if path == "" || old == "" {
+		return "", fmt.Errorf("sin_replace: path and old required")
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", err
 	}
 	content := string(data)
 	if !strings.Contains(content, old) {
-		return "", fmt.Errorf("sin_edit: old text not found in %s", path)
+		return "", fmt.Errorf("sin_replace: old text not found in %s", path)
 	}
 	updated := strings.Replace(content, old, new, 1)
 	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
 		return "", err
 	}
-	result := "edited " + path
+	result := "replaced " + path
 	result += maybeGenerateTest(path)
 	return result, nil
 }
@@ -235,28 +253,44 @@ var sandboxConfig struct {
 
 func setSandboxConfig(backend, workspace string) {
 	sandboxConfig.workspace = workspace
-	if backend == "none" { sandboxConfig.enabled = false } else { sandboxConfig.enabled = true }
+	if backend == "none" {
+		sandboxConfig.enabled = false
+	} else {
+		sandboxConfig.enabled = true
+	}
 }
 
 func toolBash(ctx context.Context, command string) (string, error) {
-	if command == "" { return "", fmt.Errorf("sin_bash: command required") }
+	if command == "" {
+		return "", fmt.Errorf("sin_bash: command required")
+	}
 	cctx, cancel := context.WithTimeout(ctx, bashTimeout)
 	defer cancel()
 	if sandboxConfig.enabled && sandboxConfig.workspace != "" {
 		policy := sandbox.DefaultPolicy(sandboxConfig.workspace, os.TempDir())
 		cmd, _, err := sandbox.Command(cctx, policy, "sh", "-c", command)
-		if err != nil { return "", fmt.Errorf("sin_bash sandbox: %v", err) }
+		if err != nil {
+			return "", fmt.Errorf("sin_bash sandbox: %v", err)
+		}
 		out, err := cmd.CombinedOutput()
 		text := string(out)
-		if len(text) > maxToolOutput { text = text[:maxToolOutput] + "\n[... truncated]" }
-		if err != nil { return fmt.Sprintf("exit error: %v\n%s", err, text), nil }
+		if len(text) > maxToolOutput {
+			text = text[:maxToolOutput] + "\n[... truncated]"
+		}
+		if err != nil {
+			return fmt.Sprintf("exit error: %v\n%s", err, text), nil
+		}
 		return text, nil
 	}
 	cmd := exec.CommandContext(cctx, "sh", "-c", command)
 	out, err := cmd.CombinedOutput()
 	text := string(out)
-	if len(text) > maxToolOutput { text = text[:maxToolOutput] + "\n[... truncated]" }
-	if err != nil { return fmt.Sprintf("exit error: %v\n%s", err, text), nil }
+	if len(text) > maxToolOutput {
+		text = text[:maxToolOutput] + "\n[... truncated]"
+	}
+	if err != nil {
+		return fmt.Sprintf("exit error: %v\n%s", err, text), nil
+	}
 	return text, nil
 }
 

@@ -127,6 +127,23 @@ type editResult struct {
 	Diff      string `json:"diff"`
 }
 
+// EditByString performs a single string-mode surgical edit, replacing the first
+// exact occurrence of old with new in path. It is exported so the chat tool can
+// share the same engine as the MCP sin_edit tool (issue #373).
+func EditByString(path, old, new string) error {
+	if path == "" || old == "" {
+		return fmt.Errorf("edit: path and old string required")
+	}
+	_, err := applyEdit(path, editRequest{
+		OldString:  old,
+		NewString:  new,
+		ReplaceAll: false,
+		Validate:   true,
+		Drift:      DefaultDriftWindow,
+	})
+	return err
+}
+
 func applyEdit(path string, req editRequest) (*editResult, error) {
 	anchorMode := req.Anchor != ""
 	stringMode := req.OldString != ""
