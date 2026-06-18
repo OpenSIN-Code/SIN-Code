@@ -16,14 +16,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.11'
+          go-version-file: go.mod
       - name: Test
         run: go test -v ./cmd/sin-code/... 2>&1 | tee test-output.txt
       - name: Vet
         run: go vet ./cmd/sin-code/...
       - name: govulncheck
-        # Blocking — Go 1.25.11 has fixed the stdlib false positives that
-        # required the carve-out in Go 1.24.3. See ADR-008, st-gvc4.
+        # Blocking — scan for known vulnerabilities in the Go module and its dependencies.
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./cmd/sin-code/...
@@ -55,7 +54,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.3'
+          go-version-file: go.mod
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
@@ -103,5 +102,5 @@ jobs:
         with:
           files: artifacts/*
           body: |
-            Unified sin-code binary with 13 subcommands, MCP server mode, and cross-platform builds.
+            Unified sin-code binary with 46+ subcommands, MCP server mode, and cross-platform builds.
           generate_release_notes: true

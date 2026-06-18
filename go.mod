@@ -5,7 +5,7 @@
 
 module github.com/OpenSIN-Code/SIN-Code
 
-go 1.26
+go 1.26.4
 
 require (
 	charm.land/bubbles/v2 v2.1.0
