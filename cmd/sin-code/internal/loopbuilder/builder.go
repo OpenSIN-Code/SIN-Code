@@ -16,6 +16,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/eval"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/fusion"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
@@ -61,6 +62,12 @@ type Config struct {
 	// AllowContinuation switches the maxTurns outcome from a hard error to a
 	// resumable checkpoint (used by the daemon).
 	AllowContinuation bool
+
+	// ContainerRunner, when non-nil, executes the verify command inside a
+	// container. ContainerImage is the image passed to the runner. Together they
+	// implement containerized autonomous goals (issue #389).
+	ContainerRunner autonomy.ContainerRunner
+	ContainerImage  string
 
 	// GoalID is an optional identifier for the autonomous goal that owns this
 	// run. It is forwarded into ledger tool-usage records.
@@ -257,13 +264,13 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 			if cfg.FusionPerProviderTimeoutS == 0 {
 				cfg.FusionPerProviderTimeoutS = sinCfg.FusionPerProviderTimeoutS
 			}
-		if !cfg.FusionDifficultyGate {
-			cfg.FusionDifficultyGate = sinCfg.FusionDifficultyGate
+			if !cfg.FusionDifficultyGate {
+				cfg.FusionDifficultyGate = sinCfg.FusionDifficultyGate
+			}
+			if !cfg.FusionOracleMode {
+				cfg.FusionOracleMode = sinCfg.FusionOracleMode
+			}
 		}
-		if !cfg.FusionOracleMode {
-			cfg.FusionOracleMode = sinCfg.FusionOracleMode
-		}
-	}
 		if cfg.FusionMaxCostUSD == 0 {
 			cfg.FusionMaxCostUSD = 5.0
 		}
@@ -334,7 +341,7 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 			mode = "off"
 		}
 	}
-	runner := commandRunner(cfg.VerifyCmd)
+	runner := commandRunner(cfg.VerifyCmd, cfg.ContainerRunner, cfg.ContainerImage)
 	gate := verify.NewGate(mode, runner, runner)
 
 	mcpMgr := mcpclient.NewManager(mcpclient.LoadConfigs(cfg.Workspace))
@@ -357,23 +364,23 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	}
 
 	loop := &agentloop.Loop{
-		Gate:                    gate,
-		LocalTool:               localTool,
-		LocalSpec:               localSpec,
-		Workspace:               cfg.Workspace,
-		MaxTurns:                cfg.MaxTurns,
-		SessionID:               cfg.SessionID,
-		GoalID:                  cfg.GoalID,
-		SystemPrompt:            style.RenderSystemPrompt(cfg.Style),
-		Completion:              completion,
-		Hooks:                   hookEngine,
-		Perm:                    perm,
-		Ask:                     cfg.AskFunc,
-		Lessons:                 memStore,
-		Ledger:                  ledgerStore,
-		CoverageRequiredTools:   cfg.CoverageRequiredTools,
-		CoverageForbiddenTools:  cfg.CoverageForbiddenTools,
-		ThinkingEnabled:         thinkingCfg.Enabled,
+		Gate:                     gate,
+		LocalTool:                localTool,
+		LocalSpec:                localSpec,
+		Workspace:                cfg.Workspace,
+		MaxTurns:                 cfg.MaxTurns,
+		SessionID:                cfg.SessionID,
+		GoalID:                   cfg.GoalID,
+		SystemPrompt:             style.RenderSystemPrompt(cfg.Style),
+		Completion:               completion,
+		Hooks:                    hookEngine,
+		Perm:                     perm,
+		Ask:                      cfg.AskFunc,
+		Lessons:                  memStore,
+		Ledger:                   ledgerStore,
+		CoverageRequiredTools:    cfg.CoverageRequiredTools,
+		CoverageForbiddenTools:   cfg.CoverageForbiddenTools,
+		ThinkingEnabled:          thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
 	}
 
@@ -679,17 +686,24 @@ func loadHooks(workspace string) []hooks.Hook {
 	return all
 }
 
-func commandRunner(command string) verify.Runner {
+func commandRunner(command string, containerRunner autonomy.ContainerRunner, containerImage string) verify.Runner {
 	if command == "" {
 		return nil
 	}
 	return func(ctx context.Context, workspace string) (bool, string, error) {
 		cctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		defer cancel()
-		cmd := exec.CommandContext(cctx, "sh", "-c", command)
-		cmd.Dir = workspace
-		out, err := cmd.CombinedOutput()
-		report := strings.TrimSpace(string(out))
+		var report string
+		var err error
+		if containerRunner != nil {
+			report, err = containerRunner.RunInContainer(cctx, containerImage, workspace, command)
+		} else {
+			cmd := exec.CommandContext(cctx, "sh", "-c", command)
+			cmd.Dir = workspace
+			out, e := cmd.CombinedOutput()
+			report = strings.TrimSpace(string(out))
+			err = e
+		}
 		if err != nil {
 			return false, report, nil
 		}

@@ -92,6 +92,12 @@ reports success. No other coding agent in the world enforces this.
   `sin-code serve` over stdio + `@ai-sdk/mcp`. The WebUI PR cycle is owned
   by a separate agent — never edit WebUI-v2 from this repo's agent loop.
 
+> **Last verified against main:** v3.23.0 (2026-06-18) —
+> containerized execution for autonomous goals (issue #389) wired into
+> `sin-code daemon` via `--container` / `--container-image` and config keys
+> `autonomy.container.enabled` / `autonomy.container.image`. Docker is an
+> external binary dependency; the Go code remains CGO-free (M2).
+
 ---
 
 ## 3. Hard mandates (violations block merge)
@@ -505,6 +511,17 @@ slices by `cmd/sin-code/internal/config.go`. They are forwarded through
 `loopbuilder.Config` into `agentloop.Loop.CoverageRequiredTools` /
 `CoverageForbiddenTools` and into spawned subagents.
 
+**Autonomous container execution config keys (issue #389):**
+
+| Config key | Type | Default | CLI equivalent |
+|---|---|---|---|
+| `autonomy.container.enabled` | bool | `false` | `--container` |
+| `autonomy.container.image` | string | `""` | `--container-image` |
+
+When enabled, the daemon runs the verify command inside the container via
+`docker run --rm -v <workspace>:/workspace ... <image>`. The Docker binary is an
+external runtime dependency; the Go code has no CGO or Docker-SDK dependency (M2).
+
 Session DB: `~/.local/share/sin-code/sessions.db` (SQLite, modernc).
 Schema: `sessions(id, created_at, updated_at, title, parent_id)` with
 `parent_id TEXT REFERENCES sessions(id) ON DELETE SET NULL` (issue #194) —
@@ -705,7 +722,8 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.21.0 | ✅ SHIPPED | Test-First Verify-Loop (RFC-test-automation.md): `sin_test` + `sin_test_generate` + `sin_quality_gate` + `sin_mutation` + `sin_fuzz` + `sin_property`; `tool.post` hook payload path; `test.*` config keys; `evals/test-generation.json` golden dataset. |
 | v3.22.0 | ✅ SHIPPED | SIN Fusion v1 enhancements: **Plan-Merge mode** (issue #393 — N planners → judge merges → 1 coder → verify, preserves all insights); **Oracle as default** (issue #394 — quality over cost, was: PoC first-pass-wins); **Model Performance Registry** (issue #395 — `modelperf.db`, `fusion benchmark/rank/recommend` CLI, auto-wired into `loopbuilder`). |
 | v3.22.0 | ✅ SHIPPED | pre-existing fixes stacked into the same release: `llm/provider.go`+`recorder.go`+`stream.go` ThinkingTokens + 8-arg `RecordUsage`; `agentloop/compaction_helpers.go` for `compaction_types.go`; vet fix in `orchestrator/event_dispatch_test.go`. |
-| v3.23.0 | ✅ SHIPPED | v3.23.0 roadmap batch 1: autonomous research report (`sin-code research`, issue #384), SWE-bench test suite (issue #363), scientific research skill (issue #387), `sin_apply_diff`/`sin_generate_diff` chat tools (issue #365), dynamic MCP server discovery (`sin-code mcp discover/add`, issue #368). Also repaired main build drift from parallel-agent WIP. Remaining open: #364, #373, #374, #388, #389. |
+| v3.23.0 | ✅ SHIPPED | v3.23.0 roadmap batch 1: autonomous research report (`sin-code research`, issue #384), SWE-bench test suite (issue #363), scientific research skill (issue #387), `sin_apply_diff`/`sin_generate_diff` chat tools (issue #365), dynamic MCP server discovery (`sin-code mcp discover/add`, issue #368). Also repaired main build drift from parallel-agent WIP. Remaining open: #364, #373, #374, #388. |
+| v3.23.0 | ✅ SHIPPED | Containerized execution for autonomous goals (issue #389): `autonomy.container.enabled`, `autonomy.container.image`, `sin-code daemon --container` / `--container-image`. Docker is an external binary dependency; the Go code remains CGO-free (M2). |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.

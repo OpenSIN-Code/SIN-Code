@@ -2,6 +2,19 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- **Containerized execution for autonomous goals (issue #389):** New
+  `autonomy.container.enabled` and `autonomy.container.image` config keys plus
+  `sin-code daemon --container` / `--container-image` flags. When enabled, the
+  daemon's verification command runs inside a container via
+  `docker run --rm -v <workspace>:/workspace ... <image>`. Docker is an external
+  binary dependency; the Go code remains CGO-free (M2). Includes a `DockerRunner`
+  and `NoopRunner` in `cmd/sin-code/internal/autonomy/container.go` and race-clean
+  unit tests.
+
 ## [v3.23.0] - 2026-06-18
 
 ### Added — v3.23.0 Roadmap

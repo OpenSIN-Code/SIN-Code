@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestReportGeneratorBasic(t *testing.T) {
@@ -42,7 +41,7 @@ func TestReportGeneratorBasic(t *testing.T) {
 	if r.GeneratedAt.IsZero() {
 		t.Error("GeneratedAt should be set")
 	}
-	if !r.GeneratedAt.Location().Equal(time.UTC) && r.GeneratedAt.Location().String() != "UTC" {
+	if r.GeneratedAt.Location().String() != "UTC" {
 		t.Errorf("GeneratedAt should be UTC, got %s", r.GeneratedAt.Location())
 	}
 }
