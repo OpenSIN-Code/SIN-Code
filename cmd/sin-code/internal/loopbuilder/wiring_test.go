@@ -427,6 +427,10 @@ func (m *mockTournamentRunner) ShouldRun(vr verify.Result) bool {
 	return m.shouldRun
 }
 
+func (m *mockTournamentRunner) ShouldRunWithConfidence(vr verify.Result, confidence float64, attemptCount int) bool {
+	return m.shouldRun
+}
+
 func (m *mockTournamentRunner) Run(ctx context.Context, prompt string) (string, int, error) {
 	if m.runFn != nil {
 		return m.runFn(ctx, prompt)

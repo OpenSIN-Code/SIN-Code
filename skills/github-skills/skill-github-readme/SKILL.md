@@ -12,8 +12,8 @@ metadata:
   mode: autonomous-visual-enhancement
   language: en
   coupled_with: skill-github-governance
-  integrates_with: sin-code image-graph
-  version: "5.0"
+  integrates_with: sin-code image-graph, visual-repo
+  version: "5.1"
   last_updated: "2026-06-18"
   sources: "OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/visual-repo"
 required_tools:
@@ -47,12 +47,20 @@ lifecycle: external
 ## SKILL-KOPPLUNG
 
 ```
-skill-github-governance  ->  "Was muss gemacht werden?" (Issues, Roadmaps)
+visual-repo              ->  "Wie sehen die Banner aus?" (Header Hero + Footer Branding SVGs)
+        ↓ provides spec from this skill
+skill-github-readme      ->  "Wie sieht es aus?" (README, Badges, charts embeds)
         ↓ coupled
-skill-github-readme      ->  "Wie sieht es aus?" (README, Badges, Hero)
+skill-github-governance  ->  "Was muss gemacht werden?" (Issues, Roadmaps)
         ↓ can embed
-sin-code image-graph     ->  "Daten visualisieren" (sin-code image-graph)
+sin-code image-graph     ->  "Daten visualisieren" (charts)
 ```
+
+**Vollständige Empfohlene Reihenfolge:**
+1. **`visual-repo`** (UPSTREAM) — generiert die Banner-SVGs nach der Spec in Section 10a/10b dieses Skills. **MUSS ZUERST laufen**, weil die README die SVGs einbettet.
+2. **`sin-code image-graph`** (PARALLEL) — generiert Charts die im README eingebettet werden.
+3. **`skill-github-readme`** (DU BIST HIER) — baut das README zusammen, embeddet die outputs aus 1+2.
+4. **`skill-github-governance`** (DOWNSTREAM) — Issues, PRs, Releases nach README-Ship.
 
 ---
 
@@ -61,9 +69,9 @@ sin-code image-graph     ->  "Daten visualisieren" (sin-code image-graph)
 Based on deep research of 10 top GitHub repos (186k to 3.6k stars):
 
 ```
-Hero Image (optional) -> Badges -> Tagline -> Quick Links -> Quick Start -> 
-Features -> Stats/Charts -> Models/Details -> API/Usage -> 
-Architecture -> Contributing -> License -> Footer
+H1 Title + One-Line Description -> Badges -> Tagline -> Quick Links ->
+Hero Banner -> Quick Start -> Features -> Stats/Charts -> Models/Details ->
+API/Usage -> Architecture -> Contributing -> License -> Footer Banner
 ```
 
 **Keine starren Regeln — orientiere dich an den Top-Repos, passe an dein Repo an.**
@@ -288,8 +296,6 @@ Beide Banner sind **custom-designed SVGs** (NICHT shields.io badges). Sie nutzen
 #### 10a. Header Hero Banner (individuell pro Repo)
 
 ```html
-<a name="readme-top"></a>
-
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./assets/hero-banner.svg" />
   <source media="(prefers-color-scheme: light)" srcset="./assets/hero-banner-light.svg" />
@@ -347,8 +353,8 @@ Resize logo to 60×60 before encoding (~8KB base64).
 
 **Was das Footer-Banner zeigt (gleich für alle Repos):**
 - **"OpenSIN AI"** (gradient text, `ui-sans-serif, system-ui`, weight 500)
-- **Tagline**: "Enterprise AI agents that work autonomously"
-- **Repo-specific benefits** (3 Items, pipe-separated, z.B. "484 free API keys · 10-proxy auto-failover · 12 Fireworks models")
+- **Tagline**: "{{REPO_NAME}}" — the GitHub repo name (e.g. `SINator-FireworksAI`)
+- **Repo-specific benefits** (3 Items, pipe-separated, e.g. "484 free API keys · 10-proxy auto-failover · 12 Fireworks models")
 - **OpenSIN logo** (embedded als base64 data URI, 100×100px)
 - **Hex grid + neon glow + pulse ring + scanning line** (gleiche Design Language)
 
@@ -374,6 +380,12 @@ Resize logo to 60×60 before encoding (~8KB base64).
 ```markdown
 <a name="readme-top"></a>
 
+# {{REPO_NAME}}
+
+<p align="center">
+  <em>{{ONE_SENTENCE_BENEFIT}}</em>
+</p>
+
 <!-- BADGES (max 3-4) -->
 <p align="center">
   <a href="https://pypi.org/project/{{PACKAGE}}/">
@@ -385,11 +397,6 @@ Resize logo to 60×60 before encoding (~8KB base64).
   <a href="https://github.com/{{ORG}}/{{REPO}}/stargazers">
     <img src="https://img.shields.io/github/stars/{{ORG}}/{{REPO}}?style=social" alt="Stars" />
   </a>
-</p>
-
-<!-- TAGLINE -->
-<p align="center">
-  <em>{{ONE_SENTENCE_BENEFIT}}</em>
 </p>
 
 <!-- QUICK LINKS (pipe-separated, Rust pattern) -->
@@ -407,8 +414,6 @@ Resize logo to 60×60 before encoding (~8KB base64).
 </picture>
 
 ---
-
-# {{REPO_NAME}}
 
 {{TWO_SENTENCE_DESCRIPTION}}
 
@@ -488,6 +493,21 @@ Distributed under the **MIT License**. See [LICENSE](LICENSE) for details.
 
 ## MANDATORY WORKFLOW
 
+**Skill-Coupling:** Dieser Skill arbeitet Hand-in-Hand mit:
+- `visual-repo` (UPSTREAM) — generiert die SVG-Banner (Header Hero + Footer Branding) — **MUSS VOR diesem Skill laufen**
+- `skill-github-governance` (COUPLED) — Issues, PRs, Releases nach README ship
+- `sin-code image-graph` (INTEGRATE) — generiert Charts die im README eingebettet werden
+
+**Vollständige Reihenfolge:**
+
+```
+gitnexus analyze              → Codebase verstehen
+visual-repo                   → Banner SVGs erzeugen (Header + Footer)
+sin-code image-graph          → Charts erzeugen
+skill-github-readme    ◄── DU BIST HIER  → README zusammenbauen
+skill-github-governance       → Issues/PRs auf GitHub
+```
+
 ### Step 1: Repo analysieren
 
 ```bash
@@ -526,11 +546,32 @@ echo '{"title":"...","items":[{"label":"...","value":N},...]}' | \
 
 **Charts MUESSEN auf GitHub lesbar sein.** Teste mit `sin-brain_open_image_in_preview` vor commit.
 
-### Step 4: README schreiben
+### Step 4: Banner SVGs (DELEGIERE an visual-repo)
+
+**WICHTIG:** Die Banner-Erstellung wird vom **visual-repo** Skill übernommen.
+Dieser Skill definiert nur die **Spec**, die visual-repo umsetzt:
+
+| Banner | Spec (von diesem Skill) | Output-Datei (von visual-repo) |
+|---|---|---|
+| Header Hero | 1400×380, ui-sans-serif, max 3 nodes/col, 140×44px | `assets/hero-banner.svg` + `assets/hero-banner-light.svg` |
+| Footer Branding | 1200×200, "OpenSIN AI" + repo name | `assets/sin-ai-banner.svg` + `assets/sin-ai-banner-light.svg` |
+
+**Pattern:**
+```bash
+# 1. Erst visual-repo Skill triggern (generiert die SVGs nach unserer Spec)
+npx opencode skill run visual-repo --repo "$PWD" --spec-from skill-github-readme
+
+# 2. Dann die generierten SVGs in README einbetten
+#     (siehe Section "## 10. SIN AI Banner System")
+```
+
+**Falls visual-repo nicht verfügbar:** Banner-Specs sind in Section 10a/10b dokumentiert — manuell mit Inkscape/Figma umsetzen.
+
+### Step 5: README schreiben
 
 Befolge die 10 Gebote. Nutze das Template. English only.
 
-### Step 5: llms.txt (Optional)
+### Step 6: llms.txt (Optional)
 
 ```
 # {{REPO_NAME}}
@@ -597,10 +638,15 @@ echo '{"title":"Pool Status","items":[{"label":"Available","value":41},{"label":
 
 **WICHTIG:** Charts muessen auf GitHub (Light-Mode!) lesbar sein. Wenn du dunkle Charts generierst, teste sie vorher mit `sin-brain_open_image_in_preview`. GitHub's README-Viewer ist Light-Mode by default.
 
-**Embed in README:**
+**Embed in README (VOLLBREITE — kein width!):**
+```markdown
+![Chart Title](./assets/chart-name.png)
+```
+
+Oder fuer zentrierte Vollbreite:
 ```html
 <p align="center">
-  <img src="./assets/chart-name.png" alt="Chart Title" width="640" />
+  <img src="./assets/chart-name.png" alt="Chart Title" />
 </p>
 ```
 
