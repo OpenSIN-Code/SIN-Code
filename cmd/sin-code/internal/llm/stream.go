@@ -73,6 +73,7 @@ type usageContainer struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+	ThinkingTokens   int `json:"thinking_tokens,omitempty"`
 }
 
 // HasStreaming reports whether ChatStream is available on this
@@ -242,11 +243,13 @@ func readSSEStream(ctx context.Context, r io.Reader, onChunk func(StreamChunk), 
 		result.Usage.PromptTokens = lastUsage.PromptTokens
 		result.Usage.CompletionTokens = lastUsage.CompletionTokens
 		result.Usage.TotalTokens = lastUsage.TotalTokens
+		result.Usage.ThinkingTokens = lastUsage.ThinkingTokens
 
 		if recorder != nil && (lastUsage.PromptTokens != 0 || lastUsage.CompletionTokens != 0 || lastUsage.TotalTokens != 0) {
 			if recErr := recorder.RecordUsage(ctx, SessionIDFromContext(ctx),
 				model, SourceAdHoc,
-				lastUsage.PromptTokens, lastUsage.CompletionTokens, lastUsage.TotalTokens); recErr != nil {
+				lastUsage.PromptTokens, lastUsage.CompletionTokens, lastUsage.TotalTokens,
+				lastUsage.ThinkingTokens); recErr != nil {
 				fmt.Fprintf(os.Stderr, "warn: usage recorder (stream): %v\n", recErr)
 			}
 		}
