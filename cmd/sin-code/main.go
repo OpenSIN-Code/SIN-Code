@@ -108,6 +108,7 @@ func init() {
 		NewStatusCmd(),                    // v3.22.0
 		NewFusionCmd(),                    // v3.22.0 — fusion benchmark/rank/recommend (issue #395) — readiness/status snapshot (issue #326)
 		NewResearchCmd(),                  // v3.23.0 — autonomous research-report generation (issue #384)
+		NewPermissionCmd(),                // v3.23.0 — reactive permission policy from tool results (issue #374)
 	)
 
 	// Pass build-time version to self-update module.
