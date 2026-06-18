@@ -375,6 +375,7 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		CoverageForbiddenTools:  cfg.CoverageForbiddenTools,
 		ThinkingEnabled:         thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
+		ResultPolicy:            permission.NewResultPolicy(),
 	}
 
 	if cfg.RepetitionThreshold > 0 {
@@ -607,6 +608,7 @@ func WireFusion(loop *agentloop.Loop, cfg Config, gate *verify.Gate, client *llm
 				Perm:         loop.Perm,
 				Lessons:      memStore,
 				Ledger:       ledgerStore,
+				ResultPolicy: loop.ResultPolicy,
 			}
 			return provLoop.Run(ctx, sess, prompt)
 		}

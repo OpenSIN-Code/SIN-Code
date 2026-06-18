@@ -444,6 +444,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		Ask:                     ask,
 		ThinkingEnabled:         thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
+		ResultPolicy:            permission.NewResultPolicy(),
 	}
 
 	if opts.repetitionThreshold > 0 {

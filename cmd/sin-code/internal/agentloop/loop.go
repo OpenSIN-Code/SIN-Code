@@ -239,6 +239,12 @@ type Loop struct {
 	// == "poc" (issue #290).
 	TournamentRunner TournamentRunner
 
+	// ResultPolicy, if set, scans the string returned by every executed
+	// tool and surfaces warnings/escalations for secret leakage,
+	// destructive confirmations, or network egress markers (issue #374).
+	// Optional — nil preserves exact legacy behavior.
+	ResultPolicy *permission.ResultPolicy
+
 	// Frustration, when set, tracks user message patterns for frustration
 	// signals and appends a system-prompt suffix when detected (issue #271).
 	// Optional — nil preserves legacy behavior.
@@ -626,6 +632,23 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 	postData := map[string]any{"output_bytes": len(res)}
 	if p := mutatedPath(tc); p != "" {
 		postData["path"] = p
+	}
+	if l.ResultPolicy != nil {
+		action, reason := l.ResultPolicy.ScanResult(tc.Name, res)
+		if action != permission.ActionNoOp {
+			postData["result_policy_action"] = action.String()
+			postData["result_policy_reason"] = reason
+			l.record(ctx, ledger.TypePermissionResult, map[string]any{
+				"tool":   tc.Name,
+				"action": action.String(),
+				"reason": reason,
+			}, "reactive permission: "+action.String()+" — "+reason)
+			if action == permission.ActionEscalate {
+				injects = append(injects, "PERMISSION ESCALATION: tool "+tc.Name+" output triggered '"+reason+"'. Stop and review before continuing.")
+			} else {
+				injects = append(injects, "PERMISSION WARNING: tool "+tc.Name+" output triggered '"+reason+"'.")
+			}
+		}
 	}
 	post := l.fire(ctx, hooks.ToolPost, tc.Name, postData)
 	injects = append(injects, post.PromptInjects...)
