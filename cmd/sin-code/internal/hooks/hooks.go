@@ -56,6 +56,8 @@ const (
 	// Token budget lifecycle (issue #151).
 	BudgetWarn      = "budget.warn"
 	BudgetExhausted = "budget.exhausted"
+	// BudgetExceeded fires when a single LLM turn crosses the per-turn cap (issue #375).
+	BudgetExceeded = "budget.exceeded"
 	// ReflectIssues fires when the self-reflection pass finds problems the
 	// worker must fix before completion is evaluated.
 	ReflectIssues = "reflect.issues"

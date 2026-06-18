@@ -121,6 +121,26 @@ type Config struct {
 	// Also activated by config agentloop.frustration_detection=true.
 	FrustrationDetectionEnabled bool
 
+	// ContextCompactionMode selects the compaction algorithm (issue: compaction-modes).
+	// off | deterministic | llm | hybrid. Empty = off (legacy behaviour).
+	ContextCompactionMode string
+
+	// CompactionTrigger decides when the compactor fires per turn.
+	// turns | tokens | both. Default tokens.
+	CompactionTrigger string
+
+	// CompactionMaxTokens is the token budget for compacted messages. Default 8000.
+	CompactionMaxTokens int
+
+	// ContextWindow is the effective token cap for compaction. 0 = auto.
+	ContextWindow int
+
+	// CompactionPreserveEvidence enables evidence-preserving retain rules (M3). Default true.
+	CompactionPreserveEvidence bool
+
+	// CompactionRecentTurns is the number of recent human turns to retain. Default 4.
+	CompactionRecentTurns int
+
 	// YoloRiskThreshold: when non-empty and Yolo is true, wires a
 	// RiskClassifier into the permission engine so YOLO auto-approves
 	// only low/medium/high risk tools (issue #272).
@@ -402,6 +422,51 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		}
 		loop.Compactor = agentloop.NewCompactor(nil)
 		loop.CompactionStrategy = strategy
+	}
+
+	// Context compaction mode (issue: compaction-modes): config-file defaults for
+	// the 6 mode-based compaction keys. When ContextCompactionMode is non-empty
+	// and non-"off", the mode-based compactor replaces strategy-based compaction.
+	if cfg.ContextCompactionMode != "off" || cfg.CompactionTrigger != "" ||
+		cfg.CompactionMaxTokens != 0 || cfg.ContextWindow != 0 ||
+		cfg.CompactionPreserveEvidence || cfg.CompactionRecentTurns != 0 {
+		if sinCfg, err := internal.LoadMergedConfig(); err == nil {
+			if cfg.ContextCompactionMode == "" || cfg.ContextCompactionMode == "off" {
+				cfg.ContextCompactionMode = sinCfg.AgentLoopContextCompaction
+			}
+			if cfg.CompactionTrigger == "" {
+				cfg.CompactionTrigger = sinCfg.AgentLoopCompactionTrigger
+			}
+			if cfg.CompactionMaxTokens == 0 {
+				cfg.CompactionMaxTokens = sinCfg.AgentLoopCompactionMaxTokens
+			}
+			if cfg.ContextWindow == 0 {
+				cfg.ContextWindow = sinCfg.AgentLoopContextWindow
+			}
+			if !cfg.CompactionPreserveEvidence {
+				cfg.CompactionPreserveEvidence = sinCfg.AgentLoopCompactionPreserveEvidence
+			}
+			if cfg.CompactionRecentTurns == 0 {
+				cfg.CompactionRecentTurns = sinCfg.AgentLoopCompactionRecentTurns
+			}
+		}
+	}
+	if cfg.ContextCompactionMode != "" && cfg.ContextCompactionMode != "off" {
+		mode, _ := agentloop.ParseContextCompactionMode(cfg.ContextCompactionMode)
+		trigger, _ := agentloop.ParseCompactionTrigger(cfg.CompactionTrigger)
+		if loop.Compactor == nil {
+			loop.Compactor = agentloop.NewCompactor(nil)
+		}
+		loop.Compactor.Configure(agentloop.CompactorConfig{
+			Mode:             mode,
+			Trigger:          trigger,
+			PreserveEvidence: cfg.CompactionPreserveEvidence,
+			RecentTurns:      cfg.CompactionRecentTurns,
+			MaxTokens:        cfg.CompactionMaxTokens,
+		})
+		if cfg.ContextWindow > 0 {
+			loop.ContextWindow = cfg.ContextWindow
+		}
 	}
 
 	// FrustrationDetector (issue #271): opt-in via config
