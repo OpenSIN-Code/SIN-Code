@@ -40,6 +40,11 @@ type Usage struct {
 	PromptTokens     int
 	CompletionTokens int
 	TotalTokens      int
+	// ThinkingTokens is the count of tokens the model spent on its
+	// internal reasoning phase (Claude / Anthropic-style providers,
+	// OpenRouter gateways). Zero means "unknown / not surfaced" and
+	// is never treated as a budget signal.
+	ThinkingTokens int
 }
 
 type ToolSpec struct {
@@ -143,6 +148,26 @@ type Loop struct {
 	// BudgetWarnRatio, if set, fires hooks.BudgetWarn once when token usage
 	// crosses this fraction of MaxTokens (e.g. 0.8). Useful for alerting.
 	BudgetWarnRatio float64
+
+	// ThinkingEnabled flips the wire-side "thinking" block on per request
+	// (Claude / Anthropic-style providers on NIM / OpenRouter gateways).
+	// When true, the provider adapter sends thinking{type:"enabled"}.
+	// Pure wire-side flag — does NOT affect the gate, only the request shape.
+	// Issue: Thinking Budget Enforcement (first PR).
+	ThinkingEnabled bool
+
+	// ThinkingBudgetPerRequest is the per-request reasoning-token cap sent
+	// on the wire as thinking.budget_tokens (when ThinkingEnabled is also
+	// true). 0 means "unlimited / provider default". Zero does NOT disable
+	// the wire field, only the cap.
+	// Issue: Thinking Budget Enforcement (first PR).
+	ThinkingBudgetPerRequest int
+	// thinkingUsed is the running per-run accumulator of the
+	// Completion.Usage.ThinkingTokens returned by the model. It lives
+	// only on the Loop instance and is reset by re-entering Run, so two
+	// concurrent Run invocations on the same Loop would race — the loop
+	// is documented to be one-Run-at-a-time (mandate M7).
+	thinkingUsed int // unexported per-run accumulator
 
 	// Reflector, if set, runs a self-critique pass right BEFORE the stop-gate.
 	// If it returns issues, the loop injects them and continues working — a
@@ -438,6 +463,11 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	stallCount := 0
 	totalTokens := 0      // issue #151: cumulative tokens across the run
 	warnedBudget := false // fires hooks.BudgetWarn once per run
+	// Issue: Thinking Budget Enforcement (first PR). Reset the per-run
+	// thinking accumulator so a second Run() on the same Loop instance
+	// starts at zero. The Loop itself is documented as one-Run-at-a-time
+	// (mandate M7), so we do not need a mutex on this field.
+	l.thinkingUsed = 0
 	reflectedThisProposal := false
 	toolsSeen := map[string]bool{}
 	var toolsUsed []string
@@ -513,7 +543,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 					return nil, serr
 				}
 				l.fire(ctx, hooks.BudgetExhausted, "", map[string]any{
-					"total_tokens": totalTokens, "max_tokens": l.MaxTokens,
+					"dimension": "tokens", "total_tokens": totalTokens, "max_tokens": l.MaxTokens,
 				})
 				l.record(ctx, ledger.TypeTokenBudgetExhausted,
 					map[string]any{"total_tokens": totalTokens, "max_tokens": l.MaxTokens},
@@ -526,6 +556,74 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				}
 				return nil, fmt.Errorf("token budget exhausted: %d/%d tokens used", totalTokens, l.MaxTokens)
 			}
+		}
+
+		// Issue: Thinking Budget Enforcement (first PR). Accumulate the
+		// provider's reported reasoning-token usage and stop the run
+		// when the per-run cap is exceeded (ThinkingBudgetPerRequest > 0).
+		// Zero values from providers that do not surface the field are
+		// safe — they never trigger the guard.
+		if resp.Usage.ThinkingTokens > 0 {
+			l.thinkingUsed += resp.Usage.ThinkingTokens
+		}
+		if l.ThinkingBudgetPerRequest > 0 && l.thinkingUsed > l.ThinkingBudgetPerRequest {
+			if serr := l.saveHistory(ctx, sess, msgs); serr != nil {
+				return nil, serr
+			}
+			l.fire(ctx, hooks.BudgetExhausted, "", map[string]any{
+				"dimension":           "thinking",
+				"thinking_tokens":     l.thinkingUsed,
+				"max_thinking_tokens": l.ThinkingBudgetPerRequest,
+			})
+			l.record(ctx, ledger.TypeTokenBudgetExhausted,
+				map[string]any{
+					"dimension":           "thinking",
+					"thinking_tokens":     l.thinkingUsed,
+					"max_thinking_tokens": l.ThinkingBudgetPerRequest,
+				},
+				fmt.Sprintf("thinking budget exhausted: %d > %d", l.thinkingUsed, l.ThinkingBudgetPerRequest))
+			// Mandate M3: never skip verification when stopping early. Run
+			// the gate on the current workspace first; if it passes the
+			// work IS done and we hand back a Verified=true result
+			// regardless of the budget. Only when verification FAILS do
+			// we surface the budget outcome (Continuation or error).
+			if l.Gate != nil {
+				vr := l.Gate.Run(ctx, l.Workspace)
+				if vr.Passed {
+					l.fire(ctx, hooks.VerifyPass, "", map[string]any{
+						"mode":                     string(vr.Mode),
+						"report":                   vr.Report,
+						"after_thinking_exhausted": true,
+					})
+					l.record(ctx, ledger.TypeVerifyPass,
+						map[string]any{"mode": string(vr.Mode), "after_thinking_exhausted": true},
+						"verification passed after thinking budget exhausted")
+					result := &Result{
+						SessionID: sess.ID, Summary: resp.Text,
+						Verified: true, Turns: turn + 1,
+						Tokens: totalTokens,
+					}
+					l.fire(ctx, hooks.TaskComplete, "", map[string]any{
+						"summary":                         result.Summary,
+						"turns":                           result.Turns,
+						"verified":                        true,
+						"thinking_exhausted_but_verified": true,
+					})
+					return result, nil
+				}
+				l.fire(ctx, hooks.VerifyFail, "", map[string]any{
+					"mode":                     string(vr.Mode),
+					"report":                   vr.Report,
+					"after_thinking_exhausted": true,
+				})
+			}
+			if l.AllowContinuation {
+				return &Result{
+					SessionID: sess.ID, Summary: lastText, Verified: false,
+					Turns: turn + 1, Continuation: true, OpenCriteria: lastOpen,
+				}, nil
+			}
+			return nil, fmt.Errorf("thinking budget exhausted (%d > %d)", l.thinkingUsed, l.ThinkingBudgetPerRequest)
 		}
 
 		if len(resp.ToolCalls) == 0 {

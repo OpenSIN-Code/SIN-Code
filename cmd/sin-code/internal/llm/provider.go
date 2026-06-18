@@ -44,7 +44,6 @@ type ChatResponse struct {
 		PromptTokens     int `json:"prompt_tokens"`
 		CompletionTokens int `json:"completion_tokens"`
 		TotalTokens      int `json:"total_tokens"`
-		ThinkingTokens   int `json:"thinking_tokens,omitempty"`
 	} `json:"usage"`
 }
 
@@ -144,7 +143,7 @@ func (c *Client) Chat(ctx context.Context, req ChatRequest) (*ChatResponse, erro
 	if c.Recorder != nil && (out.Usage.PromptTokens != 0 || out.Usage.CompletionTokens != 0 || out.Usage.TotalTokens != 0) {
 		if recErr := c.Recorder.RecordUsage(ctx, SessionIDFromContext(ctx),
 			req.Model, SourceAdHoc,
-			out.Usage.PromptTokens, out.Usage.CompletionTokens, out.Usage.TotalTokens, out.Usage.ThinkingTokens); recErr != nil {
+			out.Usage.PromptTokens, out.Usage.CompletionTokens, out.Usage.TotalTokens); recErr != nil {
 			fmt.Fprintf(os.Stderr, "warn: usage recorder: %v\n", recErr)
 		}
 	}

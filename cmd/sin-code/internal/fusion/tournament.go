@@ -87,19 +87,11 @@ type Candidate struct {
 
 // Result is the tournament outcome.
 type Result struct {
-	Winner       *Candidate     `json:"winner,omitempty"`
-	Losers       []Candidate    `json:"losers,omitempty"`
-	AllFailed    bool           `json:"all_failed"`
-	TotalCostUSD float64        `json:"total_cost_usd"`
-	DurationMs   int64          `json:"duration_ms"`
-	Plans        []PlanCandidate `json:"plans,omitempty"`
-	MergedPlan   string          `json:"merged_plan,omitempty"`
-	Mode         Mode            `json:"mode,omitempty"`
-	Success      bool            `json:"success"`
-	Verified     bool            `json:"verified"`
-	Error        string          `json:"error,omitempty"`
-	Duration     time.Duration   `json:"duration,omitempty"`
-	VerifyResult verify.Result   `json:"verify_result,omitempty"`
+	Winner       *Candidate  `json:"winner,omitempty"`
+	Losers       []Candidate `json:"losers,omitempty"`
+	AllFailed    bool        `json:"all_failed"`
+	TotalCostUSD float64     `json:"total_cost_usd"`
+	DurationMs   int64       `json:"duration_ms"`
 }
 
 // Tournament orchestrates a multi-provider verify-tournament.
@@ -109,7 +101,6 @@ type Tournament struct {
 	ForkFunc           ForkFunc
 	VerifyFn           func(ctx context.Context, workspace string) verify.Result
 	OracleJudge        OracleJudgeFn
-	PlanMergeJudge     PlanMergeJudgeFn
 	Mode               Mode
 	MaxCostUSD         float64
 	MinQuorum          int
@@ -131,9 +122,6 @@ type Tournament struct {
 func (t *Tournament) Run(ctx context.Context) (*Result, error) {
 	if t.Mode == ModeOracle {
 		return t.runOracle(ctx)
-	}
-	if t.Mode == ModePlanMerge {
-		return t.runPlanMerge(ctx)
 	}
 	return t.runPoC(ctx)
 }
