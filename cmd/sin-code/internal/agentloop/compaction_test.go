@@ -5,6 +5,7 @@ package agentloop
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -353,4 +354,79 @@ func TestCompactionSelectivePreservesSystemPrompt(t *testing.T) {
 	if result[0].Content != "IMPORTANT SYSTEM PROMPT" {
 		t.Errorf("selective should preserve system prompt: got %s", result[0].Content)
 	}
+}
+
+// Context Compaction Modes (first PR — compaction-modes) coverage.
+
+func stubSummarizerCM(tag string) SummarizerFunc {
+	return func(ctx context.Context, msgs []session.Message) (string, error) {
+		return tag + "(" + strconv.Itoa(len(msgs)) + ")", nil
+	}
+}
+
+func TestCompact2_Off_NoOp(t *testing.T) {
+	c := NewCompactor(stubSummarizerCM("LLM"))
+	msgs := []session.Message{{Role: "system", Content: "sys"}, {Role: "user", Content: "u1"}, {Role: "assistant", Content: "a1"}}
+	r, _ := c.Compact2(context.Background(), CompactInput{Messages: msgs, Mode: ContextCompactionOff, MaxTokens: 100})
+	if len(r.Kept) != len(msgs) { t.Errorf("off no-op; got %d want %d", len(r.Kept), len(msgs)) }
+}
+
+func TestCompact2_Deterministic_EvidencePreserved(t *testing.T) {
+	c := NewCompactor(stubSummarizerCM("LLM"))
+	c.Configure(CompactorConfig{Mode: ContextCompactionDeterministic, Trigger: CompactionTriggerTokens, Threshold: 0.8, MaxTokens: 8000, PreserveEvidence: true, RecentTurns: 4})
+	msgs := make([]session.Message, 30)
+	for i := range msgs { msgs[i] = session.Message{Role: "user", Content: "noise"}; if i%2 == 1 { msgs[i].Role = "assistant" } }
+	msgs[0] = session.Message{Role: "system", Content: "SYSTEM"}
+	msgs[15] = session.Message{Role: "assistant", Content: "VERIFY: VERIFICATION PASSED"}
+	r, _ := c.Compact2(context.Background(), CompactInput{Messages: msgs, Mode: ContextCompactionDeterministic, MaxTokens: 8000})
+	if len(r.Kept) >= len(msgs) { t.Errorf("deterministic reduce; got %d from %d", len(r.Kept), len(msgs)) }
+	found := false; for _, m := range r.Kept { if m.Content == "VERIFY: VERIFICATION PASSED" { found = true } }
+	if !found { t.Error("missing VERIFICATION PASSED") }
+	if r.Summary != "" { t.Errorf("deterministic summary non-empty: %q", r.Summary) }
+}
+
+func TestCompact2_LLM_SingleSummary(t *testing.T) {
+	c := NewCompactor(stubSummarizerCM("LLM-SUMMARY"))
+	c.Configure(CompactorConfig{Mode: ContextCompactionLLM, MaxTokens: 8000, PreserveEvidence: true, RecentTurns: 4})
+	msgs := []session.Message{{Role: "system", Content: "S"}, {Role: "user", Content: "g"}, {Role: "assistant", Content: "p"}}
+	r, _ := c.Compact2(context.Background(), CompactInput{Messages: msgs, Mode: ContextCompactionLLM, MaxTokens: 8000})
+	if len(r.Kept) != 1 || r.Kept[0].Role != "system" { t.Error("llm single system message expected") }
+	if !strings.Contains(r.Summary, "LLM-SUMMARY") { t.Errorf("summary missing tag: %q", r.Summary) }
+	if !r.Mode.IsLossy() { t.Error("llm should be lossy") }
+}
+
+func TestCompact2_Hybrid_EvidencePlusSummary(t *testing.T) {
+	c := NewCompactor(stubSummarizerCM("LLM-HYBRID"))
+	c.Configure(CompactorConfig{Mode: ContextCompactionHybrid, RecentTurns: 2, PreserveEvidence: true, MaxTokens: 8000})
+	msgs := make([]session.Message, 20)
+	for i := range msgs { msgs[i] = session.Message{Role: "user", Content: "m" + strconv.Itoa(i)}; if i%2 == 1 { msgs[i].Role = "assistant" } }
+	msgs[0].Role = "system"
+	msgs[15].Content = "VERIFICATION PASSED"
+	r, _ := c.Compact2(context.Background(), CompactInput{Messages: msgs, Mode: ContextCompactionHybrid, MaxTokens: 8000})
+	if !strings.Contains(r.Summary, "LLM-HYBRID") { t.Errorf("hybrid summary missing tag: %q", r.Summary) }
+	if len(r.Kept) == 0 || r.Kept[0].Role != "system" { t.Error("hybrid Kept[0] should be system") }
+}
+
+func TestCompact2_LegacyStrategy_Unchanged(t *testing.T) {
+	c := NewCompactor(stubSummarizerCM("LLM"))
+	msgs := makeTestMessages(20)
+	r, _ := c.Compact2(context.Background(), CompactInput{Messages: msgs, Strategy: CompactionTruncate, MaxTokens: 3000})
+	if len(r.Kept) >= len(msgs) { t.Error("legacy truncate should reduce") }
+}
+
+func TestCompact2_ByteStableDeterministic(t *testing.T) {
+	cfg := CompactorConfig{Mode: ContextCompactionDeterministic, RecentTurns: 4, PreserveEvidence: true, MaxTokens: 8000}
+	msgs := []session.Message{{Role: "system", Content: "S"}, {Role: "user", Content: "U1"}, {Role: "assistant", Content: "A1"}, {Role: "tool", Content: "T1", ToolCallID: "tc1"}, {Role: "assistant", Content: "VERIFICATION PASSED"}}
+	c1 := NewCompactor(stubSummarizerCM("FIXED")); c1.Configure(cfg)
+	c2 := NewCompactor(stubSummarizerCM("FIXED")); c2.Configure(cfg)
+	r1, _ := c1.Compact2(context.Background(), CompactInput{Messages: msgs, Mode: cfg.Mode, MaxTokens: cfg.MaxTokens})
+	r2, _ := c2.Compact2(context.Background(), CompactInput{Messages: msgs, Mode: cfg.Mode, MaxTokens: cfg.MaxTokens})
+	if len(r1.Kept) != len(r2.Kept) { t.Errorf("byte-stable r1=%d r2=%d", len(r1.Kept), len(r2.Kept)) }
+	for i := range r1.Kept { if r1.Kept[i].Role != r2.Kept[i].Role || r1.Kept[i].Content != r2.Kept[i].Content { t.Errorf("Kept[%d] differs", i) } }
+}
+
+func TestIdentifyEvidence_FindsMarkers(t *testing.T) {
+	msgs := []session.Message{{Role: "system", Content: "s"}, {Role: "user", Content: "u"}, {Role: "assistant", Content: "VERIFICATION PASSED"}, {Role: "user", Content: "m"}, {Role: "assistant", Content: "Open acceptance criteria: yes"}}
+	idx := evidenceIndices(msgs)
+	if len(idx) != 2 { t.Errorf("evidenceIndices size: got %d want 2 (idx=%v)", len(idx), idx) }
 }
