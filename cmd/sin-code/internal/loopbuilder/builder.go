@@ -92,6 +92,7 @@ type Config struct {
 	FusionDifficultyGate      bool
 	FusionOracleMode          bool
 	FusionMode                fusion.Mode // issue #394: explicit mode override ("poc" | "oracle" | "plan-merge")
+	TaskDescription           string      // issue #395: for modelperf category detection
 	FusionProfilesDir         string
 
 	// DeepPlanner: when true, the orchestrator uses the parallel DAG
@@ -571,15 +572,6 @@ func WireFusion(loop *agentloop.Loop, cfg Config, gate *verify.Gate, client *llm
 		}
 		judge := fusion.NewLLMOracleJudge(judgeClient, judgeModel)
 		tournament.OracleJudge = judge.Judge
-	}
-	if mode == fusion.ModePlanMerge {
-		judgeModel := firstNonEmpty(os.Getenv("SIN_EVALUATOR_MODEL"), cfg.Model)
-		judgeClient := client
-		if evalBase := os.Getenv("SIN_EVALUATOR_BASE_URL"); evalBase != "" {
-			judgeClient = llm.NewClient(evalBase, os.Getenv("SIN_EVALUATOR_API_KEY"))
-		}
-		mergeJudge := fusion.NewLLMPlanMergeJudge(judgeClient, judgeModel)
-		tournament.PlanMergeJudge = mergeJudge.Merge
 	}
 	loop.TournamentRunner = &fusionAdapter{t: tournament, gate: gate, cfg: cfg, client: client, memStore: memStore}
 }
