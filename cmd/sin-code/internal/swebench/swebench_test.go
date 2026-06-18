@@ -340,6 +340,48 @@ func TestScoreInstance(t *testing.T) {
 			wantScore:    0.3,
 			wantScoreTol: 0.001,
 		},
+		{
+			name: "false positive - FAILED line with ok substring in token elsewhere",
+			inst: &Instance{
+				InstanceID: "test-fp-1",
+				FailToPass: []string{"test_foo"},
+				PassToPass: nil,
+			},
+			verifyOutput: "FAILED test_foo\nsome token error in output",
+			wantResolved: false,
+			wantFTP:      0,
+			wantPTP:      0,
+			wantScore:    0.3,
+			wantScoreTol: 0.001,
+		},
+		{
+			name: "false positive - BROKEN contains ok but is not a pass",
+			inst: &Instance{
+				InstanceID: "test-fp-2",
+				FailToPass: []string{"test_bar"},
+				PassToPass: nil,
+			},
+			verifyOutput: "test_bar BROKEN\n1 passed in other module",
+			wantResolved: false,
+			wantFTP:      0,
+			wantPTP:      0,
+			wantScore:    0.3,
+			wantScoreTol: 0.001,
+		},
+		{
+			name: "pytest verbose PASSED on correct line",
+			inst: &Instance{
+				InstanceID: "test-pytest",
+				FailToPass: []string{"tests/test_foo.py::test_bar"},
+				PassToPass: nil,
+			},
+			verifyOutput: "tests/test_foo.py::test_bar PASSED [50%]\n========================= 1 passed =========================",
+			wantResolved: true,
+			wantFTP:      1,
+			wantPTP:      0,
+			wantScore:    1.0,
+			wantScoreTol: 0.001,
+		},
 	}
 
 	for _, tc := range tests {

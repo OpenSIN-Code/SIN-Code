@@ -11,6 +11,12 @@ import (
 )
 
 func autoCreatePR(ctx context.Context, goal *autonomy.Goal, res *agentloop.Result) error {
+	if goal == nil {
+		return fmt.Errorf("autoCreatePR: nil goal, nothing to PR")
+	}
+	if res == nil {
+		return fmt.Errorf("autoCreatePR: nil result, nothing to PR")
+	}
 	branch := fmt.Sprintf("goal-%d", goal.ID)
 	diffOut, err := exec.CommandContext(ctx, "git", "-C", goal.Workspace, "diff", "--stat", "HEAD").CombinedOutput()
 	if err != nil || strings.TrimSpace(string(diffOut)) == "" {

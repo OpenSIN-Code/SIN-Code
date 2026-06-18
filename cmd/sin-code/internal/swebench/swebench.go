@@ -84,13 +84,73 @@ type ScorerResult struct {
 	Score           float64 `json:"score"`
 }
 
+func isWordChar(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
+}
+
+func containsStandaloneOk(line string) bool {
+	search := line
+	for {
+		idx := strings.Index(search, "ok")
+		if idx == -1 {
+			return false
+		}
+		absIdx := len(line) - len(search) + idx
+		beforeOk := absIdx == 0 || !isWordChar(line[absIdx-1])
+		afterIdx := absIdx + 2
+		afterOk := afterIdx >= len(line) || !isWordChar(line[afterIdx])
+		if beforeOk && afterOk {
+			return true
+		}
+		search = search[idx+2:]
+	}
+}
+
+func lineHasPassIndicator(line string) bool {
+	if strings.Contains(line, "PASSED") {
+		return true
+	}
+	if strings.Contains(line, "passed") {
+		return true
+	}
+	return containsStandaloneOk(line)
+}
+
+func lineHasFailIndicator(line string) bool {
+	for _, ind := range []string{"FAILED", "ERROR", "failed", "error"} {
+		if strings.Contains(line, ind) {
+			return true
+		}
+	}
+	return false
+}
+
+func testPassed(testName, verifyOutput string) bool {
+	for _, line := range strings.Split(verifyOutput, "\n") {
+		if !strings.Contains(line, testName) {
+			continue
+		}
+		if lineHasFailIndicator(line) {
+			continue
+		}
+		if lineHasPassIndicator(line) {
+			return true
+		}
+	}
+	return false
+}
+
 func ScoreInstance(inst *Instance, verifyOutput string) ScorerResult {
 	r := ScorerResult{InstanceID: inst.InstanceID, FailToPassTotal: len(inst.FailToPass), PassToPassTotal: len(inst.PassToPass)}
 	for _, t := range inst.FailToPass {
-		if strings.Contains(verifyOutput, t) && (strings.Contains(verifyOutput, "passed") || strings.Contains(verifyOutput, "ok")) { r.FailToPass++ }
+		if testPassed(t, verifyOutput) {
+			r.FailToPass++
+		}
 	}
 	for _, t := range inst.PassToPass {
-		if strings.Contains(verifyOutput, t) && (strings.Contains(verifyOutput, "passed") || strings.Contains(verifyOutput, "ok")) { r.PassToPass++ }
+		if testPassed(t, verifyOutput) {
+			r.PassToPass++
+		}
 	}
 	if r.FailToPassTotal > 0 {
 		ftpr := float64(r.FailToPass) / float64(r.FailToPassTotal)
