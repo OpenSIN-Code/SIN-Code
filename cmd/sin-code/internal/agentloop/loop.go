@@ -231,13 +231,15 @@ type Loop struct {
 
 // TournamentRunner is the interface for fusion verify-tournaments (issue
 // #290). The loop calls ShouldRun to check if a verify-fail warrants a
-// tournament fan-out, and Run to execute it. On success, Run returns the
-// winner's output and token count. On failure, the loop falls back to
-// the legacy same-model retry. Defined here (not in internal/fusion) to
-// avoid a circular import (fusion imports agentloop for Result).
+// tournament fan-out, and Run to execute it. The prompt is passed so the
+// tournament can fan it out to each provider — without it, forked sessions
+// would run with an empty task. On success, Run returns the winner's output
+// and token count. On failure, the loop falls back to the legacy same-model
+// retry. Defined here (not in internal/fusion) to avoid a circular import
+// (fusion imports agentloop for Result).
 type TournamentRunner interface {
 	ShouldRun(vr verify.Result) bool
-	Run(ctx context.Context) (output string, tokens int, err error)
+	Run(ctx context.Context, prompt string) (output string, tokens int, err error)
 }
 
 // saveHistoryHook is a test seam for injecting a mock around session
@@ -565,7 +567,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			if l.TournamentRunner != nil &&
 				(l.Gate.Mode() == verify.ModePoC || l.Gate.Mode() == verify.ModeOracle) &&
 				l.TournamentRunner.ShouldRun(res) {
-					output, tokens, terr := l.TournamentRunner.Run(ctx)
+					output, tokens, terr := l.TournamentRunner.Run(ctx, prompt)
 					if terr == nil && output != "" {
 						l.fire(ctx, hooks.VerifyPass, "", map[string]any{
 							"mode": "poc", "report": "fusion tournament: winner passed verify-gate",

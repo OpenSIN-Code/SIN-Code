@@ -57,7 +57,7 @@ func TestFusionIntegration_RunReturnsErrorWithoutSessionStore(t *testing.T) {
 		t.Fatal("expected TournamentRunner to be non-nil")
 	}
 
-	_, _, err = loop.TournamentRunner.Run(context.Background())
+	_, _, err = loop.TournamentRunner.Run(context.Background(), "test prompt")
 	if err == nil {
 		t.Fatal("expected error when ForkFunc/RunFunc are nil (no SessionStore)")
 	}
@@ -210,7 +210,7 @@ func TestFusionIntegration_TournamentEndToEndAllFail(t *testing.T) {
 	}
 
 	adapter := &fusionAdapter{t: tournament}
-	_, _, err := adapter.Run(context.Background())
+	_, _, err := adapter.Run(context.Background(), "test prompt")
 	if !errors.Is(err, fusion.ErrAllProvidersFailed) {
 		t.Fatalf("expected ErrAllProvidersFailed, got: %v", err)
 	}
@@ -246,7 +246,7 @@ func TestFusionIntegration_TournamentEndToEndWinner(t *testing.T) {
 	}
 
 	adapter := &fusionAdapter{t: tournament}
-	output, tokens, err := adapter.Run(context.Background())
+	output, tokens, err := adapter.Run(context.Background(), "test prompt")
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
@@ -259,7 +259,8 @@ func TestFusionIntegration_TournamentEndToEndWinner(t *testing.T) {
 }
 
 func TestFusionIntegration_ShouldRun(t *testing.T) {
-	adapter := &fusionAdapter{t: &fusion.Tournament{}}
+	// Default: FusionDifficultyGate=true → text heuristic filters stylistic failures.
+	adapter := &fusionAdapter{t: &fusion.Tournament{}, cfg: Config{FusionDifficultyGate: true}}
 
 	structuralFail := verify.Result{Passed: false, Mode: verify.ModePoC, Report: "compile error: undefined variable"}
 	if !adapter.ShouldRun(structuralFail) {
@@ -269,5 +270,110 @@ func TestFusionIntegration_ShouldRun(t *testing.T) {
 	passed := verify.Result{Passed: true, Mode: verify.ModePoC, Report: "passed"}
 	if adapter.ShouldRun(passed) {
 		t.Error("expected ShouldRun=false for passed result")
+	}
+
+	stylisticFail := verify.Result{Passed: false, Mode: verify.ModePoC, Report: "naming convention violation"}
+	if adapter.ShouldRun(stylisticFail) {
+		t.Error("expected ShouldRun=false for stylistic failure when difficulty gate is on")
+	}
+}
+
+func TestFusionIntegration_ShouldRunDifficultyGateOff(t *testing.T) {
+	// FusionDifficultyGate=false → ALL failures trigger tournament (no filtering).
+	adapter := &fusionAdapter{t: &fusion.Tournament{}, cfg: Config{FusionDifficultyGate: false}}
+
+	structuralFail := verify.Result{Passed: false, Mode: verify.ModePoC, Report: "compile error: undefined variable"}
+	if !adapter.ShouldRun(structuralFail) {
+		t.Error("expected ShouldRun=true for structural failure (gate off)")
+	}
+
+	stylisticFail := verify.Result{Passed: false, Mode: verify.ModePoC, Report: "naming convention violation"}
+	if !adapter.ShouldRun(stylisticFail) {
+		t.Error("expected ShouldRun=true for stylistic failure when difficulty gate is off")
+	}
+
+	passed := verify.Result{Passed: true, Mode: verify.ModePoC, Report: "passed"}
+	if adapter.ShouldRun(passed) {
+		t.Error("expected ShouldRun=false for passed result even with gate off")
+	}
+}
+
+func TestFusionIntegration_RunSetsPromptAndSourceSessionID(t *testing.T) {
+	var capturedPrompt string
+	var capturedSourceSessionID string
+
+	mockRunFunc := func(ctx context.Context, prov fusion.ProviderConfig, sess *session.Session, prompt string) (*agentloop.Result, error) {
+		capturedPrompt = prompt
+		return &agentloop.Result{
+			SessionID: sess.ID,
+			Summary:   "CORRECT",
+			Turns:     1,
+			Tokens:    100,
+		}, nil
+	}
+	mockForkFunc := func(srcSessionID string, turn int) (*session.Session, error) {
+		capturedSourceSessionID = srcSessionID
+		return &session.Session{ID: "fork-session"}, nil
+	}
+	mockVerifyFn := func(ctx context.Context, workspace string) verify.Result {
+		return verify.Result{Passed: true, Mode: verify.ModePoC, Report: "passed"}
+	}
+
+	tournament := &fusion.Tournament{
+		Providers:          []fusion.ProviderConfig{{Name: "mock-a"}, {Name: "mock-b"}},
+		RunFunc:            mockRunFunc,
+		ForkFunc:           mockForkFunc,
+		VerifyFn:           mockVerifyFn,
+		MinQuorum:          2,
+		MaxCostUSD:         10.0,
+		PerProviderTimeout: 5 * time.Second,
+		Workspace:          t.TempDir(),
+	}
+
+	adapter := &fusionAdapter{
+		t:   tournament,
+		cfg: Config{SessionID: "source-session-42"},
+	}
+
+	output, _, err := adapter.Run(context.Background(), "fix the bug in auth.go")
+	if err != nil {
+		t.Fatalf("expected no error, got: %v", err)
+	}
+	if output != "CORRECT" {
+		t.Errorf("expected output 'CORRECT', got %q", output)
+	}
+	if capturedPrompt != "fix the bug in auth.go" {
+		t.Errorf("expected prompt propagated to RunFunc, got %q", capturedPrompt)
+	}
+	if capturedSourceSessionID != "source-session-42" {
+		t.Errorf("expected SourceSessionID propagated to ForkFunc, got %q", capturedSourceSessionID)
+	}
+	if tournament.Prompt != "fix the bug in auth.go" {
+		t.Errorf("expected tournament.Prompt set, got %q", tournament.Prompt)
+	}
+	if tournament.SourceSessionID != "source-session-42" {
+		t.Errorf("expected tournament.SourceSessionID set, got %q", tournament.SourceSessionID)
+	}
+}
+
+func TestFusionIntegration_WireFusionSetsSourceSessionID(t *testing.T) {
+	loop := &agentloop.Loop{}
+	gate := verify.NewGate("poc", nil, nil)
+	cfg := Config{
+		FusionEnabled:    true,
+		FusionProviders:  []string{"minimax-m3", "glm-5p2"},
+		FusionMaxCostUSD: 10.0,
+		FusionMinQuorum:  2,
+		SessionID:        "test-session-99",
+	}
+
+	WireFusion(loop, cfg, gate, nil, nil, nil, nil)
+
+	adapter, ok := loop.TournamentRunner.(*fusionAdapter)
+	if !ok {
+		t.Fatalf("expected *fusionAdapter, got %T", loop.TournamentRunner)
+	}
+	if adapter.t.SourceSessionID != "test-session-99" {
+		t.Errorf("expected SourceSessionID 'test-session-99', got %q", adapter.t.SourceSessionID)
 	}
 }

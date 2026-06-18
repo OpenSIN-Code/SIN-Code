@@ -506,6 +506,12 @@ test.auto_generate = %v
 test.timeout_seconds = %d
 test.use_llm = %v
 test.repair_rounds = %d
+
+# Worktree conflict prediction (issue #319).
+# conflict_check: off|warn|abort — action when git merge-tree predicts conflicts
+# target_branch: integration branch to compare against when creating a worktree
+worktree.conflict_check = %q
+worktree.target_branch = %q
 `, cfg.Theme, cfg.DefaultTimeout, cfg.DefaultFormat, cfg.MCPServerEnabled,
 		cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMMaxTokens, cfg.LLMTemperature,
 		cfg.LLMStyle,
@@ -513,7 +519,8 @@ test.repair_rounds = %d
 		strings.Join(cfg.AgentLoopRequiredTools, ","), strings.Join(cfg.AgentLoopForbiddenTools, ","),
 		strings.Join(cfg.ToolsAllow, ","), strings.Join(cfg.ToolsDeny, ","),
 		cfg.PathsMCPConfig, cfg.PathsSkillsDir,
-		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds, cfg.TestUseLLM, cfg.TestRepairRounds)
+		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds, cfg.TestUseLLM, cfg.TestRepairRounds,
+		cfg.WorktreeConflictCheck, cfg.WorktreeTargetBranch)
 }
 
 func initConfig() error {
@@ -637,6 +644,10 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection), nil
 	case "permission.yolo_risk_threshold":
 		return cfg.PermissionYoloRiskThreshold, nil
+	case "worktree.conflict_check":
+		return cfg.WorktreeConflictCheck, nil
+	case "worktree.target_branch":
+		return cfg.WorktreeTargetBranch, nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -810,6 +821,13 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.AgentLoopFrustrationDetection = value == "true" || value == "1"
 	case "permission.yolo_risk_threshold":
 		cfg.PermissionYoloRiskThreshold = value
+	case "worktree.conflict_check":
+		if value != "off" && value != "warn" && value != "abort" {
+			return fmt.Errorf("worktree.conflict_check must be 'off', 'warn', or 'abort', got %q", value)
+		}
+		cfg.WorktreeConflictCheck = value
+	case "worktree.target_branch":
+		cfg.WorktreeTargetBranch = value
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}
@@ -869,6 +887,8 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"agentloop.compaction_threshold", fmt.Sprintf("%v", cfg.AgentLoopCompactionThreshold)},
 		{"agentloop.frustration_detection", fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection)},
 		{"permission.yolo_risk_threshold", cfg.PermissionYoloRiskThreshold},
+		{"worktree.conflict_check", cfg.WorktreeConflictCheck},
+		{"worktree.target_branch", cfg.WorktreeTargetBranch},
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Key < pairs[j].Key })
 	return pairs
@@ -937,6 +957,10 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 			"mcp_config": cfg.PathsMCPConfig,
 			"skills_dir": cfg.PathsSkillsDir,
 		},
+		"worktree": map[string]any{
+			"conflict_check": cfg.WorktreeConflictCheck,
+			"target_branch":  cfg.WorktreeTargetBranch,
+		},
 	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
@@ -961,6 +985,8 @@ func showTOML(cfg SinCodeConfig, mask bool) error {
 		TestCoverageThreshold:    cfg.TestCoverageThreshold, TestMutationThreshold: cfg.TestMutationThreshold,
 		TestAutoGenerate:         cfg.TestAutoGenerate, TestTimeoutSeconds: cfg.TestTimeoutSeconds,
 		TestUseLLM:               cfg.TestUseLLM, TestRepairRounds: cfg.TestRepairRounds,
+		WorktreeConflictCheck:    cfg.WorktreeConflictCheck,
+		WorktreeTargetBranch:     cfg.WorktreeTargetBranch,
 	}))
 	return nil
 }
@@ -1014,6 +1040,9 @@ func validateConfig(cfg SinCodeConfig) []string {
 	}
 	if cfg.AgentLoopCompactionThreshold <= 0 || cfg.AgentLoopCompactionThreshold > 1 {
 		issues = append(issues, fmt.Sprintf("agentloop.compaction_threshold must be in (0,1], got %v", cfg.AgentLoopCompactionThreshold))
+	}
+	if cfg.WorktreeConflictCheck != "" && cfg.WorktreeConflictCheck != "off" && cfg.WorktreeConflictCheck != "warn" && cfg.WorktreeConflictCheck != "abort" {
+		issues = append(issues, fmt.Sprintf("worktree.conflict_check must be 'off', 'warn', or 'abort', got %q", cfg.WorktreeConflictCheck))
 	}
 	return issues
 }
@@ -1122,6 +1151,10 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.AgentLoopFrustrationDetection = val == "true" || val == "1"
 		case "permission.yolo_risk_threshold":
 			cfg.PermissionYoloRiskThreshold = val
+		case "worktree.conflict_check":
+			cfg.WorktreeConflictCheck = val
+		case "worktree.target_branch":
+			cfg.WorktreeTargetBranch = val
 		}
 	}
 }

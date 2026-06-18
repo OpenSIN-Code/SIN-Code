@@ -512,7 +512,7 @@ type stubTournamentRunner struct {
 	providersTried int
 	shouldRunVal   bool
 	providers      []string
-	runFn          func(ctx context.Context) (string, int, error)
+	runFn          func(ctx context.Context, prompt string) (string, int, error)
 }
 
 func (s *stubTournamentRunner) ShouldRun(vr verify.Result) bool {
@@ -521,14 +521,14 @@ func (s *stubTournamentRunner) ShouldRun(vr verify.Result) bool {
 	return s.shouldRunVal
 }
 
-func (s *stubTournamentRunner) Run(ctx context.Context) (string, int, error) {
+func (s *stubTournamentRunner) Run(ctx context.Context, prompt string) (string, int, error) {
 	s.mu.Lock()
 	s.runCalled = true
 	s.providersTried++
 	fn := s.runFn
 	s.mu.Unlock()
 	if fn != nil {
-		return fn(ctx)
+		return fn(ctx, prompt)
 	}
 	return "tournament winner", 50, nil
 }
@@ -554,7 +554,7 @@ type multiProviderStubRunner struct {
 	workspace     string
 }
 
-func (m *multiProviderStubRunner) Run(ctx context.Context) (string, int, error) {
+func (m *multiProviderStubRunner) Run(ctx context.Context, prompt string) (string, int, error) {
 	m.providerMu.Lock()
 	idx := m.nextProvider
 	m.nextProvider++
@@ -599,7 +599,7 @@ func TestE2E_FusionTournamentTrigger(t *testing.T) {
 
 	stub := &stubTournamentRunner{
 		shouldRunVal: true,
-		runFn: func(ctx context.Context) (string, int, error) {
+		runFn: func(ctx context.Context, prompt string) (string, int, error) {
 			return "fusion winner output", 200, nil
 		},
 	}
