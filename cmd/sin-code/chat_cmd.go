@@ -131,6 +131,8 @@ type chatOptions struct {
 	contextWindow          int
 	preserveEvidence       bool
 	compactionRecentTurns  int
+	repetitionThreshold    int
+	repetitionWindow       int
 }
 
 func NewChatCmd() *cobra.Command {
@@ -200,6 +202,8 @@ func NewChatCmd() *cobra.Command {
 	f.IntVar(&opts.contextWindow, "context-window", 0, "effective token cap for compaction (0 = auto)")
 	f.BoolVar(&opts.preserveEvidence, "compaction-preserve-evidence", false, "enable evidence preservation during compaction (M3, default true)")
 	f.IntVar(&opts.compactionRecentTurns, "compaction-recent-turns", 0, "number of recent human turns to retain (default 4)")
+	f.IntVar(&opts.repetitionThreshold, "repetition-threshold", 0, "observer-loop detection: number of repetitions before aborting (0 = disabled, issue #377)")
+	f.IntVar(&opts.repetitionWindow, "repetition-window", 0, "observer-loop detection: window size for sequence detection (0 = default 1)")
 	return cmd
 }
 

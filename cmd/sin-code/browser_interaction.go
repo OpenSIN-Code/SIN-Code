@@ -59,7 +59,12 @@ func toolBrowserWait(ctx context.Context, selector, timeoutStr string) (string, 
 	if browserSession == nil { return "", fmt.Errorf("no active browser session") }
 	if selector == "" { return "", fmt.Errorf("selector required") }
 	timeout := 10 * time.Second
-	if timeoutStr != "" { var sec int; if fmt.Sscanf(timeoutStr, "%d", &sec) == nil && sec > 0 && sec <= 120 { timeout = time.Duration(sec) * time.Second } }
+	if timeoutStr != "" {
+		var sec int
+		if n, _ := fmt.Sscanf(timeoutStr, "%d", &sec); n == 1 && sec > 0 && sec <= 120 {
+			timeout = time.Duration(sec) * time.Second
+		}
+	}
 	waitCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	err := chromedp.Run(waitCtx, chromedp.WaitVisible(selector, chromedp.ByQuery))

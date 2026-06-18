@@ -145,10 +145,7 @@ func extraSpecs() []agentloopToolSpecAlias {
 				"window": str("correlation window in sequence steps for the current session (default 25)"),
 			})},
 	}
-}
-
 	allSpecs = append(allSpecs, registerBrowserInteractionSpecs()...)
-
 	return allSpecs
 }
 // extraTool is called from builtinTool()'s default branch.
