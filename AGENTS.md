@@ -437,9 +437,9 @@ SIN-Code/
 │   ├── memory-skills/
 │   ├── planning-skills/
 │   ├── process-skills/
-│   └── shop-skills/
+│       └── shop-skills/
 ├── tests/                     ← Go + Python tests
-└── scripts/                   ← org-cleanup.sh, promote-to-sin-code.sh, validate_skill.py
+└── scripts/                   ← validate_skill.py, ci-precheck.sh, build_changelog.sh, marketplace-*.sh, etc.
 ```
 
 ### 6.1 Orchestrator output contracts (issue #174)

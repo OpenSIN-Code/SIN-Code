@@ -237,7 +237,7 @@ func defaultConfig() SinCodeConfig {
 		TestRepairRounds:                    3,
 		ChatLazyTools:                       false,
 		LLMPromptCache:                      true,
-		AgentLoopCompactionStrategy:         "off",
+		AgentLoopCompactionStrategy:         "",
 		AgentLoopCompactionThreshold:        0.8,
 		AgentLoopContextCompaction:          "off",
 		AgentLoopCompactionTrigger:          "tokens",
