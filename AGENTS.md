@@ -435,6 +435,7 @@ SIN-Code/
 │   ├── github-skills/
 │   ├── infrastructure-skills/
 │   ├── memory-skills/
+│   ├── multimodal-skills/
 │   ├── planning-skills/
 │   ├── process-skills/
 │       └── shop-skills/
