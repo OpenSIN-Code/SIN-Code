@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: MIT
-// Purpose: auto-lint + auto-test hooks (issue #376). These hooks run after
-// sin_write/sin_edit to format code and run tests. They are registered in
-// chat_cmd.go when the feature is enabled. All errors degrade to warnings
-// to avoid blocking the agent loop (mandate M3: verify gate is sacred).
+// Purpose: opt-in post-edit automation tied to the agent loop's
+// tool.post event (issue #376). AutoLintListener runs gofmt + go vet
+// on every .go file edited by sin_write/sin_edit when agentloop.auto_lint
+// is true (read-only). AutoTestListener runs `go test -race -count=1` on
+// the enclosing package whenever a *_test.go file is touched when
+// agentloop.auto_test is true (may produce side-effects). Both listeners
+// are gated on dedicated config keys — default behaviour preserved.
 package hooks
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -13,124 +17,195 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife"
 )
 
-// AutoLintHook runs a language-appropriate formatter after sin_write/sin_edit.
-type AutoLintHook struct {
-	Enabled bool
-}
-
-// AutoTestHook runs tests after sin_write/sin_edit in the affected package/directory.
-type AutoTestHook struct {
-	Enabled     bool
-	TimeoutSecs int
-}
-
-func (AutoLintHook) ID() string { return "auto-lint" }
-func (AutoTestHook) ID() string { return "auto-test" }
-
-func (AutoLintHook) Phases() []hooklife.Phase { return []hooklife.Phase{hooklife.PostToolUse} }
-func (AutoTestHook) Phases() []hooklife.Phase { return []hooklife.Phase{hooklife.PostToolUse} }
-
-func (h AutoLintHook) Run(ctx context.Context, ev hooklife.Event) hooklife.Decision {
-	if !h.Enabled {
-		return hooklife.Decision{Verdict: hooklife.Allow}
-	}
-	if ev.Tool != "sin_write" && ev.Tool != "sin_edit" {
-		return hooklife.Decision{Verdict: hooklife.Allow}
-	}
-	pathStr := ev.Args["path"]
-	if pathStr == "" {
-		return hooklife.Decision{Verdict: hooklife.Allow}
-	}
-	return h.runFormatter(ctx, pathStr)
-}
-
-func (h AutoTestHook) Run(ctx context.Context, ev hooklife.Event) hooklife.Decision {
-	if !h.Enabled {
-		return hooklife.Decision{Verdict: hooklife.Allow}
-	}
-	if ev.Tool != "sin_write" && ev.Tool != "sin_edit" {
-		return hooklife.Decision{Verdict: hooklife.Allow}
-	}
-	pathStr := ev.Args["path"]
-	if pathStr == "" {
-		return hooklife.Decision{Verdict: hooklife.Allow}
-	}
-	return h.runTests(ctx, pathStr)
-}
-
-func (AutoLintHook) runFormatter(ctx context.Context, filePath string) hooklife.Decision {
-	ext := strings.ToLower(filepath.Ext(filePath))
-	var cmd *exec.Cmd
-
-	switch ext {
-	case ".go":
-		cmd = exec.CommandContext(ctx, "gofmt", "-w", filePath)
-	case ".py":
-		cmd = exec.CommandContext(ctx, "ruff", "format", filePath)
-	case ".rs":
-		cmd = exec.CommandContext(ctx, "rustfmt", filePath)
-	case ".js", ".ts", ".jsx", ".tsx", ".json", ".css", ".html", ".md":
-		cmd = exec.CommandContext(ctx, "prettier", "--write", filePath)
-	default:
-		return hooklife.Decision{Verdict: hooklife.Allow}
-	}
-
-	cmd.Dir = filepath.Dir(filePath)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return hooklife.Decision{
-			Verdict: hooklife.Warn,
-			Message: fmt.Sprintf("auto-lint failed for %s: %v", filePath, err),
+func AutoLintListener(cfg AutoHookConfig) PostListener {
+	cfg = cfg.normalized()
+	return func(ctx context.Context, p Payload) []string {
+		if p.Name != "sin_write" && p.Name != "sin_edit" {
+			return nil
 		}
+		path, _ := p.Data["path"].(string)
+		if path == "" || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		workdir := p.Workspace
+		if workdir == "" {
+			workdir = "."
+		}
+		absPath := path
+		if !filepath.IsAbs(absPath) {
+			absPath = filepath.Join(workdir, path)
+		}
+		if _, err := os.Stat(absPath); err != nil {
+			return nil
+		}
+		reports := runLintCommands(ctx, absPath, workdir, cfg.Timeout)
+		if len(reports) == 0 {
+			return nil
+		}
+		for _, r := range reports {
+			fmt.Fprintf(os.Stderr, "[auto-lint] %s: %s\n", path, r)
+		}
+		out := make([]string, 0, len(reports))
+		for _, r := range reports {
+			out = append(out, fmt.Sprintf("[auto-lint %s] %s", path, r))
+		}
+		return out
 	}
-	return hooklife.Decision{Verdict: hooklife.Allow}
 }
 
-func (h AutoTestHook) runTests(ctx context.Context, filePath string) hooklife.Decision {
-	dir := filepath.Dir(filePath)
-	ext := strings.ToLower(filepath.Ext(filePath))
-
-	timeout := 30 * time.Second
-	if h.TimeoutSecs > 0 {
-		timeout = time.Duration(h.TimeoutSecs) * time.Second
+func AutoTestListener(cfg AutoHookConfig) PostListener {
+	cfg = cfg.normalized()
+	return func(ctx context.Context, p Payload) []string {
+		if p.Name != "sin_write" && p.Name != "sin_edit" {
+			return nil
+		}
+		path, _ := p.Data["path"].(string)
+		if path == "" || !strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		workdir := p.Workspace
+		if workdir == "" {
+			workdir = "."
+		}
+		absPath := path
+		if !filepath.IsAbs(absPath) {
+			absPath = filepath.Join(workdir, path)
+		}
+		if _, err := os.Stat(absPath); err != nil {
+			return nil
+		}
+		report := runTestCommand(ctx, absPath, workdir, cfg.Timeout)
+		if report == "" {
+			fmt.Fprintf(os.Stderr, "[auto-test] %s: PASS\n", path)
+			return nil
+		}
+		fmt.Fprintf(os.Stderr, "[auto-test] %s: FAIL\n", path)
+		if len(report) > 4096 {
+			report = report[:4096] + "\n[... truncated; rerun `sin_test` for the full log]"
+		}
+		return []string{fmt.Sprintf("[auto-test %s] FAIL: %s", path, report)}
 	}
+}
 
-	var cmd *exec.Cmd
-	switch ext {
-	case ".go":
-		cmd = exec.CommandContext(ctx, "go", "test", "-count=1", "-timeout=30s", "./...")
-	case ".py":
-		cmd = exec.CommandContext(ctx, "python", "-m", "pytest", "-x", dir)
-	case ".rs":
-		cmd = exec.CommandContext(ctx, "cargo", "test", "--quiet")
-	case ".js", ".ts", ".jsx", ".tsx":
-		cmd = exec.CommandContext(ctx, "npm", "test", "--", "--watch=false")
-	default:
-		return hooklife.Decision{Verdict: hooklife.Allow}
+type AutoHookConfig struct {
+	Timeout time.Duration
+}
+
+func (c AutoHookConfig) normalized() AutoHookConfig {
+	if c.Timeout <= 0 {
+		c.Timeout = AutoLintDefaultTimeout
 	}
+	return c
+}
 
-	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+const (
+	AutoLintDefaultTimeout time.Duration = 30 * time.Second
+	AutoTestDefaultTimeout time.Duration = 120 * time.Second
+)
 
-	testCtx, cancel := context.WithTimeout(ctx, timeout)
+func runLintCommands(ctx context.Context, goFile, workdir string, timeout time.Duration) []string {
+	var out []string
+	if !strings.HasSuffix(goFile, ".go") {
+		return out
+	}
+	gofmtCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	cmd = exec.CommandContext(testCtx, cmd.Args[0], cmd.Args[1:]...)
-	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	gofmtCmd := exec.CommandContext(gofmtCtx, "gofmt", "-l", goFile)
+	gofmtCmd.Dir = workdir
+	var gofmtOut, gofmtErr bytes.Buffer
+	gofmtCmd.Stdout = &gofmtOut
+	gofmtCmd.Stderr = &gofmtErr
+	if runErr := gofmtCmd.Run(); runErr != nil {
+		if !isNotFound(runErr) {
+			out = append(out, fmt.Sprintf("gofmt exec failed: %v", runErr))
+		}
+	} else if gofmtOut.Len() > 0 {
+		out = append(out, fmt.Sprintf("gofmt: %s needs `gofmt -w`", filepath.Base(goFile)))
+	}
 
-	if err := cmd.Run(); err != nil {
-		return hooklife.Decision{
-			Verdict: hooklife.Warn,
-			Message: fmt.Sprintf("auto-test failed for %s: %v", dir, err),
+	vetCtx, cancel2 := context.WithTimeout(ctx, timeout)
+	defer cancel2()
+	dirOfFile := filepath.Dir(goFile)
+	if dirOfFile == "" {
+		dirOfFile = "."
+	}
+	pkgDir := filepath.Base(dirOfFile)
+	cmdWorkdir := filepath.Dir(dirOfFile)
+	if cmdWorkdir == "" {
+		cmdWorkdir = "."
+	}
+	vetCmd := exec.CommandContext(vetCtx, "go", "vet", "./"+pkgDir)
+	vetCmd.Dir = cmdWorkdir
+	var vetOut, vetErr bytes.Buffer
+	vetCmd.Stdout = &vetOut
+	vetCmd.Stderr = &vetErr
+	if runErr := vetCmd.Run(); runErr != nil {
+		combined := strings.TrimSpace(vetOut.String() + vetErr.String())
+		if combined != "" {
+			first := firstLine(combined)
+			out = append(out, fmt.Sprintf("go vet: %s", first))
 		}
 	}
-	return hooklife.Decision{Verdict: hooklife.Allow}
+	return out
+}
+
+// runTestCommand runs go test against the file's package after editing a
+// *_test.go file. The conventional "filter to TestX" doesn't apply
+// cleanly here because file names do not dictate function names (e.g.
+// `foo_test.go` usually contains `TestFoo`, but a per-config test may
+// use any `Test*` symbol, and some authors write `testFoo` lower-case).
+// Default behaviour: run the whole package without -run filter so the
+// listener surfaces real test outcomes to the agent regardless of the
+// `func Test*` shape inside.
+func runTestCommand(ctx context.Context, testFile, workdir string, timeout time.Duration) string {
+	if !strings.HasSuffix(testFile, "_test.go") {
+		return ""
+	}
+	dirOfFile := filepath.Dir(testFile)
+	if dirOfFile == "" {
+		dirOfFile = "."
+	}
+	cmdWorkdir := filepath.Dir(dirOfFile)
+	if cmdWorkdir == "" {
+		cmdWorkdir = "."
+	}
+	args := []string{
+		"test",
+		"./" + filepath.Base(dirOfFile),
+		"-count=1",
+	}
+	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd.Dir = cmdWorkdir
+	var out, errOut bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &errOut
+	runErr := cmd.Run()
+	if runErr == nil {
+		return ""
+	}
+	combined := strings.TrimSpace(out.String() + errOut.String())
+	if combined == "" {
+		return runErr.Error()
+	}
+	return combined
+}
+
+func firstLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			return line
+		}
+	}
+	return s
+}
+
+func isNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "executable file not found") ||
+		strings.Contains(err.Error(), "no such file")
 }

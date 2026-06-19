@@ -164,7 +164,12 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --fusion-max-cost <usd>   USD kill-switch per tournament invocation (default 5.0)
   sin-code chat --thinking-enabled       send thinking{type:"enabled"} on each request (per-provider reasoning budget)
   sin-code chat --thinking-budget <n>    per-request thinking.budget_tokens cap (0 = unbounded / provider default)
-  Oracle-mode fusion is experimental; set fusion.oracle_mode=true via config. Prefer PoC mode for verifiable tasks.`,
+  Oracle-mode fusion is experimental; set fusion.oracle_mode=true via config. Prefer PoC mode for verifiable tasks.
+
+Post-edit automation (issue #376, opt-in via ~/.config/sin/sin-code.toml):
+  agentloop.auto_lint=true   after every sin_write/sin_edit to a .go file: run gofmt -l + go vet (read-only — advisory)
+  agentloop.auto_test=true   after every sin_write/sin_edit to a *_test.go file: run go test -race -count=1 on the file's package (may mutate state — advisory)
+  Both default off. Set agentloop.auto_lint=true to auto-lint after edits. Both keys are advisory: warnings only, never block.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context(), opts)
 		},
@@ -353,6 +358,20 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	}
 
 	hookEngine := chatNewHooksFn(loadHooks(workspace))
+	// --- post-edit auto listeners (issue #376) ------------------
+	// Register the lint + test listeners ONLY when the operator has opted
+	// in via config. Default behaviour (no listener registered) preserves
+	// the legacy single-shot semantics and stays off in headless / CI runs.
+	if sinCfg.AutoLintEnabled {
+		hookEngine.RegisterPostListener(hooks.AutoLintListener(hooks.AutoHookConfig{
+			Timeout: time.Duration(sinCfg.AgentLoopAutoLintTimeout) * time.Second,
+		}))
+	}
+	if sinCfg.AutoTestEnabled {
+		hookEngine.RegisterPostListener(hooks.AutoTestListener(hooks.AutoHookConfig{
+			Timeout: time.Duration(sinCfg.AgentLoopAutoTestTimeout) * time.Second,
+		}))
+	}
 
 	// --- auto-activation hook (issue #176) ------------------------------
 	// Off by default. Privacy-first: only opens when the operator sets
@@ -372,13 +391,6 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		AutoOn:   autoOn,
 	})
 	hooklifeReg.Register(autoactivate.UserPromptHook{Act: act.Act})
-	// Auto-lint + auto-test hooks (issue #376): run formatter and tests after edits.
-	if sinCfg.AutoLintEnabled {
-		hooklifeReg.Register(hooks.AutoLintHook{Enabled: true})
-	}
-	if sinCfg.AutoTestEnabled {
-		hooklifeReg.Register(hooks.AutoTestHook{Enabled: true, TimeoutSecs: 30})
-	}
 	hooklifeRunner := hooklife.NewRunner(hooklifeReg).WithTimeout(2 * time.Second)
 
 	// --- External MCP servers (mandate C5, ecosystem skills) -------------

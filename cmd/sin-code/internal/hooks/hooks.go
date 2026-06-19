@@ -9,6 +9,8 @@
 //	          exit 2 = BLOCK (stdout fed back to the agent), else warn.
 //	webhook — HTTP POST of the event JSON (fire-and-forget unless blocking).
 //	prompt  — injects static text into the next agent turn.
+//	listener — programmatic Go PostListener (issue #376); fires only on
+//	           tool.post and merges its return into PromptInjects.
 //
 // Only *.pre events and permission.ask honor blocking.
 package hooks
@@ -30,73 +32,47 @@ const (
 	SessionStart  = "session.start"
 	SessionResume = "session.resume"
 	SessionEnd    = "session.end"
-
-	TurnStart = "turn.start"
-	TurnEnd   = "turn.end"
-
-	ToolPre    = "tool.pre"
-	ToolPost   = "tool.post"
-	ToolDenied = "tool.denied"
-	ToolError  = "tool.error"
-
+	TurnStart     = "turn.start"
+	TurnEnd       = "turn.end"
+	ToolPre       = "tool.pre"
+	ToolPost      = "tool.post"
+	ToolDenied    = "tool.denied"
+	ToolError     = "tool.error"
 	PermissionAsk = "permission.ask"
-
-	VerifyPre  = "verify.pre"
-	VerifyPass = "verify.pass"
-	VerifyFail = "verify.fail"
-
-	// Stop-gate: completion authority decoupled from the worker. StopEval
-	// fires whenever the gate is consulted; StopContinue fires when the gate
-	// rejects a proposed completion and forces the loop to keep working.
-	StopEval     = "stop.eval"
-	StopContinue = "stop.continue"
-	// StopStalled fires when the stop-gate returns identical open criteria
-	// StallThreshold turns in a row (no-progress escalation).
-	StopStalled = "stop.stalled"
-	// Token budget lifecycle (issue #151).
+	VerifyPre     = "verify.pre"
+	VerifyPass    = "verify.pass"
+	VerifyFail    = "verify.fail"
+	StopEval      = "stop.eval"
+	StopContinue  = "stop.continue"
+	StopStalled   = "stop.stalled"
 	BudgetWarn      = "budget.warn"
 	BudgetExhausted = "budget.exhausted"
-	// LoopDetected fires when the agent loop repeats the same tool call or
-	// sequence past the configured threshold (issue #377).
-	LoopDetected = "loop.detected"
-	// ReflectIssues fires when the self-reflection pass finds problems the
-	// worker must fix before completion is evaluated.
-	ReflectIssues = "reflect.issues"
-
+	ReflectIssues   = "reflect.issues"
 	AgentSpawn       = "agent.spawn"
 	AgentComplete    = "agent.complete"
 	CriticReject     = "critic.reject"
 	AdversaryFinding = "adversary.finding"
 	GovernorBlock    = "governor.block"
-
 	MemoryWrite   = "memory.write"
 	MemoryCompact = "memory.compact"
 	MemoryPrime   = "memory.prime"
-
-	CommitPre  = "commit.pre"
-	CommitPost = "commit.post"
-	PushPre    = "push.pre"
-
+	CommitPre     = "commit.pre"
+	CommitPost    = "commit.post"
+	PushPre       = "push.pre"
 	TaskComplete  = "task.complete"
 	TaskAbort     = "task.abort"
 	CompactionPre = "compaction.pre"
-
-	// Autonomy lifecycle (daemon mode).
 	GoalEnqueued  = "goal.enqueued"
 	GoalStarted   = "goal.started"
 	GoalVerified  = "goal.verified"
 	GoalExhausted = "goal.exhausted"
 	TriggerFired  = "trigger.fired"
-
-	// Skill lifecycle.
 	SkillInstalled = "skill.installed"
 	SkillFailed    = "skill.failed"
-
-	// Fusion lifecycle (issue #290).
 	FusionDispatch = "fusion.dispatch"
+	LoopDetected  = "loop.detected"
 )
 
-// blockable events: a blocking hook result is honored only for these.
 var blockable = map[string]bool{
 	ToolPre: true, VerifyPre: true, PermissionAsk: true,
 	CommitPre: true, PushPre: true, CompactionPre: true,
@@ -128,17 +104,31 @@ type Result struct {
 	PromptInjects []string
 }
 
+// PostListener is a programmatic listener registered via
+// Engine.RegisterPostListener. It fires on tool.post events only.
+type PostListener func(ctx context.Context, p Payload) []string
+
 type Engine struct {
-	hooks  []Hook
-	client *http.Client
+	hooks         []Hook
+	client        *http.Client
+	postListeners []PostListener
 }
 
 func New(hooks []Hook) *Engine {
 	return &Engine{hooks: hooks, client: &http.Client{Timeout: 15 * time.Second}}
 }
 
-// Fire runs all hooks matching the event (and matcher) sequentially.
-// Hooks never crash the agent: errors degrade to warnings on stderr.
+// RegisterPostListener appends a programmatic listener that fires
+// on every tool.post event. nil engine / nil fn is a no-op.
+func (e *Engine) RegisterPostListener(fn PostListener) {
+	if e == nil || fn == nil {
+		return
+	}
+	e.postListeners = append(e.postListeners, fn)
+}
+
+// Fire runs all hooks matching the event sequentially. For
+// tool.post, registered PostListeners also fire in registration order.
 func (e *Engine) Fire(ctx context.Context, p Payload) Result {
 	p.Timestamp = time.Now().UTC().Format(time.RFC3339)
 	var res Result
@@ -162,6 +152,14 @@ func (e *Engine) Fire(ctx context.Context, p Payload) Result {
 			fmt.Fprintf(os.Stderr, "warn: hook with unknown type %q ignored\n", h.Type)
 		}
 	}
+	if p.Event == ToolPost {
+		for _, fn := range e.postListeners {
+			msgs := safeInvokePostListener(fn, ctx, p)
+			if len(msgs) > 0 {
+				res.PromptInjects = append(res.PromptInjects, msgs...)
+			}
+		}
+	}
 	return res
 }
 
@@ -172,7 +170,6 @@ func (e *Engine) fireCommand(ctx context.Context, h Hook, p Payload) (blocked bo
 	}
 	cctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-
 	payload, _ := json.Marshal(p)
 	cmd := exec.CommandContext(cctx, "sh", "-c", h.Command)
 	cmd.Stdin = bytes.NewReader(payload)
@@ -182,12 +179,11 @@ func (e *Engine) fireCommand(ctx context.Context, h Hook, p Payload) (blocked bo
 		"SIN_HOOK_TOOL_NAME="+p.Name,
 		"SIN_SESSION_ID="+p.SessionID,
 	)
-	if path, ok := p.Data["path"].(string); ok {
-		cmd.Env = append(cmd.Env, "SIN_HOOK_DATA_PATH="+path)
+	if p, ok := p.Data["path"].(string); ok {
+		cmd.Env = append(cmd.Env, "SIN_HOOK_DATA_PATH="+p)
 	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
-
 	err := cmd.Run()
 	if err == nil {
 		return false, ""
@@ -226,4 +222,18 @@ func matchName(pattern, name string) bool {
 	}
 	ok, _ := path.Match(strings.ToLower(pattern), strings.ToLower(name))
 	return ok
+}
+
+// safeInvokePostListener calls fn, recovering from any panic.
+func safeInvokePostListener(fn PostListener, ctx context.Context, p Payload) (out []string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "warn: post-listener panicked on %s: %v\n", p.Name, r)
+			out = nil
+		}
+	}()
+	if fn == nil {
+		return nil
+	}
+	return fn(ctx, p)
 }

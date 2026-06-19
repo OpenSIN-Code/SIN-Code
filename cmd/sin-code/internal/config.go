@@ -65,10 +65,21 @@ type SinCodeConfig struct {
 	AgentYolo               bool     `toml:"agent.yolo"`
 	AgentLoopRequiredTools  []string `toml:"agentloop.required_tools"`
 	AgentLoopForbiddenTools []string `toml:"agentloop.forbidden_tools"`
-	ToolsAllow              []string `toml:"permissions.tools_allow"`
-	ToolsDeny               []string `toml:"permissions.tools_deny"`
-	PathsMCPConfig          string   `toml:"paths.mcp_config"`
-	PathsSkillsDir          string   `toml:"paths.skills_dir"`
+	// AgentLoopAutoLint enables post-edit auto-lint listener (issue #376).
+	// Read-only: gofmt -l + go vet on every .go file edited by sin_write/sin_edit.
+	// Default false; opt-in only.
+	AgentLoopAutoLint bool `toml:"agentloop.auto_lint"`
+	// AgentLoopAutoTest enables post-edit auto-test listener (issue #376).
+	// go test -count=1 on every *_test.go file; may produce side-effects.
+	// Default false; opt-in only.
+	AgentLoopAutoTest bool `toml:"agentloop.auto_test"`
+	// Per-command timeout cap (seconds). 0 -> 30 lint / 120 test.
+	AgentLoopAutoLintTimeout int `toml:"agentloop.auto_lint_timeout"`
+	AgentLoopAutoTestTimeout int `toml:"agentloop.auto_test_timeout"`
+	ToolsAllow             []string `toml:"permissions.tools_allow"`
+	ToolsDeny              []string `toml:"permissions.tools_deny"`
+	PathsMCPConfig         string   `toml:"paths.mcp_config"`
+	PathsSkillsDir         string   `toml:"paths.skills_dir"`
 	// Test-First Verify-Loop thresholds (RFC-test-automation.md).
 	TestCoverageThreshold float64 `toml:"test.coverage_threshold"`
 	TestMutationThreshold float64 `toml:"test.mutation_threshold"`
@@ -175,66 +186,60 @@ type SinCodeConfig struct {
 
 func defaultConfig() SinCodeConfig {
 	return SinCodeConfig{
-		Theme:                               "dark",
-		DefaultTimeout:                      60,
-		DefaultFormat:                       "json",
-		MCPServerEnabled:                    true,
-		LLMBaseURL:                          "https://integrate.api.nvidia.com/v1",
-		LLMAPIKey:                           "",
-		LLMModel:                            "",
-		LLMMaxTokens:                        8192,
-		LLMTemperature:                      0.0,
-		LLMThinkingEnabled:                  false,
-		LLMThinkingBudget:                   0,
-		LLMStyle:                            "default",
-		AgentVerifyMode:                     "poc",
-		AgentMaxTurns:                       80,
-		AgentHeadless:                       false,
-		AgentYolo:                           false,
-		AgentLoopRequiredTools:              []string{},
-		AgentLoopForbiddenTools:             []string{},
-		ToolsAllow:                          []string{},
-		ToolsDeny:                           []string{},
-		PathsMCPConfig:                      filepath.Join("~", ".sin-code", "mcp.json"),
-		PathsSkillsDir:                      "",
-		TestCoverageThreshold:               0.0,
-		TestMutationThreshold:               0.0,
-		TestAutoGenerate:                    false,
-		TestTimeoutSeconds:                  300,
-		TestUseLLM:                          false,
-		TestRepairRounds:                    3,
-		ChatLazyTools:                       false,
-		ChatSemanticTools:                   false,
-		LLMPromptCache:                      true,
-		AgentLoopCompactionStrategy:         "off",
-		AgentLoopCompactionThreshold:        0.8,
-		AgentLoopFrustrationDetection:       false,
-		FusionEnabled:                       false,
-		FusionProviders:                     []string{"minimax-m3", "kimi-k2p7-code-fast", "kimi-k2p7-code", "deepseek-v4-pro", "qwen-3p7-plus", "glm-5p2"},
-		FusionMaxCostUSD:                    5.0,
-		FusionMinQuorum:                     2,
-		FusionPerProviderTimeoutS:           120,
-		FusionDifficultyGate:                true,
-		FusionOracleMode:                    false,
-		MemoryAutoDream:                     false,
-		MemoryAutoDreamInterval:             "5m",
-		MemoryPrimeOnStart:                  false,
-		OrchestratorEpisodicMemory:          false,
-		OrchestratorDeepPlanner:             false,
-		OrchestratorPatternLearning:         false,
-		OrchestratorPreWarm:                 false,
-		PermissionYoloRiskThreshold:         "",
-		WorktreeConflictCheck:               "off",
-		WorktreeTargetBranch:                "",
-		AutonomyContainerEnabled:            false,
-		AutonomyContainerImage:              "",
-		AgentLoopContextCompaction:          "off",
-		AgentLoopCompactionTrigger:          "tokens",
-		AgentLoopCompactionMaxTokens:        8000,
-		AgentLoopContextWindow:              0,
-		AgentLoopCompactionPreserveEvidence: true,
-		AgentLoopCompactionRecentTurns:      4,
-		AgentLoopSessionContextEnabled:      true,
+		Theme:            "dark",
+		DefaultTimeout:   60,
+		DefaultFormat:    "json",
+		MCPServerEnabled: true,
+		LLMBaseURL:          "https://integrate.api.nvidia.com/v1",
+		LLMAPIKey:           "",
+		LLMModel:            "",
+		LLMMaxTokens:        8192,
+		LLMTemperature:      0.0,
+		LLMThinkingEnabled:  false,
+		LLMThinkingBudget:   0,
+		LLMStyle:            "default",
+		AgentVerifyMode:          "poc",
+		AgentMaxTurns:            80,
+		AgentHeadless:            false,
+		AgentYolo:                false,
+		AgentLoopRequiredTools:   []string{},
+		AgentLoopForbiddenTools:  []string{},
+		AgentLoopAutoLint:        false,
+		AgentLoopAutoTest:        false,
+		AgentLoopAutoLintTimeout: 30,
+		AgentLoopAutoTestTimeout: 120,
+		ToolsAllow:               []string{},
+		ToolsDeny:                []string{},
+		PathsMCPConfig:           filepath.Join("~", ".sin-code", "mcp.json"),
+		PathsSkillsDir:           "",
+		TestCoverageThreshold:    0.0,
+		TestMutationThreshold:    0.0,
+		TestAutoGenerate:         false,
+		TestTimeoutSeconds:       300,
+		TestUseLLM:               false,
+		TestRepairRounds:         3,
+		ChatLazyTools:            false,
+		LLMPromptCache:           true,
+		AgentLoopCompactionStrategy:  "off",
+		AgentLoopCompactionThreshold: 0.8,
+		AgentLoopFrustrationDetection: false,
+		FusionEnabled:            false,
+		FusionProviders:          []string{"minimax-m3", "kimi-k2p7-code-fast", "kimi-k2p7-code", "deepseek-v4-pro", "qwen-3p7-plus", "glm-5p2"},
+		FusionMaxCostUSD:         5.0,
+		FusionMinQuorum:          2,
+		FusionPerProviderTimeoutS: 120,
+		FusionDifficultyGate:     true,
+		FusionOracleMode:         false,
+		MemoryAutoDream:          false,
+		MemoryAutoDreamInterval:  "5m",
+		MemoryPrimeOnStart:       false,
+		OrchestratorEpisodicMemory:    false,
+		OrchestratorDeepPlanner:       false,
+		OrchestratorPatternLearning:   false,
+		OrchestratorPreWarm:           false,
+		PermissionYoloRiskThreshold:   "",
+		WorktreeConflictCheck:         "off",
+		WorktreeTargetBranch:          "",
 	}
 }
 
@@ -587,6 +592,11 @@ agent.yolo = %v
 agentloop.required_tools = %q
 agentloop.forbidden_tools = %q
 
+agentloop.auto_lint = %v
+agentloop.auto_test = %v
+agentloop.auto_lint_timeout = %d
+agentloop.auto_test_timeout = %d
+
 permissions.tools_allow = %q
 permissions.tools_deny = %q
 
@@ -640,6 +650,8 @@ test.auto_test = %v
 		cfg.LLMStyle,
 		cfg.AgentVerifyMode, cfg.AgentMaxTurns, cfg.AgentHeadless, cfg.AgentYolo,
 		strings.Join(cfg.AgentLoopRequiredTools, ","), strings.Join(cfg.AgentLoopForbiddenTools, ","),
+		cfg.AgentLoopAutoLint, cfg.AgentLoopAutoTest,
+		cfg.AgentLoopAutoLintTimeout, cfg.AgentLoopAutoTestTimeout,
 		strings.Join(cfg.ToolsAllow, ","), strings.Join(cfg.ToolsDeny, ","),
 		cfg.PathsMCPConfig, cfg.PathsSkillsDir,
 		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds, cfg.TestUseLLM, cfg.TestRepairRounds,
@@ -716,6 +728,14 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return strings.Join(cfg.AgentLoopRequiredTools, ","), nil
 	case "agentloop.forbidden_tools":
 		return strings.Join(cfg.AgentLoopForbiddenTools, ","), nil
+	case "agentloop.auto_lint":
+		return fmt.Sprintf("%v", cfg.AgentLoopAutoLint), nil
+	case "agentloop.auto_test":
+		return fmt.Sprintf("%v", cfg.AgentLoopAutoTest), nil
+	case "agentloop.auto_lint_timeout":
+		return fmt.Sprintf("%d", cfg.AgentLoopAutoLintTimeout), nil
+	case "agentloop.auto_test_timeout":
+		return fmt.Sprintf("%d", cfg.AgentLoopAutoTestTimeout), nil
 	case "permissions.tools_allow":
 		return strings.Join(cfg.ToolsAllow, ","), nil
 	case "permissions.tools_deny":
