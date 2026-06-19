@@ -123,6 +123,11 @@ sin-marketplace-skill = "sin_code_bundle.tools.marketplace.legacy_cli:main"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+# Template scaffolding lives under
+# src/sin_code_bundle/tools/mcp_server_builder/templates; those files use
+# Jinja {{-syntax and are not Python. Keep pytest from collecting them
+# (matches ruff's extend-exclude list below).
+addopts = "--ignore=src/sin_code_bundle/tools/mcp_server_builder/templates"
 
 [tool.ruff]
 line-length = 100
