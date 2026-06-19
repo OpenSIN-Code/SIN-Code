@@ -139,6 +139,18 @@ CREATE INDEX IF NOT EXISTS idx_tool_usage_outcome ON tool_usage(outcome);
 CREATE INDEX IF NOT EXISTS idx_tool_usage_created ON tool_usage(created_at);
 CREATE INDEX IF NOT EXISTS idx_tool_usage_session ON tool_usage(session_id);
 
+CREATE TABLE IF NOT EXISTS tool_latency (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tool_name TEXT NOT NULL,
+    duration_ms INTEGER NOT NULL,
+    outcome TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tool_latency_name ON tool_latency(tool_name);
+CREATE INDEX IF NOT EXISTS idx_tool_latency_session ON tool_latency(session_id);
+CREATE INDEX IF NOT EXISTS idx_tool_latency_created ON tool_latency(created_at);
+
 CREATE TABLE IF NOT EXISTS session_index (
     session_id TEXT PRIMARY KEY,
     last_seen_at TEXT NOT NULL,
@@ -146,7 +158,7 @@ CREATE TABLE IF NOT EXISTS session_index (
 );
 CREATE INDEX IF NOT EXISTS idx_session_index_last_seen ON session_index(last_seen_at);
 
-PRAGMA user_version = 3;
+PRAGMA user_version = 4;
 `
 	if _, err := s.db.Exec(schema); err != nil {
 		return err

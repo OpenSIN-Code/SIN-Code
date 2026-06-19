@@ -45,14 +45,23 @@ HISTORICAL=$(awk '/^## \[v/ {flag=1} flag' "$OUT")
 
 # Fragments: every .md file in CHANGELOG.d/ except _template.md,
 # sorted by PR number (the digits before the first '-' in the name).
-UNRELEASED=""
 shopt -s nullglob
-for f in $(ls "$FRAG_DIR"/*.md 2>/dev/null | grep -v '_template\.md$' | sort -t- -k1 -n); do
+fragments=( "$FRAG_DIR"/*.md )
+fragments=( "${fragments[@]##*/}" )            # basename only
+fragments=( "${fragments[@]/_template.md/}" ) # drop template entries
+mapfile -t sorted < <(printf '%s\n' "${fragments[@]}" | sort -t- -k1 -n)
+
+UNRELEASED=""
+for f in "${sorted[@]}"; do
+  [ -z "$f" ] && continue
+  body="$(cat "$FRAG_DIR/$f")"
+  body="${body%$'\n'}"                          # strip trailing newline to avoid double
   if [ -n "$UNRELEASED" ]; then
-    UNRELEASED="$UNRELEASED"$'\n'
+    UNRELEASED="${UNRELEASED}"$'\n'
   fi
-  UNRELEASED="$UNRELEASED$(cat "$f")"
+  UNRELEASED="${UNRELEASED}${body}"$'\n'
 done
+UNRELEASED="${UNRELEASED%$'\n'}"                # trim trailing newline before assembly
 
 # Reassemble: header + [Unreleased] block (with the title line) + history.
 GENERATED=$(printf '%s\n\n## [Unreleased] - %s\n\n%s\n\n%s\n' \
@@ -78,4 +87,4 @@ if [ "$CHECK" = 1 ]; then
 fi
 
 printf '%s\n' "$GENERATED" > "$OUT"
-echo "CHANGELOG.md rebuilt from $FRAG_DIR/ ($(ls "$FRAG_DIR"/*.md 2>/dev/null | grep -vc '_template\.md$') fragments)"
+echo "CHANGELOG.md rebuilt from $FRAG_DIR/ (${#sorted[@]} fragments)"

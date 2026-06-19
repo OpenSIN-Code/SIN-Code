@@ -9,7 +9,7 @@
 | Repo | Role | Integration | Status |
 |---|---|---|---|
 | SIN-Code | Main agent CLI/TUI/WebUI | — | ACTIVE |
-| SIN-Code-WebUI-v2 | Official web frontend | `sin-code webui` (see docs/WEBUI.md) | ACTIVE |
+| SIN-Code-WebUI-v2 (`sin-code-web-ui-v2`) | Official web frontend | `sin-code webui` (see docs/WEBUI.md) | ACTIVE |
 | SIN-Code-Orchestration | Multi-agent orchestration | Go import / subprocess | ACTIVE |
 | SIN-Code-Review-Interface | Review workflow UI | subprocess | ACTIVE |
 
@@ -46,27 +46,26 @@
 | SIN-Code-MCP-Server-Builder-Skill | `mcpbuilder__*` | ask | ACTIVE |
 | SIN-Browser-Tools | `browser__*` (106 tools) | ask | ACTIVE |
 | GitHub CLI (gh) | `gh_query`, `gh_health`, `gh_execute` | allow / allow / ask (M4) | ACTIVE |
-| [sin-analyse-suite](https://github.com/OpenSIN-Code/sin-analyse-suite) | `analyse__*` (image, video, PDF, logs, data, audio) | allow (read-only) | ACTIVE |
-| SIN-Code-Share-Skill | `share__*` | ask | ACTIVE |
-| SIN-Code-Skills-Skill | `skills__*` | ask | ACTIVE |
-
 | [OpenSIN-Code/sin-analyse-suite](https://github.com/OpenSIN-Code/sin-analyse-suite) | `analyse__*` (image, video, PDF, logs, data, audio) | allow (read-only) | ACTIVE |
+| SIN-Code-Share-Skill | `share__*` | ask | DEPRECATED *(policy-only; no filesystem backing)* |
+| SIN-Code-Skills-Skill | `skills__*` | ask | DEPRECATED *(policy-only; no filesystem backing)* |
+
 | [OpenSIN-Code/autodev-cli](https://github.com/OpenSIN-Code/autodev-cli) | `autodev__*` (e.g. `autodev_status`, `autodev_lessons`, `autodev_init`, `autodev_run_experiment`, `autodev_swarm`, `autodev_session_log`) | allow (read-only) + ask (mutating) — split M4 policy | ACTIVE |
 | SIN-Code (native_browser) | `native_browser__*` (e.g. `native_browser__navigate`, `native_browser__snapshot`, `native_browser__screenshot`) | allow (read-only) + ask (mutating) — split M4 policy (issue #382) | ACTIVE |
 ## LLM Backends
 
 | Repo | Integration | Status |
 |---|---|---|
-| coder-SIN-Qwen | Agent profile `qwen-relay` (profiles/qwen-relay.toml) | ACTIVE |
-| SIN-Code-FireworksAI-OpenCode-Config | Agent profile `fireworks` (profiles/fireworks.toml) | MIGRATED |
+| SIN-Code-FireworksAI-OpenCode-Config | Agent profile `fireworks` (profiles/fireworks.toml) | ACTIVE |
+| ~~coder-SIN-Qwen~~ | ~~Agent profile `qwen-relay` (profiles/qwen-relay.toml)~~ | ARCHIVED *(per AGENTS.md §5; return to life only when repo restored)* |
 
 ## Deprecated / Archived
 
 | Repo | Superseded by | Action |
 |---|---|---|
 | SIN-Code-Slash-Skill | `internal/commands` (C8, in-tree since v3.2.0) | ARCHIVE |
-| SIN-Code-Security-Bundle | in-tree SAST/SBOM/SCA/Secrets tools | ARCHIVE |
-| SIN-Code-WebUI-v2 | SIN-Code-WebUI-v2 | ARCHIVED |
+| SIN-Code-Security-Bundle | in-tree Go vendors: SIN-Code-SAST-Tool, SIN-Code-SBOM-Generator-Go, SIN-Code-SCA-Tool-Go, SIN-Code-Secrets-Scanner | ACTIVE (vendored) |
+| SIN-Code-Security-Bundle-Python | `python -m sin_code_bundle.tools.security` | DEPRECATED (use vendored Go tools) |
 
 ## Methodology Stack (v3.8.0)
 

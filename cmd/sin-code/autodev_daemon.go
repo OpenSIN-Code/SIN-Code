@@ -34,12 +34,11 @@ func autoCreatePR(ctx context.Context, goal *autonomy.Goal, res *agentloop.Resul
 	}
 	origBranch := strings.TrimSpace(string(origBranchOut))
 
-	// Try to create the branch; if it already exists (from a previous run),
-	// switch to it instead.
-	if cbOut, err := exec.CommandContext(ctx, "git", "-C", goal.Workspace, "checkout", "-b", branch).CombinedOutput(); err != nil {
-		if coOut, coErr := exec.CommandContext(ctx, "git", "-C", goal.Workspace, "checkout", branch).CombinedOutput(); coErr != nil {
-			return fmt.Errorf("git checkout -b %s: %v: %s (fallback checkout also failed: %v: %s)", branch, err, string(cbOut), coErr, string(coOut))
-		}
+	// Delete existing branch if it exists, then create fresh from main.
+	// This avoids stale/uncommitted changes from previous runs.
+	exec.CommandContext(ctx, "git", "-C", goal.Workspace, "branch", "-D", branch).Run()
+	if cbOut, err := exec.CommandContext(ctx, "git", "-C", goal.Workspace, "checkout", "-b", branch, "main").CombinedOutput(); err != nil {
+		return fmt.Errorf("git checkout -b %s main: %v: %s", branch, err, string(cbOut))
 	}
 
 	statusOut, _ := exec.CommandContext(ctx, "git", "-C", goal.Workspace, "status", "--porcelain").CombinedOutput()

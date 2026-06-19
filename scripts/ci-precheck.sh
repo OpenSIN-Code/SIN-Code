@@ -223,7 +223,7 @@ if [[ -n "$PR_NUMBER" ]]; then
 	# The bare 'gosec' line is the known Checks-API artifact and is
 	# excluded from the gate (see AGENTS.md §13.5).
 	REQUIRED='golangci-lint|govulncheck|go test|CEO Audit'
-	RED=$(gh pr checks "$PR_NUMBER" 2>/dev/null | awk -v req="$REQUIRED" '
+	gh pr checks "$PR_NUMBER" 2>/dev/null | awk -v req="$REQUIRED" '
 		{
 			# The first column is the check name; we treat any other
 			# whitespace-separated token after that as a candidate state.
@@ -234,7 +234,7 @@ if [[ -n "$PR_NUMBER" ]]; then
 			if (name ~ req && state == "fail") { print name; state=""; found=1 }
 		}
 		END { if (!found) exit 0; else exit 2 }
-	') || rc=$?
+	' || rc=$?
 	if [[ $rc -eq 2 ]]; then
 		echo "ERROR: a required CI check is failing on PR #$PR_NUMBER" >&2
 		echo "  See the runbook docs/CI-RUNBOOK.md §4 for recovery steps" >&2

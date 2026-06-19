@@ -122,7 +122,7 @@ func registerBrowserInteractionSpecs() []agentloopToolSpecAlias {
 		return map[string]any{"type": "object", "properties": p, "required": r}
 	}
 	return []agentloopToolSpecAlias{
-		{Name: "sin_browser_screenshot", Description: "Capture PNG screenshot as base64 data URI for visual understanding (issue #386)", InputSchema: o(map[string]any{"selector": s("CSS selector (optional)"), "quality": s("1-100 default 80")})},
+		{Name: "sin_browser_screenshot", Description: "Capture PNG screenshot as base64 data URI for visual understanding (issue #386)", InputSchema: o(map[string]any{"selector": s("CSS selector (optional)"), "quality": s("1-100 default 80; only applies to full-page screenshots, ignored for element screenshots")})},
 		{Name: "sin_browser_click", Description: "Click element by CSS selector (issue #382)", InputSchema: o(map[string]any{"selector": s("CSS selector")}, "selector")},
 		{Name: "sin_browser_type", Description: "Type text into input element (issue #382)", InputSchema: o(map[string]any{"selector": s("CSS selector"), "text": s("text to type"), "submit": s("true to submit")}, "selector", "text")},
 		{Name: "sin_browser_eval", Description: "Evaluate JavaScript in page (issue #382)", InputSchema: o(map[string]any{"expr": s("JS expression")}, "expr")},

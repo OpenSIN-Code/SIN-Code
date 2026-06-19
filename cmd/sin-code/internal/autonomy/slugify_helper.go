@@ -19,7 +19,7 @@ func Slugify(topic string) string {
 		case r == ' ' || r == '_' || r == '.' || r == ':' || r == ',':
 			b.WriteByte('-')
 		case r == '/':
-			// skip forward slash entirely
+			// skip forward slash entirely so "a/b" becomes "ab"
 		}
 	}
 	out := dashRun.ReplaceAllString(b.String(), "-")
