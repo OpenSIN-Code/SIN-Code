@@ -2,6 +2,7 @@
 package tui
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	agentrunner "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/tui"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"
 )
+
 
 type Mode int
 
@@ -326,7 +328,7 @@ func (m *Model) saveChatHistory() {
 	if err != nil {
 		return
 	}
-	_ = os.WriteFile(chatHistoryPath(), data, 0o644)
+	_ = os.WriteFile(chatHistoryPath(), data, filemode.Default())
 }
 
 // loadChatHistory loads persisted chat history from disk.

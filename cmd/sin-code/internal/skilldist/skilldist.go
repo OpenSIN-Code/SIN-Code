@@ -47,11 +47,13 @@
 package skilldist
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
 
 // Format kinds — public so tests and the CLI can assert on them.
 const (
@@ -420,7 +422,7 @@ func writeSkillDir(srcRoot, resolved, skill string) error {
 	if err != nil {
 		return fmt.Errorf("skilldist: read %q: %w", src, err)
 	}
-	if err := os.WriteFile(filepath.Join(resolved, "SKILL.md"), in, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(resolved, "SKILL.md"), in, filemode.Default()); err != nil {
 		return fmt.Errorf("skilldist: write SKILL.md to %q: %w", resolved, err)
 	}
 	for _, sub := range []string{"context", "frameworks", "tasks", "templates"} {
@@ -457,7 +459,7 @@ func copyTree(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(d, data, 0o644); err != nil {
+		if err := os.WriteFile(d, data, filemode.Default()); err != nil {
 			return err
 		}
 	}

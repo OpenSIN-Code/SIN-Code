@@ -7,6 +7,7 @@
 package superpowers
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -14,13 +15,14 @@ import (
 	"time"
 )
 
+
 // WritePrompt renders the system-prompt block for the given skills and
 // writes it to PROMPTFile(). Returns the rendered text. The block is
 // wrapped in the same HTML-comment sentinels that InjectAGENTS uses, so
 // it can be round-tripped through AGENTS.md without re-rendering.
 func WritePrompt(skills []SkillInfo) (string, error) {
 	body := RenderPrompt(skills)
-	return body, os.WriteFile(PROMPTFile(), []byte(body), 0o644)
+	return body, os.WriteFile(PROMPTFile(), []byte(body), filemode.Default())
 }
 
 // RenderPrompt produces the full PROMPT.md content. It is exported so

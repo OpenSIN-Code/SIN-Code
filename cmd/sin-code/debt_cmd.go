@@ -5,6 +5,7 @@
 package main
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/sindept"
 )
+
 
 // NewDebtCmd builds the `debt` cobra subcommand group for sin-debt markers.
 // All operations are read-only by design — the scanner + report are
@@ -320,7 +322,7 @@ func newDebtExportCmd() *cobra.Command {
 			}
 			stats := sindept.AggregateStats(mk)
 			content := sindept.RenderListString(mk) + "\n" + sindept.RenderStatsString(stats)
-			if err := os.WriteFile(dest, []byte(content), 0o644); err != nil {
+			if err := os.WriteFile(dest, []byte(content), filemode.Default()); err != nil {
 				return fmt.Errorf("debt: write %s: %w", dest, err)
 			}
 			if !f.json {

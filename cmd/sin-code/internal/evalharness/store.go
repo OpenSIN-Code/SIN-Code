@@ -5,12 +5,14 @@
 package evalharness
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"sort"
 )
+
 
 // Store persists runs and loads eval sets from disk.
 //
@@ -63,7 +65,7 @@ func (s *Store) SaveSet(set EvalSet) error {
 		return err
 	}
 	b, _ := json.MarshalIndent(set, "", "  ")
-	return os.WriteFile(filepath.Join(dir, set.Name+".json"), b, 0o644)
+	return os.WriteFile(filepath.Join(dir, set.Name+".json"), b, filemode.Default())
 }
 
 // SaveRun persists a completed run.
@@ -73,7 +75,7 @@ func (s *Store) SaveRun(run Run) error {
 		return err
 	}
 	b, _ := json.MarshalIndent(run, "", "  ")
-	return os.WriteFile(filepath.Join(dir, run.ID+".json"), b, 0o644)
+	return os.WriteFile(filepath.Join(dir, run.ID+".json"), b, filemode.Default())
 }
 
 // LoadRun reads a run by ID.

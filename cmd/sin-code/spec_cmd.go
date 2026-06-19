@@ -6,6 +6,7 @@
 package main
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/spec"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/wiring"
 )
+
 
 // NewSpecCmd builds the `spec` cobra subcommand (validate + show).
 func NewSpecCmd() *cobra.Command {
@@ -489,7 +491,7 @@ stub spec is returned for end-to-end testing of the pipeline.`,
 			if err != nil {
 				return err
 			}
-			if err := os.WriteFile(outFile, body, 0o644); err != nil {
+			if err := os.WriteFile(outFile, body, filemode.Default()); err != nil {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(),

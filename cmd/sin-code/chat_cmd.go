@@ -109,6 +109,12 @@ type chatOptions struct {
 	//   none        — disable syscall filtering entirely (debugging only)
 	// Empty value picks the platform default at startup.
 	sandbox string
+	// noSandbox is an explicit escape hatch that disables OS-level
+	// isolation for `sin_bash` regardless of --sandbox or the headless
+	// default. Headless mode (M3/M4, issue #420) defaults to sandbox=ON;
+	// --no-sandbox prints a WARN to stderr and is intended for
+	// debugging only. Issue #420.
+	noSandbox bool
 	// autolevel flips the chat loop into auto-classification mode:
 	// if --mode is empty AND --autolevel is set, the chat reads
 	// `opts.prompt` through `internal/autolevel.Classify` to pick
@@ -193,7 +199,8 @@ Post-edit automation (issue #376, opt-in via ~/.config/sin/sin-code.toml):
 	f.StringVar(&opts.targetBranch, "target-branch", "", "integration branch for worktree conflict prediction (issue #319)")
 	f.StringVar(&opts.conflictCheck, "conflict-check", "", "conflict prediction before worktree: off|warn|abort (default from config)")
 	f.StringVar(&opts.rewind, "rewind", "", "restore workspace to the named checkpoint before the chat starts")
-	f.StringVar(&opts.sandbox, "sandbox", "", "sandbox backend: landlock|seatbelt|bubblewrap|none (default: platform-native)")
+	f.StringVar(&opts.sandbox, "sandbox", "", "sandbox backend: landlock|seatbelt|bubblewrap|none (default: platform-native, on by default in headless mode per M3/M4)")
+	f.BoolVar(&opts.noSandbox, "no-sandbox", false, "disable OS-level sandbox for sin_bash (escape hatch; headless mode defaults to ON, issue #420, debugging only)")
 	f.BoolVar(&opts.autolevel, "autolevel", false, "auto-classify permission mode from prompt intent (issue #198)")
 	f.BoolVar(&opts.lazyTools, "lazy-tools", false, "enable lazy tool loading: send only tool_search meta-tool instead of all tools (issue #270)")
 	f.BoolVar(&opts.semanticTools, "semantic-tools", false, "use offline semantic retrieval for tool_search instead of keyword matching (issue #364)")
@@ -287,7 +294,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		return err
 	}
 
-	setSandboxConfig(opts.sandbox, workspace)
+	applyChatSandboxPolicy(opts, headless, workspace)
 	// --- worktree isolation (issue #194 part 2) --------------------------
 	// If --worktree=<name> is set, provision a fresh git worktree from
 	// HEAD and run the entire session from inside it. The worktree is
@@ -826,6 +833,62 @@ func boolStr(b bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+// applyChatSandboxPolicy resolves the sin_bash sandbox posture for
+// `sin-code chat` (issue #420) and writes it to the package-level
+// sandboxConfig. The decision is:
+//
+//	--no-sandbox            → warn + force "none"
+//	--sandbox <backend>     → use that backend (or "none" to disable)
+//	headless (-p / --json) → announce sandbox=ON to stderr (M3/M4:
+//	                          no silent security-posture change)
+//	otherwise               → platform default (already enabled by
+//	                          setSandboxConfig when --sandbox is empty)
+//
+// The headless mode (-p / --json) defaults to sandbox=ON per the M3
+// (verification gate) + M4 (headless ask→deny) mandate: every
+// destructive tool that the LLM can drive when the user is not at a
+// terminal must be confined. `opts.noSandbox` is the single explicit
+// escape hatch and prints a WARN to stderr so the operator can spot
+// the relaxed posture in CI logs.
+func applyChatSandboxPolicy(opts *chatOptions, headless bool, workspace string) {
+	backend := opts.sandbox
+	if opts.noSandbox {
+		backend = "none"
+		fmt.Fprintf(chatStderr,
+			"WARN: --no-sandbox disables OS-level isolation for sin_bash. "+
+				"Headless mode (M3/M4, issue #420) defaults to ON; use this only for debugging.\n")
+	}
+	setSandboxConfig(backend, workspace)
+	if !headless {
+		return
+	}
+	if sandboxConfig.enabled {
+		name := sandboxBackendDisplay(backend)
+		fmt.Fprintf(chatStderr,
+			"sin-code chat: headless mode — sandbox enabled (backend=%s workspace=%s, issue #420)\n",
+			name, workspace)
+	} else {
+		fmt.Fprintf(chatStderr,
+			"sin-code chat: headless mode — sandbox DISABLED (--no-sandbox / --sandbox none)\n")
+	}
+}
+
+// sandboxBackendDisplay returns a human-friendly rendering of the
+// backend string for the headless-mode stderr announcement. Empty
+// input falls back to the platform default name via the sandbox
+// package, but we keep the resolver dependency-free here so a missing
+// backend selection stays visible.
+func sandboxBackendDisplay(backend string) string {
+	switch backend {
+	case "":
+		return "platform-default"
+	case "none":
+		return "none"
+	default:
+		return backend
+	}
 }
 
 // chatSideLLM adapts *llm.Client to the commands.SideLLM interface so

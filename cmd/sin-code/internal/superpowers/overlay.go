@@ -7,10 +7,13 @@
 package superpowers
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"os"
 	"path/filepath"
 	"strings"
 )
+
 
 // AppendOverlay returns true if it modified path, false if the overlay
 // was already present (idempotent). It is safe to call repeatedly.
@@ -40,7 +43,7 @@ func AppendOverlay(path string) bool {
 	}
 	b.WriteByte('\n')
 	b.WriteString(overlay)
-	return overlayWriteFile(path, []byte(b.String()), 0o644) == nil
+	return overlayWriteFile(path, []byte(b.String()), filemode.Default()) == nil
 }
 
 // testHook variables expose hard-to-reach error paths to the test suite.

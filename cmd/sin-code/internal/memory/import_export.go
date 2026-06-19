@@ -4,6 +4,7 @@
 package memory
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 )
+
 
 // ---------------------------------------------------------------------------
 // MEMORY.md export/import
@@ -40,7 +42,7 @@ func ExportToMEMORYMD(memories []Memory, path string) error {
 		b.WriteString("\n")
 	}
 
-	return os.WriteFile(path, []byte(b.String()), 0o644)
+	return os.WriteFile(path, []byte(b.String()), filemode.Default())
 }
 
 // ImportFromMEMORYMD parses a Claude-style MEMORY.md file and returns
@@ -137,7 +139,7 @@ func ExportToInstinct(instincts []Instinct, path string) error {
 	if err != nil {
 		return fmt.Errorf("export instinct: marshal: %w", err)
 	}
-	return os.WriteFile(path, raw, 0o644)
+	return os.WriteFile(path, raw, filemode.Default())
 }
 
 // ImportFromInstinct reads an ECC instinct JSON file and returns

@@ -4,6 +4,7 @@
 package memory
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -20,6 +21,7 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 )
+
 
 const (
 	bucketMems       = "memories"
@@ -71,7 +73,7 @@ func Open(path string) (*Store, error) {
 	if err := osMkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	db, err := boltOpen(path, 0o644, &bolt.Options{Timeout: 2 * time.Second})
+	db, err := boltOpen(path, filemode.Default(), &bolt.Options{Timeout: 2 * time.Second})
 	if err != nil {
 		return nil, fmt.Errorf("open memory db: %w", err)
 	}

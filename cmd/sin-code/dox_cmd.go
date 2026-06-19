@@ -6,6 +6,7 @@
 package main
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/dox"
 )
+
 
 // NewDoxCmd builds the `dox` cobra subcommand. Pattern matches
 // NewSuperpowersCmd: returns *cobra.Command with four subcommands
@@ -68,7 +70,7 @@ in the same file.`,
 					"---\n\n" +
 					"# " + filepath.Base(abs) + "\n\n" +
 					"Root of the dox-managed AGENTS.md tree.\n"
-				if err := os.WriteFile(agentsPath, []byte(seed), 0o644); err != nil {
+				if err := os.WriteFile(agentsPath, []byte(seed), filemode.Default()); err != nil {
 					return err
 				}
 			}

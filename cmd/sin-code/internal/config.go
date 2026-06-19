@@ -7,6 +7,7 @@
 package internal
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
 )
+
 
 // isValidStyle reports whether s is one of the legal verbosity levels.
 // Empty is rejected here so setConfigValueIn surfaces user error
@@ -574,7 +576,7 @@ func saveConfig(cfg SinCodeConfig) error {
 	// Atomic write: write to a temp file in the same directory, then rename.
 	// This keeps readers from seeing a half-written file.
 	tmp := path + ".tmp" + strconv.FormatInt(time.Now().UnixNano(), 10)
-	if err := os.WriteFile(tmp, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(tmp, []byte(content), filemode.Default()); err != nil {
 		return fmt.Errorf("write temp config: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {

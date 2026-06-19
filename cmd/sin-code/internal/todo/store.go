@@ -1,6 +1,7 @@
 package todo
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -14,6 +15,7 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 )
+
 
 var (
 	osUserConfigDirStore      = os.UserConfigDir
@@ -62,7 +64,7 @@ func Open(path string) (*Store, error) {
 	if err := osMkdirAllStore(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	db, err := bboltOpenStore(path, 0o644, &bolt.Options{Timeout: 2 * time.Second})
+	db, err := bboltOpenStore(path, filemode.Default(), &bolt.Options{Timeout: 2 * time.Second})
 	if err != nil {
 		return nil, fmt.Errorf("open todo db: %w", err)
 	}

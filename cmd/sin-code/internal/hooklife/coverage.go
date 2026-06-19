@@ -6,6 +6,7 @@
 package hooklife
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/coverdrohne"
 )
+
 
 // jsonMarshalIndentHook is swappable for tests that exercise the
 // (theoretically unreachable) JSON marshal error branch.
@@ -85,7 +87,7 @@ func (a AutoCoverage) Run(_ context.Context, ev Event) Decision {
 	}
 	fileName := strings.ReplaceAll(importPath, "/", "--") + ".json"
 	dest := filepath.Join(reqDir, fileName)
-	if err := write(dest, data, 0o644); err != nil {
+	if err := write(dest, data, filemode.Default()); err != nil {
 		return Decision{Verdict: Warn, Message: "auto-coverage: cannot write request: " + err.Error()}
 	}
 	return Decision{Verdict: Warn, Message: "auto-coverage: queued request for " + importPath + " at " + dest}

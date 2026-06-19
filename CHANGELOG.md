@@ -4,6 +4,50 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-19
 
+### Security — Default sandbox on for headless `chat -p` and `daemon` (closes #420)
+- **Headless `sin-code chat`** (`-p` and `--json`) now defaults to
+  `sandbox.enabled=true` with workspace rooted at `$PWD`. The
+  per-session `setSandboxConfig` call is replaced by a new
+  `applyChatSandboxPolicy(opts, headless, workspace)` helper in
+  `cmd/sin-code/chat_cmd.go` that declares the M3 (verification
+  gate) + M4 (headless ask→deny) mandate and emits the decision to
+  stderr so no silent security-posture change is possible.
+- **`sin-code daemon`** now forces `setSandboxConfig("", cwd)` at
+  startup — the package-level `sandboxConfig.enabled` was
+  previously false (zero value) for every goal worker because
+  daemon never called the helper. There is no `--no-sandbox`
+  opt-out on the daemon; the autonomous worker is headless by
+  mandate and OS-level syscall isolation is non-negotiable.
+- **New `--no-sandbox` flag** on `sin-code chat` is the single
+  explicit escape hatch for `--sandbox none`. It prints a WARN to
+  stderr (`WARN: --no-sandbox disables OS-level isolation for
+  sin_bash ...`) so the relaxed posture is visible in CI logs.
+  The legacy `--sandbox none` path is preserved verbatim and
+  emits no WARN (operator used the explicit backend vocabulary).
+- **M3 / M4 mandates updated** in `AGENTS.md §3` (Headless
+  sandbox mandate and Headless-mode sandbox baseline paragraphs)
+  to formalise the rule: every `chat -p`, `chat --json`, and
+  `daemon` invocation routes `sin_bash` through
+  `sandbox.Command`. Bare `sh -c` in `toolBash` is reserved for
+  non-headless REPL mode only.
+- **Audit table** for the remaining operator-controlled
+  `exec.CommandContext("sh", "-c", ...)` sinks:
+  | File | Sink | LLM-supplied? | Resolution |
+  |---|---|---|---|
+  | `cmd/sin-code/chat_tools.go:285` | `toolBash` fallback | YES | Headless → sandbox on (issue #420) |
+  | `cmd/sin-code/tui/tools.go:276` | `tuiToolBash` fallback | YES | Interactive REPL; defaults to sandbox when workspace ≠ "" (issue #367) |
+  | `cmd/sin-code/chat_cmd.go:708` | `commandRunner` | NO (operator `--verify-cmd`) | Outside verify-gate scope; unchanged |
+  | `cmd/sin-code/internal/loopbuilder/builder.go:766` | verify runner | NO (operator `--verify-cmd`) | Containerised via `--container` when enabled; bare `sh -c` otherwise |
+  | `cmd/sin-code/internal/spec/check.go:168` | spec verify | NO (operator `*.spec.md`) | Operator-supplied only |
+  | `cmd/sin-code/internal/hooks/hooks.go:181` | command hook | NO (operator `hooks.json`) | Operator-supplied only |
+- **New tests** in `cmd/sin-code/chat_cmd_test.go`:
+  `TestChat_HeadlessDefaultsSandboxOn`,
+  `TestChat_NoSandboxFlag_DisablesSandbox`,
+  `TestChat_NoSandboxNonHeadless_SilentOverride`,
+  `TestChat_ExplicitSandboxNoneHeadless_NoWarn`,
+  `TestSandboxBackendDisplay`. All five pass under
+  `go test -race -count=1 ./cmd/sin-code/...`.
+
 ### Added — Shop-Center skill integration (issue #142 fusion)
 - **`KnownSkills()` registry extended** with the three shop skills
   (issue #142 acceptance criterion #2 — installable via

@@ -5,6 +5,7 @@
 package attachments
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"time"
 )
+
 
 const (
 	MaxSize       = 50 * 1024 * 1024
@@ -101,7 +103,7 @@ func (s *Store) AttachReader(r io.Reader, name string, size int64) (*Attachment,
 		return nil, err
 	}
 	if _, err := os.Stat(fullPath); errors.Is(err, os.ErrNotExist) {
-		if err := osWriteFileHook(fullPath, buf, 0o644); err != nil {
+		if err := osWriteFileHook(fullPath, buf, filemode.Default()); err != nil {
 			return nil, err
 		}
 	}

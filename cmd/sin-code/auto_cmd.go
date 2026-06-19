@@ -5,6 +5,7 @@
 package main
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
+
 
 // autoLoop is the minimal agent-loop interface used by the auto run
 // subcommand so tests can inject a fake loop without building a real one.
@@ -97,7 +99,7 @@ func newAutoInitCmd() *cobra.Command {
 			if _, err := autoHookVars.osStat("program.md"); err == nil {
 				return fmt.Errorf("program.md already exists")
 			}
-			if err := autoHookVars.osWriteFile("program.md", []byte(programTemplate), 0o644); err != nil {
+			if err := autoHookVars.osWriteFile("program.md", []byte(programTemplate), filemode.Default()); err != nil {
 				return err
 			}
 			fmt.Fprintln(cmd.OutOrStdout(), "wrote program.md — edit it, then run: sin-code auto run --verify-cmd \"...\"")

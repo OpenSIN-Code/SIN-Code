@@ -2,6 +2,7 @@
 package tui
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"fmt"
 	"os"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
+
 
 var diffExpanded bool
 var diffExpandedMu sync.Mutex
@@ -289,5 +291,5 @@ func PendingDiff() DiffWindowState {
 }
 
 func ApplyDiff(filePath, newContent string) error {
-	return os.WriteFile(filePath, []byte(newContent), 0o644)
+	return os.WriteFile(filePath, []byte(newContent), filemode.Default())
 }

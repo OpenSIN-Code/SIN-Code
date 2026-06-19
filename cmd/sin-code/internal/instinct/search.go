@@ -14,6 +14,7 @@
 package instinct
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/rag"
 )
+
 
 // instinctEmbeddingFile is the on-disk location of the embedding
 // index, relative to the SIN-Code home dir. The path matches the
@@ -67,7 +69,7 @@ func (j *jsonPersister) Save(entries []rag.Entry) error {
 		return err
 	}
 	tmp := j.path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if err := os.WriteFile(tmp, b, filemode.Default()); err != nil {
 		return err
 	}
 	return os.Rename(tmp, j.path)

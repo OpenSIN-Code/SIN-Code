@@ -15,6 +15,7 @@
 package mcpclient
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -22,6 +23,7 @@ import (
 	"sort"
 	"sync"
 )
+
 
 // DiscoveredServer is the normalized representation of an MCP server found in a
 // config location. Source records the path the entry was discovered from.
@@ -235,7 +237,7 @@ func (d *ServerDiscovery) AddServer(s DiscoveredServer) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(serversDir, s.Name+".json"), data, 0o644)
+	return os.WriteFile(filepath.Join(serversDir, s.Name+".json"), data, filemode.Default())
 }
 
 // RemoveServer deletes ~/.config/mcp/servers/<name>.json. It is idempotent: a

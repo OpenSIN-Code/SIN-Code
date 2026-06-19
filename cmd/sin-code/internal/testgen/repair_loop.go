@@ -9,6 +9,7 @@
 package testgen
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"fmt"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"path/filepath"
 	"time"
 )
+
 
 // DefaultRepairRounds is the default upper bound on repair iterations.
 const DefaultRepairRounds = 3
@@ -70,7 +72,7 @@ func NewRepairLoop(filler *LLMFiller, opts ...RepairLoopOption) *RepairLoop {
 		timeout:     DefaultTimeout,
 		compileFunc: defaultCompileFunc,
 		runTestFunc: defaultRunTestFunc,
-		writeFile:   func(p string, d []byte) error { return os.WriteFile(p, d, 0o644) },
+		writeFile:   func(p string, d []byte) error { return os.WriteFile(p, d, filemode.Default()) },
 	}
 	for _, o := range opts {
 		o(l)

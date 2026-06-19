@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,6 +11,7 @@ import (
 
 	"charm.land/bubbles/v2/key"
 )
+
 
 type KeymapContext string
 
@@ -214,7 +216,7 @@ func (c KeymapConfig) Save(path string) error {
 	if err != nil {
 		return fmt.Errorf("marshal keymap config: %w", err)
 	}
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, filemode.Default())
 }
 
 type KeyConflict struct {

@@ -8,6 +8,7 @@
 package main
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"fmt"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/meta"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/sandbox"
 )
+
 
 const (
 	maxReadBytes  = 64 * 1024
@@ -175,7 +177,7 @@ func toolWrite(path, content string) (string, error) {
 		return "", err
 	}
 	tmp := path + ".sin-tmp"
-	if err := os.WriteFile(tmp, []byte(content), 0o644); err != nil {
+	if err := os.WriteFile(tmp, []byte(content), filemode.Default()); err != nil {
 		return "", err
 	}
 	if err := os.Rename(tmp, path); err != nil {
@@ -212,7 +214,7 @@ func toolReplace(path, old, new string) (string, error) {
 		return "", fmt.Errorf("sin_replace: old text not found in %s", path)
 	}
 	updated := strings.Replace(content, old, new, 1)
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(updated), filemode.Default()); err != nil {
 		return "", err
 	}
 	result := "replaced " + path
@@ -233,7 +235,7 @@ func toolApplyDiff(path, diff string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("sin_apply_diff: %w", err)
 	}
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(updated), filemode.Default()); err != nil {
 		return "", err
 	}
 	result := "applied diff to " + path

@@ -4,12 +4,14 @@
 package instinct
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 )
+
 
 // NewCommand returns the `sin instinct ...` command tree. Register it
 // from `cmd/sin-code/main.go` via `internal.InstinctCmd = instinct.NewCommand()`.
@@ -107,7 +109,7 @@ func cmdEvolve() *cobra.Command {
 				if apply {
 					out := "./.sin/evolved/" + p.Name + ".md"
 					_ = os.MkdirAll("./.sin/evolved", 0o755)
-					if err := os.WriteFile(out, []byte(p.RenderArtifact()), 0o644); err != nil {
+					if err := os.WriteFile(out, []byte(p.RenderArtifact()), filemode.Default()); err != nil {
 						return err
 					}
 					if err := MarkEvolved(m.store, p); err != nil {

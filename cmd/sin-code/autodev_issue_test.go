@@ -248,7 +248,7 @@ func TestDetectRepo_EndToEnd_MockedBridge(t *testing.T) {
 		return ghbridge.NewWithRunner(runner, time.Second)
 	}
 
-	repo, err := detectRepo()
+	repo, err := detectRepo(context.Background())
 	if err != nil {
 		t.Fatalf("detectRepo with mocked OK auth returned err: %v", err)
 	}
@@ -290,7 +290,7 @@ func TestDetectRepo_EndToEnd_MockedBridge_AuthNotLoggedIn(t *testing.T) {
 		return ghbridge.NewWithRunner(runner, time.Second)
 	}
 
-	_, err := detectRepo()
+	_, err := detectRepo(context.Background())
 	if err == nil {
 		t.Fatalf("detectRepo with non-auth output returned nil err; want 'gh not authenticated'")
 	}
@@ -321,7 +321,7 @@ func TestDetectRepo_EndToEnd_MockedBridge_GhExecError(t *testing.T) {
 		return ghbridge.NewWithRunner(runner, time.Second)
 	}
 
-	_, err := detectRepo()
+	_, err := detectRepo(context.Background())
 	if err == nil {
 		t.Fatalf("detectRepo with gh-exec-error returned nil err")
 	}

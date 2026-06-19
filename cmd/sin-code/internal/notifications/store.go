@@ -3,6 +3,7 @@
 package notifications
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"crypto/sha1"
 	"encoding/binary"
 	"encoding/json"
@@ -13,6 +14,7 @@ import (
 
 	bolt "go.etcd.io/bbolt"
 )
+
 
 const (
 	bucketNotifs    = "notifications"
@@ -82,7 +84,7 @@ func Open(path string) (*Store, error) {
 	if err := mkdirAll(dirOf(path), 0o755); err != nil {
 		return nil, err
 	}
-	db, err := testHookBoltOpen(path, 0o644, &bolt.Options{Timeout: 2 * time.Second})
+	db, err := testHookBoltOpen(path, filemode.Default(), &bolt.Options{Timeout: 2 * time.Second})
 	if err != nil {
 		return nil, fmt.Errorf("open notifications db: %w", err)
 	}

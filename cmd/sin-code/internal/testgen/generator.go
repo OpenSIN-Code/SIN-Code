@@ -10,6 +10,7 @@
 package testgen
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -25,6 +26,7 @@ import (
 	"text/template"
 	"time"
 )
+
 
 const (
 	// DefaultTimeout is the hard ceiling for a generate-and-verify cycle.
@@ -137,7 +139,7 @@ func generateForFile(ctx context.Context, opts Options) Result {
 					Error:          fmt.Sprintf("fallback generation failed (attempt %d): %v", attempt, err),
 				}
 			}
-			if err := os.WriteFile(outFile, []byte(code), 0o644); err != nil {
+			if err := os.WriteFile(outFile, []byte(code), filemode.Default()); err != nil {
 				return Result{
 					GeneratedFiles: gen,
 					TestOutput:     joinAttemptOutputs(outputs),
@@ -363,7 +365,7 @@ func prependMarkerIfMissing(p string) error {
 		return nil
 	}
 	out := []byte(GeneratedMarker + "\n\n" + string(data))
-	return os.WriteFile(p, out, 0o644)
+	return os.WriteFile(p, out, filemode.Default())
 }
 
 func detectGeneratedFiles(pkg string) []string {

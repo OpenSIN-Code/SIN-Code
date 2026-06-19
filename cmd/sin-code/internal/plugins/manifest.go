@@ -5,6 +5,7 @@
 package plugins
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"errors"
 	"fmt"
 	"os"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 )
+
 
 const ManifestFile = "plugin.toml"
 
@@ -170,7 +172,7 @@ func (p *Plugin) Disable() error {
 	if p.Path == "" {
 		return errors.New("plugin path unknown")
 	}
-	return os.WriteFile(filepath.Join(p.Path, ".disabled"), []byte{}, 0o644)
+	return os.WriteFile(filepath.Join(p.Path, ".disabled"), []byte{}, filemode.Default())
 }
 
 func (p *Plugin) Enable() error {

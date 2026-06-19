@@ -4,6 +4,7 @@
 package main
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
 )
+
 
 func NewResearchCmd() *cobra.Command {
 	var (
@@ -169,7 +171,7 @@ func WriteReport(outDir, slug, body string) (string, int, error) {
 	}
 	path := filepath.Join(outDir, slug+".md")
 	data := []byte(body)
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, filemode.Default()); err != nil {
 		return "", 0, err
 	}
 	return path, len(data), nil

@@ -124,8 +124,9 @@ func newGoalAddFromIssueCmd() *cobra.Command {
 				return fmt.Errorf("issue number must be a positive integer")
 			}
 			if repo == "" {
+				ctx := cmd.Context()
 				var err error
-				repo, err = detectRepo()
+				repo, err = detectRepo(ctx)
 				if err != nil {
 					return err
 				}
@@ -187,7 +188,7 @@ func newGoalAddFromIssueCmd() *cobra.Command {
 // classifier the same way `Bridge.Health` does internally. All OTHER
 // gh calls (including `repo view`) still go through `b.Execute` so
 // they retain the 3-tier safety net.
-func detectRepo() (string, error) {
+func detectRepo(ctx context.Context) (string, error) {
 	if _, err := exec.LookPath("gh"); err != nil {
 		return "", fmt.Errorf("gh CLI not found in PATH; install it or pass --repo flag")
 	}
@@ -196,7 +197,7 @@ func detectRepo() (string, error) {
 	// Auth probe: bypass the 3-tier classifier (auth status is the
 	// canonical read-only credential healthcheck). Use b.Run directly
 	// — same pattern as ghbridge.Bridge.Health.
-	out, _, err := b.Run(context.Background(), []string{"auth", "status"})
+	out, _, err := b.Run(ctx, []string{"auth", "status"})
 	if err != nil {
 		return "", fmt.Errorf("gh not authenticated; run 'gh auth login' or pass --repo flag: %w", err)
 	}
@@ -206,7 +207,7 @@ func detectRepo() (string, error) {
 
 	// Repo lookup: still classified (read-only; "repo view" + "status"
 	// verb is in readOnlyVerbs).
-	out, _, err = b.Execute(context.Background(), []string{"repo", "view", "--json", "nameWithOwner"})
+	out, _, err = b.Execute(ctx, []string{"repo", "view", "--json", "nameWithOwner"})
 	if err != nil {
 		return "", fmt.Errorf("failed to detect repo (not a git repo with GitHub remote?); pass --repo flag: %w", err)
 	}

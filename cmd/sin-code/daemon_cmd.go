@@ -156,6 +156,17 @@ func runDaemon(ctx context.Context, opt daemonOptions) error {
 		return err
 	}
 
+	// M3 (verification gate) + M4 (headless: ask→deny) + issue #420:
+	// the daemon is headless by mandate — there is no prompt to
+	// clarify a destructive tool call and no human in front of the
+	// terminal to spot a sandbox-escape. Force OS-level syscall
+	// isolation for every `sin_bash` invocation across the worker
+	// pool. There is no --no-sandbox opt-out for the autonomous
+	// worker; the platform-native backend is selected automatically.
+	setSandboxConfig("", cwd)
+	fmt.Fprintf(os.Stderr,
+		"daemon: sandbox enabled (workspace=%s, M3/M4 mandate, issue #420)\n", cwd)
+
 	// Apply process-wide resource limits up front.
 	opt.limits.Apply()
 

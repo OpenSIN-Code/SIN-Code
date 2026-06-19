@@ -4,6 +4,7 @@
 package coverdrohne
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
 
 // mkdirTempCmd is the temp-dir hook used by command helpers.
 var mkdirTempCmd = os.MkdirTemp
@@ -254,7 +256,7 @@ func newGenerateCmd() *cobra.Command {
 				_, _ = cmd.OutOrStdout().Write([]byte("\n"))
 				return err
 			}
-			return writeFileHook(out, data, 0o644)
+			return writeFileHook(out, data, filemode.Default())
 		},
 	}
 	cmd.Flags().StringVar(&pkg, "package", "", "package import path substring")
@@ -356,7 +358,7 @@ func newDrainCmd() *cobra.Command {
 					fmt.Fprintf(w, "skip %s: marshal failed: %v\n", pkg, err)
 					continue
 				}
-				if err := writeFileHook(dest, b, 0o644); err != nil {
+				if err := writeFileHook(dest, b, filemode.Default()); err != nil {
 					fmt.Fprintf(w, "skip %s: write failed: %v\n", pkg, err)
 					continue
 				}

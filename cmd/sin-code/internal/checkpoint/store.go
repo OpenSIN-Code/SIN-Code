@@ -7,6 +7,7 @@
 package checkpoint
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -18,6 +19,7 @@ import (
 
 	_ "modernc.org/sqlite"
 )
+
 
 type Store struct {
 	db   *sql.DB
@@ -77,7 +79,7 @@ func (s *Store) putBlob(content []byte) (string, error) {
 	if _, err := os.Stat(dst); err == nil {
 		return h, nil
 	}
-	return h, os.WriteFile(dst, content, 0o644)
+	return h, os.WriteFile(dst, content, filemode.Default())
 }
 
 func (s *Store) Capture(ctx context.Context, workspace, sessionID, label string, paths []string) (string, error) {
@@ -143,7 +145,7 @@ func (s *Store) Restore(ctx context.Context, workspace, id string) error {
 		if err := os.MkdirAll(filepath.Dir(abs), 0o755); err != nil {
 			return err
 		}
-		if err := os.WriteFile(abs, b, 0o644); err != nil {
+		if err := os.WriteFile(abs, b, filemode.Default()); err != nil {
 			return err
 		}
 	}

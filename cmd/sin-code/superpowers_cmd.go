@@ -6,6 +6,7 @@
 package main
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/superpowers"
 )
+
 
 // NewSuperpowersCmd builds the `superpowers` cobra subcommand. Pattern
 // matches NewChatCmd / NewSkillCmd: returns *cobra.Command with the
@@ -257,7 +259,7 @@ referenced in mcp.json.`,
 				"---\n\n" +
 				"# " + name + "\n\n" +
 				"Describe the workflow here. Keep it focused on a single capability.\n"
-			if err := os.WriteFile(skillPath, []byte(body), 0o644); err != nil {
+			if err := os.WriteFile(skillPath, []byte(body), filemode.Default()); err != nil {
 				return err
 			}
 			// Apply overlay so the user can immediately see the integration.

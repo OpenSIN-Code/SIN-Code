@@ -2,12 +2,14 @@
 package tui
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
 
 type CustomTheme struct {
 	Name       string `json:"name"`
@@ -67,7 +69,7 @@ func SaveCustomTheme(theme Theme, path string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("create theme dir: %w", err)
 	}
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, filemode.Default())
 }
 
 func (ct CustomTheme) ToTheme() Theme {

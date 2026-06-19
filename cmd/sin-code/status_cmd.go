@@ -4,6 +4,7 @@
 package main
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/status"
 )
+
 
 // NewStatusCmd builds the `status` cobra subcommand.
 func NewStatusCmd() *cobra.Command {
@@ -80,7 +82,7 @@ instead of failing the command.`,
 			}
 
 			if outPath != "" {
-				if err := os.WriteFile(outPath, output, 0o644); err != nil {
+				if err := os.WriteFile(outPath, output, filemode.Default()); err != nil {
 					return fmt.Errorf("write output: %w", err)
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "Status report written to %s\n", outPath)

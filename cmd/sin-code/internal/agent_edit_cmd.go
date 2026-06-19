@@ -3,6 +3,7 @@
 package internal
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 )
+
 
 var (
 	agEditAgent string
@@ -90,7 +92,7 @@ func openAgentInEditor(name string) error {
 	cfgPath := filepath.Join(dir, "agent.toml")
 	if _, err := os.Stat(cfgPath); os.IsNotExist(err) {
 		seed := buildAgentSeed(name)
-		if err := os.WriteFile(cfgPath, []byte(seed), 0o644); err != nil {
+		if err := os.WriteFile(cfgPath, []byte(seed), filemode.Default()); err != nil {
 			return err
 		}
 		fmt.Printf("Seeded %s with default-template — edit and save.\n", cfgPath)

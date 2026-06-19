@@ -5,6 +5,7 @@
 package grill
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"sync"
 	"time"
 )
+
 
 // hook variables make filesystem and JSON error paths testable
 // without changing public behavior.
@@ -246,7 +248,7 @@ func (m *Manager) save(s *Session) error {
 		return err
 	}
 	tmp := path + ".tmp"
-	if err := osWriteFileHook(tmp, b, 0o644); err != nil {
+	if err := osWriteFileHook(tmp, b, filemode.Default()); err != nil {
 		return err
 	}
 	return osRenameHook(tmp, path)

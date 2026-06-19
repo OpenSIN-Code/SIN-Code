@@ -3,11 +3,13 @@
 package mcpclient
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 )
+
 
 var (
 	// userConfigDirHook lets tests override the config directory without
@@ -173,5 +175,5 @@ func WriteServerConfig(cfg ServerConfig) error {
 		return err
 	}
 	path := filepath.Join(serversDir, cfg.Name+".json")
-	return os.WriteFile(path, data, 0o644)
+	return os.WriteFile(path, data, filemode.Default())
 }

@@ -22,6 +22,7 @@
 package main
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -36,6 +37,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/skillmgr"
 	"github.com/OpenSIN-Code/SIN-Code/skills"
 )
+
 
 // agentFlagAll is the magic value for `--agent` that means "try every
 // registered target". We keep it as a string constant rather than a bool
@@ -85,7 +87,7 @@ func extractSkillFromFS(src fs.FS, dstRoot, skill string) error {
 	if err != nil {
 		return fmt.Errorf("extractSkillFromFS(%q): read SKILL.md: %w", skill, err)
 	}
-	if err := os.WriteFile(filepath.Join(out, "SKILL.md"), skillMD, 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(out, "SKILL.md"), skillMD, filemode.Default()); err != nil {
 		return err
 	}
 	for _, sub := range []string{"context", "frameworks", "tasks", "templates"} {
@@ -102,7 +104,7 @@ func extractSkillFromFS(src fs.FS, dstRoot, skill string) error {
 			if err := os.MkdirAll(subDir, 0o755); err != nil {
 				return err
 			}
-			if err := os.WriteFile(filepath.Join(subDir, e.Name()), data, 0o644); err != nil {
+			if err := os.WriteFile(filepath.Join(subDir, e.Name()), data, filemode.Default()); err != nil {
 				return err
 			}
 		}

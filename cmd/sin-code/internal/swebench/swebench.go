@@ -2,12 +2,14 @@
 package swebench
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
 
 func shellEscape(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
@@ -143,7 +145,7 @@ func WriteEvalDataset(cases []TestCase, outPath string) error {
 		return err
 	}
 	os.MkdirAll(filepath.Dir(outPath), 0o755)
-	return os.WriteFile(outPath, raw, 0o644)
+	return os.WriteFile(outPath, raw, filemode.Default())
 }
 
 type ScorerResult struct {

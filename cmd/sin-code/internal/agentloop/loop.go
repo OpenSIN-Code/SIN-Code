@@ -5,6 +5,7 @@
 package agentloop
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -22,6 +23,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 )
+
 
 type ToolCall struct {
 	ID   string
@@ -507,7 +509,7 @@ func (l *Loop) writeCompactionSidecar(sess *session.Session, turn int, result Co
 		return ""
 	}
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	if err := os.WriteFile(tmp, data, filemode.Default()); err != nil {
 		return ""
 	}
 	if err := os.Rename(tmp, path); err != nil {

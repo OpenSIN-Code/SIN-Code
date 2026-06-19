@@ -6,11 +6,13 @@
 package instinct
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"time"
 )
+
 
 // AuditEvent records why an instinct changed.
 type AuditEvent struct {
@@ -33,7 +35,7 @@ func (s *Store) Append(ev AuditEvent) {
 	if err := os.MkdirAll(s.base, 0o755); err != nil {
 		return
 	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, filemode.Default())
 	if err != nil {
 		return
 	}

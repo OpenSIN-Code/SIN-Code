@@ -12,6 +12,7 @@
 package main
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"fmt"
 	"io"
 	"os"
@@ -21,6 +22,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/spec/compiler"
 )
+
 
 // NewCompileSpecCmd builds the `compile-spec` cobra subcommand.
 func NewCompileSpecCmd() *cobra.Command {
@@ -73,7 +75,7 @@ func runCompileSpecInit(out io.Writer, outDir string) error {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return err
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, data, filemode.Default()); err != nil {
 		return err
 	}
 	fmt.Fprintf(out, "wrote %s\n", path)
@@ -109,7 +111,7 @@ func runCompileSpecCompile(out, errOut io.Writer, outDir string, dryRun bool) er
 			return err
 		}
 		tmp := dest + ".tmp"
-		if err := os.WriteFile(tmp, f.Data, 0o644); err != nil {
+		if err := os.WriteFile(tmp, f.Data, filemode.Default()); err != nil {
 			return err
 		}
 		if err := os.Rename(tmp, dest); err != nil {

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 // Purpose: race-safe tests for the chat command's autoactivate
-// wiring (issue #176). Covers the helpers, the session-start
-// invocation through the hooklife runner, and the
-// `.sin-code/autoactivate.toml` path under a temp workspace.
+// wiring (issue #176) and the headless-mode sandbox defaults
+// (issue #420). Covers the helpers, the session-start invocation
+// through the hooklife runner, the `.sin-code/autoactivate.toml`
+// path under a temp workspace, and the M3/M4 sandbox policy helper.
 package main
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -172,5 +174,195 @@ func TestChatActivatorWithNoTrigger(t *testing.T) {
 func TestBoolStr(t *testing.T) {
 	if boolStr(true) != "true" || boolStr(false) != "false" {
 		t.Errorf("boolStr wrong")
+	}
+}
+
+// snapshotSandboxConfig copies the package-level sandboxConfig so the
+// test can restore it without racing other tests. Returns the captured
+// value so the test can also assert against it directly.
+func snapshotSandboxConfig() (orig struct {
+	enabled   bool
+	workspace string
+}) {
+	return sandboxConfig
+}
+
+func restoreSandboxConfig(snap struct {
+	enabled   bool
+	workspace string
+}) {
+	sandboxConfig = snap
+}
+
+// swapChatStderr redirects the package-level chatStderr writer for
+// the duration of a test so the policy helper's Warns / announcements
+// can be asserted. Returns the captured buffer + a cleanup func.
+func swapChatStderr(t *testing.T) (*bytes.Buffer, func()) {
+	t.Helper()
+	var buf bytes.Buffer
+	orig := chatStderr
+	chatStderr = &buf
+	return &buf, func() { chatStderr = orig }
+}
+
+// TestChat_HeadlessDefaultsSandboxOn (issue #420): when `sin-code chat`
+// takes the headless path (-p or --json), the sandbox must default
+// to ON with the workspace rooted at $PWD. The helper is the source
+// of truth; this test pins the M3/M4 headless mandate so a future
+// refactor cannot silently downgrade it.
+func TestChat_HeadlessDefaultsSandboxOn(t *testing.T) {
+	snap := snapshotSandboxConfig()
+	defer restoreSandboxConfig(snap)
+	sandboxConfig = struct {
+		enabled   bool
+		workspace string
+	}{false, ""}
+
+	stderrBuf, restoreStderr := swapChatStderr(t)
+	defer restoreStderr()
+
+	ws := "/tmp/issue-420-headless"
+	opts := &chatOptions{prompt: "summarise this repo"} // -p implies headless
+	applyChatSandboxPolicy(opts, true, ws)
+
+	if !sandboxConfig.enabled {
+		t.Errorf("headless chat (-p) must default sandbox=enabled; got enabled=false")
+	}
+	if sandboxConfig.workspace != ws {
+		t.Errorf("sandbox workspace = %q, want %q", sandboxConfig.workspace, ws)
+	}
+	out := stderrBuf.String()
+	if !strings.Contains(out, "sandbox enabled") {
+		t.Errorf("headless mode must announce sandbox=enabled to stderr; got %q", out)
+	}
+	if !strings.Contains(out, "issue #420") {
+		t.Errorf("headless announcement should cite issue #420 for traceability; got %q", out)
+	}
+	if strings.Contains(out, "WARN") {
+		t.Errorf("default headless path must not emit a WARN; got %q", out)
+	}
+}
+
+// TestChat_NoSandboxFlag_DisablesSandbox (issue #420): the
+// --no-sandbox escape hatch must override the headless default and
+// emit a WARN to stderr so the relaxed posture is visible in CI logs.
+// Without the WARN, an operator who flipped the flag reflexively
+// (e.g. copy-pasting a debug command) would lose all visibility.
+func TestChat_NoSandboxFlag_DisablesSandbox(t *testing.T) {
+	snap := snapshotSandboxConfig()
+	defer restoreSandboxConfig(snap)
+	sandboxConfig = struct {
+		enabled   bool
+		workspace string
+	}{false, ""}
+
+	stderrBuf, restoreStderr := swapChatStderr(t)
+	defer restoreStderr()
+
+	ws := "/tmp/issue-420-nosandbox"
+	opts := &chatOptions{
+		prompt:    "echo hello", // headless
+		noSandbox: true,
+	}
+	applyChatSandboxPolicy(opts, true, ws)
+
+	if sandboxConfig.enabled {
+		t.Errorf("--no-sandbox must force sandbox=enabled-false; got enabled=true")
+	}
+	if sandboxConfig.workspace != ws {
+		t.Errorf("sandbox workspace = %q, want %q", sandboxConfig.workspace, ws)
+	}
+	out := stderrBuf.String()
+	if !strings.Contains(out, "WARN") || !strings.Contains(out, "--no-sandbox") {
+		t.Errorf("--no-sandbox must emit a WARN citing the flag name; got %q", out)
+	}
+	if !strings.Contains(out, "issue #420") {
+		t.Errorf("WARN should cite issue #420 for traceability; got %q", out)
+	}
+	if strings.Contains(out, "sandbox enabled") {
+		t.Errorf("disabled path must NOT announce 'sandbox enabled'; got %q", out)
+	}
+}
+
+// TestChat_NoSandboxNonHeadless_SilentOverride: when the operator
+// passes --no-sandbox in the REPL, the WARN still fires (so the
+// relaxed posture is visible) but the headless announcement is
+// suppressed (we are not in headless mode).
+func TestChat_NoSandboxNonHeadless_SilentOverride(t *testing.T) {
+	snap := snapshotSandboxConfig()
+	defer restoreSandboxConfig(snap)
+	sandboxConfig = struct {
+		enabled   bool
+		workspace string
+	}{false, ""}
+
+	stderrBuf, restoreStderr := swapChatStderr(t)
+	defer restoreStderr()
+
+	ws := "/tmp/issue-420-repl"
+	opts := &chatOptions{noSandbox: true} // REPL, no -p, no --json
+	applyChatSandboxPolicy(opts, false, ws)
+
+	if sandboxConfig.enabled {
+		t.Errorf("--no-sandbox must disable sandbox outside headless mode too")
+	}
+	out := stderrBuf.String()
+	if !strings.Contains(out, "WARN") {
+		t.Errorf("--no-sandbox must WARN even in REPL mode; got %q", out)
+	}
+	if strings.Contains(out, "headless mode — sandbox enabled") {
+		t.Errorf("REPL mode must not emit the headless announcement; got %q", out)
+	}
+}
+
+// TestChat_ExplicitSandboxNoneHeadless_NoWarn: --sandbox none is a
+// legacy escape hatch (already documented). It must disable the
+// sandbox WITHOUT emitting the --no-sandbox WARN, because the
+// operator used the explicit backend vocabulary.
+func TestChat_ExplicitSandboxNoneHeadless_NoWarn(t *testing.T) {
+	snap := snapshotSandboxConfig()
+	defer restoreSandboxConfig(snap)
+	sandboxConfig = struct {
+		enabled   bool
+		workspace string
+	}{false, ""}
+
+	stderrBuf, restoreStderr := swapChatStderr(t)
+	defer restoreStderr()
+
+	ws := "/tmp/issue-420-none"
+	opts := &chatOptions{
+		prompt:  "echo legacy",
+		sandbox: "none",
+	}
+	applyChatSandboxPolicy(opts, true, ws)
+
+	if sandboxConfig.enabled {
+		t.Errorf("--sandbox none must disable sandbox")
+	}
+	out := stderrBuf.String()
+	if strings.Contains(out, "WARN: --no-sandbox") {
+		t.Errorf("--sandbox none must NOT emit the --no-sandbox WARN; got %q", out)
+	}
+}
+
+// TestSandboxBackendDisplay pins the helper that maps ""/various
+// backends to a stable stderr string. The four-arm matrix keeps
+// downstream consumers (audit, OCR of CI logs) deterministic.
+func TestSandboxBackendDisplay(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"", "platform-default"},
+		{"none", "none"},
+		{"landlock", "landlock"},
+		{"seatbelt", "seatbelt"},
+		{"bubblewrap", "bubblewrap"},
+	}
+	for _, c := range cases {
+		if got := sandboxBackendDisplay(c.in); got != c.want {
+			t.Errorf("sandboxBackendDisplay(%q) = %q, want %q", c.in, got, c.want)
+		}
 	}
 }

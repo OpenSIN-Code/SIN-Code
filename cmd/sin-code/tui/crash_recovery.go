@@ -2,11 +2,13 @@
 package tui
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"time"
 )
+
 
 type SessionState struct {
 	ViewKind         int           `json:"view_kind"`
@@ -54,7 +56,7 @@ func (r *CrashRecovery) Save(state SessionState) error {
 		return err
 	}
 	tmpPath := r.path + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+	if err := os.WriteFile(tmpPath, data, filemode.Default()); err != nil {
 		return err
 	}
 	return os.Rename(tmpPath, r.path)

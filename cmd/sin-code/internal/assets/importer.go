@@ -7,11 +7,13 @@
 package assets
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
 
 // package-level hooks to make import error branches testable.
 var (
@@ -104,7 +106,7 @@ func ImportSkills(opts ImportOptions) (ImportReport, error) {
 		if err := osMkdirAllHook(filepath.Dir(dst), 0o755); err != nil {
 			return rep, err
 		}
-		if err := osWriteFileHook(dst, data, 0o644); err != nil {
+		if err := osWriteFileHook(dst, data, filemode.Default()); err != nil {
 			return rep, err
 		}
 	}

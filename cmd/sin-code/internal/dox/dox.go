@@ -8,6 +8,7 @@
 package dox
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -16,6 +17,7 @@ import (
 	"sort"
 	"strings"
 )
+
 
 // Filesystem hooks for deterministic error-path testing. Set only in tests.
 var (
@@ -43,13 +45,16 @@ const (
 
 	// AgentsFileName is the canonical AGENTS.md file name.
 	AgentsFileName = "AGENTS.md"
-	// IndexFileName is the canonical child INDEX file.
+	// IndexFileName is the canonical child INDEX file name.
 	IndexFileName = "INDEX.md"
-	// DefaultFileMode is the mode used when writing new files.
-	DefaultFileMode fs.FileMode = 0o644
 	// DefaultDirMode is the mode used when creating new directories.
 	DefaultDirMode fs.FileMode = 0o755
 )
+
+// DefaultFileMode is the mode used when writing new files. It honours
+// SIN_CODE_FILE_MODE (see internal/filemode). Declared as a `var` so it
+// can read the env knob at package init.
+var DefaultFileMode fs.FileMode = filemode.Default()
 
 // ── Errors ─────────────────────────────────────────────────────────────
 

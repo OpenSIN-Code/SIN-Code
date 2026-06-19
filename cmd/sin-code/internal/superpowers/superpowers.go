@@ -6,6 +6,7 @@
 package superpowers
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -20,6 +21,7 @@ import (
 	"strings"
 	"time"
 )
+
 
 // ── Public configuration constants ─────────────────────────────────────
 
@@ -358,7 +360,7 @@ func InjectAGENTS(agentsPath string, prompt string) error {
 		}
 		body += "\n" + block
 	}
-	return osWriteFile(agentsPath, []byte(body), 0o644)
+	return osWriteFile(agentsPath, []byte(body), filemode.Default())
 }
 
 // ── Internal helpers ──────────────────────────────────────────────────

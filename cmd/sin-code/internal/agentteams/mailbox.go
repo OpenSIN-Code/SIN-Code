@@ -16,6 +16,7 @@
 package agentteams
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ import (
 	"sync"
 	"time"
 )
+
 
 // Message is a single mailbox entry. Headers (From, To, Subject) are
 // strictly typed; Body is bytes so callers can carry JSON, plan-text,
@@ -89,7 +91,7 @@ func (m *Mailbox) Send(msg Message) (offset int64, dedup bool, err error) {
 	// byte offsets. O_APPEND on POSIX is required to be atomic
 	// for writes shorter than PIPE_BUF (4 KiB) — our JSON line
 	// is well under that.
-	f, err := os.OpenFile(m.path, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0o644)
+	f, err := os.OpenFile(m.path, os.O_APPEND|os.O_CREATE|os.O_RDWR, filemode.Default())
 	if err != nil {
 		return 0, false, fmt.Errorf("agentteams: open: %w", err)
 	}
@@ -250,7 +252,7 @@ func writeAllMessages(path string, msgs []Message) error {
 	// atomic write via tmp+rename so a crash mid-write preserves
 	// the prior inbox. Mirror the auto_mem pattern for consistency.
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, buf, 0o644); err != nil {
+	if err := os.WriteFile(tmp, buf, filemode.Default()); err != nil {
 		return fmt.Errorf("agentteams: write tmp: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
@@ -287,7 +289,7 @@ func (m *Mailbox) Lock() error {
 		m.mu.Unlock()
 		return errors.New("agentteams: already locked")
 	}
-	f, err := os.OpenFile(m.path, os.O_CREATE|os.O_RDWR, 0o644)
+	f, err := os.OpenFile(m.path, os.O_CREATE|os.O_RDWR, filemode.Default())
 	if err != nil {
 		m.mu.Unlock()
 		return fmt.Errorf("agentteams: lock open: %w", err)

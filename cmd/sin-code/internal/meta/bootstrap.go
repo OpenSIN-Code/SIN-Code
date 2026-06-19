@@ -15,6 +15,7 @@
 package meta
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"errors"
@@ -25,6 +26,7 @@ import (
 	"regexp"
 	"strings"
 )
+
 
 // nameRE is the strict name validator. Lowercase first letter, then
 // lowercase/digit/underscore, total length 1..32. Mirrors the contract
@@ -277,5 +279,5 @@ func mergeMCPConfig(workspace, name, scriptPath string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(configPath, out, 0o644)
+	return os.WriteFile(configPath, out, filemode.Default())
 }

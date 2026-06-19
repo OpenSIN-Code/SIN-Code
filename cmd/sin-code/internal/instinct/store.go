@@ -5,6 +5,7 @@
 package instinct
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 )
+
 
 // Store persists instincts on disk, project-scoped + global.
 //
@@ -83,7 +85,7 @@ func (s *Store) Save(i *Instinct) error {
 	}
 	dst := filepath.Join(dir, i.ID+".md")
 	tmp := dst + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	if err := os.WriteFile(tmp, data, filemode.Default()); err != nil {
 		return err
 	}
 	return os.Rename(tmp, dst)
@@ -99,7 +101,7 @@ func (s *Store) SaveProjectMeta(p Project) error {
 		return err
 	}
 	b, _ := json.MarshalIndent(p, "", "  ")
-	return os.WriteFile(s.projectMetaPath(p.ID), b, 0o644)
+	return os.WriteFile(s.projectMetaPath(p.ID), b, filemode.Default())
 }
 
 // LoadGlobal returns all global instincts.

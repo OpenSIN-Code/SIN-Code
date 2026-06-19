@@ -17,6 +17,7 @@
 package compress
 
 import (
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -33,6 +34,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
 )
+
 
 // BuildPlan is the public Plan() entry point. Reads the source
 // surfaces, classifies entries, returns a Plan describing what would
@@ -422,7 +424,7 @@ func writeAgentsMD(kept []rawEntry, paths Paths) error {
 	}
 	data := []byte(kept[0].Body)
 	tmp := p + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	if err := os.WriteFile(tmp, data, filemode.Default()); err != nil {
 		return err
 	}
 	return os.Rename(tmp, p)
@@ -564,7 +566,7 @@ func writeSnapshot(p Plan) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	if err := os.WriteFile(tmp, body, 0o644); err != nil {
+	if err := os.WriteFile(tmp, body, filemode.Default()); err != nil {
 		return "", "", err
 	}
 	if err := os.Rename(tmp, final); err != nil {
