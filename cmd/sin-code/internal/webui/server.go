@@ -68,8 +68,13 @@ var (
 	lookPathHook      = exec.LookPath
 	readDirHook       = os.ReadDir
 	readFileHook      = os.ReadFile
+	// execCommandRunner hard-caps each invocation at 2s so a hung docker
+	// daemon (or any unresponsive subprocess on `ps`/`docker`/`which`)
+	// cannot wedge the request goroutine or inflate the test suite.
 	execCommandRunner = func(name string, args ...string) ([]byte, error) {
-		return exec.Command(name, args...).Output() // #nosec G204
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		return exec.CommandContext(ctx, name, args...).Output() // #nosec G204
 	}
 	orchestratorRunFunc = func(ctx context.Context, prompt string) (*orchestrator.Result, error) {
 		return orchestrator.New().Run(ctx, prompt)

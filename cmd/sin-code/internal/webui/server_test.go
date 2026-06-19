@@ -274,6 +274,9 @@ func TestServerNotificationsPage(t *testing.T) {
 }
 
 func TestServerEfmPage(t *testing.T) {
+	// Isolate HOME so the test reads from an empty efm state dir rather
+	// than the user's real ~/.local/state/sin-code/efm/ tree.
+	t.Setenv("HOME", t.TempDir())
 	_, ts := newTestServer(t)
 	resp, err := http.Get(ts.URL + "/efm")
 	if err != nil {
@@ -415,6 +418,9 @@ func TestServerRealListen(t *testing.T) {
 }
 
 func TestServerEfmDetail(t *testing.T) {
+	// Isolate HOME so the test doesn't touch the user's real EFM tree
+	// (which can have thousands of stale .meta files and slow docker lookups).
+	t.Setenv("HOME", t.TempDir())
 	_, ts := newTestServer(t)
 	resp, err := http.Get(ts.URL + "/efm/somestack")
 	if err != nil {
