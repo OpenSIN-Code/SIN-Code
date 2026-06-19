@@ -181,4 +181,4 @@ Each tool has a `.doc.md` companion file following the CoDocs standard:
 
 ## License
 
-MIT — same as SIN-Code-Bundle.
+MIT — same as SIN-Code.

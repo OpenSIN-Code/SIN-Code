@@ -62,7 +62,7 @@ func schemaFromType(t reflect.Type, seen map[reflect.Type]bool) (*Schema, error)
 	}
 
 	switch t.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		return schemaFromType(t.Elem(), seen)
 	case reflect.String:
 		return &Schema{Type: "string"}, nil
@@ -129,7 +129,7 @@ func schemaFromStruct(t reflect.Type, seen map[reflect.Type]bool) (*Schema, erro
 					props[k] = v
 				}
 				innerReq := inner.Required
-				if f.Type.Kind() == reflect.Ptr {
+				if f.Type.Kind() == reflect.Pointer {
 					// Pointer-embedded fields are never required.
 					innerReq = nil
 				}
@@ -153,7 +153,7 @@ func schemaFromStruct(t reflect.Type, seen map[reflect.Type]bool) (*Schema, erro
 		}
 		props[name] = fieldSchema
 
-		isPtr := f.Type.Kind() == reflect.Ptr
+		isPtr := f.Type.Kind() == reflect.Pointer
 		if !omitempty && !isPtr {
 			required = append(required, name)
 		}
