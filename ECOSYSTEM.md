@@ -51,7 +51,8 @@
 | SIN-Code-Skills-Skill | `skills__*` | ask | ACTIVE |
 
 | [OpenSIN-Code/sin-analyse-suite](https://github.com/OpenSIN-Code/sin-analyse-suite) | `analyse__*` (image, video, PDF, logs, data, audio) | allow (read-only) | ACTIVE |
-| [OpenSIN-Code/autodev-cli](https://github.com/OpenSIN-Code/autodev-cli) | `autodev__*` (e.g. `autodev_status`, `autodev_lessons`, `autodev_init`, `autodev_run_experiment`, `autodev_swarm`, `autodev_session_log`) | allow (read-only) + ask (mutating) — split M4 policy |
+| [OpenSIN-Code/autodev-cli](https://github.com/OpenSIN-Code/autodev-cli) | `autodev__*` (e.g. `autodev_status`, `autodev_lessons`, `autodev_init`, `autodev_run_experiment`, `autodev_swarm`, `autodev_session_log`) | allow (read-only) + ask (mutating) — split M4 policy | ACTIVE |
+| SIN-Code (native_browser) | `native_browser__*` (e.g. `native_browser__navigate`, `native_browser__snapshot`, `native_browser__screenshot`) | allow (read-only) + ask (mutating) — split M4 policy (issue #382) | ACTIVE |
 ## LLM Backends
 
 | Repo | Integration | Status |
