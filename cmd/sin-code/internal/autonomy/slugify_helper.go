@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// sin-debt: single-function utility, upgrade: when autonomy package has >3 utilities merge into utils.go
 package autonomy
 
 import (
