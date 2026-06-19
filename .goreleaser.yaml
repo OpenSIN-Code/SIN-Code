@@ -79,6 +79,27 @@ release:
     sha256sum -c checksums.txt --ignore-missing
 ```
 
+brews:
+  - name: sin-code
+    repository:
+      owner: OpenSIN-Code
+      name: homebrew-sin
+      branch: main
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/OpenSIN-Code/SIN-Code"
+    description: "SIN-Code unified toolchain — 46+ analysis and manipulation tools in one binary"
+    license: "MIT"
+    skip_upload: false
+    commit_author:
+      name: goreleaserbot
+      email: goreleaserbot@opensin.ai
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    install: |
+      bin.install "sin-code"
+    test: |
+      system "#{bin}/sin-code", "--version"
+
 changelog:
   use: github
   filters:

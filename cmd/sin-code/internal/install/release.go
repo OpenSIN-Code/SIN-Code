@@ -23,6 +23,10 @@ const Repo = "OpenSIN-Code/SIN-Code"
 // Stable URL — does not require `gh`, `jq`, or any GitHub auth.
 const LatestReleaseURL = "https://api.github.com/repos/" + Repo + "/releases/latest"
 
+// TagReleaseURL is the prefix for fetching a specific release by tag.
+// The Go installer uses this when the caller pins a release with `--release`.
+const TagReleaseURL = "https://api.github.com/repos/" + Repo + "/releases/tags/"
+
 // DownloadBaseURL is the prefix used by the `/releases/latest/download/<asset>`
 // pattern. GitHub redirects this to the latest published matching asset
 // without requiring the response to be tagged "latest".

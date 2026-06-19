@@ -56,6 +56,7 @@ func NewInstallCmd() *cobra.Command {
 		verifyOnly bool
 		noVerify   bool
 		dryRun     bool
+		auto       bool
 	)
 	cmd := &cobra.Command{
 		Use:   "install",
@@ -85,6 +86,7 @@ curl|bash and re-execing back into it.`,
 				VerifyOnly: verifyOnly,
 				NoVerify:   noVerify,
 				DryRun:     dryRun,
+				Auto:       auto,
 			})
 		},
 	}
@@ -94,6 +96,7 @@ curl|bash and re-execing back into it.`,
 	cmd.Flags().BoolVar(&verifyOnly, "verify-only", false, "verify an already-installed binary instead of replacing it")
 	cmd.Flags().BoolVar(&noVerify, "no-verify", false, "skip SHA256 verification (offline / sanctioned CI only)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the plan and URLs without writing anything")
+	cmd.Flags().BoolVar(&auto, "auto", false, "accept all defaults, no prompts (non-interactive mode)")
 	return cmd
 }
 
@@ -104,6 +107,7 @@ type installOpts struct {
 	VerifyOnly bool
 	NoVerify   bool
 	DryRun     bool
+	Auto       bool
 }
 
 func runInstall(opts installOpts) error {
@@ -120,12 +124,15 @@ func runInstall(opts installOpts) error {
 	// Resolve the release. We use the `latest` JSON lookup unless the
 	// user pinned via --release. This intentionally does NOT call gh
 	// (chicken-and-egg: install subcommand can run before gh is on PATH).
-	rel, err := install.FetchLatest(ctx, client, p)
+	var rel *install.Release
+	var err error
+	if opts.Release != "" {
+		rel, err = install.FetchRelease(ctx, client, p, opts.Release)
+	} else {
+		rel, err = install.FetchLatest(ctx, client, p)
+	}
 	if err != nil {
 		return fmt.Errorf("install: fetch release: %w", err)
-	}
-	if opts.Release != "" && opts.Release != rel.TagName {
-		fmt.Fprintf(os.Stderr, "[warn] --release=%s requested but latest published is %s (rrun from a clean machine?)\n", opts.Release, rel.TagName)
 	}
 
 	binDir, _, hint, err := install.ChooseBinDir()
@@ -194,7 +201,13 @@ func runInstall(opts installOpts) error {
 
 func runInstallVerifyOnly(ctx context.Context, opts installOpts, p install.Platform) error {
 	client := install.NewHTTPClient()
-	rel, err := install.FetchLatest(ctx, client, p)
+	var rel *install.Release
+	var err error
+	if opts.Release != "" {
+		rel, err = install.FetchRelease(ctx, client, p, opts.Release)
+	} else {
+		rel, err = install.FetchLatest(ctx, client, p)
+	}
 	if err != nil {
 		return fmt.Errorf("install: fetch release: %w", err)
 	}

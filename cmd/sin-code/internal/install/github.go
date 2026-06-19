@@ -37,10 +37,23 @@ func NewHTTPClient() *http.Client {
 // ctx cancellation propagates — the install cmd uses a parent ctx so
 // the cobra RunE can short-circuit on SIGINT.
 func FetchLatest(ctx context.Context, client *http.Client, p Platform) (*Release, error) {
+	return fetchReleaseByURL(ctx, client, p, LatestReleaseURL)
+}
+
+// FetchRelease resolves a specific published release by tag. It is used
+// when the caller pins a release with `--release <tag>`.
+func FetchRelease(ctx context.Context, client *http.Client, p Platform, tag string) (*Release, error) {
+	if tag == "" {
+		return nil, errors.New("install: release tag required")
+	}
+	return fetchReleaseByURL(ctx, client, p, TagReleaseURL+tag)
+}
+
+func fetchReleaseByURL(ctx context.Context, client *http.Client, p Platform, url string) (*Release, error) {
 	if client == nil {
 		client = NewHTTPClient()
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, LatestReleaseURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("install: build request: %w", err)
 	}
@@ -53,12 +66,15 @@ func FetchLatest(ctx context.Context, client *http.Client, p Platform) (*Release
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("install: fetch latest release: %w", err)
+		return nil, fmt.Errorf("install: fetch release: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusForbidden && strings.Contains(resp.Header.Get("X-RateLimit-Remaining"), "0") {
 		return nil, errors.New("install: GitHub API rate limit hit (unauthenticated)")
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, fmt.Errorf("install: release not found at %s", url)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("install: GitHub API returned HTTP %d (%s)", resp.StatusCode, resp.Status)

@@ -17,10 +17,8 @@ TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 echo "[install.sh] downloading $URL"
 curl -fsSL --retry 3 -o "$TMP/sc.tgz" "$URL"
 mkdir -p "$BIN_DIR"
-tar -xzf "$TMP/sc.tgz" -O --wildcards 'sin-code'     > "$BIN_DIR/sin-code" 2>/dev/null \
-  || tar -xzf "$TMP/sc.tgz" -O --wildcards '*/sin-code' > "$BIN_DIR/sin-code" 2>/dev/null \
-  || { echo "[install.sh] ERROR: sin-code binary not found in archive" >&2; exit 1; }
-[ -s "$BIN_DIR/sin-code" ] || { echo "[install.sh] ERROR: empty binary" >&2; exit 1; }
+tar -xzf "$TMP/sc.tgz" -O sin-code > "$BIN_DIR/sin-code" 2>/dev/null
+[ -s "$BIN_DIR/sin-code" ] || { echo "[install.sh] ERROR: sin-code binary not found in archive" >&2; exit 1; }
 chmod 0755 "$BIN_DIR/sin-code"
 echo "[install.sh] installed: $BIN_DIR/sin-code"
 case ":$PATH:" in *":$BIN_DIR:"*) ;; *) echo "[install.sh] Add to PATH:  export PATH=\"$BIN_DIR:\$PATH\"" ;; esac
