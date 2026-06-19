@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
 )
+
+const ghPRCreateTimeout = 60 * time.Second
 
 func autoCreatePR(ctx context.Context, goal *autonomy.Goal, res *agentloop.Result) error {
 	if goal == nil {
@@ -93,7 +96,9 @@ func autoCreatePR(ctx context.Context, goal *autonomy.Goal, res *agentloop.Resul
 	if baseRepo != "" {
 		args = append(args, "--repo", baseRepo)
 	}
-	prOut, err := exec.CommandContext(ctx, "gh", args...).CombinedOutput()
+	ghCtx, ghCancel := context.WithTimeout(ctx, ghPRCreateTimeout)
+	defer ghCancel()
+	prOut, err := exec.CommandContext(ghCtx, "gh", args...).CombinedOutput()
 	if err != nil {
 		if coOut, coErr := exec.CommandContext(ctx, "git", "-C", goal.Workspace, "checkout", origBranch).CombinedOutput(); coErr != nil {
 			fmt.Printf("daemon: goal %d warning: could not restore branch %s: %v: %s\n", goal.ID, origBranch, coErr, string(coOut))
