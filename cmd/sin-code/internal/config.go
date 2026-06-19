@@ -154,12 +154,6 @@ type SinCodeConfig struct {
 	WorktreeConflictCheck string `toml:"worktree.conflict_check"`
 	WorktreeTargetBranch  string `toml:"worktree.target_branch"`
 
-	// Autonomy container execution (issue #389).
-	// When enabled, the daemon's verification command runs inside a container
-	// via `docker run --rm -v <workspace>:/workspace ... <image>`.
-	AutonomyContainerEnabled bool   `toml:"autonomy.container.enabled"`
-	AutonomyContainerImage   string `toml:"autonomy.container.image"`
-
 	// ContextCompactionMode selects the compaction algorithm (issue: compaction-modes).
 	// off | deterministic | llm | hybrid. Empty or off = legacy behaviour.
 	AgentLoopContextCompaction string `toml:"agentloop.context_compaction"`
@@ -179,19 +173,6 @@ type SinCodeConfig struct {
 
 	// CompactionRecentTurns is the number of recent human turns to retain. Default 4.
 	AgentLoopCompactionRecentTurns int `toml:"agentloop.compaction_recent_turns"`
-
-	// AgentLoopSessionContextEnabled enables the unified session-start
-	// context preamble (todos, previous session summary, auto-memory) at the
-	// beginning of a new session. Default true. Issue #379.
-	AgentLoopSessionContextEnabled bool `toml:"agentloop.session_context.enabled"`
-
-	// AutoLintEnabled runs a language-appropriate formatter (gofmt, ruff,
-	// rustfmt, prettier) after sin_write/sin_edit. Default true. Issue #376.
-	AutoLintEnabled bool `toml:"test.auto_lint"`
-
-	// AutoTestEnabled runs tests (go test, pytest, cargo test, npm test)
-	// after sin_write/sin_edit in the affected directory. Default true. Issue #376.
-	AutoTestEnabled bool `toml:"test.auto_test"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -253,6 +234,12 @@ func defaultConfig() SinCodeConfig {
 		PermissionYoloRiskThreshold:   "",
 		WorktreeConflictCheck:         "off",
 		WorktreeTargetBranch:          "",
+		AgentLoopContextCompaction:            "off",
+		AgentLoopCompactionTrigger:           "tokens",
+		AgentLoopCompactionMaxTokens:         8000,
+		AgentLoopContextWindow:               0,
+		AgentLoopCompactionPreserveEvidence:  true,
+		AgentLoopCompactionRecentTurns:       4,
 	}
 }
 
@@ -635,12 +622,6 @@ test.repair_rounds = %d
 worktree.conflict_check = %q
 worktree.target_branch = %q
 
-# Autonomous container execution (issue #389).
-# enabled: run verification commands inside a container (default false)
-# image: container image used for docker run --rm -v <workspace>:/workspace ...
-autonomy.container.enabled = %v
-autonomy.container.image = %q
-
 # Context compaction modes (issue: compaction-modes):
 #   "off" (default) = legacy compaction only
 #   "deterministic" = deterministic dedupe + byte-budget
@@ -652,12 +633,6 @@ agentloop.compaction_max_tokens = %d
 agentloop.context_window = %d
 agentloop.compaction_preserve_evidence = %v
 agentloop.compaction_recent_turns = %d
-
-# Session-start context injection (issue #379).
-# enabled: prepend todos / previous session summary / auto-memory to the first user message
-agentloop.session_context.enabled = %v
-test.auto_lint = %v
-test.auto_test = %v
 `, cfg.Theme, cfg.DefaultTimeout, cfg.DefaultFormat, cfg.MCPServerEnabled,
 		cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMMaxTokens, cfg.LLMTemperature,
 		cfg.LLMStyle,
@@ -669,11 +644,8 @@ test.auto_test = %v
 		cfg.PathsMCPConfig, cfg.PathsSkillsDir,
 		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds, cfg.TestUseLLM, cfg.TestRepairRounds,
 		cfg.WorktreeConflictCheck, cfg.WorktreeTargetBranch,
-		cfg.AutonomyContainerEnabled, cfg.AutonomyContainerImage,
 		cfg.AgentLoopContextCompaction, cfg.AgentLoopCompactionTrigger, cfg.AgentLoopCompactionMaxTokens, cfg.AgentLoopContextWindow,
-		cfg.AgentLoopCompactionPreserveEvidence, cfg.AgentLoopCompactionRecentTurns,
-		cfg.AgentLoopSessionContextEnabled,
-		cfg.AutoLintEnabled, cfg.AutoTestEnabled)
+		cfg.AgentLoopCompactionPreserveEvidence, cfg.AgentLoopCompactionRecentTurns)
 }
 
 func initConfig() error {
@@ -829,8 +801,6 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.AgentLoopCompactionPreserveEvidence), nil
 	case "agentloop.compaction_recent_turns":
 		return fmt.Sprintf("%d", cfg.AgentLoopCompactionRecentTurns), nil
-	case "agentloop.session_context.enabled":
-		return fmt.Sprintf("%v", cfg.AgentLoopSessionContextEnabled), nil
 	case "worktree.conflict_check":
 		return cfg.WorktreeConflictCheck, nil
 	case "worktree.target_branch":
@@ -1070,8 +1040,6 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 			return fmt.Errorf("agentloop.compaction_recent_turns must be a positive integer, got %q", value)
 		}
 		cfg.AgentLoopCompactionRecentTurns = v
-	case "agentloop.session_context.enabled":
-		cfg.AgentLoopSessionContextEnabled = value == "true" || value == "1"
 	case "worktree.conflict_check":
 		if value != "off" && value != "warn" && value != "abort" {
 			return fmt.Errorf("worktree.conflict_check must be 'off', 'warn', or 'abort', got %q", value)
@@ -1144,9 +1112,12 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"agentloop.compaction_strategy", cfg.AgentLoopCompactionStrategy},
 		{"agentloop.compaction_threshold", fmt.Sprintf("%v", cfg.AgentLoopCompactionThreshold)},
 		{"agentloop.frustration_detection", fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection)},
-		{"agentloop.observer_window", fmt.Sprintf("%d", cfg.AgentLoopObserverWindow)},
-		{"agentloop.observer_min_repeats", fmt.Sprintf("%d", cfg.AgentLoopObserverMinRepeats)},
-		{"agentloop.observer_min_pattern_length", fmt.Sprintf("%d", cfg.AgentLoopObserverMinPatternLength)},
+		{"agentloop.context_compaction", cfg.AgentLoopContextCompaction},
+		{"agentloop.compaction_trigger", cfg.AgentLoopCompactionTrigger},
+		{"agentloop.compaction_max_tokens", fmt.Sprintf("%d", cfg.AgentLoopCompactionMaxTokens)},
+		{"agentloop.context_window", fmt.Sprintf("%d", cfg.AgentLoopContextWindow)},
+		{"agentloop.compaction_preserve_evidence", fmt.Sprintf("%v", cfg.AgentLoopCompactionPreserveEvidence)},
+		{"agentloop.compaction_recent_turns", fmt.Sprintf("%d", cfg.AgentLoopCompactionRecentTurns)},
 		{"permission.yolo_risk_threshold", cfg.PermissionYoloRiskThreshold},
 		{"worktree.conflict_check", cfg.WorktreeConflictCheck},
 		{"worktree.target_branch", cfg.WorktreeTargetBranch},
@@ -1209,11 +1180,14 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 			"yolo":        cfg.AgentYolo,
 		},
 		"agentloop": map[string]any{
-			"required_tools":              cfg.AgentLoopRequiredTools,
-			"forbidden_tools":             cfg.AgentLoopForbiddenTools,
-			"observer_window":             cfg.AgentLoopObserverWindow,
-			"observer_min_repeats":        cfg.AgentLoopObserverMinRepeats,
-			"observer_min_pattern_length": cfg.AgentLoopObserverMinPatternLength,
+			"required_tools":       cfg.AgentLoopRequiredTools,
+			"forbidden_tools":      cfg.AgentLoopForbiddenTools,
+			"context_compaction":   cfg.AgentLoopContextCompaction,
+			"compaction_trigger":   cfg.AgentLoopCompactionTrigger,
+			"compaction_max_tokens": cfg.AgentLoopCompactionMaxTokens,
+			"context_window":       cfg.AgentLoopContextWindow,
+			"compaction_preserve_evidence": cfg.AgentLoopCompactionPreserveEvidence,
+			"compaction_recent_turns":     cfg.AgentLoopCompactionRecentTurns,
 		},
 		"permissions": map[string]any{
 			"tools_allow": cfg.ToolsAllow,
@@ -1257,11 +1231,14 @@ func showTOML(cfg SinCodeConfig, mask bool) error {
 		TestCoverageThreshold:    cfg.TestCoverageThreshold, TestMutationThreshold: cfg.TestMutationThreshold,
 		TestAutoGenerate:         cfg.TestAutoGenerate, TestTimeoutSeconds: cfg.TestTimeoutSeconds,
 		TestUseLLM:               cfg.TestUseLLM, TestRepairRounds: cfg.TestRepairRounds,
-		WorktreeConflictCheck:    cfg.WorktreeConflictCheck,
-		WorktreeTargetBranch:     cfg.WorktreeTargetBranch,
-		AgentLoopObserverWindow:           cfg.AgentLoopObserverWindow,
-		AgentLoopObserverMinRepeats:       cfg.AgentLoopObserverMinRepeats,
-		AgentLoopObserverMinPatternLength: cfg.AgentLoopObserverMinPatternLength,
+		WorktreeConflictCheck:              cfg.WorktreeConflictCheck,
+		WorktreeTargetBranch:               cfg.WorktreeTargetBranch,
+		AgentLoopContextCompaction:          cfg.AgentLoopContextCompaction,
+		AgentLoopCompactionTrigger:          cfg.AgentLoopCompactionTrigger,
+		AgentLoopCompactionMaxTokens:        cfg.AgentLoopCompactionMaxTokens,
+		AgentLoopContextWindow:              cfg.AgentLoopContextWindow,
+		AgentLoopCompactionPreserveEvidence: cfg.AgentLoopCompactionPreserveEvidence,
+		AgentLoopCompactionRecentTurns:      cfg.AgentLoopCompactionRecentTurns,
 	}))
 	return nil
 }
@@ -1346,9 +1323,6 @@ func validateConfig(cfg SinCodeConfig) []string {
 	}
 	if cfg.AgentLoopCompactionRecentTurns <= 0 {
 		issues = append(issues, fmt.Sprintf("agentloop.compaction_recent_turns must be > 0, got %d", cfg.AgentLoopCompactionRecentTurns))
-	}
-	if cfg.AutonomyContainerEnabled && cfg.AutonomyContainerImage == "" {
-		issues = append(issues, "autonomy.container.enabled is true but autonomy.container.image is empty")
 	}
 	return issues
 }
@@ -1469,26 +1443,22 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopObserverMinPatternLength)
 		case "permission.yolo_risk_threshold":
 			cfg.PermissionYoloRiskThreshold = val
-		case "agentloop.context_compaction":
-			cfg.AgentLoopContextCompaction = val
-		case "agentloop.compaction_trigger":
-			cfg.AgentLoopCompactionTrigger = val
-		case "agentloop.compaction_max_tokens":
-			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionMaxTokens)
-		case "agentloop.context_window":
-			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopContextWindow)
-		case "agentloop.compaction_preserve_evidence":
-			cfg.AgentLoopCompactionPreserveEvidence = val == "true" || val == "1"
-		case "agentloop.compaction_recent_turns":
-			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionRecentTurns)
-		case "worktree.conflict_check":
-			cfg.WorktreeConflictCheck = val
-		case "worktree.target_branch":
-			cfg.WorktreeTargetBranch = val
-		case "autonomy.container.enabled":
-			cfg.AutonomyContainerEnabled = val == "true" || val == "1"
-		case "autonomy.container.image":
-			cfg.AutonomyContainerImage = val
+	case "agentloop.context_compaction":
+		cfg.AgentLoopContextCompaction = val
+	case "agentloop.compaction_trigger":
+		cfg.AgentLoopCompactionTrigger = val
+	case "agentloop.compaction_max_tokens":
+		_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionMaxTokens)
+	case "agentloop.context_window":
+		_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopContextWindow)
+	case "agentloop.compaction_preserve_evidence":
+		cfg.AgentLoopCompactionPreserveEvidence = val == "true" || val == "1"
+	case "agentloop.compaction_recent_turns":
+		_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionRecentTurns)
+	case "worktree.conflict_check":
+		cfg.WorktreeConflictCheck = val
+	case "worktree.target_branch":
+		cfg.WorktreeTargetBranch = val
 		}
 	}
 }

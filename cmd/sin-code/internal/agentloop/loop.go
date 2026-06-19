@@ -178,6 +178,13 @@ type Loop struct {
 	// is documented to be one-Run-at-a-time (mandate M7).
 	thinkingUsed int // unexported per-run accumulator
 
+	// PerTurnBudget caps total tokens for a SINGLE model turn (issue #375). 0=unlimited.
+	PerTurnBudget int
+	// PerTurnThinkingBudget caps reasoning tokens for a SINGLE model turn (issue #375). 0=unlimited.
+	PerTurnThinkingBudget int
+	// perTurnBudget: lazy-constructed on first Run with at least one non-zero cap. Race-clean (M7).
+	perTurnBudget *PerTurnBudget
+
 	// Reflector, if set, runs a self-critique pass right BEFORE the stop-gate.
 	// If it returns issues, the loop injects them and continues working — a
 	// cheap quality lift that reduces stop-gate rejections. Runs at most once
@@ -742,11 +749,23 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	stallCount := 0
 	totalTokens := 0      // issue #151: cumulative tokens across the run
 	warnedBudget := false // fires hooks.BudgetWarn once per run
+	verifiedOnly := false // issue #375: true once per-turn budget fired - skip per-run caps
+
 	// Issue: Thinking Budget Enforcement (first PR). Reset the per-run
 	// thinking accumulator so a second Run() on the same Loop instance
 	// starts at zero. The Loop itself is documented as one-Run-at-a-time
 	// (mandate M7), so we do not need a mutex on this field.
 	l.thinkingUsed = 0
+	// Issue #375: lazy-construct per-turn tracker only when at least
+	// one per-turn cap is wired. No-cap path stays zero-cost.
+	if l.PerTurnBudget > 0 || l.PerTurnThinkingBudget > 0 {
+		l.perTurnBudget = NewPerTurnBudget(l.PerTurnThinkingBudget, l.PerTurnBudget)
+	} else {
+		l.perTurnBudget = nil
+	}
+	if l.perTurnBudget != nil {
+		l.perTurnBudget.Reset()
+	}
 	reflectedThisProposal := false
 	toolsSeen := map[string]bool{}
 	var toolsUsed []string
@@ -832,14 +851,44 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			return nil, fmt.Errorf("turn %d: %w", turn, err)
 		}
 		msgs = append(msgs, resp.Raw)
+		// Issue #375: post-response per-turn charge. Charges the fresh response's
+		// reasoning + total tokens into the per-turn tracker; increments BEFORE
+		// checking cap so subsequent turns see accurate usage. On breach: emit
+		// hooks.BudgetExceeded and toggle verifiedOnly so per-run caps
+		// (MaxTokens, ThinkingBudgetPerRequest) are skipped. Mandate M3 keeps
+		// the verify gate authoritative.
+		if l.perTurnBudget != nil {
+			perr := l.perTurnBudget.Charge(resp.Usage.ThinkingTokens, resp.Usage.TotalTokens)
+			if perr != nil {
+				l.fire(ctx, hooks.BudgetExceeded, "", map[string]any{
+					"turn":          turn,
+					"dimension":     "per-turn",
+					"thinking_used": l.perTurnBudget.ThinkingUsed(),
+					"thinking_cap":  l.PerTurnThinkingBudget,
+					"tokens_used":   l.perTurnBudget.TokensUsed(),
+					"tokens_cap":    l.PerTurnBudget,
+				})
+				// Per-turn cap breached. The response has already been
+				// appended to msgs above so the verifier could grade it
+				// (mandate M3: budget must never bypass verify). We
+				// surface the cap breach to the caller as a hard error
+				// so the post-mortem makes the failed gate visible.
+				if serr := l.saveHistory(ctx, sess, msgs); serr != nil {
+					return nil, serr
+				}
+				return nil, perr
+			}
+		}
 		// Token budget accounting (issue #151). Provider usage is optional;
 		// if zero we simply skip the guard for that turn.
-		if u := resp.Usage.TotalTokens; u > 0 {
-			totalTokens += u
-		} else {
-			totalTokens += resp.Usage.PromptTokens + resp.Usage.CompletionTokens
+		if !verifiedOnly {
+			if u := resp.Usage.TotalTokens; u > 0 {
+				totalTokens += u
+			} else {
+				totalTokens += resp.Usage.PromptTokens + resp.Usage.CompletionTokens
+			}
 		}
-		if l.MaxTokens > 0 {
+		if !verifiedOnly && l.MaxTokens > 0 {
 			if !warnedBudget && l.BudgetWarnRatio > 0 &&
 				float64(totalTokens) >= l.BudgetWarnRatio*float64(l.MaxTokens) {
 				warnedBudget = true
@@ -872,10 +921,10 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 		// when the per-run cap is exceeded (ThinkingBudgetPerRequest > 0).
 		// Zero values from providers that do not surface the field are
 		// safe — they never trigger the guard.
-		if resp.Usage.ThinkingTokens > 0 {
+		if !verifiedOnly && resp.Usage.ThinkingTokens > 0 {
 			l.thinkingUsed += resp.Usage.ThinkingTokens
 		}
-		if l.ThinkingBudgetPerRequest > 0 && l.thinkingUsed > l.ThinkingBudgetPerRequest {
+		if !verifiedOnly && l.ThinkingBudgetPerRequest > 0 && l.thinkingUsed > l.ThinkingBudgetPerRequest {
 			if serr := l.saveHistory(ctx, sess, msgs); serr != nil {
 				return nil, serr
 			}

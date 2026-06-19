@@ -136,21 +136,25 @@ type Config struct {
 	// Also activated by config agentloop.frustration_detection=true.
 	FrustrationDetectionEnabled bool
 
-	// ObserverWindow: rolling-history size for the LoopDetector
-	// (issue #377). Defaults to 20 when zero. Set to a negative
-	// value or 0 to disable detection entirely.
-	// Also activated by config agentloop.observer_window=<n>.
-	ObserverWindow int
+	// ContextCompactionMode selects the compaction algorithm (issue: compaction-modes).
+	// off | deterministic | llm | hybrid. Empty = off (legacy behaviour).
+	ContextCompactionMode string
 
-	// ObserverMinPatternLength: minimum repeating pattern length the
-	// LoopDetector considers. Defaults to 3 when zero.
-	// Also activated by config agentloop.observer_min_pattern_length=<n>.
-	ObserverMinPatternLength int
+	// CompactionTrigger decides when the compactor fires per turn.
+	// turns | tokens | both. Default tokens.
+	CompactionTrigger string
 
-	// ObserverMinRepeats: minimum repeat count (>=) required to trip
-	// the LoopDetector. Defaults to 2 when zero.
-	// Also activated by config agentloop.observer_min_repeats=<n>.
-	ObserverMinRepeats int
+	// CompactionMaxTokens is the token budget for compacted messages. Default 8000.
+	CompactionMaxTokens int
+
+	// ContextWindow is the effective token cap for compaction. 0 = auto.
+	ContextWindow int
+
+	// CompactionPreserveEvidence enables evidence-preserving retain rules (M3). Default true.
+	CompactionPreserveEvidence bool
+
+	// CompactionRecentTurns is the number of recent human turns to retain. Default 4.
+	CompactionRecentTurns int
 
 	// YoloRiskThreshold: when non-empty and Yolo is true, wires a
 	// RiskClassifier into the permission engine so YOLO auto-approves

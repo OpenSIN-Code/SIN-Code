@@ -47,7 +47,12 @@ const (
 	StopStalled   = "stop.stalled"
 	BudgetWarn      = "budget.warn"
 	BudgetExhausted = "budget.exhausted"
-	ReflectIssues   = "reflect.issues"
+	// BudgetExceeded fires when a single LLM turn crosses the per-turn cap (issue #375).
+	BudgetExceeded = "budget.exceeded"
+	// ReflectIssues fires when the self-reflection pass finds problems the
+	// worker must fix before completion is evaluated.
+	ReflectIssues = "reflect.issues"
+
 	AgentSpawn       = "agent.spawn"
 	AgentComplete    = "agent.complete"
 	CriticReject     = "critic.reject"
