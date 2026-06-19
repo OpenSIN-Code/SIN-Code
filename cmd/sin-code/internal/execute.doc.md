@@ -43,7 +43,7 @@ sin-code execute --command "go test ./..." --timeout 300
 sin-code execute --command "tail -f /var/log/app.log" --stream
 
 # Command with potential secrets (auto-redacted)
-sin-code execute --command "echo API_KEY=sk-1234567890abcdef"
+sin-code execute --command "echo API_KEY=<YOUR_KEY>"
 ```
 
 ## Known caveats / footguns
