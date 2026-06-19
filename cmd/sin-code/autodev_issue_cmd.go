@@ -8,11 +8,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/spf13/cobra"
+
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ghbridge"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
-	"github.com/spf13/cobra"
 )
 
 type issuePayload struct {
