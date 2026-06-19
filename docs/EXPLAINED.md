@@ -1,7 +1,7 @@
 # EXPLAINED — Detaillierte Erklärungen
 
 Diese Sektion enthält ausführliche Hintergrund-Erklärungen zu Konzepten,
-die in den SIN-Code-Bundle-Workflows eine Rolle spielen. Jedes Dokument
+die in den SIN-Code-Workflows eine Rolle spielen. Jedes Dokument
 ist auf Deutsch, detailreich und für Maintainer gedacht, die verstehen
 wollen, *warum* etwas so funktioniert wie es funktioniert.
 

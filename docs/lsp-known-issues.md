@@ -49,7 +49,7 @@ that fails `json.Unmarshal` with "unexpected end of JSON input".
 
 ```bash
 brew install gopls
-cd /Users/jeremy/dev/SIN-Code-Bundle
+cd /Users/jeremy/dev/SIN-Code
 sin-code lsp symbols cmd/sin-code/main.go
 # → Error: initialize go: unexpected end of JSON input
 ```

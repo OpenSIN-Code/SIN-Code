@@ -161,7 +161,7 @@
 - [ExplainX Deep Dive](https://explainx.ai/blog/odysseus-self-hosted-ai-workspace-2026) — Feature-Analysis
 - [Pasquale Pillitteri Review](https://pasqualepillitteri.it/en/news/4016/odysseus-pewdiepie-local-ai-workspace) — Kritik & Privacy-Analysis
 - Hacker News Discussions — "Vibecoding" Kritik, Security-Bedenken
-- SIN-Code-Bundle Repository — Interne Dokumentation, 624 Tests, CoDocs 100%
+- SIN-Code Repository — Interne Dokumentation, 624 Tests, CoDocs 100%
 
 ---
 

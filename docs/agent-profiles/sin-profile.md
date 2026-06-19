@@ -23,7 +23,7 @@
 - **M4** Permission engine (allow/ask/deny) gates every destructive tool.
   In headless mode `ask` → `deny` unless `--yolo`.
 - **M5** Module path is `github.com/OpenSIN-Code/SIN-Code`. Never
-  `SIN-Code-Bundle` (history only).
+  `SIN-Code` (history only).
 - **M6** Prefer SIN semantic tools over naive built-ins (`sin_edit` over
   string replace, SCKG over blind reads).
 - **M7** Race-free concurrency. New goroutine code must pass

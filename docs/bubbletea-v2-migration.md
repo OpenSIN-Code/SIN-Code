@@ -112,7 +112,7 @@ breaking changes are documented in the [official upgrade guide][up].
 ### 2.1 — Dependency upgrade
 
 ```bash
-cd /Users/jeremy/dev/SIN-Code-Bundle
+cd /Users/jeremy/dev/SIN-Code
 go get charm.land/bubbletea/v2@latest
 go get charm.land/bubbles/v2@latest
 go get charm.land/lipgloss/v2@latest   # v2.0.3 as of 2026-04

@@ -44,9 +44,9 @@ skill vs. the 3 closest existing ones, with explicit differentiators.
 | Skill type | Repo path |
 |---|---|
 | CoDocs / docs / skill infrastructure | `OpenSIN-Code/SIN-Code-Codocs-Skill` |
-| MCP server scaffolding | `OpenSIN-Code/SIN-Code-Bundle` (`sin mcp-server`) |
-| Skill catalog / install / discover | `OpenSIN-Code/SIN-Code-Bundle` (`sin marketplace`) |
-| Slash commands | `OpenSIN-Code/SIN-Code-Bundle` (`sin slash`) |
+| MCP server scaffolding | `OpenSIN-Code/SIN-Code` (`sin mcp-server`) |
+| Skill catalog / install / discover | `OpenSIN-Code/SIN-Code` (`sin marketplace`) |
+| Slash commands | `OpenSIN-Code/SIN-Code` (`sin slash`) |
 | Domain-specific tool | `OpenSIN-Code/SIN-Code-<Name>-Skill` (own repo) |
 | Cross-cutting (memory, context, goals) | `OpenSIN-Code/SIN-Code-<Name>-Skill` (own repo) |
 | v0.dev API proxy | `SIN-Rotator/SINator-v0` (PRIVATE org) |

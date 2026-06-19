@@ -17,7 +17,7 @@ Traditionell muss man auf PyPI:
 Das ist unsicher (Token kann leaken) und unbequem (muss man pflegen).
 
 **Trusted Publisher** ist PyPIs neue Methode (seit 2023):
-- Man registriert EINMAL: "GitHub Action `OpenSIN-Code/SIN-Code-Bundle/.github/workflows/release.yml` darf mich publizieren"
+- Man registriert EINMAL: "GitHub Action `OpenSIN-Code/SIN-Code/.github/workflows/release.yml` darf mich publizieren"
 - PyPI vertraut dann GitHub Actions, das mit OIDC-Tokens kurzlebige Credentials bekommt
 - Kein API-Token mehr, kein Secret-Rotation, keine Leaks
 
@@ -32,7 +32,7 @@ Das ist unsicher (Token kann leaken) und unbequem (muss man pflegen).
 ## Warum schlägt release.yml fehl?
 
 PyPI weiß noch nichts von unserem Workflow. Wir haben `id-token: write` in der YAML,
-aber PyPI würde sagen: "Ich kenne OpenSIN-Code/SIN-Code-Bundle:release.yml nicht, kein Token."
+aber PyPI würde sagen: "Ich kenne OpenSIN-Code/SIN-Code:release.yml nicht, kein Token."
 
 ## Wie fixen wir das? (1× manuelle Aktion)
 
@@ -45,7 +45,7 @@ aber PyPI würde sagen: "Ich kenne OpenSIN-Code/SIN-Code-Bundle:release.yml nich
    ```json
    {
      "project": "sin-code-bundle",
-     "repository_name": "SIN-Code-Bundle",
+     "repository_name": "SIN-Code",
      "repository_owner": "OpenSIN-Code",
      "workflow_filename": "release.yml",
      "environment_name": "pypi"

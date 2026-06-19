@@ -21,7 +21,7 @@ WebUI-v2 talks to the SIN-Code backend over the same headless contract as
 
 ## Why two repos?
 
-The predecessor (SIN-Code-Bundle-Web) was archived after drifting from the
+The predecessor (SIN-Code-Web) was archived after drifting from the
 backend. To avoid repeating that: every backend contract change (chat JSON,
 session API, hook events) MUST be tested against WebUI-v2 in the same
 milestone — see ECOSYSTEM.md sync rules.

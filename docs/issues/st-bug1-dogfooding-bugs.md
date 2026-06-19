@@ -15,7 +15,7 @@
 ## Summary
 
 During a dogfooding session on 2026-06-11, I ran SIN-Code's own tools
-against the SIN-Code-Bundle codebase and discovered **5 bugs** in the
+against the SIN-Code codebase and discovered **5 bugs** in the
 tool implementations themselves. All bugs are user-facing and reduce
 trust in the tool output.
 

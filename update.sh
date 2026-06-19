@@ -243,11 +243,11 @@ upgrade_bundle() {
   local cmd
   cmd=$(detect_pip_install_cmd) || return 1
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    dry "$cmd -e $BUNDLE_DIR[mcp,dev] --upgrade"
+    dry "$cmd -e ${BUNDLE_DIR}[mcp,dev] --upgrade"
     return 0
   fi
   # shellcheck disable=SC2086
-  run $cmd -e "$BUNDLE_DIR[mcp,dev]" --upgrade
+  run $cmd -e "${BUNDLE_DIR}[mcp,dev]" --upgrade
   ok "sin-code-bundle upgraded"
 }
 

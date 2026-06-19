@@ -501,7 +501,7 @@ STATS
   Lines captured  412
 
 CONTEXT
-  Project         /Users/jeremy/dev/SIN-Code-Bundle
+  Project         /Users/jeremy/dev/SIN-Code
   Files           142
   Languages       Go, Python, MD
 

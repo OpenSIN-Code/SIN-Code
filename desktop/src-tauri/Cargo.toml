@@ -7,9 +7,6 @@ license = "MIT OR Apache-2.0"
 edition = "2021"
 publish = false
 
-[workspace]
-members = [".."]
-
 [dependencies]
 tauri = { version = "2.0", features = ["macros", "tray-icon", "global-shortcut", "clipboard-manager", "dialog", "fs", "http", "notification", "os", "process", "shell", "updater", "webview-window"] }
 tauri-plugin-store = "2.0"
