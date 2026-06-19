@@ -626,7 +626,9 @@ func TestUpdateRemovesOldIndex(t *testing.T) {
 
 func TestOpenEmptyPath(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", dir)
+	orig := osUserConfigDirStore
+	osUserConfigDirStore = func() (string, error) { return dir, nil }
+	defer func() { osUserConfigDirStore = orig }()
 	s, err := Open("")
 	if err != nil {
 		t.Fatalf("Open with empty: %v", err)

@@ -234,6 +234,7 @@ func defaultConfig() SinCodeConfig {
 		AgentLoopContextWindow:              0,
 		AgentLoopCompactionPreserveEvidence: true,
 		AgentLoopCompactionRecentTurns:      4,
+		AgentLoopSessionContextEnabled:      true,
 	}
 }
 
@@ -789,6 +790,8 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.AgentLoopCompactionPreserveEvidence), nil
 	case "agentloop.compaction_recent_turns":
 		return fmt.Sprintf("%d", cfg.AgentLoopCompactionRecentTurns), nil
+	case "agentloop.session_context.enabled":
+		return fmt.Sprintf("%v", cfg.AgentLoopSessionContextEnabled), nil
 	case "worktree.conflict_check":
 		return cfg.WorktreeConflictCheck, nil
 	case "worktree.target_branch":
@@ -1010,6 +1013,8 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 			return fmt.Errorf("agentloop.compaction_recent_turns must be a positive integer, got %q", value)
 		}
 		cfg.AgentLoopCompactionRecentTurns = v
+	case "agentloop.session_context.enabled":
+		cfg.AgentLoopSessionContextEnabled = value == "true" || value == "1"
 	case "worktree.conflict_check":
 		if value != "off" && value != "warn" && value != "abort" {
 			return fmt.Errorf("worktree.conflict_check must be 'off', 'warn', or 'abort', got %q", value)
