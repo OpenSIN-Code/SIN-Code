@@ -811,7 +811,7 @@ func TestBuildVerifyCmd(t *testing.T) {
 			{"pylint-dev/pylint", "python"},
 			{"go-gorm/gorm", "go"},
 			{"golang/go", "go"},
-			{"some/go", "go"},
+			{"some/go", "python"}, // "/go" removed as too broad
 			{"rust-lang/cargo", "rust"},
 			{"rust-lang/rust", "rust"},
 			{"nodejs/node", "node"},
