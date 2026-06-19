@@ -5,8 +5,8 @@
 // go/parser to build minimal test scaffolding. The result is verified
 // by running go test on the generated code.
 //
-// This is the Phase 1 prototype for the Test-First Verify-Loop (RFC-test-automation.md).
-// sin-debt: medium, upgrade: add LLM case filling in Phase 2
+// Test-First Verify-Loop implementation (RFC-test-automation.md), including
+// LLM-driven case filling and repair via Options.UseLLM.
 package testgen
 
 import (
@@ -70,9 +70,9 @@ type Options struct {
 // Result reports what was generated and whether it compiles.
 type Result struct {
 	GeneratedFiles []string `json:"generated_files"`
-	TestOutput       string   `json:"test_output"`
-	TestPassed       bool     `json:"test_passed"`
-	Error            string   `json:"error,omitempty"`
+	TestOutput     string   `json:"test_output"`
+	TestPassed     bool     `json:"test_passed"`
+	Error          string   `json:"error,omitempty"`
 }
 
 // Generate creates test scaffolding for the target file or package.
@@ -288,11 +288,11 @@ func generateForPackage(ctx context.Context, opts Options) Result {
 	var generated []string
 	for _, f := range files {
 		res := generateForFile(ctx, Options{
-			File:         f,
-			UseLLM:       opts.UseLLM,
-			Overwrite:    opts.Overwrite,
-			Timeout:      opts.Timeout,
-			Cases:        opts.Cases,
+			File:           f,
+			UseLLM:         opts.UseLLM,
+			Overwrite:      opts.Overwrite,
+			Timeout:        opts.Timeout,
+			Cases:          opts.Cases,
 			MaxRepairIters: opts.MaxRepairIters,
 		})
 		if res.Error != "" {
@@ -468,12 +468,12 @@ func generateFallback(ctx context.Context, file string, llm func(context.Context
 
 // FuncInfo is a minimal description of a Go function for template rendering.
 type FuncInfo struct {
-	Name       string
-	Args       []Param
-	Returns    []Param
-	IsMethod   bool
-	Receiver   string
-	HasError   bool
+	Name     string
+	Args     []Param
+	Returns  []Param
+	IsMethod bool
+	Receiver string
+	HasError bool
 }
 
 type Param struct {

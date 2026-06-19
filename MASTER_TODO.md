@@ -2,7 +2,7 @@
 
 **Status:** ✅ DONE (2026-06-02)
 **Erstellt:** 2026-06-02
-**Letztes Update:** 2026-06-02 (gofmt + tag move + grasp alias fix)
+**Letztes Update:** 2026-06-19 (resolved testgen LLM sin-debt; added GitHub issue templates)
 
 ---
 
@@ -93,10 +93,10 @@
 
 ## 🟢 NICE-TO-HAVE (Später)
 
-### 12. Issue Templates
-- [ ] Bug report template
-- [ ] Feature request template
-- [ ] Question template
+### 12. Issue Templates ✅
+- [x] Bug report template (`/.github/ISSUE_TEMPLATE/bug_report.md`)
+- [x] Feature request template (`/.github/ISSUE_TEMPLATE/feature_request.md`)
+- [x] Question template (`/.github/ISSUE_TEMPLATE/question.md`)
 
 ### 13. AGENTS.md MCP Integration Section
 - [ ] Document how to register each tool in opencode.json
@@ -143,7 +143,7 @@
 
 ---
 
-*Last updated: 2026-06-02*
+*Last updated: 2026-06-19*
 
 ---
 
