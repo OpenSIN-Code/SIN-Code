@@ -16,8 +16,10 @@ func Slugify(topic string) string {
 		switch {
 		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
 			b.WriteRune(r)
-		case r == ' ' || r == '_' || r == '/' || r == '.' || r == ':' || r == ',':
+		case r == ' ' || r == '_' || r == '.' || r == ':' || r == ',':
 			b.WriteByte('-')
+		case r == '/':
+			// skip forward slash entirely
 		}
 	}
 	out := dashRun.ReplaceAllString(b.String(), "-")
