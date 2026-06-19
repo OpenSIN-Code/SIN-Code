@@ -1,5 +1,3 @@
-# Purpose: Sync marketplace catalog with Infra-SIN-OpenCode-Stack
-# Docs: marketplace-sync.sh.doc.md
 #!/usr/bin/env bash
 # Purpose: Sync marketplace catalog with Infra-SIN-OpenCode-Stack
 # Docs: marketplace-sync.sh.doc.md

@@ -1,7 +1,5 @@
-# Purpose: Update all installed skills
-# Docs: marketplace-update.sh.doc.md
 #!/usr/bin/env bash
-# Purpose: Update all installed skills to their latest versions
+# Purpose: Update all installed skills
 # Docs: marketplace-update.sh.doc.md
 set -euo pipefail
 

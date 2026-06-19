@@ -1,7 +1,5 @@
-# Purpose: List installed skills
-# Docs: marketplace-list.sh.doc.md
 #!/usr/bin/env bash
-# Purpose: List installed skills in the local registry
+# Purpose: List installed skills
 # Docs: marketplace-list.sh.doc.md
 set -euo pipefail
 

@@ -1,7 +1,5 @@
-# Purpose: Search skills in the marketplace catalog
-# Docs: marketplace-search.sh.doc.md
 #!/usr/bin/env bash
-# Purpose: Search skills by keyword in the marketplace catalog
+# Purpose: Search skills in the marketplace catalog
 # Docs: marketplace-search.sh.doc.md
 set -euo pipefail
 

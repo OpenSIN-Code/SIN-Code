@@ -101,7 +101,7 @@ on stdin/stdout. No special build tags required — vanilla `go build`.
   SIN-Code-Scout-Tool/          cmd/scout/
   SIN-Code-Harvest-Tool/        cmd/harvest/
   SIN-Code-Orchestrate-Tool/    cmd/orchestrate/
-  SIN-Code-Bundle/              install.sh  ← this file
+  install.sh  ← this file
                                install.sh.doc.md  ← you are here
                                pyproject.toml
                                src/

@@ -57,7 +57,25 @@ func autoCreatePR(ctx context.Context, goal *autonomy.Goal, res *agentloop.Resul
 
 	title := fmt.Sprintf("[Autodev] Goal #%d: %s", goal.ID, autodevTruncate(goal.Prompt, 60))
 	body := fmt.Sprintf("## Automated PR\n**Goal:** %d\n**Verified:** %v\n**Turns:** %d\n\n%s", goal.ID, res.Verified, res.Turns, res.Summary)
-	prOut, err := exec.CommandContext(ctx, "gh", "pr", "create", "--title", title, "--body", body, "--head", branch, "--base", "main").CombinedOutput()
+
+	baseRepo := ""
+	upstreamURLOut, _ := exec.CommandContext(ctx, "git", "-C", goal.Workspace, "remote", "get-url", "upstream").CombinedOutput()
+	if strings.TrimSpace(string(upstreamURLOut)) == "" {
+		upstreamURLOut, _ = exec.CommandContext(ctx, "git", "-C", goal.Workspace, "remote", "get-url", "origin").CombinedOutput()
+	}
+	if upstreamURL := strings.TrimSpace(string(upstreamURLOut)); upstreamURL != "" {
+		if strings.HasPrefix(upstreamURL, "git@github.com:") {
+			baseRepo = strings.TrimSuffix(strings.TrimPrefix(upstreamURL, "git@github.com:"), ".git")
+		} else if strings.HasPrefix(upstreamURL, "https://github.com/") {
+			baseRepo = strings.TrimSuffix(strings.TrimPrefix(upstreamURL, "https://github.com/"), ".git")
+		}
+	}
+
+	args := []string{"pr", "create", "--title", title, "--body", body, "--head", branch, "--base", "main"}
+	if baseRepo != "" {
+		args = append(args, "--repo", baseRepo)
+	}
+	prOut, err := exec.CommandContext(ctx, "gh", args...).CombinedOutput()
 	if err != nil {
 		exec.CommandContext(ctx, "git", "-C", goal.Workspace, "checkout", origBranch).Run()
 		return fmt.Errorf("gh pr create: %v: %s", err, string(prOut))

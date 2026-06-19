@@ -1,7 +1,5 @@
-# Purpose: Install a skill from the marketplace
-# Docs: marketplace-install.sh.doc.md
 #!/usr/bin/env bash
-# Purpose: Install a skill from the marketplace catalog
+# Purpose: Install a skill from the marketplace
 # Docs: marketplace-install.sh.doc.md
 set -euo pipefail
 

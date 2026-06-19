@@ -138,7 +138,7 @@ cp ~/.config/opencode/opencode.json.bak-20260604-123045-uninstall \
 ## Known caveats
 
 - The script does NOT remove the `sin-code-bundle` directory itself (the
-  bundle repo). To remove the repo: `rm -rf ~/.dev/SIN-Code-Bundle`.
+  bundle repo). To remove the repo: `rm -rf ~/.dev/SIN-Code`.
 - `pip uninstall` of an editable install (`pip install -e`) leaves the
   `.egg-info` directory behind. To clean: `find . -name '*.egg-info' -type d
   -exec rm -rf {} +` inside the bundle repo, or just `rm -rf` the repo.

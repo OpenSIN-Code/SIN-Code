@@ -109,7 +109,7 @@ Desktop version tracks the Bundle version. Currently **v1.0.0** (synchronized wi
 
 ## Related
 
-- [SIN-Code-Bundle](../../) — the parent meta-CLI (`sin` command)
+- [SIN-Code](../../) — the parent meta-CLI (`sin` command)
 - [internal/tui](../../internal/tui/) — the Go-based TUI sibling
 - [web/theme/tokens.css](../theme/tokens.css) — shared design tokens
 - [OpenSIN-Code org](https://github.com/OpenSIN-Code)

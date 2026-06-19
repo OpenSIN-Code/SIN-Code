@@ -1,7 +1,5 @@
-# Purpose: Remove a skill from the marketplace
-# Docs: marketplace-remove.sh.doc.md
 #!/usr/bin/env bash
-# Purpose: Remove a skill from the local registry and disk
+# Purpose: Remove a skill from the marketplace
 # Docs: marketplace-remove.sh.doc.md
 set -euo pipefail
 
