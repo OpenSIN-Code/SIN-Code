@@ -432,7 +432,8 @@ strip_mcp_entries() {
   fi
 
   # Back up first (mirrors install.sh behaviour)
-  local backup="$OPENCODE_CONFIG.bak-$(date +%Y%m%d-%H%M%S)-uninstall"
+  local backup
+  backup="$OPENCODE_CONFIG.bak-$(date +%Y%m%d-%H%M%S)-uninstall"
   if ! cp "$OPENCODE_CONFIG" "$backup" 2>/dev/null; then
     warn "Could not write backup $backup (continuing anyway)"
   else

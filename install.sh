@@ -9,7 +9,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/OpenSIN-Code/SIN-Code/main/install.sh | bash
 #   SIN_CODE_BIN_DIR=~/my-tools bash install.sh --release=v3.17.0
 set -euo pipefail
-OS=$(uname -s | tr 'A-Z' 'a-z'); case "$OS" in darwin|linux) ;; *) echo "unsupported: $OS" >&2; exit 1 ;; esac
+OS=$(uname -s | tr '[:upper:]' '[:lower:]'); case "$OS" in darwin|linux) ;; *) echo "unsupported: $OS" >&2; exit 1 ;; esac
 ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
 BIN_DIR="${SIN_CODE_BIN_DIR:-$HOME/.local/bin}"
 URL="https://github.com/OpenSIN-Code/SIN-Code/releases/latest/download/sin-code-${OS}-${ARCH}.tar.gz"

@@ -382,7 +382,8 @@ reregister_mcp() {
     return 0
   fi
 
-  local backup="$OPENCODE_CONFIG.bak-$(date +%Y%m%d-%H%M%S)-update"
+  local backup
+  backup="$OPENCODE_CONFIG.bak-$(date +%Y%m%d-%H%M%S)-update"
   cp "$OPENCODE_CONFIG" "$backup"
   ok "Backup written: $backup"
 
