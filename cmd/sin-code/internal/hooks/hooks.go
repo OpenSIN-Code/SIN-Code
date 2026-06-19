@@ -70,7 +70,14 @@ const (
 	SkillInstalled = "skill.installed"
 	SkillFailed    = "skill.failed"
 	FusionDispatch = "fusion.dispatch"
-	LoopDetected  = "loop.detected"
+
+	// LoopDetected fires when the LoopDetector refuses dispatch
+	// because the worker entered a repeated tool-call sequence
+	// (issue #377). The data payload carries pattern_length,
+	// repeats and tool name so telemetry / UI / audit pipelines can
+	// surface the stall. Not blockable — the loop has already been
+	// broken by the dispatch site.
+	LoopDetected = "loop.detected"
 )
 
 var blockable = map[string]bool{

@@ -470,7 +470,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	}
 
 	if opts.repetitionThreshold > 0 {
-		loop.LoopDetector = agentloop.NewLoopDetector(opts.repetitionThreshold, opts.repetitionWindow)
+		loop.LoopDetector = agentloop.NewSimpleLoopDetector(opts.repetitionThreshold, opts.repetitionWindow)
 	}
 
 	// CLI flags override config-file defaults for context compaction mode.

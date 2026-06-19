@@ -8,7 +8,7 @@ import (
 )
 
 func TestNewLoopDetector_Defaults(t *testing.T) {
-	d := NewLoopDetector(0, 0)
+	d := NewSimpleLoopDetector(0, 0)
 	if d.maxRepeats != 1 || d.windowSize != 1 {
 		t.Fatalf("clamped values = (%d,%d), want (1,1)", d.maxRepeats, d.windowSize)
 	}
@@ -18,7 +18,7 @@ func TestNewLoopDetector_Defaults(t *testing.T) {
 }
 
 func TestLoopDetector_SameCallRepeated(t *testing.T) {
-	d := NewLoopDetector(3, 2)
+	d := 	NewSimpleLoopDetector(3, 2)
 	if d.Record("sin_read") {
 		t.Fatal("single call should not loop")
 	}
@@ -31,7 +31,7 @@ func TestLoopDetector_SameCallRepeated(t *testing.T) {
 }
 
 func TestLoopDetector_NoLoop(t *testing.T) {
-	d := NewLoopDetector(3, 2)
+	d := 	NewSimpleLoopDetector(3, 2)
 	for _, c := range []string{"sin_read", "sin_edit", "sin_read", "sin_edit", "sin_test"} {
 		if d.Record(c) {
 			t.Fatalf("Record(%q) unexpectedly detected a loop", c)
@@ -43,7 +43,7 @@ func TestLoopDetector_NoLoop(t *testing.T) {
 }
 
 func TestLoopDetector_SequenceRepeated(t *testing.T) {
-	d := NewLoopDetector(3, 2)
+	d := 	NewSimpleLoopDetector(3, 2)
 	// A,B repeated 3 times => loop on the 6th call.
 	seq := []string{"sin_read", "sin_edit", "sin_read", "sin_edit", "sin_read", "sin_edit"}
 	for i, c := range seq {
@@ -59,7 +59,7 @@ func TestLoopDetector_SequenceRepeated(t *testing.T) {
 }
 
 func TestLoopDetector_AlternatingPattern(t *testing.T) {
-	d := NewLoopDetector(2, 2)
+	d := 	NewSimpleLoopDetector(2, 2)
 	// A,B,A,B => windowSize=2, maxRepeats=2 => need=4.
 	if d.Record("sin_read") {
 		t.Fatal("1 should not loop")
@@ -76,7 +76,7 @@ func TestLoopDetector_AlternatingPattern(t *testing.T) {
 }
 
 func TestLoopDetector_Reset(t *testing.T) {
-	d := NewLoopDetector(2, 1)
+	d := 	NewSimpleLoopDetector(2, 1)
 	d.Record("sin_read")
 	d.Record("sin_read")
 	if !d.IsLooping() {
@@ -92,7 +92,7 @@ func TestLoopDetector_Reset(t *testing.T) {
 }
 
 func TestLoopDetector_IsLoopingIdempotent(t *testing.T) {
-	d := NewLoopDetector(2, 1)
+	d := 	NewSimpleLoopDetector(2, 1)
 	d.Record("sin_read")
 	d.Record("sin_read")
 	if !d.IsLooping() {
@@ -104,7 +104,7 @@ func TestLoopDetector_IsLoopingIdempotent(t *testing.T) {
 }
 
 func TestLoopDetector_Concurrent(t *testing.T) {
-	d := NewLoopDetector(100, 2)
+	d := 	NewSimpleLoopDetector(100, 2)
 	var wg sync.WaitGroup
 	for g := 0; g < 20; g++ {
 		wg.Add(1)

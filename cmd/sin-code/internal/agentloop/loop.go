@@ -227,6 +227,15 @@ type Loop struct {
 	// CoverageForbiddenTools lists tools that block completion if invoked.
 	CoverageForbiddenTools []string
 
+	// Observer, when set, refuses the dispatch of any tool call that
+	// completes a repeated-sequence cycle (issue #377). When the
+	// detector trips the loop fires hooks.LoopDetected with the
+	// captured (pattern_length, repeats, tool, key) and surfaces a
+	// "TOOL REFUSED" tool-result message so the model can break the
+	// cycle on the next turn. A disabled detector (Window <= 0) is a
+	// no-op so legacy callers are unaffected.
+	Observer *LoopDetector
+
 	// RunOverride, if set, replaces the default Run. Used by the
 	// WebUI v2 chat API (issue #52) so tests can swap in a
 	// deterministic result without wiring a real LLM.
@@ -1155,6 +1164,34 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			if !toolsSeen[tc.Name] {
 				toolsSeen[tc.Name] = true
 				toolsUsed = append(toolsUsed, tc.Name)
+			}
+			// Observer-loop detection (issue #377): any tool call
+			// whose fingerprint closes a repeated-sequence cycle
+			// returns ErrLoopDetected. Fail-closed: surface as a
+			// TOOL REFUSED message and skip execute() so the model
+			// gets feedback AND the dispatch site never reaches a
+			// destructive mutator while the worker is thrashing.
+			if l.Observer != nil && l.Observer.Enabled() {
+				if oerr := l.Observer.Observe(tc, ""); oerr != nil {
+					trip := l.Observer.LastTrip()
+					data := map[string]any{"reason": "loop.detected"}
+					if trip != nil {
+						data["pattern_length"] = trip.Length
+						data["repeats"] = trip.Repeats
+						data["tool"] = trip.ToolName
+						data["key"] = trip.Key
+						data["history_len"] = trip.HistoryLen
+					}
+					l.fire(ctx, hooks.LoopDetected, tc.Name, data)
+					msgs = append(msgs, session.Message{
+						Role:       "tool",
+						ToolCallID: tc.ID,
+						Content: "TOOL REFUSED: " + oerr.Error() +
+							" — refusing dispatch of " + tc.Name +
+							"; the model should break the cycle.",
+					})
+					continue
+				}
 			}
 			out, injects := l.execute(ctx, tc)
 			pendingInjects = append(pendingInjects, injects...)
