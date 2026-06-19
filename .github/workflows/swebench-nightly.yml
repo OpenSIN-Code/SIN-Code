@@ -1,0 +1,43 @@
+# Purpose: Nightly SWE-bench evaluation via n8n delegator (mandate M1).
+# Docs: docs/swebench.md
+name: swebench-nightly
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # daily at 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      dataset:
+        description: 'SWE-bench dataset path'
+        required: false
+        default: 'evals/swebench-lite.json'
+      max_instances:
+        description: 'Max instances to evaluate (0 = all)'
+        required: false
+        default: '10'
+
+jobs:
+  delegate:
+    name: Delegate SWE-bench run to n8n
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Trigger n8n webhook
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
+        run: |
+          if [[ -z "$N8N_CI_WEBHOOK_URL" ]]; then
+            echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
+            exit 1
+          fi
+          DATASET="${{ inputs.dataset || 'evals/swebench-lite.json' }}"
+          MAX_INSTANCES="${{ inputs.max_instances || '10' }}"
+          curl -fsS -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"workflow\":\"swebench-nightly\",\"ref\":\"${{ github.ref }}\",\"sha\":\"${{ github.sha }}\",\"repo\":\"${{ github.repository }}\",\"actor\":\"${{ github.actor }}\",\"dataset\":\"$DATASET\",\"max_instances\":\"$MAX_INSTANCES\"}" \
+            "$N8N_CI_WEBHOOK_URL"
+      - name: Local validation
+        run: |
+          go version
+          go vet ./cmd/sin-code/internal/eval/...
+          echo "Heavy SWE-bench work delegated to n8n."
