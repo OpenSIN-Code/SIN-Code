@@ -2,13 +2,13 @@
 
 [GitNexus](https://github.com/abhigyanpatwari/GitNexus) builds a queryable code
 **knowledge graph** (symbols, call graph, imports, impact) from a repository.
-SIN-Code-Bundle treats it as a **mandatory, always-on dependency** so coder
+SIN-Code treats it as a **mandatory, always-on dependency** so coder
 agents (OpenCode, Codex, Hermes, ...) never operate "blind" on a codebase.
 
 ## Licensing — why we bridge instead of vendor
 
 GitNexus is distributed under the **PolyForm Noncommercial License 1.0.0**.
-SIN-Code-Bundle is **MIT**. To keep the bundle permissively licensed we **do not
+SIN-Code is **MIT**. To keep the bundle permissively licensed we **do not
 copy or vendor any GitNexus source code**. Instead the bridge invokes the
 published npm package (`gitnexus`) via `npx` and reads the artifacts it
 produces. GitNexus remains the upstream original and receives updates

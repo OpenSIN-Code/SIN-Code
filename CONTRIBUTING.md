@@ -6,7 +6,7 @@ Thanks for your interest in improving this part of the SIN-Code stack.
 
 ```bash
 git clone https://github.com/OpenSIN-Code/SIN-Code.git
-cd SIN-Code-Bundle
+cd SIN-Code
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
 pip install pytest

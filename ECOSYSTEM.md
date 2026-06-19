@@ -66,7 +66,7 @@
 |---|---|---|
 | SIN-Code-Slash-Skill | `internal/commands` (C8, in-tree since v3.2.0) | ARCHIVE |
 | SIN-Code-Security-Bundle | in-tree SAST/SBOM/SCA/Secrets tools | ARCHIVE |
-| SIN-Code-Bundle-Web | SIN-Code-WebUI-v2 | ARCHIVED |
+| SIN-Code-WebUI-v2 | SIN-Code-WebUI-v2 | ARCHIVED |
 
 ## Methodology Stack (v3.8.0)
 

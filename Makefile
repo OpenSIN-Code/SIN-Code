@@ -1,4 +1,4 @@
-# Makefile for SIN-Code-Bundle
+# Makefile for SIN-Code
 # Default build: zero-deps, no tree-sitter. For full feature set: `make build`.
 
 GO_TAGS ?= treesitter

@@ -2354,7 +2354,7 @@ def ceo_audit_status():
         missing = [t for t in _SIN_CODE_TOOLS if not which(t)]
         if missing:
             typer.echo(f"  Missing SIN-Code tools: {', '.join(missing)}")
-            typer.echo("  Install: bash ~/.local/share/SIN-Code-Bundle/install.sh")
+            typer.echo("  Install: bash ~/.local/share/SIN-Code/install.sh")
         else:
             typer.echo("  All 7 SIN-Code tools available")
     else:
@@ -2787,7 +2787,7 @@ def tui(
             "[SIN-BUNDLE] 'sin-tui' binary not found in PATH.\n"
             "Build it from this repo:\n"
             "  go build -o ~/.local/bin/sin-tui ./cmd/sin-tui\n"
-            "Or download a prebuilt binary from the SIN-Code-Bundle release page.",
+            "Or download a prebuilt binary from the SIN-Code release page.",
             err=True,
         )
         raise typer.Exit(code=1)

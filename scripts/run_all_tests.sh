@@ -15,7 +15,7 @@ REPOS=(
   "SIN-Code-Verification-Oracle"
   "SIN-Code-Orchestration"
   "SIN-Code-Review-Interface"
-  "SIN-Code-Bundle"
+  "SIN-Code"
 )
 
 declare -a RESULTS
@@ -23,7 +23,7 @@ overall=0
 
 for repo in "${REPOS[@]}"; do
   path="${WORKSPACE}/${repo}"
-  [[ "${repo}" == "SIN-Code-Bundle" ]] && path="${BUNDLE_DIR}"
+  [[ "${repo}" == "SIN-Code" ]] && path="${BUNDLE_DIR}"
   if [[ ! -d "${path}" ]]; then
     RESULTS+=("SKIP  ${repo} (not present)")
     continue

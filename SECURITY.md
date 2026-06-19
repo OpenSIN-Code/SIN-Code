@@ -58,9 +58,9 @@ We aim for **< 7 days from report to fix** for critical (RCE, auth bypass) and
 | Medium   | 4.0-6.9   | XSS, CSRF, info disclosure | < 30 days |
 | Low      | 0.1-3.9   | Best-practice violations | < 90 days |
 
-## Security Architecture (SIN-Code-Bundle)
+## Security Architecture (SIN-Code)
 
-SIN-Code-Bundle is a **meta-package** that orchestrates 7 Go tools + 11 Python
+SIN-Code is a **meta-package** that orchestrates 7 Go tools + 11 Python
 subsystems. Its security model is layered:
 
 | Layer | Security boundary | Encryption at rest | Auth |
@@ -114,4 +114,4 @@ We thank the following security researchers for responsible disclosure:
 
 ---
 
-*This policy is based on the [GitHub Security Lab template](https://github.com/securitylab) and adapted for SIN-Code-Bundle.*
+*This policy is based on the [GitHub Security Lab template](https://github.com/securitylab) and adapted for SIN-Code.*

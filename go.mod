@@ -1,4 +1,4 @@
-// Purpose: Go module for the SIN-Code-Bundle Go-side binaries (sin tui
+// Purpose: Go module for SIN-Code Go-side binaries (sin tui
 // today; more later). Lives alongside the Python package which uses the
 // same name on PyPI — they share `sin` as user-facing command via PATH.
 // Docs: go.mod

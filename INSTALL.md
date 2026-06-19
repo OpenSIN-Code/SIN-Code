@@ -10,7 +10,7 @@
 
 ```bash
 git clone https://github.com/OpenSIN-Code/SIN-Code.git
-cd SIN-Code-Bundle
+cd SIN-Code
 pip install -e .
 ```
 

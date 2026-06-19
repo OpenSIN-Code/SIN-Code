@@ -41,7 +41,7 @@ for repo in "${REPOS[@]}"; do
   pip install -e "${path}"
 done
 
-echo "INSTALL SIN-Code-Bundle [dev]"
+echo "INSTALL SIN-Code [dev]"
 pip install -e "${BUNDLE_DIR}[dev]"
 
 echo "== done. run 'sin status' to verify subsystems =="
