@@ -234,14 +234,11 @@ type Loop struct {
 	// CoverageForbiddenTools lists tools that block completion if invoked.
 	CoverageForbiddenTools []string
 
-	// Observer, when set, refuses the dispatch of any tool call that
-	// completes a repeated-sequence cycle (issue #377). When the
-	// detector trips the loop fires hooks.LoopDetected with the
-	// captured (pattern_length, repeats, tool, key) and surfaces a
-	// "TOOL REFUSED" tool-result message so the model can break the
-	// cycle on the next turn. A disabled detector (Window <= 0) is a
-	// no-op so legacy callers are unaffected.
-	Observer *LoopDetector
+	// ResultPolicy, if set, scans every tool result for secret leakage,
+	// destructive operations, and network egress. It can block subsequent
+	// writes or require confirmation for the next destructive tool call
+	// (issue #374). Optional — nil preserves legacy behavior.
+	ResultPolicy *permission.ResultPolicyStore
 
 	// RunOverride, if set, replaces the default Run. Used by the
 	// WebUI v2 chat API (issue #52) so tests can swap in a
