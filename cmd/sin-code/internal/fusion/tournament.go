@@ -87,11 +87,11 @@ type Candidate struct {
 
 // Result is the tournament outcome.
 type Result struct {
-	Winner       *Candidate      `json:"winner,omitempty"`
-	Losers       []Candidate     `json:"losers,omitempty"`
-	AllFailed    bool            `json:"all_failed"`
-	TotalCostUSD float64         `json:"total_cost_usd"`
-	DurationMs   int64           `json:"duration_ms"`
+	Winner       *Candidate     `json:"winner,omitempty"`
+	Losers       []Candidate    `json:"losers,omitempty"`
+	AllFailed    bool           `json:"all_failed"`
+	TotalCostUSD float64        `json:"total_cost_usd"`
+	DurationMs   int64          `json:"duration_ms"`
 	Plans        []PlanCandidate `json:"plans,omitempty"`
 	MergedPlan   string          `json:"merged_plan,omitempty"`
 	Mode         Mode            `json:"mode,omitempty"`
