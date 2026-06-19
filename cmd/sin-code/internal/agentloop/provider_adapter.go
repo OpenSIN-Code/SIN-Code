@@ -29,7 +29,7 @@ type wireTool struct {
 }
 
 type wireThinking struct {
-	Type   string `json:"type,omitempty"`           // "enabled" | "disabled"
+	Type   string `json:"type,omitempty"`          // "enabled" | "disabled"
 	Budget int    `json:"budget_tokens,omitempty"` // cap on per-request reasoning tokens
 }
 

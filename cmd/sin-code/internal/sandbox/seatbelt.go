@@ -61,8 +61,8 @@ type SeatbeltPolicy struct {
 // deny: ~/.ssh, ~/.aws, ~/.gnupg. Network is opt-in via opt flag.
 func DefaultSeatbeltPolicy(workdir, tmpDir string, allowNetwork bool) SeatbeltPolicy {
 	p := SeatbeltPolicy{
-		ReadWrite:   []string{workdir, tmpDir},
-		ReadOnly:    []string{"/usr/lib", "/usr/share", "/System/Library"},
+		ReadWrite:    []string{workdir, tmpDir},
+		ReadOnly:     []string{"/usr/lib", "/usr/share", "/System/Library"},
 		AllowNetwork: allowNetwork,
 	}
 	// Add user home directories as deny-by-default — the sandbox

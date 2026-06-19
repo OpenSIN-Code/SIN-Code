@@ -124,7 +124,7 @@ func (e *Engine) resolveRules(tool string) Policy {
 //   - plan:     Edit/Write/Bash become Ask (read-only tools stay Allow)
 //   - acceptEdits: Edit/Write become Allow; everything else stays
 //   - bypass:   every Allow-list tool becomes Allow; Deny is NEVER
-//               overridden
+//     overridden
 //
 // When Yolo is true and a RiskClassifier is set (issue #272), the
 // Ask→Allow promotion is gated by risk classification instead of

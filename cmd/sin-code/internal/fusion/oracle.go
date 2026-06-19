@@ -99,7 +99,6 @@ func defaultOracleRubric() string {
 		"Do not include any markdown, explanation, or commentary outside the JSON."
 }
 
-
 // Judge evaluates all candidates and returns a verdict. It randomizes the
 // candidate order presented to the LLM and maps the LLM's candidate IDs back
 // to provider names before returning.

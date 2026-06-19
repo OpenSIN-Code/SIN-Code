@@ -111,39 +111,39 @@ func TestLLMFiller_EmptyResponse(t *testing.T) {
 
 func TestLLMFiller_ParseCodeBlock(t *testing.T) {
 	cases := []struct {
-		name    string
-		input   string
-		wantCode bool
+		name      string
+		input     string
+		wantCode  bool
 		wantCount int
 	}{
 		{
-			name:     "go fenced block",
-			input:    "```go\npackage x\nfunc TestA(t *testing.T) {}\nfunc TestB(t *testing.T) {}\n```",
-			wantCode: true,
+			name:      "go fenced block",
+			input:     "```go\npackage x\nfunc TestA(t *testing.T) {}\nfunc TestB(t *testing.T) {}\n```",
+			wantCode:  true,
 			wantCount: 2,
 		},
 		{
-			name:     "bare fenced block",
-			input:    "```\npackage x\nfunc TestA(t *testing.T) {}\n```",
-			wantCode: true,
+			name:      "bare fenced block",
+			input:     "```\npackage x\nfunc TestA(t *testing.T) {}\n```",
+			wantCode:  true,
 			wantCount: 1,
 		},
 		{
-			name:     "golang fenced block",
-			input:    "```golang\npackage x\nfunc TestA(t *testing.T) {}\n```",
-			wantCode: true,
+			name:      "golang fenced block",
+			input:     "```golang\npackage x\nfunc TestA(t *testing.T) {}\n```",
+			wantCode:  true,
 			wantCount: 1,
 		},
 		{
-			name:     "block with surrounding prose",
-			input:    "Here are the tests:\n```go\npackage x\nfunc TestA(t *testing.T) {}\n```\nHope this helps!",
-			wantCode: true,
+			name:      "block with surrounding prose",
+			input:     "Here are the tests:\n```go\npackage x\nfunc TestA(t *testing.T) {}\n```\nHope this helps!",
+			wantCode:  true,
 			wantCount: 1,
 		},
 		{
-			name:     "code without Test func",
-			input:    "```go\npackage x\nvar Y = 1\n```",
-			wantCode: true,
+			name:      "code without Test func",
+			input:     "```go\npackage x\nvar Y = 1\n```",
+			wantCode:  true,
 			wantCount: 1,
 		},
 	}
@@ -300,11 +300,11 @@ func TestLLMFiller_MissingSourceFile(t *testing.T) {
 
 func TestBuildFillerPrompt(t *testing.T) {
 	prompt := buildFillerPrompt(FillRequest{
-		SourceFile:   "calc.go",
-		FunctionName: "Add",
+		SourceFile:    "calc.go",
+		FunctionName:  "Add",
 		ExistingTests: "old code",
-		Language:     "go",
-		MaxCases:     5,
+		Language:      "go",
+		MaxCases:      5,
 	}, "package calc\nfunc Add(a,b int) int { return a+b }", 5, "go")
 	for _, want := range []string{
 		"Generate 5 table-driven go test cases",

@@ -30,15 +30,15 @@ import (
 // strictly typed; Body is bytes so callers can carry JSON, plan-text,
 // shell-output, or any structured content.
 type Message struct {
-	ID       string      `json:"id"`                // content-addressed; dedupes on Send
-	From     string      `json:"from"`              // sender role-id or session-id
-	To       string      `json:"to"`                // recipient role-id or "broadcast"
-	Type     MessageType `json:"type,omitempty"`    // typed message kind (issue #316)
-	Subject  string      `json:"subject"`           // one-line intent (no newlines)
-	Body     string      `json:"body"`              // free-form body, multi-line OK
-	SentAt   time.Time   `json:"sent_at"`           // UTC, RFC3339 — serves as Timestamp
+	ID       string      `json:"id"`                 // content-addressed; dedupes on Send
+	From     string      `json:"from"`               // sender role-id or session-id
+	To       string      `json:"to"`                 // recipient role-id or "broadcast"
+	Type     MessageType `json:"type,omitempty"`     // typed message kind (issue #316)
+	Subject  string      `json:"subject"`            // one-line intent (no newlines)
+	Body     string      `json:"body"`               // free-form body, multi-line OK
+	SentAt   time.Time   `json:"sent_at"`            // UTC, RFC3339 — serves as Timestamp
 	ReplyTo  string      `json:"reply_to,omitempty"` // original message ID for replies (#316)
-	Resolved bool        `json:"resolved,omitempty"`  // for request/response pattern
+	Resolved bool        `json:"resolved,omitempty"` // for request/response pattern
 }
 
 // Mailbox is the file-backed agent-team inbox. Idempotent Open()
@@ -46,9 +46,9 @@ type Message struct {
 // consumers/producers are supported via per-Open file lock.
 type Mailbox struct {
 	dir      string
-	path     string       // <dir>/inbox.jsonl
-	mu       sync.Mutex   // serialises Open-and-flush within the same process
-	lockFile *os.File     // file handle held by explicit Lock/Unlock (#342)
+	path     string     // <dir>/inbox.jsonl
+	mu       sync.Mutex // serialises Open-and-flush within the same process
+	lockFile *os.File   // file handle held by explicit Lock/Unlock (#342)
 }
 
 // Open creates or opens the agent-team mailbox rooted at
@@ -181,10 +181,10 @@ func (m *Mailbox) MarkResolved(id string) error {
 // Stats returns a small kebab-cased report. Useful for
 // `sin-code team stats` future-facing.
 type Stats struct {
-	Total     int       `json:"total"`
-	Unresolved int      `json:"unresolved"`
-	Oldest    time.Time `json:"oldest,omitempty"`
-	Newest    time.Time `json:"newest,omitempty"`
+	Total      int       `json:"total"`
+	Unresolved int       `json:"unresolved"`
+	Oldest     time.Time `json:"oldest,omitempty"`
+	Newest     time.Time `json:"newest,omitempty"`
 }
 
 // Stats implements the diagnostic summary.

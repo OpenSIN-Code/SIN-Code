@@ -18,17 +18,17 @@ import (
 )
 
 type stubLLM struct {
-	mu       sync.Mutex
+	mu        sync.Mutex
 	responses map[string]string
-	called   int
+	called    int
 }
 
 func newStubLLM() *stubLLM {
 	return &stubLLM{
 		responses: map[string]string{
-			"fix the bug":    "I'll fix the bug by correcting the nil pointer dereference on line 10. The issue is that `result` is not checked for nil before accessing `result.Value`.",
-			"write tests":    "I'll write comprehensive tests covering the main function and edge cases.",
-			"default":        "I understand. Let me help you with that.",
+			"fix the bug": "I'll fix the bug by correcting the nil pointer dereference on line 10. The issue is that `result` is not checked for nil before accessing `result.Value`.",
+			"write tests": "I'll write comprehensive tests covering the main function and edge cases.",
+			"default":     "I understand. Let me help you with that.",
 		},
 	}
 }

@@ -69,11 +69,11 @@ type Store struct {
 // Package-level hooks for error paths that are otherwise impossible to
 // trigger in a portable test (no real filesystem errors, missing driver, etc.).
 var (
-	userHomeDir    = os.UserHomeDir
-	mkdirAll       = os.MkdirAll
-	sqlOpen        = sql.Open
-	migrateExec    = func(db *sql.DB, schema string) error { _, err := db.Exec(schema); return err }
-	queryRows      = func(ctx context.Context, db *sql.DB, query string, args ...any) (*sql.Rows, error) {
+	userHomeDir = os.UserHomeDir
+	mkdirAll    = os.MkdirAll
+	sqlOpen     = sql.Open
+	migrateExec = func(db *sql.DB, schema string) error { _, err := db.Exec(schema); return err }
+	queryRows   = func(ctx context.Context, db *sql.DB, query string, args ...any) (*sql.Rows, error) {
 		return db.QueryContext(ctx, query, args...)
 	}
 	rowsClose      = func(r *sql.Rows) error { return r.Close() }

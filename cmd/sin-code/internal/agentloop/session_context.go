@@ -68,13 +68,13 @@ type SessionContextConfig struct {
 // memory, goals, todos, session summary, and auto-memory. Any nil store
 // is skipped gracefully.
 type SessionContextBuilder struct {
-	lessonsStore     LessonsReader
-	memoryStore      MemoryReader
-	goalStore        GoalReader
-	todoStore        TodoReader
-	sessionStore     SessionSummaryReader
-	autoMemoryStore  AutoMemoryReader
-	config           SessionContextConfig
+	lessonsStore    LessonsReader
+	memoryStore     MemoryReader
+	goalStore       GoalReader
+	todoStore       TodoReader
+	sessionStore    SessionSummaryReader
+	autoMemoryStore AutoMemoryReader
+	config          SessionContextConfig
 }
 
 // NewSessionContextBuilder returns a builder drawing from the supplied
@@ -95,15 +95,15 @@ func NewSessionContextBuilder(
 		sessionStore:    session,
 		autoMemoryStore: autoMemory,
 		config: SessionContextConfig{
-			RecentLessons:    defaultRecentLessons,
-			TopKMemories:     defaultTopKMemories,
-			MemoryQuery:      defaultMemoryQuery,
-			MaxPreambleChars: defaultMaxPreambleChars,
-			IncludeLessons:   true,
-			IncludeMemories:  true,
-			IncludeGoals:     true,
-			IncludeTodos:     true,
-			IncludeSession:   true,
+			RecentLessons:     defaultRecentLessons,
+			TopKMemories:      defaultTopKMemories,
+			MemoryQuery:       defaultMemoryQuery,
+			MaxPreambleChars:  defaultMaxPreambleChars,
+			IncludeLessons:    true,
+			IncludeMemories:   true,
+			IncludeGoals:      true,
+			IncludeTodos:      true,
+			IncludeSession:    true,
 			IncludeAutoMemory: true,
 		},
 	}
@@ -134,15 +134,15 @@ func (b *SessionContextBuilder) WithConfig(cfg SessionContextConfig) *SessionCon
 	// values. For bools, we need another mechanism.
 	// Simplest: if IncludeLessons is set to false in cfg AND the other Include* are also
 	// explicitly false or true, we treat it as explicit. We'll use a helper struct.
-	
+
 	// For now, handle the common case: if any Include* is explicitly set in cfg,
 	// apply all that are not zero (but we can't distinguish zero from false).
 	// Use a separate approach: add a field to track which were set.
-	
+
 	// Quick fix: if IncludeLessons is false but other Include* are true, we can't
 	// tell. For now, just apply if the cfg was explicitly created with IncludeLessons=false
 	// by checking if any other flag is non-default.
-	
+
 	b.config.IncludeLessons = cfg.IncludeLessons
 	b.config.IncludeMemories = cfg.IncludeMemories
 	b.config.IncludeGoals = cfg.IncludeGoals

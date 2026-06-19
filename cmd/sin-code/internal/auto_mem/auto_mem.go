@@ -85,15 +85,16 @@ type Entry struct {
 }
 
 // Append atomically adds or updates an entry. The on-disk format is:
-//   <!-- SIN-CODE-AUTO-MEMORY-START -->
-//   ## <heading>
-//   _added: <RFC3339> · source: <source-tag>_
 //
-//   <body>
+//	<!-- SIN-CODE-AUTO-MEMORY-START -->
+//	## <heading>
+//	_added: <RFC3339> · source: <source-tag>_
 //
-//   ## <heading2>
-//   ...
-//   <!-- SIN-CODE-AUTO-MEMORY-END -->
+//	<body>
+//
+//	## <heading2>
+//	...
+//	<!-- SIN-CODE-AUTO-MEMORY-END -->
 //
 // Headings are sorted lexicographically so the file is byte-stable
 // regardless of insertion order.

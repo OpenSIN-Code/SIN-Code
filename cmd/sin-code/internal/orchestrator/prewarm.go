@@ -27,13 +27,13 @@ const DefaultMaxPreWarmed = 4
 // It is called by the event-driven dispatcher when tasks start running
 // and when they complete (green or red).
 type PreWarmManager struct {
-	threshold    float64                  // pre-warm if P > threshold
-	maxPrewarmed int                      // max concurrent pre-warmed
-	registry     *Registry                // for looking up agents
-	mu           sync.Mutex               // guards prewarmed map
+	threshold    float64                       // pre-warm if P > threshold
+	maxPrewarmed int                           // max concurrent pre-warmed
+	registry     *Registry                     // for looking up agents
+	mu           sync.Mutex                    // guards prewarmed map
 	prewarmed    map[string]context.CancelFunc // taskID -> cancel func
-	preWarmCount int64                    // atomic; total pre-warm calls (for metrics)
-	cancelCount  int64                    // atomic; total cancel calls (for metrics)
+	preWarmCount int64                         // atomic; total pre-warm calls (for metrics)
+	cancelCount  int64                         // atomic; total cancel calls (for metrics)
 }
 
 // NewPreWarmManager creates a PreWarmManager with the given threshold and

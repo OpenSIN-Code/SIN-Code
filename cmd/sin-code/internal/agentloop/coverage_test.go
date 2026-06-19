@@ -734,5 +734,3 @@ func TestLoop_RecordUsage_Success(t *testing.T) {
 	l.recordUsage(context.Background(), "sin_read", ledger.OutcomeOK)
 	// Should not panic — coverage of the actual RecordUsage call
 }
-
-

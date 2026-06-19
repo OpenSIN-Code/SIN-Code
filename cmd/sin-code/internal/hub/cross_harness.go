@@ -39,7 +39,7 @@ type ToolDiff struct {
 // CrossHarnessInventory maintains a normalized MCP tool inventory
 // across multiple agent harnesses. Safe for concurrent use (M7).
 type CrossHarnessInventory struct {
-	mu       sync.RWMutex
+	mu        sync.RWMutex
 	harnesses map[string][]ToolSummary
 }
 

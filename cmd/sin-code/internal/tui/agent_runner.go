@@ -95,16 +95,16 @@ type Config struct {
 	// "use os.UserConfigDir()/sin-code/workspaces/<ws-hash>/…".
 	// Tests pass a t.TempDir() value to keep state hermetic; the
 	// CLI is happy with the default (issue #62 / #265).
-	DBHome     string
-	SessionID  string
-	AgentName  string
-	Model      string
-	BaseURL    string
-	MaxTurns   int
-	VerifyMode string
-	VerifyCmd  string
-	Yolo       bool
-	Headless   bool
+	DBHome      string
+	SessionID   string
+	AgentName   string
+	Model       string
+	BaseURL     string
+	MaxTurns    int
+	VerifyMode  string
+	VerifyCmd   string
+	Yolo        bool
+	Headless    bool
 	AutoApprove bool
 	AskTimeout  time.Duration
 	ToolFactory func(*mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec)

@@ -49,11 +49,11 @@ type PlanRequest struct {
 // opaque argument bag the model fills; DependsOn lists step IDs that
 // must complete before this one starts (forms a DAG).
 type PlanStep struct {
-	ID         string         `json:"id"`
-	Action     string         `json:"action"`
-	Tool       string         `json:"tool"`
-	Args       map[string]any `json:"args"`
-	DependsOn  []string       `json:"depends_on"`
+	ID        string         `json:"id"`
+	Action    string         `json:"action"`
+	Tool      string         `json:"tool"`
+	Args      map[string]any `json:"args"`
+	DependsOn []string       `json:"depends_on"`
 }
 
 // LLMPlan is the parsed output of an LLMPlanner.Plan call. Steps is the

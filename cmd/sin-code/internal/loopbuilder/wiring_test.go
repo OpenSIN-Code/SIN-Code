@@ -156,11 +156,11 @@ func TestWiring_PatternDBFeedsPatternsToDeepPlanner(t *testing.T) {
 	}
 
 	plan := &orchestrator.Plan{
-		ID:      "test-plan-feed",
-		Prompt:  "add login endpoint",
-		Started: time.Now(),
+		ID:        "test-plan-feed",
+		Prompt:    "add login endpoint",
+		Started:   time.Now(),
 		Completed: time.Now(),
-		Success: true,
+		Success:   true,
 	}
 	plan.Tasks = append(plan.Tasks, &orchestrator.Task{
 		ID:     "tk-a",

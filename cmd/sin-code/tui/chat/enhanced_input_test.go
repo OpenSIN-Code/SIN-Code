@@ -243,7 +243,7 @@ func TestEnhancedInputDeleteWordBack(t *testing.T) {
 
 func TestEnhancedInputAutoCompleteSlashCommands(t *testing.T) {
 	ei := newTestEnhancedInput(t)
-	ei.SetSlashCommands([]string{"/attach", "/clear", "/help","/compact"})
+	ei.SetSlashCommands([]string{"/attach", "/clear", "/help", "/compact"})
 	ei.SetValue("/at")
 	ei.Input.textarea.CursorEnd()
 	ok := ei.Complete()

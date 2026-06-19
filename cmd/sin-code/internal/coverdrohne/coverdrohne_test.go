@@ -30,9 +30,9 @@ func TestScannerScan(t *testing.T) {
 			t.Errorf("packages = %q, want ./...", packages)
 		}
 		return []byte(
-			"ok  github.com/example/a  0.010s  coverage: 50.0% of statements\n" +
-				"ok  github.com/example/b  0.020s  coverage: 100.0% of statements\n" +
-				"ok  github.com/example/c  0.030s  coverage: 0.0% of statements\n"),
+				"ok  github.com/example/a  0.010s  coverage: 50.0% of statements\n" +
+					"ok  github.com/example/b  0.020s  coverage: 100.0% of statements\n" +
+					"ok  github.com/example/c  0.030s  coverage: 0.0% of statements\n"),
 			nil
 	}
 	s.Packages = "./..."
@@ -1461,4 +1461,3 @@ func TestDrainEnqueueError(t *testing.T) {
 		t.Errorf("output = %q", buf.String())
 	}
 }
-

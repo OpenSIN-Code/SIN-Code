@@ -129,11 +129,11 @@ type namedPlugin struct {
 	name  string
 }
 
-func (n *namedPlugin) Name() string                                   { return n.name }
-func (n *namedPlugin) Render(s Styles, w, h int) string               { return n.inner.Render(s, w, h) }
-func (n *namedPlugin) Update(msg tea.Msg) (handled bool)              { return n.inner.Update(msg) }
-func (n *namedPlugin) Keybindings() []HintPair                        { return n.inner.Keybindings() }
-func (n *namedPlugin) SidebarItem() SidebarItem                       { return n.inner.SidebarItem() }
+func (n *namedPlugin) Name() string                      { return n.name }
+func (n *namedPlugin) Render(s Styles, w, h int) string  { return n.inner.Render(s, w, h) }
+func (n *namedPlugin) Update(msg tea.Msg) (handled bool) { return n.inner.Update(msg) }
+func (n *namedPlugin) Keybindings() []HintPair           { return n.inner.Keybindings() }
+func (n *namedPlugin) SidebarItem() SidebarItem          { return n.inner.SidebarItem() }
 
 var (
 	builtinFactories = make(map[string]func(map[string]string) TUIPlugin)

@@ -200,13 +200,13 @@ func TestEpisodicMemoryInjectsPriorOnPlanCreation(t *testing.T) {
 	}
 
 	_ = epStore.Record(context.Background(), &orchestrator.Episode{
-		Intent:     string(orchestrator.IntentCodebase),
-		TaskTitle:  "fix nil pointer in auth module",
-		PlanJSON:   []byte(`{"id":"p1"}`),
-		Score:      0.95,
-		Passed:     true,
-		Rounds:     2,
-		CreatedAt:  time.Now().UTC(),
+		Intent:    string(orchestrator.IntentCodebase),
+		TaskTitle: "fix nil pointer in auth module",
+		PlanJSON:  []byte(`{"id":"p1"}`),
+		Score:     0.95,
+		Passed:    true,
+		Rounds:    2,
+		CreatedAt: time.Now().UTC(),
 	})
 
 	o := orchestrator.New()

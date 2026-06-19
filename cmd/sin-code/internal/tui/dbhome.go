@@ -4,9 +4,9 @@
 // at "<workspace>/.sin-code/" — a recipe for accidental commits. The
 // proper home is os.UserConfigDir()/sin-code/workspaces/<ws-hash>/ so:
 //
-//   * Two projects do not collide on the same lessons/sessions row.
-//   * SQLite files are never inside a git working tree.
-//   * CI / packs / home dir backups pick them up automatically.
+//   - Two projects do not collide on the same lessons/sessions row.
+//   - SQLite files are never inside a git working tree.
+//   - CI / packs / home dir backups pick them up automatically.
 //
 // Tests override Config.DBHome; production callers set it to "" and
 // the function composes UserConfigDir() + a stable sha256-prefix12 of
@@ -44,8 +44,8 @@ type DBHomeResult struct {
 
 // ResolveDBHome returns the runtime DB home for the given config.
 //
-//   cfg.DBHome == ""  →  os.UserConfigDir()/sin-code
-//   cfg.DBHome != ""  →  cfg.DBHome (used by tests and portable setups)
+//	cfg.DBHome == ""  →  os.UserConfigDir()/sin-code
+//	cfg.DBHome != ""  →  cfg.DBHome (used by tests and portable setups)
 //
 // WorkspaceKey is a sha256-prefix12 of absWorkspace(cfg.Workspace).
 // Two workspaces with the same absolute path collapse to the same

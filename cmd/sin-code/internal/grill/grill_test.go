@@ -631,4 +631,3 @@ func TestAnswer_SkipResolves(t *testing.T) {
 		t.Errorf("expected status=resolved for answer=skip, got %q", got.Decisions[0].Status)
 	}
 }
-

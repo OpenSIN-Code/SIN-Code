@@ -21,15 +21,23 @@ type Instance struct {
 	Version          string   `json:"version"`
 }
 
-type Dataset struct { Instances []Instance `json:"instances"` }
+type Dataset struct {
+	Instances []Instance `json:"instances"`
+}
 
 func LoadDataset(path string) (*Dataset, error) {
 	raw, err := os.ReadFile(path)
-	if err != nil { return nil, fmt.Errorf("read: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("read: %w", err)
+	}
 	var instances []Instance
-	if err := json.Unmarshal(raw, &instances); err == nil { return &Dataset{Instances: instances}, nil }
+	if err := json.Unmarshal(raw, &instances); err == nil {
+		return &Dataset{Instances: instances}, nil
+	}
 	var d Dataset
-	if err := json.Unmarshal(raw, &d); err != nil { return nil, fmt.Errorf("parse: %w", err) }
+	if err := json.Unmarshal(raw, &d); err != nil {
+		return nil, fmt.Errorf("parse: %w", err)
+	}
 	return &d, nil
 }
 
@@ -48,7 +56,7 @@ func (inst *Instance) ToTestCase() TestCase {
 	return TestCase{
 		ID: inst.InstanceID, Description: "SWE-bench: " + inst.InstanceID,
 		Prompt: fmt.Sprintf("Resolve issue %s in repo %s.\n\n%s\n\nTests: %s\nExisting: %s", inst.InstanceID, inst.Repo, inst.ProblemStatement, strings.Join(inst.FailToPass, ","), strings.Join(inst.PassToPass, ",")),
-		Tags: []string{"swe-bench"}, Constraints: map[string]any{"require_verify": true, "max_turns": 60},
+		Tags:   []string{"swe-bench"}, Constraints: map[string]any{"require_verify": true, "max_turns": 60},
 		Expected: map[string]any{"custom_criteria": "All tests pass"}, VerifyCmd: buildVerifyCmd(inst),
 		Metadata: map[string]string{"repo": inst.Repo, "instance_id": inst.InstanceID},
 	}
@@ -56,20 +64,28 @@ func (inst *Instance) ToTestCase() TestCase {
 
 func buildVerifyCmd(inst *Instance) string {
 	var parts []string
-	for _, t := range inst.FailToPass { parts = append(parts, "python -m pytest "+t+" -x") }
-	for _, t := range inst.PassToPass { parts = append(parts, "python -m pytest "+t+" -x") }
+	for _, t := range inst.FailToPass {
+		parts = append(parts, "python -m pytest "+t+" -x")
+	}
+	for _, t := range inst.PassToPass {
+		parts = append(parts, "python -m pytest "+t+" -x")
+	}
 	return strings.Join(parts, " && ")
 }
 
 func ConvertDataset(ds *Dataset) []TestCase {
 	cases := make([]TestCase, len(ds.Instances))
-	for i, inst := range ds.Instances { cases[i] = inst.ToTestCase() }
+	for i, inst := range ds.Instances {
+		cases[i] = inst.ToTestCase()
+	}
 	return cases
 }
 
 func WriteEvalDataset(cases []TestCase, outPath string) error {
 	raw, err := json.MarshalIndent(map[string]any{"name": "swe-bench", "version": "1.0", "test_cases": cases}, "", "  ")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	os.MkdirAll(filepath.Dir(outPath), 0o755)
 	return os.WriteFile(outPath, raw, 0o644)
 }
@@ -154,7 +170,10 @@ func ScoreInstance(inst *Instance, verifyOutput string) ScorerResult {
 	}
 	if r.FailToPassTotal > 0 {
 		ftpr := float64(r.FailToPass) / float64(r.FailToPassTotal)
-		ptpr := 1.0; if r.PassToPassTotal > 0 { ptpr = float64(r.PassToPass) / float64(r.PassToPassTotal) }
+		ptpr := 1.0
+		if r.PassToPassTotal > 0 {
+			ptpr = float64(r.PassToPass) / float64(r.PassToPassTotal)
+		}
 		r.Score = 0.7*ftpr + 0.3*ptpr
 		r.Resolved = r.FailToPass == r.FailToPassTotal && r.PassToPass == r.PassToPassTotal
 	}
@@ -172,7 +191,15 @@ type Summary struct {
 func SummarizeResults(results []ScorerResult) Summary {
 	s := Summary{Results: results, Total: len(results)}
 	ts := 0.0
-	for _, r := range results { if r.Resolved { s.Resolved++ }; ts += r.Score }
-	if s.Total > 0 { s.ResolveRate = float64(s.Resolved) / float64(s.Total); s.MeanScore = ts / float64(s.Total) }
+	for _, r := range results {
+		if r.Resolved {
+			s.Resolved++
+		}
+		ts += r.Score
+	}
+	if s.Total > 0 {
+		s.ResolveRate = float64(s.Resolved) / float64(s.Total)
+		s.MeanScore = ts / float64(s.Total)
+	}
 	return s
 }

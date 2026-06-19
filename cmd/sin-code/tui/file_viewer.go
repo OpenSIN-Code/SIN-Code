@@ -15,14 +15,14 @@ import (
 const maxViewerLines = 500
 
 type FileViewer struct {
-	mu       sync.Mutex
-	path     string
-	content  string
-	lines    []string
-	binary   bool
-	scroll   int
-	truncated bool
-	totalLines int
+	mu          sync.Mutex
+	path        string
+	content     string
+	lines       []string
+	binary      bool
+	scroll      int
+	truncated   bool
+	totalLines  int
 	cursorLine  int
 	diagnostics []LSPDiagnostic
 	diagByLine  map[int][]LSPDiagnostic

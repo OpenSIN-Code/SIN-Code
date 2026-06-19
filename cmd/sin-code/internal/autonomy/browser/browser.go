@@ -42,19 +42,19 @@ type Transport interface {
 type RenderOpts struct {
 	Width      int
 	Height     int
-	WaitFor    string        // CSS selector to wait for
+	WaitFor    string // CSS selector to wait for
 	Timeout    time.Duration
-	JavaScript string        // optional script to run before capture
+	JavaScript string // optional script to run before capture
 	UserAgent  string
 }
 
 // RenderResult is the output of a Render call (stub for future rendering).
 type RenderResult struct {
-	HTML      string
+	HTML       string
 	Screenshot []byte
-	Title     string
-	URL       string
-	Duration  time.Duration
+	Title      string
+	URL        string
+	Duration   time.Duration
 }
 
 // Page represents a navigated URL with its fetched content.

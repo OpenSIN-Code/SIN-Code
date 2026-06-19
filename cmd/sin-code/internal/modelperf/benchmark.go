@@ -27,12 +27,12 @@ type BenchmarkProvider interface {
 
 // BenchmarkResult is the outcome of running one test case on one model.
 type BenchmarkResult struct {
-	Passed   bool
-	Latency  time.Duration
-	Tokens   int
-	CostUSD  float64
-	Output   string
-	Error    string
+	Passed  bool
+	Latency time.Duration
+	Tokens  int
+	CostUSD float64
+	Output  string
+	Error   string
 }
 
 // BenchmarkConfig controls a benchmark run.
@@ -54,13 +54,13 @@ type BenchmarkOutcome struct {
 
 // PerProviderResult is one model's aggregate result across all test cases.
 type PerProviderResult struct {
-	Model       string
-	PassRate    float64
-	AvgLatency  time.Duration
-	AvgCost     float64
-	AvgTokens   int
-	Passed      int
-	Total       int
+	Model      string
+	PassRate   float64
+	AvgLatency time.Duration
+	AvgCost    float64
+	AvgTokens  int
+	Passed     int
+	Total      int
 }
 
 // RunBenchmark executes a dataset across all providers and records results

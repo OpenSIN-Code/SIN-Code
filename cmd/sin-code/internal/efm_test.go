@@ -29,6 +29,7 @@ func dockerAvailable() bool {
 	cmd.Stderr = nil
 	return cmd.Run() == nil
 }
+
 // skipIfShortDocker skips a test when -short is passed so the full
 // Docker/OrbStack-dependent suite is excluded from `go test -short`.
 // Also skips when the Docker daemon is genuinely unavailable.
@@ -55,7 +56,6 @@ func skipIfShortNoDocker(t *testing.T) {
 		t.Skip("skipping no-Docker error-path test: daemon is available")
 	}
 }
-
 
 func TestRunEFM_ListAction(t *testing.T) {
 	oldStdout := os.Stdout

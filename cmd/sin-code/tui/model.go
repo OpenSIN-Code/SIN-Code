@@ -43,11 +43,11 @@ type PaletteState struct {
 }
 
 type SessionSwitcherState struct {
-	Open       bool
-	Query      string
-	Sel        int
-	Indices    []int
-	Renaming   bool
+	Open        bool
+	Query       string
+	Sel         int
+	Indices     []int
+	Renaming    bool
 	RenameInput textinput.Model
 }
 
@@ -75,16 +75,16 @@ type ThemeState struct {
 }
 
 type ChatState struct {
-	ChatInput        *chatInput
-	ChatHistory      []ChatMessage
-	ChatRunner       *chat.Runner
-	ChatViewport     viewport.Model
-	ChatFocusIdx     int
-	SearchQuery      string
-	SearchMatches    []int
-	SearchInput      textinput.Model
+	ChatInput         *chatInput
+	ChatHistory       []ChatMessage
+	ChatRunner        *chat.Runner
+	ChatViewport      viewport.Model
+	ChatFocusIdx      int
+	SearchQuery       string
+	SearchMatches     []int
+	SearchInput       textinput.Model
 	SlashAutocomplete *SlashAutocomplete
-	ChatSearch       *ChatSearch
+	ChatSearch        *ChatSearch
 }
 
 type AgentState struct {
@@ -170,13 +170,13 @@ type AgentRunnerConfig struct {
 }
 
 type AgentSessionRow struct {
-	ID          string
-	AgentName   string
-	Task        string
-	Status      string
-	Duration    time.Duration
-	Tokens      int
-	Cost        float64
+	ID        string
+	AgentName string
+	Task      string
+	Status    string
+	Duration  time.Duration
+	Tokens    int
+	Cost      float64
 }
 
 type AgentDashboardState struct {
@@ -441,10 +441,10 @@ func NewModel() *Model {
 		HelpOverlay:   NewHelpOverlay(DefaultKeymapConfig()),
 		FilePicker:    NewFilePicker(""),
 		CrashRecovery: NewCrashRecovery(),
-		SessionInfo: NewSessionInfo(),
-		SplitPane:   NewSplitPane(),
-		FileBrowser: NewFileBrowser(""),
-		FileViewer:  NewFileViewer(),
+		SessionInfo:   NewSessionInfo(),
+		SplitPane:     NewSplitPane(),
+		FileBrowser:   NewFileBrowser(""),
+		FileViewer:    NewFileViewer(),
 		Mouse:         NewMouseHandler(),
 		RenderCache:   NewRenderCache(100),
 	}
@@ -462,7 +462,7 @@ func defaultPaletteCommands() []string {
 		"efm", "serve", "security", "sbom", "config", "self-update",
 		"todo add", "todo list", "todo ready", "todo complete",
 		"theme: next", "agent: cycle", "view: tools", "view: sessions",
-		"view: efm", "view: config", "view: history", 		"view: todos",
+		"view: efm", "view: config", "view: history", "view: todos",
 		"view: chat",
 		"view: dag",
 		"view: context",

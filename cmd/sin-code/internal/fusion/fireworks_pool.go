@@ -8,12 +8,12 @@
 //
 // Default lineup (strongest Asian open models on Fireworks, 2026-06):
 //
-//   1. MiniMax M3          — accounts/fireworks/models/minimax-m3
-//   2. Kimi K2.7 Code Fast — accounts/fireworks/routers/kimi-k2p7-code-fast
-//   3. Kimi K2.7 Code      — accounts/fireworks/models/kimi-k2p7-code
-//   4. DeepSeek V4 Pro     — accounts/fireworks/models/deepseek-v4-pro
-//   5. Qwen 3.7 Plus       — accounts/fireworks/models/qwen3p7-plus
-//   6. GLM 5.2             — accounts/fireworks/models/glm-5p2
+//  1. MiniMax M3          — accounts/fireworks/models/minimax-m3
+//  2. Kimi K2.7 Code Fast — accounts/fireworks/routers/kimi-k2p7-code-fast
+//  3. Kimi K2.7 Code      — accounts/fireworks/models/kimi-k2p7-code
+//  4. DeepSeek V4 Pro     — accounts/fireworks/models/deepseek-v4-pro
+//  5. Qwen 3.7 Plus       — accounts/fireworks/models/qwen3p7-plus
+//  6. GLM 5.2             — accounts/fireworks/models/glm-5p2
 package fusion
 
 import (

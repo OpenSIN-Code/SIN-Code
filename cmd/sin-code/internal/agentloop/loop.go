@@ -731,7 +731,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	stopRejects := 0 // tracks how many times the stop-gate rejected completion
 	lastCritFingerprint := ""
 	stallCount := 0
-	totalTokens := 0 // issue #151: cumulative tokens across the run
+	totalTokens := 0      // issue #151: cumulative tokens across the run
 	warnedBudget := false // fires hooks.BudgetWarn once per run
 	// Issue: Thinking Budget Enforcement (first PR). Reset the per-run
 	// thinking accumulator so a second Run() on the same Loop instance
@@ -956,15 +956,15 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 					})
 				}
 
-			// SIN Fusion v1: if a TournamentRunner is wired and the
-			// failure is structural, fan out to N providers instead
-			// of retrying with the same model. First PoC-pass wins.
-			// Oracle mode is also supported when the tournament is
-			// explicitly configured for oracle (issue #344); the
-			// tournament judge selects the winner, not first-pass-wins.
-			if l.TournamentRunner != nil &&
-				(l.Gate.Mode() == verify.ModePoC || l.Gate.Mode() == verify.ModeOracle) &&
-				l.TournamentRunner.ShouldRun(res) {
+				// SIN Fusion v1: if a TournamentRunner is wired and the
+				// failure is structural, fan out to N providers instead
+				// of retrying with the same model. First PoC-pass wins.
+				// Oracle mode is also supported when the tournament is
+				// explicitly configured for oracle (issue #344); the
+				// tournament judge selects the winner, not first-pass-wins.
+				if l.TournamentRunner != nil &&
+					(l.Gate.Mode() == verify.ModePoC || l.Gate.Mode() == verify.ModeOracle) &&
+					l.TournamentRunner.ShouldRun(res) {
 					output, tokens, terr := l.TournamentRunner.Run(ctx, prompt)
 					if terr == nil && output != "" {
 						l.fire(ctx, hooks.VerifyPass, "", map[string]any{

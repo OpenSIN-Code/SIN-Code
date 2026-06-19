@@ -39,10 +39,10 @@ type LoopAgent struct {
 	maxTurns  int
 	workspace string
 
-	sessionOnce      sync.Once
-	sessionErr       error
-	preWarmedPrompt  string
-	promptMu         sync.RWMutex
+	sessionOnce     sync.Once
+	sessionErr      error
+	preWarmedPrompt string
+	promptMu        sync.RWMutex
 }
 
 // LoopAgentOption configures a LoopAgent at construction time.

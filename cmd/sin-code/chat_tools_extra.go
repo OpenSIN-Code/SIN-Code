@@ -42,10 +42,12 @@ const (
 // extra tool hook variables — injected by coverage tests to mock git, HTTP,
 // and test subprocess calls.
 var (
-	extraToolFn          = extraTool
-	runGitFn             = runGit
-	toolHTTPGetFn        = toolHTTPGet
-	toolTestFn           = func(ctx context.Context, target string) (string, error) { return toolTest(ctx, map[string]any{"target": target}) }
+	extraToolFn   = extraTool
+	runGitFn      = runGit
+	toolHTTPGetFn = toolHTTPGet
+	toolTestFn    = func(ctx context.Context, target string) (string, error) {
+		return toolTest(ctx, map[string]any{"target": target})
+	}
 	toolHTTPNewRequestFn = http.NewRequestWithContext
 	toolHTTPClientDoFn   = func(req *http.Request) (*http.Response, error) { return http.DefaultClient.Do(req) }
 	toolTestRunFn        = func(cmd *exec.Cmd) ([]byte, error) { return cmd.CombinedOutput() }
@@ -98,11 +100,11 @@ func extraSpecs() []agentloopToolSpecAlias {
 			})},
 		{Name: "sin_quality_gate", Description: "Run the quality gate pipeline: go build, go vet, go test -race -cover, and optional staticcheck/gosec/govulncheck if on PATH. Returns a structured PASS/FAIL report with coverage. Set json=true for machine-readable output.",
 			InputSchema: obj(map[string]any{
-				"coverage":  str("minimum coverage percent required (default 0 = disabled)"),
-				"timeout":   str("pipeline timeout, e.g. 5m (default 5m)"),
-				"json":      str("emit structured JSON instead of plain text (default false)"),
-				"steps":     str("comma-separated steps to run (default all: build,vet,test,staticcheck,gosec,govulncheck)"),
-				"race":      str("run go test with -race (default true)"),
+				"coverage": str("minimum coverage percent required (default 0 = disabled)"),
+				"timeout":  str("pipeline timeout, e.g. 5m (default 5m)"),
+				"json":     str("emit structured JSON instead of plain text (default false)"),
+				"steps":    str("comma-separated steps to run (default all: build,vet,test,staticcheck,gosec,govulncheck)"),
+				"race":     str("run go test with -race (default true)"),
 			})},
 		{Name: "sin_mutation", Description: "Run mutation testing with gremlins if available on PATH. Returns a structured report with mutation score. Set json=true for machine-readable output.",
 			InputSchema: obj(map[string]any{
@@ -113,16 +115,16 @@ func extraSpecs() []agentloopToolSpecAlias {
 			})},
 		{Name: "sin_fuzz", Description: "Run native Go fuzz targets for a package or file. Returns a structured report with fuzzing results.",
 			InputSchema: obj(map[string]any{
-				"package":   str("package pattern containing fuzz targets (default ./...)"),
-				"duration":  str("fuzz duration, e.g. 30s (default 30s)"),
-				"timeout":   str("overall timeout, e.g. 5m (default 5m)"),
-				"json":      str("emit structured JSON instead of plain text (default false)"),
+				"package":  str("package pattern containing fuzz targets (default ./...)"),
+				"duration": str("fuzz duration, e.g. 30s (default 30s)"),
+				"timeout":  str("overall timeout, e.g. 5m (default 5m)"),
+				"json":     str("emit structured JSON instead of plain text (default false)"),
 			})},
 		{Name: "sin_property", Description: "Run property-based tests via rapid or testing/quick if available. Returns a structured report.",
 			InputSchema: obj(map[string]any{
-				"package":   str("package pattern containing property tests (default ./...)"),
-				"timeout":   str("timeout, e.g. 5m (default 5m)"),
-				"json":      str("emit structured JSON instead of plain text (default false)"),
+				"package": str("package pattern containing property tests (default ./...)"),
+				"timeout": str("timeout, e.g. 5m (default 5m)"),
+				"json":    str("emit structured JSON instead of plain text (default false)"),
 			})},
 		// Browser CDP tools — headless Chrome via Chrome DevTools Protocol.
 		// sin_browser_navigate starts a fresh recording session; subsequent
@@ -148,6 +150,7 @@ func extraSpecs() []agentloopToolSpecAlias {
 	allSpecs = append(allSpecs, registerBrowserInteractionSpecs()...)
 	return allSpecs
 }
+
 // extraTool is called from builtinTool()'s default branch.
 func extraTool(ctx context.Context, name string, args map[string]any) (string, error) {
 	if out, handled, err := dispatchBrowserInteraction(ctx, name, args); handled {

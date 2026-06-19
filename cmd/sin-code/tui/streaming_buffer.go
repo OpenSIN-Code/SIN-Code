@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	defaultRevealRate  = 50
+	defaultRevealRate   = 50
 	streamingCursorRune = "▋"
 	streamingMinWidth   = 10
 )

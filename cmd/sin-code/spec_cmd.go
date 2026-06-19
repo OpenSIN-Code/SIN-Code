@@ -166,8 +166,8 @@ source tree under --root (default: current dir).
   sin-code spec check --all --drift --root ./cmd/...   # scope the walk
   sin-code spec check --timeout 30s ...                # override per-criterion timeout
   sin-code spec check --policy off|warn|error          # drift strictness (issue #157)`,
-  // The --policy default reads from SIN_SPEC_DRIFT env var, then falls
-  // back to "error" (CI gate mode; the verify gate is sacred).
+		// The --policy default reads from SIN_SPEC_DRIFT env var, then falls
+		// back to "error" (CI gate mode; the verify gate is sacred).
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := context.Background()

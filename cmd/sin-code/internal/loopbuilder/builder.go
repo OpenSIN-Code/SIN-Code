@@ -26,13 +26,13 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/skillmgr"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/stopgate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
 	"github.com/OpenSIN-Code/SIN-Code/skills"
@@ -383,7 +383,7 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		CoverageForbiddenTools:   cfg.CoverageForbiddenTools,
 		ThinkingEnabled:          thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
-		ResultPolicy:            permission.NewResultPolicy(),
+		ResultPolicy:             permission.NewResultPolicy(),
 	}
 
 	if cfg.RepetitionThreshold > 0 {

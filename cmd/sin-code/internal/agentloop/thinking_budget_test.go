@@ -3,10 +3,12 @@
 // roundtrip tests for the agentloop provider adapter.
 //
 // Covers:
-//   (a) wireThinking JSON shape — nil/disabled/enabled omit correctly.
-//   (b) NewProviderCompletionFull emits the wire block on the HTTP request.
-//   (c) response-side Usage.ThinkingTokens comes back through *Completion.
-//   (d) race-clean: concurrent invocations don't corrupt the payload.
+//
+//	(a) wireThinking JSON shape — nil/disabled/enabled omit correctly.
+//	(b) NewProviderCompletionFull emits the wire block on the HTTP request.
+//	(c) response-side Usage.ThinkingTokens comes back through *Completion.
+//	(d) race-clean: concurrent invocations don't corrupt the payload.
+//
 // Docs: cmd/sin-code/internal/agentloop/thinking_budget_test.go
 package agentloop
 

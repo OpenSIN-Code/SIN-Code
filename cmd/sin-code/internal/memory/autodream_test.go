@@ -205,10 +205,10 @@ func TestAutoDreamDecaySkipsRecentlyAccessed(t *testing.T) {
 	old := time.Now().UTC().Add(-31 * 24 * time.Hour)
 	recent := time.Now().UTC().Add(-1 * time.Hour)
 	m := &Memory{
-		Insight:     "old but recently accessed memory",
-		Tags:        []string{"accessed"},
-		Importance:  1.0,
-		Created:     old,
+		Insight:      "old but recently accessed memory",
+		Tags:         []string{"accessed"},
+		Importance:   1.0,
+		Created:      old,
 		LastAccessed: recent,
 	}
 	_ = s.Add(m)

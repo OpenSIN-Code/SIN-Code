@@ -47,13 +47,13 @@ func (ExternalSource) Get(_ context.Context, kind Kind, name string) (*Asset, bo
 				Kind:        KindExternal,
 				Name:        e.name,
 				Namespace:   e.namespace,
-				Short:         e.short,
-				Description:   e.description,
-				Example:       e.example,
-				Source:        "external",
-				Tags:          e.tags,
-				ReadOnly:      false,
-				Destructive:   true,
+				Short:       e.short,
+				Description: e.description,
+				Example:     e.example,
+				Source:      "external",
+				Tags:        e.tags,
+				ReadOnly:    false,
+				Destructive: true,
 			}, true, nil
 		}
 	}

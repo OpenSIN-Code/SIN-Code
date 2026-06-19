@@ -27,19 +27,19 @@ type KanbanItem struct {
 
 // KanbanView is the full Kanban board state with columns and selection.
 type KanbanView struct {
-	Columns       []KanbanColumn
-	ColIdx        int // selected column
-	ItemIdx       int // selected item within column
-	columnStatus  []string
+	Columns      []KanbanColumn
+	ColIdx       int // selected column
+	ItemIdx      int // selected item within column
+	columnStatus []string
 }
 
 // Column status constants — each column maps to a todo status string.
 const (
-	kanbanStatusBacklog     = "open"
-	kanbanStatusReady       = "ready"
-	kanbanStatusInProgress  = "in_progress"
-	kanbanStatusBlocked     = "blocked"
-	kanbanStatusDone        = "done"
+	kanbanStatusBacklog    = "open"
+	kanbanStatusReady      = "ready"
+	kanbanStatusInProgress = "in_progress"
+	kanbanStatusBlocked    = "blocked"
+	kanbanStatusDone       = "done"
 )
 
 // NewKanbanView creates a KanbanView with 5 empty columns:

@@ -6,6 +6,7 @@
 //   - The auto-fix is reversible (PR is opened, not merged).
 //   - Coverage for the classifier >= 80% (verified in
 //     classify_test.go).
+//
 // The pipeline does NOT call gh here — that lives in autopr_cmd.go
 // behind the permission engine (M4) and is `ask`-classified for
 // the PR-creation call.
@@ -20,14 +21,14 @@ import (
 // Report is the autopr pipeline output. Consumed by autopr_cmd.go
 // to render the PR body and to decide whether to call ghbridge.
 type Report struct {
-	Workspace      string   `json:"workspace"`
-	Issues         []Issue  `json:"issues"`
-	AutoFixable    []Issue  `json:"auto_fixable"`
-	RequiresHuman  []Issue  `json:"requires_human"`
-	WouldCreatePR  bool     `json:"would_create_pr"`
-	PRTitle        string   `json:"pr_title"`
-	PRBody         string   `json:"pr_body"`
-	CommandsToRun  []string `json:"commands_to_run"`
+	Workspace     string   `json:"workspace"`
+	Issues        []Issue  `json:"issues"`
+	AutoFixable   []Issue  `json:"auto_fixable"`
+	RequiresHuman []Issue  `json:"requires_human"`
+	WouldCreatePR bool     `json:"would_create_pr"`
+	PRTitle       string   `json:"pr_title"`
+	PRBody        string   `json:"pr_body"`
+	CommandsToRun []string `json:"commands_to_run"`
 }
 
 // NewReport runs the classifier over `issues` and produces the
@@ -72,11 +73,11 @@ func renderPRTitle(issues []Issue) string {
 }
 
 // renderPRBody returns a deterministic Markdown body. Sections:
-//   1. one-line summary
-//   2. "Auto-fixable (N)" table
-//   3. "Requires human (M)" table
-//   4. "How to verify" section
-//   5. footer with the verify-gate status
+//  1. one-line summary
+//  2. "Auto-fixable (N)" table
+//  3. "Requires human (M)" table
+//  4. "How to verify" section
+//  5. footer with the verify-gate status
 func renderPRBody(workspace string, fixable, human []Issue) string {
 	var b strings.Builder
 	b.WriteString("## Auto-PR (issue #158)\n\n")

@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
+
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
 )
 
 func autoCreatePR(ctx context.Context, goal *autonomy.Goal, res *agentloop.Result) error {
@@ -57,6 +58,8 @@ func autoCreatePR(ctx context.Context, goal *autonomy.Goal, res *agentloop.Resul
 }
 
 func autodevTruncate(s string, maxLen int) string {
-	if len(s) <= maxLen { return s }
+	if len(s) <= maxLen {
+		return s
+	}
 	return s[:maxLen-3] + "..."
 }

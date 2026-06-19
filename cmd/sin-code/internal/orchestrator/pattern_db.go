@@ -18,34 +18,34 @@ import (
 
 // TaskSequenceRecord is one completed plan's task sequence stored in the DB.
 type TaskSequenceRecord struct {
-	ID          int64
-	PromptHash  string
-	PromptText  string
-	TaskSeq     []TaskType
-	Success     bool
-	DurationMs  int64
-	TokensUsed  int
-	Cost        float64
-	CreatedAt   time.Time
+	ID         int64
+	PromptHash string
+	PromptText string
+	TaskSeq    []TaskType
+	Success    bool
+	DurationMs int64
+	TokensUsed int
+	Cost       float64
+	CreatedAt  time.Time
 }
 
 // TaskPattern is an aggregated pattern for a given prompt hash.
 type TaskPattern struct {
-	TaskType       TaskType `json:"task_type"`
-	Position       int      `json:"position"`
-	Probability    float64  `json:"probability"`
-	AvgDurationMs  int64    `json:"avg_duration_ms"`
-	AvgTokens      int      `json:"avg_tokens"`
-	Frequency      int      `json:"frequency"`
+	TaskType      TaskType `json:"task_type"`
+	Position      int      `json:"position"`
+	Probability   float64  `json:"probability"`
+	AvgDurationMs int64    `json:"avg_duration_ms"`
+	AvgTokens     int      `json:"avg_tokens"`
+	Frequency     int      `json:"frequency"`
 }
 
 // PatternPrediction is the result of matching a new prompt against the
 // pattern DB. It contains the predicted task types with probabilities.
 type PatternPrediction struct {
-	PromptHash   string        `json:"prompt_hash"`
-	MatchCount   int           `json:"match_count"`
-	Patterns     []TaskPattern `json:"patterns"`
-	SuccessRate  float64       `json:"success_rate"`
+	PromptHash  string        `json:"prompt_hash"`
+	MatchCount  int           `json:"match_count"`
+	Patterns    []TaskPattern `json:"patterns"`
+	SuccessRate float64       `json:"success_rate"`
 }
 
 // PatternDB stores and retrieves task sequence patterns from SQLite.
@@ -363,10 +363,10 @@ func (p *PatternDB) getPatterns(ctx context.Context, promptHash string) (*Patter
 
 // PatternStats returns global statistics about the pattern DB.
 type PatternStats struct {
-	TotalSequences  int     `json:"total_sequences"`
-	TotalPatterns   int     `json:"total_patterns"`
-	UniquePrompts   int     `json:"unique_prompts"`
-	OverallSuccess  float64 `json:"overall_success"`
+	TotalSequences int     `json:"total_sequences"`
+	TotalPatterns  int     `json:"total_patterns"`
+	UniquePrompts  int     `json:"unique_prompts"`
+	OverallSuccess float64 `json:"overall_success"`
 }
 
 func (p *PatternDB) Stats(ctx context.Context) (*PatternStats, error) {
@@ -425,10 +425,10 @@ func (p *PatternDB) ListPatterns(ctx context.Context, limit int) ([]*PatternEntr
 	// further queries. This avoids connection-pool exhaustion when
 	// SetMaxOpenConns(1) is used (common in tests with :memory: SQLite).
 	type rawEntry struct {
-		Hash       string
-		Text       string
-		Count      int
-		Successes  int
+		Hash      string
+		Text      string
+		Count     int
+		Successes int
 	}
 	var raws []rawEntry
 	for rows.Next() {

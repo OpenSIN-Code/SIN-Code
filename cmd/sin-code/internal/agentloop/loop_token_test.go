@@ -42,9 +42,9 @@ func TestTokenBudget_Exhausts(t *testing.T) {
 	s := setupSession(t)
 	calls := 0
 	loop := &Loop{
-		Gate:          passGate(),
-		Workspace:     "/tmp",
-		MaxTokens:     100,
+		Gate:           passGate(),
+		Workspace:      "/tmp",
+		MaxTokens:      100,
 		MaxStopRejects: 100, // high — must NOT be the trigger
 		StopGate: func(ctx context.Context, snap StopSnapshot) StopDecision {
 			calls++

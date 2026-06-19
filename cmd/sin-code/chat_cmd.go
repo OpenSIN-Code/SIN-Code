@@ -29,16 +29,16 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife/autoactivate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/isolation"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/logger"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/loopbuilder"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/skillmgr"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui"
 	"github.com/OpenSIN-Code/SIN-Code/skills"
@@ -128,14 +128,14 @@ type chatOptions struct {
 	noTUI              bool
 	watch              string
 
-	contextCompaction      string
-	compactionTrigger      string
-	compactionMaxTokens    int
-	contextWindow          int
-	preserveEvidence       bool
-	compactionRecentTurns  int
-	repetitionThreshold    int
-	repetitionWindow       int
+	contextCompaction     string
+	compactionTrigger     string
+	compactionMaxTokens   int
+	contextWindow         int
+	preserveEvidence      bool
+	compactionRecentTurns int
+	repetitionThreshold   int
+	repetitionWindow      int
 }
 
 func NewChatCmd() *cobra.Command {
@@ -437,19 +437,19 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	}
 
 	loop := &agentloop.Loop{
-		Gate:                    gate,
-		LocalTool:               combinedTool(workspace, mcpMgr),
-		LocalSpec:               combinedSpecs(mcpMgr),
-		Workspace:               workspace,
-		MaxTurns:                opts.maxTurns,
-		SessionID:               sess.ID,
-		Completion:              completion,
-		Hooks:                   hookEngine,
-		Perm:                    perm,
-		Ask:                     ask,
-		ThinkingEnabled:         thinkingCfg.Enabled,
+		Gate:                     gate,
+		LocalTool:                combinedTool(workspace, mcpMgr),
+		LocalSpec:                combinedSpecs(mcpMgr),
+		Workspace:                workspace,
+		MaxTurns:                 opts.maxTurns,
+		SessionID:                sess.ID,
+		Completion:               completion,
+		Hooks:                    hookEngine,
+		Perm:                     perm,
+		Ask:                      ask,
+		ThinkingEnabled:          thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
-		ResultPolicy:            permission.NewResultPolicy(),
+		ResultPolicy:             permission.NewResultPolicy(),
 	}
 
 	// Session-start context injection (issue #379): when enabled, assemble a

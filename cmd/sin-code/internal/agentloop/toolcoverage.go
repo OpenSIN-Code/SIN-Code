@@ -18,7 +18,7 @@ import (
 // ToolCoverageEnforcer tracks required and forbidden tool usage for a single
 // run. It is created per-run in Loop.Run when any constraint is configured.
 type ToolCoverageEnforcer struct {
-	RequiredTools []string
+	RequiredTools  []string
 	ForbiddenTools []string
 
 	mu   sync.Mutex

@@ -22,12 +22,12 @@ const (
 	instinctScopeProject = "project"
 	instinctScopeGlobal  = "global"
 
-	instinctInitialConfidence  = 0.3
-	instinctConfirmIncrement   = 0.05
+	instinctInitialConfidence   = 0.3
+	instinctConfirmIncrement    = 0.05
 	instinctContradictDecrement = 0.10
-	instinctPromoteThreshold   = 0.8
-	instinctDemoteThreshold    = 0.5
-	instinctMaxConfidence      = 1.0
+	instinctPromoteThreshold    = 0.8
+	instinctDemoteThreshold     = 0.5
+	instinctMaxConfidence       = 1.0
 )
 
 var ErrInstinctNotFound = errors.New("instinct: not found")

@@ -40,11 +40,11 @@ func TestCompactionIntegration_TriggeredAtThreshold(t *testing.T) {
 
 	callCount := 0
 	loop := &Loop{
-		Gate:               gate,
-		Workspace:          "/tmp",
-		MaxTurns:           10,
-		Compactor:          compactor,
-		CompactionStrategy: CompactionTruncate,
+		Gate:                gate,
+		Workspace:           "/tmp",
+		MaxTurns:            10,
+		Compactor:           compactor,
+		CompactionStrategy:  CompactionTruncate,
 		CompactionMaxTokens: 2000,
 		Completion: func(ctx context.Context, msgs []session.Message, tools []ToolSpec) (*Completion, error) {
 			callCount++
@@ -52,8 +52,8 @@ func TestCompactionIntegration_TriggeredAtThreshold(t *testing.T) {
 				return &Completion{Text: "done", Raw: session.Message{Role: "assistant", Content: "done"}}, nil
 			}
 			return &Completion{
-				Text: "working",
-				Raw:  session.Message{Role: "assistant", Content: strings.Repeat("x", 500)},
+				Text:      "working",
+				Raw:       session.Message{Role: "assistant", Content: strings.Repeat("x", 500)},
 				ToolCalls: []ToolCall{{ID: "tc1", Name: "noop", Args: map[string]any{}}},
 			}, nil
 		},
@@ -114,11 +114,11 @@ func TestCompactionIntegration_HybridPreservesRecentMessages(t *testing.T) {
 	var lastMsgs []session.Message
 	callCount := 0
 	loop := &Loop{
-		Gate:               gate,
-		Workspace:          "/tmp",
-		MaxTurns:           10,
-		Compactor:          compactor,
-		CompactionStrategy: CompactionHybrid,
+		Gate:                gate,
+		Workspace:           "/tmp",
+		MaxTurns:            10,
+		Compactor:           compactor,
+		CompactionStrategy:  CompactionHybrid,
 		CompactionMaxTokens: 1000,
 		Completion: func(ctx context.Context, msgs []session.Message, tools []ToolSpec) (*Completion, error) {
 			callCount++
@@ -127,8 +127,8 @@ func TestCompactionIntegration_HybridPreservesRecentMessages(t *testing.T) {
 				return &Completion{Text: "done", Raw: session.Message{Role: "assistant", Content: "done"}}, nil
 			}
 			return &Completion{
-				Text: "working",
-				Raw:  session.Message{Role: "assistant", Content: strings.Repeat("a", 300)},
+				Text:      "working",
+				Raw:       session.Message{Role: "assistant", Content: strings.Repeat("a", 300)},
 				ToolCalls: []ToolCall{{ID: "tc1", Name: "noop", Args: map[string]any{}}},
 			}, nil
 		},
@@ -212,13 +212,13 @@ func TestCompactionIntegration_HookFires(t *testing.T) {
 
 	callCount := 0
 	loop := &Loop{
-		Gate:               gate,
-		Workspace:          "/tmp",
-		MaxTurns:           10,
-		Compactor:          compactor,
-		CompactionStrategy: CompactionTruncate,
+		Gate:                gate,
+		Workspace:           "/tmp",
+		MaxTurns:            10,
+		Compactor:           compactor,
+		CompactionStrategy:  CompactionTruncate,
 		CompactionMaxTokens: 1000,
-		Hooks:              hookEngine,
+		Hooks:               hookEngine,
 		Completion: func(ctx context.Context, msgs []session.Message, tools []ToolSpec) (*Completion, error) {
 			callCount++
 			hookMu.Lock()
@@ -232,8 +232,8 @@ func TestCompactionIntegration_HookFires(t *testing.T) {
 				return &Completion{Text: "done", Raw: session.Message{Role: "assistant", Content: "done"}}, nil
 			}
 			return &Completion{
-				Text: "working",
-				Raw:  session.Message{Role: "assistant", Content: strings.Repeat("x", 500)},
+				Text:      "working",
+				Raw:       session.Message{Role: "assistant", Content: strings.Repeat("x", 500)},
 				ToolCalls: []ToolCall{{ID: "tc1", Name: "noop", Args: map[string]any{}}},
 			}, nil
 		},

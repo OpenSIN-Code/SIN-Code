@@ -15,16 +15,16 @@ import (
 
 func NewImageGraphCmd() *cobra.Command {
 	var (
-		chartType   string
-		dataFile    string
-		outputFile  string
-		title       string
-		subtitle    string
-		xLabel      string
-		yLabel      string
-		width       string
-		height      string
-		inlineJSON  string
+		chartType  string
+		dataFile   string
+		outputFile string
+		title      string
+		subtitle   string
+		xLabel     string
+		yLabel     string
+		width      string
+		height     string
+		inlineJSON string
 	)
 
 	cmd := &cobra.Command{
@@ -105,11 +105,11 @@ Examples:
 			if width != "" {
 				spec.Width = width
 			}
-		if height != "" {
-			spec.Height = height
-		}
+			if height != "" {
+				spec.Height = height
+			}
 
-		if spec.Type == "" {
+			if spec.Type == "" {
 				return fmt.Errorf("chart type required (--type bar|line|pie|area)")
 			}
 			if outputFile == "" {

@@ -35,11 +35,11 @@ type ReportSection struct {
 // ordered by first appearance. GeneratedAt is the UTC timestamp of
 // assembly.
 type ResearchReport struct {
-	Title        string
-	Abstract     string
-	Sections     []ReportSection
-	References   []string
-	GeneratedAt  time.Time
+	Title       string
+	Abstract    string
+	Sections    []ReportSection
+	References  []string
+	GeneratedAt time.Time
 }
 
 // ReportGenerator assembles ResearchReports from sections and renders

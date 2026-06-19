@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Purpose: observer-loop prevention (issue #377). LoopDetector tracks the
 // most recent tool calls and flags two failure modes deterministically:
-//   1. the same tool call repeated maxRepeats times in a row, and
-//   2. the same sequence of windowSize calls repeated maxRepeats times
-//      (covers alternating A->B->A->B patterns when windowSize=2).
+//  1. the same tool call repeated maxRepeats times in a row, and
+//  2. the same sequence of windowSize calls repeated maxRepeats times
+//     (covers alternating A->B->A->B patterns when windowSize=2).
+//
 // Record returns true the moment a loop is detected. Thread-safe (M7).
 package agentloop
 

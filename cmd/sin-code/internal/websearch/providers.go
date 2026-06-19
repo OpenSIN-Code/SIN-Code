@@ -4,6 +4,7 @@
 //   - BraveProvider    — paid, gated by WEBSEARCH_BRAVE_KEY
 //   - DuckDuckGoProvider — keyless HTML scraping (instant answer / lite)
 //   - TavilyProvider   — AI search, gated by WEBSEARCH_TAVILY_KEY
+//
 // Each provider normalises its backend response into []Result. Scoring:
 // the first results rank higher (position-based score so the engine's
 // cross-provider merge can interleave meaningfully).

@@ -610,4 +610,3 @@ func (i *Input) filePickerView() string {
 	}
 	return b.String()
 }
-

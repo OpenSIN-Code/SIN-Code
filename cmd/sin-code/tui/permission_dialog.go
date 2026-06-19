@@ -7,12 +7,12 @@ import (
 )
 
 type PermissionDialogState struct {
-	Open       bool
-	ToolName   string
-	Detail     string
-	Diff       string
-	AllowKey   string
-	DenyKey    string
+	Open     bool
+	ToolName string
+	Detail   string
+	Diff     string
+	AllowKey string
+	DenyKey  string
 }
 
 func (m *Model) OpenPermissionDialog(toolName, detail, diff string) {

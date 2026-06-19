@@ -51,15 +51,15 @@ var ErrCostCeilingExceeded = errors.New("fusion: cost ceiling exceeded, tourname
 // ProviderConfig describes one tournament participant. Each profile
 // in profiles/*.toml maps to one ProviderConfig.
 type ProviderConfig struct {
-	Name          string  // profile name (e.g. "fireworks", "qwen-relay")
-	Model         string  // model slug
-	BaseURL       string  // LLM API endpoint
-	APIKey        string  // API key (from env or profile)
-	InputPer1M    float64 // USD per 1M input (prompt) tokens
-	OutputPer1M   float64 // USD per 1M output (completion) tokens
-	MaxTokens     int     // per-run token cap for this provider
-	Vision        bool    // supports image input
-	Thinking      bool    // supports reasoning/thinking mode
+	Name        string  // profile name (e.g. "fireworks", "qwen-relay")
+	Model       string  // model slug
+	BaseURL     string  // LLM API endpoint
+	APIKey      string  // API key (from env or profile)
+	InputPer1M  float64 // USD per 1M input (prompt) tokens
+	OutputPer1M float64 // USD per 1M output (completion) tokens
+	MaxTokens   int     // per-run token cap for this provider
+	Vision      bool    // supports image input
+	Thinking    bool    // supports reasoning/thinking mode
 }
 
 // RunFunc is the injected loop-runner. The tournament calls it once per
@@ -87,11 +87,11 @@ type Candidate struct {
 
 // Result is the tournament outcome.
 type Result struct {
-	Winner       *Candidate     `json:"winner,omitempty"`
-	Losers       []Candidate    `json:"losers,omitempty"`
-	AllFailed    bool           `json:"all_failed"`
-	TotalCostUSD float64        `json:"total_cost_usd"`
-	DurationMs   int64          `json:"duration_ms"`
+	Winner       *Candidate      `json:"winner,omitempty"`
+	Losers       []Candidate     `json:"losers,omitempty"`
+	AllFailed    bool            `json:"all_failed"`
+	TotalCostUSD float64         `json:"total_cost_usd"`
+	DurationMs   int64           `json:"duration_ms"`
 	Plans        []PlanCandidate `json:"plans,omitempty"`
 	MergedPlan   string          `json:"merged_plan,omitempty"`
 	Mode         Mode            `json:"mode,omitempty"`

@@ -59,12 +59,12 @@ func Classify(prompt string) ModeReason {
 
 // rule is the typed form of one classifier entry.
 type rule struct {
-	Name   string          // stable identifier (used in tests/golden)
-	Mode   permission.Mode // the mode the rule emits
-	Reason string          // a short human-readable explanation
-	Weight int             // higher wins; default 5 if unspecified
-	Phrases []string       // literal substring triggers (case-insensitive)
-	Regex  []*regexp.Regexp // regex triggers
+	Name    string           // stable identifier (used in tests/golden)
+	Mode    permission.Mode  // the mode the rule emits
+	Reason  string           // a short human-readable explanation
+	Weight  int              // higher wins; default 5 if unspecified
+	Phrases []string         // literal substring triggers (case-insensitive)
+	Regex   []*regexp.Regexp // regex triggers
 }
 
 func matchFirst(prompt string, r rule) (int, int) {

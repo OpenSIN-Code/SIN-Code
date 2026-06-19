@@ -18,12 +18,12 @@ import (
 
 // Schema is a minimal JSON-Schema (draft-07 subset) representation.
 type Schema struct {
-	Type          string             `json:"type,omitempty"`
-	Properties    map[string]*Schema `json:"properties,omitempty"`
-	Required      []string           `json:"required,omitempty"`
-	Items         *Schema            `json:"items,omitempty"`
-	AdditionalProps *Schema          `json:"additionalProperties,omitempty"`
-	Description   string             `json:"description,omitempty"`
+	Type            string             `json:"type,omitempty"`
+	Properties      map[string]*Schema `json:"properties,omitempty"`
+	Required        []string           `json:"required,omitempty"`
+	Items           *Schema            `json:"items,omitempty"`
+	AdditionalProps *Schema            `json:"additionalProperties,omitempty"`
+	Description     string             `json:"description,omitempty"`
 }
 
 // MarshalJSON serialises Schema with deterministic key ordering for the

@@ -3,11 +3,13 @@
 // config keys.
 //
 // Verifies:
-//   (a) Default values: disabled + 0 budget by default.
-//   (b) applyMap parses "true"/"1" and integer values for both keys.
-//   (c) configPairs emits both keys in the list.
-//   (d) getConfigValueFrom / setConfigValue roundtrip works for "true"/"4096".
-//   (e) Validate accepts 0 ≥ and rejects negative budgets.
+//
+//	(a) Default values: disabled + 0 budget by default.
+//	(b) applyMap parses "true"/"1" and integer values for both keys.
+//	(c) configPairs emits both keys in the list.
+//	(d) getConfigValueFrom / setConfigValue roundtrip works for "true"/"4096".
+//	(e) Validate accepts 0 ≥ and rejects negative budgets.
+//
 // Docs: cmd/sin-code/internal/config_thinking_test.go
 package internal
 

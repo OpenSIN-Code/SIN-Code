@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 // Purpose: CronScheduler — schedules todos based on cron expressions.
 // Supports a subset of standard 5-field cron syntax:
-//   minute hour day-of-month month day-of-week
+//
+//	minute hour day-of-month month day-of-week
+//
 // Supported patterns per field: * (any), */N (every N), specific number,
 // comma-list (1,3,5), range (0-5). Thread-safe (M7).
 package todo
@@ -18,10 +20,10 @@ import (
 // ScheduledTodo pairs a todo ID with a cron expression and computed
 // next/last run times.
 type ScheduledTodo struct {
-	TodoID   string    `json:"todo_id"`
-	Cron     string    `json:"cron"`
-	NextRun  time.Time `json:"next_run"`
-	LastRun  time.Time `json:"last_run"`
+	TodoID  string    `json:"todo_id"`
+	Cron    string    `json:"cron"`
+	NextRun time.Time `json:"next_run"`
+	LastRun time.Time `json:"last_run"`
 }
 
 // CronScheduler schedules todos based on cron expressions. It is
@@ -174,11 +176,11 @@ type cronSchedule struct {
 
 // cronRanges defines the min/max for each cron field.
 var cronRanges = [5][2]int{
-	{0, 59},  // minute
-	{0, 23},  // hour
-	{1, 31},  // day of month
-	{1, 12},  // month
-	{0, 6},   // day of week (0=Sun)
+	{0, 59}, // minute
+	{0, 23}, // hour
+	{1, 31}, // day of month
+	{1, 12}, // month
+	{0, 6},  // day of week (0=Sun)
 }
 
 func parseCronFields(fields []string) (*cronSchedule, error) {

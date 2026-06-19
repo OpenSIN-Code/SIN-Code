@@ -97,8 +97,8 @@ func NewRewindCmd() *cobra.Command {
 func dirtyPaths(workspace string) ([]string, error) {
 	var paths []string
 	skip := map[string]bool{
-		".sin-code": true,
-		".git":      true,
+		".sin-code":    true,
+		".git":         true,
 		"node_modules": true,
 	}
 	err := filepath.Walk(workspace, func(path string, info os.FileInfo, err error) error {

@@ -63,10 +63,10 @@ func (e ErrDuplicateRule) Error() string {
 // workspace directory. Constructed via New; Load triggers the
 // from-disk parse.
 type Store struct {
-	mu    sync.RWMutex
-	dir   string
-	rules []Rule               // sorted by name for determinism
-	byName map[string]int       // name → index in `rules`
+	mu     sync.RWMutex
+	dir    string
+	rules  []Rule         // sorted by name for determinism
+	byName map[string]int // name → index in `rules`
 	loaded bool
 }
 

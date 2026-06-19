@@ -27,7 +27,7 @@ func (m *mockProvider) Run(ctx context.Context, prompt string) (BenchmarkResult,
 
 type failProvider struct{ name string }
 
-func (f *failProvider) Name() string                                   { return f.name }
+func (f *failProvider) Name() string { return f.name }
 func (f *failProvider) Run(ctx context.Context, prompt string) (BenchmarkResult, error) {
 	return BenchmarkResult{Passed: false, Error: "fail"}, nil
 }

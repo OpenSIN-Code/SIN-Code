@@ -310,11 +310,11 @@ func (s *Store) ToolUsageByPeriod(ctx context.Context, period string, since, unt
 
 // LatencyRecord is one latency measurement for a tool call.
 type LatencyRecord struct {
-	ToolName   string        `json:"tool_name"`
-	DurationMs int64         `json:"duration_ms"`
-	Outcome    UsageOutcome  `json:"outcome"`
-	SessionID  string        `json:"session_id"`
-	CreatedAt  time.Time     `json:"created_at"`
+	ToolName   string       `json:"tool_name"`
+	DurationMs int64        `json:"duration_ms"`
+	Outcome    UsageOutcome `json:"outcome"`
+	SessionID  string       `json:"session_id"`
+	CreatedAt  time.Time    `json:"created_at"`
 }
 
 // AvgLatency is the average latency and count for a tool.

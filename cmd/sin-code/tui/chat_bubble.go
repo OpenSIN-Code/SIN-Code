@@ -23,12 +23,12 @@ type chatBubbleStyles struct {
 func newChatBubbleStyles(styles Styles) chatBubbleStyles {
 	t := styles.Theme
 	return chatBubbleStyles{
-	user: lipgloss.NewStyle().
-		Foreground(c(t.Background)).
-		Background(c(t.Accent)).
-		Bold(true).
-		Padding(0, 2).
-		Border(lipgloss.RoundedBorder()),
+		user: lipgloss.NewStyle().
+			Foreground(c(t.Background)).
+			Background(c(t.Accent)).
+			Bold(true).
+			Padding(0, 2).
+			Border(lipgloss.RoundedBorder()),
 
 		assistant: lipgloss.NewStyle().
 			Foreground(c(t.Text)).
@@ -323,7 +323,7 @@ func renderErrorBubble(msg ChatMessage, styles Styles, width int) string {
 
 	if !msg.Expanded {
 		short := truncateString(errText, bodyWidth-4)
-		return style.Render("❌ " + short) + "\n"
+		return style.Render("❌ "+short) + "\n"
 	}
 
 	body := style.Render(errText) + "\n" + styles.Muted.Render("  Press enter to collapse")

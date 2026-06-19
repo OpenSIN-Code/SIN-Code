@@ -349,7 +349,7 @@ func TestFooterStatusLine(t *testing.T) {
 	f.ModelName = "Opus 4.8"
 	f.Tokens = 12400
 	f.Cost = "$0.08"
-	f.Duration = 23 * time.Minute + 14 * time.Second
+	f.Duration = 23*time.Minute + 14*time.Second
 	f.Provider = "Anthropic"
 
 	styles := NewStyles(Themes[0])
@@ -377,7 +377,7 @@ func TestFooterCompactMode(t *testing.T) {
 	f.ModelName = "Sonnet"
 	f.Tokens = 1500
 	f.Cost = "$0.04"
-	f.Duration = 3 * time.Minute + 12 * time.Second
+	f.Duration = 3*time.Minute + 12*time.Second
 
 	styles := NewStyles(Themes[0])
 	f.SetCompact(true)

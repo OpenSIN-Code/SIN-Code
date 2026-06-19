@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"charm.land/lipgloss/v2"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 type helpEntry struct {

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Purpose: `sin-code cover` — Coverage-Drohne entry point.
 // Subcommands:
-//   cover scan       # package coverage table
-//   cover check      # CI gate with --min
-//   cover gaps       # uncovered functions/blocks
-//   cover generate   # AI test-generation request JSON
+//
+//	cover scan       # package coverage table
+//	cover check      # CI gate with --min
+//	cover gaps       # uncovered functions/blocks
+//	cover generate   # AI test-generation request JSON
 //
 // Driver logic lives in cmd/sin-code/internal/coverdrohne.
 // Docs: cover_cmd.doc.md

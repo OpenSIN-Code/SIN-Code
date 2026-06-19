@@ -87,12 +87,12 @@ func TestAnalyseWildcardMatch(t *testing.T) {
 func TestAnalyseNonMatchingTool(t *testing.T) {
 	nonMatching := []string{
 		"notanalyse__x",
-		"analyse_other",      // missing double underscore separator
-		"foo_analyse__bar",   // analyse__ not at the start
-		"analyse",            // bare prefix, no separator
-		"pre_analyse__post",  // analyse__ embedded mid-string
-		"ANALYZE__X",         // wrong separator characters
-		"analyse__/x",        // slash is path.Match separator — excluded
+		"analyse_other",     // missing double underscore separator
+		"foo_analyse__bar",  // analyse__ not at the start
+		"analyse",           // bare prefix, no separator
+		"pre_analyse__post", // analyse__ embedded mid-string
+		"ANALYZE__X",        // wrong separator characters
+		"analyse__/x",       // slash is path.Match separator — excluded
 	}
 	for _, tool := range nonMatching {
 		ok, err := path.Match(strings.ToLower("analyse__*"), strings.ToLower(tool))

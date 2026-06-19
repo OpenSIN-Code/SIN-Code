@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
 )
 
 func RenderSessionSwitcher(state SessionSwitcherState, tabs Tabs, styles Styles, width, height int) string {
@@ -50,17 +50,17 @@ func RenderSessionSwitcher(state SessionSwitcherState, tabs Tabs, styles Styles,
 
 	for displayIdx, sessIdx := range state.Indices[start:end] {
 		sess := tabs.Sessions[sessIdx]
-		
+
 		marker := " "
 		if sess.Dirty {
 			marker = "●"
 		}
-		
+
 		name := sess.Name
 		if len(name) > 30 {
 			name = name[:27] + "..."
 		}
-		
+
 		preview := sess.Preview
 		if len(preview) > 40 {
 			preview = preview[:37] + "..."
@@ -68,9 +68,9 @@ func RenderSessionSwitcher(state SessionSwitcherState, tabs Tabs, styles Styles,
 		if preview == "" {
 			preview = "(empty session)"
 		}
-		
+
 		line := fmt.Sprintf("  %s  %-30s  %s", marker, name, preview)
-		
+
 		if displayIdx+start == state.Sel {
 			b.WriteString(styles.SidebarSel.Render(padRight(line, width-4)))
 		} else {
@@ -112,7 +112,7 @@ func (m *Model) SessionSwitcherNavigate(direction int) {
 	if len(m.SessionSwitcher.Indices) == 0 {
 		return
 	}
-	
+
 	m.SessionSwitcher.Sel += direction
 	if m.SessionSwitcher.Sel < 0 {
 		m.SessionSwitcher.Sel = len(m.SessionSwitcher.Indices) - 1
@@ -147,22 +147,22 @@ func (m *Model) SessionSwitcherSelect() {
 
 func (m *Model) SessionSwitcherFilter(query string) {
 	m.SessionSwitcher.Query = query
-	
+
 	if query == "" {
 		m.SessionSwitcher.Indices = m.Tabs.SortedByRecency()
 		m.SessionSwitcher.Sel = 0
 		return
 	}
-	
+
 	var filtered []int
 	queryLower := strings.ToLower(query)
 	for i, sess := range m.Tabs.Sessions {
 		if strings.Contains(strings.ToLower(sess.Name), queryLower) ||
-		   strings.Contains(strings.ToLower(sess.Preview), queryLower) {
+			strings.Contains(strings.ToLower(sess.Preview), queryLower) {
 			filtered = append(filtered, i)
 		}
 	}
-	
+
 	m.SessionSwitcher.Indices = filtered
 	m.SessionSwitcher.Sel = 0
 }

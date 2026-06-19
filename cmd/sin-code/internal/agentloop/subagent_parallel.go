@@ -18,10 +18,10 @@ import (
 // can detect partial failures without losing the results of successful
 // siblings.
 type SubagentParallelResult struct {
-	Index  int                `json:"index"`
-	Goal   string             `json:"goal"`
-	Result *SubagentResult    `json:"result,omitempty"`
-	Err    error              `json:"error,omitempty"`
+	Index  int             `json:"index"`
+	Goal   string          `json:"goal"`
+	Result *SubagentResult `json:"result,omitempty"`
+	Err    error           `json:"error,omitempty"`
 }
 
 // SpawnSubagentsParallel runs N sub-agents concurrently, each in its own
@@ -98,24 +98,24 @@ func (l *Loop) runOneSubagent(ctx context.Context, sub *session.Session, req Sub
 		Goal:  req.Goal,
 	}
 	child := &Loop{
-		Gate:           l.Gate,
-		LocalTool:      l.LocalTool,
-		LocalSpec:      l.LocalSpec,
-		Workspace:      l.Workspace,
-		MaxTurns:       firstNonZero(req.MaxTurns, l.MaxTurns),
-		MaxTokens:      firstNonZero(req.MaxTokens, l.MaxTokens),
-		SessionID:      sub.ID,
-		Completion:     l.Completion,
-		Hooks:          l.Hooks,
-		Perm:           l.Perm,
-		Ask:            l.Ask,
-		Lessons:        l.Lessons,
-		StopGate:       l.StopGate,
-		MaxStopRejects: l.MaxStopRejects,
-		StallThreshold: l.StallThreshold,
-		Reflector:      l.Reflector,
-		Ledger:         l.Ledger,
-		Coverage:       l.Coverage,
+		Gate:                   l.Gate,
+		LocalTool:              l.LocalTool,
+		LocalSpec:              l.LocalSpec,
+		Workspace:              l.Workspace,
+		MaxTurns:               firstNonZero(req.MaxTurns, l.MaxTurns),
+		MaxTokens:              firstNonZero(req.MaxTokens, l.MaxTokens),
+		SessionID:              sub.ID,
+		Completion:             l.Completion,
+		Hooks:                  l.Hooks,
+		Perm:                   l.Perm,
+		Ask:                    l.Ask,
+		Lessons:                l.Lessons,
+		StopGate:               l.StopGate,
+		MaxStopRejects:         l.MaxStopRejects,
+		StallThreshold:         l.StallThreshold,
+		Reflector:              l.Reflector,
+		Ledger:                 l.Ledger,
+		Coverage:               l.Coverage,
 		CoverageRequiredTools:  l.CoverageRequiredTools,
 		CoverageForbiddenTools: l.CoverageForbiddenTools,
 		// NOTE: deliberately NOT inheriting RunOverride — same as

@@ -9,13 +9,13 @@ import (
 )
 
 type ModelInfo struct {
-	ID          string
-	Name        string
-	Provider    string
-	Latency     float64
-	CostPer1K   float64
+	ID           string
+	Name         string
+	Provider     string
+	Latency      float64
+	CostPer1K    float64
 	QualityScore float64
-	Description string
+	Description  string
 }
 
 type ModelSelectorState struct {
@@ -116,23 +116,23 @@ func RenderModelSelector(state ModelSelectorState, styles Styles, width, height 
 
 	for displayIdx, modelIdx := range state.Indices[start:end] {
 		model := state.Models[modelIdx]
-		
+
 		name := model.Name
 		if len(name) > 25 {
 			name = name[:22] + "..."
 		}
-		
+
 		latencyStr := fmt.Sprintf("%.1fs", model.Latency)
 		costStr := fmt.Sprintf("$%.3f", model.CostPer1K)
 		qualityStr := fmt.Sprintf("%.0f%%", model.QualityScore*100)
-		
+
 		marker := " "
 		if model.ID == state.CurrentID {
 			marker = "✓"
 		}
-		
+
 		line := fmt.Sprintf("  %s %-25s  %8s  %6s  %5s", marker, name, latencyStr, costStr, qualityStr)
-		
+
 		if displayIdx+start == state.Sel {
 			b.WriteString(styles.SidebarSel.Render(padRight(line, width-4)))
 		} else {
@@ -170,14 +170,14 @@ func (m *Model) OpenModelSelector() {
 	for i := range DefaultModels {
 		m.ModelSelector.Indices[i] = i
 	}
-	
+
 	for _, entry := range m.Config {
 		if entry.Key == "llm.model" {
 			m.ModelSelector.CurrentID = entry.Value
 			break
 		}
 	}
-	
+
 	m.Mode = ModeModelSelector
 }
 
@@ -192,7 +192,7 @@ func (m *Model) ModelSelectorNavigate(direction int) {
 	if len(m.ModelSelector.Indices) == 0 {
 		return
 	}
-	
+
 	m.ModelSelector.Sel += direction
 	if m.ModelSelector.Sel < 0 {
 		m.ModelSelector.Sel = len(m.ModelSelector.Indices) - 1
@@ -238,7 +238,7 @@ func (m *Model) ModelSelectorSelect() {
 
 func (m *Model) ModelSelectorFilter(query string) {
 	m.ModelSelector.Query = query
-	
+
 	if query == "" {
 		m.ModelSelector.Indices = make([]int, len(m.ModelSelector.Models))
 		for i := range m.ModelSelector.Models {
@@ -247,17 +247,17 @@ func (m *Model) ModelSelectorFilter(query string) {
 		m.ModelSelector.Sel = 0
 		return
 	}
-	
+
 	var filtered []int
 	queryLower := strings.ToLower(query)
 	for i, model := range m.ModelSelector.Models {
 		if strings.Contains(strings.ToLower(model.Name), queryLower) ||
-		   strings.Contains(strings.ToLower(model.Provider), queryLower) ||
-		   strings.Contains(strings.ToLower(model.Description), queryLower) {
+			strings.Contains(strings.ToLower(model.Provider), queryLower) ||
+			strings.Contains(strings.ToLower(model.Description), queryLower) {
 			filtered = append(filtered, i)
 		}
 	}
-	
+
 	m.ModelSelector.Indices = filtered
 	m.ModelSelector.Sel = 0
 }

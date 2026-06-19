@@ -88,12 +88,12 @@ func TestConfig_CompactionParseCompactionTrigger(t *testing.T) {
 func TestConfig_CompactionApplyMap(t *testing.T) {
 	cfg := defaultConfig()
 	applyMap(&cfg, map[string]string{
-		"agentloop.context_compaction":      "deterministic",
-		"agentloop.compaction_trigger":      "both",
-		"agentloop.compaction_max_tokens":   "4096",
-		"agentloop.context_window":          "16384",
+		"agentloop.context_compaction":           "deterministic",
+		"agentloop.compaction_trigger":           "both",
+		"agentloop.compaction_max_tokens":        "4096",
+		"agentloop.context_window":               "16384",
 		"agentloop.compaction_preserve_evidence": "false",
-		"agentloop.compaction_recent_turns": "8",
+		"agentloop.compaction_recent_turns":      "8",
 	})
 	if cfg.AgentLoopContextCompaction != "deterministic" {
 		t.Errorf("ContextCompaction = %q, want deterministic", cfg.AgentLoopContextCompaction)

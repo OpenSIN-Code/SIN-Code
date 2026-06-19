@@ -130,8 +130,8 @@ func TestRenderVerifyPanelBlocked(t *testing.T) {
 
 func TestRenderVerifyPanelEvidenceTruncation(t *testing.T) {
 	panel := VerifyPanel{
-		State: VerifyPassed,
-		Mode:  "poc",
+		State:    VerifyPassed,
+		Mode:     "poc",
 		Evidence: "line1\nline2\nline3\nline4\nline5",
 	}
 	out := RenderVerifyPanel(panel, testStyles(), 80)

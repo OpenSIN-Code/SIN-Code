@@ -277,8 +277,8 @@ type nonPreWarmerAgent struct {
 	cfg AgentConfig
 }
 
-func (n *nonPreWarmerAgent) Name() string                                        { return n.cfg.Name }
-func (n *nonPreWarmerAgent) Config() AgentConfig                                 { return n.cfg }
+func (n *nonPreWarmerAgent) Name() string        { return n.cfg.Name }
+func (n *nonPreWarmerAgent) Config() AgentConfig { return n.cfg }
 func (n *nonPreWarmerAgent) Run(ctx context.Context, task *Task, s *Scratchpad) (string, error) {
 	return "ok", nil
 }

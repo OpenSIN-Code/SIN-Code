@@ -50,12 +50,12 @@ type Item struct {
 type jsFunc string
 
 type gradient struct {
-	Type       string        `json:"type"`
-	X          int           `json:"x"`
-	Y          int           `json:"y"`
-	X2         int           `json:"x2"`
-	Y2         int           `json:"y2"`
-	ColorStops []colorStop   `json:"colorStops"`
+	Type       string      `json:"type"`
+	X          int         `json:"x"`
+	Y          int         `json:"y"`
+	X2         int         `json:"x2"`
+	Y2         int         `json:"y2"`
+	ColorStops []colorStop `json:"colorStops"`
 }
 
 type colorStop struct {
@@ -191,10 +191,10 @@ func baseOption(spec ChartSpec) map[string]interface{} {
 			},
 		},
 		"legend": map[string]interface{}{
-			"show":   true,
-			"top":    "13%",
-			"right":  "5%",
-			"icon":   "circle",
+			"show":       true,
+			"top":        "13%",
+			"right":      "5%",
+			"icon":       "circle",
 			"itemWidth":  10,
 			"itemHeight": 10,
 			"itemGap":    20,
@@ -205,24 +205,24 @@ func baseOption(spec ChartSpec) map[string]interface{} {
 			},
 		},
 		"toolbox": map[string]interface{}{
-			"show":    true,
-			"right":   "3%",
-			"top":     "5%",
+			"show":  true,
+			"right": "3%",
+			"top":   "5%",
 			"feature": map[string]interface{}{
 				"saveAsImage": map[string]interface{}{
-					"name":           spec.Title,
+					"name":            spec.Title,
 					"backgroundColor": bgColor,
-					"pixelRatio":     2,
+					"pixelRatio":      2,
 				},
-				"restore":   map[string]interface{}{},
-				"dataView":  map[string]interface{}{"readOnly": true},
+				"restore":  map[string]interface{}{},
+				"dataView": map[string]interface{}{"readOnly": true},
 			},
 			"iconStyle": map[string]interface{}{
 				"borderColor": textMuted,
 			},
 		},
-		"animation":        true,
-		"animationEasing":  "cubicOut",
+		"animation":         true,
+		"animationEasing":   "cubicOut",
 		"animationDuration": 1200,
 	}
 
@@ -268,8 +268,8 @@ func axisOpts(spec ChartSpec) (map[string]interface{}, map[string]interface{}) {
 		"splitLine": map[string]interface{}{
 			"show": true,
 			"lineStyle": map[string]interface{}{
-				"color":     gridClr,
-				"type":      "dashed",
+				"color":      gridClr,
+				"type":       "dashed",
 				"dashOffset": 5,
 			},
 		},
@@ -309,10 +309,10 @@ func renderBar(spec ChartSpec, outputPath string) error {
 	opt["xAxis"] = x
 	opt["yAxis"] = y
 	opt["grid"] = map[string]interface{}{
-		"top":         "22%",
-		"bottom":      "12%",
-		"left":        "8%",
-		"right":       "5%",
+		"top":          "22%",
+		"bottom":       "12%",
+		"left":         "8%",
+		"right":        "5%",
 		"containLabel": true,
 	}
 
@@ -324,21 +324,21 @@ func renderBar(spec ChartSpec, outputPath string) error {
 			data[j] = map[string]interface{}{
 				"value": v,
 				"itemStyle": map[string]interface{}{
-					"color":           vGradient(p[0], p[1]),
-					"borderRadius":    []int{8, 8, 0, 0},
-					"shadowBlur":      12,
-					"shadowColor":     fmt.Sprintf("rgba(%s,0.25)", p[2]),
-					"shadowOffsetY":   4,
+					"color":         vGradient(p[0], p[1]),
+					"borderRadius":  []int{8, 8, 0, 0},
+					"shadowBlur":    12,
+					"shadowColor":   fmt.Sprintf("rgba(%s,0.25)", p[2]),
+					"shadowOffsetY": 4,
 				},
 			}
 		}
 
 		seriesList[i] = map[string]interface{}{
-			"name":      s.Name,
-			"type":      "bar",
-			"data":      data,
-			"barWidth":  "45%",
-			"barGap":    "15%",
+			"name":     s.Name,
+			"type":     "bar",
+			"data":     data,
+			"barWidth": "45%",
+			"barGap":   "15%",
 			"emphasis": map[string]interface{}{
 				"focus": "series",
 				"itemStyle": map[string]interface{}{
@@ -347,15 +347,15 @@ func renderBar(spec ChartSpec, outputPath string) error {
 				},
 			},
 			"label": map[string]interface{}{
-				"show":     true,
-				"position": "top",
-				"color":    textSecondary,
-				"fontSize": 11,
+				"show":       true,
+				"position":   "top",
+				"color":      textSecondary,
+				"fontSize":   11,
 				"fontFamily": "Inter, sans-serif",
 			},
-			"animationDelay":     fmt.Sprintf("@JS@function(idx){return idx*80+%d;}@JS@", i*200),
-			"animationDuration":  800,
-			"animationEasing":    "elasticOut",
+			"animationDelay":    fmt.Sprintf("@JS@function(idx){return idx*80+%d;}@JS@", i*200),
+			"animationDuration": 800,
+			"animationEasing":   "elasticOut",
 		}
 	}
 	opt["series"] = seriesList
@@ -369,9 +369,9 @@ func renderLine(spec ChartSpec, outputPath string, area bool) error {
 	opt["tooltip"].(map[string]interface{})["axisPointer"] = map[string]interface{}{
 		"type": "cross",
 		"crossStyle": map[string]interface{}{
-			"color":    borderClr,
-			"width":    1,
-			"type":     "dashed",
+			"color": borderClr,
+			"width": 1,
+			"type":  "dashed",
 		},
 		"label": map[string]interface{}{
 			"backgroundColor": cardBg,
@@ -386,7 +386,7 @@ func renderLine(spec ChartSpec, outputPath string, area bool) error {
 		"bottom":       "12%",
 		"left":         "8%",
 		"right":        "5%",
-		"containLabel":  true,
+		"containLabel": true,
 	}
 
 	areaOpacity := 0.0
@@ -401,27 +401,27 @@ func renderLine(spec ChartSpec, outputPath string, area bool) error {
 		copy(data, s.Values)
 
 		itemStyle := map[string]interface{}{
-			"color":      vGradient(p[0], p[1]),
-			"shadowBlur": 8,
+			"color":       vGradient(p[0], p[1]),
+			"shadowBlur":  8,
 			"shadowColor": fmt.Sprintf("rgba(%s,0.3)", p[2]),
 		}
 
 		seriesEntry := map[string]interface{}{
-			"name":       s.Name,
-			"type":       "line",
-			"data":       data,
-			"smooth":     true,
+			"name":           s.Name,
+			"type":           "line",
+			"data":           data,
+			"smooth":         true,
 			"smoothMonotone": "x",
-			"showSymbol": false,
-			"symbol":     "circle",
-			"symbolSize": 8,
+			"showSymbol":     false,
+			"symbol":         "circle",
+			"symbolSize":     8,
 			"lineStyle": map[string]interface{}{
-				"width":  3,
-				"color":  hGradient(p[0], p[1]),
+				"width":       3,
+				"color":       hGradient(p[0], p[1]),
 				"shadowBlur":  6,
 				"shadowColor": fmt.Sprintf("rgba(%s,0.3)", p[2]),
 			},
-			"itemStyle":  itemStyle,
+			"itemStyle": itemStyle,
 			"emphasis": map[string]interface{}{
 				"focus": "series",
 				"scale": 1.5,
@@ -433,9 +433,9 @@ func renderLine(spec ChartSpec, outputPath string, area bool) error {
 
 		if area {
 			seriesEntry["areaStyle"] = map[string]interface{}{
-				"color":    areaGradient(p[2]),
-				"opacity":  areaOpacity,
-				"shadowBlur": 20,
+				"color":       areaGradient(p[2]),
+				"opacity":     areaOpacity,
+				"shadowBlur":  20,
 				"shadowColor": fmt.Sprintf("rgba(%s,0.15)", p[2]),
 			}
 		} else {
@@ -497,34 +497,34 @@ func renderPie(spec ChartSpec, outputPath string) error {
 			"data":     data,
 			"roseType": "radius",
 			"label": map[string]interface{}{
-				"show":      true,
-				"formatter": "{b}\n{d}%",
-				"color":     axisLabelClr,
-				"fontSize":  13,
+				"show":       true,
+				"formatter":  "{b}\n{d}%",
+				"color":      axisLabelClr,
+				"fontSize":   13,
 				"fontFamily": "Inter, sans-serif",
 				"lineHeight": 18,
 			},
 			"labelLine": map[string]interface{}{
-				"show":     true,
-				"length":   15,
-				"length2":  20,
-				"smooth":   true,
+				"show":    true,
+				"length":  15,
+				"length2": 20,
+				"smooth":  true,
 				"lineStyle": map[string]interface{}{
 					"color": borderClr,
 					"width": 1,
 				},
 			},
 			"emphasis": map[string]interface{}{
-				"scaleSize":  10,
+				"scaleSize": 10,
 				"itemStyle": map[string]interface{}{
 					"shadowBlur":  40,
 					"shadowColor": "rgba(0,0,0,0.5)",
 				},
 				"label": map[string]interface{}{
-					"show":      true,
-					"fontSize":  15,
+					"show":       true,
+					"fontSize":   15,
 					"fontWeight": "bold",
-					"color":     textPrimary,
+					"color":      textPrimary,
 				},
 			},
 			"animationDuration": 1200,

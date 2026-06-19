@@ -225,8 +225,8 @@ func TestRulesListCmd_MultipleKinds(t *testing.T) {
 		t.Fatal(err)
 	}
 	files := map[string]string{
-		"always.md": "---\nname: always-rule\nalways_on: true\n---\nAlways.",
-		"scoped.md": "---\nname: scoped-rule\npaths:\n  - '*.go'\n---\nScoped.",
+		"always.md":   "---\nname: always-rule\nalways_on: true\n---\nAlways.",
+		"scoped.md":   "---\nname: scoped-rule\npaths:\n  - '*.go'\n---\nScoped.",
 		"unscoped.md": "---\nname: unscoped-rule\n---\nUnscoped.",
 	}
 	for name, body := range files {

@@ -23,10 +23,10 @@ type MessageType int
 
 const (
 	MsgHandoff  MessageType = iota + 1 // task delegation between sessions
-	MsgQuery                            // request for information
-	MsgResponse                         // reply to a Query
-	MsgConflict                         // resource conflict between sessions
-	MsgStatus                           // status update / progress report
+	MsgQuery                           // request for information
+	MsgResponse                        // reply to a Query
+	MsgConflict                        // resource conflict between sessions
+	MsgStatus                          // status update / progress report
 )
 
 // String returns the human-readable name of the message type.
@@ -60,8 +60,8 @@ type Conflict struct {
 // MessageBus provides typed messaging between agent sessions on top of
 // a file-locked Mailbox. The bus is safe for concurrent use (M7).
 type MessageBus struct {
-	mailbox *Mailbox
-	mu      sync.RWMutex // guards conflicts index
+	mailbox   *Mailbox
+	mu        sync.RWMutex // guards conflicts index
 	conflicts map[string]Conflict
 }
 

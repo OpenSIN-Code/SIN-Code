@@ -38,29 +38,29 @@ type autoPilot interface {
 // autoHookVars holds injectable dependencies for the auto subcommand. Coverage
 // tests replace these fields to avoid real I/O or network calls.
 var autoHookVars = struct {
-	osStat            func(string) (os.FileInfo, error)
-	osWriteFile       func(string, []byte, os.FileMode) error
-	osGetwd           func() (string, error)
-	loadProgram       func(string) (*autopilot.Program, error)
+	osStat             func(string) (os.FileInfo, error)
+	osWriteFile        func(string, []byte, os.FileMode) error
+	osGetwd            func() (string, error)
+	loadProgram        func(string) (*autopilot.Program, error)
 	defaultJournalPath func(string) string
-	openJournal       func(string) (*autopilot.Journal, error)
+	openJournal        func(string) (*autopilot.Journal, error)
 	defaultSessionPath func() string
-	openSession       func(string) (*session.Store, error)
-	openLessons       func(string) (*lessons.Store, error)
-	buildLoop         func(ctx context.Context, cfg loopbuilder.Config, ls *lessons.Store) (autoLoop, func() error, error)
-	newPilot          func(cfg autopilot.Config) autoPilot
-	newBudget         func(minutes, maxExperiments int) *autopilot.Budget
-	newSnapshotter    func(string) *autopilot.Snapshotter
+	openSession        func(string) (*session.Store, error)
+	openLessons        func(string) (*lessons.Store, error)
+	buildLoop          func(ctx context.Context, cfg loopbuilder.Config, ls *lessons.Store) (autoLoop, func() error, error)
+	newPilot           func(cfg autopilot.Config) autoPilot
+	newBudget          func(minutes, maxExperiments int) *autopilot.Budget
+	newSnapshotter     func(string) *autopilot.Snapshotter
 }{
-	osStat:            os.Stat,
-	osWriteFile:       os.WriteFile,
-	osGetwd:           os.Getwd,
-	loadProgram:       autopilot.LoadProgram,
+	osStat:             os.Stat,
+	osWriteFile:        os.WriteFile,
+	osGetwd:            os.Getwd,
+	loadProgram:        autopilot.LoadProgram,
 	defaultJournalPath: autopilot.DefaultJournalPath,
-	openJournal:       autopilot.OpenJournal,
+	openJournal:        autopilot.OpenJournal,
 	defaultSessionPath: session.DefaultPath,
-	openSession:       session.Open,
-	openLessons:       lessons.Open,
+	openSession:        session.Open,
+	openLessons:        lessons.Open,
 	buildLoop: func(ctx context.Context, cfg loopbuilder.Config, ls *lessons.Store) (autoLoop, func() error, error) {
 		loop, cleanup, err := loopbuilder.Build(ctx, cfg, ls)
 		if err != nil {
@@ -177,19 +177,19 @@ func newAutoRunCmd() *cobra.Command {
 				if err != nil {
 					return autopilot.LoopResult{}, "", err
 				}
-			loop, cleanup, err := autoHookVars.buildLoop(ctx, loopbuilder.Config{
-				Workspace:    workspace,
-				SessionID:    sess.ID,
-				MaxTurns:     maxTurns,
-				VerifyMode:   "poc",
-				VerifyCmd:    verifyCmd,
-				Headless:     true,
-				Contract:     autoContract,
-				SessionStore: sessStore,
-				ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
-					return combinedTool(workspace, mgr), combinedSpecs(mgr)
-				},
-			}, lessonStore)
+				loop, cleanup, err := autoHookVars.buildLoop(ctx, loopbuilder.Config{
+					Workspace:    workspace,
+					SessionID:    sess.ID,
+					MaxTurns:     maxTurns,
+					VerifyMode:   "poc",
+					VerifyCmd:    verifyCmd,
+					Headless:     true,
+					Contract:     autoContract,
+					SessionStore: sessStore,
+					ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
+						return combinedTool(workspace, mgr), combinedSpecs(mgr)
+					},
+				}, lessonStore)
 				if err != nil {
 					return autopilot.LoopResult{}, "", err
 				}

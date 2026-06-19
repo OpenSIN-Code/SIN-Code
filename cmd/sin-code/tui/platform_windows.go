@@ -19,9 +19,9 @@ var (
 
 const (
 	enableVirtualTerminalProcessing uint32 = 0x0004
-	ctrlCEvent                       uint32 = 0
-	ctrlBreakEvent                   uint32 = 1
-	ctrlCloseEvent                   uint32 = 2
+	ctrlCEvent                      uint32 = 0
+	ctrlBreakEvent                  uint32 = 1
+	ctrlCloseEvent                  uint32 = 2
 )
 
 var (

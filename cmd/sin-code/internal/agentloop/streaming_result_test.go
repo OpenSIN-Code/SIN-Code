@@ -140,7 +140,7 @@ func TestStreaming_ConcurrentWrites(t *testing.T) {
 		wg.Add(1)
 		go func(n int) {
 			defer wg.Done()
-			_, _ = h.Write([]byte(string(rune('A'+n))))
+			_, _ = h.Write([]byte(string(rune('A' + n))))
 		}(i)
 	}
 	wg.Wait()

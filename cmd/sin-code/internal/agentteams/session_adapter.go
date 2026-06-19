@@ -28,10 +28,10 @@ type NormalizedMessage struct {
 
 // NormalizedSession is the harness-agnostic session representation.
 type NormalizedSession struct {
-	ID       string             `json:"id"`
-	Harness  string             `json:"harness"`
-	Title    string             `json:"title,omitempty"`
-	Created  time.Time          `json:"created,omitempty"`
+	ID       string              `json:"id"`
+	Harness  string              `json:"harness"`
+	Title    string              `json:"title,omitempty"`
+	Created  time.Time           `json:"created,omitempty"`
 	Messages []NormalizedMessage `json:"messages"`
 }
 

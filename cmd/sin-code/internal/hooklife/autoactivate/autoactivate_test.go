@@ -655,10 +655,10 @@ func TestRaceMultipleSessionsIndependent(t *testing.T) {
 					return
 				}
 				if !st.AutoOn {
-			t.Errorf("AutoOn lost mid-race: %s", sid)
+					t.Errorf("AutoOn lost mid-race: %s", sid)
+				}
 			}
-		}
-	}(g)
+		}(g)
 	}
 	wg.Wait()
 }
@@ -845,4 +845,3 @@ func TestStripSectionEmptyName(t *testing.T) {
 		t.Errorf("stripSection should reject empty name")
 	}
 }
-

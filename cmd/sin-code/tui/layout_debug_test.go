@@ -164,4 +164,3 @@ func TestGoldenRulePadContentExact(t *testing.T) {
 		}
 	}
 }
-

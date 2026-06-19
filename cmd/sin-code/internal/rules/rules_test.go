@@ -95,9 +95,9 @@ Always body.
 
 func TestGlobMatching(t *testing.T) {
 	cases := []struct {
-		glob  string
-		path  string
-		want  bool
+		glob string
+		path string
+		want bool
 	}{
 		{`cmd/sin-code/internal/agentloop/**`, `/Users/x/cmd/sin-code/internal/agentloop/loop.go`, true},
 		{`cmd/sin-code/internal/agentloop/**`, `/Users/x/cmd/sin-code/internal/orchestrator/x.go`, false},

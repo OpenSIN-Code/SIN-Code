@@ -337,8 +337,6 @@ func stripANSI(s string) string {
 	return b.String()
 }
 
-
-
 func (s *ChatSearch) RenderBar(styles Styles) string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

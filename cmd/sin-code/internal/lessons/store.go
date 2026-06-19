@@ -149,7 +149,7 @@ func (s *Store) rebuildIndex() error {
 	defer rows.Close()
 	type row struct {
 		id, typ, ws, ctx, lesson string
-		occurrences                int
+		occurrences              int
 	}
 	var entries []row
 	for rows.Next() {

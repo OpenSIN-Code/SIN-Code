@@ -30,11 +30,11 @@ type VectorIndex struct {
 	dim       int
 	nClusters int
 
-	mu       sync.RWMutex
+	mu        sync.RWMutex
 	centroids [][]float32
-	entries  map[int][]ivfEntry // cluster-id -> entries
-	idToVec  map[string][]float32
-	built    bool
+	entries   map[int][]ivfEntry // cluster-id -> entries
+	idToVec   map[string][]float32
+	built     bool
 }
 
 // NewVectorIndex creates a new IVF-flat index for dim-dimensional vectors

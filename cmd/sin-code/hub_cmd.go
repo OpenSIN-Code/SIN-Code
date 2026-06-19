@@ -99,7 +99,6 @@ func runHubUnused(c *cobra.Command) error {
 	return nil
 }
 
-
 func newHubInfoCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "info <tool>",

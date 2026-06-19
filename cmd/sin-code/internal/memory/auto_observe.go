@@ -15,10 +15,10 @@ import (
 )
 
 var mutatingTools = map[string]bool{
-	"edit":    true,
-	"write":   true,
-	"execute": true,
-	"test":    true,
+	"edit":        true,
+	"write":       true,
+	"execute":     true,
+	"test":        true,
 	"sin_edit":    true,
 	"sin_write":   true,
 	"sin_execute": true,
@@ -26,10 +26,10 @@ var mutatingTools = map[string]bool{
 }
 
 var readOnlyTools = map[string]bool{
-	"discover": true,
-	"scout":    true,
-	"map":      true,
-	"read":     true,
+	"discover":     true,
+	"scout":        true,
+	"map":          true,
+	"read":         true,
 	"sin_discover": true,
 	"sin_scout":    true,
 	"sin_map":      true,

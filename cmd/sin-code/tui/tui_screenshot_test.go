@@ -206,10 +206,10 @@ func TestTUIScreenshots(t *testing.T) {
 func saveScreenshot(t *testing.T, dir, filename, content string) {
 	t.Helper()
 	path := filepath.Join(dir, filename)
-	
+
 	// Clean ANSI escape codes for readability
 	cleanContent := cleanANSI(content)
-	
+
 	if err := os.WriteFile(path, []byte(cleanContent), 0o644); err != nil {
 		t.Errorf("failed to save screenshot %s: %v", filename, err)
 		return

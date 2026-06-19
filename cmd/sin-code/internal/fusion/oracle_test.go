@@ -78,14 +78,14 @@ func TestOracleTournament_JudgePicksCorrect(t *testing.T) {
 	}
 
 	tournament := &Tournament{
-		Providers: []ProviderConfig{{Name: "correct"}, {Name: "buggy"}},
-		RunFunc:   makeOracleRunFunc(providers),
-		ForkFunc:  makeForkFunc(),
-		Mode:      ModeOracle,
-		OracleJudge: fakeOracleJudge("CORRECT"),
-		MinQuorum: 2,
-		Workspace: "/test/ws",
-		Prompt:    "do the thing",
+		Providers:       []ProviderConfig{{Name: "correct"}, {Name: "buggy"}},
+		RunFunc:         makeOracleRunFunc(providers),
+		ForkFunc:        makeForkFunc(),
+		Mode:            ModeOracle,
+		OracleJudge:     fakeOracleJudge("CORRECT"),
+		MinQuorum:       2,
+		Workspace:       "/test/ws",
+		Prompt:          "do the thing",
 		SourceSessionID: "src-1",
 	}
 
@@ -113,8 +113,8 @@ func TestOracleTournament_JudgePicksCorrect(t *testing.T) {
 func TestOracleTournament_AllRunToCompletion(t *testing.T) {
 	var runCount atomic.Int32
 	providers := map[string]*fakeProvider{
-		"slow":  {name: "slow", delay: 200 * time.Millisecond, output: "CORRECT", tokens: 100},
-		"fast":  {name: "fast", delay: 10 * time.Millisecond, output: "CORRECT", tokens: 100},
+		"slow": {name: "slow", delay: 200 * time.Millisecond, output: "CORRECT", tokens: 100},
+		"fast": {name: "fast", delay: 10 * time.Millisecond, output: "CORRECT", tokens: 100},
 	}
 
 	runFunc := func(ctx context.Context, prov ProviderConfig, sess *session.Session, prompt string) (*agentloop.Result, error) {
@@ -133,14 +133,14 @@ func TestOracleTournament_AllRunToCompletion(t *testing.T) {
 	}
 
 	tournament := &Tournament{
-		Providers:   []ProviderConfig{{Name: "slow"}, {Name: "fast"}},
-		RunFunc:     runFunc,
-		ForkFunc:    makeForkFunc(),
-		Mode:        ModeOracle,
-		OracleJudge: fakeOracleJudge("CORRECT"),
-		MinQuorum:   2,
-		Workspace:   "/test/ws",
-		Prompt:      "do the thing",
+		Providers:       []ProviderConfig{{Name: "slow"}, {Name: "fast"}},
+		RunFunc:         runFunc,
+		ForkFunc:        makeForkFunc(),
+		Mode:            ModeOracle,
+		OracleJudge:     fakeOracleJudge("CORRECT"),
+		MinQuorum:       2,
+		Workspace:       "/test/ws",
+		Prompt:          "do the thing",
 		SourceSessionID: "src-1",
 	}
 
@@ -159,15 +159,15 @@ func TestOracleTournament_CostCeiling(t *testing.T) {
 	}
 
 	tournament := &Tournament{
-		Providers:   []ProviderConfig{{Name: "expensive", InputPer1M: 5.0, OutputPer1M: 5.0}},
-		RunFunc:     makeOracleRunFunc(providers),
-		ForkFunc:    makeForkFunc(),
-		Mode:        ModeOracle,
-		OracleJudge: fakeOracleJudge("CORRECT"),
-		MinQuorum:   1,
-		MaxCostUSD:  0.01,
-		Workspace:   "/test/ws",
-		Prompt:      "do the thing",
+		Providers:       []ProviderConfig{{Name: "expensive", InputPer1M: 5.0, OutputPer1M: 5.0}},
+		RunFunc:         makeOracleRunFunc(providers),
+		ForkFunc:        makeForkFunc(),
+		Mode:            ModeOracle,
+		OracleJudge:     fakeOracleJudge("CORRECT"),
+		MinQuorum:       1,
+		MaxCostUSD:      0.01,
+		Workspace:       "/test/ws",
+		Prompt:          "do the thing",
 		SourceSessionID: "src-1",
 	}
 
@@ -196,9 +196,9 @@ func TestOracleTournament_JudgeError_AllFailed(t *testing.T) {
 		OracleJudge: func(ctx context.Context, prompt string, candidates []Candidate) (OracleVerdict, error) {
 			return OracleVerdict{}, errors.New("judge unavailable")
 		},
-		MinQuorum: 1,
-		Workspace: "/test/ws",
-		Prompt:    "do the thing",
+		MinQuorum:       1,
+		Workspace:       "/test/ws",
+		Prompt:          "do the thing",
 		SourceSessionID: "src-1",
 	}
 
@@ -222,14 +222,14 @@ func TestOracleTournament_RaceSafety(t *testing.T) {
 		}
 
 		tournament := &Tournament{
-			Providers:   []ProviderConfig{{Name: "a"}, {Name: "b"}},
-			RunFunc:     makeOracleRunFunc(providers),
-			ForkFunc:    makeForkFunc(),
-			Mode:        ModeOracle,
-			OracleJudge: fakeOracleJudge("CORRECT"),
-			MinQuorum:   2,
-			Workspace:   "/test/ws",
-			Prompt:      "do the thing",
+			Providers:       []ProviderConfig{{Name: "a"}, {Name: "b"}},
+			RunFunc:         makeOracleRunFunc(providers),
+			ForkFunc:        makeForkFunc(),
+			Mode:            ModeOracle,
+			OracleJudge:     fakeOracleJudge("CORRECT"),
+			MinQuorum:       2,
+			Workspace:       "/test/ws",
+			Prompt:          "do the thing",
 			SourceSessionID: "src-1",
 		}
 
@@ -266,9 +266,9 @@ func TestOracleTournament_PositionBias(t *testing.T) {
 			// Deterministic tie-break picks first by name.
 			return OracleVerdict{WinnerProvider: "first", Scores: scores, Reasoning: "tie by score"}, nil
 		},
-		MinQuorum: 3,
-		Workspace: "/test/ws",
-		Prompt:    "do the thing",
+		MinQuorum:       3,
+		Workspace:       "/test/ws",
+		Prompt:          "do the thing",
 		SourceSessionID: "src-1",
 	}
 
@@ -367,4 +367,3 @@ func TestLLMOracleJudge_NotConfigured(t *testing.T) {
 		t.Fatal("expected error for unconfigured judge")
 	}
 }
-

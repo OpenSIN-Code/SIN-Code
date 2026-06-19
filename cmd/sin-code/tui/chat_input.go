@@ -5,8 +5,8 @@ import (
 	"context"
 	"strings"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/attachments"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"

@@ -56,7 +56,7 @@ func TestParseCaseFillResponse_Invalid(t *testing.T) {
 func TestBuildCaseFillPrompt_IncludesSignature(t *testing.T) {
 	prompt := buildCaseFillPrompt(FuncInfo{
 		Name: "Add", Args: []Param{{Name: "a", Type: "int"}, {Name: "b", Type: "int"}},
-		Returns: []Param{{Name: "got", Type: "int"}},
+		Returns:  []Param{{Name: "got", Type: "int"}},
 		HasError: false,
 	}, LLMOpts{MaxRepairIters: 0})
 	for _, want := range []string{"Function: Add", "Args:", "a int", "b int", "Returns:", "got int"} {

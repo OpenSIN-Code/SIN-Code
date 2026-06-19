@@ -81,13 +81,13 @@ func (o *Orchestrator) Run(ctx context.Context, prompt string, opts ...RunOption
 	if err := disp.Dispatch(ctx, plan); err != nil {
 		if o.Episodes != nil && o.Episodes.hasSchema {
 			_ = o.Episodes.Record(ctx, &Episode{
-				Intent:     string(plan.Intent),
-				TaskTitle:  prompt,
-				PlanJSON:   planToJSON(plan),
-				Score:      0,
-				Passed:     false,
-				Rounds:     len(plan.Tasks),
-				CreatedAt:  timeNow(),
+				Intent:    string(plan.Intent),
+				TaskTitle: prompt,
+				PlanJSON:  planToJSON(plan),
+				Score:     0,
+				Passed:    false,
+				Rounds:    len(plan.Tasks),
+				CreatedAt: timeNow(),
 			})
 		}
 		return nil, err
@@ -95,14 +95,14 @@ func (o *Orchestrator) Run(ctx context.Context, prompt string, opts ...RunOption
 	result := o.Aggregator.Aggregate(plan)
 	if o.Episodes != nil && o.Episodes.hasSchema {
 		_ = o.Episodes.Record(ctx, &Episode{
-			Intent:     string(plan.Intent),
-			TaskTitle:  prompt,
-			PlanJSON:   planToJSON(plan),
-			Diff:       result.Summary,
-			Score:      float64(result.OKTasks) / float64(maxInt(result.TotalTasks, 1)),
-			Passed:     result.FailedTasks == 0 && result.TotalTasks > 0,
-			Rounds:     result.TotalTasks,
-			CreatedAt:  timeNow(),
+			Intent:    string(plan.Intent),
+			TaskTitle: prompt,
+			PlanJSON:  planToJSON(plan),
+			Diff:      result.Summary,
+			Score:     float64(result.OKTasks) / float64(maxInt(result.TotalTasks, 1)),
+			Passed:    result.FailedTasks == 0 && result.TotalTasks > 0,
+			Rounds:    result.TotalTasks,
+			CreatedAt: timeNow(),
 		})
 	}
 	return result, nil

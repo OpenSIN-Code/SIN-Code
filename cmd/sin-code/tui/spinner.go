@@ -36,7 +36,7 @@ func spinnerTick() tea.Cmd {
 type SpinnerStyle int
 
 const (
-	SpinnerStyleBolt   SpinnerStyle = iota
+	SpinnerStyleBolt SpinnerStyle = iota
 	SpinnerStyleRing
 	SpinnerStyleBraille
 	SpinnerStylePulse
@@ -145,9 +145,9 @@ func (s Spinner) ViewThemed(style lipgloss.Style, theme Theme) string {
 		ring := spinnerRingFrames[s.ring]
 		bolt := boltFrames[s.bolt]
 		if s.pulse%2 == 0 {
-			return accent.Render(bolt) + " " + primary.Render(ring + frame)
+			return accent.Render(bolt) + " " + primary.Render(ring+frame)
 		}
-		return primary.Render(bolt) + " " + accent.Render(ring + frame)
+		return primary.Render(bolt) + " " + accent.Render(ring+frame)
 	}
 }
 

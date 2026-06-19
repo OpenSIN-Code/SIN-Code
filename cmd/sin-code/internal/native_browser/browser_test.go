@@ -343,10 +343,10 @@ func TestBrowserWaitFor_PollsUntilSelectionAppears(t *testing.T) {
 	defer srv.Close()
 
 	b := NewBrowser(Config{
-		Driver:             NewHTTPDirectDriver(),
-		Timeout:            3 * time.Second,
+		Driver:              NewHTTPDirectDriver(),
+		Timeout:             3 * time.Second,
 		WaitForPollInterval: 30 * time.Millisecond,
-		WaitForDeadline:    2 * time.Second,
+		WaitForDeadline:     2 * time.Second,
 	})
 	defer b.Close()
 	s, _ := b.NewSession()
@@ -369,10 +369,10 @@ func TestBrowserWaitFor_Deadline(t *testing.T) {
 	defer srv.Close()
 
 	b := NewBrowser(Config{
-		Driver:             NewHTTPDirectDriver(),
-		Timeout:            3 * time.Second,
+		Driver:              NewHTTPDirectDriver(),
+		Timeout:             3 * time.Second,
 		WaitForPollInterval: 50 * time.Millisecond,
-		WaitForDeadline:    300 * time.Millisecond,
+		WaitForDeadline:     300 * time.Millisecond,
 	})
 	defer b.Close()
 	s, _ := b.NewSession()

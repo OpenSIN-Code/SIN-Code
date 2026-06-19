@@ -75,15 +75,15 @@ type CaseComparison struct {
 // that the comparator can compute medians, means, etc. without
 // touching a one-off helper.
 type Totals struct {
-	ArmID          string    `json:"arm_id"`
-	TotalCases     int       `json:"total_cases"`
-	Passed         int       `json:"passed"`
-	WeightedScore  float64   `json:"weighted_score"`
-	Scores         []float64 `json:"-"` // for median / mean / stddev
-	USD            []float64 `json:"-"`
-	Tokens         []int     `json:"-"`
-	LatencyMS      []int     `json:"-"`
-	LOC            []int     `json:"-"`
+	ArmID           string    `json:"arm_id"`
+	TotalCases      int       `json:"total_cases"`
+	Passed          int       `json:"passed"`
+	WeightedScore   float64   `json:"weighted_score"`
+	Scores          []float64 `json:"-"` // for median / mean / stddev
+	USD             []float64 `json:"-"`
+	Tokens          []int     `json:"-"`
+	LatencyMS       []int     `json:"-"`
+	LOC             []int     `json:"-"`
 	SkillName       string    `json:"skill_name,omitempty"`
 	VerbosityLevel  string    `json:"verbosity,omitempty"`
 	SystemPrompt    string    `json:"-"` // used to compute shortHash for snapshots

@@ -20,17 +20,17 @@ type Keymap struct {
 	CycleAgent    key.Binding
 	Interrupt     key.Binding
 
-	NextView     key.Binding
-	PrevView     key.Binding
-	ViewTools    key.Binding
-	ViewSessions key.Binding
-	ViewEFM      key.Binding
-	ViewConfig   key.Binding
-	ViewHistory  key.Binding
-	ViewTodos    key.Binding
-	ViewChat     key.Binding
-	ViewDAG      key.Binding
-	ViewContext  key.Binding
+	NextView      key.Binding
+	PrevView      key.Binding
+	ViewTools     key.Binding
+	ViewSessions  key.Binding
+	ViewEFM       key.Binding
+	ViewConfig    key.Binding
+	ViewHistory   key.Binding
+	ViewTodos     key.Binding
+	ViewChat      key.Binding
+	ViewDAG       key.Binding
+	ViewContext   key.Binding
 	ViewDashboard key.Binding
 	ViewKanban    key.Binding
 
@@ -74,11 +74,11 @@ func DefaultKeymap() Keymap {
 		ViewConfig:    key.NewBinding(key.WithKeys("4"), key.WithHelp("4", "config")),
 		ViewHistory:   key.NewBinding(key.WithKeys("5"), key.WithHelp("5", "history")),
 		ViewTodos:     key.NewBinding(key.WithKeys("6"), key.WithHelp("6", "todos")),
-		ViewChat:       key.NewBinding(key.WithKeys("7"), key.WithHelp("7", "chat")),
-		ViewDAG:        key.NewBinding(key.WithKeys("8"), key.WithHelp("8", "dag")),
-		ViewContext:    key.NewBinding(key.WithKeys("9"), key.WithHelp("9", "context")),
-		ViewDashboard:  key.NewBinding(key.WithKeys("0"), key.WithHelp("0", "dashboard")),
-		ViewKanban:     key.NewBinding(key.WithKeys("ctrl+k"), key.WithHelp("^k", "kanban")),
+		ViewChat:      key.NewBinding(key.WithKeys("7"), key.WithHelp("7", "chat")),
+		ViewDAG:       key.NewBinding(key.WithKeys("8"), key.WithHelp("8", "dag")),
+		ViewContext:   key.NewBinding(key.WithKeys("9"), key.WithHelp("9", "context")),
+		ViewDashboard: key.NewBinding(key.WithKeys("0"), key.WithHelp("0", "dashboard")),
+		ViewKanban:    key.NewBinding(key.WithKeys("ctrl+k"), key.WithHelp("^k", "kanban")),
 		RunTool:       key.NewBinding(key.WithKeys("r"), key.WithHelp("r", "run")),
 		ShowHelp:      key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "help")),
 		ToolUp:        key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("up/k", "up")),
@@ -145,9 +145,9 @@ type KeyOverrides struct {
 	ViewConfig    []string `json:"view_config,omitempty"`
 	ViewHistory   []string `json:"view_history,omitempty"`
 	ViewTodos     []string `json:"view_todos,omitempty"`
-	ViewChat     []string `json:"view_chat,omitempty"`
-	ViewDAG      []string `json:"view_dag,omitempty"`
-	ViewContext  []string `json:"view_context,omitempty"`
+	ViewChat      []string `json:"view_chat,omitempty"`
+	ViewDAG       []string `json:"view_dag,omitempty"`
+	ViewContext   []string `json:"view_context,omitempty"`
 	ViewDashboard []string `json:"view_dashboard,omitempty"`
 	ViewKanban    []string `json:"view_kanban,omitempty"`
 	RunTool       []string `json:"run_tool,omitempty"`

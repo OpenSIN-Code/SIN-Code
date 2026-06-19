@@ -33,11 +33,11 @@ type Contradiction struct {
 
 // ReflectionReport holds the output of a reflection pass.
 type ReflectionReport struct {
-	Insights            []string       `json:"insights"`
-	Questions           []string       `json:"questions"`
-	Connections         []Connection   `json:"connections"`
+	Insights            []string        `json:"insights"`
+	Questions           []string        `json:"questions"`
+	Connections         []Connection    `json:"connections"`
 	ContradictionsFound []Contradiction `json:"contradictions_found"`
-	Duration            time.Duration  `json:"duration"`
+	Duration            time.Duration   `json:"duration"`
 }
 
 // AutoDreamV2 extends AutoDream with sleep-time reflection.
@@ -119,7 +119,7 @@ func (ad *AutoDreamV2) findConnections(ctx context.Context, all []*Memory) []Con
 				FromID:    all[i].ID,
 				ToID:      all[j].ID,
 				SharedTag: shared[0],
-				Reason: fmt.Sprintf("share tag '%s' but are not linked", shared[0]),
+				Reason:    fmt.Sprintf("share tag '%s' but are not linked", shared[0]),
 			})
 		}
 	}

@@ -14,8 +14,8 @@ import (
 type GovernanceFindingType string
 
 const (
-	GovSecret  GovernanceFindingType = "secret"
-	GovPolicy  GovernanceFindingType = "policy"
+	GovSecret   GovernanceFindingType = "secret"
+	GovPolicy   GovernanceFindingType = "policy"
 	GovApproval GovernanceFindingType = "approval"
 )
 
@@ -33,7 +33,7 @@ const (
 type GovernanceFinding struct {
 	Type           GovernanceFindingType `json:"type"`
 	Match          string                `json:"match"`
-	Severity       GovernanceSeverity   `json:"severity"`
+	Severity       GovernanceSeverity    `json:"severity"`
 	Recommendation string                `json:"recommendation"`
 }
 
@@ -42,9 +42,9 @@ type GovernanceFinding struct {
 var secretPatterns []secretPattern
 
 type secretPattern struct {
-	re          *regexp.Regexp
-	label       string
-	severity    GovernanceSeverity
+	re             *regexp.Regexp
+	label          string
+	severity       GovernanceSeverity
 	recommendation string
 }
 
@@ -66,8 +66,8 @@ func init() {
 }
 
 var policyPatterns = []struct {
-	re          *regexp.Regexp
-	label       string
+	re             *regexp.Regexp
+	label          string
 	recommendation string
 }{
 	{regexp.MustCompile(`(?i)TODO:\s*ask user`), "TODO: ask user", "Resolve pending user question before proceeding"},
@@ -79,8 +79,8 @@ var policyPatterns = []struct {
 }
 
 var approvalPatterns = []struct {
-	re          *regexp.Regexp
-	label       string
+	re             *regexp.Regexp
+	label          string
 	recommendation string
 }{
 	{regexp.MustCompile(`(?i)approved\s+by\s+\w+`), "Approval granted", "Record approval in audit log"},

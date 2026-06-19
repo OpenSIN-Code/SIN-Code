@@ -67,11 +67,11 @@ func TestKeyOverridesExampleOverridesMultipleFields(t *testing.T) {
 	km.ApplyOverrides(ov)
 
 	cases := []struct {
-		name     string
-		got      []string
-		wantKey  string // must be present after override
-		dropKey  string // must be absent after override (was in default)
-		binding  string // label for error messages
+		name    string
+		got     []string
+		wantKey string // must be present after override
+		dropKey string // must be absent after override (was in default)
+		binding string // label for error messages
 	}{
 		{"Quit", km.Quit.Keys(), "ctrl+x", "q", "quit"},
 		{"Submit", km.Submit.Keys(), "ctrl+s", "ctrl+s", "submit"},

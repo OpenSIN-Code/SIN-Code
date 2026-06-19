@@ -178,9 +178,9 @@ func TestRenderDAGViewPromptTruncation(t *testing.T) {
 
 func TestDAGIconForStatus(t *testing.T) {
 	tests := []struct {
-		status     string
-		preWarmed  bool
-		wantNotIn  string
+		status    string
+		preWarmed bool
+		wantNotIn string
 	}{
 		{"completed", false, "✗"},
 		{"running", false, "✓"},

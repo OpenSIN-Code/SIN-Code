@@ -75,8 +75,8 @@ func TestRepairLoop_LLMCalledOnFailure(t *testing.T) {
 	// the repair attempt.
 	llmFn := fakeUseLLM(t, &calls, map[string][]TestCase{})
 	res := Generate(context.Background(), Options{
-		File:          src,
-		UseLLM:        llmFn,
+		File:           src,
+		UseLLM:         llmFn,
 		MaxRepairIters: 3,
 	})
 	// repairCases parses the body, gets an empty map, errors -> loop
@@ -116,10 +116,10 @@ func TestRepairLoop_LLMRecovers(t *testing.T) {
 		return encodeCasesMap(t, good), nil
 	}
 	res := Generate(context.Background(), Options{
-		File:          src,
-		UseLLM:        llmFn,
+		File:           src,
+		UseLLM:         llmFn,
 		MaxRepairIters: 3,
-		Cases:         map[string][]TestCase{},
+		Cases:          map[string][]TestCase{},
 	})
 	if calls < 1 {
 		t.Errorf("expected at least 1 LLM call, got %d", calls)
@@ -138,8 +138,8 @@ func TestRepairLoop_SafetyCap(t *testing.T) {
 	calls := 0
 	llmFn := fakeUseLLM(t, &calls, nil) // always empty -> fails repair
 	res := Generate(context.Background(), Options{
-		File:          src,
-		UseLLM:        llmFn,
+		File:           src,
+		UseLLM:         llmFn,
 		MaxRepairIters: 99, // forces safety cap to 10 in Generate
 	})
 	// At most 10 attempts -> at most 9 repairs (since the 10th is the

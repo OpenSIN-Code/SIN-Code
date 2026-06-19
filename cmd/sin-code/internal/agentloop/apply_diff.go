@@ -13,10 +13,10 @@ import (
 
 // DiffHunk represents a single hunk from a unified diff.
 type DiffHunk struct {
-	OldStart int // 1-based start line in the old file (0 if no old lines)
-	OldLines int // number of lines in the old file
-	NewStart int // 1-based start line in the new file (0 if no new lines)
-	NewLines int // number of lines in the new file
+	OldStart int    // 1-based start line in the old file (0 if no old lines)
+	OldLines int    // number of lines in the old file
+	NewStart int    // 1-based start line in the new file (0 if no new lines)
+	NewLines int    // number of lines in the new file
 	OldText  string // the original lines this hunk replaces
 	NewText  string // the replacement lines
 }
@@ -84,15 +84,15 @@ func ParseUnifiedDiff(diff string) ([]DiffHunk, error) {
 			if cur != nil {
 				hunks = append(hunks, *cur)
 			}
-		h, err := parseHunkHeader(line)
-		if err != nil {
-			return nil, fmt.Errorf("diff line %d: %w", i+1, err)
-		}
-		// Reset line counts — they are counted from actual content lines.
-		// The header's OldLines/NewLines are metadata, not authoritative.
-		h.OldLines = 0
-		h.NewLines = 0
-		cur = &h
+			h, err := parseHunkHeader(line)
+			if err != nil {
+				return nil, fmt.Errorf("diff line %d: %w", i+1, err)
+			}
+			// Reset line counts — they are counted from actual content lines.
+			// The header's OldLines/NewLines are metadata, not authoritative.
+			h.OldLines = 0
+			h.NewLines = 0
+			cur = &h
 		case strings.HasPrefix(line, "\\"):
 			// "\ No newline at end of file" marker — consume and ignore.
 			continue

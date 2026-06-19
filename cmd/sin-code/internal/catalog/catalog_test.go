@@ -438,7 +438,7 @@ func TestMerge_OutputFormat(t *testing.T) {
 
 func TestMerge_SourceError(t *testing.T) {
 	errSrc := &fakeSource{
-		name: "err",
+		name:    "err",
 		listErr: errors.New("boom"),
 	}
 	_, err := Merge(context.Background(), []Source{errSrc})

@@ -14,13 +14,13 @@ import (
 type KeymapContext string
 
 const (
-	CtxGlobal      KeymapContext = "global"
-	CtxTools       KeymapContext = "tools"
-	CtxChat        KeymapContext = "chat"
-	CtxSessions    KeymapContext = "sessions"
-	CtxConfig      KeymapContext = "config"
-	CtxDAG         KeymapContext = "dag"
-	CtxPalette     KeymapContext = "palette"
+	CtxGlobal   KeymapContext = "global"
+	CtxTools    KeymapContext = "tools"
+	CtxChat     KeymapContext = "chat"
+	CtxSessions KeymapContext = "sessions"
+	CtxConfig   KeymapContext = "config"
+	CtxDAG      KeymapContext = "dag"
+	CtxPalette  KeymapContext = "palette"
 )
 
 var allContexts = []KeymapContext{
@@ -62,7 +62,7 @@ func DefaultKeymapConfig() KeymapConfig {
 			"view_dag":       km.ViewDAG.Keys(),
 			"view_context":   km.ViewContext.Keys(),
 			"view_dashboard": km.ViewDashboard.Keys(),
-		"view_kanban":    km.ViewKanban.Keys(),
+			"view_kanban":    km.ViewKanban.Keys(),
 			"model_select":   km.ModelSelect.Keys(),
 			"subagents":      km.Subagents.Keys(),
 		},

@@ -33,12 +33,12 @@ type WatchMode struct {
 	patterns []string
 	root     string
 
-	mu       sync.Mutex
-	started  bool
-	cancel   context.CancelFunc
+	mu        sync.Mutex
+	started   bool
+	cancel    context.CancelFunc
 	snapshots map[string]fileState
-	pending  bool
-	lastFire time.Time
+	pending   bool
+	lastFire  time.Time
 }
 
 func NewWatchMode(patterns []string) *WatchMode {

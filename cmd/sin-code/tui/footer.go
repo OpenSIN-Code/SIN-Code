@@ -9,23 +9,23 @@ import (
 var AgentNames = []string{"Build", "Audit", "Stats"}
 
 type Footer struct {
-	view        ViewKind
-	Selection   string
-	AgentIndex  int
-	ModelName   string
-	Provider    string
-	Tokens      int
-	TokensPct   float64
-	Cost        string
-	Duration    time.Duration
-	Streaming   bool
-	Compacted   bool
-	Compact     bool
-	Width       int
-	ShowHints   bool
-	HintKeys    []HintPair
-	Loading     bool
-	Spinner     Spinner
+	view            ViewKind
+	Selection       string
+	AgentIndex      int
+	ModelName       string
+	Provider        string
+	Tokens          int
+	TokensPct       float64
+	Cost            string
+	Duration        time.Duration
+	Streaming       bool
+	Compacted       bool
+	Compact         bool
+	Width           int
+	ShowHints       bool
+	HintKeys        []HintPair
+	Loading         bool
+	Spinner         Spinner
 	TodoOpen        int
 	TodoBlocked     int
 	TodoOverdue     int
@@ -138,15 +138,15 @@ func DefaultHints(view ViewKind) []HintPair {
 
 func NewFooter(width int) Footer {
 	return Footer{
-		view:           ViewTools,
-		AgentIndex:     0,
-		Tokens:         0,
-		TokensPct:      0,
-		Cost:           "$0.00",
-		Width:          width,
-		ShowHints:      true,
-		HintKeys:       DefaultHints(ViewTools),
-		Spinner:        NewSpinner(),
+		view:            ViewTools,
+		AgentIndex:      0,
+		Tokens:          0,
+		TokensPct:       0,
+		Cost:            "$0.00",
+		Width:           width,
+		ShowHints:       true,
+		HintKeys:        DefaultHints(ViewTools),
+		Spinner:         NewSpinner(),
 		PermissionPopup: NewPermissionPopup(),
 		Transition:      NewTransition(),
 		Toast:           NewToast(),

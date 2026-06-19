@@ -299,5 +299,3 @@ func extractDeltaContent(payload []byte) (string, error) {
 	}
 	return ev.Choices[0].Delta.Content, nil
 }
-
-

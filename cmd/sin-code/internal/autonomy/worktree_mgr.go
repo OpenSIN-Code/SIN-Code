@@ -30,14 +30,14 @@ type WorktreeManager struct {
 	mu   sync.Mutex
 
 	// Hookable command runners — tests override these to mock git.
-	gitWorktreeAdd  func(root, branch, path string) (string, error)
-	gitWorktreeList func(root string) (string, error)
-	gitWorktreePrune func(root string) (string, error)
+	gitWorktreeAdd    func(root, branch, path string) (string, error)
+	gitWorktreeList   func(root string) (string, error)
+	gitWorktreePrune  func(root string) (string, error)
 	gitWorktreeRemove func(root, path string, force bool) (string, error)
-	gitMerge        func(root, branch string) (string, error)
-	gitCheckout     func(root, branch string) (string, error)
-	gitStatus       func(path string) (string, error)
-	gitBranchDelete func(root, branch string) (string, error)
+	gitMerge          func(root, branch string) (string, error)
+	gitCheckout       func(root, branch string) (string, error)
+	gitStatus         func(path string) (string, error)
+	gitBranchDelete   func(root, branch string) (string, error)
 }
 
 // gitCmdRunner is the default command runner that shells out to git.
@@ -110,15 +110,15 @@ var defaultGitRunner = gitCmdRunner{}
 // repository path. The root should be the toplevel of the git work tree.
 func NewWorktreeManager(root string) *WorktreeManager {
 	return &WorktreeManager{
-		root:             root,
-		gitWorktreeAdd:   defaultGitRunner.worktreeAdd,
-		gitWorktreeList:  defaultGitRunner.worktreeList,
-		gitWorktreePrune: defaultGitRunner.worktreePrune,
+		root:              root,
+		gitWorktreeAdd:    defaultGitRunner.worktreeAdd,
+		gitWorktreeList:   defaultGitRunner.worktreeList,
+		gitWorktreePrune:  defaultGitRunner.worktreePrune,
 		gitWorktreeRemove: defaultGitRunner.worktreeRemove,
-		gitMerge:         defaultGitRunner.merge,
-		gitCheckout:      defaultGitRunner.checkout,
-		gitStatus:        defaultGitRunner.status,
-		gitBranchDelete:  defaultGitRunner.branchDelete,
+		gitMerge:          defaultGitRunner.merge,
+		gitCheckout:       defaultGitRunner.checkout,
+		gitStatus:         defaultGitRunner.status,
+		gitBranchDelete:   defaultGitRunner.branchDelete,
 	}
 }
 

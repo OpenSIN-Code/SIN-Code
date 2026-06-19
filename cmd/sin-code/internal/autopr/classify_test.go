@@ -63,14 +63,14 @@ func TestClassifyNonTrivial(t *testing.T) {
 
 func TestClassFromString(t *testing.T) {
 	cases := map[string]Class{
-		"trivial":      ClassTrivial,
-		"TRIVIAL":      ClassTrivial,
-		"mechanical":   ClassMechanical,
-		"non_trivial":  ClassNonTrivial,
-		"nontrivial":   ClassNonTrivial,
-		"non-trivial":  ClassNonTrivial,
-		"bogus":        ClassNonTrivial, // fail-closed
-		"":             ClassNonTrivial,
+		"trivial":     ClassTrivial,
+		"TRIVIAL":     ClassTrivial,
+		"mechanical":  ClassMechanical,
+		"non_trivial": ClassNonTrivial,
+		"nontrivial":  ClassNonTrivial,
+		"non-trivial": ClassNonTrivial,
+		"bogus":       ClassNonTrivial, // fail-closed
+		"":            ClassNonTrivial,
 	}
 	for in, want := range cases {
 		if got := ClassFromString(in); got != want {

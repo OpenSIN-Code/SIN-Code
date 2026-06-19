@@ -7,22 +7,22 @@ import "time"
 
 // StepReport is the outcome of one pipeline step.
 type StepReport struct {
-	Name      string        `json:"name"`
-	Status    string        `json:"status"`
-	Output    string        `json:"output,omitempty"`
-	Error     string        `json:"error,omitempty"`
-	Skipped   bool          `json:"skipped,omitempty"`
-	Duration  time.Duration `json:"duration_ms"`
-	Coverage  string        `json:"coverage,omitempty"`
+	Name     string        `json:"name"`
+	Status   string        `json:"status"`
+	Output   string        `json:"output,omitempty"`
+	Error    string        `json:"error,omitempty"`
+	Skipped  bool          `json:"skipped,omitempty"`
+	Duration time.Duration `json:"duration_ms"`
+	Coverage string        `json:"coverage,omitempty"`
 }
 
 // Report is the final quality gate result.
 type Report struct {
-	Status    string         `json:"status"`
-	Steps     []StepReport   `json:"steps"`
-	Coverage  string         `json:"coverage,omitempty"`
-	Duration  time.Duration  `json:"duration_ms"`
-	Threshold float64        `json:"threshold"`
+	Status    string        `json:"status"`
+	Steps     []StepReport  `json:"steps"`
+	Coverage  string        `json:"coverage,omitempty"`
+	Duration  time.Duration `json:"duration_ms"`
+	Threshold float64       `json:"threshold"`
 }
 
 // Passed returns true only when every step passed.

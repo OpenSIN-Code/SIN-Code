@@ -13,13 +13,13 @@ import (
 
 // DAG task status icons
 const (
-	dagIconGreen      = "✓"
-	dagIconRunning    = "●"
-	dagIconPreWarmed  = "○"
-	dagIconPredicted  = "·"
-	dagIconFailed     = "✗"
-	dagIconSkipped    = "⊘"
-	dagIconPending    = "…"
+	dagIconGreen     = "✓"
+	dagIconRunning   = "●"
+	dagIconPreWarmed = "○"
+	dagIconPredicted = "·"
+	dagIconFailed    = "✗"
+	dagIconSkipped   = "⊘"
+	dagIconPending   = "…"
 )
 
 func RenderDAGView(state DAGState, styles Styles, width, height int) string {

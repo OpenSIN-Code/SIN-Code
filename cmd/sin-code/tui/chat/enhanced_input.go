@@ -16,11 +16,11 @@ import (
 )
 
 const (
-	pasteCharThreshold   = 100
-	pasteTimeWindow      = 100 * time.Millisecond
+	pasteCharThreshold    = 100
+	pasteTimeWindow       = 100 * time.Millisecond
 	maxInputChars         = 50_000
 	maxInputWarnThreshold = 1_000
-	historyMaxEntries    = 500
+	historyMaxEntries     = 500
 )
 
 type AutoComplete struct {

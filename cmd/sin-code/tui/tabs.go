@@ -159,7 +159,7 @@ func (t *Tabs) SortedByRecency() []int {
 	for i := range indices {
 		indices[i] = i
 	}
-	
+
 	for i := 0; i < len(indices)-1; i++ {
 		for j := i + 1; j < len(indices); j++ {
 			if t.Sessions[indices[j]].LastActive.After(t.Sessions[indices[i]].LastActive) {
@@ -167,7 +167,7 @@ func (t *Tabs) SortedByRecency() []int {
 			}
 		}
 	}
-	
+
 	return indices
 }
 

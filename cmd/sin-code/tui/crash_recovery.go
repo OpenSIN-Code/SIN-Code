@@ -46,24 +46,36 @@ func (r *CrashRecovery) Save(state SessionState) error {
 		state.ChatHistory = state.ChatHistory[len(state.ChatHistory)-50:]
 	}
 	data, err := json.MarshalIndent(state, "", "  ")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	dir := filepath.Dir(r.path)
-	if err := os.MkdirAll(dir, 0o755); err != nil { return err }
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
 	tmpPath := r.path + ".tmp"
-	if err := os.WriteFile(tmpPath, data, 0o644); err != nil { return err }
+	if err := os.WriteFile(tmpPath, data, 0o644); err != nil {
+		return err
+	}
 	return os.Rename(tmpPath, r.path)
 }
 
 func (r *CrashRecovery) Load() (*SessionState, error) {
 	data, err := os.ReadFile(r.path)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	var state SessionState
-	if err := json.Unmarshal(data, &state); err != nil { return nil, err }
+	if err := json.Unmarshal(data, &state); err != nil {
+		return nil, err
+	}
 	return &state, nil
 }
 
 func (r *CrashRecovery) Clear() error {
-	if !r.Exists() { return nil }
+	if !r.Exists() {
+		return nil
+	}
 	return os.Remove(r.path)
 }
 
@@ -73,29 +85,49 @@ func (r *CrashRecovery) Exists() bool {
 }
 
 func (m *Model) SaveCrashState() {
-	if m.CrashRecovery == nil { m.CrashRecovery = NewCrashRecovery() }
+	if m.CrashRecovery == nil {
+		m.CrashRecovery = NewCrashRecovery()
+	}
 	state := SessionState{
 		ViewKind: int(m.ViewKind), ChatHistory: m.ChatHistory,
 		ModelName: m.Footer.ModelName, ThemeIndex: m.ThemeIdx,
 		SidebarCollapsed: m.Sidebar.Collapsed,
-		SplitPaneActive: m.SplitPane != nil && m.SplitPane.Active(),
+		SplitPaneActive:  m.SplitPane != nil && m.SplitPane.Active(),
 	}
 	_ = m.CrashRecovery.Save(state)
 }
 
 func (m *Model) RestoreCrashState(state *SessionState) {
-	if state == nil { return }
-	if state.ViewKind >= 0 && state.ViewKind < viewCount { m.SwitchView(ViewKind(state.ViewKind)) }
-	if len(state.ChatHistory) > 0 { m.ChatHistory = state.ChatHistory }
-	if state.ModelName != "" { m.Footer.ModelName = state.ModelName; m.AgentConfig.Model = state.ModelName }
-	if state.ThemeIndex >= 0 && state.ThemeIndex < len(Themes) { m.ThemeIdx = state.ThemeIndex; m.ApplyTheme() }
-	if state.SidebarCollapsed != m.Sidebar.Collapsed { m.Sidebar.Toggle() }
-	if m.SplitPane != nil { m.SplitPane.SetActive(state.SplitPaneActive) }
+	if state == nil {
+		return
+	}
+	if state.ViewKind >= 0 && state.ViewKind < viewCount {
+		m.SwitchView(ViewKind(state.ViewKind))
+	}
+	if len(state.ChatHistory) > 0 {
+		m.ChatHistory = state.ChatHistory
+	}
+	if state.ModelName != "" {
+		m.Footer.ModelName = state.ModelName
+		m.AgentConfig.Model = state.ModelName
+	}
+	if state.ThemeIndex >= 0 && state.ThemeIndex < len(Themes) {
+		m.ThemeIdx = state.ThemeIndex
+		m.ApplyTheme()
+	}
+	if state.SidebarCollapsed != m.Sidebar.Collapsed {
+		m.Sidebar.Toggle()
+	}
+	if m.SplitPane != nil {
+		m.SplitPane.SetActive(state.SplitPaneActive)
+	}
 }
 
 func RecoverAndSave(model *Model) {
 	if r := recover(); r != nil {
-		if model != nil { model.SaveCrashState() }
+		if model != nil {
+			model.SaveCrashState()
+		}
 		panic(r)
 	}
 }

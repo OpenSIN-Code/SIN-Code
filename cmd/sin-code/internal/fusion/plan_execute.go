@@ -177,8 +177,8 @@ type PlanExecuteTournament struct {
 	MaxCostUSD         float64
 	PerProviderTimeout time.Duration
 
-	mu        sync.Mutex
-	costUSD   float64
+	mu      sync.Mutex
+	costUSD float64
 }
 
 // NewPlanExecuteTournament creates a tournament with the given provider

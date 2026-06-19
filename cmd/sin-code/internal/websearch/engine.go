@@ -38,8 +38,8 @@ type Stats struct {
 
 // Engine orchestrates fan-out search across multiple providers.
 type Engine struct {
-	providers []Provider
-	timeout   time.Duration
+	providers  []Provider
+	timeout    time.Duration
 	maxResults int
 }
 

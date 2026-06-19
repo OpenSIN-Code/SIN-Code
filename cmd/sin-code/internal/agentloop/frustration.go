@@ -47,14 +47,14 @@ var (
 )
 
 const (
-	frustrationWindow     = 60 * time.Second
-	rapidRetryWindow      = 30 * time.Second
-	rapidRetryThreshold   = 3
-	repetitionThreshold   = 3
-	capsLockMinAlpha      = 5
-	capsLockRatio         = 0.7
-	mildThreshold  int    = 1
-	highThreshold  int    = 3
+	frustrationWindow       = 60 * time.Second
+	rapidRetryWindow        = 30 * time.Second
+	rapidRetryThreshold     = 3
+	repetitionThreshold     = 3
+	capsLockMinAlpha        = 5
+	capsLockRatio           = 0.7
+	mildThreshold       int = 1
+	highThreshold       int = 3
 )
 
 type trackedMessage struct {

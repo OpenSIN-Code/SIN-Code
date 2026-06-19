@@ -459,5 +459,3 @@ func TestChatStreamNilCallback(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-

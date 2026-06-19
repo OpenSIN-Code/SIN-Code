@@ -147,7 +147,7 @@ var rulesPathCmd = &cobra.Command{
 		matching := s.ForPath(target)
 		if rulesFormat == "json" {
 			return encodeJSON(struct {
-				Path  string      `json:"path"`
+				Path  string       `json:"path"`
 				Rules []rules.Rule `json:"rules"`
 			}{target, matching})
 		}

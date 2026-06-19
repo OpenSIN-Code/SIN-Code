@@ -7,13 +7,13 @@
 //
 // Usage:
 //
-//   srv := sdk.NewServer("my-embed", "v1.0.0")
-//   sdk.MustRegisterTool(srv, "echo", "echo a string", echoHandler)
+//	srv := sdk.NewServer("my-embed", "v1.0.0")
+//	sdk.MustRegisterTool(srv, "echo", "echo a string", echoHandler)
 //
-//   sess, err := sdk.NewInProcessSession(srv)
-//   ...
-//   tools, _ := sess.ListTools(ctx, nil)
-//   out, _ := sess.CallTool(ctx, &mcp.CallToolParams{Name: "echo", Arguments: ...})
+//	sess, err := sdk.NewInProcessSession(srv)
+//	...
+//	tools, _ := sess.ListTools(ctx, nil)
+//	out, _ := sess.CallTool(ctx, &mcp.CallToolParams{Name: "echo", Arguments: ...})
 //
 // M3: every call is a real MCP roundtrip (no mock shim); byte-stability
 // is observable via the underlying SDK protocol.

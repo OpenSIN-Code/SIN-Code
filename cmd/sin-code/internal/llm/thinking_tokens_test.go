@@ -4,11 +4,13 @@
 // and through to Recorder.RecordUsage(ThinkingTokens, 8-arg signature).
 //
 // Verifies:
-//   (a) httptest.Server returns a payload with usage.thinking_tokens; the
-//       client populates resp.Usage.ThinkingTokens with that value.
-//   (b) A custom Recorder.UsageSink receives the same count.
-//   (c) NopRecorder.UsageSink doesn't panic with the 8-arg signature.
-//   (d) race-clean: concurrent Chat calls don't double-write UsageSink.
+//
+//	(a) httptest.Server returns a payload with usage.thinking_tokens; the
+//	    client populates resp.Usage.ThinkingTokens with that value.
+//	(b) A custom Recorder.UsageSink receives the same count.
+//	(c) NopRecorder.UsageSink doesn't panic with the 8-arg signature.
+//	(d) race-clean: concurrent Chat calls don't double-write UsageSink.
+//
 // Docs: cmd/sin-code/internal/llm/thinking_tokens_test.go
 package llm
 

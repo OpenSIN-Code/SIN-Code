@@ -634,7 +634,7 @@ func TestAutoCoverageDefaultHooks(t *testing.T) {
 
 func TestAutoCoverageEmptyWorkdir(t *testing.T) {
 	a := AutoCoverage{
-		Enabled: true,
+		Enabled:     true,
 		PackagePath: func(_, _ string) string { return "pkg" },
 		mkdirAll: func(dir string, _ os.FileMode) error {
 			if dir != RequestDir {
@@ -659,8 +659,8 @@ func TestAutoCoverageEmptyWorkdir(t *testing.T) {
 func TestAutoCoverageRequestDirOverride(t *testing.T) {
 	tmp := t.TempDir()
 	a := AutoCoverage{
-		Enabled:    true,
-		RequestDir: "custom-queue",
+		Enabled:     true,
+		RequestDir:  "custom-queue",
 		PackagePath: func(_, _ string) string { return "pkg" },
 		mkdirAll: func(dir string, _ os.FileMode) error {
 			want := filepath.Join(tmp, "custom-queue")
@@ -679,9 +679,9 @@ func TestAutoCoverageRequestDirOverride(t *testing.T) {
 
 func TestAutoCoverageMkdirError(t *testing.T) {
 	a := AutoCoverage{
-		Enabled: true,
+		Enabled:     true,
 		PackagePath: func(_, _ string) string { return "pkg" },
-		mkdirAll: func(_ string, _ os.FileMode) error { return fmt.Errorf("mkdir err") },
+		mkdirAll:    func(_ string, _ os.FileMode) error { return fmt.Errorf("mkdir err") },
 	}
 	d := a.Run(context.Background(), Event{Tool: "Write", Args: map[string]string{"path": "x.go"}})
 	if d.Verdict != Warn || !strings.Contains(d.Message, "mkdir err") {
@@ -691,10 +691,10 @@ func TestAutoCoverageMkdirError(t *testing.T) {
 
 func TestAutoCoverageWriteError(t *testing.T) {
 	a := AutoCoverage{
-		Enabled: true,
+		Enabled:     true,
 		PackagePath: func(_, _ string) string { return "pkg" },
-		mkdirAll: func(_ string, _ os.FileMode) error { return nil },
-		writeFile: func(_ string, _ []byte, _ os.FileMode) error { return fmt.Errorf("write err") },
+		mkdirAll:    func(_ string, _ os.FileMode) error { return nil },
+		writeFile:   func(_ string, _ []byte, _ os.FileMode) error { return fmt.Errorf("write err") },
 	}
 	d := a.Run(context.Background(), Event{Tool: "Write", Args: map[string]string{"path": "x.go"}})
 	if d.Verdict != Warn || !strings.Contains(d.Message, "write err") {
@@ -708,9 +708,9 @@ func TestAutoCoverageMarshalError(t *testing.T) {
 	}
 	defer func() { jsonMarshalIndentHook = json.MarshalIndent }()
 	a := AutoCoverage{
-		Enabled: true,
+		Enabled:     true,
 		PackagePath: func(_, _ string) string { return "pkg" },
-		mkdirAll: func(_ string, _ os.FileMode) error { return nil },
+		mkdirAll:    func(_ string, _ os.FileMode) error { return nil },
 	}
 	d := a.Run(context.Background(), Event{Tool: "Write", Args: map[string]string{"path": "x.go"}})
 	if d.Verdict != Warn || !strings.Contains(d.Message, "marshal err") {

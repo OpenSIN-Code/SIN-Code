@@ -553,11 +553,11 @@ func (s *stubTournamentRunner) triedCount() int {
 
 type multiProviderStubRunner struct {
 	stubTournamentRunner
-	providers     []string
-	nextProvider  int
-	providerMu    sync.Mutex
-	verifyFn      func(ctx context.Context, ws string) verify.Result
-	workspace     string
+	providers    []string
+	nextProvider int
+	providerMu   sync.Mutex
+	verifyFn     func(ctx context.Context, ws string) verify.Result
+	workspace    string
 }
 
 func (m *multiProviderStubRunner) Run(ctx context.Context, prompt string) (string, int, error) {

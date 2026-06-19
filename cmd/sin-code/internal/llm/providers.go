@@ -21,21 +21,21 @@ type Provider struct {
 }
 
 const (
-	ClaudeFable5Model   = "claude-fable-5"
-	ClaudeMythos5Model  = "claude-mythos-5"
-	ClaudeFable5Context = 200_000
+	ClaudeFable5Model    = "claude-fable-5"
+	ClaudeMythos5Model   = "claude-mythos-5"
+	ClaudeFable5Context  = 200_000
 	ClaudeMythos5Context = 500_000
-	ClaudeFable5MaxOut  = 128_000
-	ClaudeMythos5MaxOut = 128_000
+	ClaudeFable5MaxOut   = 128_000
+	ClaudeMythos5MaxOut  = 128_000
 )
 
 type ModelInfo struct {
-	Name         string
-	Provider     string
-	MaxContext   int
-	MaxOutput    int
-	InputPer1M   float64
-	OutputPer1M  float64
+	Name             string
+	Provider         string
+	MaxContext       int
+	MaxOutput        int
+	InputPer1M       float64
+	OutputPer1M      float64
 	RequiresThinking bool
 }
 

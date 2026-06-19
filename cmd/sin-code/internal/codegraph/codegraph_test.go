@@ -157,7 +157,7 @@ func TestFindStaleCache(t *testing.T) {
 	fake := writeFakeCodegraph(t, dir, "codegraph", "v1", 0)
 	missing := filepath.Join(dir, "missing")
 	b := &Bridge{
-		lookPath: func(string) (string, error) { return fake, nil },
+		lookPath:   func(string) (string, error) { return fake, nil },
 		candidates: nil,
 		cached:     missing,
 	}

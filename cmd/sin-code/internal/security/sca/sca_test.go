@@ -465,8 +465,10 @@ func TestScannerScan_ResolvePathError(t *testing.T) {
 
 func TestGrypeClientScanDirectory_EmptyPath(t *testing.T) {
 	client := &GrypeClient{
-		Path:          "",
-		CommandRunner: func(ctx context.Context, name string, arg ...string) *exec.Cmd { return exec.CommandContext(ctx, "false") },
+		Path: "",
+		CommandRunner: func(ctx context.Context, name string, arg ...string) *exec.Cmd {
+			return exec.CommandContext(ctx, "false")
+		},
 	}
 	_, err := client.ScanDirectory(context.Background(), t.TempDir())
 	if err == nil {

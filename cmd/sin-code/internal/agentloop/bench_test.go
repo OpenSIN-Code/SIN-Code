@@ -128,9 +128,9 @@ func BenchmarkFrustrationDetection(b *testing.B) {
 }
 
 type benchDAGNode struct {
-	ID         string
-	Type       string
-	DependsOn  []string
+	ID          string
+	Type        string
+	DependsOn   []string
 	Probability float64
 }
 

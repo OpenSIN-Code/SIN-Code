@@ -75,7 +75,7 @@ func TestPickHighestScore_ByScore(t *testing.T) {
 
 func TestPickHighestScore_TieBreakByCost(t *testing.T) {
 	scores := map[string]OracleScore{
-		"cheap": {Total: 10},
+		"cheap":  {Total: 10},
 		"pricey": {Total: 10},
 	}
 	candidates := []Candidate{
@@ -807,11 +807,11 @@ func TestOracleTournament_RunFuncFailure(t *testing.T) {
 
 func TestOracleTournament_NilRunFunc(t *testing.T) {
 	tournament := &Tournament{
-		Providers:       []ProviderConfig{{Name: "a"}},
-		ForkFunc:        makeForkFunc(),
-		Mode:            ModeOracle,
-		OracleJudge:     fakeOracleJudge("CORRECT"),
-		MinQuorum:       1,
+		Providers:   []ProviderConfig{{Name: "a"}},
+		ForkFunc:    makeForkFunc(),
+		Mode:        ModeOracle,
+		OracleJudge: fakeOracleJudge("CORRECT"),
+		MinQuorum:   1,
 	}
 	_, err := tournament.Run(context.Background())
 	if err == nil {
@@ -821,12 +821,12 @@ func TestOracleTournament_NilRunFunc(t *testing.T) {
 
 func TestOracleTournament_NilForkFunc(t *testing.T) {
 	tournament := &Tournament{
-		Providers:       []ProviderConfig{{Name: "a"}},
-		RunFunc:         makeOracleRunFunc(map[string]*fakeProvider{"a": {output: "x", tokens: 1}}),
-		ForkFunc:        nil,
-		Mode:            ModeOracle,
-		OracleJudge:     fakeOracleJudge("CORRECT"),
-		MinQuorum:       1,
+		Providers:   []ProviderConfig{{Name: "a"}},
+		RunFunc:     makeOracleRunFunc(map[string]*fakeProvider{"a": {output: "x", tokens: 1}}),
+		ForkFunc:    nil,
+		Mode:        ModeOracle,
+		OracleJudge: fakeOracleJudge("CORRECT"),
+		MinQuorum:   1,
 	}
 	_, err := tournament.Run(context.Background())
 	if err == nil {
@@ -868,7 +868,7 @@ func TestOracleTournament_JudgeReturnsUnknownWinner(t *testing.T) {
 
 func TestOracleTournament_JudgeReturnsEmptyWinner(t *testing.T) {
 	providers := map[string]*fakeProvider{
-		"a": {name: "a", delay: 10 * time.Millisecond, output: "CORRECT", tokens: 100, },
+		"a": {name: "a", delay: 10 * time.Millisecond, output: "CORRECT", tokens: 100},
 	}
 	tournament := &Tournament{
 		Providers: []ProviderConfig{{Name: "a"}},

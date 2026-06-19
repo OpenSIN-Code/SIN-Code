@@ -8,14 +8,15 @@
 // and dependent tasks start as soon as their dependencies are green.
 //
 // Example:
-//   "implement JWT auth"
-//   → architect (P=1.0, no deps)
-//   → coder:jwt-middleware (P=0.95, deps=[architect])
-//   → coder:login-endpoint (P=0.90, deps=[architect])  ← PARALLEL to jwt-middleware
-//   → tester (P=0.85, deps=[jwt-middleware, login-endpoint])
-//   → security (P=0.70, deps=[jwt-middleware])          ← can start before tester
-//   → docs (P=0.50, deps=[login-endpoint])
-//   → review (P=0.30, deps=[all code tasks])
+//
+//	"implement JWT auth"
+//	→ architect (P=1.0, no deps)
+//	→ coder:jwt-middleware (P=0.95, deps=[architect])
+//	→ coder:login-endpoint (P=0.90, deps=[architect])  ← PARALLEL to jwt-middleware
+//	→ tester (P=0.85, deps=[jwt-middleware, login-endpoint])
+//	→ security (P=0.70, deps=[jwt-middleware])          ← can start before tester
+//	→ docs (P=0.50, deps=[login-endpoint])
+//	→ review (P=0.30, deps=[all code tasks])
 package orchestrator
 
 import (
@@ -132,12 +133,12 @@ func (p *DeepPlanner) BuildDAGPlan(prompt string) *Plan {
 // predictTasks produces a list of TaskPredictions with parallel DAG
 // dependencies. The structure is:
 //
-//   architect (P=1.0, no deps)
-//       ├── coder tasks (P=0.9+, deps=[architect])  ← PARALLEL to each other
-//       ├── security (P=0.7, deps=[architect])       ← PARALLEL to coder
-//       └── docs (P=0.5, deps=[architect])            ← PARALLEL to coder
-//   tester (P=0.85, deps=[all coder tasks])
-//   review (P=0.30, deps=[all coder tasks + tester])
+//	architect (P=1.0, no deps)
+//	    ├── coder tasks (P=0.9+, deps=[architect])  ← PARALLEL to each other
+//	    ├── security (P=0.7, deps=[architect])       ← PARALLEL to coder
+//	    └── docs (P=0.5, deps=[architect])            ← PARALLEL to coder
+//	tester (P=0.85, deps=[all coder tasks])
+//	review (P=0.30, deps=[all coder tasks + tester])
 func (p *DeepPlanner) predictTasks(prompt string, intents []Intent) []TaskPrediction {
 	hasArchitect := needsArchitect(intents)
 	hasCode := false

@@ -13,9 +13,9 @@ import (
 func TestRunAllPass(t *testing.T) {
 	calls := []string{}
 	cfg := Config{
-		Workdir:           ".",
-		Timeout:           30 * time.Second,
-		Steps:             []StepKind{StepBuild, StepVet},
+		Workdir: ".",
+		Timeout: 30 * time.Second,
+		Steps:   []StepKind{StepBuild, StepVet},
 		CommandRunner: func(ctx context.Context, name string, args []string, dir string, timeout time.Duration) (string, error) {
 			calls = append(calls, name+" "+strings.Join(args, " "))
 			return "ok", nil
