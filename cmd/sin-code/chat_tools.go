@@ -274,23 +274,15 @@ func toolBash(ctx context.Context, command string) (string, error) {
 		}
 		out, err := cmd.CombinedOutput()
 		text := string(out)
-		if len(text) > maxToolOutput {
-			text = text[:maxToolOutput] + "\n[... truncated]"
-		}
-		if err != nil {
-			return fmt.Sprintf("exit error: %v\n%s", err, text), nil
-		}
+		if len(text) > maxToolOutput { text = text[:maxToolOutput] + "\n[... truncated]" }
+		if err != nil { return fmt.Sprintf("exit error: %v\n%s", err, text), nil }
 		return text, nil
 	}
 	cmd := exec.CommandContext(cctx, "sh", "-c", command)
 	out, err := cmd.CombinedOutput()
 	text := string(out)
-	if len(text) > maxToolOutput {
-		text = text[:maxToolOutput] + "\n[... truncated]"
-	}
-	if err != nil {
-		return fmt.Sprintf("exit error: %v\n%s", err, text), nil
-	}
+	if len(text) > maxToolOutput { text = text[:maxToolOutput] + "\n[... truncated]" }
+	if err != nil { return fmt.Sprintf("exit error: %v\n%s", err, text), nil }
 	return text, nil
 }
 

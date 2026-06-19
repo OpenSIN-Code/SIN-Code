@@ -123,14 +123,6 @@ type Config struct {
 	// Also activated by config agentloop.compaction_strategy=<strategy>.
 	CompactionStrategy string
 
-	// ContextCompactionMode: mode-based compaction (off|deterministic|llm|hybrid).
-	ContextCompactionMode    string
-	CompactionTrigger        string
-	CompactionMaxTokens      int
-	ContextWindow            int
-	CompactionPreserveEvidence bool
-	CompactionRecentTurns    int
-
 	// FrustrationDetection: when true, wires a FrustrationDetector into the
 	// agent loop (issue #271).
 	// Also activated by config agentloop.frustration_detection=true.
@@ -193,6 +185,14 @@ type Config struct {
 
 	RepetitionThreshold int
 	RepetitionWindow    int
+
+	// ObserverWindow: rolling-history size for the LoopDetector
+	// (issue #377). Defaults to 20 when zero.
+	ObserverWindow int
+	// ObserverMinPatternLength: minimum repeating pattern length.
+	ObserverMinPatternLength int
+	// ObserverMinRepeats: minimum repeat count to trip the detector.
+	ObserverMinRepeats int
 }
 
 // Build constructs a fully wired agentloop.Loop with all mandates applied

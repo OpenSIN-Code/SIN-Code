@@ -47,8 +47,9 @@ const (
 	StopStalled   = "stop.stalled"
 	BudgetWarn      = "budget.warn"
 	BudgetExhausted = "budget.exhausted"
-	// BudgetExceeded fires when a single LLM turn crosses the per-turn cap (issue #375).
-	BudgetExceeded = "budget.exceeded"
+	// LoopDetected fires when the agent loop repeats the same tool call or
+	// sequence past the configured threshold (issue #377).
+	LoopDetected = "loop.detected"
 	// ReflectIssues fires when the self-reflection pass finds problems the
 	// worker must fix before completion is evaluated.
 	ReflectIssues = "reflect.issues"
@@ -76,13 +77,7 @@ const (
 	SkillFailed    = "skill.failed"
 	FusionDispatch = "fusion.dispatch"
 
-	// LoopDetected fires when the LoopDetector refuses dispatch
-	// because the worker entered a repeated tool-call sequence
-	// (issue #377). The data payload carries pattern_length,
-	// repeats and tool name so telemetry / UI / audit pipelines can
-	// surface the stall. Not blockable — the loop has already been
-	// broken by the dispatch site.
-	LoopDetected = "loop.detected"
+	BudgetExceeded = "budget.exceeded"
 )
 
 var blockable = map[string]bool{

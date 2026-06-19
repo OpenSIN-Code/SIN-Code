@@ -507,7 +507,7 @@ func newBudgetHookEngine(t *testing.T) (*hooks.Engine, string) {
 	dir := t.TempDir()
 	marker := filepath.Join(dir, "fired")
 	h := hooks.New([]hooks.Hook{{
-		Event:   hooks.BudgetExceeded,
+		Event:   hooks.BudgetExhausted,
 		Type:    "command",
 		Command: "if [ ! -f " + marker + " ]; then touch " + marker + "; fi",
 	}})

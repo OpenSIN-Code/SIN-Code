@@ -126,14 +126,14 @@ type chatOptions struct {
 	noTUI              bool
 	watch              string
 
-	contextCompaction     string
-	compactionTrigger     string
-	compactionMaxTokens   int
-	contextWindow         int
-	preserveEvidence      bool
-	compactionRecentTurns int
-	repetitionThreshold   int
-	repetitionWindow      int
+	contextCompaction      string
+	compactionTrigger      string
+	compactionMaxTokens    int
+	contextWindow          int
+	preserveEvidence       bool
+	compactionRecentTurns  int
+	repetitionThreshold    int
+	repetitionWindow       int
 }
 
 func NewChatCmd() *cobra.Command {

@@ -89,6 +89,10 @@ type SinCodeConfig struct {
 	// to fill realistic test cases (otherwise it emits a table-driven
 	// scaffold with zero-value tasks). Off by default — privacy/cost.
 	TestUseLLM bool `toml:"test.use_llm"`
+	// AutoLintEnabled runs a language-appropriate formatter after edits.
+	AutoLintEnabled bool `toml:"test.auto_lint"`
+	// AutoTestEnabled runs tests after edits.
+	AutoTestEnabled bool `toml:"test.auto_test"`
 	// TestRepairRounds bounds the generate→compile→execute→repair loop
 	// when test.use_llm is true. Default 3; 0 disables repair.
 	TestRepairRounds int `toml:"test.repair_rounds"`
@@ -173,6 +177,14 @@ type SinCodeConfig struct {
 
 	// CompactionRecentTurns is the number of recent human turns to retain. Default 4.
 	AgentLoopCompactionRecentTurns int `toml:"agentloop.compaction_recent_turns"`
+
+	// AutonomyContainerEnabled runs verify commands inside a container (issue #389).
+	AutonomyContainerEnabled bool   `toml:"autonomy.container.enabled"`
+	AutonomyContainerImage   string `toml:"autonomy.container.image"`
+
+	// AgentLoopSessionContextEnabled injects a unified preamble at session
+	// start (issue #379). Default true.
+	AgentLoopSessionContextEnabled bool `toml:"agentloop.session_context.enabled"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -234,6 +246,8 @@ func defaultConfig() SinCodeConfig {
 		PermissionYoloRiskThreshold:   "",
 		WorktreeConflictCheck:         "off",
 		WorktreeTargetBranch:          "",
+		AutonomyContainerEnabled:      false,
+		AutonomyContainerImage:        "",
 		AgentLoopContextCompaction:            "off",
 		AgentLoopCompactionTrigger:           "tokens",
 		AgentLoopCompactionMaxTokens:         8000,

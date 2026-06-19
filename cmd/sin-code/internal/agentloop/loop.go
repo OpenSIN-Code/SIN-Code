@@ -860,7 +860,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 		if l.perTurnBudget != nil {
 			perr := l.perTurnBudget.Charge(resp.Usage.ThinkingTokens, resp.Usage.TotalTokens)
 			if perr != nil {
-				l.fire(ctx, hooks.BudgetExceeded, "", map[string]any{
+				l.fire(ctx, hooks.BudgetExhausted, "", map[string]any{
 					"turn":          turn,
 					"dimension":     "per-turn",
 					"thinking_used": l.perTurnBudget.ThinkingUsed(),
