@@ -70,19 +70,19 @@ func detectLanguage(repo string) string {
 			return "python"
 		}
 	}
-	goMarkers := []string{"go-gorm", "golang", "/go"}
+	goMarkers := []string{"go-gorm", "golang"}
 	for _, m := range goMarkers {
 		if strings.Contains(lower, m) {
 			return "go"
 		}
 	}
-	rustMarkers := []string{"rust", "cargo"}
+	rustMarkers := []string{"rust-lang", "cargo"}
 	for _, m := range rustMarkers {
 		if strings.Contains(lower, m) {
 			return "rust"
 		}
 	}
-	nodeMarkers := []string{"node", "javascript", "npm"}
+	nodeMarkers := []string{"nodejs", "node-js", "javascript", "npm"}
 	for _, m := range nodeMarkers {
 		if strings.Contains(lower, m) {
 			return "node"
@@ -185,6 +185,9 @@ func lineHasFailIndicator(line string) bool {
 }
 
 func testPassed(testName, verifyOutput string) bool {
+	if testName == "" {
+		return false
+	}
 	for _, line := range strings.Split(verifyOutput, "\n") {
 		if !strings.Contains(line, testName) {
 			continue

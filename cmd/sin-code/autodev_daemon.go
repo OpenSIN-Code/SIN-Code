@@ -71,6 +71,9 @@ func autoCreatePR(ctx context.Context, goal *autonomy.Goal, res *agentloop.Resul
 }
 
 func autodevTruncate(s string, maxLen int) string {
+	if maxLen < 3 {
+		return s
+	}
 	if len(s) <= maxLen {
 		return s
 	}

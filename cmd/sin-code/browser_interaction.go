@@ -17,7 +17,15 @@ func toolBrowserScreenshot(ctx context.Context, selector, qualityStr string) (st
 	}
 	quality := 80
 	if qualityStr != "" {
-		fmt.Sscanf(qualityStr, "%d", &quality)
+		if n, _ := fmt.Sscanf(qualityStr, "%d", &quality); n != 1 {
+			quality = 80
+		}
+	}
+	if quality < 1 {
+		quality = 1
+	}
+	if quality > 100 {
+		quality = 100
 	}
 	var buf []byte
 	var err error
