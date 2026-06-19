@@ -25,10 +25,10 @@ var HooksCmd = hooklife.NewCommand(hooklife.NewRegistry())
 // AssetsCmd is `sin assets ...` — harvested agents/commands/skills.
 var AssetsCmd = assets.NewCommand("./skills/imported")
 
-// EvalCmd is `sin evalset ...` — eval-driven development.
+// EvalSetCmd is `sin evalset ...` — eval-driven development.
 // Default subject is a no-op that reports "no subject wired"; the
 // wiring layer re-roots this with the real verify engine.
-var EvalCmd = evalharness.NewCommand(defaultEvalFactory)
+var EvalSetCmd = evalharness.NewCommand(defaultEvalFactory)
 
 // PRPCmd is `sin prp ...` — Product Requirement Prompt workflow.
 var PRPCmd = prp.NewCommand(prp.Deps{})

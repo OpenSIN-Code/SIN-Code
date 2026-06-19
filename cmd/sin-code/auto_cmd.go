@@ -73,9 +73,7 @@ var autoHookVars = struct {
 	newSnapshotter: autopilot.NewSnapshotter,
 }
 
-func init() { rootCmd.AddCommand(newAutoCmd()) }
-
-func newAutoCmd() *cobra.Command {
+func NewAutoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "auto",
 		Short: "Ultra-autonomous mode: pursue a program.md objective on your behalf",

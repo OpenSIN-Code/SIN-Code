@@ -104,11 +104,15 @@ func init() {
 		NewDebtCmd(),                    // v3.18.0 — sin-debt marker manager (issue #177)
 		NewAuditCmd(), NewCEOAUDITCmd(), // v3.18.0 — complexity audit (issue #180) + 48-gate CEO audit
 		NewCoverCmd(),                                                                                  // Coverage-Drohne: scan, check, gaps, generate, hook
-		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + evalset + prp workflow
+		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalSetCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + evalset + prp workflow
 		NewImageGraphCmd(),              // image-graph: deterministic chart generation (bar/line/pie/area)
 		NewStatusCmd(),                    // v3.22.0
 		NewFusionCmd(),                    // v3.22.0 — fusion benchmark/rank/recommend (issue #395) — readiness/status snapshot (issue #326)
 		NewResearchCmd(),                  // v3.23.0 — autonomous research-report generation (issue #384)
+		NewPermissionCmd(),                // v3.23.0 — reactive permission engine inspection (issue #374)
+		NewTokensCmd(),                    // v3.23.0 — token usage inspection
+		NewAnalyseCmd(),                   // v3.23.0 — static analysis runner
+		NewAutoCmd(),                      // v3.23.0 — ultra-autonomous mode
 	)
 
 	// Pass build-time version to self-update module.

@@ -26,6 +26,7 @@ Usage:
 
 Available Commands:
   adw                 Architectural Debt Watchdogs — detect god modules, circular deps, etc.
+  analyse             Passive bridge shell for the sin-analyse-suite Python MCP (read-only)
   assets              Manage harvested agents/commands/skills
   audit               Repo-wide audits (complexity, ...)
   auto                Ultra-autonomous mode: pursue a program.md objective on your behalf
@@ -104,6 +105,7 @@ Available Commands:
   superpowers         Integrate obra/superpowers skills into SIN-Code
   swarm               Race N agent profiles on the same prompt (first verified wins)
   todo                Issue tracker with dependencies, audit log, and project namespaces
+  tokens              Inspect LLM token usage (per session, day, lifetime, model)
   tool-search         Debug tool relevance ranking
   trace               Configure + verify OpenTelemetry tracer setup
   triage              Read the open issue backlog via gh, score, group, and render

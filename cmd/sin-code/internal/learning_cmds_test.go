@@ -44,12 +44,12 @@ func TestNoopSubject_Run(t *testing.T) {
 	}
 }
 
-func TestEvalCmd_Exists(t *testing.T) {
-	if EvalCmd == nil {
-		t.Fatal("EvalCmd is nil")
+func TestEvalSetCmd_Exists(t *testing.T) {
+	if EvalSetCmd == nil {
+		t.Fatal("EvalSetCmd is nil")
 	}
-	if EvalCmd.Use != "evalset" {
-		t.Errorf("expected Use 'evalset', got %q", EvalCmd.Use)
+	if EvalSetCmd.Use != "evalset" {
+		t.Errorf("expected Use 'evalset', got %q", EvalSetCmd.Use)
 	}
 }
 

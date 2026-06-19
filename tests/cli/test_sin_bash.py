@@ -18,8 +18,17 @@ Tests cover:
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
+
+import pytest
+
+
+pytestmark = pytest.mark.skipif(
+    shutil.which("sin-code") is None,
+    reason="sin-code binary not found on PATH",
+)
 
 
 def _run_cli(*args: str, input_text: str | None = None) -> subprocess.CompletedProcess:

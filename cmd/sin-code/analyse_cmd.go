@@ -14,9 +14,8 @@
 //	analyse tools    # curated catalogue of analyse__* tools
 //	analyse doctor   # comprehensive readiness check (PATH, API, version)
 //
-// This file is deliberately NOT registered in cmd/sin-code/main.go.
-// The Python upstream is still landing; the shell stays self-test-only
-// until the MCP tool surface stabilises.
+// Registered in cmd/sin-code/main.go as `analyse` subcommand.
+// MCP tool surface is stable; runs Go-based static analysis.
 package main
 
 import (
