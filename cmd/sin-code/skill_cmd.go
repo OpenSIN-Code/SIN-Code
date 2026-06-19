@@ -153,7 +153,7 @@ func resolveAgentFlag(agentFlag string) ([]string, error) {
 func NewSkillCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "skill",
-		Short: "Install and manage ecosystem MCP skills",
+		Short: "Manage ecosystem skills from upstream repos (install, status, update)",
 		Long: `The skill subcommand has two surfaces.
 
 Ecosystem install (default, v3.5.0):

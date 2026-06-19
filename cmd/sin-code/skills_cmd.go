@@ -40,7 +40,7 @@ func resolveSkillsVersion() string {
 func NewSkillsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "skills",
-		Short: "List and install bundled project-local skills",
+		Short: "Manage bundled project-local skills embedded in the binary (install, list)",
 		Long: `The skills subcommand discovers the agent skills bundled in the
 sin-code binary and can install them into the user's agent config directory
 (typically ~/.claude/skills/ or ~/.agents/skills/).`,

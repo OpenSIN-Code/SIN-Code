@@ -65,7 +65,7 @@ func toolBrowserType(ctx context.Context, selector, text, submitStr string) (str
 	submit := strings.ToLower(submitStr) == "true"
 	actions := []chromedp.Action{chromedp.WaitVisible(selector, chromedp.ByQuery), chromedp.Focus(selector, chromedp.ByQuery), chromedp.Clear(selector, chromedp.ByQuery), chromedp.SendKeys(selector, text, chromedp.ByQuery)}
 	if submit {
-		actions = append(actions, chromedp.SendKeys(selector, "\n", chromedp.ByQuery))
+		actions = append(actions, chromedp.SendKeys(selector, "\r", chromedp.ByQuery))
 	}
 	err := chromedp.Run(browserSession.cdpCtx, actions...)
 	if err != nil {
@@ -111,7 +111,7 @@ func toolBrowserWait(ctx context.Context, selector, timeoutStr string) (string, 
 	defer cancel()
 	err := chromedp.Run(waitCtx, chromedp.WaitVisible(selector, chromedp.ByQuery))
 	if err != nil {
-		return fmt.Sprintf("wait failed: %v", err), nil
+		return "", fmt.Errorf("sin_browser_wait: wait failed: %w", err)
 	}
 	return "element visible: " + selector, nil
 }

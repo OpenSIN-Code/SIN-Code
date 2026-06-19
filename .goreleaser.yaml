@@ -77,7 +77,7 @@ release:
       --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
       checksums.txt
     sha256sum -c checksums.txt --ignore-missing
-```
+    ```
 
 brews:
   - name: sin-code

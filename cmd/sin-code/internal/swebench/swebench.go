@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+func shellEscape(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}
+
 type Instance struct {
 	InstanceID       string   `json:"instance_id"`
 	Repo             string   `json:"repo"`
@@ -106,13 +110,13 @@ func buildVerifyCmd(inst *Instance) string {
 func buildTestCmd(lang, test string) string {
 	switch lang {
 	case "go":
-		return "go test -run " + test + " ./..."
+		return "go test -run " + shellEscape(test) + " ./..."
 	case "rust":
-		return "cargo test " + test
+		return "cargo test " + shellEscape(test)
 	case "node":
-		return "npm test -- " + test
+		return "npm test -- " + shellEscape(test)
 	default:
-		return "python -m pytest " + test + " -x"
+		return "python -m pytest " + shellEscape(test) + " -x"
 	}
 }
 

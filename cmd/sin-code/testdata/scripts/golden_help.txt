@@ -95,8 +95,8 @@ Available Commands:
   self-update         Check for and install the latest sin-code release
   serve               Start an MCP server exposing all 15 sin-code tools
   sessions            Manage persisted agent sessions
-  skill               Install and manage ecosystem MCP skills
-  skills              List and install bundled project-local skills
+  skill               Manage ecosystem skills from upstream repos (install, status, update)
+  skills              Manage bundled project-local skills embedded in the binary (install, list)
   spec                Author, validate & inspect *.spec.md contracts (Spec-Layer)
   stack               Manage the DOX + Superpowers + Vane methodology stack
   status              Print a readiness snapshot of the local SIN-Code state

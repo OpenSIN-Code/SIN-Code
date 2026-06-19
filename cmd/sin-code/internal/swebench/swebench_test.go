@@ -188,10 +188,10 @@ func TestConvertDataset(t *testing.T) {
 
 	t.Run("verify_cmd contains pytest commands", func(t *testing.T) {
 		c := cases[0]
-		if !strings.Contains(c.VerifyCmd, "python -m pytest tests.test_widget.TestWidget.test_render -x") {
+		if !strings.Contains(c.VerifyCmd, "python -m pytest 'tests.test_widget.TestWidget.test_render' -x") {
 			t.Errorf("VerifyCmd missing FailToPass pytest: %q", c.VerifyCmd)
 		}
-		if !strings.Contains(c.VerifyCmd, "python -m pytest tests.test_widget.TestWidget.test_init -x") {
+		if !strings.Contains(c.VerifyCmd, "python -m pytest 'tests.test_widget.TestWidget.test_init' -x") {
 			t.Errorf("VerifyCmd missing PassToPass pytest: %q", c.VerifyCmd)
 		}
 		if !strings.Contains(c.VerifyCmd, "&&") {
@@ -623,13 +623,13 @@ func TestBuildVerifyCmd(t *testing.T) {
 			PassToPass: []string{"test_c.py"},
 		}
 		cmd := buildVerifyCmd(inst)
-		if !strings.Contains(cmd, "python -m pytest test_a.py -x") {
+		if !strings.Contains(cmd, "python -m pytest 'test_a.py' -x") {
 			t.Errorf("missing test_a: %q", cmd)
 		}
-		if !strings.Contains(cmd, "python -m pytest test_b.py -x") {
+		if !strings.Contains(cmd, "python -m pytest 'test_b.py' -x") {
 			t.Errorf("missing test_b: %q", cmd)
 		}
-		if !strings.Contains(cmd, "python -m pytest test_c.py -x") {
+		if !strings.Contains(cmd, "python -m pytest 'test_c.py' -x") {
 			t.Errorf("missing test_c: %q", cmd)
 		}
 		parts := strings.Split(cmd, " && ")
@@ -644,7 +644,7 @@ func TestBuildVerifyCmd(t *testing.T) {
 			PassToPass: nil,
 		}
 		cmd := buildVerifyCmd(inst)
-		if cmd != "python -m pytest test_x.py -x" {
+		if cmd != "python -m pytest 'test_x.py' -x" {
 			t.Errorf("cmd = %q", cmd)
 		}
 	})
@@ -655,7 +655,7 @@ func TestBuildVerifyCmd(t *testing.T) {
 			PassToPass: []string{"test_y.py"},
 		}
 		cmd := buildVerifyCmd(inst)
-		if cmd != "python -m pytest test_y.py -x" {
+		if cmd != "python -m pytest 'test_y.py' -x" {
 			t.Errorf("cmd = %q", cmd)
 		}
 	})

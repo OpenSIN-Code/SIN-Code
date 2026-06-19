@@ -126,14 +126,14 @@ type chatOptions struct {
 	noTUI              bool
 	watch              string
 
-	contextCompaction      string
-	compactionTrigger      string
-	compactionMaxTokens    int
-	contextWindow          int
-	preserveEvidence       bool
-	compactionRecentTurns  int
-	repetitionThreshold    int
-	repetitionWindow       int
+	contextCompaction     string
+	compactionTrigger     string
+	compactionMaxTokens   int
+	contextWindow         int
+	preserveEvidence      bool
+	compactionRecentTurns int
+	repetitionThreshold   int
+	repetitionWindow      int
 }
 
 func NewChatCmd() *cobra.Command {
@@ -466,7 +466,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		Ask:                      ask,
 		ThinkingEnabled:          thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
-		ResultPolicy:            permission.NewResultPolicy(),
+		ResultPolicy:             permission.NewResultPolicy(),
 	}
 
 	if opts.repetitionThreshold > 0 {
