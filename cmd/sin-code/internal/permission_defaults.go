@@ -77,6 +77,7 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "native_browser__click", Policy: "ask"},
 		{Tool: "native_browser__fill", Policy: "ask"},
 		{Tool: "native_browser__submit", Policy: "ask"},
+		{Tool: "native_browser__*", Policy: "ask"}, // fallback for future native_browser tools
 
 		// v3.22.0: sin-analyse-suite — read-only multimodal preprocessing (image, video, PDF, logs, data, audio).
 		// All analyse__* tools are read-only — they never modify input files.
