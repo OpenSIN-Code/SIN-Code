@@ -145,11 +145,32 @@ trigger type turn TODO/FIXME markers and `MASTER_TODO.md` items into deduplicate
 goals. Env vars: `SIN_EVALUATOR_MODEL`, `SIN_EVALUATOR_BASE_URL`,
 `SIN_EVALUATOR_API_KEY`.
 
+**Headless sandbox mandate (issue #420):** every `sin-code chat -p`,
+`sin-code chat --json`, and `sin-code daemon` invocation routes `sin_bash`
+through `sandbox.Command` (landlock on Linux, seatbelt on macOS, bubblewrap
+where available). The OS-level isolation is on by default — there is no
+turn-off flag that survives audit. `--no-sandbox` exists on `chat` as an
+explicit, WARN-emitting escape hatch for debugging; the daemon has no such
+opt-out (it is headless by mandate). A bare `sh -c` fallback in
+`sin_bash` is reserved for non-headless REPL mode only when the operator
+opts out and never for headless / autonomous runs.
+
 ### M4 — Permission engine gates everything destructive
 Every tool call goes through the permission engine
 (`allow` / `ask` / `deny`). In headless mode, `ask` resolves to `deny`
 unless `--yolo` is passed. **The daemon is always headless** — it cannot
 self-escalate permissions.
+
+**Headless-mode sandbox baseline (issue #420):** the permission engine
+gates *which* tools the LLM may call; the sandbox baseline (M3 above)
+crates *what those tools can do at the OS level*. In headless mode
+(`-p`, `--json`, `daemon`) the two layers stack — M4 denies a
+destructive tool that the operator would have refused interactively,
+and the sandbox confines any tool M4 did approve to the workspace
+roots. A second `sh -c` exit in `sin_bash` is treated as a defect —
+see the audit table in §10 of CHANGELOG.md for the remaining
+operator-controlled `sh -c` paths (`verify-cmd`, `hooks.json`
+command hooks, `*.spec.md` `verify:` directives).
 
 **v3.9.0 bridge additions** (default policies, see
 `cmd/sin-code/internal/permission_defaults.go`):
@@ -426,7 +447,7 @@ SIN-Code/
 └── CEO-AUDIT-REPORT-4-...md      ← vendored reports/repos at repo root
 │
 ├── src/sin_code_bundle/       ← Python companion: `sin` CLI + `sin-serve`
-├── skills/                    ← 37 bundled skills in category directories
+├── skills/                    ← 40 bundled skills in category directories
 │   ├── browser-skills/
 │   ├── code-skills/
 │   ├── debug-skills/
@@ -740,7 +761,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.18.0 | ✅ SHIPPED | `sin-code install` single-binary installer (issue #170), curl/bash + PowerShell shims, SHA256-verified release downloads |
 | v3.19.0 | ✅ SHIPPED | `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format (`delete`, `stdlib`, `native`, `yagni`, `shrink`), `// sin-debt:` marker support (issue #177), text/json/markdown output, race-clean tests |
 | v3.20.0 | ✅ SHIPPED | Tool coverage, M6 enforcement, catalog, telemetry (issues #249, #253, #248, #250, #252, #251): agent profiles expose full `sin_*` + MCP prefix surface; system prompt injects SIN-tool preference fragment; runtime `ToolCoverageEnforcer` rejects missing/forbidden tool usage; `ledger tools` heatmap/coverage/unused; orchestrator planner emits mandatory `ToolChain` per intent; `sin-code catalog` unifies 46+ MCP tools, 17+ chat tools, and 14+ external MCP prefixes. |
-| v3.20.0 | ✅ SHIPPED | `sin-code image-graph` — SOTA ECharts chart generation (bar/line/pie/area); `skill-github-readme` bundled. 42 subcommands, 37 bundled skills. |
+| v3.20.0 | ✅ SHIPPED | `sin-code image-graph` — SOTA ECharts chart generation (bar/line/pie/area); `skill-github-readme` bundled. 42 subcommands, 40 bundled skills. |
 | v3.21.0 | ✅ SHIPPED | Test-First Verify-Loop (RFC-test-automation.md): `sin_test` + `sin_test_generate` + `sin_quality_gate` + `sin_mutation` + `sin_fuzz` + `sin_property`; `tool.post` hook payload path; `test.*` config keys; `evals/test-generation.json` golden dataset. |
 | v3.22.0 | ✅ SHIPPED | SIN Fusion v1 enhancements: **Plan-Merge mode** (issue #393 — N planners → judge merges → 1 coder → verify, preserves all insights); **Oracle as default** (issue #394 — quality over cost, was: PoC first-pass-wins); **Model Performance Registry** (issue #395 — `modelperf.db`, `fusion benchmark/rank/recommend` CLI, auto-wired into `loopbuilder`). |
 | v3.22.0 | ✅ SHIPPED | pre-existing fixes stacked into the same release: `llm/provider.go`+`recorder.go`+`stream.go` ThinkingTokens + 8-arg `RecordUsage`; `agentloop/compaction_helpers.go` for `compaction_types.go`; vet fix in `orchestrator/event_dispatch_test.go`. |
