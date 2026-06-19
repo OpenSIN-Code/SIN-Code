@@ -1,8 +1,8 @@
 # SIN-Code Tool Suite v2 — Master TODO
 
-**Status:** ✅ DONE (2026-06-02)
+**Status:** 🟡 IN PROGRESS (2026-06-19)
 **Erstellt:** 2026-06-02
-**Letztes Update:** 2026-06-19 (resolved testgen LLM sin-debt; added GitHub issue templates)
+**Letztes Update:** 2026-06-19 (quick wins exhausted; remaining IN PROGRESS items blocked on dedicated feature work)
 
 ---
 
@@ -74,6 +74,8 @@
 
 ## 🟡 IN PROGRESS
 
+> Note (2026-06-19): The items below are intentionally left unchecked. They require dedicated feature work (benchmark harness, integration fixtures, MCP transport stress tests) and are out of scope for small TODO-grooming commits.
+
 ### 9. Performance Tests
 - [ ] Benchmarks for large codebases
 - [ ] Memory profiling
@@ -101,6 +103,7 @@
 ### 13. AGENTS.md MCP Integration Section
 - [ ] Document how to register each tool in opencode.json
 - [ ] Add to each tool's AGENTS.md
+  - *Blocked in this repo: only the root `AGENTS.md` exists; per-tool `AGENTS.md` files are not present here. The root `AGENTS.md` already covers MCP/opencode.json registration at a high level.*
 
 ### 14. CI/CD Improvements
 - [ ] Migrate from `softprops/action-gh-release@v1` to `release-please` (?)
