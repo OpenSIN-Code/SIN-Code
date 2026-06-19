@@ -374,6 +374,13 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		AutoOn:   autoOn,
 	})
 	hooklifeReg.Register(autoactivate.UserPromptHook{Act: act.Act})
+	// Auto-lint + auto-test hooks (issue #376): run formatter and tests after edits.
+	if sinCfg.AutoLintEnabled {
+		hooklifeReg.Register(hooks.AutoLintHook{Enabled: true})
+	}
+	if sinCfg.AutoTestEnabled {
+		hooklifeReg.Register(hooks.AutoTestHook{Enabled: true, TimeoutSecs: 30})
+	}
 	hooklifeRunner := hooklife.NewRunner(hooklifeReg).WithTimeout(2 * time.Second)
 
 	// --- External MCP servers (mandate C5, ecosystem skills) -------------

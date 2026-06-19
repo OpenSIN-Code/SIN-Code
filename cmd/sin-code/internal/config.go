@@ -163,6 +163,14 @@ type SinCodeConfig struct {
 	// context preamble (todos, previous session summary, auto-memory) at the
 	// beginning of a new session. Default true. Issue #379.
 	AgentLoopSessionContextEnabled bool `toml:"agentloop.session_context.enabled"`
+
+	// AutoLintEnabled runs a language-appropriate formatter (gofmt, ruff,
+	// rustfmt, prettier) after sin_write/sin_edit. Default true. Issue #376.
+	AutoLintEnabled bool `toml:"test.auto_lint"`
+
+	// AutoTestEnabled runs tests (go test, pytest, cargo test, npm test)
+	// after sin_write/sin_edit in the affected directory. Default true. Issue #376.
+	AutoTestEnabled bool `toml:"test.auto_test"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -227,6 +235,8 @@ func defaultConfig() SinCodeConfig {
 		AgentLoopCompactionPreserveEvidence: true,
 		AgentLoopCompactionRecentTurns:      4,
 		AgentLoopSessionContextEnabled:      true,
+		AutoLintEnabled:                     true,
+		AutoTestEnabled:                     true,
 	}
 }
 
@@ -625,6 +635,8 @@ agentloop.compaction_recent_turns = %d
 # Session-start context injection (issue #379).
 # enabled: prepend todos / previous session summary / auto-memory to the first user message
 agentloop.session_context.enabled = %v
+test.auto_lint = %v
+test.auto_test = %v
 `, cfg.Theme, cfg.DefaultTimeout, cfg.DefaultFormat, cfg.MCPServerEnabled,
 		cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMMaxTokens, cfg.LLMTemperature,
 		cfg.LLMStyle,
@@ -637,7 +649,8 @@ agentloop.session_context.enabled = %v
 		cfg.AutonomyContainerEnabled, cfg.AutonomyContainerImage,
 		cfg.AgentLoopContextCompaction, cfg.AgentLoopCompactionTrigger, cfg.AgentLoopCompactionMaxTokens, cfg.AgentLoopContextWindow,
 		cfg.AgentLoopCompactionPreserveEvidence, cfg.AgentLoopCompactionRecentTurns,
-		cfg.AgentLoopSessionContextEnabled)
+		cfg.AgentLoopSessionContextEnabled,
+		cfg.AutoLintEnabled, cfg.AutoTestEnabled)
 }
 
 func initConfig() error {
@@ -1015,6 +1028,10 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.AutonomyContainerImage = value
 	case "agentloop.session_context.enabled":
 		cfg.AgentLoopSessionContextEnabled = value == "true" || value == "1"
+	case "test.auto_lint":
+		cfg.AutoLintEnabled = value == "true" || value == "1"
+	case "test.auto_test":
+		cfg.AutoTestEnabled = value == "true" || value == "1"
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}
@@ -1154,6 +1171,8 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 			"compaction_preserve_evidence": cfg.AgentLoopCompactionPreserveEvidence,
 			"compaction_recent_turns":      cfg.AgentLoopCompactionRecentTurns,
 			"session_context_enabled":      cfg.AgentLoopSessionContextEnabled,
+			"auto_lint_enabled":            cfg.AutoLintEnabled,
+			"auto_test_enabled":            cfg.AutoTestEnabled,
 		},
 		"permissions": map[string]any{
 			"tools_allow": cfg.ToolsAllow,
