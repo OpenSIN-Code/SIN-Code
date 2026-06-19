@@ -33,13 +33,14 @@ const (
 // and network calls. Production defaults point to the real implementations.
 var (
 	toolReadFn           = toolRead
-	toolWriteFn           = toolWrite
-	toolEditFn            = toolEdit
-	toolApplyDiffFn       = toolApplyDiff
-	toolGenerateDiffFn    = toolGenerateDiff
-	toolBashFn            = toolBash
-	toolSearchFn          = toolSearch
-	toolBootstrapSkillFn  = toolBootstrapSkill
+	toolWriteFn          = toolWrite
+	toolEditFn           = toolEdit
+	toolReplaceFn        = toolReplace
+	toolApplyDiffFn      = toolApplyDiff
+	toolGenerateDiffFn   = toolGenerateDiff
+	toolBashFn           = toolBash
+	toolSearchFn         = toolSearch
+	toolBootstrapSkillFn = toolBootstrapSkill
 	toolSearchWalkErrFn  = func(_ string, err error) error { return nil }
 	metaBootstrapSkillFn = meta.BootstrapSkill
 )
@@ -60,11 +61,13 @@ func builtinSpecs() []agentloopToolSpecAlias {
 			InputSchema: obj(map[string]any{"path": str("file path"), "content": str("full file content")}, "path", "content")},
 		{Name: "sin_edit", Description: "Surgical file edit: replace the first exact occurrence of old with new in a file. Fails if old is ambiguous; use sin_replace for a naive replacement.",
 			InputSchema: obj(map[string]any{"path": str("file path"), "old": str("exact text to replace"), "new": str("replacement text")}, "path", "old", "new")},
+		{Name: "sin_replace", Description: "Naive string replacement: replace the first exact occurrence of old with new in a file (backward-compatible).",
+			InputSchema: obj(map[string]any{"path": str("file path"), "old": str("exact text to replace"), "new": str("replacement text")}, "path", "old", "new")},
 		{Name: "sin_apply_diff", Description: "Apply a unified diff to a file. Validates each hunk before applying and reports applied/rejected hunks. (issue #365)",
 			InputSchema: obj(map[string]any{"path": str("file path"), "diff": str("unified diff string")}, "path", "diff")},
 		{Name: "sin_generate_diff", Description: "Generate a unified diff from old and new content. (issue #365)",
 			InputSchema: obj(map[string]any{"old_content": str("original content"), "new_content": str("updated content")}, "old_content", "new_content")},
-		{Name: "sin_bash", Description: "Run a shell command in the workspace (120s timeout).", 
+		{Name: "sin_bash", Description: "Run a shell command in the workspace (120s timeout).",
 			InputSchema: obj(map[string]any{"command": str("shell command")}, "command")},
 		{Name: "sin_search", Description: "Search files for a substring; returns file:line matches.",
 			InputSchema: obj(map[string]any{"pattern": str("substring to search"), "dir": str("directory (default .)")}, "pattern")},
@@ -85,6 +88,8 @@ func builtinTool(ctx context.Context, workspace, name string, args map[string]an
 		return toolWriteFn(argStr(args, "path"), argStr(args, "content"))
 	case "sin_edit":
 		return toolEditFn(argStr(args, "path"), argStr(args, "old"), argStr(args, "new"))
+	case "sin_replace":
+		return toolReplaceFn(argStr(args, "path"), argStr(args, "old"), argStr(args, "new"))
 	case "sin_apply_diff":
 		return toolApplyDiffFn(argStr(args, "path"), argStr(args, "diff"))
 	case "sin_generate_diff":
@@ -269,15 +274,23 @@ func toolBash(ctx context.Context, command string) (string, error) {
 		}
 		out, err := cmd.CombinedOutput()
 		text := string(out)
-		if len(text) > maxToolOutput { text = text[:maxToolOutput] + "\n[... truncated]" }
-		if err != nil { return fmt.Sprintf("exit error: %v\n%s", err, text), nil }
+		if len(text) > maxToolOutput {
+			text = text[:maxToolOutput] + "\n[... truncated]"
+		}
+		if err != nil {
+			return fmt.Sprintf("exit error: %v\n%s", err, text), nil
+		}
 		return text, nil
 	}
 	cmd := exec.CommandContext(cctx, "sh", "-c", command)
 	out, err := cmd.CombinedOutput()
 	text := string(out)
-	if len(text) > maxToolOutput { text = text[:maxToolOutput] + "\n[... truncated]" }
-	if err != nil { return fmt.Sprintf("exit error: %v\n%s", err, text), nil }
+	if len(text) > maxToolOutput {
+		text = text[:maxToolOutput] + "\n[... truncated]"
+	}
+	if err != nil {
+		return fmt.Sprintf("exit error: %v\n%s", err, text), nil
+	}
 	return text, nil
 }
 
