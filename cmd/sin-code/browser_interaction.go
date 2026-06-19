@@ -22,9 +22,10 @@ func toolBrowserScreenshot(ctx context.Context, selector, qualityStr string) (st
 	var buf []byte
 	var err error
 	if selector != "" {
+		// chromedp.Screenshot has no quality option; quality applies only to full-page.
 		err = chromedp.Run(browserSession.cdpCtx, chromedp.WaitVisible(selector, chromedp.ByQuery), chromedp.Screenshot(selector, &buf, chromedp.ByQuery))
 	} else {
-		err = chromedp.Run(browserSession.cdpCtx, chromedp.CaptureScreenshot(&buf))
+		err = chromedp.Run(browserSession.cdpCtx, chromedp.FullScreenshot(&buf, quality))
 	}
 	if err != nil {
 		return "", fmt.Errorf("sin_browser_screenshot: %w", err)

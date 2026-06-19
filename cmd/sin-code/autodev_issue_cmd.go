@@ -60,10 +60,13 @@ func newGoalAddFromIssueCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "add-from-issue <number>", Short: "Read a GitHub issue and enqueue it as an autonomous goal (Autodev, issue #391)", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			num, err := fmtAtoi(args[0])
-			if err != nil {
-				return fmt.Errorf("issue number must be positive: %w", err)
-			}
+		num, err := fmtAtoi(args[0])
+		if err != nil {
+			return fmt.Errorf("issue number must be positive: %w", err)
+		}
+		if num <= 0 {
+			return fmt.Errorf("issue number must be a positive integer")
+		}
 			if repo == "" {
 				repo = detectRepo()
 				if repo == "" {
@@ -80,7 +83,10 @@ func newGoalAddFromIssueCmd() *cobra.Command {
 			}
 			contract := defaultIssueContract(issue)
 			contract.SemanticCriteria = append(contract.SemanticCriteria, extraCriteria...)
-			contractJSON, _ := contract.Marshal()
+			contractJSON, err := contract.Marshal()
+		if err != nil {
+			return err
+		}
 			q, err := autonomy.Open(autonomy.DefaultPath())
 			if err != nil {
 				return err

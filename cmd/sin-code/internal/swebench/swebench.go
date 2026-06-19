@@ -62,15 +62,58 @@ func (inst *Instance) ToTestCase() TestCase {
 	}
 }
 
+func detectLanguage(repo string) string {
+	lower := strings.ToLower(repo)
+	pythonMarkers := []string{"django", "flask", "scikit", "sympy", "pytest", "python", "astropy", "matplotlib", "sphinx", "pylint"}
+	for _, m := range pythonMarkers {
+		if strings.Contains(lower, m) {
+			return "python"
+		}
+	}
+	goMarkers := []string{"go-gorm", "golang", "/go"}
+	for _, m := range goMarkers {
+		if strings.Contains(lower, m) {
+			return "go"
+		}
+	}
+	rustMarkers := []string{"rust", "cargo"}
+	for _, m := range rustMarkers {
+		if strings.Contains(lower, m) {
+			return "rust"
+		}
+	}
+	nodeMarkers := []string{"node", "javascript", "npm"}
+	for _, m := range nodeMarkers {
+		if strings.Contains(lower, m) {
+			return "node"
+		}
+	}
+	return "python"
+}
+
 func buildVerifyCmd(inst *Instance) string {
+	lang := detectLanguage(inst.Repo)
 	var parts []string
 	for _, t := range inst.FailToPass {
-		parts = append(parts, "python -m pytest "+t+" -x")
+		parts = append(parts, buildTestCmd(lang, t))
 	}
 	for _, t := range inst.PassToPass {
-		parts = append(parts, "python -m pytest "+t+" -x")
+		parts = append(parts, buildTestCmd(lang, t))
 	}
 	return strings.Join(parts, " && ")
+}
+
+func buildTestCmd(lang, test string) string {
+	switch lang {
+	case "go":
+		return "go test -run " + test + " ./..."
+	case "rust":
+		return "cargo test " + test
+	case "node":
+		return "npm test -- " + test
+	default:
+		return "python -m pytest " + test + " -x"
+	}
 }
 
 func ConvertDataset(ds *Dataset) []TestCase {

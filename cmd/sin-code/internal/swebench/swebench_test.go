@@ -709,4 +709,121 @@ func TestBuildVerifyCmd(t *testing.T) {
 			t.Errorf("cmd = %q, want empty", cmd)
 		}
 	})
+
+	t.Run("go repo uses go test", func(t *testing.T) {
+		inst := &Instance{
+			Repo:       "go-gorm/gorm",
+			FailToPass: []string{"TestCreate"},
+			PassToPass: []string{"TestUpdate"},
+		}
+		cmd := buildVerifyCmd(inst)
+		if !strings.Contains(cmd, "go test -run TestCreate ./...") {
+			t.Errorf("missing go test for FailToPass: %q", cmd)
+		}
+		if !strings.Contains(cmd, "go test -run TestUpdate ./...") {
+			t.Errorf("missing go test for PassToPass: %q", cmd)
+		}
+		if strings.Contains(cmd, "pytest") {
+			t.Errorf("go repo should not use pytest: %q", cmd)
+		}
+	})
+
+	t.Run("golang repo uses go test", func(t *testing.T) {
+		inst := &Instance{
+			Repo:       "golang/go",
+			FailToPass: []string{"TestFoo"},
+			PassToPass: nil,
+		}
+		cmd := buildVerifyCmd(inst)
+		if cmd != "go test -run TestFoo ./..." {
+			t.Errorf("cmd = %q, want go test", cmd)
+		}
+	})
+
+	t.Run("rust repo uses cargo test", func(t *testing.T) {
+		inst := &Instance{
+			Repo:       "rust-lang/cargo",
+			FailToPass: []string{"test_build"},
+			PassToPass: []string{"test_run"},
+		}
+		cmd := buildVerifyCmd(inst)
+		if !strings.Contains(cmd, "cargo test test_build") {
+			t.Errorf("missing cargo test for FailToPass: %q", cmd)
+		}
+		if !strings.Contains(cmd, "cargo test test_run") {
+			t.Errorf("missing cargo test for PassToPass: %q", cmd)
+		}
+		if strings.Contains(cmd, "pytest") {
+			t.Errorf("rust repo should not use pytest: %q", cmd)
+		}
+	})
+
+	t.Run("rust-lang repo uses cargo test", func(t *testing.T) {
+		inst := &Instance{
+			Repo:       "rust-lang/rust",
+			FailToPass: []string{"test_bar"},
+			PassToPass: nil,
+		}
+		cmd := buildVerifyCmd(inst)
+		if cmd != "cargo test test_bar" {
+			t.Errorf("cmd = %q, want cargo test", cmd)
+		}
+	})
+
+	t.Run("node repo uses npm test", func(t *testing.T) {
+		inst := &Instance{
+			Repo:       "nodejs/node",
+			FailToPass: []string{"test-foo"},
+			PassToPass: nil,
+		}
+		cmd := buildVerifyCmd(inst)
+		if cmd != "npm test -- test-foo" {
+			t.Errorf("cmd = %q, want npm test", cmd)
+		}
+	})
+
+	t.Run("unknown repo defaults to python pytest", func(t *testing.T) {
+		inst := &Instance{
+			Repo:       "some-unknown/repo",
+			FailToPass: []string{"test_default.py"},
+			PassToPass: nil,
+		}
+		cmd := buildVerifyCmd(inst)
+		if cmd != "python -m pytest test_default.py -x" {
+			t.Errorf("cmd = %q, want default pytest", cmd)
+		}
+	})
+
+	t.Run("detectLanguage", func(t *testing.T) {
+		cases := []struct {
+			repo string
+			want string
+		}{
+			{"django/django", "python"},
+			{"pallets/flask", "python"},
+			{"scikit-learn/scikit-learn", "python"},
+			{"sympy/sympy", "python"},
+			{"pytest-dev/pytest", "python"},
+			{"python/cpython", "python"},
+			{"astropy/astropy", "python"},
+			{"matplotlib/matplotlib", "python"},
+			{"sphinx-doc/sphinx", "python"},
+			{"pylint-dev/pylint", "python"},
+			{"go-gorm/gorm", "go"},
+			{"golang/go", "go"},
+			{"some/go", "go"},
+			{"rust-lang/cargo", "rust"},
+			{"rust-lang/rust", "rust"},
+			{"nodejs/node", "node"},
+			{"facebook/react-javascript", "node"},
+			{"some-org/npm-package", "node"},
+			{"unknown/repo", "python"},
+		}
+		for _, tc := range cases {
+			got := detectLanguage(tc.repo)
+			if got != tc.want {
+				t.Errorf("detectLanguage(%q) = %q, want %q", tc.repo, got, tc.want)
+			}
+		}
+	})
 }
