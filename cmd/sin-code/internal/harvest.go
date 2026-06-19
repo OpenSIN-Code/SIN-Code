@@ -6,6 +6,7 @@
 package internal
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -19,6 +20,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/circuitbreaker"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/egress"
 )
 
 // harvestBreaker rate-limits outbound plan HTTP traffic: 5 consecutive
@@ -47,6 +49,15 @@ var harvestHTTPClient = func(timeout int) *http.Client {
 		Timeout:   time.Duration(timeout) * time.Second,
 		Transport: circuitbreaker.RoundTripper(http.DefaultTransport, harvestBreaker),
 	}
+}
+
+// harvestEgressCheck is the SSRF allowlist gate applied before every
+// http.NewRequest. The default calls into the egress package with a deny
+// policy (Finding 4, security audit). Tests swap this for a permissive
+// stub when using httptest.NewServer (which always binds 127.0.0.1).
+// Sin-debt: scope=narrow, upgrade=migrate to per-verify-gate dial-on-resolved-ip transport hardening
+var harvestEgressCheck = func(ctx context.Context, u string) error {
+	return egress.Check(ctx, u, egress.Policy{})
 }
 
 var HarvestCmd = &cobra.Command{
@@ -107,6 +118,9 @@ func harvestURLFetch(url, method string, timeout int, format string) error {
 	}
 
 	client := harvestHTTPClient(timeout)
+	if err := harvestEgressCheck(context.Background(), url); err != nil {
+		return fmt.Errorf("harvest: %w", err)
+	}
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return fmt.Errorf("invalid request: %w", err)

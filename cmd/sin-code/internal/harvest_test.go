@@ -3,6 +3,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,7 +14,20 @@ import (
 	"testing"
 )
 
+// enableLooseEgress swaps harvestEgressCheck for a no-op stub for the
+// duration of the test. Production code refuses 127.0.0.1 / localhost by
+// default (Finding 4, security audit), but httptest.NewServer always
+// binds to loopback — these tests are exercising the HTTP transport
+// pipeline, not the egress gate (which has its own coverage suite).
+func enableLooseEgress(t *testing.T) {
+	t.Helper()
+	orig := harvestEgressCheck
+	harvestEgressCheck = func(_ context.Context, _ string) error { return nil }
+	t.Cleanup(func() { harvestEgressCheck = orig })
+}
+
 func TestHarvestURLFetch_Success(t *testing.T) {
+	enableLooseEgress(t)
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -42,6 +56,7 @@ func TestHarvestURLFetch_Success(t *testing.T) {
 }
 
 func TestHarvestURLFetch_JSON(t *testing.T) {
+	enableLooseEgress(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Custom", "test")
 		w.WriteHeader(http.StatusOK)
@@ -67,6 +82,7 @@ func TestHarvestURLFetch_JSON(t *testing.T) {
 }
 
 func TestHarvestURLFetch_Cache(t *testing.T) {
+	enableLooseEgress(t)
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
@@ -110,6 +126,7 @@ func TestHarvestURLFetch_Cache(t *testing.T) {
 }
 
 func TestHarvestURLFetch_Error(t *testing.T) {
+	enableLooseEgress(t)
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	defer r.Close()
@@ -129,6 +146,7 @@ func TestHarvestURLFetch_Error(t *testing.T) {
 }
 
 func TestHarvestURLFetch_InvalidURL(t *testing.T) {
+	enableLooseEgress(t)
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	defer r.Close()
@@ -148,6 +166,7 @@ func TestHarvestURLFetch_InvalidURL(t *testing.T) {
 }
 
 func TestHarvestURLFetch_PostMethod(t *testing.T) {
+	enableLooseEgress(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			t.Errorf("expected POST method, got %s", r.Method)
@@ -176,6 +195,7 @@ func TestHarvestURLFetch_PostMethod(t *testing.T) {
 }
 
 func TestHarvestURLFetch_CacheJSON(t *testing.T) {
+	enableLooseEgress(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, `{"data":"cached"}`)
@@ -208,6 +228,7 @@ func TestHarvestURLFetch_CacheJSON(t *testing.T) {
 }
 
 func TestHarvestURLFetch_ErrorJSON(t *testing.T) {
+	enableLooseEgress(t)
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	defer r.Close()
@@ -227,6 +248,7 @@ func TestHarvestURLFetch_ErrorJSON(t *testing.T) {
 }
 
 func TestHarvestURLFetch_InvalidURLJSON(t *testing.T) {
+	enableLooseEgress(t)
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	defer r.Close()
@@ -254,6 +276,7 @@ func TestHarvestURLFetch_MissingURL(t *testing.T) {
 }
 
 func TestHarvestURLFetch_ServerError(t *testing.T) {
+	enableLooseEgress(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintln(w, "internal error")
@@ -292,6 +315,7 @@ func (errBody) Read(_ []byte) (int, error) { return 0, fmt.Errorf("simulated bod
 func (errBody) Close() error               { return nil }
 
 func TestHarvestURLFetch_ReadBodyError(t *testing.T) {
+	enableLooseEgress(t)
 	oldClient := harvestHTTPClient
 	harvestHTTPClient = func(timeout int) *http.Client {
 		return &http.Client{

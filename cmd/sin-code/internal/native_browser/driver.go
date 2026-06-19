@@ -35,6 +35,8 @@ import (
 	"time"
 
 	"golang.org/x/net/html"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/egress"
 )
 
 // Action discriminates the Perform verb.
@@ -91,6 +93,14 @@ func NewHTTPDirectDriver() *HTTPDirectDriver {
 			"User-Agent": "sin-native-browser/1.0",
 		},
 	}
+}
+
+// nativeBrowserEgressCheck is the SSRF allowlist gate applied before every
+// HTTPDirectDriver lookupAnchor request (Finding 5, security audit).
+// Tests swap this for a no-op stub when using httptest.NewServer.
+// Sin-debt: scope=narrow, upgrade=extend gate to Load + scanner.Get as well
+var nativeBrowserEgressCheck = func(ctx context.Context, u string) error {
+	return egress.Check(ctx, u, egress.Policy{})
 }
 
 // Name implements Driver.
@@ -192,6 +202,14 @@ func (d *HTTPDirectDriver) lookupAnchor(pageURL, selector string) (string, bool)
 	d.mu.Lock()
 	client := d.client
 	d.mu.Unlock()
+
+	// SSRF gate (Finding 5, security audit): refuse re-fetches of the
+	// same URL the browser navigated to when its resolved address lies
+	// in a private/loopback/link-local/ULA block. Deny is fail-closed
+	// (mandate M3).
+	if err := nativeBrowserEgressCheck(context.Background(), pageURL); err != nil {
+		return "", false
+	}
 
 	req, err := http.NewRequest(http.MethodGet, pageURL, nil)
 	if err != nil {

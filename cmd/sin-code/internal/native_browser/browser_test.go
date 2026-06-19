@@ -428,3 +428,55 @@ func TestBrowser_DefaultDriverIsHTTPDirect(t *testing.T) {
 		t.Fatalf("default DriverName: got %q, want http-direct", got)
 	}
 }
+
+// TestBrowserHTTPDirect_ClickEgressDenied verifies the SSRF gate
+// (Finding 5) blocks Perform → lookupAnchor on a url whose resolved
+// address falls in the link-local / metadata block. The httptest server
+// is on 127.0.0.1, which the default policy rejects.
+func TestBrowserHTTPDirect_ClickEgressDenied(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(`<html><body><a id="more" href="/more">more</a></body></html>`))
+	}))
+	defer srv.Close()
+
+	d := NewHTTPDirectDriver()
+	defer d.Close()
+
+	// Default policy: AllowPrivateNetworks=false → loopback is denied.
+	// HTTPDirectDriver.Perform on ClickAction calls lookupAnchor →
+	// egress.Check denies; lookupAnchor returns ("", false);
+	// Perform returns ErrUnsupported wrapping the click selector.
+	err := d.Perform(context.Background(), srv.URL, ClickAction, "#more", "")
+	if err == nil {
+		t.Fatal("expected Perform to fail with egress-denied, got nil")
+	}
+	if !errors.Is(err, ErrUnsupported) {
+		t.Fatalf("expected ErrUnsupported wrapping egress denial, got %v", err)
+	}
+}
+
+// TestBrowserHTTPDirect_ClickEgressAllowed verifies the SSRF gate is
+// opt-in: with AllowPrivateNetworks=true the same lookupAnchor call
+// returns the anchor it found. This is the assert-loop side of the
+// Finding 5 fix — the gate must be no-op when the operator opts in.
+func TestBrowserHTTPDirect_ClickEgressAllowed(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(`<html><body><a id="more" href="/more">more</a></body></html>`))
+	}))
+	defer srv.Close()
+
+	d := NewHTTPDirectDriver()
+	defer d.Close()
+
+	orig := nativeBrowserEgressCheck
+	nativeBrowserEgressCheck = func(ctx context.Context, u string) error { return nil }
+	t.Cleanup(func() { nativeBrowserEgressCheck = orig })
+
+	// Driver's lookupAnchor matches against raw id/name attributes, not
+	// CSS selectors — strip the leading "#" so the match succeeds.
+	if err := d.Perform(context.Background(), srv.URL, ClickAction, "more", ""); err != nil {
+		t.Fatalf("Perform with permissive egress should pass, got %v", err)
+	}
+}
