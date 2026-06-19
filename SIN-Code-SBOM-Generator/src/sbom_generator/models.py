@@ -6,7 +6,7 @@ Docs: models.doc.md
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 
@@ -50,7 +50,7 @@ class SBOMMetadata:
     tool_name: str = "SIN-Code-SBOM-Generator"
     tool_version: str = "1.0.0"
     authors: List[str] = field(default_factory=lambda: ["OpenSIN-Code"])
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     document_name: str = ""
     document_namespace: str = ""
 

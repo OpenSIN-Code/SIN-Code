@@ -3,8 +3,8 @@
 Hooks are deterministic automation points fired by the CLI itself at
 lifecycle events. They are **never** LLM-decided — when the event fires,
 the hook runs. Configured under the `hooks` key in
-`~/.config/sin-code/config.json` (user) or `./.sin/config.json` (project,
-deep-merged, project wins).
+`~/.config/sin/sin-code.toml` (user) or `./.sin-code/config.toml` (project,
+deep-merged, project wins). See AGENTS.md §7 for the full config schema.
 
 ## Hook types
 

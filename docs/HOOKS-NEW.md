@@ -118,8 +118,9 @@ type Decision struct {
 ## Why two hook systems (and how they relate)
 
 `cmd/sin-code/internal/hooks/hooks.go` is the **legacy** hook system
-(user-configured shell commands and webhooks in `~/.config/sin-code/
-config.json`; see `docs/HOOKS.md`). It has the same Phase names
+(user-configured shell commands and webhooks via
+`~/.config/sin/sin-code.toml` legacy `[hooks]` section; see
+`docs/HOOKS.md`). It has the same Phase names
 but a YAML-driven configuration.
 
 `cmd/sin-code/internal/hooklife/` is the **native Go** hook system

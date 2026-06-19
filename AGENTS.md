@@ -414,9 +414,16 @@ SIN-Code/
 │   │       ├── memory/        ← (existing) store/search/embed
 │   │       ├── lsp/, notifications/, todo/, plugins/, sandbox/, attachments/, webui/
 │   ├── sin-tui/               ← standalone TUI binary
-│   └── SIN-Code-Container-Tool-Go, SIN-Code-SAST-Tool,
-│       SIN-Code-SBOM-Generator, SIN-Code-SBOM-Generator-Go,
-│       SIN-Code-SCA-Tool-Go, SIN-Code-Secrets-Scanner
+│   └── (sin-code, sin-tui only — vendored tools live at repo root)
+│
+├── SIN-Code-Container-Tool-Go/   ← vendored Go module at repo root (own go.mod)
+├── SIN-Code-SAST-Tool/           ← vendored Go module at repo root (own go.mod)
+├── SIN-Code-SBOM-Generator/      ← vendored Python module at repo root
+├── SIN-Code-SBOM-Generator-Go/   ← vendored Go module at repo root (own go.mod)
+├── SIN-Code-SCA-Tool-Go/         ← vendored Go module at repo root (own go.mod)
+├── SIN-Code-Secrets-Scanner/     ← vendored Go module at repo root (own go.mod)
+├── SIN-Code-Security-Bundle/     ← vendored Python sec-stack at repo root
+└── CEO-AUDIT-REPORT-4-...md      ← vendored reports/repos at repo root
 │
 ├── src/sin_code_bundle/       ← Python companion: `sin` CLI + `sin-serve`
 ├── skills/                    ← 37 bundled skills in category directories
