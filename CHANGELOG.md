@@ -4,6 +4,38 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-19
 
+### Security — `SIN_CODE_FILE_MODE` env knob (closes #422)
+- **New package** `cmd/sin-code/internal/filemode/` centralises the
+  file-mode policy for write paths that previously hard-coded
+  `0o644`. `filemode.Default()` returns the env value when set, else
+  `0o644`. `filemode.Resolve(envValue, fallback)` parses the knob as
+  an octal string (accepts both `0o600` and `0600` forms) and
+  refuses modes that grant group or other write — the knob may
+  tighten, never loosen, the `0o644` baseline.
+- **Migration** — every non-test `0o644` literal in `cmd/sin-code/`
+  (49 files, including `chat_tools.go`, `spec_cmd.go`,
+  `research_cmd.go`, `skilldist`, `compress`, `instinct`, `ledger`,
+  `agentloop` and the `tui/` family) now reads through
+  `filemode.Default()`. The two close-to-source exceptions stay
+  intentionally tight: `internal/update_manifest.go` writes the
+  install manifest at `0o600` (operator-only secret material) and
+  `internal/index_store.go` creates the index dir at `0o750`
+  (owner+group workspace). `internal/dox/dox.go`'s `DefaultFileMode`
+  switched from `const` to `var` so it can read the env knob at
+  package init.
+- **`dox.DefaultFileMode` stays the package surface** — callers in
+  `stack` continue to consume `dox.DefaultDirMode`; only the value
+  source changed. CLI-visible behaviour unchanged unless
+  `SIN_CODE_FILE_MODE` is explicitly set.
+- **New tests** in `cmd/sin-code/internal/filemode/filemode_test.go`
+  cover: default fallback (`0o644`), both `0o600`/`0600` forms,
+  invalid octal rejection, empty fallback, group/other-write
+  rejection (`0o666`, `0o664`, `0o660`, `0o662`, `0o646`), and
+  executable-bit preservation (`0o755` still accepted because some
+  write paths land in directories that must be runnable). All six
+  pass under `go test -race -count=1
+  ./cmd/sin-code/internal/filemode/...`.
+
 ### Security — Default sandbox on for headless `chat -p` and `daemon` (closes #420)
 - **Headless `sin-code chat`** (`-p` and `--json`) now defaults to
   `sandbox.enabled=true` with workspace rooted at `$PWD`. The

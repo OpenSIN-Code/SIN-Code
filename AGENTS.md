@@ -782,6 +782,15 @@ updates `homebrew-sin` formula, and ships to GitHub Releases.
 - Docs: every behavioral change updates docs/ + CHANGELOG.md in the same PR.
 - AGENTS.md + ECOSYSTEM.md are kept in sync with the codebase (CI
   ecosystem-sync.yml enforces registry↔permission↔ECOSYSTEM agreement).
+- **File-mode policy (`SIN_CODE_FILE_MODE`)**: write paths that would
+  otherwise hard-code `0o644` go through
+  `cmd/sin-code/internal/filemode.Default()`. Operators can dial the
+  mode down (e.g. `0o600`) for security-sensitive deployments by
+  setting `SIN_CODE_FILE_MODE` to a valid octal string (`0o600` or
+  `0600` form). The knob refuses group/other-write modes that would
+  loosen the `0o644` baseline. Close-to-source exceptions stay tight:
+  `internal/update_manifest.go` writes the install manifest at `0o600`
+  and `internal/index_store.go` creates the index dir at `0o750`.
 
 ---
 
