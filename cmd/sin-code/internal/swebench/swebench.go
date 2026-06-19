@@ -36,11 +36,17 @@ func LoadDataset(path string) (*Dataset, error) {
 	}
 	var instances []Instance
 	if err := json.Unmarshal(raw, &instances); err == nil {
+		if len(instances) == 0 {
+			return nil, fmt.Errorf("dataset contains no instances")
+		}
 		return &Dataset{Instances: instances}, nil
 	}
 	var d Dataset
 	if err := json.Unmarshal(raw, &d); err != nil {
 		return nil, fmt.Errorf("parse: %w", err)
+	}
+	if len(d.Instances) == 0 {
+		return nil, fmt.Errorf("dataset contains no instances")
 	}
 	return &d, nil
 }
