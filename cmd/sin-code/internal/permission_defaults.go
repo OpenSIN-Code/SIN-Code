@@ -14,8 +14,7 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "sin_read", Policy: "allow"},
 		{Tool: "sin_write", Policy: "allow"},
 		{Tool: "sin_edit", Policy: "allow"},
-		{Tool: "sin_replace", Policy: "allow"},       // v3.23.0: naive string replacement (issue #373)
-		{Tool: "sin_apply_diff", Policy: "allow"},    // v3.23.0: unified diff editor (issue #365)
+		{Tool: "sin_apply_diff", Policy: "allow"},   // v3.23.0: unified diff editor (issue #365)
 		{Tool: "sin_generate_diff", Policy: "allow"}, // v3.23.0: diff generator (issue #365)
 		{Tool: "sin_test", Policy: "allow"},
 		{Tool: "sin_quality_gate", Policy: "allow"}, // v3.21.0: Test-First Verify-Loop (RFC-test-automation)
