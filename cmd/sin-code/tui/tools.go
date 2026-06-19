@@ -16,6 +16,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/sandbox"
 )
 
 const (
@@ -23,6 +24,52 @@ const (
 	tuiMaxToolOutput = 32 * 1024
 	tuiBashTimeout   = 120 * time.Second
 )
+
+// tuiSandboxConfig controls OS-level isolation for the TUI's sin_bash
+// tool. It mirrors chat_tools.go's sandboxConfig so the AgentRunner
+// path cannot bypass the verification/sandbox gate that chat enforces.
+//
+// Mandate M3 (verification gate) and M4 (permission engine) require
+// every shell invocation from agent code to flow through the same
+// sandbox as the chat tool surface. Without this config, an attacker
+// who convinced the TUI's planner to issue a dangerous command would
+// skip isolation entirely.
+var (
+	tuiSandboxConfigMu sync.RWMutex
+	tuiSandboxConfig   struct {
+		enabled   bool
+		workspace string
+	}
+)
+
+// tuiSetSandbox toggles sandbox isolation for tuiToolBash. Passing a
+// non-empty workspace enables the sandbox; passing "" disables it. The
+// setter is the TUI-side counterpart of chat_tools.go:setSandboxConfig
+// (signature simplified per the TUI wiring contract — backend selection
+// lives in the chat layer).
+func tuiSetSandbox(workspace string) {
+	tuiSandboxConfigMu.Lock()
+	defer tuiSandboxConfigMu.Unlock()
+	tuiSandboxConfig.workspace = workspace
+	tuiSandboxConfig.enabled = workspace != ""
+}
+
+// tuiBashPathMu protects an internal observability tag that records
+// which backend tuiToolBash most recently used ("sandbox" or "exec").
+// Production code MUST NOT depend on this; tests read it via
+// tuiReadBashPath to assert the routing decision.
+var (
+	tuiBashPathMu  sync.Mutex
+	tuiBashPathTag string
+)
+
+// tuiReadBashPath returns the most recent routing tag set by tuiToolBash.
+// Used by tests; safe under -race (mandate M7) thanks to tuiBashPathMu.
+func tuiReadBashPath() string {
+	tuiBashPathMu.Lock()
+	defer tuiBashPathMu.Unlock()
+	return tuiBashPathTag
+}
 
 // tuiToolSpecs returns the tool specifications for the TUI agent.
 func tuiToolSpecs() []agentloop.ToolSpec {
@@ -178,12 +225,54 @@ func tuiToolEdit(path, old, new string) (string, error) {
 }
 
 // tuiToolBash runs a shell command.
+//
+// When tuiSandboxConfig is enabled, the command is routed through
+// sandbox.Command under sandbox.DefaultPolicy — OS-level (Landlock on
+// Linux) confinement of filesystem + network scope. Otherwise it falls
+// back to the raw exec.CommandContext("bash","-c",...) path.
+//
+// The sandbox branch mirrors chat_tools.go:toolBash so the TUI agent
+// surface enforces the same M3 verification / M4 permission guarantees
+// as the chat surface (issue #367). Both branches respect tuiBashTimeout
+// and cap output at tuiMaxToolOutput.
 func tuiToolBash(ctx context.Context, command string) (string, error) {
 	if command == "" {
 		return "", fmt.Errorf("command is required")
 	}
+
+	tuiSandboxConfigMu.RLock()
+	sandboxEnabled := tuiSandboxConfig.enabled
+	sandboxWorkspace := tuiSandboxConfig.workspace
+	tuiSandboxConfigMu.RUnlock()
+
 	ctx, cancel := context.WithTimeout(ctx, tuiBashTimeout)
 	defer cancel()
+
+	if sandboxEnabled && sandboxWorkspace != "" {
+		tuiBashPathMu.Lock()
+		tuiBashPathTag = "sandbox"
+		tuiBashPathMu.Unlock()
+
+		policy := sandbox.DefaultPolicy(sandboxWorkspace, os.TempDir())
+		cmd, _, err := sandbox.Command(ctx, policy, "sh", "-c", command)
+		if err != nil {
+			return "", fmt.Errorf("tui_bash sandbox: %v", err)
+		}
+		out, err := cmd.CombinedOutput()
+		text := string(out)
+		if len(text) > tuiMaxToolOutput {
+			text = text[:tuiMaxToolOutput] + "\n[... truncated]"
+		}
+		if err != nil {
+			return fmt.Sprintf("exit error: %v\n%s", err, text), nil
+		}
+		return text, nil
+	}
+
+	tuiBashPathMu.Lock()
+	tuiBashPathTag = "exec"
+	tuiBashPathMu.Unlock()
+
 	cmd := exec.CommandContext(ctx, "bash", "-c", command)
 	output, err := cmd.CombinedOutput()
 	if len(output) > tuiMaxToolOutput {

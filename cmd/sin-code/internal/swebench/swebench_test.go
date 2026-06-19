@@ -664,9 +664,16 @@ func TestBuildVerifyCmd(t *testing.T) {
 
 	t.Run("empty", func(t *testing.T) {
 		inst := &Instance{}
+		// With no FailToPass/PassToPass, the function returns a
+		// safe-fail shell command (sentinel — non-zero exit) so
+		// the SWE-bench runner can detect "no tests to verify"
+		// vs. "all tests passed".
 		cmd := buildVerifyCmd(inst)
-		if cmd != "" {
-			t.Errorf("cmd = %q, want empty", cmd)
+		if cmd == "" {
+			t.Error("expected non-empty sentinel command for empty instance")
+		}
+		if !strings.Contains(cmd, "exit") {
+			t.Errorf("sentinel command %q should fail-fast (contain 'exit')", cmd)
 		}
 	})
 }
