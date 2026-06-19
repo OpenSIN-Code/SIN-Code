@@ -1,157 +1,194 @@
 // SPDX-License-Identifier: MIT
-// Purpose: tests for the research report generator (issue #384). The
-// generator is a pure function over its inputs, so these tests are
-// deterministic and race-free (M7).
+// Purpose: tests for autonomous research-report generation (issue #384).
+// Race-clean (mandate M7), deterministic byte-stability for Slugify +
+// Markdown output, hermetic — every dependency is a stub.
 package autonomy
 
 import (
-	"encoding/json"
+	"context"
 	"strings"
 	"testing"
+	"time"
 )
 
-func TestReportGeneratorBasic(t *testing.T) {
-	g := NewReportGenerator()
-	r, err := g.Generate("JWT Auth Research", []ReportSection{
-		{Title: "Background", Content: "JWT is a token format. It has three parts.", Sources: []string{"https://jwt.io", "https://rfc-editor.org/rfc7519"}},
-		{Title: "Findings", Content: "Most libraries handle verification correctly.", Sources: []string{"https://jwt.io"}},
-	})
+func TestResearchReportGeneration(t *testing.T) {
+	searcher := &StaticSearcher{
+		Hits: []Source{
+			{URL: "https://example.com/a", Title: "First", Snippet: "alpha beta"},
+			{URL: "https://example.com/b", Title: "Second", Snippet: "gamma delta"},
+			{URL: "https://example.com/c", Title: "Third", Snippet: "epsilon zeta"},
+		},
+	}
+	body := "# Alpha Topic\n\n## Overview\nThis is the alpha topic.\n\n## Sources\n[1] First - https://example.com/a\n[2] Second - https://example.com/b\n[3] Third - https://example.com/c\n"
+
+	gen := NewGenerator(GeneratorConfig{MaxSources: 5}, searcher, nil, &StaticLLM{Reply: body})
+	rep, err := gen.Generate(context.Background(), "Alpha Topic")
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	if r.Title != "JWT Auth Research" {
-		t.Errorf("title = %q", r.Title)
+	if rep == nil {
+		t.Fatal("expected non-nil report")
 	}
-	if !strings.HasPrefix(r.Abstract, "JWT is a token format.") {
-		t.Errorf("abstract = %q", r.Abstract)
+	if len(rep.Sources) != 3 {
+		t.Fatalf("expected 3 sources, got %d", len(rep.Sources))
 	}
-	if len(r.Sections) != 2 {
-		t.Fatalf("expected 2 sections, got %d", len(r.Sections))
+	if rep.Body == "" {
+		t.Fatal("expected non-empty body")
 	}
-	// dedupe: jwt.io appears twice, should appear once.
-	wantRefs := []string{"https://jwt.io", "https://rfc-editor.org/rfc7519"}
-	if len(r.References) != len(wantRefs) {
-		t.Fatalf("references = %v, want %v", r.References, wantRefs)
+	if rep.Topic != "Alpha Topic" {
+		t.Fatalf("topic echo mismatch: %q", rep.Topic)
 	}
-	for i, w := range wantRefs {
-		if r.References[i] != w {
-			t.Errorf("reference[%d] = %q, want %q", i, r.References[i], w)
+	if rep.Slug != "alpha-topic" {
+		t.Fatalf("slug mismatch: %q", rep.Slug)
+	}
+}
+
+func TestResearchReportSlug(t *testing.T) {
+	cases := map[string]string{
+		"Hello World":               "hello-world",
+		"Go 1.23 Release Notes":     "go-1-23-release-notes",
+		"  spaces around  ":         "spaces-around",
+		"mixed/separators_here":     "mixed-separators-here",
+		"dotted.path.style":         "dotted-path-style",
+		"":                          "report",
+		"Punctuation!@# overloaded": "punctuation-overloaded",
+	}
+	for in, want := range cases {
+		if got := Slugify(in); got != want {
+			t.Errorf("Slugify(%q) want %q got %q", in, want, got)
 		}
 	}
-	if r.GeneratedAt.IsZero() {
-		t.Error("GeneratedAt should be set")
+	if a, b := Slugify("Foo Bar"), Slugify("Foo Bar"); a != b {
+		t.Errorf("slugify not deterministic: %q vs %q", a, b)
 	}
-	if r.GeneratedAt.Location().String() != "UTC" {
-		t.Errorf("GeneratedAt should be UTC, got %s", r.GeneratedAt.Location())
+	big := strings.Repeat("alpha-", 200)
+	got := Slugify(big)
+	if len(got) > 80 {
+		t.Errorf("slug exceeds 80 chars: %d", len(got))
 	}
-}
-
-func TestReportGeneratorEmptyTitleRejected(t *testing.T) {
-	g := NewReportGenerator()
-	_, err := g.Generate("   ", []ReportSection{{Title: "S1", Content: "c"}})
-	if err == nil || !strings.Contains(err.Error(), "title") {
-		t.Fatalf("expected title-required error, got %v", err)
+	if strings.HasSuffix(got, "-") {
+		t.Errorf("slug has trailing dash after truncation: %q", got)
 	}
 }
 
-func TestReportGeneratorNoSectionsRejected(t *testing.T) {
-	g := NewReportGenerator()
-	_, err := g.Generate("T", nil)
-	if err == nil || !strings.Contains(err.Error(), "section") {
-		t.Fatalf("expected section-required error, got %v", err)
+func TestResearchReportMarkdown(t *testing.T) {
+	searcher := &StaticSearcher{
+		Hits: []Source{
+			{URL: "https://example.com/x", Title: "X", Snippet: "sample snippet"},
+			{URL: "https://example.com/y", Title: "Y", Snippet: "more contents"},
+		},
+	}
+	rep := &ResearchReport{
+		Topic: "X",
+		Sources: []Source{
+			{URL: "https://example.com/x", Title: "X", Snippet: "sample snippet"},
+			{URL: "https://example.com/y", Title: "Y", Snippet: "more contents"},
+		},
+		Body: "# X\n\n## A\nstuff.\n\n## Sources\n[1] X - https://example.com/x\n[2] Y - https://example.com/y\n",
+		Slug: Slugify("X"),
+	}
+	if err := rep.Validate(); err != nil {
+		t.Fatalf("Validate: %v", err)
+	}
+	if !strings.HasPrefix(rep.Body, "# X") {
+		t.Fatalf("body missing H1: %q", rep.Body)
+	}
+	rep.Body = "  \n  "
+	if err := rep.Validate(); err == nil {
+		t.Fatal("expected validation failure on whitespace-only body")
+	}
+	rep.Body = "Just a paragraph with no headings."
+	if err := rep.Validate(); err == nil {
+		t.Fatal("expected validation failure on header-less body")
+	}
+	if err := (*ResearchReport)(nil).Validate(); err == nil {
+		t.Fatal("nil Validate should fail")
+	}
+	llmBody := "# X\n\n## Intro\nhello\n\n## Sources\n[1] X - https://example.com/x\n[2] Y - https://example.com/y\n"
+	gen := NewGenerator(GeneratorConfig{MaxSources: 5}, searcher, nil, &StaticLLM{Reply: llmBody})
+	if _, err := gen.Generate(context.Background(), "X"); err != nil {
+		t.Fatalf("Generate: %v", err)
 	}
 }
 
-func TestReportGeneratorEmptySectionTitleRejected(t *testing.T) {
-	g := NewReportGenerator()
-	_, err := g.Generate("T", []ReportSection{{Title: "", Content: "c"}})
-	if err == nil || !strings.Contains(err.Error(), "title") {
-		t.Fatalf("expected empty-section-title error, got %v", err)
+func TestResearchReportWiringGuards(t *testing.T) {
+	if _, err := (*Generator)(nil).Generate(context.Background(), "x"); err != ErrNotWired {
+		t.Errorf("nil gen: want ErrNotWired, got %v", err)
+	}
+	g := NewGenerator(GeneratorConfig{}, &StaticSearcher{}, nil, nil)
+	if _, err := g.Generate(context.Background(), "x"); err != ErrNotWired {
+		t.Errorf("nil LLM: want ErrNotWired, got %v", err)
+	}
+	g = NewGenerator(GeneratorConfig{}, &StaticSearcher{}, nil, &StaticLLM{})
+	if _, err := g.Generate(context.Background(), "   "); err == nil {
+		t.Error("empty topic: want error")
+	}
+	g = NewGenerator(GeneratorConfig{}, &StaticSearcher{Hits: []Source{{URL: "https://e.com/x", Title: "T"}}}, nil,
+		&StaticLLM{Err: errStatic})
+	if _, err := g.Generate(context.Background(), "phi"); err == nil {
+		t.Error("LLM error: want propagated error")
+	}
+	g = NewGenerator(GeneratorConfig{}, &StaticSearcher{Err: errStatic}, nil, &StaticLLM{})
+	if _, err := g.Generate(context.Background(), "phi"); err == nil {
+		t.Error("searcher error: want propagated error")
+	}
+	g = NewGenerator(GeneratorConfig{}, &StaticSearcher{}, nil, &StaticLLM{})
+	if _, err := g.Generate(context.Background(), "phi"); err == nil {
+		t.Error("empty sources: want error")
 	}
 }
 
-func TestReportGeneratorMarkdownRendering(t *testing.T) {
-	g := NewReportGenerator()
-	r, err := g.Generate("T", []ReportSection{
-		{Title: "Intro", Content: "Hello world.", Sources: []string{"https://a"}},
+var errStatic = staticErr("net: simulated failure")
+
+type staticErr string
+
+func (e staticErr) Error() string { return string(e) }
+
+func TestResearchReportDedupRank(t *testing.T) {
+	in := []Source{
+		{URL: "https://a", Title: "Alpha", Snippet: "short"},
+		{URL: "https://b", Title: "Beta", Snippet: "longer snippet"},
+		{URL: "https://a", Title: "Alpha", Snippet: "longer than short"},
+		{URL: "https://c", Title: "Gamma", Snippet: "mid"},
+	}
+	out := dedupeAndRank(in, 5)
+	if len(out) != 3 {
+		t.Fatalf("dedupe expected 3, got %d", len(out))
+	}
+	var gotA *Source
+	for i := range out {
+		if out[i].URL == "https://a" {
+			gotA = &out[i]
+		}
+	}
+	if gotA == nil || gotA.Snippet != "longer than short" {
+		t.Fatalf("url a snippet upgrade failed: %+v", gotA)
+	}
+	out = dedupeAndRank(in, 2)
+	if len(out) != 2 {
+		t.Fatalf("cap max=2 expected length 2, got %d", len(out))
+	}
+}
+
+func TestResearchReportFrontmatter(t *testing.T) {
+	searcher := &StaticSearcher{
+		Hits: []Source{
+			{URL: "https://e.com/x", Title: "X"},
+		},
+	}
+	fixed := time.Date(2026, 6, 18, 12, 0, 0, 0, time.UTC)
+	gen := NewGenerator(GeneratorConfig{
+		MaxSources:         5,
+		RequireFrontmatter: true,
+		Now:                func() time.Time { return fixed },
+	}, searcher, nil, &StaticLLM{
+		Reply: "# X\n\n## Intro\nhello\n\n## Sources\n[1] X - https://e.com/x\n",
 	})
+	rep, err := gen.Generate(context.Background(), "X")
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	md := g.ToMarkdown(r)
-	if !strings.HasPrefix(md, "# T") {
-		t.Errorf("markdown should start with title: %q", md)
-	}
-	if !strings.Contains(md, "**Abstract:**") {
-		t.Errorf("markdown missing abstract: %q", md)
-	}
-	if !strings.Contains(md, "## Intro") {
-		t.Errorf("markdown missing section header: %q", md)
-	}
-	if !strings.Contains(md, "Hello world.") {
-		t.Errorf("markdown missing section content: %q", md)
-	}
-	if !strings.Contains(md, "## References") {
-		t.Errorf("markdown missing references header: %q", md)
-	}
-	if !strings.Contains(md, "1. https://a") {
-		t.Errorf("markdown missing numbered reference: %q", md)
-	}
-}
-
-func TestReportGeneratorMarkdownNoReferences(t *testing.T) {
-	g := NewReportGenerator()
-	r, err := g.Generate("T", []ReportSection{{Title: "S", Content: "c"}})
-	if err != nil {
-		t.Fatalf("Generate: %v", err)
-	}
-	md := g.ToMarkdown(r)
-	if !strings.Contains(md, "_None_") {
-		t.Errorf("markdown should show _None_ for empty refs: %q", md)
-	}
-}
-
-func TestReportGeneratorJSONRoundTrip(t *testing.T) {
-	g := NewReportGenerator()
-	original, err := g.Generate("T", []ReportSection{
-		{Title: "S1", Content: "content one.", Sources: []string{"https://x"}},
-		{Title: "S2", Content: "content two!", Sources: []string{"https://y", "https://x"}},
-	})
-	if err != nil {
-		t.Fatalf("Generate: %v", err)
-	}
-	data, err := g.ToJSON(original)
-	if err != nil {
-		t.Fatalf("ToJSON: %v", err)
-	}
-	if !strings.Contains(string(data), "\"Title\": \"T\"") {
-		t.Errorf("json missing title: %s", data)
-	}
-	var round ResearchReport
-	if err := json.Unmarshal(data, &round); err != nil {
-		t.Fatalf("Unmarshal: %v", err)
-	}
-	if round.Title != original.Title {
-		t.Errorf("title round-trip = %q", round.Title)
-	}
-	if len(round.Sections) != len(original.Sections) {
-		t.Errorf("sections round-trip = %d, want %d", len(round.Sections), len(original.Sections))
-	}
-	if len(round.References) != len(original.References) {
-		t.Errorf("refs round-trip = %d, want %d", len(round.References), len(original.References))
-	}
-}
-
-func TestReportGeneratorAbstractFallbackForEmptyContent(t *testing.T) {
-	g := NewReportGenerator()
-	r, err := g.Generate("T", []ReportSection{
-		{Title: "Alpha", Content: "", Sources: nil},
-		{Title: "Beta", Content: "later", Sources: nil},
-	})
-	if err != nil {
-		t.Fatalf("Generate: %v", err)
-	}
-	if !strings.Contains(r.Abstract, "Alpha") || !strings.Contains(r.Abstract, "Beta") {
-		t.Errorf("abstract fallback should list section titles: %q", r.Abstract)
+	if !strings.HasPrefix(rep.Body, "# X\n\n_Generated at 2026-06-18T") {
+		t.Fatalf("frontmatter header missing or malformed: %q", rep.Body)
 	}
 }

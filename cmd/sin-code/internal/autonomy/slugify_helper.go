@@ -2,23 +2,30 @@
 package autonomy
 
 import (
+	"regexp"
 	"strings"
-	"unicode"
 )
 
-func Slugify(s string) string {
-	s = strings.ToLower(s)
+var dashRun = regexp.MustCompile(`-+`)
+
+func Slugify(topic string) string {
+	t := strings.ToLower(strings.TrimSpace(topic))
 	var b strings.Builder
-	for _, r := range s {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+	for _, r := range t {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
 			b.WriteRune(r)
-		} else if r == ' ' || r == '_' || r == '.' {
+		case r == ' ' || r == '_' || r == '/' || r == '.' || r == ':' || r == ',':
 			b.WriteByte('-')
 		}
 	}
-	r := strings.Trim(b.String(), "-")
-	if r == "" {
-		r = "report"
+	out := dashRun.ReplaceAllString(b.String(), "-")
+	if len(out) > 80 {
+		out = out[:80]
+		out = strings.TrimRight(out, "-")
 	}
-	return r
+	if out == "" {
+		return "report"
+	}
+	return out
 }

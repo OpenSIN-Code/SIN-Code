@@ -13,6 +13,24 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 )
 
+type mockTodoReader struct {
+	items []string
+}
+
+func (m *mockTodoReader) Open(blockedOnly bool) ([]string, error) { return m.items, nil }
+
+type mockSessionSummaryReader struct {
+	summary string
+}
+
+func (m *mockSessionSummaryReader) Summary(sessionID string) (string, error) { return m.summary, nil }
+
+type mockAutoMemoryReader struct {
+	data []byte
+}
+
+func (m *mockAutoMemoryReader) IndexBytes() ([]byte, error) { return m.data, nil }
+
 func TestSessionContextPrependedOnNewSession(t *testing.T) {
 	var first []session.Message
 	captured := false

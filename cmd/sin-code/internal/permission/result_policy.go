@@ -9,6 +9,75 @@ import (
 	"time"
 )
 
+type PolicyAction int
+
+const (
+	ActionNoOp PolicyAction = iota
+	ActionWarn
+	ActionEscalate
+)
+
+func (a PolicyAction) String() string {
+	switch a {
+	case ActionWarn:
+		return "warn"
+	case ActionEscalate:
+		return "escalate"
+	default:
+		return "noop"
+	}
+}
+
+type ResultPolicy struct {
+	secretRe      *regexp.Regexp
+	destructiveRe *regexp.Regexp
+	networkRe     *regexp.Regexp
+	once          sync.Once
+}
+
+func NewResultPolicy() *ResultPolicy {
+	return &ResultPolicy{}
+}
+
+func (rp *ResultPolicy) compile() {
+	rp.once.Do(func() {
+		rp.secretRe = regexp.MustCompile(`(?i)(AKIA[0-9A-Z]{16}|` +
+			`eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*|` +
+			`ghp_[A-Za-z0-9]{36}|gho_[A-Za-z0-9]{36}|glpat-[A-Za-z0-9\-]{20,}|` +
+			`\b(?:api[_-]?key|apikey|secret|token|password)\s*[:=]\s*['"]?[A-Za-z0-9_\-+/]{16,}['"]?` +
+			`)`)
+		rp.destructiveRe = regexp.MustCompile(`(?i)\b(deleted|removed|destroyed|dropped|purged|truncated|wiped)\b`)
+		rp.networkRe = regexp.MustCompile(`(?i)\b(egress|outbound|external\s+(?:ip|host|domain|address))\b`)
+	})
+}
+
+func (rp *ResultPolicy) ScanResult(toolName, result string) (PolicyAction, string) {
+	rp.compile()
+	t := strings.ToLower(toolName)
+	if !strings.Contains(t, "secret") && !strings.Contains(t, "scan") && rp.secretRe.MatchString(result) {
+		return ActionEscalate, "possible secret/token leakage in tool output"
+	}
+	if rp.destructiveRe.MatchString(result) {
+		return ActionWarn, "destructive operation confirmed in tool output"
+	}
+	if rp.networkRe.MatchString(result) {
+		return ActionWarn, "network egress marker detected in tool output"
+	}
+	return ActionNoOp, ""
+}
+
+type SampleDetection struct {
+	Tool   string
+	Result string
+}
+
+func SampleDetections() []SampleDetection {
+	return []SampleDetection{
+		{Tool: "sin_bash", Result: "AKIAIOSFODNN7EXAMPLE"},
+		{Tool: "sin_bash", Result: "deleted 42 files"},
+	}
+}
+
 type ResultPolicyAdjustment struct {
 	Trigger   string `json:"trigger"`
 	Severity  string `json:"severity"`

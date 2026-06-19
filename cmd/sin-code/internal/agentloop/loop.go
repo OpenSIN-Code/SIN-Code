@@ -235,10 +235,12 @@ type Loop struct {
 	CoverageForbiddenTools []string
 
 	// ResultPolicy, if set, scans every tool result for secret leakage,
-	// destructive operations, and network egress. It can block subsequent
-	// writes or require confirmation for the next destructive tool call
-	// (issue #374). Optional — nil preserves legacy behavior.
-	ResultPolicy *permission.ResultPolicyStore
+	// destructive operations, and network egress (issue #374).
+	ResultPolicy *permission.ResultPolicy
+
+	// Observer, when set, observes tool calls via Observe/LastTrip
+	// for full fingerprint-based loop detection (issue #377).
+	Observer *LoopDetector
 
 	// RunOverride, if set, replaces the default Run. Used by the
 	// WebUI v2 chat API (issue #52) so tests can swap in a
@@ -251,12 +253,6 @@ type Loop struct {
 	// nil preserves exact legacy behavior. Only active when verify_mode
 	// == "poc" (issue #290).
 	TournamentRunner TournamentRunner
-
-	// ResultPolicy, if set, scans the string returned by every executed
-	// tool and surfaces warnings/escalations for secret leakage,
-	// destructive confirmations, or network egress markers (issue #374).
-	// Optional — nil preserves exact legacy behavior.
-	ResultPolicy *permission.ResultPolicy
 
 	// Frustration, when set, tracks user message patterns for frustration
 	// signals and appends a system-prompt suffix when detected (issue #271).
@@ -1235,9 +1231,9 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			// TOOL REFUSED message and skip execute() so the model
 			// gets feedback AND the dispatch site never reaches a
 			// destructive mutator while the worker is thrashing.
-			if l.Observer != nil && l.Observer.Enabled() {
-				if oerr := l.Observer.Observe(tc, ""); oerr != nil {
-					trip := l.Observer.LastTrip()
+			if l.LoopDetector != nil && l.LoopDetector.Enabled() {
+				if oerr := l.LoopDetector.Observe(tc, ""); oerr != nil {
+					trip := l.LoopDetector.LastTrip()
 					data := map[string]any{"reason": "loop.detected"}
 					if trip != nil {
 						data["pattern_length"] = trip.Length

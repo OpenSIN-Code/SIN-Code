@@ -9,11 +9,11 @@ import (
 
 func TestNewPerTurnBudget_Defaults(t *testing.T) {
 	b := NewPerTurnBudget(1000, 2000)
-	if b.ThinkingTokens != 1000 {
-		t.Fatalf("ThinkingTokens = %d, want 1000", b.ThinkingTokens)
+	if b.ThinkingRemaining() != 1000 {
+		t.Fatalf("ThinkingRemaining = %d, want 1000", b.ThinkingRemaining())
 	}
-	if b.TokenTokens != 2000 {
-		t.Fatalf("TokenTokens = %d, want 2000", b.TokenTokens)
+	if b.TokensRemaining() != 2000 {
+		t.Fatalf("TokensRemaining = %d, want 2000", b.TokensRemaining())
 	}
 	th, tk := b.Stats()
 	if th != 0 || tk != 0 {

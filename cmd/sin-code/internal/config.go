@@ -239,6 +239,12 @@ func defaultConfig() SinCodeConfig {
 		LLMPromptCache:           true,
 		AgentLoopCompactionStrategy:  "off",
 		AgentLoopCompactionThreshold: 0.8,
+		AgentLoopContextCompaction:          "off",
+		AgentLoopCompactionTrigger:          "tokens",
+		AgentLoopCompactionMaxTokens:        8000,
+		AgentLoopContextWindow:              0,
+		AgentLoopCompactionPreserveEvidence: true,
+		AgentLoopCompactionRecentTurns:      4,
 		AgentLoopFrustrationDetection: false,
 		AgentLoopObserverWindow:           20,
 		AgentLoopObserverMinRepeats:       2,
@@ -261,6 +267,7 @@ func defaultConfig() SinCodeConfig {
 		WorktreeConflictCheck:         "off",
 		WorktreeTargetBranch:          "",
 		// Issue #379: every inject_* flag is opt-in. Default 0 / false.
+		AgentLoopSessionContextEnabled: true,
 		AgentLoopInjectLessons:        false,
 		AgentLoopInjectMemory:         false,
 		AgentLoopInjectGoals:          false,
@@ -658,6 +665,11 @@ agentloop.compaction_max_tokens = %d
 agentloop.context_window = %d
 agentloop.compaction_preserve_evidence = %v
 agentloop.compaction_recent_turns = %d
+
+# Session-start context injection (issue #379): injects a markdown preamble
+# from open todos, session summaries, and auto-memory at the start of a new
+# session. Privacy-first — off by default; opt-in per source via inject_*.
+agentloop.session_context.enabled = %v
 `, cfg.Theme, cfg.DefaultTimeout, cfg.DefaultFormat, cfg.MCPServerEnabled,
 		cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMMaxTokens, cfg.LLMTemperature,
 		cfg.LLMStyle,
@@ -670,8 +682,8 @@ agentloop.compaction_recent_turns = %d
 		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds, cfg.TestUseLLM, cfg.TestRepairRounds,
 		cfg.WorktreeConflictCheck, cfg.WorktreeTargetBranch,
 		cfg.AgentLoopContextCompaction, cfg.AgentLoopCompactionTrigger, cfg.AgentLoopCompactionMaxTokens, cfg.AgentLoopContextWindow,
-		cfg.AgentLoopCompactionPreserveEvidence, cfg.AgentLoopCompactionRecentTurns)
-}
+		cfg.AgentLoopCompactionPreserveEvidence, cfg.AgentLoopCompactionRecentTurns,
+		cfg.AgentLoopSessionContextEnabled)}
 
 func initConfig() error {
 	cfg := defaultConfig()
@@ -814,6 +826,8 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.AgentLoopInjectGoals), nil
 	case "agentloop.context_top_k":
 		return fmt.Sprintf("%d", cfg.AgentLoopContextTopK), nil
+	case "agentloop.session_context.enabled":
+		return fmt.Sprintf("%v", cfg.AgentLoopSessionContextEnabled), nil
 	case "permission.yolo_risk_threshold":
 		return cfg.PermissionYoloRiskThreshold, nil
 	case "agentloop.context_compaction":
@@ -1029,6 +1043,8 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 			return fmt.Errorf("agentloop.context_top_k must be a positive integer, got %q", value)
 		}
 		cfg.AgentLoopContextTopK = v
+	case "agentloop.session_context.enabled":
+		cfg.AgentLoopSessionContextEnabled = value == "true" || value == "1"
 	case "permission.yolo_risk_threshold":
 		cfg.PermissionYoloRiskThreshold = value
 	case "agentloop.context_compaction":
@@ -1137,6 +1153,13 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"agentloop.inject_memory", fmt.Sprintf("%v", cfg.AgentLoopInjectMemory)},
 		{"agentloop.inject_goals", fmt.Sprintf("%v", cfg.AgentLoopInjectGoals)},
 		{"agentloop.context_top_k", fmt.Sprintf("%d", cfg.AgentLoopContextTopK)},
+		{"agentloop.context_compaction", cfg.AgentLoopContextCompaction},
+		{"agentloop.compaction_trigger", cfg.AgentLoopCompactionTrigger},
+		{"agentloop.compaction_max_tokens", fmt.Sprintf("%d", cfg.AgentLoopCompactionMaxTokens)},
+		{"agentloop.context_window", fmt.Sprintf("%d", cfg.AgentLoopContextWindow)},
+		{"agentloop.compaction_preserve_evidence", fmt.Sprintf("%v", cfg.AgentLoopCompactionPreserveEvidence)},
+		{"agentloop.compaction_recent_turns", fmt.Sprintf("%d", cfg.AgentLoopCompactionRecentTurns)},
+		{"agentloop.session_context.enabled", fmt.Sprintf("%v", cfg.AgentLoopSessionContextEnabled)},
 		{"permission.yolo_risk_threshold", cfg.PermissionYoloRiskThreshold},
 		{"worktree.conflict_check", cfg.WorktreeConflictCheck},
 		{"worktree.target_branch", cfg.WorktreeTargetBranch},
@@ -1207,6 +1230,9 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 			"context_window":       cfg.AgentLoopContextWindow,
 			"compaction_preserve_evidence": cfg.AgentLoopCompactionPreserveEvidence,
 			"compaction_recent_turns":     cfg.AgentLoopCompactionRecentTurns,
+			"session_context": map[string]any{
+				"enabled": cfg.AgentLoopSessionContextEnabled,
+			},
 		},
 		"permissions": map[string]any{
 			"tools_allow": cfg.ToolsAllow,

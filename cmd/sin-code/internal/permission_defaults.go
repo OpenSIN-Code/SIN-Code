@@ -166,6 +166,16 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "sin_todo_dep_add", Policy: "ask"},
 		// Backstop catch-all (mirrors sin_bash default at line 44 for unmatched prefixes).
 		{Tool: "autodev__*", Policy: "ask"},
+		// v3.23.0: autonomous research-report generation (issue #384).
+		// research__* pays real LLM tokens per call; gate "ask" so the
+		// daemon cannot self-escalate (M4). The dry_run / list / show
+		// surfaces are "allow" so callers can preview a research plan
+		// or inspect stored reports for free.
+		{Tool: "research__dry_run", Policy: "allow"},
+		{Tool: "research__list", Policy: "allow"},
+		{Tool: "research__show", Policy: "allow"},
+		{Tool: "research__run", Policy: "ask"},
+		{Tool: "research__*", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},
 	}
 }

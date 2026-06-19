@@ -16,8 +16,12 @@ func NewSimpleLoopDetector(maxRepeats, windowSize int) *LoopDetector {
 	if windowSize < 1 {
 		windowSize = 1
 	}
+	w := maxRepeats * windowSize
+	if w < maxRepeats {
+		w = maxRepeats
+	}
 	return &LoopDetector{
-		Window:           windowSize,
+		Window:           w,
 		MinPatternLength: 1,
 		MinRepeats:       maxRepeats,
 	}

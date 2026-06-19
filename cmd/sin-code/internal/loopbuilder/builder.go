@@ -514,7 +514,7 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	// cycle. Window <= 0 disables detection entirely so legacy
 	// callers see no behaviour change.
 	if cfg.ObserverWindow > 0 {
-		loop.Observer = agentloop.NewLoopDetector(
+		loop.LoopDetector = agentloop.NewLoopDetector(
 			cfg.ObserverWindow,
 			cfg.ObserverMinPatternLength,
 			cfg.ObserverMinRepeats,

@@ -9,8 +9,8 @@ import (
 
 func TestNewLoopDetector_Defaults(t *testing.T) {
 	d := NewSimpleLoopDetector(0, 0)
-	if d.maxRepeats != 1 || d.windowSize != 1 {
-		t.Fatalf("clamped values = (%d,%d), want (1,1)", d.maxRepeats, d.windowSize)
+	if d.MinRepeats != 1 || d.Window != 1 {
+		t.Fatalf("clamped values = (%d,%d), want (1,1)", d.MinRepeats, d.Window)
 	}
 	if d.IsLooping() {
 		t.Fatal("empty detector should not loop")

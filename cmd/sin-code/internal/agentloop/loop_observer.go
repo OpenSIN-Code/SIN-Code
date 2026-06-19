@@ -168,40 +168,44 @@ func (d *LoopDetector) Observe(tc ToolCall, messageHash string) error {
 	return d.evaluateLocked()
 }
 
-// evaluateLocked re-scans the history for the longest qualifying
-// repetition and trips the detector on the first match. Caller holds
-// d.mu.
+// evaluateLocked re-scans the history for qualifying repetitions and
+// trips the detector on the first match. It checks all pattern lengths
+// from longest to shortest so that a longer partial-repeat does not
+// mask a shorter full-repeat. Caller holds d.mu.
 func (d *LoopDetector) evaluateLocked() error {
 	n := len(d.history)
 	if n < d.MinPatternLength*d.MinRepeats {
 		return nil
 	}
-	p := longestMatchingPrefix(d.history)
-	if p < d.MinPatternLength {
-		return nil
+	upper := n / 2
+	for p := upper; p >= d.MinPatternLength; p-- {
+		if !equalAt(d.history, n-p, n-2*p, p) {
+			continue
+		}
+		repeats := n / p
+		if repeats < d.MinRepeats {
+			continue
+		}
+		pattern := make([]string, p)
+		for i := 0; i < p; i++ {
+			pattern[i] = d.history[n-p+i].Key
+		}
+		d.tripped = true
+		d.pattern = pattern
+		name := d.history[n-1].Name
+		if name == "" {
+			name = "unknown"
+		}
+		d.trip = &LoopTrip{
+			ToolName:   name,
+			Length:     p,
+			Repeats:    repeats,
+			Key:        d.history[n-1].Key,
+			HistoryLen: n,
+		}
+		return ErrLoopDetected
 	}
-	repeats := n / p
-	if repeats < d.MinRepeats {
-		return nil
-	}
-	pattern := make([]string, p)
-	for i := 0; i < p; i++ {
-		pattern[i] = d.history[n-p+i].Key
-	}
-	d.tripped = true
-	d.pattern = pattern
-	name := d.history[n-1].Name
-	if name == "" {
-		name = "unknown"
-	}
-	d.trip = &LoopTrip{
-		ToolName:   name,
-		Length:     p,
-		Repeats:    repeats,
-		Key:        d.history[n-1].Key,
-		HistoryLen: n,
-	}
-	return ErrLoopDetected
+	return nil
 }
 
 // Reset clears the detector state so a new run / session starts

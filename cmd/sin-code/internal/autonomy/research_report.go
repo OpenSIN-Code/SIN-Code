@@ -1,213 +1,337 @@
 // SPDX-License-Identifier: MIT
-// Purpose: ReportGenerator — autonomous research report generation
-// (issue #384). The autonomy daemon collects ResearchResults from one
-// or more ResearchSources (issue #387) and assembles them into a
-// structured ResearchReport with sections, deduplicated references, and
-// an abstract. The report can be rendered to Markdown (for human review
-// / PR descriptions / docs) or JSON (for machine consumption / ledger
-// storage).
-//
-// ReportGenerator holds no mutable state and is safe for concurrent use
-// (M7): Generate / ToMarkdown / ToJSON are all pure functions over their
-// inputs. The template field stores an optional Markdown skeleton; the
-// default template is used when NewReportGenerator is called.
+// Purpose: autonomous research-report generation (issue #384).
 package autonomy
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
 
-// ReportSection is one titled block of a research report. Content is
-// free-form prose (typically Markdown); Sources is the list of citation
-// URLs / DOIs the section draws from.
-type ReportSection struct {
-	Title   string
-	Content string
-	Sources []string
-}
-
-// ResearchReport is the assembled output of ReportGenerator.Generate.
-// References is the deduplicated union of every section's Sources,
-// ordered by first appearance. GeneratedAt is the UTC timestamp of
-// assembly.
 type ResearchReport struct {
-	Title       string
-	Abstract    string
-	Sections    []ReportSection
-	References  []string
-	GeneratedAt time.Time
+	Topic       string    `json:"topic"`
+	Sources     []Source  `json:"sources"`
+	Body        string    `json:"body"`
+	GeneratedAt time.Time `json:"generated_at"`
+	Slug        string    `json:"slug"`
 }
 
-// ReportGenerator assembles ResearchReports from sections and renders
-// them to Markdown or JSON. It is stateless and safe for concurrent use.
-type ReportGenerator struct {
-	template string
+type Source struct {
+	URL       string    `json:"url"`
+	Title     string    `json:"title"`
+	Snippet   string    `json:"snippet"`
+	FetchedAt time.Time `json:"fetched_at,omitempty"`
+	BodyBytes int       `json:"body_bytes,omitempty"`
+	Error     string    `json:"error,omitempty"`
 }
 
-// defaultReportTemplate is the Markdown skeleton used when no custom
-// template is supplied. Placeholders {{.Title}}, {{.Abstract}}, and
-// {{.Body}} are substituted by ToMarkdown.
-const defaultReportTemplate = `# {{.Title}}
-
-{{.Abstract}}
-
-{{.Body}}
-
-## References
-
-{{.References}}
-`
-
-// NewReportGenerator returns a ReportGenerator using the default
-// Markdown template.
-func NewReportGenerator() *ReportGenerator {
-	return &ReportGenerator{template: defaultReportTemplate}
+type Searcher interface {
+	Search(ctx context.Context, query string, max int) ([]Source, error)
 }
 
-// Generate assembles a ResearchReport from a title and a list of
-// sections. It derives a one-paragraph abstract from the first section's
-// content (first sentence, or the whole content if no sentence
-// terminator is present), deduplicates references across all sections
-// preserving first-appearance order, and stamps GeneratedAt with the
-// current UTC time. At least one section with a non-empty title is
-// required.
-func (g *ReportGenerator) Generate(title string, sections []ReportSection) (*ResearchReport, error) {
-	if strings.TrimSpace(title) == "" {
-		return nil, errors.New("research_report: title is required")
+type Fetcher interface {
+	Fetch(ctx context.Context, url string) (body string, fetchedAt time.Time, err error)
+}
+
+type LLM interface {
+	Ask(ctx context.Context, system, user string) (string, error)
+}
+
+type GeneratorConfig struct {
+	MaxSources         int
+	MaxBytesPerFetch   int
+	FetchTimeout       time.Duration
+	SynthesizeTimeout  time.Duration
+	RequireFrontmatter bool
+	Now                func() time.Time
+}
+
+type Generator struct {
+	cfg    GeneratorConfig
+	source Searcher
+	body   Fetcher
+	think  LLM
+}
+
+func NewGenerator(cfg GeneratorConfig, s Searcher, f Fetcher, l LLM) *Generator {
+	if cfg.MaxSources <= 0 {
+		cfg.MaxSources = 5
 	}
-	if len(sections) == 0 {
-		return nil, errors.New("research_report: at least one section is required")
+	if cfg.MaxBytesPerFetch <= 0 {
+		cfg.MaxBytesPerFetch = 64 * 1024
 	}
-	for i, s := range sections {
-		if strings.TrimSpace(s.Title) == "" {
-			return nil, fmt.Errorf("research_report: section %d has empty title", i)
-		}
+	if cfg.FetchTimeout <= 0 {
+		cfg.FetchTimeout = 15 * time.Second
 	}
-
-	abstract := deriveAbstract(sections)
-	refs := dedupeReferences(sections)
-
-	return &ResearchReport{
-		Title:       title,
-		Abstract:    abstract,
-		Sections:    sections,
-		References:  refs,
-		GeneratedAt: time.Now().UTC(),
-	}, nil
+	if cfg.SynthesizeTimeout <= 0 {
+		cfg.SynthesizeTimeout = 60 * time.Second
+	}
+	if cfg.Now == nil {
+		cfg.Now = time.Now
+	}
+	return &Generator{cfg: cfg, source: s, body: f, think: l}
 }
 
-// ToMarkdown renders r as a Markdown document using the generator's
-// template. The body is the concatenation of all sections as
-// "## <Title>\n\n<Content>\n" blocks. References are listed as a
-// numbered list. The output is byte-stable for a given report except
-// for the GeneratedAt timestamp, which is rendered in RFC3339 form.
-func (g *ReportGenerator) ToMarkdown(r *ResearchReport) string {
+var ErrInvalid = errors.New("autonomy/research: report failed validation")
+var ErrNotWired = errors.New("autonomy/research: not wired")
+
+func (g *Generator) Generate(ctx context.Context, topic string) (*ResearchReport, error) {
+	if g == nil || g.source == nil || g.think == nil {
+		return nil, ErrNotWired
+	}
+	topic = strings.TrimSpace(topic)
+	if topic == "" {
+		return nil, fmt.Errorf("autonomy/research: empty topic")
+	}
+
+	cctx, cancel := context.WithTimeout(ctx, g.cfg.FetchTimeout+g.cfg.SynthesizeTimeout+30*time.Second)
+	defer cancel()
+
+	hits, err := g.source.Search(cctx, topic, g.cfg.MaxSources)
+	if err != nil {
+		return nil, fmt.Errorf("autonomy/research: search: %w", err)
+	}
+	if len(hits) == 0 {
+		return nil, fmt.Errorf("autonomy/research: no sources for %q", topic)
+	}
+	sources := dedupeAndRank(hits, g.cfg.MaxSources)
+	for i := range sources {
+		sources[i].FetchedAt, sources[i].BodyBytes, sources[i].Error = g.fetchSource(cctx, sources[i].URL)
+	}
+
+	body, err := g.think.Ask(cctx, synthesisSystemPrompt(), synthesisUserPrompt(topic, sources))
+	if err != nil {
+		return nil, fmt.Errorf("autonomy/research: synthesize: %w", err)
+	}
+	body = strings.TrimSpace(body)
+
+	rep := &ResearchReport{
+		Topic:       topic,
+		Sources:     sources,
+		Body:        body,
+		GeneratedAt: g.cfg.Now().UTC(),
+		Slug:        Slugify(topic),
+	}
+	if g.cfg.RequireFrontmatter {
+		rep.Body = wrapFrontmatter(rep)
+	}
+	if err := rep.Validate(); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalid, err)
+	}
+	return rep, nil
+}
+
+func (g *Generator) fetchSource(ctx context.Context, url string) (time.Time, int, string) {
+	if g.body == nil {
+		return time.Time{}, 0, ""
+	}
+	fctx, cancel := context.WithTimeout(ctx, g.cfg.FetchTimeout)
+	defer cancel()
+	body, fetchedAt, err := g.body.Fetch(fctx, url)
+	if err != nil {
+		return time.Time{}, 0, err.Error()
+	}
+	if len(body) > g.cfg.MaxBytesPerFetch {
+		body = body[:g.cfg.MaxBytesPerFetch]
+	}
+	return fetchedAt, len(body), ""
+}
+
+func (r *ResearchReport) Validate() error {
 	if r == nil {
-		return ""
+		return fmt.Errorf("nil report")
 	}
-	var body strings.Builder
-	for _, s := range r.Sections {
-		body.WriteString("## ")
-		body.WriteString(s.Title)
-		body.WriteString("\n\n")
-		body.WriteString(strings.TrimRight(s.Content, "\n"))
-		body.WriteString("\n\n")
+	if strings.TrimSpace(r.Body) == "" {
+		return fmt.Errorf("empty body")
 	}
-	var refs strings.Builder
-	for i, ref := range r.References {
-		fmt.Fprintf(&refs, "%d. %s\n", i+1, ref)
+	if len(r.Sources) == 0 {
+		return fmt.Errorf("no sources")
 	}
-	if len(r.References) == 0 {
-		refs.WriteString("_None_\n")
+	if strings.TrimSpace(r.Slug) == "" {
+		return fmt.Errorf("empty slug")
 	}
+	if !looksLikeMarkdown(r.Body) {
+		return fmt.Errorf("body is not recognizable markdown")
+	}
+	return nil
+}
 
-	tmpl := g.template
-	if tmpl == "" {
-		tmpl = defaultReportTemplate
+func dedupeAndRank(hits []Source, max int) []Source {
+	if max <= 0 {
+		max = 5
 	}
-	out := strings.ReplaceAll(tmpl, "{{.Title}}", r.Title)
-	out = strings.ReplaceAll(out, "{{.Abstract}}", abstractBlock(r.Abstract))
-	out = strings.ReplaceAll(out, "{{.Body}}", strings.TrimRight(body.String(), "\n"))
-	out = strings.ReplaceAll(out, "{{.References}}", strings.TrimRight(refs.String(), "\n"))
-	if !r.GeneratedAt.IsZero() {
-		out = strings.ReplaceAll(out, "{{.GeneratedAt}}", r.GeneratedAt.Format(time.RFC3339))
+	seen := make(map[string]int, len(hits))
+	out := make([]Source, 0, len(hits))
+	for _, h := range hits {
+		key := strings.TrimSpace(h.URL)
+		if key == "" {
+			continue
+		}
+		if idx, ok := seen[key]; ok {
+			if len(h.Snippet) > len(out[idx].Snippet) {
+				out[idx].Snippet = h.Snippet
+			}
+			continue
+		}
+		seen[key] = len(out)
+		out = append(out, h)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if len(out[i].Title) != len(out[j].Title) {
+			return len(out[i].Title) > len(out[j].Title)
+		}
+		return out[i].URL < out[j].URL
+	})
+	if len(out) > max {
+		out = out[:max]
 	}
 	return out
 }
 
-// ToJSON serializes r as indented JSON. The JSON form is the canonical
-// machine-readable representation used by the ledger and downstream
-// consumers.
-func (g *ReportGenerator) ToJSON(r *ResearchReport) ([]byte, error) {
-	if r == nil {
-		return nil, errors.New("research_report: report is nil")
+var (
+	mdHeaderRe = regexp.MustCompile(`(?m)^#{1,6}\s+\S`)
+	mdParaRe   = regexp.MustCompile(`\S`)
+)
+
+func looksLikeMarkdown(body string) bool {
+	if !mdHeaderRe.MatchString(body) {
+		return false
 	}
-	return json.MarshalIndent(r, "", "  ")
+	return mdParaRe.MatchString(body)
 }
 
-// deriveAbstract builds a one-paragraph abstract from the sections. It
-// takes the first sentence of the first section's content; if no
-// sentence terminator is found, it uses the trimmed content (capped at
-// a reasonable length). When the first section has no content, it falls
-// back to a generic sentence naming the section titles.
-func deriveAbstract(sections []ReportSection) string {
-	if len(sections) == 0 {
-		return ""
-	}
-	first := strings.TrimSpace(sections[0].Content)
-	if first == "" {
-		titles := make([]string, 0, len(sections))
-		for _, s := range sections {
-			titles = append(titles, s.Title)
+const synthesizeSystemTemplate = `You are an autonomous research synthesizer for SIN-Code (issue #384).
+Produce a concise, citation-grounded Markdown report on the requested topic.
+Rules:
+- Output ONLY Markdown. No commentary, no preamble, no closing remarks.
+- Ground every claim in one of the provided Sources; never invent URLs.
+- Include 4-6 H2 sections that reflect the canonical facets of the topic.
+- Embed inline citation anchors like ([Source N]) after each factual claim.
+- End with a "## Sources" section that lists every numbered Source on its own line as: [N] <Title> - <URL>.
+- Never use hedging language. State facts.
+- Cap output at ~600 words unless the topic explicitly demands depth.`
+
+func synthesisSystemPrompt() string { return synthesizeSystemTemplate }
+
+func synthesisUserPrompt(topic string, srcs []Source) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Topic: %s\n\n", topic)
+	b.WriteString("Sources (numbered for citation):\n")
+	for i, s := range srcs {
+		title := s.Title
+		if title == "" {
+			title = s.URL
 		}
-		return "This report covers: " + strings.Join(titles, ", ") + "."
-	}
-	// First sentence: up to the first '.', '!', or '?'.
-	for i, r := range first {
-		if r == '.' || r == '!' || r == '?' {
-			return first[:i+1]
+		bodyHint := ""
+		if s.BodyBytes > 0 {
+			bodyHint = fmt.Sprintf(" [%d bytes fetched]", s.BodyBytes)
+		} else if s.Snippet != "" {
+			bodyHint = fmt.Sprintf(" snippet=%q", truncate(s.Snippet, 240))
 		}
+		if s.Error != "" {
+			bodyHint += fmt.Sprintf(" fetch_error=%q", s.Error)
+		}
+		fmt.Fprintf(&b, "[%d] %s - %s%s\n", i+1, title, s.URL, bodyHint)
 	}
-	const maxLen = 280
-	if len(first) > maxLen {
-		return first[:maxLen] + "..."
-	}
-	return first
+	b.WriteString("\nWrite the research report now.\n")
+	return b.String()
 }
 
-// abstractBlock formats the abstract as a Markdown block. An empty
-// abstract yields an italic placeholder so the rendered template never
-// has a dangling header.
-func abstractBlock(abstract string) string {
-	abstract = strings.TrimSpace(abstract)
-	if abstract == "" {
-		return "_No abstract provided._"
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
 	}
-	return "**Abstract:** " + abstract
+	return s[:n]
 }
 
-// dedupeReferences collects every source from every section in order,
-// dropping duplicates (case-sensitive) and preserving first-appearance
-// order. Empty/whitespace-only entries are skipped.
-func dedupeReferences(sections []ReportSection) []string {
-	seen := make(map[string]struct{})
-	refs := make([]string, 0)
-	for _, s := range sections {
-		for _, src := range s.Sources {
-			src = strings.TrimSpace(src)
-			if src == "" {
-				continue
-			}
-			if _, ok := seen[src]; ok {
-				continue
-			}
-			seen[src] = struct{}{}
-			refs = append(refs, src)
+func wrapFrontmatter(r *ResearchReport) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s\n\n", r.Topic)
+	fmt.Fprintf(&b, "_Generated at %s_\n\n", r.GeneratedAt.Format(time.RFC3339))
+	b.WriteString(r.Body)
+	if !strings.HasSuffix(r.Body, "\n") {
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+type HTTPFetcher struct {
+	Client    *http.Client
+	UserAgent string
+}
+
+func NewHTTPFetcher() *HTTPFetcher {
+	return &HTTPFetcher{
+		Client:    &http.Client{Timeout: 20 * time.Second},
+		UserAgent: "sin-code/1.0 (+research-report)",
+	}
+}
+
+func (h *HTTPFetcher) Fetch(ctx context.Context, url string) (string, time.Time, error) {
+	if h == nil || h.Client == nil {
+		return "", time.Time{}, errors.New("HTTPFetcher: not wired")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	req.Header.Set("User-Agent", h.UserAgent)
+	req.Header.Set("Accept", "text/html,text/plain,application/json;q=0.9,*/*;q=0.8")
+	resp, err := h.Client.Do(req)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return "", time.Time{}, fmt.Errorf("http %d for %s", resp.StatusCode, url)
+	}
+	buf := make([]byte, 0, 1024*1024)
+	tmp := make([]byte, 4096)
+	for {
+		if len(buf) >= 1024*1024 {
+			break
+		}
+		n, rerr := resp.Body.Read(tmp)
+		if n > 0 {
+			buf = append(buf, tmp[:n]...)
+		}
+		if rerr != nil {
+			break
 		}
 	}
-	return refs
+	return string(buf), time.Now().UTC(), nil
+}
+
+type StaticSearcher struct {
+	Hits []Source
+	Err  error
+}
+
+func (s *StaticSearcher) Search(ctx context.Context, query string, max int) ([]Source, error) {
+	if s.Err != nil {
+		return nil, s.Err
+	}
+	out := make([]Source, len(s.Hits))
+	copy(out, s.Hits)
+	if max > 0 && len(out) > max {
+		out = out[:max]
+	}
+	return out, nil
+}
+
+type StaticLLM struct {
+	Reply string
+	Err   error
+}
+
+func (s *StaticLLM) Ask(ctx context.Context, system, user string) (string, error) {
+	if s.Err != nil {
+		return "", s.Err
+	}
+	return s.Reply, nil
 }
