@@ -61,15 +61,25 @@ func autoCreatePR(ctx context.Context, goal *autonomy.Goal, res *agentloop.Resul
 	body := fmt.Sprintf("## Automated PR\n**Goal:** %d\n**Verified:** %v\n**Turns:** %d\n\n%s", goal.ID, res.Verified, res.Turns, res.Summary)
 
 	baseRepo := ""
-	upstreamURLOut, _ := exec.CommandContext(ctx, "git", "-C", goal.Workspace, "remote", "get-url", "upstream").CombinedOutput()
-	if strings.TrimSpace(string(upstreamURLOut)) == "" {
-		upstreamURLOut, _ = exec.CommandContext(ctx, "git", "-C", goal.Workspace, "remote", "get-url", "origin").CombinedOutput()
+
+	upstreamURLOut, err := exec.CommandContext(ctx, "git", "-C", goal.Workspace, "remote", "get-url", "upstream").CombinedOutput()
+	if err != nil || strings.TrimSpace(string(upstreamURLOut)) == "" {
+		fmt.Printf("daemon: goal %d warning: upstream remote not found or empty, trying origin\n", goal.ID)
+		originURLOut, err := exec.CommandContext(ctx, "git", "-C", goal.Workspace, "remote", "get-url", "origin").CombinedOutput()
+		if err != nil || strings.TrimSpace(string(originURLOut)) == "" {
+			fmt.Printf("daemon: goal %d warning: origin remote not found or empty, PR will be created without --repo flag (may fail in fork workflows)\n", goal.ID)
+		} else {
+			upstreamURLOut = originURLOut
+		}
 	}
+
 	if upstreamURL := strings.TrimSpace(string(upstreamURLOut)); upstreamURL != "" {
 		if strings.HasPrefix(upstreamURL, "git@github.com:") {
 			baseRepo = strings.TrimSuffix(strings.TrimPrefix(upstreamURL, "git@github.com:"), ".git")
 		} else if strings.HasPrefix(upstreamURL, "https://github.com/") {
 			baseRepo = strings.TrimSuffix(strings.TrimPrefix(upstreamURL, "https://github.com/"), ".git")
+		} else {
+			fmt.Printf("daemon: goal %d warning: remote URL is not a GitHub URL (%s), PR will be created without --repo flag\n", goal.ID, upstreamURL)
 		}
 	}
 
