@@ -110,6 +110,9 @@ func buildVerifyCmd(inst *Instance) string {
 	for _, t := range inst.PassToPass {
 		parts = append(parts, buildTestCmd(lang, t))
 	}
+	if len(parts) == 0 {
+		return "echo 'no tests to verify' && exit 1"
+	}
 	return strings.Join(parts, " && ")
 }
 

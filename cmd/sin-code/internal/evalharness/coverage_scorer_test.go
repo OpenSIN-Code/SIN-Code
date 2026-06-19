@@ -8,10 +8,14 @@
 package evalharness
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -56,49 +60,41 @@ func threeCaseSet() EvalSet {
 	}
 }
 
-// marshalReport returns canonical JSON bytes for a CompareReport
-// using a stable projection (string fields, sorted keys, sorted
-// arms) that ignores non-serialisable funcs in Arm.Setup. The
+// marshalReport returns canonical bytes for a CompareReport using
+// a stable projection (sorted arm IDs, fixed-precision USD/score
+// columns) that ignores non-serialisable funcs in Arm.Setup. The
 // byte-stability invariant from caveman evals/README.md §3 is
-// only meaningful against the same field set printed in the
-// same order — we therefore build the projection ourselves
-// instead of going through json.Marshal.
+// against this projection — json.Marshal would also error on the
+// Setup field. The test asserts Result/Duration are normalised
+// (no time.Now(), only Subject-supplied numbers) so repeated
+// runs produce identical bytes.
 func marshalReport(r CompareReport) ([]byte, error) {
-	// Sort arms for stability.
 	armIDs := make([]string, 0, len(r.Arms))
 	for _, a := range r.Arms {
 		armIDs = append(armIDs, a.ID)
 	}
-	sortStrings(armIDs)
+	sort.Strings(armIDs)
 
-	var sb strings.Builder
-	sb.WriteString(`{"set_name=")
-	sb.WriteString(jsonString(r.Set.Name))
-	sb.WriteString(`,"arms=[`)
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "{set=%q arms=[", r.Set.Name)
 	for i, id := range armIDs {
 		if i > 0 {
-			sb.WriteString(",")
+			buf.WriteByte(',')
 		}
 		totals, ok := r.TotalsByArm[id]
 		if !ok {
 			continue
 		}
-		// Pass rate as a fixed-precision scalar so float diffs
-		// are deterministic (6 decimals, same precision Cost uses).
-		sb.WriteString(id)
-		sb.WriteString(":")
-		writeF6(&sb, totals.PassRate())
-		sb.WriteString(":")
-		writeF6(&sb, totals.WeightedScore)
-		sb.WriteString(":")
-		writeInt(&sb, totals.TotalCases)
-		sb.WriteString(":")
-		writeInt(&sb, totals.Passed)
+		fmt.Fprintf(&buf, "%s:pass=%s:ws=%s:tot=%d:passed=%d",
+			id,
+			strconv.FormatFloat(totals.PassRate(), 'f', 6, 64),
+			strconv.FormatFloat(totals.WeightedScore, 'f', 6, 64),
+			totals.TotalCases, totals.Passed,
+		)
 	}
-	sb.WriteString(`],"per_case=[`)
+	buf.WriteString("] cases=[")
 	for _, row := range r.PerCase {
-		sb.WriteString(row.CaseID)
-		sb.WriteString("[")
+		fmt.Fprintf(&buf, "%s[", row.CaseID)
 		first := true
 		for _, id := range armIDs {
 			run, ok := row.Arms[id]
@@ -106,141 +102,40 @@ func marshalReport(r CompareReport) ([]byte, error) {
 				continue
 			}
 			if !first {
-				sb.WriteString(",")
+				buf.WriteByte(',')
 			}
 			first = false
-			sb.WriteString(id)
-			sb.WriteString(":")
-			writeInt(&sb, run.Result.PromptTokens)
-			sb.WriteString(":")
-			writeInt(&sb, run.Result.CompletionTokens)
-			sb.WriteString(":")
-			writeInt(&sb, run.Result.TotalTokens)
-			sb.WriteString(":")
-			writeInt(&sb, run.LOC)
-			sb.WriteString(":")
-			writeF6(&sb, run.USD)
-			sb.WriteString(":")
-			writeF6(&sb, run.Result.Score)
-			sb.WriteString(":")
-			if run.Result.Passed {
-				sb.WriteString("1")
-			} else {
-				sb.WriteString("0")
-			}
+			fmt.Fprintf(&buf, "%s:pt=%d:ct=%d:tt=%d:loc=%d:usd=%s:sc=%s:ok=%d",
+				id,
+				run.Result.PromptTokens,
+				run.Result.CompletionTokens,
+				run.Result.TotalTokens,
+				run.LOC,
+				strconv.FormatFloat(run.USD, 'f', 6, 64),
+				strconv.FormatFloat(run.Result.Score, 'f', 6, 64),
+				boolInt(run.Result.Passed),
+			)
 		}
-		sb.WriteString("]")
+		buf.WriteByte(']')
 	}
-	sb.WriteString(`],"warnings=[`)
+	buf.WriteString("] warnings=[")
 	for i, w := range r.Warnings {
 		if i > 0 {
-			sb.WriteString(",")
+			buf.WriteByte(',')
 		}
-		sb.WriteString(jsonString(w))
+		fmt.Fprintf(&buf, "%q", w)
 	}
-	sb.WriteString("]}")
-	return []byte(sb.String()), nil
+	buf.WriteString("]}")
+	return buf.Bytes(), nil
 }
 
-// jsonString quotes a string in the minimal JSON style (no
-// escaping needed for our test data). Pulled out so marshalReport
-// stays a single linear write.
-func jsonString(s string) string {
-	var sb strings.Builder
-	sb.WriteByte('"')
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c == '"' || c == '\\' {
-			sb.WriteByte('\\')
-			sb.WriteByte(c)
-		} else if c >= 0x20 && c < 0x7f {
-			sb.WriteByte(c)
-		} else {
-			sb.WriteString(`\u00`)
-			const hex = "0123456789abcdef"
-			sb.WriteByte(hex[(c>>4)&0xf])
-			sb.WriteByte(hex[c&0xf])
-		}
+// boolInt renders false as 0 and true as 1 for stable comparable
+// projection columns.
+func boolInt(b bool) int {
+	if b {
+		return 1
 	}
-	sb.WriteByte('"')
-	return sb.String()
-}
-
-// writeF6 formats f with fixed 6-decimal precision (matching the
-// snapshot schema's USD column).
-func writeF6(sb *strings.Builder, f float64) {
-	// Mirror Go's strconv.FormatFloat(f, 'f', 6, 64) without the
-	// import — keeps test file dependency-light.
-	neg := f < 0
-	if neg {
-		f = -f
-	}
-	intPart := int64(f)
-	frac := f - float64(intPart)
-	if neg {
-		sb.WriteByte('-')
-	}
-	digits := "0123456789"
-	if intPart == 0 {
-		sb.WriteByte('0')
-	} else {
-		var rev [20]byte
-		n := 0
-		for x := intPart; x > 0; x /= 10 {
-			rev[n] = digits[x%10]
-			n++
-		}
-		for i := n - 1; i >= 0; i-- {
-			sb.WriteByte(rev[i])
-		}
-	}
-	sb.WriteByte('.')
-	// Six decimals: round-half-up at the 6th position.
-	round := 0.5 / 1_000_000
-	frac += round
-	for i := 0; i < 6; i++ {
-		frac *= 10
-		d := int(frac)
-		if d > 9 {
-			d = 9
-		}
-		sb.WriteByte(digits[d])
-		frac -= float64(d)
-	}
-}
-
-// writeInt renders an integer to the builder without importing
-// strconv.
-func writeInt(sb *strings.Builder, n int) {
-	if n == 0 {
-		sb.WriteByte('0')
-		return
-	}
-	neg := n < 0
-	if neg {
-		n = -n
-		sb.WriteByte('-')
-	}
-	digits := "0123456789"
-	var rev [20]byte
-	i := 0
-	for x := n; x > 0; x /= 10 {
-		rev[i] = digits[x%10]
-		i++
-	}
-	for j := i - 1; j >= 0; j-- {
-		sb.WriteByte(rev[j])
-	}
-}
-
-// sortStrings sorts a string slice in place. Local copy keeps the
-// test file self-contained.
-func sortStrings(s []string) {
-	for i := 1; i < len(s); i++ {
-		for j := i; j > 0 && s[j-1] > s[j]; j-- {
-			s[j-1], s[j] = s[j], s[j-1]
-		}
-	}
+	return 0
 }
 
 // TestCompareParallel_DeterministicAcrossReorders runs the four-arm

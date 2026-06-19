@@ -36,7 +36,10 @@ func autoCreatePR(ctx context.Context, goal *autonomy.Goal, res *agentloop.Resul
 
 	// Delete existing branch if it exists, then create fresh from main.
 	// This avoids stale/uncommitted changes from previous runs.
-	exec.CommandContext(ctx, "git", "-C", goal.Workspace, "branch", "-D", branch).Run()
+	// Check if branch exists first to avoid error from "git branch -D" on non-existent branch.
+	if err := exec.CommandContext(ctx, "git", "-C", goal.Workspace, "rev-parse", "--verify", branch).Run(); err == nil {
+		exec.CommandContext(ctx, "git", "-C", goal.Workspace, "branch", "-D", branch).Run()
+	}
 	if cbOut, err := exec.CommandContext(ctx, "git", "-C", goal.Workspace, "checkout", "-b", branch, "main").CombinedOutput(); err != nil {
 		return fmt.Errorf("git checkout -b %s main: %v: %s", branch, err, string(cbOut))
 	}
