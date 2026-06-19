@@ -234,9 +234,6 @@ func defaultConfig() SinCodeConfig {
 		AgentLoopContextWindow:              0,
 		AgentLoopCompactionPreserveEvidence: true,
 		AgentLoopCompactionRecentTurns:      4,
-		AgentLoopSessionContextEnabled:      true,
-		AutoLintEnabled:                     true,
-		AutoTestEnabled:                     true,
 	}
 }
 
@@ -800,8 +797,6 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.AutonomyContainerEnabled), nil
 	case "autonomy.container.image":
 		return cfg.AutonomyContainerImage, nil
-	case "agentloop.session_context.enabled":
-		return fmt.Sprintf("%v", cfg.AgentLoopSessionContextEnabled), nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -1026,12 +1021,6 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.AutonomyContainerEnabled = value == "true" || value == "1"
 	case "autonomy.container.image":
 		cfg.AutonomyContainerImage = value
-	case "agentloop.session_context.enabled":
-		cfg.AgentLoopSessionContextEnabled = value == "true" || value == "1"
-	case "test.auto_lint":
-		cfg.AutoLintEnabled = value == "true" || value == "1"
-	case "test.auto_test":
-		cfg.AutoTestEnabled = value == "true" || value == "1"
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}
@@ -1104,7 +1093,6 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"worktree.target_branch", cfg.WorktreeTargetBranch},
 		{"autonomy.container.enabled", fmt.Sprintf("%v", cfg.AutonomyContainerEnabled)},
 		{"autonomy.container.image", cfg.AutonomyContainerImage},
-		{"agentloop.session_context.enabled", fmt.Sprintf("%v", cfg.AgentLoopSessionContextEnabled)},
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Key < pairs[j].Key })
 	return pairs
@@ -1170,9 +1158,6 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 			"context_window":               cfg.AgentLoopContextWindow,
 			"compaction_preserve_evidence": cfg.AgentLoopCompactionPreserveEvidence,
 			"compaction_recent_turns":      cfg.AgentLoopCompactionRecentTurns,
-			"session_context_enabled":      cfg.AgentLoopSessionContextEnabled,
-			"auto_lint_enabled":            cfg.AutoLintEnabled,
-			"auto_test_enabled":            cfg.AutoTestEnabled,
 		},
 		"permissions": map[string]any{
 			"tools_allow": cfg.ToolsAllow,

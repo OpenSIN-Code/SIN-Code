@@ -29,7 +29,6 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife/autoactivate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/isolation"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ledger"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/logger"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/loopbuilder"
@@ -38,7 +37,6 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/skillmgr"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui"
 	"github.com/OpenSIN-Code/SIN-Code/skills"
@@ -456,35 +454,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		Ask:                      ask,
 		ThinkingEnabled:          thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
-		ResultPolicy:             permission.NewResultPolicy(),
-	}
-
-	// Session-start context injection (issue #379): when enabled, assemble a
-	// unified preamble from todos, the previous session summary, and auto-memory
-	// and prepend it to the first user message of a new session.
-	if sinCfg.AgentLoopSessionContextEnabled {
-		var (
-			todoStore   *todo.Store
-			ledgerStore *ledger.Store
-		)
-		if ts, err := todo.Open(""); err == nil {
-			todoStore = ts
-			defer ts.Close()
-		}
-		if ls, err := ledger.Open(ledger.DefaultPath()); err == nil {
-			ledgerStore = ls
-			defer ls.Close()
-		}
-		loop.SessionContext = loopbuilder.NewDefaultSessionContextBuilder(
-			workspace,
-			todoStore,
-			sess.ID,
-			ledgerStore,
-			nil,
-			nil,
-			nil,
-			"",
-		)
+		ResultPolicy:            permission.NewResultPolicy(),
 	}
 
 	if opts.repetitionThreshold > 0 {
