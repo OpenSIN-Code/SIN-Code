@@ -310,11 +310,19 @@ type Loop struct {
 	// Optional — nil preserves legacy behavior.
 	MemoryPrime func(ctx context.Context, prompt string) (string, error)
 
+	// SessionContextBuilder, when set, is called once at session start
+	// to assemble a markdown block aggregating top-K entries from
+	// lessons, memory, and pending goals. The block is appended as a
+	// user message immediately BEFORE the goal prompt so the worker
+	// reads it on the first turn. Privacy-first — off unless the
+	// caller wires an opt-in ContextInjector (issue #379). Optional —
+	// nil preserves legacy behavior.
+	SessionContextBuilder func(ctx context.Context, prompt string) (string, error)
+
 	// SessionContext, when set, is consulted at the start of a new session
-	// (empty history) and its non-empty preamble is injected as a user
-	// message before the Definition-of-Done preamble and the goal prompt.
-	// Optional — nil preserves legacy behavior. Gated by the caller via
-	// agentloop.session_context.enabled (issue #379).
+	// (empty history) to build a unified preamble from todos, previous
+	// session summary, and auto-memory (issue #379). Nil preserves legacy
+	// behavior.
 	SessionContext *SessionContextBuilder
 }
 
@@ -712,6 +720,16 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	// still lives in the stop-gate; this only improves first-pass quality.
 	if strings.TrimSpace(l.Preamble) != "" {
 		msgs = append(msgs, session.Message{Role: "user", Content: l.Preamble})
+	}
+	// Issue #379: session-context injection from lessons / memory /
+	// autonomy. Fires at session start, OPT-IN ONLY — the builder is
+	// nil unless loopbuilder wired an explicit ContextInjector, so
+	// legacy sessions keep their exact pre-#379 message stream.
+	if l.SessionContextBuilder != nil {
+		if blk, berr := l.SessionContextBuilder(ctx, prompt); berr == nil && strings.TrimSpace(blk) != "" {
+			msgs = append(msgs, session.Message{Role: "user", Content: blk})
+			l.fire(ctx, hooks.SessionStart, "", map[string]any{"bytes": len(blk)})
+		}
 	}
 	msgs = append(msgs, session.Message{Role: "user", Content: prompt})
 

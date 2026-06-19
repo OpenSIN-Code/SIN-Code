@@ -142,6 +142,22 @@ type SinCodeConfig struct {
 	// (issue #271). When true, the loop appends an adaptive system-prompt
 	// suffix when frustration is detected. Default false.
 	AgentLoopFrustrationDetection bool `toml:"agentloop.frustration_detection"`
+	// AgentLoopInjectLessons gates lesson briefings in the session-
+	// context block injected as the first user message of every run
+	// (issue #379). Default false — privacy-first, opt-in only.
+	AgentLoopInjectLessons bool `toml:"agentloop.inject_lessons"`
+	// AgentLoopInjectMemory gates long-term memory entries in the
+	// session-context block (issue #379). Default false.
+	AgentLoopInjectMemory bool `toml:"agentloop.inject_memory"`
+	// AgentLoopInjectGoals gates pending autonomous-goals rows in
+	// the session-context block (issue #379). Default false.
+	AgentLoopInjectGoals bool `toml:"agentloop.inject_goals"`
+	// AgentLoopContextTopK bounds per-source entries pulled into the
+	// session-context block (issue #379). Default 5; values <1 fall
+	// back to 5 inside the injector.
+	AgentLoopContextTopK int `toml:"agentloop.context_top_k"`
+	// Permission: YOLO risk threshold (issue #272).
+	PermissionYoloRiskThreshold string `toml:"permission.yolo_risk_threshold"`
 	// AgentLoopObserverWindow is the rolling-history size used by
 	// the LoopDetector (issue #377). 0 disables detection entirely;
 	// any negative value is also treated as 0. Default 20.
@@ -152,8 +168,6 @@ type SinCodeConfig struct {
 	// AgentLoopObserverMinPatternLength is the minimum repeating
 	// pattern length the LoopDetector will consider. Default 3.
 	AgentLoopObserverMinPatternLength int `toml:"agentloop.observer_min_pattern_length"`
-	// Permission: YOLO risk threshold (issue #272).
-	PermissionYoloRiskThreshold string `toml:"permission.yolo_risk_threshold"`
 	// Worktree conflict prediction (issue #319).
 	WorktreeConflictCheck string `toml:"worktree.conflict_check"`
 	WorktreeTargetBranch  string `toml:"worktree.target_branch"`
@@ -246,14 +260,11 @@ func defaultConfig() SinCodeConfig {
 		PermissionYoloRiskThreshold:   "",
 		WorktreeConflictCheck:         "off",
 		WorktreeTargetBranch:          "",
-		AutonomyContainerEnabled:      false,
-		AutonomyContainerImage:        "",
-		AgentLoopContextCompaction:            "off",
-		AgentLoopCompactionTrigger:           "tokens",
-		AgentLoopCompactionMaxTokens:         8000,
-		AgentLoopContextWindow:               0,
-		AgentLoopCompactionPreserveEvidence:  true,
-		AgentLoopCompactionRecentTurns:       4,
+		// Issue #379: every inject_* flag is opt-in. Default 0 / false.
+		AgentLoopInjectLessons:        false,
+		AgentLoopInjectMemory:         false,
+		AgentLoopInjectGoals:          false,
+		AgentLoopContextTopK:          5,
 	}
 }
 
@@ -795,12 +806,14 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.AgentLoopCompactionThreshold), nil
 	case "agentloop.frustration_detection":
 		return fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection), nil
-	case "agentloop.observer_window":
-		return fmt.Sprintf("%d", cfg.AgentLoopObserverWindow), nil
-	case "agentloop.observer_min_repeats":
-		return fmt.Sprintf("%d", cfg.AgentLoopObserverMinRepeats), nil
-	case "agentloop.observer_min_pattern_length":
-		return fmt.Sprintf("%d", cfg.AgentLoopObserverMinPatternLength), nil
+	case "agentloop.inject_lessons":
+		return fmt.Sprintf("%v", cfg.AgentLoopInjectLessons), nil
+	case "agentloop.inject_memory":
+		return fmt.Sprintf("%v", cfg.AgentLoopInjectMemory), nil
+	case "agentloop.inject_goals":
+		return fmt.Sprintf("%v", cfg.AgentLoopInjectGoals), nil
+	case "agentloop.context_top_k":
+		return fmt.Sprintf("%d", cfg.AgentLoopContextTopK), nil
 	case "permission.yolo_risk_threshold":
 		return cfg.PermissionYoloRiskThreshold, nil
 	case "agentloop.context_compaction":
@@ -1004,24 +1017,18 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.AgentLoopCompactionThreshold = v
 	case "agentloop.frustration_detection":
 		cfg.AgentLoopFrustrationDetection = value == "true" || value == "1"
-	case "agentloop.observer_window":
+	case "agentloop.inject_lessons":
+		cfg.AgentLoopInjectLessons = value == "true" || value == "1"
+	case "agentloop.inject_memory":
+		cfg.AgentLoopInjectMemory = value == "true" || value == "1"
+	case "agentloop.inject_goals":
+		cfg.AgentLoopInjectGoals = value == "true" || value == "1"
+	case "agentloop.context_top_k":
 		v, err := strconv.Atoi(value)
-		if err != nil || v < 0 {
-			return fmt.Errorf("agentloop.observer_window must be a non-negative integer, got %q", value)
+		if err != nil || v <= 0 {
+			return fmt.Errorf("agentloop.context_top_k must be a positive integer, got %q", value)
 		}
-		cfg.AgentLoopObserverWindow = v
-	case "agentloop.observer_min_repeats":
-		v, err := strconv.Atoi(value)
-		if err != nil || v < 1 {
-			return fmt.Errorf("agentloop.observer_min_repeats must be a positive integer, got %q", value)
-		}
-		cfg.AgentLoopObserverMinRepeats = v
-	case "agentloop.observer_min_pattern_length":
-		v, err := strconv.Atoi(value)
-		if err != nil || v < 1 {
-			return fmt.Errorf("agentloop.observer_min_pattern_length must be a positive integer, got %q", value)
-		}
-		cfg.AgentLoopObserverMinPatternLength = v
+		cfg.AgentLoopContextTopK = v
 	case "permission.yolo_risk_threshold":
 		cfg.PermissionYoloRiskThreshold = value
 	case "agentloop.context_compaction":
@@ -1126,12 +1133,10 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"agentloop.compaction_strategy", cfg.AgentLoopCompactionStrategy},
 		{"agentloop.compaction_threshold", fmt.Sprintf("%v", cfg.AgentLoopCompactionThreshold)},
 		{"agentloop.frustration_detection", fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection)},
-		{"agentloop.context_compaction", cfg.AgentLoopContextCompaction},
-		{"agentloop.compaction_trigger", cfg.AgentLoopCompactionTrigger},
-		{"agentloop.compaction_max_tokens", fmt.Sprintf("%d", cfg.AgentLoopCompactionMaxTokens)},
-		{"agentloop.context_window", fmt.Sprintf("%d", cfg.AgentLoopContextWindow)},
-		{"agentloop.compaction_preserve_evidence", fmt.Sprintf("%v", cfg.AgentLoopCompactionPreserveEvidence)},
-		{"agentloop.compaction_recent_turns", fmt.Sprintf("%d", cfg.AgentLoopCompactionRecentTurns)},
+		{"agentloop.inject_lessons", fmt.Sprintf("%v", cfg.AgentLoopInjectLessons)},
+		{"agentloop.inject_memory", fmt.Sprintf("%v", cfg.AgentLoopInjectMemory)},
+		{"agentloop.inject_goals", fmt.Sprintf("%v", cfg.AgentLoopInjectGoals)},
+		{"agentloop.context_top_k", fmt.Sprintf("%d", cfg.AgentLoopContextTopK)},
 		{"permission.yolo_risk_threshold", cfg.PermissionYoloRiskThreshold},
 		{"worktree.conflict_check", cfg.WorktreeConflictCheck},
 		{"worktree.target_branch", cfg.WorktreeTargetBranch},
@@ -1449,12 +1454,17 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.AgentLoopCompactionThreshold = v
 		case "agentloop.frustration_detection":
 			cfg.AgentLoopFrustrationDetection = val == "true" || val == "1"
-		case "agentloop.observer_window":
-			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopObserverWindow)
-		case "agentloop.observer_min_repeats":
-			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopObserverMinRepeats)
-		case "agentloop.observer_min_pattern_length":
-			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopObserverMinPatternLength)
+		case "agentloop.inject_lessons":
+			cfg.AgentLoopInjectLessons = val == "true" || val == "1"
+		case "agentloop.inject_memory":
+			cfg.AgentLoopInjectMemory = val == "true" || val == "1"
+		case "agentloop.inject_goals":
+			cfg.AgentLoopInjectGoals = val == "true" || val == "1"
+		case "agentloop.context_top_k":
+			v, _ := strconv.Atoi(val)
+			if v > 0 {
+				cfg.AgentLoopContextTopK = v
+			}
 		case "permission.yolo_risk_threshold":
 			cfg.PermissionYoloRiskThreshold = val
 	case "agentloop.context_compaction":
