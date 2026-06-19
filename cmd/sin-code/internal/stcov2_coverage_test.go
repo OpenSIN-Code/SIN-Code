@@ -310,6 +310,7 @@ func TestApplyStringEdit_ReplaceAll_stcov2(t *testing.T) {
 }
 
 func TestHarvestCmd_RunE_stcov2(t *testing.T) {
+	enableLooseEgress(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintln(w, `{"ok":true}`)
@@ -1659,6 +1660,7 @@ func TestPluginInstallCmd_MkdirAllError_stcov2(t *testing.T) {
 }
 
 func TestHarvestURLFetch_BodyReadError_stcov2(t *testing.T) {
+	enableLooseEgress(t)
 	orig := harvestHTTPClient
 	harvestHTTPClient = func(timeout int) *http.Client {
 		return &http.Client{
@@ -1679,6 +1681,7 @@ func TestHarvestURLFetch_BodyReadError_stcov2(t *testing.T) {
 }
 
 func TestHarvestURLFetch_TextSuccess_stcov2(t *testing.T) {
+	enableLooseEgress(t)
 	orig := harvestHTTPClient
 	harvestHTTPClient = func(timeout int) *http.Client {
 		return &http.Client{

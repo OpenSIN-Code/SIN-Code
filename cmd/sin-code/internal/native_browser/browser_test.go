@@ -457,7 +457,7 @@ func TestBrowserHTTPDirect_ClickEgressDenied(t *testing.T) {
 }
 
 // TestBrowserHTTPDirect_ClickEgressAllowed verifies the SSRF gate is
-// opt-in: with AllowPrivateNetworks=true the same lookupAnchor call
+// opt-in: with the egress stub returning nil the same lookupAnchor call
 // returns the anchor it found. This is the assert-loop side of the
 // Finding 5 fix — the gate must be no-op when the operator opts in.
 func TestBrowserHTTPDirect_ClickEgressAllowed(t *testing.T) {
@@ -474,8 +474,9 @@ func TestBrowserHTTPDirect_ClickEgressAllowed(t *testing.T) {
 	nativeBrowserEgressCheck = func(ctx context.Context, u string) error { return nil }
 	t.Cleanup(func() { nativeBrowserEgressCheck = orig })
 
-	// Driver's lookupAnchor matches against raw id/name attributes, not
-	// CSS selectors — strip the leading "#" so the match succeeds.
+	// lookupAnchor matches id="more" against the substring "more"
+	// — the selector for ClickAction is the bare id token, not a CSS
+	// selector. See lookupAnchor in driver.go.
 	if err := d.Perform(context.Background(), srv.URL, ClickAction, "more", ""); err != nil {
 		t.Fatalf("Perform with permissive egress should pass, got %v", err)
 	}
