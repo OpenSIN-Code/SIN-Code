@@ -68,13 +68,13 @@ func newGoalAddFromIssueCmd() *cobra.Command {
 			if num <= 0 {
 				return fmt.Errorf("issue number must be a positive integer")
 			}
-		if repo == "" {
-			var err error
-			repo, err = detectRepo()
-			if err != nil {
-				return err
+			if repo == "" {
+				var err error
+				repo, err = detectRepo()
+				if err != nil {
+					return err
+				}
 			}
-		}
 			ctx := cmd.Context()
 			issue, err := fetchIssue(ctx, repo, num)
 			if err != nil {

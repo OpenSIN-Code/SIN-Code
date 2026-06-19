@@ -91,7 +91,7 @@ type visionRequest struct {
 }
 
 type visionMessage struct {
-	Role    string         `json:"role"`
+	Role    string          `json:"role"`
 	Content []visionContent `json:"content"`
 }
 

@@ -74,12 +74,12 @@ type SinCodeConfig struct {
 	// Default false; opt-in only.
 	AgentLoopAutoTest bool `toml:"agentloop.auto_test"`
 	// Per-command timeout cap (seconds). 0 -> 30 lint / 120 test.
-	AgentLoopAutoLintTimeout int `toml:"agentloop.auto_lint_timeout"`
-	AgentLoopAutoTestTimeout int `toml:"agentloop.auto_test_timeout"`
-	ToolsAllow             []string `toml:"permissions.tools_allow"`
-	ToolsDeny              []string `toml:"permissions.tools_deny"`
-	PathsMCPConfig         string   `toml:"paths.mcp_config"`
-	PathsSkillsDir         string   `toml:"paths.skills_dir"`
+	AgentLoopAutoLintTimeout int      `toml:"agentloop.auto_lint_timeout"`
+	AgentLoopAutoTestTimeout int      `toml:"agentloop.auto_test_timeout"`
+	ToolsAllow               []string `toml:"permissions.tools_allow"`
+	ToolsDeny                []string `toml:"permissions.tools_deny"`
+	PathsMCPConfig           string   `toml:"paths.mcp_config"`
+	PathsSkillsDir           string   `toml:"paths.skills_dir"`
 	// Test-First Verify-Loop thresholds (RFC-test-automation.md).
 	TestCoverageThreshold float64 `toml:"test.coverage_threshold"`
 	TestMutationThreshold float64 `toml:"test.mutation_threshold"`
@@ -203,75 +203,75 @@ type SinCodeConfig struct {
 
 func defaultConfig() SinCodeConfig {
 	return SinCodeConfig{
-		Theme:            "dark",
-		DefaultTimeout:   60,
-		DefaultFormat:    "json",
-		MCPServerEnabled: true,
-		LLMBaseURL:          "https://integrate.api.nvidia.com/v1",
-		LLMAPIKey:           "",
-		LLMModel:            "",
-		LLMMaxTokens:        8192,
-		LLMTemperature:      0.0,
-		LLMThinkingEnabled:  false,
-		LLMThinkingBudget:   0,
-		LLMStyle:            "default",
-		AgentVerifyMode:          "poc",
-		AgentMaxTurns:            80,
-		AgentHeadless:            false,
-		AgentYolo:                false,
-		AgentLoopRequiredTools:   []string{},
-		AgentLoopForbiddenTools:  []string{},
-		AgentLoopAutoLint:        false,
-		AgentLoopAutoTest:        false,
-		AgentLoopAutoLintTimeout: 30,
-		AgentLoopAutoTestTimeout: 120,
-		ToolsAllow:               []string{},
-		ToolsDeny:                []string{},
-		PathsMCPConfig:           filepath.Join("~", ".sin-code", "mcp.json"),
-		PathsSkillsDir:           "",
-		TestCoverageThreshold:    0.0,
-		TestMutationThreshold:    0.0,
-		TestAutoGenerate:         false,
-		TestTimeoutSeconds:       300,
-		TestUseLLM:               false,
-		TestRepairRounds:         3,
-		ChatLazyTools:            false,
-		LLMPromptCache:           true,
-		AgentLoopCompactionStrategy:  "off",
-		AgentLoopCompactionThreshold: 0.8,
+		Theme:                               "dark",
+		DefaultTimeout:                      60,
+		DefaultFormat:                       "json",
+		MCPServerEnabled:                    true,
+		LLMBaseURL:                          "https://integrate.api.nvidia.com/v1",
+		LLMAPIKey:                           "",
+		LLMModel:                            "",
+		LLMMaxTokens:                        8192,
+		LLMTemperature:                      0.0,
+		LLMThinkingEnabled:                  false,
+		LLMThinkingBudget:                   0,
+		LLMStyle:                            "default",
+		AgentVerifyMode:                     "poc",
+		AgentMaxTurns:                       80,
+		AgentHeadless:                       false,
+		AgentYolo:                           false,
+		AgentLoopRequiredTools:              []string{},
+		AgentLoopForbiddenTools:             []string{},
+		AgentLoopAutoLint:                   false,
+		AgentLoopAutoTest:                   false,
+		AgentLoopAutoLintTimeout:            30,
+		AgentLoopAutoTestTimeout:            120,
+		ToolsAllow:                          []string{},
+		ToolsDeny:                           []string{},
+		PathsMCPConfig:                      filepath.Join("~", ".sin-code", "mcp.json"),
+		PathsSkillsDir:                      "",
+		TestCoverageThreshold:               0.0,
+		TestMutationThreshold:               0.0,
+		TestAutoGenerate:                    false,
+		TestTimeoutSeconds:                  300,
+		TestUseLLM:                          false,
+		TestRepairRounds:                    3,
+		ChatLazyTools:                       false,
+		LLMPromptCache:                      true,
+		AgentLoopCompactionStrategy:         "off",
+		AgentLoopCompactionThreshold:        0.8,
 		AgentLoopContextCompaction:          "off",
 		AgentLoopCompactionTrigger:          "tokens",
 		AgentLoopCompactionMaxTokens:        8000,
 		AgentLoopContextWindow:              0,
 		AgentLoopCompactionPreserveEvidence: true,
 		AgentLoopCompactionRecentTurns:      4,
-		AgentLoopFrustrationDetection: false,
-		AgentLoopObserverWindow:           20,
-		AgentLoopObserverMinRepeats:       2,
-		AgentLoopObserverMinPatternLength: 3,
-		FusionEnabled:            false,
-		FusionProviders:          []string{"minimax-m3", "kimi-k2p7-code-fast", "kimi-k2p7-code", "deepseek-v4-pro", "qwen-3p7-plus", "glm-5p2"},
-		FusionMaxCostUSD:         5.0,
-		FusionMinQuorum:          2,
-		FusionPerProviderTimeoutS: 120,
-		FusionDifficultyGate:     true,
-		FusionOracleMode:         false,
-		MemoryAutoDream:          false,
-		MemoryAutoDreamInterval:  "5m",
-		MemoryPrimeOnStart:       false,
-		OrchestratorEpisodicMemory:    false,
-		OrchestratorDeepPlanner:       false,
-		OrchestratorPatternLearning:   false,
-		OrchestratorPreWarm:           false,
-		PermissionYoloRiskThreshold:   "",
-		WorktreeConflictCheck:         "off",
-		WorktreeTargetBranch:          "",
+		AgentLoopFrustrationDetection:       false,
+		AgentLoopObserverWindow:             20,
+		AgentLoopObserverMinRepeats:         2,
+		AgentLoopObserverMinPatternLength:   3,
+		FusionEnabled:                       false,
+		FusionProviders:                     []string{"minimax-m3", "kimi-k2p7-code-fast", "kimi-k2p7-code", "deepseek-v4-pro", "qwen-3p7-plus", "glm-5p2"},
+		FusionMaxCostUSD:                    5.0,
+		FusionMinQuorum:                     2,
+		FusionPerProviderTimeoutS:           120,
+		FusionDifficultyGate:                true,
+		FusionOracleMode:                    false,
+		MemoryAutoDream:                     false,
+		MemoryAutoDreamInterval:             "5m",
+		MemoryPrimeOnStart:                  false,
+		OrchestratorEpisodicMemory:          false,
+		OrchestratorDeepPlanner:             false,
+		OrchestratorPatternLearning:         false,
+		OrchestratorPreWarm:                 false,
+		PermissionYoloRiskThreshold:         "",
+		WorktreeConflictCheck:               "off",
+		WorktreeTargetBranch:                "",
 		// Issue #379: every inject_* flag is opt-in. Default 0 / false.
 		AgentLoopSessionContextEnabled: true,
-		AgentLoopInjectLessons:        false,
-		AgentLoopInjectMemory:         false,
-		AgentLoopInjectGoals:          false,
-		AgentLoopContextTopK:          5,
+		AgentLoopInjectLessons:         false,
+		AgentLoopInjectMemory:          false,
+		AgentLoopInjectGoals:           false,
+		AgentLoopContextTopK:           5,
 	}
 }
 
@@ -683,7 +683,8 @@ agentloop.session_context.enabled = %v
 		cfg.WorktreeConflictCheck, cfg.WorktreeTargetBranch,
 		cfg.AgentLoopContextCompaction, cfg.AgentLoopCompactionTrigger, cfg.AgentLoopCompactionMaxTokens, cfg.AgentLoopContextWindow,
 		cfg.AgentLoopCompactionPreserveEvidence, cfg.AgentLoopCompactionRecentTurns,
-		cfg.AgentLoopSessionContextEnabled)}
+		cfg.AgentLoopSessionContextEnabled)
+}
 
 func initConfig() error {
 	cfg := defaultConfig()
@@ -1222,14 +1223,14 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 			"yolo":        cfg.AgentYolo,
 		},
 		"agentloop": map[string]any{
-			"required_tools":       cfg.AgentLoopRequiredTools,
-			"forbidden_tools":      cfg.AgentLoopForbiddenTools,
-			"context_compaction":   cfg.AgentLoopContextCompaction,
-			"compaction_trigger":   cfg.AgentLoopCompactionTrigger,
-			"compaction_max_tokens": cfg.AgentLoopCompactionMaxTokens,
-			"context_window":       cfg.AgentLoopContextWindow,
+			"required_tools":               cfg.AgentLoopRequiredTools,
+			"forbidden_tools":              cfg.AgentLoopForbiddenTools,
+			"context_compaction":           cfg.AgentLoopContextCompaction,
+			"compaction_trigger":           cfg.AgentLoopCompactionTrigger,
+			"compaction_max_tokens":        cfg.AgentLoopCompactionMaxTokens,
+			"context_window":               cfg.AgentLoopContextWindow,
 			"compaction_preserve_evidence": cfg.AgentLoopCompactionPreserveEvidence,
-			"compaction_recent_turns":     cfg.AgentLoopCompactionRecentTurns,
+			"compaction_recent_turns":      cfg.AgentLoopCompactionRecentTurns,
 			"session_context": map[string]any{
 				"enabled": cfg.AgentLoopSessionContextEnabled,
 			},
@@ -1271,13 +1272,13 @@ func showTOML(cfg SinCodeConfig, mask bool) error {
 		AgentVerifyMode: cfg.AgentVerifyMode, AgentMaxTurns: cfg.AgentMaxTurns,
 		AgentHeadless: cfg.AgentHeadless, AgentYolo: cfg.AgentYolo,
 		AgentLoopRequiredTools: cfg.AgentLoopRequiredTools, AgentLoopForbiddenTools: cfg.AgentLoopForbiddenTools,
-		ToolsAllow:               cfg.ToolsAllow, ToolsDeny: cfg.ToolsDeny,
-		PathsMCPConfig:           cfg.PathsMCPConfig, PathsSkillsDir: cfg.PathsSkillsDir,
-		TestCoverageThreshold:    cfg.TestCoverageThreshold, TestMutationThreshold: cfg.TestMutationThreshold,
-		TestAutoGenerate:         cfg.TestAutoGenerate, TestTimeoutSeconds: cfg.TestTimeoutSeconds,
-		TestUseLLM:               cfg.TestUseLLM, TestRepairRounds: cfg.TestRepairRounds,
-		WorktreeConflictCheck:              cfg.WorktreeConflictCheck,
-		WorktreeTargetBranch:               cfg.WorktreeTargetBranch,
+		ToolsAllow: cfg.ToolsAllow, ToolsDeny: cfg.ToolsDeny,
+		PathsMCPConfig: cfg.PathsMCPConfig, PathsSkillsDir: cfg.PathsSkillsDir,
+		TestCoverageThreshold: cfg.TestCoverageThreshold, TestMutationThreshold: cfg.TestMutationThreshold,
+		TestAutoGenerate: cfg.TestAutoGenerate, TestTimeoutSeconds: cfg.TestTimeoutSeconds,
+		TestUseLLM: cfg.TestUseLLM, TestRepairRounds: cfg.TestRepairRounds,
+		WorktreeConflictCheck:               cfg.WorktreeConflictCheck,
+		WorktreeTargetBranch:                cfg.WorktreeTargetBranch,
 		AgentLoopContextCompaction:          cfg.AgentLoopContextCompaction,
 		AgentLoopCompactionTrigger:          cfg.AgentLoopCompactionTrigger,
 		AgentLoopCompactionMaxTokens:        cfg.AgentLoopCompactionMaxTokens,
@@ -1493,22 +1494,22 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			}
 		case "permission.yolo_risk_threshold":
 			cfg.PermissionYoloRiskThreshold = val
-	case "agentloop.context_compaction":
-		cfg.AgentLoopContextCompaction = val
-	case "agentloop.compaction_trigger":
-		cfg.AgentLoopCompactionTrigger = val
-	case "agentloop.compaction_max_tokens":
-		_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionMaxTokens)
-	case "agentloop.context_window":
-		_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopContextWindow)
-	case "agentloop.compaction_preserve_evidence":
-		cfg.AgentLoopCompactionPreserveEvidence = val == "true" || val == "1"
-	case "agentloop.compaction_recent_turns":
-		_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionRecentTurns)
-	case "worktree.conflict_check":
-		cfg.WorktreeConflictCheck = val
-	case "worktree.target_branch":
-		cfg.WorktreeTargetBranch = val
+		case "agentloop.context_compaction":
+			cfg.AgentLoopContextCompaction = val
+		case "agentloop.compaction_trigger":
+			cfg.AgentLoopCompactionTrigger = val
+		case "agentloop.compaction_max_tokens":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionMaxTokens)
+		case "agentloop.context_window":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopContextWindow)
+		case "agentloop.compaction_preserve_evidence":
+			cfg.AgentLoopCompactionPreserveEvidence = val == "true" || val == "1"
+		case "agentloop.compaction_recent_turns":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionRecentTurns)
+		case "worktree.conflict_check":
+			cfg.WorktreeConflictCheck = val
+		case "worktree.target_branch":
+			cfg.WorktreeTargetBranch = val
 		}
 	}
 }

@@ -81,15 +81,15 @@ func NewIssuePipeline(gh GHRunner, workdir string) *IssuePipeline {
 }
 
 const (
-	stepFetch   = "fetch-issue"
-	stepBranch  = "create-branch"
-	stepImpl    = "implement"
-	stepTest    = "test"
-	stepPush    = "push"
-	stepPR      = "create-pr"
-	statusOK    = "ok"
-	statusFail  = "fail"
-	statusSkip  = "skip"
+	stepFetch  = "fetch-issue"
+	stepBranch = "create-branch"
+	stepImpl   = "implement"
+	stepTest   = "test"
+	stepPush   = "push"
+	stepPR     = "create-pr"
+	statusOK   = "ok"
+	statusFail = "fail"
+	statusSkip = "skip"
 )
 
 // Process runs the full pipeline for the given issue number. The

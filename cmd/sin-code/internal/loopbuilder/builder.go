@@ -399,7 +399,7 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		CoverageForbiddenTools:   cfg.CoverageForbiddenTools,
 		ThinkingEnabled:          thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
-		ResultPolicy:            permission.NewResultPolicy(),
+		ResultPolicy:             permission.NewResultPolicy(),
 	}
 
 	if cfg.RepetitionThreshold > 0 {

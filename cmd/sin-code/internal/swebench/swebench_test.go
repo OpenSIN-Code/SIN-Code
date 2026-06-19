@@ -225,14 +225,14 @@ func TestScoreInstance(t *testing.T) {
 	}
 
 	tests := []struct {
-		name          string
-		inst          *Instance
-		verifyOutput  string
-		wantResolved  bool
-		wantFTP       int
-		wantPTP       int
-		wantScore     float64
-		wantScoreTol  float64
+		name         string
+		inst         *Instance
+		verifyOutput string
+		wantResolved bool
+		wantFTP      int
+		wantPTP      int
+		wantScore    float64
+		wantScoreTol float64
 	}{
 		{
 			name:         "all pass",

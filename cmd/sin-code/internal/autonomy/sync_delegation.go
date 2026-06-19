@@ -21,9 +21,9 @@ import (
 
 // DelegationRequest describes a single synchronous sub-goal delegation.
 type DelegationRequest struct {
-	Goal     string        // the sub-goal prompt / description
-	AgentName string       // which agent should handle the sub-goal
-	Timeout  time.Duration // per-delegation timeout; <=0 uses delegator default
+	Goal      string        // the sub-goal prompt / description
+	AgentName string        // which agent should handle the sub-goal
+	Timeout   time.Duration // per-delegation timeout; <=0 uses delegator default
 }
 
 // DelegationResult holds the outcome of a synchronous delegation. The Done

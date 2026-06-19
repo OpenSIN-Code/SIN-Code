@@ -136,17 +136,17 @@ type pubmedESearchResult struct {
 // pubmedArticleSet is the XML envelope returned by efetch.fcgi. Only the
 // fields needed to populate a ResearchResult are decoded.
 type pubmedArticleSet struct {
-	XMLName  xml.Name         `xml:"PubmedArticleSet"`
-	Articles []pubmedArticle  `xml:"PubmedArticle"`
+	XMLName  xml.Name        `xml:"PubmedArticleSet"`
+	Articles []pubmedArticle `xml:"PubmedArticle"`
 }
 
 type pubmedArticle struct {
-	XMLName        xml.Name `xml:"PubmedArticle"`
+	XMLName         xml.Name `xml:"PubmedArticle"`
 	MedlineCitation struct {
 		PMID    string `xml:"PMID"`
 		Article struct {
-			Title      string `xml:"ArticleTitle"`
-			Abstract   struct {
+			Title    string `xml:"ArticleTitle"`
+			Abstract struct {
 				Texts []struct {
 					Text string `xml:",chardata"`
 				} `xml:"AbstractText"`
@@ -351,13 +351,13 @@ type arxivFeed struct {
 }
 
 type arxivEntry struct {
-	ID        string       `xml:"id"`
-	Title     string       `xml:"title"`
-	Summary   string       `xml:"summary"`
-	Published string       `xml:"published"`
+	ID        string        `xml:"id"`
+	Title     string        `xml:"title"`
+	Summary   string        `xml:"summary"`
+	Published string        `xml:"published"`
 	Authors   []arxivAuthor `xml:"author"`
-	Links     []arxivLink  `xml:"link"`
-	DOI       string       `xml:"http://arxiv.org/schemas/atom doi"`
+	Links     []arxivLink   `xml:"link"`
+	DOI       string        `xml:"http://arxiv.org/schemas/atom doi"`
 }
 
 type arxivAuthor struct {
@@ -455,10 +455,10 @@ type usptoResponse struct {
 }
 
 type usptoPatent struct {
-	Number   string `json:"patent_number"`
-	Title    string `json:"patent_title"`
-	Abstract string `json:"patent_abstract"`
-	Date     string `json:"patent_date"`
+	Number    string `json:"patent_number"`
+	Title     string `json:"patent_title"`
+	Abstract  string `json:"patent_abstract"`
+	Date      string `json:"patent_date"`
 	Inventors []struct {
 		First string `json:"inventor_first_name"`
 		Last  string `json:"inventor_last_name"`
@@ -500,9 +500,9 @@ func (s *USPTOSource) Query(ctx context.Context, q string, opts QueryOpts) ([]Re
 	// PatentsView accepts a JSON query body describing the search and
 	// the fields to return.
 	qOpts := map[string]any{
-		"patent_title":         q,
-		"_limit":               max,
-		"_sort":                "patent_date desc",
+		"patent_title": q,
+		"_limit":       max,
+		"_sort":        "patent_date desc",
 	}
 	if opts.SortBy != "" {
 		qOpts["_sort"] = opts.SortBy

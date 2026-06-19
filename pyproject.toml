@@ -8,7 +8,7 @@ version = "1.4.0"
 description = "Unified CLI and MCP server for the SIN-Code agent-engineering stack — Bundle glues the standalone tools (Discover, Execute, Map, Grasp, Scout, Harvest, Orchestrate, SCKG, IBD, PoC, EFM, ADW, Oracle) into a single pip-installable package."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 authors = [{ name = "OpenSIN-Code" }]
 keywords = ["mcp", "ai-agents", "coding-agent", "opencode", "codex", "lsp", "swe-bench"]
 classifiers = [

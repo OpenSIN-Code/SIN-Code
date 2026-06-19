@@ -88,10 +88,10 @@ type ResultPolicyAdjustment struct {
 }
 
 type ResultPolicyEntry struct {
-	ToolName       string                    `json:"tool_name"`
-	ResultSnippet  string                    `json:"result_snippet"`
-	Adjustments    []ResultPolicyAdjustment  `json:"adjustments"`
-	Timestamp      string                    `json:"timestamp"`
+	ToolName      string                   `json:"tool_name"`
+	ResultSnippet string                   `json:"result_snippet"`
+	Adjustments   []ResultPolicyAdjustment `json:"adjustments"`
+	Timestamp     string                   `json:"timestamp"`
 }
 
 type ResultScanner struct {

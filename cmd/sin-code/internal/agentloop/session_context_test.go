@@ -191,11 +191,11 @@ func TestContextInjectionGoals(t *testing.T) {
 	}
 
 	cj := &ContextInjector{
-		Goals:        q,
-		Workspace:    ws,
-		TopK:         5,
-		InjectGoals:  true,
-		Redactor:     DefaultRedactor(),
+		Goals:       q,
+		Workspace:   ws,
+		TopK:        5,
+		InjectGoals: true,
+		Redactor:    DefaultRedactor(),
 	}
 	out, err := cj.Invoke(ctx, "anything")
 	if err != nil {

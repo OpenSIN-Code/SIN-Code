@@ -48,6 +48,7 @@ coverage.json
 coverage.map.out
 coverage.out
 dist/
+build/
 htmlcov/
 node_modules
 PRD.md

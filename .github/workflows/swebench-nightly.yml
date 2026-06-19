@@ -10,7 +10,7 @@ on:
       dataset:
         description: 'SWE-bench dataset path'
         required: false
-        default: 'evals/swebench-lite.json'
+        default: 'evals/swe-bench-example.json'
       max_instances:
         description: 'Max instances to evaluate (0 = all)'
         required: false
@@ -30,7 +30,7 @@ jobs:
             echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
             exit 1
           fi
-          DATASET="${{ inputs.dataset || 'evals/swebench-lite.json' }}"
+          DATASET="${{ inputs.dataset || 'evals/swe-bench-example.json' }}"
           MAX_INSTANCES="${{ inputs.max_instances || '10' }}"
           curl -fsS -X POST \
             -H "Content-Type: application/json" \

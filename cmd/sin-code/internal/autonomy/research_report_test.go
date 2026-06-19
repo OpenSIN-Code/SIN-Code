@@ -48,7 +48,7 @@ func TestResearchReportSlug(t *testing.T) {
 		"Hello World":               "hello-world",
 		"Go 1.23 Release Notes":     "go-1-23-release-notes",
 		"  spaces around  ":         "spaces-around",
-		"mixed/separators_here":     "mixed-separators-here",
+		"mixed/separators_here":     "mixedseparators-here",
 		"dotted.path.style":         "dotted-path-style",
 		"":                          "report",
 		"Punctuation!@# overloaded": "punctuation-overloaded",

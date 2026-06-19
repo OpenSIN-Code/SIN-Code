@@ -21,16 +21,16 @@ import (
 
 // SweInstance is one entry from a SWE-bench dataset.
 type SweInstance struct {
-	InstanceID     string   `json:"instance_id"`
-	Repo           string   `json:"repo"`
-	BaseCommit     string   `json:"base_commit"`
-	Problem        string   `json:"problem_statement"`
-	Hints          string   `json:"hints_text,omitempty"`
-	FailToPass     []string `json:"FAIL_TO_PASS"`
-	PassToPass     []string `json:"PASS_TO_PASS"`
-	TestPatch      string   `json:"test_patch"`
-	Version        string   `json:"version,omitempty"`
-	RepoDir        string   `json:"repo_directory,omitempty"`
+	InstanceID string   `json:"instance_id"`
+	Repo       string   `json:"repo"`
+	BaseCommit string   `json:"base_commit"`
+	Problem    string   `json:"problem_statement"`
+	Hints      string   `json:"hints_text,omitempty"`
+	FailToPass []string `json:"FAIL_TO_PASS"`
+	PassToPass []string `json:"PASS_TO_PASS"`
+	TestPatch  string   `json:"test_patch"`
+	Version    string   `json:"version,omitempty"`
+	RepoDir    string   `json:"repo_directory,omitempty"`
 }
 
 // SweResult is the outcome for one SWE-bench instance.
@@ -48,15 +48,15 @@ type SweResult struct {
 
 // SweReport is the full SWE-bench evaluation report.
 type SweReport struct {
-	Dataset      string       `json:"dataset"`
-	Total        int          `json:"total"`
-	Passed       int          `json:"passed"`
-	Failed       int          `json:"failed"`
-	PassRate     float64      `json:"pass_rate"`
-	TotalDurMS   float64      `json:"total_duration_ms"`
-	StartedAt    time.Time    `json:"started_at"`
-	FinishedAt   time.Time    `json:"finished_at"`
-	Results      []SweResult  `json:"results"`
+	Dataset    string      `json:"dataset"`
+	Total      int         `json:"total"`
+	Passed     int         `json:"passed"`
+	Failed     int         `json:"failed"`
+	PassRate   float64     `json:"pass_rate"`
+	TotalDurMS float64     `json:"total_duration_ms"`
+	StartedAt  time.Time   `json:"started_at"`
+	FinishedAt time.Time   `json:"finished_at"`
+	Results    []SweResult `json:"results"`
 }
 
 // SweConfig configures the SWE-bench evaluation run.

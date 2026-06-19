@@ -136,9 +136,9 @@ func TestIssuePipelineCreatePRDefaultTitle(t *testing.T) {
 func TestIssuePipelineProcessSuccess(t *testing.T) {
 	gh := &mockGHRunner{
 		responses: map[string]string{
-			"gh issue view 1 --json number,title,body,labels":             makeIssueJSON(1, "Test issue"),
-			"git checkout -b fix-issue-1":                                  "",
-			"git push -u origin fix-issue-1":                               "",
+			"gh issue view 1 --json number,title,body,labels":                     makeIssueJSON(1, "Test issue"),
+			"git checkout -b fix-issue-1":                                         "",
+			"git push -u origin fix-issue-1":                                      "",
 			"gh pr create --title Test issue --body Closes #1 --head fix-issue-1": "https://github.com/org/repo/pull/1",
 		},
 	}
@@ -175,7 +175,7 @@ func TestIssuePipelineProcessBranchFailure(t *testing.T) {
 	gh := &mockGHRunner{
 		responses: map[string]string{
 			"gh issue view 2 --json number,title,body,labels": makeIssueJSON(2, "Branch fail"),
-			"git checkout -b fix-issue-2":                      "branch exists",
+			"git checkout -b fix-issue-2":                     "branch exists",
 		},
 		errs: map[string]error{
 			"git checkout -b fix-issue-2": fmt.Errorf("branch already exists"),

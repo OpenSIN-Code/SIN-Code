@@ -263,10 +263,10 @@ func TestPerTurnBudget_Error_MatchByErrorsIs(b *testing.T) {
 
 func TestPerTurnBudget_LazyConstruct(b *testing.T) {
 	cases := []struct {
-		name                                     string
-		perTurn, perTurnThinking                 int
-		wantTracker                              bool
-		wantCapThinking, wantCapTokens           int
+		name                           string
+		perTurn, perTurnThinking       int
+		wantTracker                    bool
+		wantCapThinking, wantCapTokens int
 	}{
 		{"both_zero_no_tracker", 0, 0, false, -1, -1},
 		{"tokens_only", 100, 0, true, -1, 100},

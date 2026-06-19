@@ -176,6 +176,7 @@ func (c *ContextInjector) Enabled() bool {
 //   - lessons sorted by occurrences DESC then last_seen DESC
 //   - memory sorted by Prime's internal order (already score-ranked)
 //   - goals sorted by priority DESC then id ASC for ties
+//
 // Build is a convenience wrapper around Invoke that uses an empty
 // prompt. It is the no-arg-prompt entry point used by the agent loop's
 // SessionContext field (issue #379).
@@ -475,48 +476,80 @@ func (b *SessionContextBuilder) Build(ctx context.Context) (string, error) {
 	}
 	var lessons, memories, goals, todos, sessionSummary, autoMemory []string
 	if b.config.IncludeLessons && b.lessonsStore != nil {
-		if err := ctx.Err(); err != nil { return "", err }
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		ls, err := b.lessonsStore.Recent(b.config.RecentLessons)
-		if err != nil { return "", err }
+		if err != nil {
+			return "", err
+		}
 		lessons = ls
 	}
 	if b.config.IncludeMemories && b.memoryStore != nil {
-		if err := ctx.Err(); err != nil { return "", err }
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		ms, err := b.memoryStore.Query(b.config.MemoryQuery, b.config.TopKMemories)
-		if err != nil { return "", err }
+		if err != nil {
+			return "", err
+		}
 		memories = ms
 	}
 	if b.config.IncludeGoals && b.goalStore != nil {
-		if err := ctx.Err(); err != nil { return "", err }
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		gs, err := b.goalStore.Active()
-		if err != nil { return "", err }
+		if err != nil {
+			return "", err
+		}
 		goals = gs
 	}
 	if b.config.IncludeTodos && b.todoStore != nil {
-		if err := ctx.Err(); err != nil { return "", err }
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		ts, err := b.todoStore.Open(false)
-		if err != nil { return "", err }
+		if err != nil {
+			return "", err
+		}
 		todos = ts
 	}
 	if b.config.IncludeSession && b.sessionStore != nil {
-		if err := ctx.Err(); err != nil { return "", err }
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		ss, err := b.sessionStore.Summary("")
-		if err != nil { return "", err }
-		if ss != "" { sessionSummary = []string{ss} }
+		if err != nil {
+			return "", err
+		}
+		if ss != "" {
+			sessionSummary = []string{ss}
+		}
 	}
 	if b.config.IncludeAutoMemory && b.autoMemoryStore != nil {
-		if err := ctx.Err(); err != nil { return "", err }
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		am, err := b.autoMemoryStore.IndexBytes()
-		if err != nil { return "", err }
-		if len(am) > 0 { autoMemory = []string{string(am)} }
+		if err != nil {
+			return "", err
+		}
+		if len(am) > 0 {
+			autoMemory = []string{string(am)}
+		}
 	}
 	preamble := b.Format(lessons, memories, goals, todos, sessionSummary, autoMemory)
 	maxChars := b.config.MaxPreambleChars
-	if maxChars <= 0 { maxChars = defaultMaxPreambleChars }
+	if maxChars <= 0 {
+		maxChars = defaultMaxPreambleChars
+	}
 	marker := "\n[...truncated]"
 	if len(preamble) > maxChars {
 		cutAt := maxChars - len(marker)
-		if cutAt < 0 { cutAt = 0 }
+		if cutAt < 0 {
+			cutAt = 0
+		}
 		preamble = preamble[:cutAt] + marker
 	}
 	return preamble, nil
@@ -525,7 +558,9 @@ func (b *SessionContextBuilder) Build(ctx context.Context) (string, error) {
 func (b *SessionContextBuilder) Format(lessons, memories, goals, todos, sessionSummary, autoMemory []string) string {
 	var sb strings.Builder
 	writeSection := func(heading string, items []string) {
-		if len(items) == 0 { return }
+		if len(items) == 0 {
+			return
+		}
 		sb.WriteString("## ")
 		sb.WriteString(heading)
 		sb.WriteByte('\n')
