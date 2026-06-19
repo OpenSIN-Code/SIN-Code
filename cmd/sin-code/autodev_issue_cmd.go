@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -67,12 +68,13 @@ func newGoalAddFromIssueCmd() *cobra.Command {
 			if num <= 0 {
 				return fmt.Errorf("issue number must be a positive integer")
 			}
-			if repo == "" {
-				repo = detectRepo()
-				if repo == "" {
-					return fmt.Errorf("--repo not specified")
-				}
+		if repo == "" {
+			var err error
+			repo, err = detectRepo()
+			if err != nil {
+				return err
 			}
+		}
 			ctx := cmd.Context()
 			issue, err := fetchIssue(ctx, repo, num)
 			if err != nil {
@@ -108,19 +110,31 @@ func newGoalAddFromIssueCmd() *cobra.Command {
 	return cmd
 }
 
-func detectRepo() string {
+func detectRepo() (string, error) {
+	if _, err := exec.LookPath("gh"); err != nil {
+		return "", fmt.Errorf("gh CLI not found in PATH; install it or pass --repo flag")
+	}
+
 	b := ghbridge.New()
-	out, _, err := b.Execute(context.Background(), []string{"repo", "view", "--json", "nameWithOwner"})
+	out, _, err := b.Execute(context.Background(), []string{"auth", "status"})
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("gh not authenticated; run 'gh auth login' or pass --repo flag: %w", err)
+	}
+	if !strings.Contains(out, "Logged in") {
+		return "", fmt.Errorf("gh not authenticated; run 'gh auth login' or pass --repo flag")
+	}
+
+	out, _, err = b.Execute(context.Background(), []string{"repo", "view", "--json", "nameWithOwner"})
+	if err != nil {
+		return "", fmt.Errorf("failed to detect repo (not a git repo with GitHub remote?); pass --repo flag: %w", err)
 	}
 	var v struct {
 		NameWithOwner string `json:"nameWithOwner"`
 	}
 	if json.Unmarshal([]byte(out), &v) == nil {
-		return v.NameWithOwner
+		return v.NameWithOwner, nil
 	}
-	return ""
+	return "", fmt.Errorf("could not parse repo name from gh output")
 }
 
 func fmtAtoi(s string) (int, error) { var n int; _, err := fmt.Sscanf(s, "%d", &n); return n, err }
