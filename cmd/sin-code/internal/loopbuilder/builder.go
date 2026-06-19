@@ -520,6 +520,9 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 			todoStore,
 			cfg.SessionID,
 			ledgerStore,
+			nil,
+			nil,
+			nil,
 			"",
 		)
 	}

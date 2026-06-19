@@ -115,7 +115,7 @@ func TestFileAutoMemoryReader_IndexBytes_Missing(t *testing.T) {
 }
 
 func TestNewDefaultSessionContextBuilder_NilStores(t *testing.T) {
-	b := NewDefaultSessionContextBuilder("/tmp/ws", nil, "", nil, "")
+	b := NewDefaultSessionContextBuilder("/tmp/ws", nil, "", nil, nil, nil, nil, "")
 	if b == nil {
 		t.Fatal("expected non-nil builder")
 	}

@@ -89,6 +89,14 @@ func (s *GoalStore) LeaseGoal(ctx context.Context, leaseDur time.Duration) (*Goa
 	return s.queue.Lease(ensureCtx(ctx), leaseDur)
 }
 
+// List returns goals filtered by status ("" = all), newest first.
+func (s *GoalStore) List(ctx context.Context, status GoalStatus) ([]Goal, error) {
+	if s == nil || s.queue == nil {
+		return nil, fmt.Errorf("autonomy: goal store not initialized")
+	}
+	return s.queue.List(ensureCtx(ctx), status)
+}
+
 // Close releases the underlying queue.
 func (s *GoalStore) Close() error {
 	if s == nil || s.queue == nil {

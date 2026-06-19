@@ -473,6 +473,9 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 			todoStore,
 			sess.ID,
 			ledgerStore,
+			nil,
+			nil,
+			nil,
 			"",
 		)
 	}
