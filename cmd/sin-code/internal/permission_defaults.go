@@ -177,6 +177,10 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "research__run", Policy: "ask"},
 		{Tool: "research__*", Policy: "ask"},
 		{Tool: "sin_run_loop", Policy: "ask"},
+		{Tool: "sin_goal_add", Policy: "ask"},       // enqueues autonomous work — operator confirmation (M4)
+		{Tool: "sin_goal_list", Policy: "allow"},    // read-only goal listing
+		{Tool: "sin_goal_status", Policy: "allow"},  // read-only goal status
+		{Tool: "sin_goal_complete", Policy: "ask"},  // marks goal done — operator confirmation (M4)
 		{Tool: "*", Policy: "ask"},
 	}
 }

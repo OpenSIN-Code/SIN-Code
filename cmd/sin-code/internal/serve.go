@@ -722,6 +722,60 @@ func registerAllMCPTools(server *mcp.Server) {
 				"required": []string{"prompt"},
 			},
 		},
+		{
+			name:        "sin_goal_add",
+			description: "Enqueue a goal for autonomous execution by the sin-code daemon. Returns immediately with the goal ID. The daemon will pick it up, run the full agent loop (with Verify-Gate, Stop-Gate, Lessons), and mark it verified/failed. Use sin_goal_status to poll progress.",
+			handler:     handleGoalAdd,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"prompt":    map[string]any{"type": "string"},
+					"workspace": map[string]any{"type": "string", "default": "."},
+					"priority":  map[string]any{"type": "integer", "default": 0},
+					"retries":   map[string]any{"type": "integer", "default": 3},
+					"criteria":  map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				},
+				"required": []string{"prompt"},
+			},
+		},
+		{
+			name:        "sin_goal_list",
+			description: "List goals in the autonomous goal queue. Filter by status: pending, running, verified, failed, exhausted.",
+			handler:     handleGoalList,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"status": map[string]any{"type": "string", "enum": []string{"pending", "running", "verified", "failed", "exhausted"}},
+					"format": map[string]any{"type": "string", "enum": []string{"text", "json"}, "default": "json"},
+				},
+			},
+		},
+		{
+			name:        "sin_goal_status",
+			description: "Show one goal's progress, attempts, and children (subtasks).",
+			handler:     handleGoalStatus,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"id":     map[string]any{"type": "string"},
+					"format": map[string]any{"type": "string", "enum": []string{"text", "json"}, "default": "json"},
+				},
+				"required": []string{"id"},
+			},
+		},
+		{
+			name:        "sin_goal_complete",
+			description: "Mark a goal as verified/done. Maps to autonomy.Queue.Complete().",
+			handler:     handleGoalComplete,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"id":      map[string]any{"type": "string"},
+					"session": map[string]any{"type": "string"},
+				},
+				"required": []string{"id"},
+			},
+		},
 	}
 
 	// Apply the ponytail-tag compressor (issue #173) before registration
