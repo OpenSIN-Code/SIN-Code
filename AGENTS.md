@@ -48,7 +48,7 @@
 > tool-usage telemetry in `internal/ledger/` drives `ledger tools --heatmap`
 > / `--coverage` / `--unused` / `--json` (issue #250); orchestrator planner
 > emits mandatory `ToolChain` per classified intent (issue #252); unified
-> catalog enumerates 46+ MCP tools, 17+ chat tools, and 14+ external MCP
+> catalog enumerates 49+ MCP tools, 17+ chat tools, and 14+ external MCP
 > prefixes via `sin-code catalog` / `hub search --unused` (issue #251).
 
 ---
@@ -218,7 +218,7 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code goal          ← enqueue autonomous goals (v3.5.0)
   ├─ sin-code daemon        ← autonomous worker: lease → verify → learn
   ├─ sin-code skill         ← install/status ecosystem skills (v3.5.0)
-  ├─ sin-code serve         ← unified MCP server (44+ tools)
+  ├─ sin-code serve         ← unified MCP server (49+ tools)
   ├─ sin-code tui           ← standalone TUI binary
   ├─ sin-code webui         ← WebUI serve mode
   ├─ sin-code gh            ← v3.9.0: GitHub bridge (3-tier policy)
@@ -760,7 +760,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.17.0 | ✅ SHIPPED | TUI runtime DB .gitignore, MCP warning deduplication, marketplace update test hardening, skills 33 → 34 |
 | v3.18.0 | ✅ SHIPPED | `sin-code install` single-binary installer (issue #170), curl/bash + PowerShell shims, SHA256-verified release downloads |
 | v3.19.0 | ✅ SHIPPED | `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format (`delete`, `stdlib`, `native`, `yagni`, `shrink`), `// sin-debt:` marker support (issue #177), text/json/markdown output, race-clean tests |
-| v3.20.0 | ✅ SHIPPED | Tool coverage, M6 enforcement, catalog, telemetry (issues #249, #253, #248, #250, #252, #251): agent profiles expose full `sin_*` + MCP prefix surface; system prompt injects SIN-tool preference fragment; runtime `ToolCoverageEnforcer` rejects missing/forbidden tool usage; `ledger tools` heatmap/coverage/unused; orchestrator planner emits mandatory `ToolChain` per intent; `sin-code catalog` unifies 46+ MCP tools, 17+ chat tools, and 14+ external MCP prefixes. |
+| v3.20.0 | ✅ SHIPPED | Tool coverage, M6 enforcement, catalog, telemetry (issues #249, #253, #248, #250, #252, #251): agent profiles expose full `sin_*` + MCP prefix surface; system prompt injects SIN-tool preference fragment; runtime `ToolCoverageEnforcer` rejects missing/forbidden tool usage; `ledger tools` heatmap/coverage/unused; orchestrator planner emits mandatory `ToolChain` per intent; `sin-code catalog` unifies 49+ MCP tools, 17+ chat tools, and 14+ external MCP prefixes. |
 | v3.20.0 | ✅ SHIPPED | `sin-code image-graph` — SOTA ECharts chart generation (bar/line/pie/area); `skill-github-readme` bundled. 42 subcommands, 40 bundled skills. |
 | v3.21.0 | ✅ SHIPPED | Test-First Verify-Loop (RFC-test-automation.md): `sin_test` + `sin_test_generate` + `sin_quality_gate` + `sin_mutation` + `sin_fuzz` + `sin_property`; `tool.post` hook payload path; `test.*` config keys; `evals/test-generation.json` golden dataset. |
 | v3.22.0 | ✅ SHIPPED | SIN Fusion v1 enhancements: **Plan-Merge mode** (issue #393 — N planners → judge merges → 1 coder → verify, preserves all insights); **Oracle as default** (issue #394 — quality over cost, was: PoC first-pass-wins); **Model Performance Registry** (issue #395 — `modelperf.db`, `fusion benchmark/rank/recommend` CLI, auto-wired into `loopbuilder`). |
@@ -797,7 +797,7 @@ updates `homebrew-sin` formula, and ships to GitHub Releases.
 ## 10. Naming and stability rules
 
 - Binary: `sin-code`. Brew formula: `sin-code`. MCP server name: `sin`.
-- The 44+ MCP tool names are a public API — renaming any is a breaking
+- The 49+ MCP tool names are a public API — renaming any is a breaking
   change (major bump + deprecation alias for one minor cycle).
 - Tool prefixes for external MCP servers use `server__tool` namespacing
   (e.g. `websearch__search`, `browser__navigate`).
@@ -807,6 +807,22 @@ updates `homebrew-sin` formula, and ships to GitHub Releases.
   renaming or removing a kind is a major bump.
 - The string "SIN-Code-Bundle" may only appear in CHANGELOG history and
   migration notes — never in code, config, or new docs (mandate M5).
+
+### New MCP tools — `sin_run_loop` + `sin_goal_*`
+
+| Tool | Description |
+|---|---|
+| `sin_run_loop` | synchronous full-agent-loop delegation (PLAN→ACT→VERIFY→DONE). One call, one verified task. Blocks until completion. Returns `{session_id, summary, verified, turns}`. |
+| `sin_goal_add` | enqueue a goal for autonomous execution by the daemon (async). Returns immediately with the goal ID. Supports contract criteria (activates stop-gate). |
+| `sin_goal_list` | list goals in the queue, filterable by status (pending/running/verified/failed/exhausted). |
+| `sin_goal_status` | show one goal's progress, attempts, and children (subtasks). |
+| `sin_goal_complete` | mark a goal as verified/done. Maps to `autonomy.Queue.Complete()`. |
+
+> **sin_run_loop** is the synchronous delegation path; **sin_goal_*** is the
+> asynchronous autonomy path. Both are consumable by any MCP client (opencode,
+> Claude Code, Codex). The synchronous path runs in-process via
+> `loopbuilder.Build()`; the asynchronous path writes to the `autonomy.Queue`
+> SQLite store for the daemon to pick up.
 
 ### Bundled skill naming rules
 
@@ -985,7 +1001,7 @@ single source of truth — any rule regex / order change must update the
 golden expectations in the same commit. This is a prerequisite for the
 system-prompt hash metric (issue #2).
 
-**Names are immutable.** The 44+ MCP tool `Name` field is public API
+**Names are immutable.** The 49+ MCP tool `Name` field is public API
 (§10). The compressor mutates `Description` only. `CompressSpec`
 asserts this in `TestCompressSpec_NameMutable`.
 ### sin-debt marker convention (issue #177)

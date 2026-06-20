@@ -4,6 +4,26 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-19
 
+### Added — `sin_run_loop` + `sin_goal_*` MCP tools (5 new tools, 44+ → 49+)
+- **`sin_run_loop`** MCP tool: synchronous full-agent-loop delegation
+  (PLAN→ACT→VERIFY→DONE) via MCP. Any MCP client (opencode, Claude Code,
+  Codex) can now delegate a complete verified task in one call. In-process
+  via `loopbuilder.Build()`, includes Verify-Gate, Stop-Gate, Lessons,
+  Compaction, Loop-Detection. Returns `{session_id, summary, verified,
+  turns}`. Factory injection pattern avoids import cycle (`internal` →
+  `loopbuilder` → `internal`); `serve_loop_factory.go` in `cmd/sin-code/`
+  registers the concrete builder at startup.
+- **`sin_goal_add`**, **`sin_goal_list`**, **`sin_goal_status`**,
+  **`sin_goal_complete`** MCP tools: asynchronous goal queue management via
+  MCP. Enqueue goals for the daemon, poll status, mark complete. Direct API
+  access to `autonomy.Queue` (no subprocess). `handleGoalAdd` supports
+  contract criteria (activates stop-gate). `goalQueuePath` var is
+  overridable for tests.
+- **Permission defaults:** `sin_run_loop` = `ask` (runs full loop, costs
+  tokens), `sin_goal_add` = `ask` (enqueues autonomous work, M4),
+  `sin_goal_list` = `allow` (read-only), `sin_goal_status` = `allow`
+  (read-only), `sin_goal_complete` = `ask` (marks goal done, M4).
+
 ### Security — `SIN_CODE_FILE_MODE` env knob (closes #422)
 - **New package** `cmd/sin-code/internal/filemode/` centralises the
   file-mode policy for write paths that previously hard-coded

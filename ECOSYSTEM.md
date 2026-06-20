@@ -27,6 +27,15 @@
 | SIN-Code-Symfony-Lens | `symfonylens__*` | MCP server (registry.go) | ACTIVE |
 | SIN-Code (security) | `sin_security_scan` (v3.11.0) | MCP tool (serve.go) | ACTIVE |
 | SIN-Code (sbom) | `sin_sbom_generate` (v3.11.0) | MCP tool (serve.go) | ACTIVE |
+| SIN-Code (run_loop) | `sin_run_loop` (unreleased) | MCP tool (serve.go) — synchronous full-agent-loop delegation | ACTIVE |
+| SIN-Code (goal queue) | `sin_goal_add` / `sin_goal_list` / `sin_goal_status` / `sin_goal_complete` (unreleased) | MCP tool (serve.go) — asynchronous autonomy goal queue | ACTIVE |
+
+> **opencode / Claude Code / Codex integration:** any MCP client can now
+> delegate a full verified task synchronously via `sin_run_loop` (one call,
+> one verified result — PLAN→ACT→VERIFY→DONE in-process), or enqueue
+> autonomous goals asynchronously via `sin_goal_add` and poll progress via
+> `sin_goal_status` / `sin_goal_list`. This brings the total to 49+ MCP tools
+> exposed by `sin-code serve`.
 
 ## MCP Skill Servers (registry.go defaults)
 
