@@ -702,6 +702,26 @@ func registerAllMCPTools(server *mcp.Server) {
 				"required": []string{"path"},
 			},
 		},
+		{
+			name:        "sin_run_loop",
+			description: "Run a prompt through the full SIN-Code agent loop (PLAN→ACT→VERIFY→DONE). Returns {session_id, summary, verified, turns}. Blocks until completion. Includes Verify-Gate, Stop-Gate, Lessons, Compaction, Loop-Detection. This is the synchronous delegation path — one call, one verified task.",
+			handler:     handleRunLoop,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"prompt":     map[string]any{"type": "string"},
+					"workspace":  map[string]any{"type": "string", "default": "."},
+					"model":      map[string]any{"type": "string"},
+					"max_turns":  map[string]any{"type": "integer", "default": 80},
+					"verify_cmd": map[string]any{"type": "string"},
+					"yolo":       map[string]any{"type": "boolean", "default": false},
+					"agent":      map[string]any{"type": "string"},
+					"style":      map[string]any{"type": "string", "enum": []string{"default", "verbose", "normal", "terse", "ultra"}, "default": "default"},
+					"criteria":   map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				},
+				"required": []string{"prompt"},
+			},
+		},
 	}
 
 	// Apply the ponytail-tag compressor (issue #173) before registration

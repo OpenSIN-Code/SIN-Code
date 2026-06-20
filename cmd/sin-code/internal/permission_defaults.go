@@ -176,6 +176,7 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "research__show", Policy: "allow"},
 		{Tool: "research__run", Policy: "ask"},
 		{Tool: "research__*", Policy: "ask"},
+		{Tool: "sin_run_loop", Policy: "ask"},
 		{Tool: "*", Policy: "ask"},
 	}
 }
