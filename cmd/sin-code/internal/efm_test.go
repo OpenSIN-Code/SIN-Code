@@ -4,30 +4,73 @@ package internal
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 )
 
 const testRuntime = "auto"
 
-func dockerAvailable() bool {
-	// Use the same runtime detection as the production code so tests on
-	// macOS correctly see OrbStack (orb) instead of only looking for docker.
-	rt := detectContainerRuntime()
-	if _, err := exec.LookPath(rt); err != nil {
-		return false
+const dockerProbeTimeout = 10 * time.Second
+
+// dockerAvailableReason probes for a Docker-CLI-compatible runtime that can
+// reach the daemon. It returns false and a human-readable reason when no runtime
+// is found in PATH or the daemon does not respond.
+//
+// We prefer the plain "docker" binary because it is the Docker-CLI-compatible
+// binary provided by both Docker Desktop and OrbStack. detectContainerRuntime
+// may return "orb" on macOS, but "orb" is the OrbStack management CLI and does
+// not support bare docker commands like "ps". We use "ps" instead of "version"
+// because "version" may only exercise the CLI and can succeed even when the
+// daemon/VM is down.
+func dockerAvailableReason() (bool, string) {
+	cands := []string{"docker"}
+	if rt := detectContainerRuntime(); rt != "docker" {
+		cands = append(cands, rt)
 	}
-	// "version" works for both docker and orb ("info" requires an argument
-	// for orb, so it fails even when the daemon is up).
-	cmd := exec.Command(rt, "version")
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	return cmd.Run() == nil
+	for _, bin := range cands {
+		if _, err := exec.LookPath(bin); err != nil {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), dockerProbeTimeout)
+		cmd := exec.CommandContext(ctx, bin, "ps")
+		cmd.Stdout = nil
+		cmd.Stderr = nil
+		err := cmd.Run()
+		cancel()
+		if err != nil {
+			if ctx.Err() == context.DeadlineExceeded {
+				return false, fmt.Sprintf("%s ps timed out after %v", bin, dockerProbeTimeout)
+			}
+			return false, fmt.Sprintf("%s ps failed: %v", bin, err)
+		}
+		return true, ""
+	}
+	return false, "no container runtime found in PATH"
+}
+
+func dockerAvailable() bool {
+	ok, _ := dockerAvailableReason()
+	return ok
+}
+
+// requireDocker skips a test when the container runtime is unavailable,
+// including a concrete reason from the daemon probe. Also skips in -short mode.
+func requireDocker(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping Docker-dependent test in short mode")
+	}
+	if ok, reason := dockerAvailableReason(); !ok {
+		t.Skip("Docker not available: " + reason)
+	}
 }
 
 // skipIfShortDocker skips a test when -short is passed so the full
@@ -1144,7 +1187,7 @@ func TestDockerComposeStatus_AllRunning(t *testing.T) {
 }
 
 func TestDockerComposeStatus_NoContainers(t *testing.T) {
-	skipIfShortDocker(t)
+	requireDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
@@ -1360,7 +1403,7 @@ func TestDockerComposeStatus_PartialState(t *testing.T) {
 }
 
 func TestRunEFM_UpWithStartedStatus(t *testing.T) {
-	skipIfShortDocker(t)
+	requireDocker(t)
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "compose-started.yml")
 	os.WriteFile(stackFile, []byte("services:\n  web:\n    image: nginx:alpine\n"), 0644)
@@ -1387,6 +1430,9 @@ func TestRunEFM_UpWithStartedStatus(t *testing.T) {
 		t.Fatalf("expected valid JSON, got parse error: %v", err)
 	}
 	if result.Status != "started" {
+		if result.Status == "error" {
+			t.Skipf("Docker not available: compose up failed: %s", result.Error)
+		}
 		t.Errorf("expected status='started', got %q", result.Status)
 	}
 
