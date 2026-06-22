@@ -35,7 +35,6 @@ func TestDagRunsIndependentNodesInParallel(t *testing.T) {
 	started := make(chan struct{}, 8)
 
 	run := func(ctx context.Context, n *PlanNode) error {
-		started <- struct{}{}
 		cur := atomic.AddInt64(&inFlight, 1)
 		for {
 			old := atomic.LoadInt64(&peak)
@@ -43,6 +42,7 @@ func TestDagRunsIndependentNodesInParallel(t *testing.T) {
 				break
 			}
 		}
+		started <- struct{}{}
 		<-gate
 		atomic.AddInt64(&inFlight, -1)
 		return nil
