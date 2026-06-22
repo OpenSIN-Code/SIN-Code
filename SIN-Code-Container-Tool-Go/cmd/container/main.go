@@ -13,15 +13,15 @@ import (
 
 func main() {
 	var (
-		image          = flag.String("image", "", "Docker image to scan")
-		path           = flag.String("path", "", "Filesystem path to scan (alternative to image)")
-		failOn         = flag.String("fail-on", "high", "Severity threshold for failure (critical, high, medium, low)")
-		scanType       = flag.String("scan-type", "all", "Scan type (vuln, config, secret, all)")
-		dockerfile     = flag.String("dockerfile", "", "Path to Dockerfile for additional auditing")
-		includeSBOM    = flag.Bool("sbom", false, "Generate SBOM (not yet implemented)")
-		output         = flag.String("output", "", "Output file for JSON results (default: stdout)")
-		trivyPath      = flag.String("trivy-path", "trivy", "Path to Trivy binary")
-		timeout        = flag.Duration("timeout", 10*time.Minute, "Scan timeout")
+		image       = flag.String("image", "", "Docker image to scan")
+		path        = flag.String("path", "", "Filesystem path to scan (alternative to image)")
+		failOn      = flag.String("fail-on", "high", "Severity threshold for failure (critical, high, medium, low)")
+		scanType    = flag.String("scan-type", "all", "Scan type (vuln, config, secret, all)")
+		dockerfile  = flag.String("dockerfile", "", "Path to Dockerfile for additional auditing")
+		includeSBOM = flag.Bool("sbom", false, "Generate SBOM (not yet implemented)")
+		output      = flag.String("output", "", "Output file for JSON results (default: stdout)")
+		trivyPath   = flag.String("trivy-path", "trivy", "Path to Trivy binary")
+		timeout     = flag.Duration("timeout", 10*time.Minute, "Scan timeout")
 	)
 	flag.Parse()
 

@@ -1,7 +1,6 @@
 package todo
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -13,9 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	bolt "go.etcd.io/bbolt"
 )
-
 
 var (
 	osUserConfigDirStore      = os.UserConfigDir

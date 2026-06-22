@@ -4,7 +4,6 @@
 package coverdrohne
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -12,9 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/spf13/cobra"
 )
-
 
 // mkdirTempCmd is the temp-dir hook used by command helpers.
 var mkdirTempCmd = os.MkdirTemp

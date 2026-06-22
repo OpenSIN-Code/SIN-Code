@@ -4,18 +4,18 @@
 package main
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/status"
 )
-
 
 // NewStatusCmd builds the `status` cobra subcommand.
 func NewStatusCmd() *cobra.Command {

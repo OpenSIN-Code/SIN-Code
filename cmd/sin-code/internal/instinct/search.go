@@ -14,7 +14,6 @@
 package instinct
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,11 +22,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/rag"
 )
-
 
 // instinctEmbeddingFile is the on-disk location of the embedding
 // index, relative to the SIN-Code home dir. The path matches the

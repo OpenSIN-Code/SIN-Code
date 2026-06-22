@@ -14,7 +14,6 @@ import (
 	"strings"
 )
 
-
 // AppendOverlay returns true if it modified path, false if the overlay
 // was already present (idempotent). It is safe to call repeatedly.
 //

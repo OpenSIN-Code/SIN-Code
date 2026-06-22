@@ -4,14 +4,14 @@
 package instinct
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"fmt"
 	"os"
 	"strings"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/spf13/cobra"
 )
-
 
 // NewCommand returns the `sin instinct ...` command tree. Register it
 // from `cmd/sin-code/main.go` via `internal.InstinctCmd = instinct.NewCommand()`.

@@ -6,7 +6,6 @@
 package main
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,11 +16,12 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/superpowers"
 )
-
 
 // NewSuperpowersCmd builds the `superpowers` cobra subcommand. Pattern
 // matches NewChatCmd / NewSkillCmd: returns *cobra.Command with the

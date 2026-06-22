@@ -5,13 +5,14 @@
 package main
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 
 	"github.com/spf13/cobra"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
-
 
 // autoLoop is the minimal agent-loop interface used by the auto run
 // subcommand so tests can inject a fake loop without building a real one.

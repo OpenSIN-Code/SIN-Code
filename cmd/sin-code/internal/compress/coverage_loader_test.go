@@ -232,11 +232,11 @@ func TestLoader_LoadAllTargets_EmptyDirs(t *testing.T) {
 
 	nonExistent := filepath.Join(t.TempDir(), "does-not-exist")
 	paths := Paths{
-		LessonsDB:  emptyLessonsPath, // empty on disk -> "source empty" warning
-		Instinct:   nonExistent,      // base dir w/ no instincts -> "source empty" warning
-		Summaries:  filepath.Join(nonExistent, "ledger.db"), // missing -> "ledger db not found" warning
-		Memory:     filepath.Join(t.TempDir(), "memory.db"), // valid bbolt -> empty source warning
-		AgentsMD:   "",                // exercise findAgentsMD upward walk
+		LessonsDB: emptyLessonsPath,                        // empty on disk -> "source empty" warning
+		Instinct:  nonExistent,                             // base dir w/ no instincts -> "source empty" warning
+		Summaries: filepath.Join(nonExistent, "ledger.db"), // missing -> "ledger db not found" warning
+		Memory:    filepath.Join(t.TempDir(), "memory.db"), // valid bbolt -> empty source warning
+		AgentsMD:  "",                                      // exercise findAgentsMD upward walk
 	}
 
 	p, err := BuildPlan(TargetAll, StrategyDeterministic, paths, withStableTime())
@@ -446,12 +446,13 @@ func TestCompressor_BuildPlan_SnapshotDirOverride(t *testing.T) {
 // Test 5
 // TestCompressor_Apply_BytePreservationGuard exercises the
 // byte-preservation validator across three shapes:
-//   (a) checkPreservation() on a response that contains every anchored
-//       line verbatim from the original — returns no missing lines.
-//   (b) writeAgentsMD() with empty kept slice — returns nil and writes
-//       no file (data-loss safe: empty input never truncates a real file).
-//   (c) LLMSummarizer.MergeDrops() real round-trip — preserves the
-//       stub's response and produces a PlanMerge with strategy=LLM.
+//
+//	(a) checkPreservation() on a response that contains every anchored
+//	    line verbatim from the original — returns no missing lines.
+//	(b) writeAgentsMD() with empty kept slice — returns nil and writes
+//	    no file (data-loss safe: empty input never truncates a real file).
+//	(c) LLMSummarizer.MergeDrops() real round-trip — preserves the
+//	    stub's response and produces a PlanMerge with strategy=LLM.
 func TestCompressor_Apply_BytePreservationGuard(t *testing.T) {
 	// (a) checkPreservation overlap: response ⊇ anchors.
 	original := strings.Join([]string{

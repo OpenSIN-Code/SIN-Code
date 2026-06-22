@@ -5,14 +5,14 @@
 package prp
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"errors"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 // Store persists PRPs under <workdir>/.sin/prp/<id>.md (in-repo,
 // reviewable).

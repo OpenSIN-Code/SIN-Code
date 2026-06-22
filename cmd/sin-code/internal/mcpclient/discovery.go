@@ -3,13 +3,13 @@
 package mcpclient
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 var (
 	// userConfigDirHook lets tests override the config directory without

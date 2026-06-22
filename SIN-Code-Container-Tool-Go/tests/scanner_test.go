@@ -187,15 +187,15 @@ func TestDetermineStatusClean(t *testing.T) {
 
 func TestDockerImageInfoModel(t *testing.T) {
 	info := &models.DockerImageInfo{
-		ID:         "sha256:abc123",
-		Tags:       []string{"openafd-chat:latest"},
-		Size:       500_000_000,
-		Created:    "2026-01-01T00:00:00Z",
+		ID:           "sha256:abc123",
+		Tags:         []string{"openafd-chat:latest"},
+		Size:         500_000_000,
+		Created:      "2026-01-01T00:00:00Z",
 		Architecture: "amd64",
-		OS:         "linux",
-		Layers:     15,
-		User:       "node",
-		RunsAsRoot: false,
+		OS:           "linux",
+		Layers:       15,
+		User:         "node",
+		RunsAsRoot:   false,
 	}
 	assert.Equal(t, int64(500_000_000), info.Size)
 	assert.False(t, info.RunsAsRoot)
@@ -242,8 +242,8 @@ func TestParseTrivyResults(t *testing.T) {
 	// with a mock scenario. Since we can't run Trivy in tests,
 	// we verify the model structure is correct.
 	report := &models.TrivyScanReport{
-		Image:   "test:latest",
-		OSFamily: "alpine",
+		Image:     "test:latest",
+		OSFamily:  "alpine",
 		OSVersion: "3.18",
 		Vulnerabilities: []models.ContainerVulnerability{
 			{

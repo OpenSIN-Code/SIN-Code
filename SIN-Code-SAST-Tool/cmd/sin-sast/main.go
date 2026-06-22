@@ -17,12 +17,12 @@ import (
 var (
 	version = "1.0.0"
 
-	languages  string
+	languages   string
 	minSeverity string
 	rulesFilter string
-	exclude    string
-	output     string
-	verbose    bool
+	exclude     string
+	output      string
+	verbose     bool
 )
 
 func main() {

@@ -13,12 +13,12 @@ import (
 
 func main() {
 	var (
-		scaResults   = flag.String("sca-results", "", "Path to SCA results JSON file")
-		depsJSON     = flag.String("deps", "", "Path to dependencies JSON file")
-		outputSPDX   = flag.String("output-spdx", "", "Output path for SPDX JSON")
+		scaResults      = flag.String("sca-results", "", "Path to SCA results JSON file")
+		depsJSON        = flag.String("deps", "", "Path to dependencies JSON file")
+		outputSPDX      = flag.String("output-spdx", "", "Output path for SPDX JSON")
 		outputCycloneDX = flag.String("output-cyclonedx", "", "Output path for CycloneDX JSON")
 		outputSummary   = flag.String("output-summary", "", "Output path for markdown summary")
-		documentName = flag.String("name", "sbom", "Document name for SBOM")
+		documentName    = flag.String("name", "sbom", "Document name for SBOM")
 	)
 	flag.Parse()
 

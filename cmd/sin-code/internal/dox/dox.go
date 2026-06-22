@@ -8,7 +8,6 @@
 package dox
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -16,8 +15,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 // Filesystem hooks for deterministic error-path testing. Set only in tests.
 var (

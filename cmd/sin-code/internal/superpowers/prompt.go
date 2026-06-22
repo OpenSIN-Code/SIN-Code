@@ -7,14 +7,14 @@
 package superpowers
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 // WritePrompt renders the system-prompt block for the given skills and
 // writes it to PROMPTFile(). Returns the rendered text. The block is

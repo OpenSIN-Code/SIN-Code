@@ -12,17 +12,17 @@
 package main
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/spec/compiler"
 )
-
 
 // NewCompileSpecCmd builds the `compile-spec` cobra subcommand.
 func NewCompileSpecCmd() *cobra.Command {

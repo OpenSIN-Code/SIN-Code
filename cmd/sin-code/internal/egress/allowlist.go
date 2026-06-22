@@ -78,7 +78,9 @@ func overrideLookupHostForTest(t *testing.T, fn func(ctx context.Context, host s
 // Check resolves the host inside rawURL and rejects the request when
 // (a) the scheme is not http or https, OR
 // (b) AllowPrivateNetworks is false and any resolved address lies in a
-//     loopback / RFC1918 / link-local / ULA block.
+//
+//	loopback / RFC1918 / link-local / ULA block.
+//
 // The returned error wraps one of ErrEgressDenied or ErrEgressScheme so
 // callers can use errors.Is without inspecting error text.
 func Check(ctx context.Context, rawURL string, p Policy) error {
@@ -117,9 +119,9 @@ func Check(ctx context.Context, rawURL string, p Policy) error {
 //
 //   - IsLoopback                  → 127.0.0.0/8, ::1/128
 //   - IsPrivate (Go 1.17+)        → RFC 1918 (10/8, 172.16/12, 192.168/16)
-//                                    AND IPv6 ULA fc00::/7
+//     AND IPv6 ULA fc00::/7
 //   - IsLinkLocalUnicast          → 169.254.0.0/16 (AWS/GCP/Azure metadata!)
-//                                  AND fe80::/10
+//     AND fe80::/10
 //   - IsLinkLocalMulticast        → 224.0.0.0/24, ff02::/16
 //
 // The 169.254.0.0/16 block is the SSRF class the audit findings specifically

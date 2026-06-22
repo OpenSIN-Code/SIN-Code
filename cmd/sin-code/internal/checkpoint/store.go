@@ -7,7 +7,6 @@
 package checkpoint
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -17,9 +16,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	_ "modernc.org/sqlite"
 )
-
 
 type Store struct {
 	db   *sql.DB

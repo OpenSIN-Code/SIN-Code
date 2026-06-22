@@ -103,9 +103,9 @@ func TestExtractBinary_Zip_Windows(t *testing.T) {
 	defer zw.Close()
 	zipW := zip.NewWriter(zw)
 	for name, body := range map[string][]byte{
-		"sin-code.exe":               payload,
+		"sin-code.exe":                   payload,
 		"sin-code-windows-amd64/LICENSE": []byte("MIT"),
-		"README.md":                  []byte("# SIN"),
+		"README.md":                      []byte("# SIN"),
 	} {
 		w, err := zipW.Create(name)
 		if err != nil {

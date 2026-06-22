@@ -15,15 +15,15 @@
 package mcpclient
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
 	"sync"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 // DiscoveredServer is the normalized representation of an MCP server found in a
 // config location. Source records the path the entry was discovered from.

@@ -2,11 +2,12 @@
 // Purpose: coverage tests for the pipeline surface added in pipeline.go.
 // Stdlib-only — no subprocess, no real gh bridge. The 5 tests are
 // hermetic and assertion-clear:
-//   1. TestPipeline_StageTransitions         — queued → in_progress → done
-//   2. TestNewIssueFromGitHub_FetchesWithGH   — stub IssueFetcher → parses title/body/labels
-//   3. TestBranchNaming_ByteStable           — branchNameFromIssue byte-stable + sanitizes
-//   4. TestCommitMessage_ConventionalCommits  — commitMessageFromIssue Conventional Commits
-//   5. TestPRBody_RendersGoalAndVerification  — prBodyFromGoal includes summary, status, links
+//  1. TestPipeline_StageTransitions         — queued → in_progress → done
+//  2. TestNewIssueFromGitHub_FetchesWithGH   — stub IssueFetcher → parses title/body/labels
+//  3. TestBranchNaming_ByteStable           — branchNameFromIssue byte-stable + sanitizes
+//  4. TestCommitMessage_ConventionalCommits  — commitMessageFromIssue Conventional Commits
+//  5. TestPRBody_RendersGoalAndVerification  — prBodyFromGoal includes summary, status, links
+//
 // Docs: autodev_pipeline.doc.md
 package autodev
 
@@ -256,62 +257,62 @@ func itoa(n int) string {
 
 func TestCommitMessage_ConventionalCommits(t *testing.T) {
 	cases := []struct {
-		name   string
-		issue  Issue
-		want   string
+		name  string
+		issue Issue
+		want  string
 	}{
 		{
-			name: "bug label → fix",
+			name:  "bug label → fix",
 			issue: Issue{Number: 173, Title: "compress tool missing", Labels: []string{"bug"}},
 			want:  "fix(issue-173): compress tool missing",
 		},
 		{
-			name: "enhancement label → feat",
+			name:  "enhancement label → feat",
 			issue: Issue{Number: 200, Title: "Add --compress-tools", Labels: []string{"enhancement"}},
 			want:  "feat(issue-200): Add --compress-tools",
 		},
 		{
-			name: "feature label wins over bug (first match)",
+			name:  "feature label wins over bug (first match)",
 			issue: Issue{Number: 7, Title: "two labels", Labels: []string{"feature", "bug"}},
 			want:  "feat(issue-7): two labels",
 		},
 		{
-			name: "docs label",
+			name:  "docs label",
 			issue: Issue{Number: 9, Title: "Update README", Labels: []string{"docs"}},
 			want:  "docs(issue-9): Update README",
 		},
 		{
-			name: "refactor label",
+			name:  "refactor label",
 			issue: Issue{Number: 11, Title: "Collapse helpers", Labels: []string{"refactor"}},
 			want:  "refactor(issue-11): Collapse helpers",
 		},
 		{
-			name: "test label",
+			name:  "test label",
 			issue: Issue{Number: 13, Title: "Cover branch sanitization", Labels: []string{"test"}},
 			want:  "test(issue-13): Cover branch sanitization",
 		},
 		{
-			name: "no labels → chore",
+			name:  "no labels → chore",
 			issue: Issue{Number: 17, Title: "Bump deps"},
 			want:  "chore(issue-17): Bump deps",
 		},
 		{
-			name: "unknown label → chore (safe default)",
+			name:  "unknown label → chore (safe default)",
 			issue: Issue{Number: 19, Title: "Random noise", Labels: []string{"help-wanted", "good-first-issue"}},
 			want:  "chore(issue-19): Random noise",
 		},
 		{
-			name: "empty title → fallback",
+			name:  "empty title → fallback",
 			issue: Issue{Number: 23, Title: "  ", Labels: []string{"enhancement"}},
 			want:  "feat(issue-23): issue 23",
 		},
 		{
-			name: "labels normalized to lowercase before lookup",
+			name:  "labels normalized to lowercase before lookup",
 			issue: Issue{Number: 29, Title: "X", Labels: []string{"BUG"}},
 			want:  "fix(issue-29): X",
 		},
 		{
-			name: "issue number 0 → no scope suffix",
+			name:  "issue number 0 → no scope suffix",
 			issue: Issue{Number: 0, Title: "ad-hoc"},
 			want:  "chore: ad-hoc",
 		},

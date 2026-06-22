@@ -324,22 +324,22 @@ func annotateVulnerabilities(packages []models.SBOMPackage, vulns []map[string]i
 // detectSourceType detects package manager type from scanned file names.
 func detectSourceType(files []string) string {
 	typeMap := map[string]string{
-		"package.json":        "npm",
-		"package-lock.json":   "npm",
-		"yarn.lock":           "yarn",
-		"requirements.txt":    "pypi",
-		"poetry.lock":         "poetry",
-		"Pipfile.lock":        "pipenv",
-		"go.mod":              "go",
-		"go.sum":              "go",
-		"pom.xml":             "maven",
-		"build.gradle":        "gradle",
-		"Cargo.toml":          "cargo",
-		"Cargo.lock":          "cargo",
-		"Gemfile":             "rubygems",
-		"Gemfile.lock":        "rubygems",
-		"composer.json":       "composer",
-		"composer.lock":       "composer",
+		"package.json":      "npm",
+		"package-lock.json": "npm",
+		"yarn.lock":         "yarn",
+		"requirements.txt":  "pypi",
+		"poetry.lock":       "poetry",
+		"Pipfile.lock":      "pipenv",
+		"go.mod":            "go",
+		"go.sum":            "go",
+		"pom.xml":           "maven",
+		"build.gradle":      "gradle",
+		"Cargo.toml":        "cargo",
+		"Cargo.lock":        "cargo",
+		"Gemfile":           "rubygems",
+		"Gemfile.lock":      "rubygems",
+		"composer.json":     "composer",
+		"composer.lock":     "composer",
 	}
 
 	for _, filename := range files {

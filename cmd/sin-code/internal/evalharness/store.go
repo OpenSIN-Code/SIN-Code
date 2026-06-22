@@ -5,14 +5,14 @@
 package evalharness
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
 	"sort"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 // Store persists runs and loads eval sets from disk.
 //

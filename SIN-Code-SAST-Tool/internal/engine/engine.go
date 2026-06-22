@@ -15,7 +15,7 @@ import (
 
 // Engine represents the SAST scanning engine
 type Engine struct {
-	Rules         []models.Rule
+	Rules           []models.Rule
 	ExcludePatterns []string
 }
 

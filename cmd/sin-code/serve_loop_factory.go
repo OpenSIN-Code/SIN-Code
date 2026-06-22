@@ -17,17 +17,17 @@ import (
 
 func realRunLoopFactory(ctx context.Context, opts internal.RunLoopOptions, memStore *lessons.Store) (*agentloop.Loop, func() error, error) {
 	cfg := loopbuilder.Config{
-		Workspace:   opts.Workspace,
-		Headless:    opts.Headless,
-		VerifyMode:  opts.VerifyMode,
-		VerifyCmd:   opts.VerifyCmd,
-		MaxTurns:    opts.MaxTurns,
-		Yolo:        opts.Yolo,
-		Model:       opts.Model,
-		Style:       opts.Style,
-		AgentName:   opts.AgentName,
-		SkipMCP:     opts.SkipMCP,
-		Contract:    opts.Contract,
+		Workspace:  opts.Workspace,
+		Headless:   opts.Headless,
+		VerifyMode: opts.VerifyMode,
+		VerifyCmd:  opts.VerifyCmd,
+		MaxTurns:   opts.MaxTurns,
+		Yolo:       opts.Yolo,
+		Model:      opts.Model,
+		Style:      opts.Style,
+		AgentName:  opts.AgentName,
+		SkipMCP:    opts.SkipMCP,
+		Contract:   opts.Contract,
 		ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
 			return combinedTool(opts.Workspace, mgr), combinedSpecs(mgr)
 		},

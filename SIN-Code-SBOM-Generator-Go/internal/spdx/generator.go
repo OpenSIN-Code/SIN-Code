@@ -10,21 +10,21 @@ import (
 )
 
 const (
-	spdxVersion   = "SPDX-2.3"
+	spdxVersion     = "SPDX-2.3"
 	spdxDataLicense = "CC0-1.0"
 )
 
 // SPDXDocument represents an SPDX 2.3 JSON document.
 type SPDXDocument struct {
-	SPDXVersion            string                   `json:"spdxVersion"`
-	DataLicense            string                   `json:"dataLicense"`
-	SPDXID                 string                   `json:"SPDXID"`
-	Name                   string                   `json:"name"`
-	DocumentNamespace      string                   `json:"documentNamespace"`
-	CreationInfo           SPDXCreationInfo         `json:"creationInfo"`
-	Packages               []SPDXPackage            `json:"packages"`
-	Files                  []interface{}            `json:"files"`
-	Relationships          []SPDXRelationship         `json:"relationships"`
+	SPDXVersion                string                 `json:"spdxVersion"`
+	DataLicense                string                 `json:"dataLicense"`
+	SPDXID                     string                 `json:"SPDXID"`
+	Name                       string                 `json:"name"`
+	DocumentNamespace          string                 `json:"documentNamespace"`
+	CreationInfo               SPDXCreationInfo       `json:"creationInfo"`
+	Packages                   []SPDXPackage          `json:"packages"`
+	Files                      []interface{}          `json:"files"`
+	Relationships              []SPDXRelationship     `json:"relationships"`
 	HasExtractedLicensingInfos []SPDXExtractedLicense `json:"hasExtractedLicensingInfos,omitempty"`
 }
 
@@ -34,20 +34,20 @@ type SPDXCreationInfo struct {
 }
 
 type SPDXPackage struct {
-	SPDXID             string            `json:"SPDXID"`
-	Name               string            `json:"name"`
-	VersionInfo        string            `json:"versionInfo"`
-	DownloadLocation   string            `json:"downloadLocation"`
-	FilesAnalyzed      bool              `json:"filesAnalyzed"`
-	LicenseConcluded   string            `json:"licenseConcluded"`
-	LicenseDeclared    string            `json:"licenseDeclared"`
-	CopyrightText      string            `json:"copyrightText"`
-	Supplier           string            `json:"supplier"`
-	Originator         string            `json:"originator"`
-	Homepage           string            `json:"homepage"`
-	SourceInfo         string            `json:"sourceInfo"`
-	ExternalRefs       []SPDXExternalRef   `json:"externalRefs,omitempty"`
-	Checksums          []SPDXChecksum      `json:"checksums,omitempty"`
+	SPDXID           string            `json:"SPDXID"`
+	Name             string            `json:"name"`
+	VersionInfo      string            `json:"versionInfo"`
+	DownloadLocation string            `json:"downloadLocation"`
+	FilesAnalyzed    bool              `json:"filesAnalyzed"`
+	LicenseConcluded string            `json:"licenseConcluded"`
+	LicenseDeclared  string            `json:"licenseDeclared"`
+	CopyrightText    string            `json:"copyrightText"`
+	Supplier         string            `json:"supplier"`
+	Originator       string            `json:"originator"`
+	Homepage         string            `json:"homepage"`
+	SourceInfo       string            `json:"sourceInfo"`
+	ExternalRefs     []SPDXExternalRef `json:"externalRefs,omitempty"`
+	Checksums        []SPDXChecksum    `json:"checksums,omitempty"`
 }
 
 type SPDXExternalRef struct {
@@ -62,9 +62,9 @@ type SPDXChecksum struct {
 }
 
 type SPDXRelationship struct {
-	SPDXElementID       string `json:"spdxElementId"`
-	RelatedSPDXElement  string `json:"relatedSpdxElement"`
-	RelationshipType    string `json:"relationshipType"`
+	SPDXElementID      string `json:"spdxElementId"`
+	RelatedSPDXElement string `json:"relatedSpdxElement"`
+	RelationshipType   string `json:"relationshipType"`
 }
 
 type SPDXExtractedLicense struct {
@@ -94,9 +94,9 @@ func Generate(sbom models.SBOM) map[string]interface{} {
 	if len(sbom.Packages) > 0 {
 		rels := doc["relationships"].([]interface{})
 		rels = append(rels, map[string]interface{}{
-			"spdxElementId":       "SPDXRef-DOCUMENT",
-			"relatedSpdxElement":  "SPDXRef-Package-0",
-			"relationshipType":    "DESCRIBES",
+			"spdxElementId":      "SPDXRef-DOCUMENT",
+			"relatedSpdxElement": "SPDXRef-Package-0",
+			"relationshipType":   "DESCRIBES",
 		})
 		doc["relationships"] = rels
 	}
@@ -117,9 +117,9 @@ func Generate(sbom models.SBOM) map[string]interface{} {
 			}
 			rels := doc["relationships"].([]interface{})
 			rels = append(rels, map[string]interface{}{
-				"spdxElementId":       spdxPkg["SPDXID"],
-				"relatedSpdxElement":  depID,
-				"relationshipType":    "DEPENDS_ON",
+				"spdxElementId":      spdxPkg["SPDXID"],
+				"relatedSpdxElement": depID,
+				"relationshipType":   "DEPENDS_ON",
 			})
 			doc["relationships"] = rels
 		}

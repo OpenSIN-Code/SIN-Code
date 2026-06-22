@@ -8,7 +8,6 @@
 package main
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"fmt"
 	"os"
@@ -17,12 +16,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	internal "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/meta"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/sandbox"
 )
-
 
 const (
 	maxReadBytes  = 64 * 1024

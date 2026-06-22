@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,9 +8,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"charm.land/bubbles/v2/key"
 )
-
 
 type KeymapContext string
 

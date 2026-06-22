@@ -33,15 +33,15 @@ func TestLoadDataset(t *testing.T) {
 			wantLen: 2,
 		},
 		{
-			name:    "empty JSON array",
-			content: `[]`,
-			wantErr: true,
+			name:      "empty JSON array",
+			content:   `[]`,
+			wantErr:   true,
 			errSubstr: "no instances",
 		},
 		{
-			name:    "empty JSON object",
-			content: `{"instances":[]}`,
-			wantErr: true,
+			name:      "empty JSON object",
+			content:   `{"instances":[]}`,
+			wantErr:   true,
 			errSubstr: "no instances",
 		},
 		{

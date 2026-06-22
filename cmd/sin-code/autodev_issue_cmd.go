@@ -139,12 +139,12 @@ func newGoalAddFromIssueCmd() *cobra.Command {
 			if issue.State != "open" {
 				return fmt.Errorf("issue #%d is %s", num, issue.State)
 			}
-		contract := defaultIssueContract(issue)
-		for _, c := range extraCriteria {
-			if strings.TrimSpace(c) != "" {
-				contract.SemanticCriteria = append(contract.SemanticCriteria, c)
+			contract := defaultIssueContract(issue)
+			for _, c := range extraCriteria {
+				if strings.TrimSpace(c) != "" {
+					contract.SemanticCriteria = append(contract.SemanticCriteria, c)
+				}
 			}
-		}
 			contractJSON, err := contract.Marshal()
 			if err != nil {
 				return err

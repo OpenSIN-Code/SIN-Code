@@ -2,13 +2,13 @@
 package tui
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"time"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 type SessionState struct {
 	ViewKind         int           `json:"view_kind"`

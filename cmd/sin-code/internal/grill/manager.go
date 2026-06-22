@@ -5,7 +5,6 @@
 package grill
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,8 +12,9 @@ import (
 	"sort"
 	"sync"
 	"time"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 // hook variables make filesystem and JSON error paths testable
 // without changing public behavior.

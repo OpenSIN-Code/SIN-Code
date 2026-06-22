@@ -6,17 +6,17 @@
 package main
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/dox"
 )
-
 
 // NewDoxCmd builds the `dox` cobra subcommand. Pattern matches
 // NewSuperpowersCmd: returns *cobra.Command with four subcommands

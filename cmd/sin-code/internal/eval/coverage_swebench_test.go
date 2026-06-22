@@ -58,7 +58,9 @@ func initRepo(t *testing.T) string {
 // TestLoadSweInstances_BadJSON exercises the three loadSweInstances branches:
 // (a) trailing-comma input emits a wrapped parse error,
 // (b) missing field relies on the post-parse InstanceID auto-fill (current
-//     behaviour: not a parse error — swe.go:172-176),
+//
+//	behaviour: not a parse error — swe.go:172-176),
+//
 // (c) schema `version` field flows into SweInstance.Version.
 func TestLoadSweInstances_BadJSON(t *testing.T) {
 	dir := t.TempDir()
@@ -120,7 +122,7 @@ func TestSanitizeRepo_RemovesSecrets(t *testing.T) {
 		{"foo\\bar", "foo_bar"},
 		{"host:repo", "host_repo"},
 		{"./.aws/credentials", "._.aws_credentials"},
-		{"id_rsa", "id_rsa"},         // no slashes — left alone
+		{"id_rsa", "id_rsa"}, // no slashes — left alone
 		{"~/.ssh/id_rsa", "~_.ssh_id_rsa"},
 	}
 	for _, c := range cases {
@@ -141,8 +143,9 @@ func TestSanitizeRepo_RemovesSecrets(t *testing.T) {
 // TestApplyPatch_Conflict exercises applyPatch on a real git repo:
 // (a) a clean patch applies successfully,
 // (b) a follow-up patch whose context no longer matches the working-tree
-//     state causes git apply to exit non-zero, propagated as a non-nil
-//     error from applyPatch.
+//
+//	state causes git apply to exit non-zero, propagated as a non-nil
+//	error from applyPatch.
 //
 // NOTE: the current applyPatch surface (swe.go:287-297) does not accept a
 // `force` flag — git apply's underlying semantics are reproduced as-is.

@@ -135,7 +135,7 @@ func (e *Engine) scanFile(file string) ([]models.SecretFinding, error) {
 				matches := re.FindAllStringIndex(line, -1)
 				for _, match := range matches {
 					matchStr := line[match[0]:match[1]]
-					
+
 					// Entropy check if enabled
 					entropy := 0.0
 					if e.CheckEntropy && rule.MinEntropy > 0 {

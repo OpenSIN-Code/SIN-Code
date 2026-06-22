@@ -57,10 +57,10 @@ type LogFunc func(Event)
 // on-disk goal queue. The fields are guarded by mu so the type is safe
 // under concurrent Advance from the daemon worker pool (M7).
 type Pipeline struct {
-	mu     sync.Mutex     // protects cur + events + log + clock
-	cur    map[int]Stage  // issue number → current stage
-	events []Event        // accumulated log
-	log    LogFunc        // observer sink (fanout for hooks/trace)
+	mu     sync.Mutex    // protects cur + events + log + clock
+	cur    map[int]Stage // issue number → current stage
+	events []Event       // accumulated log
+	log    LogFunc       // observer sink (fanout for hooks/trace)
 	clock  func() time.Time
 }
 
@@ -168,8 +168,8 @@ type IssueFetcher interface {
 // ghIssueViewJSON is the shape of `gh issue view --json title,body,labels`.
 // We keep field names camelCase to match gh's wire format exactly.
 type ghIssueViewJSON struct {
-	Title  string   `json:"title"`
-	Body   string   `json:"body"`
+	Title  string `json:"title"`
+	Body   string `json:"body"`
 	Labels []struct {
 		Name string `json:"name"`
 	} `json:"labels"`
@@ -332,21 +332,21 @@ const (
 // default. Adding entries here MUST preserve the byte-stable prefix
 // list (the four-arm comparator in evalharness pins to it).
 var labelToType = map[string]CommitType{
-	"bug":            CommitFix,
-	"fix":            CommitFix,
-	"defect":         CommitFix,
-	"regression":     CommitFix,
-	"enhancement":    CommitFeat,
-	"feature":        CommitFeat,
-	"documentation":  CommitDocs,
-	"docs":           CommitDocs,
-	"refactor":       CommitRefactor,
-	"refactoring":    CommitRefactor,
-	"test":           CommitTest,
-	"tests":          CommitTest,
-	"chore":          CommitChore,
-	"maintenance":    CommitChore,
-	"dependencies":   CommitChore,
+	"bug":           CommitFix,
+	"fix":           CommitFix,
+	"defect":        CommitFix,
+	"regression":    CommitFix,
+	"enhancement":   CommitFeat,
+	"feature":       CommitFeat,
+	"documentation": CommitDocs,
+	"docs":          CommitDocs,
+	"refactor":      CommitRefactor,
+	"refactoring":   CommitRefactor,
+	"test":          CommitTest,
+	"tests":         CommitTest,
+	"chore":         CommitChore,
+	"maintenance":   CommitChore,
+	"dependencies":  CommitChore,
 }
 
 // commitMessageFromIssue produces a Conventional Commits subject of the
@@ -395,10 +395,10 @@ type Goal struct {
 
 // Result is the verification outcome the agent loop reported.
 type Result struct {
-	Status     VerificationStatus
-	Evidence   string // PoC/Oracle stdout or log excerpt
-	IssueRef   int    // GitHub issue number (mirrors Issue.Number)
-	RunID      string // e.g. "verify-<runid>" for cross-references
+	Status   VerificationStatus
+	Evidence string // PoC/Oracle stdout or log excerpt
+	IssueRef int    // GitHub issue number (mirrors Issue.Number)
+	RunID    string // e.g. "verify-<runid>" for cross-references
 }
 
 // prBodyFromGoal renders a PR body with two H2 sections (Goal /

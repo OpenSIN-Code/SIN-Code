@@ -42,10 +42,10 @@ func TestScan_AllCommentFamilies(t *testing.T) {
 		},
 	}
 	wantReasons := map[string]string{
-		"go_fixture.go":  "medium",
-		"py_fixture.py":  "low",
-		"sql_fixture.sql": "high",
-		"c_fixture.c":    "medium",
+		"go_fixture.go":     "medium",
+		"py_fixture.py":     "low",
+		"sql_fixture.sql":   "high",
+		"c_fixture.c":       "medium",
 		"html_fixture.html": "low",
 	}
 	wantUpgrades := map[string]string{
@@ -282,8 +282,8 @@ func TestScan_FiltersHiddenFiles(t *testing.T) {
 		{
 			subdir: ".git",
 			files: map[string]string{
-				"HEAD":    "ref: refs/heads/main\n// sin-debt: skip\n",
-				"config":  "[core]\n# sin-debt: skip\n",
+				"HEAD":   "ref: refs/heads/main\n// sin-debt: skip\n",
+				"config": "[core]\n# sin-debt: skip\n",
 			},
 		},
 		{

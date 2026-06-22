@@ -5,7 +5,6 @@
 package attachments
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -15,8 +14,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 const (
 	MaxSize       = 50 * 1024 * 1024

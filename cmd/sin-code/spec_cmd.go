@@ -6,7 +6,6 @@
 package main
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -16,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ghbridge"
@@ -23,7 +24,6 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/spec"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/wiring"
 )
-
 
 // NewSpecCmd builds the `spec` cobra subcommand (validate + show).
 func NewSpecCmd() *cobra.Command {

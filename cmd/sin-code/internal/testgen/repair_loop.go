@@ -9,15 +9,15 @@
 package testgen
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 // DefaultRepairRounds is the default upper bound on repair iterations.
 const DefaultRepairRounds = 3

@@ -6,13 +6,13 @@
 package instinct
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"time"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 // AuditEvent records why an instinct changed.
 type AuditEvent struct {

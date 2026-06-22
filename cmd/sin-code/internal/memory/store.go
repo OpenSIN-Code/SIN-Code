@@ -4,7 +4,6 @@
 package memory
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -19,9 +18,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	bolt "go.etcd.io/bbolt"
 )
-
 
 const (
 	bucketMems       = "memories"

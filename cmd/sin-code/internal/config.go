@@ -7,7 +7,6 @@
 package internal
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -17,11 +16,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
 )
-
 
 // isValidStyle reports whether s is one of the legal verbosity levels.
 // Empty is rejected here so setConfigValueIn surfaces user error

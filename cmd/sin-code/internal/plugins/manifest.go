@@ -5,16 +5,16 @@
 package plugins
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/BurntSushi/toml"
 )
-
 
 const ManifestFile = "plugin.toml"
 

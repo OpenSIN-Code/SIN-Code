@@ -51,14 +51,15 @@ func withIsolatedHome(t *testing.T) string {
 // 1) commandRunner is the smallest helper in the factory: a command
 // string in → a verify.Runner out. Three deterministic invariants
 // must hold for the verify gate (M3) to be wired correctly:
-//   a) missing/empty command → nil Runner (no panic, no executor
-//      spawned) — the gate then has no runner in its PoC map.
-//   b) non-empty command → Runner that shells out, returns
-//      (true, trimmed output) on exit 0 and (false, trimmed
-//      output) on non-zero exit.
-//   c) containerRunner provided → command is forwarded into the
-//      runner and the shell executor is bypassed (docker binary is
-//      not on the test machine).
+//
+//	a) missing/empty command → nil Runner (no panic, no executor
+//	   spawned) — the gate then has no runner in its PoC map.
+//	b) non-empty command → Runner that shells out, returns
+//	   (true, trimmed output) on exit 0 and (false, trimmed
+//	   output) on non-zero exit.
+//	c) containerRunner provided → command is forwarded into the
+//	   runner and the shell executor is bypassed (docker binary is
+//	   not on the test machine).
 func TestCommandRunner_ResolveHookCommand(t *testing.T) {
 	withIsolatedHome(t)
 
@@ -242,11 +243,11 @@ type fakeTournament = fusion.Tournament
 
 // 3) NewDefaultSessionContextBuilder must compose a preamble markdown
 // from every store when populated. The five stores we exercise here:
-//   1) todos        → "Open Todos" section
-//   2) summary      → "Session Summary" section (LedgerSessionSummaryReader)
-//   3) memory       → "Memories" section (MemoryStoreReader)
-//   4) MEMORY.md    → "Auto Memory" section (FileAutoMemoryReader)
-//   5) lessons      → "Lessons" section (LessonsStoreReader)
+//  1. todos        → "Open Todos" section
+//  2. summary      → "Session Summary" section (LedgerSessionSummaryReader)
+//  3. memory       → "Memories" section (MemoryStoreReader)
+//  4. MEMORY.md    → "Auto Memory" section (FileAutoMemoryReader)
+//  5. lessons      → "Lessons" section (LessonsStoreReader)
 func TestSessionContextBuilder_AllStores(t *testing.T) {
 	dir := withIsolatedHome(t)
 
@@ -362,11 +363,11 @@ func TestBuild_RequiredToolsEnforcement(t *testing.T) {
 
 	t.Run("propagates_required_and_forbidden_tools", func(t *testing.T) {
 		loop, cleanup, err := Build(context.Background(), Config{
-			Workspace:               dir,
-			MaxTurns:                3,
-			SkipMCP:                 true,
-			CoverageRequiredTools:   []string{"sin_read", "sin_write"},
-			CoverageForbiddenTools:  []string{"sin_bash"},
+			Workspace:              dir,
+			MaxTurns:               3,
+			SkipMCP:                true,
+			CoverageRequiredTools:  []string{"sin_read", "sin_write"},
+			CoverageForbiddenTools: []string{"sin_bash"},
 		}, nil)
 		if err != nil {
 			t.Fatal(err)
@@ -383,11 +384,11 @@ func TestBuild_RequiredToolsEnforcement(t *testing.T) {
 
 	t.Run("accepts_when_required_tools_invoked", func(t *testing.T) {
 		loop, cleanup, err := Build(context.Background(), Config{
-			Workspace:              dir,
-			MaxTurns:               2,
-			SkipMCP:                true,
-			CoverageRequiredTools:  []string{"sin_read", "sin_write"},
-			ObserverWindow:         0, // disable loop detector for deterministic single-shot runs
+			Workspace:             dir,
+			MaxTurns:              2,
+			SkipMCP:               true,
+			CoverageRequiredTools: []string{"sin_read", "sin_write"},
+			ObserverWindow:        0, // disable loop detector for deterministic single-shot runs
 		}, nil)
 		if err != nil {
 			t.Fatal(err)

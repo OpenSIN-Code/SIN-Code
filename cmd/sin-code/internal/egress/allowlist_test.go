@@ -110,7 +110,7 @@ func TestCheck_DeniesReservedDomains(t *testing.T) {
 		{"169.254.1.1", "link-local"},
 		{"::1", "loopback"},
 		{"fe80::1", "link-local"},
-		{"fc00::1", "private"},   // IPv6 ULA
+		{"fc00::1", "private"}, // IPv6 ULA
 		{"fd12:3456::1", "private"},
 		{"224.0.0.1", "ll-multicast"},
 		{"ff02::1", "ll-multicast"},

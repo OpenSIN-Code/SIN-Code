@@ -104,7 +104,7 @@ func TestPolicy_AskDefaultsDenyInHeadless(t *testing.T) {
 func TestPolicy_GlobPathMatch(t *testing.T) {
 	rules := []Rule{
 		{Tool: "/tmp/*", Policy: "allow"},       // single-segment path under /tmp
-		{Tool: "/etc/secret/*", Policy: "deny"},  // narrower deny for /etc/secret/X
+		{Tool: "/etc/secret/*", Policy: "deny"}, // narrower deny for /etc/secret/X
 		{Tool: "*", Policy: "ask"},              // catch-all (single-segment tools)
 	}
 	e := New(rules)

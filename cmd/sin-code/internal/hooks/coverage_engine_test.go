@@ -7,32 +7,32 @@
 //
 // Spec-vs-code divergence notes (mandate M3 — verification gate is sacred):
 //
-//   * safeInvokePostListener returns []string (merged into engine.Result
+//   - safeInvokePostListener returns []string (merged into engine.Result
 //     PromptInjects), NOT a hooklife.Decision. The panic path is fail-open:
 //     returns nil and logs to stderr; never blocks the engine.
 //
-//   * runTestCommand returns "" on exit-0 and the combined
+//   - runTestCommand returns "" on exit-0 and the combined
 //     stdout+stderr / runErr.Error() on failure. It does not wrap the
 //     error with context.DeadlineExceeded; exec.CommandContext sends
 //     SIGKILL and surfaces *exec.ExitError ("signal: killed"). The
 //     typed-error path for "command not found" is exercised via isNotFound
 //     directly with a synthetic exec.Error and an os.PathError.
 //
-//   * AutoLintHook fires on hooklife.PostToolUse (not PreToolUse, as a
+//   - AutoLintHook fires on hooklife.PostToolUse (not PreToolUse, as a
 //     spec draft suggested). It accepts {"sin_write", "sin_edit", "Write",
 //     "Edit"} via isEditTool. ID() returns the stable constant
 //     autoLintHookID across calls.
 //
-//   * firstLine returns the input verbatim when every split+trimmed line
+//   - firstLine returns the input verbatim when every split+trimmed line
 //     is empty; for "\n" the loop produces two empty strings and falls
 //     through to `return s` (= "\n"), NOT "".
 //
-//   * firstLine does NOT strip a leading U+FEFF BOM. strings.TrimSpace
+//   - firstLine does NOT strip a leading U+FEFF BOM. strings.TrimSpace
 //     only strips runes where unicode.IsSpace returns true; U+FEFF is
 //     not whitespace. The byte-exact output for
 //     "\xEF\xBB\xBFhello\nworld" is "\xEF\xBB\xBFhello", not "hello".
 //
-//   * runTestCommand accepts a timeout time.Duration parameter but
+//   - runTestCommand accepts a timeout time.Duration parameter but
 //     NEVER reads it. Cancellation is driven entirely by the passed
 //     context (exec.CommandContext). Tests that want a timeout must
 //     pass ctx = context.WithTimeout(...).
@@ -178,7 +178,7 @@ func TestAutoLintListener_NilConfig(t *testing.T) {
 			name: "go_test_path_filtered",
 			p: Payload{
 				Event: ToolPost, Name: "sin_edit",
-				Data:  map[string]any{"path": "fixture_test.go"},
+				Data: map[string]any{"path": "fixture_test.go"},
 			},
 		},
 		{
@@ -192,13 +192,13 @@ func TestAutoLintListener_NilConfig(t *testing.T) {
 			name: "non_sin_tool_skipped",
 			p: Payload{
 				Event: ToolPost, Name: "sin_bash",
-				Data:  map[string]any{"path": "x.go"},
+				Data: map[string]any{"path": "x.go"},
 			},
 		},
 		{
 			name: "missing_go_file_short_circuits_at_stat",
 			p: Payload{
-				Event:     ToolPost, Name: "sin_edit",
+				Event: ToolPost, Name: "sin_edit",
 				Data:      map[string]any{"path": "no-such-file.go"},
 				Workspace: t.TempDir(),
 			},
@@ -227,7 +227,7 @@ func TestAutoLintListener_NilConfig(t *testing.T) {
 		t.Fatalf("setup: %v", err)
 	}
 	_ = listener(context.Background(), Payload{
-		Event:     ToolPost, Name: "sin_edit",
+		Event: ToolPost, Name: "sin_edit",
 		Data:      map[string]any{"path": realGo},
 		Workspace: tmp,
 	})

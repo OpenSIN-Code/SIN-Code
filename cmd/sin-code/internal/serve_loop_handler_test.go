@@ -142,9 +142,9 @@ func TestRunLoop_FullHandlerReturnsJSON(t *testing.T) {
 	}
 	runLoopFactory = func(ctx context.Context, opts RunLoopOptions, ls2 *lessons.Store) (*agentloop.Loop, func() error, error) {
 		loop := &agentloop.Loop{
-			Workspace:  opts.Workspace,
-			MaxTurns:   opts.MaxTurns,
-			SessionID:  "test-session-id",
+			Workspace: opts.Workspace,
+			MaxTurns:  opts.MaxTurns,
+			SessionID: "test-session-id",
 			Completion: func(ctx context.Context, hist []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error) {
 				return &agentloop.Completion{Text: "done"}, nil
 			},

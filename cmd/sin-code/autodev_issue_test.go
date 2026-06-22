@@ -187,9 +187,9 @@ func TestDetectRepo(t *testing.T) {
 // when the host segment is missing.
 func TestParseGhAuthStatus_NoFalsePositiveOnEmptyHost(t *testing.T) {
 	for _, in := range []string{
-		"✓ logged in to \n",       // empty host
-		"✓ logged in to ()\n",      // empty host with parens
-		"✓ logged into github\n",   // "logged into" — not "logged in to"
+		"✓ logged in to \n",              // empty host
+		"✓ logged in to ()\n",            // empty host with parens
+		"✓ logged into github\n",         // "logged into" — not "logged in to"
 		"  logged in to  github.com  \n", // double space — ok, must match
 	} {
 		got := parseGhAuthStatus(in)

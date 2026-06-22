@@ -10,7 +10,6 @@
 package testgen
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -25,8 +24,9 @@ import (
 	"strings"
 	"text/template"
 	"time"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 const (
 	// DefaultTimeout is the hard ceiling for a generate-and-verify cycle.

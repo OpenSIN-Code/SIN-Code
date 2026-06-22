@@ -3,7 +3,6 @@
 package internal
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"fmt"
 	"io"
 	"os"
@@ -12,12 +11,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 )
-
 
 var (
 	agEditAgent string

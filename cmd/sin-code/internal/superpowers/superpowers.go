@@ -6,7 +6,6 @@
 package superpowers
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -20,8 +19,9 @@ import (
 	"sort"
 	"strings"
 	"time"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 // ── Public configuration constants ─────────────────────────────────────
 

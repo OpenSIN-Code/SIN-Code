@@ -90,12 +90,12 @@ func (s *ContainerScanner) ScanImage(image, failOn, scanType, dockerfilePath str
 	recommendations := GenerateRecommendations(scanReport, dockerfileIssues, imageInfo)
 
 	return &models.ContainerScanResult{
-		Image:             image,
-		ImageInfo:         imageInfo,
-		ScanReport:        *scanReport,
-		DockerfileIssues:  dockerfileIssues,
-		Status:            status,
-		Recommendations:   recommendations,
+		Image:            image,
+		ImageInfo:        imageInfo,
+		ScanReport:       *scanReport,
+		DockerfileIssues: dockerfileIssues,
+		Status:           status,
+		Recommendations:  recommendations,
 	}, nil
 }
 
@@ -129,11 +129,11 @@ func (s *ContainerScanner) ScanFilesystem(path, failOn, scanType, dockerfilePath
 	recommendations := GenerateRecommendations(scanReport, dockerfileIssues, nil)
 
 	return &models.ContainerScanResult{
-		Image:             path,
-		ScanReport:        *scanReport,
-		DockerfileIssues:  dockerfileIssues,
-		Status:            status,
-		Recommendations:   recommendations,
+		Image:            path,
+		ScanReport:       *scanReport,
+		DockerfileIssues: dockerfileIssues,
+		Status:           status,
+		Recommendations:  recommendations,
 	}, nil
 }
 

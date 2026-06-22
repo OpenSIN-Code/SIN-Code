@@ -3,7 +3,6 @@
 package notifications
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"crypto/sha1"
 	"encoding/binary"
 	"encoding/json"
@@ -12,9 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	bolt "go.etcd.io/bbolt"
 )
-
 
 const (
 	bucketNotifs    = "notifications"

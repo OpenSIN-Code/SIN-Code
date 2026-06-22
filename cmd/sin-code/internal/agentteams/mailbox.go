@@ -16,7 +16,6 @@
 package agentteams
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -25,8 +24,9 @@ import (
 	"sort"
 	"sync"
 	"time"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 // Message is a single mailbox entry. Headers (From, To, Subject) are
 // strictly typed; Body is bytes so callers can carry JSON, plan-text,

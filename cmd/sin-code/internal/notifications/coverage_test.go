@@ -24,6 +24,7 @@ const nilDispatcherOrNotif = "nil dispatcher or notification"
 // Dispatch.Send. Two cases:
 //  1. Dispatch(nil)              → store opens, d is non-nil, n is nil
 //  2. (*Dispatcher)(nil).Send(n) → d is nil, n is non-nil
+//
 // Both must return the same wrapped error — and no side effects (no TUI
 // broadcast, no macOS subprocess, no store write) must leak through.
 func TestDispatch_NilNotification(t *testing.T) {

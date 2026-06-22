@@ -517,7 +517,7 @@ func createTestSBOM() *models.SBOM {
 	metadata := models.DefaultMetadata()
 	metadata.DocumentName = "test-sbom"
 	return &models.SBOM{
-		Metadata:       metadata,
+		Metadata: metadata,
 		Packages: []models.SBOMPackage{
 			{Name: "lodash", Version: "4.17.21", LicenseConcluded: "MIT", Type: "library"},
 			{Name: "express", Version: "4.18.2", LicenseConcluded: "MIT", Type: "library"},

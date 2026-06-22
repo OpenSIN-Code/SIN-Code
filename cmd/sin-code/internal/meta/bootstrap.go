@@ -15,7 +15,6 @@
 package meta
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"errors"
@@ -25,8 +24,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-)
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+)
 
 // nameRE is the strict name validator. Lowercase first letter, then
 // lowercase/digit/underscore, total length 1..32. Mirrors the contract

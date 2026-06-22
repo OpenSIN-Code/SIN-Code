@@ -6,16 +6,16 @@
 package hooklife
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/coverdrohne"
 )
-
 
 // jsonMarshalIndentHook is swappable for tests that exercise the
 // (theoretically unreachable) JSON marshal error branch.

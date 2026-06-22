@@ -17,7 +17,6 @@
 package compress
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -30,11 +29,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/instinct"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
 )
-
 
 // BuildPlan is the public Plan() entry point. Reads the source
 // surfaces, classifies entries, returns a Plan describing what would

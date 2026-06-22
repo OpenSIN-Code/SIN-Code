@@ -5,7 +5,6 @@
 package main
 
 import (
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,11 +13,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+
 	"github.com/spf13/cobra"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/sindept"
 )
-
 
 // NewDebtCmd builds the `debt` cobra subcommand group for sin-debt markers.
 // All operations are read-only by design — the scanner + report are
