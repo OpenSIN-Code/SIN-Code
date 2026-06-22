@@ -43,6 +43,9 @@ type Runner struct {
 	Triggers     []Trigger
 	PollInterval time.Duration
 	DreamFunc    func(context.Context) error
+
+	// onEnqueue is a test hook invoked after a goal is successfully enqueued.
+	onEnqueue func()
 }
 
 func (r *Runner) Run(ctx context.Context) error {
@@ -101,6 +104,8 @@ func (r *Runner) runCron(ctx context.Context, t Trigger) {
 		case <-ticker.C:
 			if _, err := r.Queue.Add(ctx, t.Prompt, r.Workspace, t.Priority, 1); err != nil {
 				fmt.Fprintf(os.Stderr, "warn: cron enqueue failed: %v\n", err)
+			} else if r.onEnqueue != nil {
+				r.onEnqueue()
 			}
 		}
 	}
@@ -127,6 +132,8 @@ func (r *Runner) runDiscover(ctx context.Context, t Trigger) {
 		}
 		if _, eerr := EnqueueFindings(ctx, r.Queue, r.Workspace, findings, 3); eerr != nil {
 			fmt.Fprintf(os.Stderr, "warn: discover enqueue failed: %v\n", eerr)
+		} else if r.onEnqueue != nil {
+			r.onEnqueue()
 		}
 	}
 	scan() // initial scan on startup
@@ -161,6 +168,8 @@ func (r *Runner) runDream(ctx context.Context, t Trigger) {
 				}
 			} else if _, err := r.Queue.Add(ctx, t.Prompt, r.Workspace, t.Priority, 1); err != nil {
 				fmt.Fprintf(os.Stderr, "warn: dream enqueue failed: %v\n", err)
+			} else if r.onEnqueue != nil {
+				r.onEnqueue()
 			}
 		}
 	}
@@ -192,6 +201,8 @@ func (r *Runner) runWatch(ctx context.Context, t Trigger) {
 				prompt := t.Prompt + "\n(triggered by changes matching " + t.Glob + ")"
 				if _, err := r.Queue.Add(ctx, prompt, r.Workspace, t.Priority, 1); err != nil {
 					fmt.Fprintf(os.Stderr, "warn: watch enqueue failed: %v\n", err)
+				} else if r.onEnqueue != nil {
+					r.onEnqueue()
 				}
 			}
 		}

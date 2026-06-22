@@ -444,10 +444,12 @@ func TestRunnerCronEnqueue(t *testing.T) {
 
 	_newTicker = func(d time.Duration) *time.Ticker { return time.NewTicker(1 * time.Nanosecond) }
 
+	enqueued := make(chan struct{}, 1)
 	r := &Runner{
 		Queue:     q,
 		Workspace: t.TempDir(),
 		Triggers:  []Trigger{{Type: "cron", Every: "1m", Prompt: "ping", Priority: 1}},
+		onEnqueue: func() { enqueued <- struct{}{} },
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -455,7 +457,11 @@ func TestRunnerCronEnqueue(t *testing.T) {
 
 	captureStderr(t, func() {
 		go func() { _ = r.Run(ctx); close(done) }()
-		time.Sleep(50 * time.Millisecond)
+		select {
+		case <-enqueued:
+		case <-time.After(2 * time.Second):
+			t.Fatal("expected cron enqueue")
+		}
 		cancel()
 		select {
 		case <-done:
@@ -545,11 +551,13 @@ func TestRunnerWatchEnqueue(t *testing.T) {
 	ws := t.TempDir()
 	_ = os.WriteFile(filepath.Join(ws, "a.txt"), []byte("v1"), 0o644)
 
+	enqueued := make(chan struct{}, 1)
 	r := &Runner{
 		Queue:        q,
 		Workspace:    ws,
 		Triggers:     []Trigger{{Type: "watch", Glob: "*.txt", Debounce: "1ms", Prompt: "check", Priority: 1}},
 		PollInterval: 1 * time.Millisecond,
+		onEnqueue:    func() { enqueued <- struct{}{} },
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -562,7 +570,11 @@ func TestRunnerWatchEnqueue(t *testing.T) {
 
 	captureStderr(t, func() {
 		go func() { _ = r.Run(ctx); close(done) }()
-		time.Sleep(200 * time.Millisecond)
+		select {
+		case <-enqueued:
+		case <-time.After(2 * time.Second):
+			t.Fatal("expected watch enqueue")
+		}
 		cancel()
 		select {
 		case <-done:
