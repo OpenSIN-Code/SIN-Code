@@ -503,3 +503,27 @@ func TestRenderToolCallTreeInViewModel(t *testing.T) {
 		t.Error("View() should not render tool tree when ToolTreeVisible=false")
 	}
 }
+
+func TestRenderToolCallTreeRunningNodeShowsElapsed(t *testing.T) {
+	styles := NewStyles(Themes[0])
+	tree := &ToolCallTree{}
+	n := &ToolCallNode{
+		ID:        "r1",
+		Tool:      "sin_bash",
+		Status:    "running",
+		StartTime: time.Now().Add(-75 * time.Millisecond),
+	}
+	tree.AddNode("", n)
+
+	out := RenderToolCallTree(tree, styles, 80)
+	if !strings.Contains(out, "sin_bash") {
+		t.Error("expected tool name 'sin_bash' in output")
+	}
+	// Running nodes should render time.Since(StartTime), not zero duration.
+	if strings.Contains(out, "(0s") {
+		t.Error("running node should not render zero duration")
+	}
+	if !strings.Contains(out, "ms") {
+		t.Error("expected elapsed milliseconds for running node")
+	}
+}

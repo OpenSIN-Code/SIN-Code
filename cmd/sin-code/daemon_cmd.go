@@ -14,6 +14,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
@@ -71,6 +73,10 @@ type daemonOptions struct {
 	containerEnabled    bool
 	containerImage      string
 	containerRunner     autonomy.ContainerRunner
+
+	progress     string
+	progressDest string
+	progressFile string
 }
 
 func NewDaemonCmd() *cobra.Command {
@@ -85,6 +91,7 @@ func NewDaemonCmd() *cobra.Command {
 	var repetitionThreshold int
 	var containerEnabled bool
 	var containerImage string
+	var progress, progressDest, progressFile string
 	cmd := &cobra.Command{
 		Use:   "daemon",
 		Short: "Run the autonomous worker: lease goals, execute, verify, learn",
@@ -121,6 +128,9 @@ func NewDaemonCmd() *cobra.Command {
 				fusionOnVerifyFail: fusionOnVerifyFail,
 				containerEnabled:   containerEnabled,
 				containerImage:     containerImage,
+				progress:           progress,
+				progressDest:       progressDest,
+				progressFile:       progressFile,
 			})
 		},
 	}
@@ -144,6 +154,9 @@ func NewDaemonCmd() *cobra.Command {
 	cmd.Flags().IntVar(&repetitionThreshold, "repetition-threshold", 3, "observer-loop (issue #377)")
 	cmd.Flags().BoolVar(&containerEnabled, "container", false, "run verification commands inside a container (issue #389)")
 	cmd.Flags().StringVar(&containerImage, "container-image", os.Getenv("SIN_CONTAINER_IMAGE"), "container image for verification (defaults to config autonomy.container.image)")
+	cmd.Flags().StringVar(&progress, "progress", "", "structured progress output: off|json (default from config, fallback off)")
+	cmd.Flags().StringVar(&progressDest, "progress-dest", "stderr", "progress destination: stderr|stdout|file")
+	cmd.Flags().StringVar(&progressFile, "progress-file", "", "progress file path when --progress-dest=file")
 	return cmd
 }
 
@@ -293,7 +306,7 @@ func runWorker(ctx context.Context, worker int, queue *autonomy.Queue, store *se
 			}
 			fmt.Printf("daemon[w%d]: executing goal %d (attempt %d/%d) repo=%s: %.60s\n",
 				worker, goal.ID, goal.Attempts, goal.MaxRetries, goal.Workspace, goal.Prompt)
-			executeGoal(ctx, queue, store, lessonsStore, memStore, hookEngine, goal, opt)
+			executeGoal(ctx, queue, store, lessonsStore, memStore, hookEngine, goal, opt, worker)
 		}
 	}
 }
@@ -337,9 +350,11 @@ func dedupeRepos(cwd string, extra []string) []string {
 
 func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Store,
 	lessonsStore *lessons.Store, memStore *memory.Store,
-	hookEngine *hooks.Engine, goal *autonomy.Goal, opt daemonOptions) {
+	hookEngine *hooks.Engine, goal *autonomy.Goal, opt daemonOptions, worker int) {
 
 	hookEngine.Fire(ctx, hooks.Payload{Event: hooks.GoalStarted, Data: map[string]any{"goal_id": goal.ID, "attempt": goal.Attempts}})
+
+	sinCfg, _ := internal.LoadMergedConfig()
 
 	sess, err := store.StartOrResume(goal.SessionID)
 	if err != nil {
@@ -403,6 +418,35 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 		return
 	}
 	defer cleanup()
+
+	if progress := firstNonEmpty(opt.progress, sinCfg.OutputProgress); progress != "off" && progress != "" {
+		var w io.Writer = os.Stderr
+		switch opt.progressDest {
+		case "stdout":
+			w = os.Stdout
+		case "file":
+			if opt.progressFile == "" {
+				fmt.Fprintln(os.Stderr, "warn: --progress-dest=file requires --progress-file")
+			} else {
+				f, ferr := os.OpenFile(opt.progressFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, filemode.Default())
+				if ferr != nil {
+					fmt.Fprintf(os.Stderr, "warn: cannot open progress file: %v\n", ferr)
+				} else {
+					w = f
+					defer func() { _ = f.Close() }()
+				}
+			}
+		}
+		pw := agentloop.NewProgressWriter(w)
+		pw.Decorate = func(ev agentloop.ProgressEvent) agentloop.ProgressEvent {
+			ev.GoalID = goal.ID
+			ev.WorkerID = worker
+			return ev
+		}
+		loop.ProgressWriter = pw
+		loop.SessionID = sess.ID
+		defer pw.Close()
+	}
 
 	res, err := loop.Run(ctx, sess, goal.Prompt)
 	if err != nil {

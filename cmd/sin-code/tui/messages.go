@@ -185,10 +185,15 @@ type SessionSelectMsg struct {
 }
 
 type ChatChunkMsg struct {
-	Text string
-	Idx  int
+	Text            string
+	Idx             int
+	EstimatedTokens int
 }
 
 type ChatCopyMsg struct {
 	Text string
 }
+
+// StreamTickMsg is sent while the UI is in a streaming/agent-run state so
+// live metrics (duration, tokens, cost) can refresh in the footer.
+type StreamTickMsg struct{}

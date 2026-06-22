@@ -201,6 +201,18 @@ type SinCodeConfig struct {
 	// AgentLoopSessionContextEnabled injects a unified preamble at session
 	// start (issue #379). Default true.
 	AgentLoopSessionContextEnabled bool `toml:"agentloop.session_context.enabled"`
+
+	// OutputProgress enables structured NDJSON progress output for headless
+	// mode (sin-code chat -p, sin-code daemon). "off" (default) disables it;
+	// "json" emits NDJSON events to OutputProgressDest.
+	OutputProgress string `toml:"output.progress"`
+
+	// OutputProgressDest selects where progress events go: stderr (default),
+	// stdout, or file.
+	OutputProgressDest string `toml:"output.progress_dest"`
+
+	// OutputProgressFile is the path used when OutputProgressDest == "file".
+	OutputProgressFile string `toml:"output.progress_file"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -274,6 +286,11 @@ func defaultConfig() SinCodeConfig {
 		AgentLoopInjectMemory:          false,
 		AgentLoopInjectGoals:           false,
 		AgentLoopContextTopK:           5,
+
+		// Progress output defaults: off unless explicitly enabled.
+		OutputProgress:     "off",
+		OutputProgressDest: "stderr",
+		OutputProgressFile: "",
 	}
 }
 

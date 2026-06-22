@@ -141,6 +141,54 @@ func TestSubmitEmitsTurnAndDone(t *testing.T) {
 	}
 }
 
+func TestSubmitEmitsUsageEvents(t *testing.T) {
+	r := newTestRunner(t, Config{Workspace: t.TempDir(), AutoApprove: true, AskTimeout: 50 * time.Millisecond})
+	r.SetCompletion(stubCompletion(
+		&agentloop.Completion{
+			Text:      "",
+			ToolCalls: []agentloop.ToolCall{{ID: "t1", Name: "sin_bash", Args: map[string]any{"command": "echo hi"}}},
+			Raw:       session.Message{Role: "assistant", Content: "", ToolCalls: toolCallJSON("sin_bash")},
+			Usage:     agentloop.Usage{PromptTokens: 10, CompletionTokens: 5, TotalTokens: 15},
+		},
+		&agentloop.Completion{
+			Text:  "done",
+			Raw:   session.Message{Role: "assistant", Content: "done"},
+			Usage: agentloop.Usage{PromptTokens: 8, CompletionTokens: 4, TotalTokens: 12},
+		},
+	))
+	r.Loop().LocalTool = func(ctx context.Context, name string, args map[string]any) (string, error) { return "tool-out", nil }
+	r.Loop().LocalSpec = []agentloop.ToolSpec{{Name: "sin_bash", Description: "stub"}}
+	done, err := r.Submit(context.Background(), "hello")
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Submit did not complete in 2s")
+	}
+	events := collectEvents(r, 500*time.Millisecond)
+	var usages []AgentEvent
+	for _, ev := range events {
+		if ev.Kind == EventUsage {
+			usages = append(usages, ev)
+		}
+	}
+	if len(usages) != 2 {
+		t.Fatalf("expected 2 EventUsage events, got %d: %+v", len(usages), events)
+	}
+	if usages[0].Tokens != 15 {
+		t.Errorf("first EventUsage.Tokens = %d, want 15", usages[0].Tokens)
+	}
+	if usages[1].Tokens != 27 {
+		t.Errorf("second EventUsage.Tokens = %d, want 27", usages[1].Tokens)
+	}
+	doneEv := findEvent(events, EventDone)
+	if doneEv != nil && doneEv.Tokens != 27 {
+		t.Errorf("EventDone.Tokens = %d, want 27", doneEv.Tokens)
+	}
+}
+
 // ── Ask interaction via channel ────────────────────────────────────
 
 func TestAskAllowViaChannel(t *testing.T) {
@@ -456,6 +504,48 @@ func TestEventsStreamRaceClean(t *testing.T) {
 	}
 	if doneCount.Load() == 0 {
 		t.Errorf("expected at least 1 done event, got 0")
+	}
+}
+
+// TestToolStartEndCallbacksEmitAgentEvents verifies that the live
+// ToolStart/ToolEnd callbacks installed on the loop surface as EventTool
+// AgentEvents carrying ToolCallID and Duration.
+func TestToolStartEndCallbacksEmitAgentEvents(t *testing.T) {
+	r := newTestRunner(t, Config{Workspace: t.TempDir()})
+	tc := agentloop.ToolCall{ID: "tc-1", Name: "sin_test", Args: map[string]any{"x": 1}}
+	r.Loop().ToolStart(context.Background(), tc)
+	r.Loop().ToolEnd(context.Background(), tc, 123*time.Millisecond, "ok", nil)
+
+	events := collectEvents(r, 500*time.Millisecond)
+	var startEv, endEv *AgentEvent
+	for i := range events {
+		if events[i].Kind != EventTool || events[i].ToolCallID != "tc-1" {
+			continue
+		}
+		if events[i].Detail == "tool start" {
+			startEv = &events[i]
+		}
+		if events[i].Detail == "tool result" {
+			endEv = &events[i]
+		}
+	}
+	if startEv == nil {
+		t.Fatalf("missing tool start event; got %+v", events)
+	}
+	if startEv.ToolName != "sin_test" {
+		t.Errorf("start.ToolName = %q, want %q", startEv.ToolName, "sin_test")
+	}
+	if endEv == nil {
+		t.Fatalf("missing tool end event; got %+v", events)
+	}
+	if endEv.Duration <= 0 {
+		t.Errorf("end.Duration = %v, want > 0", endEv.Duration)
+	}
+	if endEv.Result != "ok" {
+		t.Errorf("end.Result = %q, want %q", endEv.Result, "ok")
+	}
+	if endEv.Err != nil {
+		t.Errorf("end.Err = %v, want nil", endEv.Err)
 	}
 }
 
@@ -938,5 +1028,76 @@ func TestEmitSessionHistoryBranches(t *testing.T) {
 	}
 	if !blocked {
 		t.Errorf("expected VERIFICATION BLOCKED event, got %+v", events)
+	}
+}
+
+// ── Context cancellation ───────────────────────────────────────────
+
+func TestSubmitCancellationEmitsInterrupted(t *testing.T) {
+	r := newTestRunner(t, Config{Workspace: t.TempDir()})
+	r.SetCompletion(func(ctx context.Context, history []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done, err := r.Submit(ctx, "cancel me")
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+
+	// Cancel shortly after the goroutine starts.
+	time.Sleep(150 * time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Submit did not complete after cancellation")
+	}
+
+	events := collectEvents(r, 2*time.Second)
+	errEv := findEvent(events, EventError)
+	if errEv == nil {
+		t.Fatalf("expected EventError after cancellation, got %+v", events)
+	}
+	if errEv.Detail != "interrupted" {
+		t.Errorf("EventError.Detail = %q, want %q", errEv.Detail, "interrupted")
+	}
+	if errEv.Err == nil || !errors.Is(errEv.Err, context.Canceled) {
+		t.Errorf("EventError.Err = %v, want context.Canceled", errEv.Err)
+	}
+}
+
+func TestSubmitDeadlineExceededEmitsTimeout(t *testing.T) {
+	r := newTestRunner(t, Config{Workspace: t.TempDir()})
+	r.SetCompletion(func(ctx context.Context, history []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error) {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	done, err := r.Submit(ctx, "timeout me")
+	if err != nil {
+		t.Fatalf("Submit: %v", err)
+	}
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Submit did not complete after timeout")
+	}
+
+	events := collectEvents(r, 2*time.Second)
+	errEv := findEvent(events, EventError)
+	if errEv == nil {
+		t.Fatalf("expected EventError after timeout, got %+v", events)
+	}
+	if errEv.Detail != "timeout" {
+		t.Errorf("EventError.Detail = %q, want %q", errEv.Detail, "timeout")
+	}
+	if errEv.Err == nil || !errors.Is(errEv.Err, context.DeadlineExceeded) {
+		t.Errorf("EventError.Err = %v, want context.DeadlineExceeded", errEv.Err)
 	}
 }

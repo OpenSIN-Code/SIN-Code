@@ -221,7 +221,9 @@ func renderTreeNode(node *ToolCallNode, focused bool, styles Styles, width int) 
 	}
 
 	duration := ""
-	if node.Duration > 0 {
+	if node.Status == "running" && !node.StartTime.IsZero() {
+		duration = styles.Muted.Render(fmt.Sprintf(" (%s)", formatDuration(time.Since(node.StartTime))))
+	} else if node.Duration > 0 {
 		duration = styles.Muted.Render(fmt.Sprintf(" (%s)", formatDuration(node.Duration)))
 	}
 

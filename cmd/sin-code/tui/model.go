@@ -190,6 +190,7 @@ type Model struct {
 	ctxFn        func() context.Context
 	promptCtx    context.Context
 	promptCancel context.CancelFunc
+	promptStart  time.Time
 	Program      teaProgramIface
 	Workspace    string
 	OnRun        func(name string, args []string) error
@@ -310,6 +311,8 @@ func (m *Model) startPromptContext() context.Context {
 	}
 	ctx := m.ctx()
 	m.promptCtx, m.promptCancel = context.WithCancel(ctx)
+	m.promptStart = time.Now()
+	m.Footer.Duration = 0
 	return m.promptCtx
 }
 
@@ -326,6 +329,16 @@ func (m *Model) CancelPrompt() {
 // completes. Safe to call multiple times.
 func (m *Model) resetPromptContext() {
 	m.promptCancel = nil
+	m.promptStart = time.Time{}
+}
+
+// updatePromptDuration refreshes Footer.Duration from the start of the
+// current prompt. Called for every streaming/agent event so the footer
+// stays live.
+func (m *Model) updatePromptDuration() {
+	if !m.promptStart.IsZero() {
+		m.Footer.Duration = time.Since(m.promptStart)
+	}
 }
 
 func (m *Model) appendChat(msg ChatMessage) {

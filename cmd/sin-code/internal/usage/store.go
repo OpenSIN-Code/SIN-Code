@@ -222,6 +222,35 @@ func (s *Store) RecordFromChatUsage(ctx context.Context, sessionID, model string
 	})
 }
 
+// ComputeCost returns the estimated USD cost for a model and token count.
+// It uses the built-in DefaultPricing() table with a deterministic,
+// case-insensitive substring match (longest matching key first) so the
+// same model always produces the same cost. Unknown or empty models
+// return 0.
+func ComputeCost(model string, tokens int) float64 {
+	if tokens <= 0 || model == "" {
+		return 0
+	}
+	pricing := DefaultPricing()
+	var usdPer1K float64
+	keys := make([]string, 0, len(pricing))
+	for k := range pricing {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(i, j int) bool { return len(keys[i]) > len(keys[j]) })
+	lowerModel := strings.ToLower(model)
+	for _, k := range keys {
+		if strings.Contains(lowerModel, strings.ToLower(k)) {
+			usdPer1K = pricing[k]
+			break
+		}
+	}
+	if usdPer1K == 0 {
+		return 0
+	}
+	return float64(tokens) * usdPer1K / 1000.0
+}
+
 func newEventID(e Event) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s|%s|%s|%s|%d|%d|%d",

@@ -696,10 +696,27 @@ CREATE TABLE model_perf (
 \`code-generation\`, \`debugging\`, \`planning\`, \`refactoring\`,
 \`review\`, \`documentation\`, \`security\`.
 
-**Integration:** \`loopbuilder\` opens \`modelperf.db\`, detects the task
-category from \`Config.TaskDescription\`, queries recommendations, and
+**Integration:** `loopbuilder` opens `modelperf.db`, detects the task
+category from `Config.TaskDescription`, queries recommendations, and
 sorts providers: recommended first, then the rest. Cold-start (empty DB)
 falls back to the full provider pool.
+
+### Headless structured progress output (issue #420 follow-up)
+
+| Config key | Type | Default | CLI equivalent |
+|---|---|---|---|
+| `output.progress` | enum | `"off"` | `--progress` |
+| `output.progress_dest` | enum | `"stderr"` | `--progress-dest` |
+| `output.progress_file` | string | `""` | `--progress-file` |
+
+When `output.progress` is not `"off"`, the agent loop emits structured
+NDJSON progress events (`turn.start`, `tool.pre`, `tool.post`,
+`verify.pass`, `verify.fail`, `task.complete`, `task.abort`) to the
+destination specified by `output.progress_dest`. The default destination
+is `stderr` so the stable headless JSON contract on stdout remains
+untouched. Tool events include only metadata (`tool`, `output_bytes`,
+`error`); raw output is never echoed. Progress output is also wired into
+`sin-code daemon` with `goal_id` and `worker_id` decoration.
 
 ### Verbosity / compression mode (issue #167)
 

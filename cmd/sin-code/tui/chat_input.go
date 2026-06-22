@@ -22,7 +22,7 @@ var chatRunnerRunHook = func(r *chat.Runner, ctx context.Context, prompt string,
 	return r.Run(ctx, prompt, history)
 }
 
-var chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, int, error) {
+var chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string, int)) (string, int, error) {
 	return r.RunStream(ctx, prompt, history, onChunk)
 }
 
@@ -201,13 +201,14 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		return nil
 	}
 	go func() {
-		text, tokens, err := chatRunnerStreamHook(runner, ctx, prompt, historySnapshot, func(chunk string) {
-			prog.Send(ChatChunkMsg{Text: chunk, Idx: thinkingIdx})
+		text, tokens, err := chatRunnerStreamHook(runner, ctx, prompt, historySnapshot, func(chunk string, estimatedTokens int) {
+			prog.Send(ChatChunkMsg{Text: chunk, Idx: thinkingIdx, EstimatedTokens: estimatedTokens})
 		})
 		m.resetPromptContext()
 		prog.Send(chat.ChatResponseMsg{Text: text, Error: err, Tokens: tokens})
 	}()
-	return nil
+	// Start the live footer ticker; it will stop once IsStreaming() becomes false.
+	return streamTickCmd()
 }
 
 func applyChatResponseMsg(m *Model, msg chat.ChatResponseMsg, idx int) {

@@ -50,6 +50,7 @@ const (
 	EventError
 	EventAsk
 	EventTextChunk
+	EventUsage
 )
 
 // String returns a stable lower-case identifier.
@@ -69,6 +70,8 @@ func (k EventKind) String() string {
 		return "ask"
 	case EventTextChunk:
 		return "text-chunk"
+	case EventUsage:
+		return "usage"
 	default:
 		return fmt.Sprintf("event-%d", int(k))
 	}
@@ -76,14 +79,17 @@ func (k EventKind) String() string {
 
 // AgentEvent is a single message from the runner to the TUI.
 type AgentEvent struct {
-	Kind     EventKind
-	Detail   string
-	Result   string
-	Text     string
-	ToolName string
-	Err      error
-	AskReply chan bool
-	Tokens   int
+	Kind       EventKind
+	Detail     string
+	Result     string
+	Text       string
+	ToolName   string
+	ToolCallID string
+	StartTime  time.Time
+	Duration   time.Duration
+	Err        error
+	AskReply   chan bool
+	Tokens     int
 }
 
 // Config bundles the construction-time knobs the TUI passes when
@@ -113,18 +119,19 @@ type Config struct {
 
 // AgentRunner owns one configured loop + session.
 type AgentRunner struct {
-	cfg       Config
-	loop      *agentloop.Loop
-	cleanup   func() error
-	store     *session.Store
-	sess      *session.Session
-	lessons   *lessons.Store
-	Events    chan AgentEvent
-	inflight  atomic.Bool
-	closeOnce sync.Once
-	closed    chan struct{}
-	askMu     sync.Mutex
-	askReply  chan bool
+	cfg           Config
+	loop          *agentloop.Loop
+	cleanup       func() error
+	store         *session.Store
+	sess          *session.Session
+	lessons       *lessons.Store
+	Events        chan AgentEvent
+	inflight      atomic.Bool
+	closeOnce     sync.Once
+	closed        chan struct{}
+	askMu         sync.Mutex
+	askReply      chan bool
+	runningTokens int
 }
 
 // ErrBusy is returned by Submit when a prompt is already running.
@@ -204,6 +211,8 @@ func NewAgentRunner(ctx context.Context, cfg Config) (*AgentRunner, error) {
 		return nil, fmt.Errorf("agentrunner: build loop: %w", err)
 	}
 	loop.Ask = runner.bridgeAsk
+	loop.ToolStart = runner.emitToolStart
+	loop.ToolEnd = runner.emitToolEnd
 	runner.wrapCompletionForStreaming()
 	runner.loop = loop
 	runner.cleanup = cleanup
@@ -296,16 +305,11 @@ func (r *AgentRunner) SubmitSync(ctx context.Context, prompt string) (*agentloop
 
 func (r *AgentRunner) runOnce(ctx context.Context, prompt string) {
 	r.emit(ctx, EventTurn, fmt.Sprintf("turn start: %q", truncate(prompt, 80)), "", "", nil)
+	r.runningTokens = 0
 	res, err := r.loop.Run(ctx, r.sess, prompt)
 	r.emitSessionHistory(ctx)
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
-			r.emit(ctx, EventError, "interrupted", "", "", err)
-		} else if errors.Is(err, context.DeadlineExceeded) {
-			r.emit(ctx, EventError, "timeout", "", "", err)
-		} else {
-			r.emit(ctx, EventError, err.Error(), "", "", err)
-		}
+		r.emitError(err)
 		return
 	}
 	// Emit done with token count from the agent loop result.
@@ -337,21 +341,80 @@ func (r *AgentRunner) emit(ctx context.Context, kind EventKind, detail, result, 
 	}
 }
 
+// emitToolStart forwards a live loop ToolStart callback to the TUI as an
+// EventTool with Detail "tool start". It is non-blocking and drops the event
+// if the runner is closed.
+func (r *AgentRunner) emitToolStart(ctx context.Context, tc agentloop.ToolCall) {
+	ev := AgentEvent{
+		Kind:       EventTool,
+		Detail:     "tool start",
+		ToolName:   tc.Name,
+		ToolCallID: tc.ID,
+		StartTime:  time.Now(),
+	}
+	select {
+	case r.Events <- ev:
+	case <-r.closed:
+	case <-ctx.Done():
+	}
+}
+
+// emitToolEnd forwards a live loop ToolEnd callback to the TUI as an
+// EventTool with Detail "tool result" and the measured duration.
+func (r *AgentRunner) emitToolEnd(ctx context.Context, tc agentloop.ToolCall, d time.Duration, out string, err error) {
+	ev := AgentEvent{
+		Kind:       EventTool,
+		Detail:     "tool result",
+		ToolName:   tc.Name,
+		ToolCallID: tc.ID,
+		Duration:   d,
+		Result:     out,
+		Err:        err,
+	}
+	select {
+	case r.Events <- ev:
+	case <-r.closed:
+	case <-ctx.Done():
+	}
+}
+
+// emitError sends an error event even if the prompt context is already
+// cancelled. Errors are load-bearing for the UI (e.g. "interrupted"), so we
+// block until the channel accepts or the runner is closed.
+func (r *AgentRunner) emitError(err error) {
+	ev := AgentEvent{Kind: EventError, Err: err}
+	switch {
+	case errors.Is(err, context.Canceled):
+		ev.Detail = "interrupted"
+	case errors.Is(err, context.DeadlineExceeded):
+		ev.Detail = "timeout"
+	default:
+		ev.Detail = err.Error()
+	}
+	select {
+	case r.Events <- ev:
+	case <-r.closed:
+	}
+}
+
 // wrapCompletionForStreaming wraps the loop's Completion function so
 // that text responses are emitted as EventTextChunk events in real
-// time. Each LLM turn's text is sent word-by-word so the TUI can
-// render streaming output.
+// time and token usage is accumulated into EventUsage events.
 func (r *AgentRunner) wrapCompletionForStreaming() {
 	if r.loop == nil || r.loop.Completion == nil {
 		return
 	}
 	original := r.loop.Completion
-	r.loop.Completion = func(ctx context.Context, history []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error) {
-		result, err := original(ctx, history, tools)
-		if err == nil && result != nil && result.Text != "" {
-			r.streamText(ctx, result.Text)
-		}
-		return result, err
+	r.loop.Completion = r.wrapCompletion(original)
+}
+
+// emitUsage sends an EventUsage with the current running token total.
+func (r *AgentRunner) emitUsage(ctx context.Context, tokens int) {
+	ev := AgentEvent{Kind: EventUsage, Tokens: tokens}
+	select {
+	case r.Events <- ev:
+	case <-r.closed:
+	case <-ctx.Done():
 	}
 }
 
@@ -420,13 +483,38 @@ func (r *AgentRunner) EventsChannel() <-chan AgentEvent { return r.Events }
 // named type for callers that want to plug in a custom LLM provider.
 type CompletionFunc func(ctx context.Context, history []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error)
 
-// SetCompletion overrides the loop's Completion function.
+// SetCompletion overrides the loop's Completion function and re-wraps
+// it with the streaming/text-chunk + usage instrumentation so tests
+// that plug in a custom completion still emit EventUsage.
 func (r *AgentRunner) SetCompletion(c CompletionFunc) {
 	if r.loop == nil {
 		return
 	}
-	r.loop.Completion = func(ctx context.Context, history []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error) {
-		return c(ctx, history, tools)
+	r.loop.Completion = r.wrapCompletion(c)
+}
+
+// wrapCompletion returns a CompletionFunc that emits EventTextChunk for
+// non-empty text and EventUsage when token usage is present.
+func (r *AgentRunner) wrapCompletion(c CompletionFunc) CompletionFunc {
+	return func(ctx context.Context, history []session.Message, tools []agentloop.ToolSpec) (*agentloop.Completion, error) {
+		result, err := c(ctx, history, tools)
+		if err != nil || result == nil {
+			return result, err
+		}
+		if result.Text != "" {
+			r.streamText(ctx, result.Text)
+		}
+		if result.Usage.TotalTokens > 0 || result.Usage.PromptTokens > 0 || result.Usage.CompletionTokens > 0 {
+			tokens := result.Usage.TotalTokens
+			if tokens == 0 {
+				tokens = result.Usage.PromptTokens + result.Usage.CompletionTokens
+			}
+			if tokens > 0 {
+				r.runningTokens += tokens
+				r.emitUsage(ctx, r.runningTokens)
+			}
+		}
+		return result, err
 	}
 }
 

@@ -25,6 +25,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autolevel"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/checkpoint"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/commands"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife/autoactivate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
@@ -45,23 +46,24 @@ import (
 // chat hook variables — injected by coverage tests to avoid real I/O, network
 // or LLM calls. Production defaults point to the real implementations.
 var (
-	chatLoadAgentFn             = internal.LoadEffectiveAgent
-	chatNewLLMClientFn          = llm.NewClient
-	chatNewProviderCompletionFn = agentloop.NewProviderCompletion
-	chatRulesForAgentFn         = internal.RulesForAgent
-	chatGetwdFn                 = os.Getwd
-	chatNewHooksFn              = hooks.New
-	chatLoadMCPConfigsFn        = mcpclient.LoadConfigs
-	chatNewMCPManagerFn         = mcpclient.NewManager
-	chatMCPConnectAllFn         = func(mgr *mcpclient.Manager, ctx context.Context) error { return mgr.ConnectAll(ctx) }
-	chatOpenSessionFn           = session.Open
-	chatNewGateFn               = verify.NewGate
-	chatAskFn                   agentloop.AskFunc
-	chatPrintResultFn           = printResult
-	chatRunOverrideFn           func(context.Context, *session.Session, string) (*agentloop.Result, error)
-	chatStdout                  io.Writer = os.Stdout
-	chatStderr                  io.Writer = os.Stderr
-	chatStdin                   io.Reader = os.Stdin
+	chatLoadAgentFn                 = internal.LoadEffectiveAgent
+	chatNewLLMClientFn              = llm.NewClient
+	chatNewProviderCompletionFn     = agentloop.NewProviderCompletion
+	chatNewProviderCompletionFullFn = agentloop.NewProviderCompletionFull
+	chatRulesForAgentFn             = internal.RulesForAgent
+	chatGetwdFn                     = os.Getwd
+	chatNewHooksFn                  = hooks.New
+	chatLoadMCPConfigsFn            = mcpclient.LoadConfigs
+	chatNewMCPManagerFn             = mcpclient.NewManager
+	chatMCPConnectAllFn             = func(mgr *mcpclient.Manager, ctx context.Context) error { return mgr.ConnectAll(ctx) }
+	chatOpenSessionFn               = session.Open
+	chatNewGateFn                   = verify.NewGate
+	chatAskFn                       agentloop.AskFunc
+	chatPrintResultFn               = printResult
+	chatRunOverrideFn               func(context.Context, *session.Session, string) (*agentloop.Result, error)
+	chatStdout                      io.Writer = os.Stdout
+	chatStderr                      io.Writer = os.Stderr
+	chatStdin                       io.Reader = os.Stdin
 )
 
 type chatOptions struct {
@@ -140,6 +142,11 @@ type chatOptions struct {
 	compactionRecentTurns int
 	repetitionThreshold   int
 	repetitionWindow      int
+
+	// progress output controls (headless mode only). Default off.
+	progress     string
+	progressDest string
+	progressFile string
 }
 
 func NewChatCmd() *cobra.Command {
@@ -219,6 +226,9 @@ Post-edit automation (issue #376, opt-in via ~/.config/sin/sin-code.toml):
 	f.IntVar(&opts.compactionRecentTurns, "compaction-recent-turns", 0, "number of recent human turns to retain (default 4)")
 	f.IntVar(&opts.repetitionThreshold, "repetition-threshold", 0, "observer-loop detection: number of repetitions before aborting (0 = disabled, issue #377)")
 	f.IntVar(&opts.repetitionWindow, "repetition-window", 0, "observer-loop detection: window size for sequence detection (0 = default 1)")
+	f.StringVar(&opts.progress, "progress", "", "structured progress output: off|json (default from config, fallback off)")
+	f.StringVar(&opts.progressDest, "progress-dest", "stderr", "progress destination: stderr|stdout|file")
+	f.StringVar(&opts.progressFile, "progress-file", "", "progress file path when --progress-dest=file")
 	return cmd
 }
 
@@ -260,12 +270,12 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	completion := chatNewProviderCompletionFn(client, model, agentCfg.MaxTokens, agentCfg.Temperature)
 	if enableCache {
 		cache := llm.NewPromptCache(llm.DefaultCacheTTL)
-		completion = agentloop.NewProviderCompletionFull(client, model, agentCfg.MaxTokens, agentCfg.Temperature, cache, thinkingCfg)
+		completion = chatNewProviderCompletionFullFn(client, model, agentCfg.MaxTokens, agentCfg.Temperature, cache, thinkingCfg)
 	} else if thinkingCfg.Enabled {
 		// Thinking-budget requires the *Full constructor so the
 		// thinking{type:"enabled"} block ends up on the wire. With
 		// the legacy factories the request body would not carry it.
-		completion = agentloop.NewProviderCompletionFull(client, model, agentCfg.MaxTokens, agentCfg.Temperature, nil, thinkingCfg)
+		completion = chatNewProviderCompletionFullFn(client, model, agentCfg.MaxTokens, agentCfg.Temperature, nil, thinkingCfg)
 	}
 
 	perm := permission.New(chatRulesForAgentFn(agentCfg))
@@ -637,6 +647,39 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 
 	if headless {
 		dispatchUserPrompt(opts.prompt)
+		progress := opts.progress
+		if progress == "" {
+			progress = sinCfg.OutputProgress
+		}
+		var progressFile *os.File
+		if progress != "off" && progress != "" {
+			var w io.Writer = chatStderr
+			switch opts.progressDest {
+			case "stdout":
+				w = chatStdout
+			case "file":
+				if opts.progressFile == "" {
+					fmt.Fprintln(chatStderr, "warn: --progress-dest=file requires --progress-file")
+				} else {
+					f, ferr := os.OpenFile(opts.progressFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, filemode.Default())
+					if ferr != nil {
+						fmt.Fprintf(chatStderr, "warn: cannot open progress file: %v\n", ferr)
+					} else {
+						w = f
+						progressFile = f
+					}
+				}
+			}
+			pw := agentloop.NewProgressWriter(w)
+			loop.ProgressWriter = pw
+			loop.SessionID = sess.ID
+			defer func() {
+				pw.Close()
+				if progressFile != nil {
+					_ = progressFile.Close()
+				}
+			}()
+		}
 		var res *agentloop.Result
 		var err error
 		if chatRunOverrideFn != nil {

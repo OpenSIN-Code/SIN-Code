@@ -7,7 +7,9 @@
 package tui
 
 import (
+	"errors"
 	"testing"
+	"time"
 
 	agentrunner "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/tui"
 )
@@ -129,6 +131,115 @@ func TestHandleAgentRunnerEventToolResultEmitsToolCallUpdateMsg(t *testing.T) {
 // TestHandleAgentRunnerEventVerifyEmitsVerifyUpdateMsg verifies that an
 // EventVerify with "PASSED" in the detail dispatches a VerifyUpdateMsg with
 // State = VerifyPassed.
+func TestHandleAgentRunnerEventToolStartWithIDEmitsTreeMsg(t *testing.T) {
+	sender := newFakeProgram()
+	m := NewModel()
+	m.Program = sender
+
+	startTime := time.Now()
+	m.handleAgentRunnerEvent(AgentRunnerMsg{
+		Event: agentrunner.AgentEvent{
+			Kind:       agentrunner.EventTool,
+			ToolName:   "sin_bash",
+			Detail:     "tool start",
+			ToolCallID: "tc-1",
+			StartTime:  startTime,
+		},
+	})
+
+	treeMsg, ok := findToolCallTreeMsg(sender.msgs)
+	if !ok {
+		t.Fatalf("expected ToolCallTreeMsg, got msgs: %v", sender.msgs)
+	}
+	if treeMsg.Node == nil {
+		t.Fatal("ToolCallTreeMsg.Node is nil")
+	}
+	if treeMsg.Node.ID != "tc-1" {
+		t.Errorf("node.ID = %q, want %q", treeMsg.Node.ID, "tc-1")
+	}
+	if treeMsg.Node.Tool != "sin_bash" {
+		t.Errorf("node.Tool = %q, want %q", treeMsg.Node.Tool, "sin_bash")
+	}
+	if treeMsg.Node.Status != "running" {
+		t.Errorf("node.Status = %q, want %q", treeMsg.Node.Status, "running")
+	}
+	if !treeMsg.Node.StartTime.Equal(startTime) {
+		t.Errorf("node.StartTime = %v, want %v", treeMsg.Node.StartTime, startTime)
+	}
+}
+
+func TestHandleAgentRunnerEventToolResultWithIDEmitsUpdateMsg(t *testing.T) {
+	sender := newFakeProgram()
+	m := NewModel()
+	m.Program = sender
+
+	m.handleAgentRunnerEvent(AgentRunnerMsg{
+		Event: agentrunner.AgentEvent{
+			Kind:       agentrunner.EventTool,
+			ToolName:   "sin_bash",
+			Detail:     "tool result",
+			ToolCallID: "tc-1",
+			Duration:   250 * time.Millisecond,
+			Result:     "output",
+		},
+	})
+
+	updMsg, ok := findToolCallUpdateMsg(sender.msgs)
+	if !ok {
+		t.Fatalf("expected ToolCallUpdateMsg, got msgs: %v", sender.msgs)
+	}
+	if updMsg.ID != "tc-1" {
+		t.Errorf("update.ID = %q, want %q", updMsg.ID, "tc-1")
+	}
+	if updMsg.Status != "success" {
+		t.Errorf("update.Status = %q, want %q", updMsg.Status, "success")
+	}
+	if updMsg.Duration != 250*time.Millisecond {
+		t.Errorf("update.Duration = %v, want %v", updMsg.Duration, 250*time.Millisecond)
+	}
+	if updMsg.Output != "output" {
+		t.Errorf("update.Output = %q, want %q", updMsg.Output, "output")
+	}
+	if updMsg.Error != "" {
+		t.Errorf("update.Error = %q, want empty", updMsg.Error)
+	}
+}
+
+func TestHandleAgentRunnerEventToolResultWithIDErrorEmitsUpdateMsg(t *testing.T) {
+	sender := newFakeProgram()
+	m := NewModel()
+	m.Program = sender
+
+	m.handleAgentRunnerEvent(AgentRunnerMsg{
+		Event: agentrunner.AgentEvent{
+			Kind:       agentrunner.EventTool,
+			ToolName:   "sin_bash",
+			Detail:     "tool result",
+			ToolCallID: "tc-1",
+			Duration:   100 * time.Millisecond,
+			Result:     "partial",
+			Err:        errors.New("boom"),
+		},
+	})
+
+	updMsg, ok := findToolCallUpdateMsg(sender.msgs)
+	if !ok {
+		t.Fatalf("expected ToolCallUpdateMsg, got msgs: %v", sender.msgs)
+	}
+	if updMsg.ID != "tc-1" {
+		t.Errorf("update.ID = %q, want %q", updMsg.ID, "tc-1")
+	}
+	if updMsg.Status != "error" {
+		t.Errorf("update.Status = %q, want %q", updMsg.Status, "error")
+	}
+	if updMsg.Error != "boom" {
+		t.Errorf("update.Error = %q, want %q", updMsg.Error, "boom")
+	}
+	if updMsg.Output != "partial" {
+		t.Errorf("update.Output = %q, want %q", updMsg.Output, "partial")
+	}
+}
+
 func TestHandleAgentRunnerEventVerifyEmitsVerifyUpdateMsg(t *testing.T) {
 	sender := newFakeProgram()
 	m := NewModel()

@@ -56,6 +56,82 @@ func TestModelContextFn(t *testing.T) {
 	}
 }
 
+func TestModelPromptContextCancel(t *testing.T) {
+	m := NewModel()
+	parent, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	m.SetContextFn(func() context.Context { return parent })
+
+	ctx := m.startPromptContext()
+	if ctx == parent {
+		t.Error("startPromptContext should return a derived context, not the parent")
+	}
+	if ctx.Err() != nil {
+		t.Fatalf("new prompt context already cancelled: %v", ctx.Err())
+	}
+
+	m.CancelPrompt()
+	if ctx.Err() != context.Canceled {
+		t.Errorf("after CancelPrompt, ctx.Err() = %v, want context.Canceled", ctx.Err())
+	}
+	if m.promptCancel != nil {
+		t.Error("CancelPrompt should reset promptCancel")
+	}
+}
+
+func TestModelPromptContextReusesCancel(t *testing.T) {
+	m := NewModel()
+	m.SetContextFn(func() context.Context { return context.Background() })
+
+	ctx1 := m.startPromptContext()
+	m.CancelPrompt()
+
+	ctx2 := m.startPromptContext()
+	if ctx1 == ctx2 {
+		t.Error("startPromptContext should create a new context after cancellation")
+	}
+	if ctx2.Err() != nil {
+		t.Errorf("new prompt context should not be cancelled: %v", ctx2.Err())
+	}
+	m.CancelPrompt()
+}
+
+func TestModelStreamTickUpdatesDuration(t *testing.T) {
+	m := NewModel()
+	m.SetContextFn(func() context.Context { return context.Background() })
+	m.startPromptContext()
+	m.setStreaming(true)
+
+	if m.Footer.Duration != 0 {
+		t.Fatalf("Footer.Duration = %v before tick, want 0", m.Footer.Duration)
+	}
+
+	// Simulate a tick after a short duration.
+	time.Sleep(10 * time.Millisecond)
+	m.updatePromptDuration()
+	if m.Footer.Duration <= 0 {
+		t.Errorf("Footer.Duration not updated after tick: %v", m.Footer.Duration)
+	}
+}
+
+func TestStreamTickCmdReschedulesWhileStreaming(t *testing.T) {
+	m := NewModel()
+	m.SetContextFn(func() context.Context { return context.Background() })
+	m.startPromptContext()
+	m.setStreaming(true)
+
+	_, cmd := m.Update(StreamTickMsg{})
+	if cmd == nil {
+		t.Fatal("expected a re-scheduling command while streaming")
+	}
+
+	m.setStreaming(false)
+	_, cmd = m.Update(StreamTickMsg{})
+	if cmd != nil {
+		t.Error("expected no command when not streaming")
+	}
+}
+
 func TestApplyThemeOutOfBounds(t *testing.T) {
 	m := NewModel()
 	m.ThemeIdx = -1
@@ -441,7 +517,7 @@ func TestHandleChatSubmitWithRunnerProgram(t *testing.T) {
 	origStream := chatRunnerStreamHook
 	origAR := newAgentRunnerHook
 	newChatRunnerHook = func() (*chat.Runner, error) { return &chat.Runner{}, nil }
-	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, int, error) {
+	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string, int)) (string, int, error) {
 		return "async reply", 0, nil
 	}
 	newAgentRunnerHook = func(ctx context.Context, cfg agentrunner.Config) (*agentrunner.AgentRunner, error) {
@@ -997,6 +1073,89 @@ func TestHandleChatResponseEmptyHistory(t *testing.T) {
 	}
 }
 
+func TestHandleChatResponseUpdatesFooterCost(t *testing.T) {
+	m := NewModel()
+	m.initChatInput()
+	m.Footer.ModelName = "gpt-4o"
+	m.ChatHistory = []ChatMessage{{Kind: chatUser, Text: "hello"}}
+	m.handleChatResponse(chat.ChatResponseMsg{Text: "world", Tokens: 100000})
+	if m.Footer.Tokens != 100000 {
+		t.Errorf("Footer.Tokens = %d, want 100000", m.Footer.Tokens)
+	}
+	if m.Footer.Cost != "$0.50" {
+		t.Errorf("Footer.Cost = %q, want $0.50", m.Footer.Cost)
+	}
+	if m.Footer.TokensPct != clamp(100000.0/128000.0, 0, 1) {
+		t.Errorf("Footer.TokensPct = %v, want clamped value", m.Footer.TokensPct)
+	}
+}
+
+func TestUpdateChatChunkMsgUpdatesFooter(t *testing.T) {
+	m := NewModel()
+	m.initChatInput()
+	m.Footer.ModelName = "gpt-4o"
+	m.ChatHistory = []ChatMessage{{Kind: chatThinking}}
+	m.Update(ChatChunkMsg{Text: strings.Repeat("x", 400), Idx: 0, EstimatedTokens: 100})
+	if m.Footer.Tokens != 100 {
+		t.Errorf("Footer.Tokens = %d, want 100", m.Footer.Tokens)
+	}
+	if m.Footer.Cost != "$0.00" {
+		t.Errorf("Footer.Cost = %q, want $0.00 (cost below 1c at 100 tokens)", m.Footer.Cost)
+	}
+}
+
+func TestUpdateChatChunkMsgVisibleCost(t *testing.T) {
+	m := NewModel()
+	m.initChatInput()
+	m.Footer.ModelName = "gpt-4o"
+	m.ChatHistory = []ChatMessage{{Kind: chatThinking}}
+	m.Update(ChatChunkMsg{Text: strings.Repeat("x", 400000), Idx: 0, EstimatedTokens: 100000})
+	if m.Footer.Tokens != 100000 {
+		t.Errorf("Footer.Tokens = %d, want 100000", m.Footer.Tokens)
+	}
+	if m.Footer.Cost != "$0.50" {
+		t.Errorf("Footer.Cost = %q, want $0.50", m.Footer.Cost)
+	}
+}
+
+func TestUpdateChatChunkMsgEmptyModelCostZero(t *testing.T) {
+	m := NewModel()
+	m.initChatInput()
+	m.Footer.ModelName = ""
+	m.ChatHistory = []ChatMessage{{Kind: chatThinking}}
+	m.Update(ChatChunkMsg{Text: "hello", Idx: 0, EstimatedTokens: 100})
+	if m.Footer.Tokens != 100 {
+		t.Errorf("Footer.Tokens = %d, want 100", m.Footer.Tokens)
+	}
+	if m.Footer.Cost != "$0.00" {
+		t.Errorf("Footer.Cost = %q, want $0.00", m.Footer.Cost)
+	}
+}
+
+func TestHandleAgentRunnerEventUsage(t *testing.T) {
+	m := NewModel()
+	m.Footer.ModelName = "gpt-4o"
+	m.handleAgentRunnerEvent(AgentRunnerMsg{Event: agentrunner.AgentEvent{Kind: agentrunner.EventUsage, Tokens: 100000}})
+	if m.Footer.Tokens != 100000 {
+		t.Errorf("Footer.Tokens = %d, want 100000", m.Footer.Tokens)
+	}
+	if m.Footer.Cost != "$0.50" {
+		t.Errorf("Footer.Cost = %q, want $0.50", m.Footer.Cost)
+	}
+}
+
+func TestHandleAgentRunnerEventDoneCost(t *testing.T) {
+	m := NewModel()
+	m.Footer.ModelName = "gpt-4o"
+	m.handleAgentRunnerEvent(AgentRunnerMsg{Event: agentrunner.AgentEvent{Kind: agentrunner.EventDone, Tokens: 100000, Result: "verified"}})
+	if m.Footer.Tokens != 100000 {
+		t.Errorf("Footer.Tokens = %d, want 100000", m.Footer.Tokens)
+	}
+	if m.Footer.Cost != "$0.50" {
+		t.Errorf("Footer.Cost = %q, want $0.50", m.Footer.Cost)
+	}
+}
+
 func TestAgentRunnerMsgReSubscribe(t *testing.T) {
 	m := NewModel()
 	ar := &agentrunner.AgentRunner{Events: make(chan agentrunner.AgentEvent, 1)}
@@ -1482,7 +1641,7 @@ func TestUpdateChatSubmit(t *testing.T) {
 	origStream := chatRunnerStreamHook
 	origAR := newAgentRunnerHook
 	newChatRunnerHook = func() (*chat.Runner, error) { return &chat.Runner{}, nil }
-	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, int, error) {
+	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string, int)) (string, int, error) {
 		return "async", 0, nil
 	}
 	newAgentRunnerHook = func(ctx context.Context, cfg agentrunner.Config) (*agentrunner.AgentRunner, error) {

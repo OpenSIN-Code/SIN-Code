@@ -47,14 +47,19 @@ func (s *stubLLM) run(ctx context.Context, prompt string, history []string) (str
 	return s.responses["default"], len(s.responses["default"]), nil
 }
 
-func (s *stubLLM) runStream(ctx context.Context, prompt string, history []string, onChunk func(string)) (string, int, error) {
+func (s *stubLLM) runStream(ctx context.Context, prompt string, history []string, onChunk func(string, int)) (string, int, error) {
 	resp, tokens, err := s.run(ctx, prompt, history)
 	if err != nil {
 		return "", 0, err
 	}
 	words := strings.Fields(resp)
+	var sb strings.Builder
 	for _, w := range words {
-		onChunk(w + " ")
+		if sb.Len() > 0 {
+			sb.WriteString(" ")
+		}
+		sb.WriteString(w)
+		onChunk(w+" ", estimateTokens(sb.String()))
 		time.Sleep(2 * time.Millisecond)
 	}
 	return resp, tokens, nil
@@ -103,7 +108,7 @@ func setupDogfoodModel(t *testing.T, dir string) *Model {
 	chatRunnerRunHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string) (string, int, error) {
 		return stub.run(ctx, prompt, history)
 	}
-	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string)) (string, int, error) {
+	chatRunnerStreamHook = func(r *chat.Runner, ctx context.Context, prompt string, history []string, onChunk func(string, int)) (string, int, error) {
 		return stub.runStream(ctx, prompt, history, onChunk)
 	}
 	t.Cleanup(func() {

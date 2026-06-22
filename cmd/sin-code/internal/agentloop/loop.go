@@ -109,6 +109,17 @@ type Loop struct {
 	Gate      *verify.Gate
 	LocalTool LocalToolFunc
 	LocalSpec []ToolSpec
+
+	// ToolStart/ToolEnd are optional live callbacks fired around every
+	// local tool invocation. They are the foundation for live TUI tool
+	// tree updates and headless structured progress output.
+	ToolStart func(ctx context.Context, tc ToolCall)
+	ToolEnd   func(ctx context.Context, tc ToolCall, duration time.Duration, output string, err error)
+
+	// ProgressWriter emits structured NDJSON progress events for headless
+	// consumers. Optional — nil disables progress output.
+	ProgressWriter *ProgressWriter
+
 	Workspace string
 	MaxTurns  int
 	// BeforeMutate, if set, is called before a mutating tool
@@ -596,6 +607,26 @@ func (l *Loop) fire(ctx context.Context, event, name string, data map[string]any
 	})
 }
 
+func (l *Loop) fireToolStart(ctx context.Context, tc ToolCall) {
+	if l.ToolStart != nil {
+		l.ToolStart(ctx, tc)
+	}
+}
+
+func (l *Loop) fireToolEnd(ctx context.Context, tc ToolCall, d time.Duration, out string, err error) {
+	if l.ToolEnd != nil {
+		l.ToolEnd(ctx, tc, d, out, err)
+	}
+}
+
+func (l *Loop) emitProgress(ev ProgressEvent) {
+	if l == nil || l.ProgressWriter == nil {
+		return
+	}
+	ev.SessionID = l.SessionID
+	l.ProgressWriter.Write(ev)
+}
+
 func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []string) {
 	pre := l.fire(ctx, hooks.ToolPre, tc.Name, map[string]any{"args": tc.Args})
 	injects = append(injects, pre.PromptInjects...)
@@ -640,7 +671,20 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 			l.BeforeMutate(ctx, tc.Name, p)
 		}
 	}
+	start := time.Now()
+	l.fireToolStart(ctx, tc)
+	l.emitProgress(ProgressEvent{Event: "tool.pre", Tool: tc.Name})
 	res, err := l.LocalTool(ctx, tc.Name, tc.Args)
+	duration := time.Since(start)
+	l.fireToolEnd(ctx, tc, duration, res, err)
+	l.emitProgress(ProgressEvent{
+		Event: "tool.post",
+		Tool:  tc.Name,
+		Data: map[string]any{
+			"output_bytes": len(res),
+			"error":        err != nil,
+		},
+	})
 	if err != nil {
 		l.fire(ctx, hooks.ToolError, tc.Name, map[string]any{"error": err.Error()})
 		l.record(ctx, ledger.TypeToolError, map[string]any{"tool": tc.Name}, "tool error: "+tc.Name)
@@ -784,6 +828,8 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	var toolsUsed []string
 
 	for turn := 0; turn < maxTurns; turn++ {
+		l.fire(ctx, hooks.TurnStart, "", map[string]any{"turn": turn})
+		l.emitProgress(ProgressEvent{Event: "turn.start", Turn: turn})
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
@@ -1016,6 +1062,11 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				vf := l.fire(ctx, hooks.VerifyFail, "", map[string]any{
 					"mode": string(res.Mode), "report": res.Report,
 				})
+				l.emitProgress(ProgressEvent{
+					Event: "verify.fail",
+					Turn:  turn,
+					Data:  map[string]any{"mode": string(res.Mode)},
+				})
 				l.record(ctx, ledger.TypeVerifyFail, map[string]any{"mode": string(res.Mode)}, "verification failed ("+string(res.Mode)+")")
 				pendingInjects = append(pendingInjects, vf.PromptInjects...)
 				if l.Lessons != nil {
@@ -1072,6 +1123,11 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			}
 			l.fire(ctx, hooks.VerifyPass, "", map[string]any{
 				"mode": string(res.Mode), "report": res.Report,
+			})
+			l.emitProgress(ProgressEvent{
+				Event: "verify.pass",
+				Turn:  turn,
+				Data:  map[string]any{"mode": string(res.Mode)},
 			})
 			l.record(ctx, ledger.TypeVerifyPass, map[string]any{"mode": string(res.Mode)}, "verification passed ("+string(res.Mode)+")")
 
@@ -1208,6 +1264,14 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			l.fire(ctx, hooks.TaskComplete, "", map[string]any{
 				"summary": result.Summary, "turns": result.Turns, "verified": result.Verified,
 			})
+			l.emitProgress(ProgressEvent{
+				Event: "task.complete",
+				Turn:  turn,
+				Data: map[string]any{
+					"verified": result.Verified,
+					"turns":    result.Turns,
+				},
+			})
 			l.record(ctx, ledger.TypeTaskComplete, map[string]any{"summary": result.Summary, "turns": result.Turns, "verified": result.Verified}, "task complete: "+result.Summary)
 			return result, nil
 		}
@@ -1280,6 +1344,10 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 		l.fire(ctx, hooks.TaskAbort, "", map[string]any{
 			"reason": "max turns exceeded", "continuation": true,
 		})
+		l.emitProgress(ProgressEvent{
+			Event: "task.abort",
+			Data:  map[string]any{"reason": "max turns exceeded", "continuation": true},
+		})
 		if lastText == "" {
 			lastText = summary
 		}
@@ -1294,6 +1362,10 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 		}, nil
 	}
 	l.fire(ctx, hooks.TaskAbort, "", map[string]any{"reason": "max turns exceeded"})
+	l.emitProgress(ProgressEvent{
+		Event: "task.abort",
+		Data:  map[string]any{"reason": "max turns exceeded"},
+	})
 	l.record(ctx, ledger.TypeTaskAbort, map[string]any{"reason": "max turns exceeded"}, "task aborted: max turns exceeded")
 	return nil, fmt.Errorf("max turns (%d) exceeded without verified completion", maxTurns)
 }

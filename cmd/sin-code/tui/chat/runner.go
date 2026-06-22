@@ -129,12 +129,12 @@ func (r *Runner) buildMessages(prompt string, history []string) []llm.Message {
 	return messages
 }
 
-func (r *Runner) RunStream(ctx context.Context, prompt string, history []string, onChunk func(string)) (string, int, error) {
+func (r *Runner) RunStream(ctx context.Context, prompt string, history []string, onChunk func(string, int)) (string, int, error) {
 	if r == nil || r.Client == nil {
 		return "", 0, fmt.Errorf("runner not initialized")
 	}
 	if onChunk == nil {
-		onChunk = func(string) {}
+		onChunk = func(string, int) {}
 	}
 
 	// Real SSE streaming path — available on every Client with an
@@ -158,13 +158,14 @@ func (r *Runner) RunStream(ctx context.Context, prompt string, history []string,
 	// response (the TUI overwrites the streamed buffer with the
 	// final text on completion).
 	r.StreamMode = "fake"
-	onChunk("⚠ streaming simulated — API does not support SSE\n\n")
+	onChunk("⚠ streaming simulated — API does not support SSE\n\n", 0)
 	return r.runFakeStream(ctx, prompt, history, onChunk)
 }
 
 // runRealStream opens an SSE connection and forwards each delta
-// content fragment to onChunk as it arrives.
-func (r *Runner) runRealStream(ctx context.Context, prompt string, history []string, onChunk func(string)) (string, int, error) {
+// content fragment to onChunk as it arrives. Estimated tokens are
+// sent alongside each chunk using a simple chars/4 heuristic.
+func (r *Runner) runRealStream(ctx context.Context, prompt string, history []string, onChunk func(string, int)) (string, int, error) {
 	model := r.Model
 	if model == "" {
 		model = defaultModel
@@ -185,7 +186,7 @@ func (r *Runner) runRealStream(ctx context.Context, prompt string, history []str
 		}
 		if chunk.Content != "" {
 			fullText.WriteString(chunk.Content)
-			onChunk(chunk.Content)
+			onChunk(chunk.Content, estimateTokens(fullText.String()))
 		}
 	})
 	if err != nil {
@@ -208,7 +209,7 @@ func (r *Runner) runRealStream(ctx context.Context, prompt string, history []str
 // call whose result is dribbled out word-by-word with a small delay.
 // Used when the provider does not support SSE or the streaming
 // request failed.
-func (r *Runner) runFakeStream(ctx context.Context, prompt string, history []string, onChunk func(string)) (string, int, error) {
+func (r *Runner) runFakeStream(ctx context.Context, prompt string, history []string, onChunk func(string, int)) (string, int, error) {
 	full, tokens, err := r.Run(ctx, prompt, history)
 	if err != nil {
 		return "", 0, err
@@ -218,10 +219,10 @@ func (r *Runner) runFakeStream(ctx context.Context, prompt string, history []str
 	for i, w := range words {
 		if i > 0 {
 			sb.WriteString(" ")
-			onChunk(" ")
+			onChunk(" ", estimateTokens(sb.String()))
 		}
 		sb.WriteString(w)
-		onChunk(w)
+		onChunk(w, estimateTokens(sb.String()))
 		select {
 		case <-time.After(8 * time.Millisecond):
 		case <-ctx.Done():
@@ -229,6 +230,19 @@ func (r *Runner) runFakeStream(ctx context.Context, prompt string, history []str
 		}
 	}
 	return sb.String(), tokens, nil
+}
+
+// estimateTokens returns a simple character-based token estimate
+// (1 token per ~4 characters). No external tokenizer is used.
+func estimateTokens(text string) int {
+	if text == "" {
+		return 0
+	}
+	tokens := len(text) / 4
+	if tokens < 1 {
+		return 1
+	}
+	return tokens
 }
 
 type ChatChunkMsg struct {

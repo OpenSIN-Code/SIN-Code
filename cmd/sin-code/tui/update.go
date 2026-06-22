@@ -12,10 +12,32 @@ import (
 	"charm.land/bubbles/v2/list"
 	"charm.land/lipgloss/v2"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/usage"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/tui/chat"
 )
 
 var keymap = DefaultKeymap()
+
+// clamp returns v constrained to [lo, hi].
+func clamp(v, lo, hi float64) float64 {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+// streamTickInterval is how often the live footer updates while streaming.
+const streamTickInterval = 250 * time.Millisecond
+
+// streamTickCmd returns a command that waits for the streaming tick interval
+// and then sends a StreamTickMsg. The Update loop keeps re-scheduling it while
+// IsStreaming() is true.
+func streamTickCmd() tea.Cmd {
+	return tea.Tick(streamTickInterval, func(time.Time) tea.Msg { return StreamTickMsg{} })
+}
 
 // Additional bindings not in the keymap struct
 var (
@@ -304,13 +326,26 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ChatChunkMsg:
+		m.updatePromptDuration()
 		if msg.Idx >= 0 && msg.Idx < len(m.ChatHistory) {
 			m.ChatHistory[msg.Idx].Kind = chatAssistant
 			m.ChatHistory[msg.Idx].Text += msg.Text
 		}
+		if msg.EstimatedTokens > 0 {
+			m.Footer.Tokens = msg.EstimatedTokens
+			m.Footer.TokensPct = clamp(float64(msg.EstimatedTokens)/128000.0, 0, 1)
+			m.Footer.Cost = fmt.Sprintf("$%.2f", usage.ComputeCost(m.Footer.ModelName, msg.EstimatedTokens))
+		}
 		return m, nil
 
 	case ChatCopyMsg:
+		return m, nil
+
+	case StreamTickMsg:
+		m.updatePromptDuration()
+		if m.IsStreaming() {
+			return m, streamTickCmd()
+		}
 		return m, nil
 
 	case AgentRunnerMsg:
@@ -320,6 +355,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if !msg.Closed && m.AgentRunner != nil {
 			cmds = append(cmds, listenAgentRunnerCmd(m.AgentRunner))
+		}
+		// Once streaming starts, schedule the live ticker for the footer.
+		if m.IsStreaming() {
+			cmds = append(cmds, streamTickCmd())
 		}
 		return m, tea.Batch(cmds...)
 
@@ -1249,13 +1288,12 @@ func (m *Model) rightWidth() int {
 }
 
 func (m *Model) handleChatResponse(msg chat.ChatResponseMsg) {
+	m.updatePromptDuration()
 	m.setStreaming(false)
 	if msg.Tokens > 0 {
 		m.Footer.Tokens += msg.Tokens
-		m.Footer.TokensPct = float64(m.Footer.Tokens) / 128000.0
-		if m.Footer.TokensPct > 1.0 {
-			m.Footer.TokensPct = 1.0
-		}
+		m.Footer.TokensPct = clamp(float64(m.Footer.Tokens)/128000.0, 0, 1)
+		m.Footer.Cost = fmt.Sprintf("$%.2f", usage.ComputeCost(m.Footer.ModelName, m.Footer.Tokens))
 	}
 	if len(m.ChatHistory) == 0 {
 		return

@@ -10,6 +10,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	agentrunner "github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/tui"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/usage"
 )
 
 type AgentRunnerMsg struct {
@@ -58,6 +59,7 @@ func listenAgentRunnerCmd(r *agentrunner.AgentRunner) tea.Cmd {
 }
 
 func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
+	m.updatePromptDuration()
 	if msg.Closed {
 		m.AgentRunner = nil
 		m.resetPromptContext()
@@ -85,7 +87,38 @@ func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 		if toolName == "" && strings.HasPrefix(ev.Detail, "tool: ") {
 			toolName = strings.TrimPrefix(ev.Detail, "tool: ")
 		}
-		if !isResult && toolName != "" {
+		if ev.ToolCallID != "" {
+			if ev.Detail == "tool start" {
+				if m.Program != nil {
+					m.Program.Send(ToolCallTreeMsg{
+						ParentID: "",
+						Node: &ToolCallNode{
+							ID:        ev.ToolCallID,
+							Tool:      ev.ToolName,
+							Status:    "running",
+							StartTime: ev.StartTime,
+							Expanded:  false,
+						},
+					})
+				}
+			} else if ev.Detail == "tool result" {
+				status := "success"
+				errMsg := ""
+				if ev.Err != nil {
+					status = "error"
+					errMsg = ev.Err.Error()
+				}
+				if m.Program != nil {
+					m.Program.Send(ToolCallUpdateMsg{
+						ID:       ev.ToolCallID,
+						Status:   status,
+						Duration: ev.Duration,
+						Output:   ev.Result,
+						Error:    errMsg,
+					})
+				}
+			}
+		} else if !isResult && toolName != "" {
 			// New tool call starting — add node to tree.
 			nodeID := fmt.Sprintf("tool-%d-%s", time.Now().UnixNano(), toolName)
 			if m.Program != nil {
@@ -136,16 +169,19 @@ func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 		// Don't add to chat history — the permission dialog IS the
 		// visual feedback. A 🔒 entry would clutter the scrollback.
 		return
+	case agentrunner.EventUsage:
+		m.Footer.Tokens = ev.Tokens
+		m.Footer.TokensPct = clamp(float64(ev.Tokens)/128000.0, 0, 1)
+		m.Footer.Cost = fmt.Sprintf("$%.2f", usage.ComputeCost(m.Footer.ModelName, ev.Tokens))
+		return
 	case agentrunner.EventDone:
 		cm = ChatMessage{Kind: chatDone, Detail: ev.Result}
 		m.setStreaming(false)
 		m.resetPromptContext()
 		if ev.Tokens > 0 {
 			m.Footer.Tokens += ev.Tokens
-			m.Footer.TokensPct = float64(m.Footer.Tokens) / 128000.0
-			if m.Footer.TokensPct > 1.0 {
-				m.Footer.TokensPct = 1.0
-			}
+			m.Footer.TokensPct = clamp(float64(m.Footer.Tokens)/128000.0, 0, 1)
+			m.Footer.Cost = fmt.Sprintf("$%.2f", usage.ComputeCost(m.Footer.ModelName, m.Footer.Tokens))
 		}
 		if strings.Contains(strings.ToLower(ev.Result), "verified") && m.Program != nil {
 			m.Program.Send(VerifyUpdateMsg{
