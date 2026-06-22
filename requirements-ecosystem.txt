@@ -11,6 +11,9 @@ SIN-Code-EFM-Tool==main
 SIN-Code-Forge-Tool==main
 SIN-Code-Symfony-Lens==main
 
+# Vendored security tools (in-tree Go modules)
+SIN-Code-Security-Bundle==main
+
 # Core companions
 SIN-Code-Orchestration==main
 SIN-Code-Review-Interface==main
@@ -35,3 +38,4 @@ SIN-Code-Skills-Skill==main
 
 # LLM backends
 coder-SIN-Qwen==main
+SIN-Code-FireworksAI-OpenCode-Config==main
