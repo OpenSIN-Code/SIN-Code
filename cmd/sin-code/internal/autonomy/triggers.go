@@ -102,6 +102,9 @@ func (r *Runner) runCron(ctx context.Context, t Trigger) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			if _, err := r.Queue.Add(ctx, t.Prompt, r.Workspace, t.Priority, 1); err != nil {
 				fmt.Fprintf(os.Stderr, "warn: cron enqueue failed: %v\n", err)
 			} else if r.onEnqueue != nil {
@@ -144,6 +147,9 @@ func (r *Runner) runDiscover(ctx context.Context, t Trigger) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			scan()
 		}
 	}
@@ -162,6 +168,9 @@ func (r *Runner) runDream(ctx context.Context, t Trigger) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			if r.DreamFunc != nil {
 				if err := r.DreamFunc(ctx); err != nil {
 					fmt.Fprintf(os.Stderr, "warn: dream trigger failed: %v\n", err)
@@ -190,6 +199,9 @@ func (r *Runner) runWatch(ctx context.Context, t Trigger) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			current := fingerprint(r.Workspace, t.Glob)
 			if current != last {
 				last = current
