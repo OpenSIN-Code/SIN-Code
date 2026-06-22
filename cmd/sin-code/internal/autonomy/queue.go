@@ -257,6 +257,21 @@ func (q *Queue) Get(ctx context.Context, id int64) (*Goal, error) {
 	return &g, nil
 }
 
+// GetStatus returns just the goal's status, or an error if the ID does
+// not exist. Lightweight status probe used by synchronous spawn_subgoal
+// polling (issue #385).
+func (q *Queue) GetStatus(ctx context.Context, id int64) (GoalStatus, error) {
+	var s GoalStatus
+	err := q.db.QueryRowContext(ctx, `SELECT status FROM goals WHERE id = ?`, id).Scan(&s)
+	if err == sql.ErrNoRows {
+		return "", fmt.Errorf("goal %d not found", id)
+	}
+	if err != nil {
+		return "", err
+	}
+	return s, nil
+}
+
 // Children returns the direct children of parentID, oldest first.
 func (q *Queue) Children(ctx context.Context, parentID int64) ([]Goal, error) {
 	rows, err := _dbQueryContext(q.db, ctx, `SELECT `+selectColumns+` FROM goals WHERE parent_id = ? ORDER BY id ASC`, parentID)
