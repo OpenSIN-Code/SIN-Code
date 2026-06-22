@@ -21,9 +21,12 @@ func TestSecurityCmd_DetectGoProject(t *testing.T) {
 }
 
 func TestSecurityCmd_DetectGenericProject(t *testing.T) {
-	result := detectProjectType("/tmp")
+	// Use a real temp directory with no project markers so the test is
+	// independent of whatever happens to live in /tmp on this machine.
+	dir := t.TempDir()
+	result := detectProjectType(dir)
 	if result != "generic" {
-		t.Errorf("expected 'generic' for /tmp, got %q", result)
+		t.Errorf("expected 'generic' for empty temp dir, got %q", result)
 	}
 }
 

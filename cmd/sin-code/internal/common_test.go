@@ -3,6 +3,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -18,6 +19,13 @@ func TestMain(m *testing.M) {
 		return
 	}
 	if os.Getenv("SIN_CODE_SUBPROCESS") == "1" {
+		// Hermetic handler tests that spin up httptest.NewServer need the
+		// sub-process harvest command to permit loopback URLs. The egress
+		// package denies those by default (security audit Finding 4); this
+		// opt-in test-only override preserves that policy in production.
+		if os.Getenv("SIN_CODE_TEST_HARVEST_EGRESS_ALLOW") == "1" {
+			harvestEgressCheck = func(_ context.Context, _ string) error { return nil }
+		}
 		SetCurrentVersion("test")
 		root := &cobra.Command{Use: "sin-code", Version: "test"}
 		root.AddCommand(DiscoverCmd, ExecuteCmd, MapCmd, GraspCmd, ScoutCmd,

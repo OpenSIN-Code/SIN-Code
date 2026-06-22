@@ -15,6 +15,13 @@ import (
 func setupServeTest(t *testing.T) {
 	t.Helper()
 	t.Setenv("SIN_CODE_SUBPROCESS", "1")
+	// Subcommand handler tests must exercise the code in this repo, not an
+	// arbitrary sin-code binary that happens to be on PATH. Pointing the
+	// subprocess dispatcher at the current test binary makes the suite
+	// hermetic and deterministic.
+	if self, err := os.Executable(); err == nil {
+		t.Setenv("SIN_CODE_BIN", self)
+	}
 }
 
 func TestRunSubcommand_ExecuteEcho(t *testing.T) {
@@ -555,6 +562,8 @@ func TestHandleScout_InvalidRoot(t *testing.T) {
 
 func TestHandleHarvest_HTTPServer(t *testing.T) {
 	setupServeTest(t)
+	// Allow the sub-process harvest command to reach the httptest loopback server.
+	t.Setenv("SIN_CODE_TEST_HARVEST_EGRESS_ALLOW", "1")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -574,6 +583,8 @@ func TestHandleHarvest_HTTPServer(t *testing.T) {
 
 func TestHandleHarvest_JSONFormat(t *testing.T) {
 	setupServeTest(t)
+	// Allow the sub-process harvest command to reach the httptest loopback server.
+	t.Setenv("SIN_CODE_TEST_HARVEST_EGRESS_ALLOW", "1")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
@@ -593,6 +604,8 @@ func TestHandleHarvest_JSONFormat(t *testing.T) {
 
 func TestHandleHarvest_PostMethod(t *testing.T) {
 	setupServeTest(t)
+	// Allow the sub-process harvest command to reach the httptest loopback server.
+	t.Setenv("SIN_CODE_TEST_HARVEST_EGRESS_ALLOW", "1")
 	gotMethod := ""
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotMethod = r.Method
