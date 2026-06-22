@@ -350,6 +350,12 @@ func (m *Model) setStreaming(streaming bool) {
 	m.Footer.Streaming = streaming
 }
 
+// IsStreaming reports whether the model is currently receiving a streaming
+// response or waiting for the agent loop to produce output.
+func (m *Model) IsStreaming() bool {
+	return m.Footer.Streaming
+}
+
 func (m *Model) updateSessionPreview() {
 	if len(m.ChatHistory) == 0 {
 		return

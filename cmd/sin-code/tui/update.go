@@ -575,7 +575,13 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case key.Matches(msg, keymap.Interrupt):
-		m.AppendHistory(m.ViewKind.String(), "interrupt", "Esc pressed", true)
+		if m.IsStreaming() {
+			m.CancelPrompt()
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: "Interrupted — cancelling in-flight work…"})
+			m.AppendHistory(m.ViewKind.String(), "interrupt", "cancelled in-flight prompt", true)
+		} else {
+			m.AppendHistory(m.ViewKind.String(), "interrupt", "Esc pressed", true)
+		}
 		return m, nil
 	case key.Matches(msg, keymap.NextView):
 		m.NextView()

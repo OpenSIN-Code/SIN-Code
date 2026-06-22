@@ -299,7 +299,13 @@ func (r *AgentRunner) runOnce(ctx context.Context, prompt string) {
 	res, err := r.loop.Run(ctx, r.sess, prompt)
 	r.emitSessionHistory(ctx)
 	if err != nil {
-		r.emit(ctx, EventError, err.Error(), "", "", err)
+		if errors.Is(err, context.Canceled) {
+			r.emit(ctx, EventError, "interrupted", "", "", err)
+		} else if errors.Is(err, context.DeadlineExceeded) {
+			r.emit(ctx, EventError, "timeout", "", "", err)
+		} else {
+			r.emit(ctx, EventError, err.Error(), "", "", err)
+		}
 		return
 	}
 	// Emit done with token count from the agent loop result.

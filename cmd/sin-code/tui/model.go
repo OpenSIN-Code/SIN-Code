@@ -187,10 +187,12 @@ type AgentDashboardState struct {
 }
 
 type Model struct {
-	ctxFn     func() context.Context
-	Program   teaProgramIface
-	Workspace string
-	OnRun     func(name string, args []string) error
+	ctxFn        func() context.Context
+	promptCtx    context.Context
+	promptCancel context.CancelFunc
+	Program      teaProgramIface
+	Workspace    string
+	OnRun        func(name string, args []string) error
 
 	LayoutState
 	ThemeState
@@ -298,6 +300,32 @@ func (m *Model) ctx() context.Context {
 
 func (m *Model) SetContextFn(fn func() context.Context) {
 	m.ctxFn = fn
+}
+
+// startPromptContext creates a cancelable context for the current prompt
+// and stores the cancel function so the TUI can interrupt the run.
+func (m *Model) startPromptContext() context.Context {
+	if m.promptCancel != nil {
+		m.promptCancel()
+	}
+	ctx := m.ctx()
+	m.promptCtx, m.promptCancel = context.WithCancel(ctx)
+	return m.promptCtx
+}
+
+// CancelPrompt cancels the in-flight prompt context. It is safe to call
+// when no prompt is running.
+func (m *Model) CancelPrompt() {
+	if m.promptCancel != nil {
+		m.promptCancel()
+		m.promptCancel = nil
+	}
+}
+
+// resetPromptContext clears the stored cancel function after a prompt
+// completes. Safe to call multiple times.
+func (m *Model) resetPromptContext() {
+	m.promptCancel = nil
 }
 
 func (m *Model) appendChat(msg ChatMessage) {

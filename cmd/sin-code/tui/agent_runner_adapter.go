@@ -60,6 +60,8 @@ func listenAgentRunnerCmd(r *agentrunner.AgentRunner) tea.Cmd {
 func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 	if msg.Closed {
 		m.AgentRunner = nil
+		m.resetPromptContext()
+		m.setStreaming(false)
 		return
 	}
 	// Ensure tool tree exists before sending any tool-call messages.
@@ -137,6 +139,7 @@ func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 	case agentrunner.EventDone:
 		cm = ChatMessage{Kind: chatDone, Detail: ev.Result}
 		m.setStreaming(false)
+		m.resetPromptContext()
 		if ev.Tokens > 0 {
 			m.Footer.Tokens += ev.Tokens
 			m.Footer.TokensPct = float64(m.Footer.Tokens) / 128000.0
@@ -155,6 +158,7 @@ func (m *Model) handleAgentRunnerEvent(msg AgentRunnerMsg) {
 	case agentrunner.EventError:
 		cm = ChatMessage{Kind: chatError, Text: ev.Detail, Error: ev.Err}
 		m.setStreaming(false)
+		m.resetPromptContext()
 	default:
 		cm = ChatMessage{Kind: chatSystem, Text: ev.Detail}
 	}
@@ -179,7 +183,9 @@ func (m *Model) submitAgentPrompt(prompt string) tea.Cmd {
 	if r == nil {
 		return nil
 	}
-	if _, err := submitAgentRunnerHook(r, m.ctx(), prompt); err != nil {
+	ctx := m.startPromptContext()
+	if _, err := submitAgentRunnerHook(r, ctx, prompt); err != nil {
+		m.resetPromptContext()
 		m.appendChat(ChatMessage{Kind: chatSystem, Text: "(agent runner unavailable: " + err.Error() + ")"})
 		return nil
 	}
@@ -193,8 +199,10 @@ func (m *Model) runAgentSkillPrompt(skill, args string) tea.Cmd {
 		m.appendChat(ChatMessage{Kind: chatAssistant, Text: hint})
 		return nil
 	}
+	ctx := m.startPromptContext()
 	prompt := fmt.Sprintf("use the %s tool to %s", skill, args)
-	if _, err := submitAgentRunnerHook(r, m.ctx(), prompt); err != nil {
+	if _, err := submitAgentRunnerHook(r, ctx, prompt); err != nil {
+		m.resetPromptContext()
 		m.appendChat(ChatMessage{Kind: chatSystem, Text: "(agent runner error: " + err.Error() + ")"})
 		return nil
 	}

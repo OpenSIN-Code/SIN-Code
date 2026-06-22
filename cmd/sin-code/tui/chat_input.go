@@ -95,6 +95,7 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	// Model-level slash commands
 	switch trimmed {
 	case "/clear":
+		m.CancelPrompt()
 		m.ChatHistory = nil
 		m.setStreaming(false)
 		m.Footer.Tokens = 0
@@ -192,15 +193,18 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	prompt := submit.Text
 
 	prog := m.Program
+	ctx := m.startPromptContext()
 	if prog == nil {
-		text, tokens, err := chatRunnerRunHook(runner, m.ctx(), prompt, historySnapshot)
+		text, tokens, err := chatRunnerRunHook(runner, ctx, prompt, historySnapshot)
+		m.resetPromptContext()
 		applyChatResponseMsg(m, chat.ChatResponseMsg{Text: text, Error: err, Tokens: tokens}, thinkingIdx)
 		return nil
 	}
 	go func() {
-		text, tokens, err := chatRunnerStreamHook(runner, m.ctx(), prompt, historySnapshot, func(chunk string) {
+		text, tokens, err := chatRunnerStreamHook(runner, ctx, prompt, historySnapshot, func(chunk string) {
 			prog.Send(ChatChunkMsg{Text: chunk, Idx: thinkingIdx})
 		})
+		m.resetPromptContext()
 		prog.Send(chat.ChatResponseMsg{Text: text, Error: err, Tokens: tokens})
 	}()
 	return nil
