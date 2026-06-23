@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,6 +12,30 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autonomy"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
+)
+
+// goalCmdHooks are package-level hooks to make error branches and external
+// calls testable without spinning up the real goal queue.
+var (
+	goalOpenHook = func(path string) (*autonomy.Queue, error) { return autonomy.Open(path) }
+	goalDiscoverHook = func(cfg autonomy.DiscoverConfig) ([]autonomy.Finding, error) {
+		return autonomy.Discover(cfg)
+	}
+	goalEnqueueFindingsHook = func(ctx context.Context, q *autonomy.Queue, workspace string, findings []autonomy.Finding, maxRetries int) (int, error) {
+		return autonomy.EnqueueFindings(ctx, q, workspace, findings, maxRetries)
+	}
+	goalAddHook = func(ctx context.Context, q *autonomy.Queue, prompt, workspace string, priority, maxRetries int) (int64, error) {
+		return q.Add(ctx, prompt, workspace, priority, maxRetries)
+	}
+	goalAddWithContractHook = func(ctx context.Context, q *autonomy.Queue, prompt, workspace string, priority, maxRetries int, contract string) (int64, error) {
+		return q.AddWithContract(ctx, prompt, workspace, priority, maxRetries, contract)
+	}
+	goalListHook = func(ctx context.Context, q *autonomy.Queue, status autonomy.GoalStatus) ([]autonomy.Goal, error) {
+		return q.List(ctx, status)
+	}
+	goalReadContractFileHook = func(path string) ([]byte, error) { return os.ReadFile(path) }
+	goalContractUnmarshalHook = func(s string) (*goalcontract.GoalContract, error) { return goalcontract.Unmarshal(s) }
+	goalContractMarshalHook = func(c *goalcontract.GoalContract) (string, error) { return c.Marshal() }
 )
 
 func NewGoalCmd() *cobra.Command {
@@ -39,7 +64,7 @@ func NewGoalCmd() *cobra.Command {
 			// the stop-gate's independent evaluator must confirm.
 			contractJSON := ""
 			if contractFile != "" {
-				raw, rerr := os.ReadFile(contractFile)
+				raw, rerr := goalReadContractFileHook(contractFile)
 				if rerr != nil {
 					return fmt.Errorf("read contract file: %w", rerr)
 				}
@@ -117,7 +142,7 @@ func NewGoalCmd() *cobra.Command {
 		Short: "Scan the repo for latent work (TODO/FIXME, MASTER_TODO) and enqueue goals",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ws, _ := os.Getwd()
-			findings, err := autonomy.Discover(autonomy.DiscoverConfig{
+			findings, err := goalDiscoverHook(autonomy.DiscoverConfig{
 				Workspace:    ws,
 				ScanComments: true,
 				ScanMaster:   true,

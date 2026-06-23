@@ -13,6 +13,39 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
 )
 
+// headroomCmdHooks are package-level hooks to make external headroom calls and
+// error branches testable without requiring the headroom CLI to be installed.
+var (
+	headroomNewCompressorHook = func(cfg headroom.Config) *headroom.Compressor { return headroom.NewCompressor(cfg) }
+	headroomNewCLIClientHook = func(cfg headroom.Config) *headroom.CLIClient { return headroom.NewCLIClient(cfg) }
+	headroomStartHook = func(comp *headroom.Compressor, ctx context.Context) error {
+		if comp == nil {
+			return nil
+		}
+		return comp.Start(ctx)
+	}
+	headroomCompressContentHook = func(comp *headroom.Compressor, ctx context.Context, content string) (string, *headroom.CompressionResult, error) {
+		if comp == nil {
+			return content, nil, nil
+		}
+		return comp.CompressContent(ctx, content)
+	}
+	headroomCloseHook = func(comp *headroom.Compressor) error {
+		if comp == nil {
+			return nil
+		}
+		return comp.Close()
+	}
+	headroomReadFileHook = func(path string) ([]byte, error) { return os.ReadFile(path) }
+	headroomReadAllHook = func(r io.Reader) ([]byte, error) { return io.ReadAll(r) }
+	headroomLearnHook = func(client *headroom.CLIClient, ctx context.Context, log string) error {
+		if client == nil {
+			return nil
+		}
+		return client.Learn(ctx, log)
+	}
+)
+
 // headroomCmd represents the headroom command
 var headroomCmd = &cobra.Command{
 	Use:   "headroom",
@@ -142,7 +175,7 @@ var headroomLearnCmd = &cobra.Command{
 
 		cfg := headroom.LoadConfigFromEnv()
 		client := headroom.NewCLIClient(cfg)
-		if err := client.Learn(context.Background(), logContent); err != nil {
+		if err := headroomLearnHook(client, context.Background(), logContent); err != nil {
 			return fmt.Errorf("learning failed: %w", err)
 		}
 		fmt.Println("✅ Headroom learned from the provided session")
