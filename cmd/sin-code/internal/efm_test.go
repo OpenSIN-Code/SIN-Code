@@ -320,6 +320,7 @@ func TestRunEFM_UpWithStack_DockerError(t *testing.T) {
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: nginx\n"), 0644)
+	defer dockerComposeDown(stackFile, testRuntime)
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
@@ -413,19 +414,24 @@ func TestRunEFM_StatusWithStack_DockerError(t *testing.T) {
 }
 
 func TestFilterServices(t *testing.T) {
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "myapp.yml")
+	_ = os.WriteFile(stackFile, []byte{}, 0644)
+	projectName := composeProjectName(stackFile)
+
 	services := []efmService{
-		{Name: "myapp-web-1", Status: "running", Image: "nginx"},
-		{Name: "myapp-db-1", Status: "running", Image: "postgres"},
+		{Name: projectName + "-web-1", Status: "running", Image: "nginx"},
+		{Name: projectName + "-db-1", Status: "running", Image: "postgres"},
 		{Name: "other-app-1", Status: "running", Image: "redis"},
 	}
 
-	filtered := filterServices(services, "myapp.yml")
+	filtered := filterServices(services, stackFile)
 	if len(filtered) != 2 {
 		t.Fatalf("expected 2 filtered services, got %d", len(filtered))
 	}
 	for _, svc := range filtered {
-		if !strings.HasPrefix(svc.Name, "myapp") {
-			t.Errorf("expected service name to start with 'myapp', got %q", svc.Name)
+		if !strings.HasPrefix(svc.Name, projectName) {
+			t.Errorf("expected service name to start with %q, got %q", projectName, svc.Name)
 		}
 	}
 }
@@ -458,12 +464,17 @@ func TestFilterServices_EmptyInput(t *testing.T) {
 }
 
 func TestFilterServices_DifferentExtension(t *testing.T) {
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "test.yaml")
+	_ = os.WriteFile(stackFile, []byte{}, 0644)
+	projectName := composeProjectName(stackFile)
+
 	services := []efmService{
-		{Name: "test-web-1", Status: "running"},
-		{Name: "test-db-1", Status: "running"},
+		{Name: projectName + "-web-1", Status: "running"},
+		{Name: projectName + "-db-1", Status: "running"},
 		{Name: "prod-web-1", Status: "running"},
 	}
-	filtered := filterServices(services, "test.yaml")
+	filtered := filterServices(services, stackFile)
 	if len(filtered) != 2 {
 		t.Fatalf("expected 2 filtered services for .yaml extension, got %d", len(filtered))
 	}
@@ -474,6 +485,7 @@ func TestDockerComposeUp_TTLMetadata(t *testing.T) {
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: nginx\n"), 0644)
+	defer dockerComposeDown(stackFile, testRuntime)
 
 	err := dockerComposeUp(stackFile, 3600, testRuntime)
 	if err != nil {
@@ -558,6 +570,7 @@ func TestDockerComposeUp_DockerAvailable(t *testing.T) {
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: hello-world\n"), 0644)
+	defer dockerComposeDown(stackFile, testRuntime)
 
 	err := dockerComposeUp(stackFile, 60, testRuntime)
 	if err != nil {
@@ -1036,6 +1049,7 @@ func TestRunEFM_UpWithExistingStack_TTLZero(t *testing.T) {
 	dir := t.TempDir()
 	stackFile := filepath.Join(dir, "docker-compose.yml")
 	os.WriteFile(stackFile, []byte("version: '3'\nservices:\n  web:\n    image: nginx\n"), 0644)
+	defer dockerComposeDown(stackFile, testRuntime)
 
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()

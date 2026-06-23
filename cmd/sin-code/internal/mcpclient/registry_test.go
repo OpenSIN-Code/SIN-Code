@@ -232,3 +232,213 @@ func TestShortNameDefaultReturnsRepo(t *testing.T) {
 		t.Fatalf("expected repo name unchanged, got %q", got)
 	}
 }
+
+func TestShortNameAnalyseCanonicalCasing(t *testing.T) {
+	for _, repo := range []string{"sin-analyse-suite", "SIN-Analyse-Suite"} {
+		if got := shortName(repo); got != "analyse" {
+			t.Fatalf("shortName(%q) = %q, want %q", repo, got, "analyse")
+		}
+	}
+}
+
+func TestDefaultServersAnalysePrefersLocalCheckout(t *testing.T) {
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "SIN-Analyse-Suite")
+	bin := filepath.Join(repoDir, "sin-analyse")
+	if err := os.MkdirAll(filepath.Dir(bin), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\necho fake"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("SIN_SKILLS_DIR", dir)
+	for _, s := range DefaultServers() {
+		if s.Name != "analyse" {
+			continue
+		}
+		if s.Command != bin {
+			t.Fatalf("analyse command should use local binary %q, got %q", bin, s.Command)
+		}
+		if len(s.Args) != 1 || s.Args[0] != "serve" {
+			t.Fatalf("analyse args should be [serve], got %v", s.Args)
+		}
+		return
+	}
+	t.Fatal("analyse server not found in DefaultServers")
+}
+
+func TestDefaultServersContextBridgeUsesCliEntrypoint(t *testing.T) {
+	orig := lookPathHook
+	lookPathHook = func(string) (string, error) { return "", os.ErrNotExist }
+	t.Cleanup(func() { lookPathHook = orig })
+
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "SIN-Code-Context-Bridge-Skill")
+	script := filepath.Join(repoDir, "scripts", "sin_context_bridge.py")
+	if err := os.MkdirAll(filepath.Dir(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(script, []byte("# mock"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Also create lib/mcp_server.py to ensure the CLI script is preferred over
+	// the module entrypoint (which only defines the server without running it).
+	libScript := filepath.Join(repoDir, "lib", "mcp_server.py")
+	if err := os.MkdirAll(filepath.Dir(libScript), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(libScript, []byte("# mock"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(libScript), "__init__.py"), []byte("# mock"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SIN_SKILLS_DIR", dir)
+
+	for _, s := range DefaultServers() {
+		if s.Name != "contextbridge" {
+			continue
+		}
+		if s.Command != "python3" {
+			t.Fatalf("contextbridge command should be python3, got %q", s.Command)
+		}
+		if len(s.Args) != 2 || s.Args[0] != script || s.Args[1] != "serve" {
+			t.Fatalf("contextbridge should use CLI script with serve arg, got %+v", s.Args)
+		}
+		if s.Dir != repoDir {
+			t.Fatalf("contextbridge dir mismatch: got %q, want %q", s.Dir, repoDir)
+		}
+		if s.Env == nil || s.Env["PYTHONPATH"] != repoDir {
+			t.Fatalf("contextbridge PYTHONPATH mismatch: got %v", s.Env)
+		}
+		return
+	}
+	t.Fatal("contextbridge server not found in DefaultServers")
+}
+
+func TestDefaultServersSimoneUsesLocalCli(t *testing.T) {
+	orig := lookPathHook
+	lookPathHook = func(string) (string, error) { return "", os.ErrNotExist }
+	t.Cleanup(func() { lookPathHook = orig })
+
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "Simone-MCP")
+	cli := filepath.Join(repoDir, "src", "cli.py")
+	if err := os.MkdirAll(filepath.Dir(cli), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cli, []byte("# mock"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SIN_SKILLS_DIR", dir)
+
+	for _, s := range DefaultServers() {
+		if s.Name != "simone" {
+			continue
+		}
+		if s.Command != "python3" {
+			t.Fatalf("simone command should be python3, got %q", s.Command)
+		}
+		if len(s.Args) != 2 || s.Args[0] != cli || s.Args[1] != "serve-mcp" {
+			t.Fatalf("simone should use src/cli.py serve-mcp, got %+v", s.Args)
+		}
+		if s.Dir != repoDir {
+			t.Fatalf("simone dir mismatch: got %q, want %q", s.Dir, repoDir)
+		}
+		return
+	}
+	t.Fatal("simone server not found in DefaultServers")
+}
+
+func TestDefaultServersSimoneFallsBackToPath(t *testing.T) {
+	orig := lookPathHook
+	lookPathHook = func(name string) (string, error) {
+		if name == "simone-cli" {
+			return "/opt/bin/simone-cli", nil
+		}
+		return "", os.ErrNotExist
+	}
+	t.Cleanup(func() { lookPathHook = orig })
+	t.Setenv("SIN_SKILLS_DIR", t.TempDir())
+
+	for _, s := range DefaultServers() {
+		if s.Name != "simone" {
+			continue
+		}
+		if s.Command != "/opt/bin/simone-cli" {
+			t.Fatalf("simone command should fall back to PATH binary, got %q", s.Command)
+		}
+		if len(s.Args) != 1 || s.Args[0] != "serve-mcp" {
+			t.Fatalf("simone args should be [serve-mcp], got %v", s.Args)
+		}
+		return
+	}
+	t.Fatal("simone server not found in DefaultServers")
+}
+
+func TestDefaultServersSymfonyLensUsesLocalModule(t *testing.T) {
+	orig := lookPathHook
+	lookPathHook = func(string) (string, error) { return "", os.ErrNotExist }
+	t.Cleanup(func() { lookPathHook = orig })
+
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "SIN-Code-Symfony-Lens")
+	pkgDir := filepath.Join(repoDir, "symfony_lens")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pkgDir, "__init__.py"), []byte("# mock"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pkgDir, "server.py"), []byte("# mock"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SIN_SKILLS_DIR", dir)
+
+	for _, s := range DefaultServers() {
+		if s.Name != "symfonylens" {
+			continue
+		}
+		if s.Command != "python3" {
+			t.Fatalf("symfonylens command should be python3, got %q", s.Command)
+		}
+		if len(s.Args) != 2 || s.Args[0] != "-m" || s.Args[1] != "symfony_lens.server" {
+			t.Fatalf("symfonylens should run as module, got %+v", s.Args)
+		}
+		if s.Dir != repoDir {
+			t.Fatalf("symfonylens dir mismatch: got %q, want %q", s.Dir, repoDir)
+		}
+		if s.Env == nil || s.Env["PYTHONPATH"] != repoDir {
+			t.Fatalf("symfonylens PYTHONPATH mismatch: got %v", s.Env)
+		}
+		return
+	}
+	t.Fatal("symfonylens server not found in DefaultServers")
+}
+
+func TestDefaultServersSymfonyLensFallsBackToPath(t *testing.T) {
+	orig := lookPathHook
+	lookPathHook = func(name string) (string, error) {
+		if name == "symfony-lens" {
+			return "/opt/bin/symfony-lens", nil
+		}
+		return "", os.ErrNotExist
+	}
+	t.Cleanup(func() { lookPathHook = orig })
+	t.Setenv("SIN_SKILLS_DIR", t.TempDir())
+
+	for _, s := range DefaultServers() {
+		if s.Name != "symfonylens" {
+			continue
+		}
+		if s.Command != "/opt/bin/symfony-lens" {
+			t.Fatalf("symfonylens command should fall back to PATH binary, got %q", s.Command)
+		}
+		if len(s.Args) != 0 {
+			t.Fatalf("symfonylens args should be empty, got %v", s.Args)
+		}
+		return
+	}
+	t.Fatal("symfonylens server not found in DefaultServers")
+}

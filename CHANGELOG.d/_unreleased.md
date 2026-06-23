@@ -1,3 +1,37 @@
+### Added — Ecosystem skill diagnostics and install-all improvements
+- **`cmd/sin-code/internal/skillmgr.Doctor`** — new diagnostic method that
+  checks every known ecosystem skill and reports why it is not runnable
+  (not installed, missing MCP entrypoint, dependency unreachable, or
+  deprecated). Returns `SkillStatus` for each skill with a populated
+  `Detail` field.
+- **`sin-code skill doctor`** — new CLI subcommand that renders the
+  diagnostic report. It prints a table with `INSTALLED`, `RUNNABLE`, and
+  `DETAIL` columns and a summary line. Supports `--json` for structured
+  output.
+- **`sin-code skill install all --json`** — the batch ecosystem install
+  command now emits structured JSON output for CI/automation.
+- **`checkSkillStatus` helper** in `internal/skillmgr` — shared per-skill
+  state computation used by `Status` and `Doctor`, eliminating duplication.
+- **`findPythonCliEntrypoint`** helper in `internal/skillmgr` — discovers
+  Python CLI wrapper scripts (e.g. `scripts/sin_context_bridge.py`) so the
+  diagnostic/install path recognizes the same entrypoints as the MCP
+  registry.
+- **Ecosystem skills activation (honcho / simone / symfonylens / analyse / contextbridge / grillme)** —
+  `mcpclient.DefaultServers()` and `skillmgr` now resolve the correct
+  entrypoints for `simone` (`python3 src/cli.py serve-mcp` or
+  `simone-cli serve-mcp`), `symfonylens` (`python3 -m symfony_lens.server`
+  or `symfony-lens`), `analyse` (`SIN-Analyse-Suite` exact repo casing),
+  `contextbridge` (`scripts/sin_context_bridge.py serve`), and `grillme`
+  (`python3 -m sin_grill_me.mcp_server`). The external Honcho server is
+  probed for `honcho` before reporting it as runnable.
+- **Tests** — 6 new race-clean tests in `manager_test.go` for `Doctor`,
+  5 new tests in `commands_test.go` for the `skill doctor` and
+  `skill install all` cobra surfaces, and `--json` round-trip tests,
+  plus new tests in `manager_test.go` and `registry_test.go` for the
+  `simone`/`symfonylens` entrypoints and `honcho` health check, and for
+  `analyse` casing, `contextbridge` CLI entrypoint, and `findPythonCliEntrypoint`.
+- **Docs** — `docs/SKILLS.md` updated with the new `--json` flags.
+
 ### Added — Shop-Center skill integration (issue #142 fusion)
 - **`KnownSkills()` registry extended** with the three shop skills
   (issue #142 acceptance criterion #2 — installable via

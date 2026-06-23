@@ -577,6 +577,10 @@ var bundledSkillFS = func() (fs.FS, error) { return skills.ListFS() }
 // clone/pull operations during `sin-code skill install all`.
 var skillmgrInstallAllHook = skillmgr.InstallAll
 
+// skillmgrDoctorHook is overridden by tests to avoid real git/python/go
+// operations during `sin-code skill doctor`.
+var skillmgrDoctorHook = skillmgr.Doctor
+
 // resolveHome picks the home directory for install paths. Order of
 // precedence: $SIN_CODE_HOME > $HOME > os.UserHomeDir().
 func resolveHome() (string, error) {
@@ -721,6 +725,18 @@ block between <!-- SIN-CODE-SKILL-START: <name> --> and
 	}
 	statusCmd.Flags().BoolVar(&jsonOut, "json", false, "emit JSON")
 
+	doctorCmd := &cobra.Command{
+		Use:   "doctor",
+		Short: "Diagnose why ecosystem skills are not runnable",
+		Long: `Doctor checks every known ecosystem skill and reports why it is
+not runnable: not installed, missing MCP entrypoint, dependency unreachable,
+or deprecated.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSkillDoctor(cmd, jsonOut)
+		},
+	}
+	doctorCmd.Flags().BoolVar(&jsonOut, "json", false, "emit JSON")
+
 	var agentFlag string
 	installCmd := &cobra.Command{
 		Use:   "install <name>... | all",
@@ -735,12 +751,13 @@ block between <!-- SIN-CODE-SKILL-START: <name> --> and
 				return runSkillInstallDistribute(cmd, args, agentFlag)
 			}
 			// Legacy ecosystem install mode.
-			return runSkillInstallEcosystem(cmd, args)
+			return runSkillInstallEcosystem(cmd, args, jsonOut)
 		},
 	}
 	installCmd.Flags().StringVar(&agentFlag, "agent", "",
 		"target agent (claude-code|codex|gemini|opencode|cursor|windsurf|cline|copilot|aider|continue|zed|all); "+
 			"or $SIN_CODE_AGENT. Empty = ecosystem install mode.")
+	installCmd.Flags().BoolVar(&jsonOut, "json", false, "emit JSON")
 
 	// list shows the install status of bundled skills against each
 	// registered agent family.
@@ -779,8 +796,45 @@ filters the report to one target (use "all" for the unfiltered view).`,
 	uninstallCmd.Flags().StringVar(&agentFlag, "agent", "",
 		"target agent (required)")
 
-	cmd.AddCommand(statusCmd, installCmd, listCmd, uninstallCmd)
+	cmd.AddCommand(statusCmd, doctorCmd, installCmd, listCmd, uninstallCmd)
 	return cmd
+}
+
+// runSkillDoctor renders the diagnostic report from skillmgr.Doctor.
+func runSkillDoctor(cmd *cobra.Command, jsonOut bool) error {
+	sts := skillmgrDoctorHook(cmd.Context())
+	sort.Slice(sts, func(i, j int) bool { return sts[i].Name < sts[j].Name })
+	if jsonOut {
+		enc := json.NewEncoder(cmd.OutOrStdout())
+		enc.SetIndent("", "  ")
+		return enc.Encode(sts)
+	}
+	fmt.Fprintf(cmd.OutOrStdout(), "%-15s %-10s %-9s %-10s %s\n", "SKILL", "INSTALLED", "RUNNABLE", "STATUS", "DETAIL")
+	sick := 0
+	for _, s := range sts {
+		status := ""
+		if s.Deprecated {
+			status = "deprecated"
+		}
+		detail := s.Detail
+		if s.Deprecated && s.DeprecatedReason != "" {
+			if detail != "" {
+				detail = "DEPRECATED: " + s.DeprecatedReason + " | " + detail
+			} else {
+				detail = "DEPRECATED: " + s.DeprecatedReason
+			}
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "%-15s %-10v %-9v %-10s %s\n", s.Name, s.Installed, s.Runnable, status, detail)
+		if !s.Runnable {
+			sick++
+		}
+	}
+	if sick > 0 {
+		fmt.Fprintf(cmd.OutOrStdout(), "\n%d skill(s) are not runnable. Run `sin-code skill install <name>` or `sin-code skill install all` to fix.\n", sick)
+	} else {
+		fmt.Fprintln(cmd.OutOrStdout(), "\nAll known ecosystem skills are runnable.")
+	}
+	return nil
 }
 
 // runSkillInstallEcosystem is the pre-existing v3.5.0 behaviour: clone
@@ -791,7 +845,7 @@ filters the report to one target (use "all" for the unfiltered view).`,
 // while preserving the ability to audit or recover a deprecated skill.
 //
 // Kept as a helper so the parent install command stays readable.
-func runSkillInstallEcosystem(cmd *cobra.Command, args []string) error {
+func runSkillInstallEcosystem(cmd *cobra.Command, args []string, jsonOut bool) error {
 	allMode := len(args) == 1 && args[0] == "all"
 
 	// Batch mode: delegate to the skill manager so the CLI and the library
@@ -804,11 +858,16 @@ func runSkillInstallEcosystem(cmd *cobra.Command, args []string) error {
 				skipped++
 			}
 		}
+		if jsonOut {
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			enc.SetIndent("", "  ")
+			return enc.Encode(sts)
+		}
 		for _, st := range sts {
 			if st.Installed {
 				fmt.Fprintf(cmd.OutOrStdout(), "OK   %s (runnable=%v, %s)\n", st.Name, st.Runnable, st.Detail)
 			} else {
-				fmt.Fprintf(os.Stderr, "FAIL %s: %s\n", st.Name, st.Detail)
+				fmt.Fprintf(cmd.ErrOrStderr(), "FAIL %s: %s\n", st.Name, st.Detail)
 			}
 		}
 		if skipped > 0 {
@@ -819,14 +878,21 @@ func runSkillInstallEcosystem(cmd *cobra.Command, args []string) error {
 
 	// Single-skill mode preserves the original per-name confirmation.
 	failed := 0
+	var singleStatuses []skillmgr.SkillStatus
 	for _, n := range args {
 		st, err := skillmgr.Install(cmd.Context(), n)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "FAIL %s: %v\n", n, err)
+			fmt.Fprintf(cmd.ErrOrStderr(), "FAIL %s: %v\n", n, err)
 			failed++
 			continue
 		}
+		singleStatuses = append(singleStatuses, *st)
 		fmt.Fprintf(cmd.OutOrStdout(), "OK   %s (runnable=%v, %s)\n", st.Name, st.Runnable, st.Detail)
+	}
+	if jsonOut && len(singleStatuses) > 0 {
+		enc := json.NewEncoder(cmd.OutOrStdout())
+		enc.SetIndent("", "  ")
+		return enc.Encode(singleStatuses)
 	}
 	if failed > 0 {
 		return fmt.Errorf("%d skill(s) failed to install", failed)

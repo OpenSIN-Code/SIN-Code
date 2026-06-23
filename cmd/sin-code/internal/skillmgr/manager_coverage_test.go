@@ -385,3 +385,43 @@ func TestVerifyEntrypoint_ContextTimeout(t *testing.T) {
 
 	verifyEntrypoint(ctx, dir, "test-repo")
 }
+
+func TestVerifyEntrypoint_PythonCliWithTools(t *testing.T) {
+	dir := t.TempDir()
+	cli := filepath.Join(dir, "scripts", "sin_context_bridge.py")
+
+	stat := func(path string) (os.FileInfo, error) {
+		if path == cli || path == filepath.Join(dir, "scripts") {
+			return nil, nil
+		}
+		return nil, os.ErrNotExist
+	}
+	saveHooks(t, &_osStat, stat)
+	saveHooks(t, &_execCommandContext, fakeCommand(t, `{"tools":[{"name":"a"}]}`, 0))
+	saveHooks(t, &_execLookPath, func(string) (string, error) { return "", os.ErrNotExist })
+
+	runnable, detail := verifyEntrypoint(context.Background(), dir, "SIN-Code-Context-Bridge-Skill")
+	if !runnable || detail != "1 tools" {
+		t.Fatalf("expected CLI runnable with 1 tools, got %v %q", runnable, detail)
+	}
+}
+
+func TestVerifyEntrypoint_PythonCliSmokeFail(t *testing.T) {
+	dir := t.TempDir()
+	cli := filepath.Join(dir, "scripts", "sin_context_bridge.py")
+
+	stat := func(path string) (os.FileInfo, error) {
+		if path == cli || path == filepath.Join(dir, "scripts") {
+			return nil, nil
+		}
+		return nil, os.ErrNotExist
+	}
+	saveHooks(t, &_osStat, stat)
+	saveHooks(t, &_execCommandContext, fakeCommand(t, "no --list-tools", 1))
+	saveHooks(t, &_execLookPath, func(string) (string, error) { return "", os.ErrNotExist })
+
+	runnable, detail := verifyEntrypoint(context.Background(), dir, "SIN-Code-Context-Bridge-Skill")
+	if !runnable || detail != "python CLI entrypoint: "+cli {
+		t.Fatalf("expected CLI fallback after smoke-fail, got %v %q", runnable, detail)
+	}
+}

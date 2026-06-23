@@ -722,12 +722,17 @@ func TestEFM_ListDockerContainers_LookpathSkip(t *testing.T) {
 }
 
 func TestEFM_FilterServices(t *testing.T) {
+	dir := t.TempDir()
+	stackFile := filepath.Join(dir, "docker-compose.yml")
+	_ = os.WriteFile(stackFile, []byte{}, 0644)
+	projectName := composeProjectName(stackFile)
+
 	services := []efmService{
-		{Name: "stack_web", Status: "running"},
-		{Name: "stack_db", Status: "exited"},
+		{Name: projectName + "_web", Status: "running"},
+		{Name: projectName + "_db", Status: "exited"},
 		{Name: "other_app", Status: "running"},
 	}
-	filtered := filterServices(services, "stack")
+	filtered := filterServices(services, stackFile)
 	if len(filtered) != 2 {
 		t.Errorf("expected 2 filtered services, got %d", len(filtered))
 	}

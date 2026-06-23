@@ -74,6 +74,8 @@ func canonicalBinary(name string) string {
 		"frontend":      "sin-frontend-design",
 		"mcpbuilder":    "sin-mcp-server-builder",
 		"grillme":       "sin-grill-me",
+		"simone":        "simone-cli",
+		"symfonylens":   "symfony-lens",
 	}
 	if b, ok := m[name]; ok {
 		return b
@@ -93,6 +95,30 @@ func findSkillBinary(name string) string {
 	for _, c := range candidates {
 		if p, err := _execLookPath(c); err == nil {
 			return p
+		}
+	}
+	return ""
+}
+
+// findPythonCliEntrypoint searches a skill checkout for a Python CLI wrapper
+// script that exposes the MCP server via a "serve" subcommand (e.g.
+// scripts/sin_context_bridge.py). If found it returns the absolute script path.
+func findPythonCliEntrypoint(dir, name string) string {
+	bin := canonicalBinary(name)
+	binBase := strings.TrimPrefix(bin, "sin-")
+	underscored := "sin_" + strings.ReplaceAll(binBase, "-", "_")
+	base := strings.ReplaceAll(name, "_", "-")
+	candidates := []string{
+		filepath.Join(dir, "scripts", underscored+".py"),
+		filepath.Join(dir, "scripts", "sin_"+name+".py"),
+		filepath.Join(dir, "scripts", "sin-"+base+".py"),
+		filepath.Join(dir, "scripts", name+".py"),
+		filepath.Join(dir, "scripts", base+".py"),
+		filepath.Join(dir, "scripts", "mcp_server.py"),
+	}
+	for _, c := range candidates {
+		if _, err := _osStat(c); err == nil {
+			return c
 		}
 	}
 	return ""
@@ -282,30 +308,63 @@ func Install(ctx context.Context, name string) (*SkillStatus, error) {
 	return st, nil
 }
 
+// checkSkillStatus returns the install + runnable state for a single skill.
+func checkSkillStatus(ctx context.Context, info SkillInfo) SkillStatus {
+	st := SkillStatus{
+		Name:             info.Name,
+		Repo:             info.Repo,
+		Deprecated:       info.Deprecated,
+		DeprecatedReason: info.DeprecatedReason,
+	}
+	dir := filepath.Join(SkillsDir(), info.Repo)
+	if _, err := _osStat(dir); err == nil {
+		st.Installed = true
+		cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		st.Runnable, st.Detail = verifyEntrypoint(cctx, dir, info.Repo)
+		cancel()
+	} else {
+		// Even if the repo is not cloned, a system-installed console script
+		// on PATH makes the skill installed and runnable.
+		if bin := findSkillBinary(info.Name); bin != "" {
+			st.Installed = true
+			if info.Name == "honcho" {
+				cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				if err := checkHonchoServer(cctx); err != nil {
+					st.Runnable = false
+					st.Detail = fmt.Sprintf("available on PATH: %s but Honcho server unreachable at %s: %v", bin, honchoServerURL(), err)
+				} else {
+					st.Runnable = true
+					st.Detail = "available on PATH: " + bin
+				}
+				cancel()
+			} else {
+				st.Runnable = true
+				st.Detail = "available on PATH: " + bin
+			}
+		}
+	}
+	return st
+}
+
 // Status reports install + runnable state for every known skill.
 func Status(ctx context.Context) []SkillStatus {
 	var out []SkillStatus
 	for _, info := range KnownSkillsInfo() {
-		st := SkillStatus{
-			Name:             info.Name,
-			Repo:             info.Repo,
-			Deprecated:       info.Deprecated,
-			DeprecatedReason: info.DeprecatedReason,
-		}
-		dir := filepath.Join(SkillsDir(), info.Repo)
-		if _, err := _osStat(dir); err == nil {
-			st.Installed = true
-			cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			st.Runnable, st.Detail = verifyEntrypoint(cctx, dir, info.Repo)
-			cancel()
-		} else {
-			// Even if the repo is not cloned, a system-installed console script
-			// on PATH makes the skill installed and runnable.
-			if bin := findSkillBinary(info.Name); bin != "" {
-				st.Installed = true
-				st.Runnable = true
-				st.Detail = "available on PATH: " + bin
-			}
+		out = append(out, checkSkillStatus(ctx, info))
+	}
+	return out
+}
+
+// Doctor checks every known ecosystem skill and reports why it is not runnable.
+// It returns a SkillStatus for each known skill; non-runnable skills have a
+// Detail field explaining the failure (not installed, missing entrypoint,
+// dependency unreachable, etc.).
+func Doctor(ctx context.Context) []SkillStatus {
+	var out []SkillStatus
+	for _, info := range KnownSkillsInfo() {
+		st := checkSkillStatus(ctx, info)
+		if !st.Installed && st.Detail == "" {
+			st.Detail = "not installed: " + filepath.Join(SkillsDir(), info.Repo)
 		}
 		out = append(out, st)
 	}
@@ -314,17 +373,62 @@ func Status(ctx context.Context) []SkillStatus {
 
 // verifyEntrypoint finds and smoke-tests the MCP entrypoint.
 func verifyEntrypoint(ctx context.Context, dir, repo string) (bool, string) {
+	name := repoNameFromRepo(repo)
+
+	// Simone-MCP exposes the MCP server through src/cli.py (the src/mcp_server.py
+	// file is just a re-export of public symbols). Prefer the CLI entrypoint
+	// and fall back to the simone-cli console script on PATH.
+	if repo == "Simone-MCP" {
+		if _, err := _osStat(filepath.Join(dir, "src", "cli.py")); err == nil {
+			return true, "simone CLI entrypoint: src/cli.py"
+		}
+		if bin := findSkillBinary("simone"); bin != "" {
+			return true, "available on PATH: " + bin
+		}
+		return false, "no recognized MCP entrypoint"
+	}
+
+	// SIN-Code-Symfony-Lens exposes the MCP server as the symfony_lens.server
+	// Python module. Fall back to the symfony-lens console script on PATH.
+	if repo == "SIN-Code-Symfony-Lens" {
+		if _, err := _osStat(filepath.Join(dir, "symfony_lens", "server.py")); err == nil {
+			return true, "python module: symfony_lens.server"
+		}
+		if bin := findSkillBinary("symfonylens"); bin != "" {
+			return true, "available on PATH: " + bin
+		}
+		return false, "no recognized MCP entrypoint"
+	}
+
+	// SIN-Code-Honcho-Rollback-Skill requires the external Honcho server. If we
+	// find a local script or a PATH binary, verify the server is reachable before
+	// reporting the skill as runnable.
+	if repo == "SIN-Code-Honcho-Rollback-Skill" {
+		return verifyHonchoEntrypoint(ctx, dir)
+	}
+
+	// Python skills that expose the MCP server through a CLI wrapper script
+	// (e.g. sin-context-bridge's scripts/sin_context_bridge.py serve) must be
+	// detected before the generic module entrypoint, because the module itself
+	// may only define the server without running it.
+	if cliScript := findPythonCliEntrypoint(dir, name); cliScript != "" {
+		cmd := _execCommandContext(ctx, "python3", cliScript, "serve", "--list-tools")
+		out, err := cmd.CombinedOutput()
+		if err == nil {
+			var probe struct {
+				Tools []json.RawMessage `json:"tools"`
+			}
+			if json.Unmarshal(out, &probe) == nil && len(probe.Tools) > 0 {
+				return true, fmt.Sprintf("%d tools", len(probe.Tools))
+			}
+			return true, "python CLI entrypoint responds"
+		}
+		return true, "python CLI entrypoint: " + cliScript
+	}
+
 	// Python MCP server: prefer the canonical root mcp_server.py, then
 	// discover the actual module inside the package tree.
 	if script := findMcpServer(dir); script != "" {
-		// Honcho's rollback skill is useless without the external Honcho server.
-		// Probe it and report the failure explicitly rather than claiming the
-		// skill is runnable.
-		if repo == "SIN-Code-Honcho-Rollback-Skill" {
-			if err := checkHonchoServer(ctx); err != nil {
-				return false, fmt.Sprintf("entrypoint found but Honcho server unreachable at %s: %v", honchoServerURL(), err)
-			}
-		}
 		if filepath.Base(filepath.Dir(script)) == filepath.Base(dir) {
 			// Root-level mcp_server.py: try the non-standard --list-tools probe
 			// for extra detail, but do not fail the whole verification if the
@@ -347,7 +451,7 @@ func verifyEntrypoint(ctx context.Context, dir, repo string) (bool, string) {
 
 	// If the repo has no mcp_server.py module, it may still be runnable via a
 	// console script installed on PATH (e.g. sin-goal-mode, sin-marketplace).
-	if bin := findSkillBinary(repoNameFromRepo(repo)); bin != "" {
+	if bin := findSkillBinary(name); bin != "" {
 		return true, "available on PATH: " + bin
 	}
 
@@ -389,6 +493,24 @@ func honchoServerURL() string {
 	return "http://localhost:8000"
 }
 
+// verifyHonchoEntrypoint checks that the Honcho rollback skill has an
+// entrypoint (local script or PATH binary) and that the external Honcho server
+// is reachable. It returns the runnable flag and a detail string.
+func verifyHonchoEntrypoint(ctx context.Context, dir string) (bool, string) {
+	var detail string
+	if _, err := _osStat(filepath.Join(dir, "scripts", "sin_honcho_rollback.py")); err == nil {
+		detail = "python CLI entrypoint: scripts/sin_honcho_rollback.py"
+	} else if bin := findSkillBinary("honcho"); bin != "" {
+		detail = "available on PATH: " + bin
+	} else {
+		return false, "no recognized MCP entrypoint"
+	}
+	if err := checkHonchoServer(ctx); err != nil {
+		return false, fmt.Sprintf("%s but Honcho server unreachable at %s: %v", detail, honchoServerURL(), err)
+	}
+	return true, detail
+}
+
 // checkHonchoServer probes whether the external Honcho server is reachable.
 // It returns nil when the server responds, otherwise the connection error.
 func checkHonchoServer(ctx context.Context) error {
@@ -412,7 +534,7 @@ func checkHonchoServer(ctx context.Context) error {
 func repoNameFromRepo(repo string) string {
 	// The short names are already the keys in KnownSkills; for a single-repo
 	// lookup we reverse-engineer the common patterns.
-	if repo == "SIN-Analyse-Suite" {
+	if repo == "SIN-Analyse-Suite" || repo == "sin-analyse-suite" {
 		return "analyse"
 	}
 	repo = strings.TrimPrefix(repo, "SIN-Code-")

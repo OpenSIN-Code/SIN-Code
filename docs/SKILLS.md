@@ -59,15 +59,17 @@ legacy skill that has not been migrated. Run
 ```bash
 sin-code skill install <name>      # clone/update one ecosystem MCP skill
 sin-code skill install all         # install all non-deprecated ecosystem skills
+sin-code skill install all --json  # JSON output for CI/automation
 sin-code skill status              # install + runnable state
 sin-code skill doctor              # diagnose why skills are not runnable
+sin-code skill doctor --json       # JSON output for CI/automation
 ```
 
 `install all` skips deprecated skills (e.g. the shop skills) so a stale
 upstream repo never breaks the batch. Deprecated skills can still be
 installed explicitly by name. `doctor` checks every known ecosystem skill
 and reports `not installed` (or the concrete verification failure) for any
-skill that is not runnable.
+skill that is not runnable. Both commands support `--json`.
 
 ## Acceptance criteria (from #139)
 

@@ -292,6 +292,14 @@ func metadataKey(absPath string) string {
 	return hex.EncodeToString(h[:]) + ".meta"
 }
 
+func composeProjectName(absPath string) string {
+	h := sha256.Sum256([]byte(absPath))
+	// Docker Compose project names must be lowercase, start with a letter or
+	// number, and contain only [a-z0-9_-]. Prefix with "efm" to satisfy the
+	// letter rule and keep names short enough for human-readable container names.
+	return "efm" + hex.EncodeToString(h[:])[:12]
+}
+
 func dockerComposeUp(stack string, ttl int, rt string) error {
 	absPath, err := efmFilepathAbs(stack)
 	if err != nil {
@@ -302,7 +310,8 @@ func dockerComposeUp(stack string, ttl int, rt string) error {
 	}
 
 	rt = resolveComposeRuntime(rt)
-	if err := runComposeCandidates(rt, []string{"-f", absPath, "up", "-d"}, true); err != nil {
+	projectName := composeProjectName(absPath)
+	if err := runComposeCandidates(rt, []string{"-p", projectName, "-f", absPath, "up", "-d"}, true); err != nil {
 		return fmt.Errorf("%s compose up failed: %w", rt, err)
 	}
 
@@ -334,7 +343,8 @@ func dockerComposeDown(stack string, rt string) error {
 	}
 
 	rt = resolveComposeRuntime(rt)
-	if err := runComposeCandidates(rt, []string{"-f", absPath, "down"}, true); err != nil {
+	projectName := composeProjectName(absPath)
+	if err := runComposeCandidates(rt, []string{"-p", projectName, "-f", absPath, "down"}, true); err != nil {
 		return fmt.Errorf("%s compose down failed: %w", rt, err)
 	}
 
@@ -355,7 +365,8 @@ func dockerComposeStatus(stack string, rt string) (string, error) {
 	}
 
 	rt = resolveComposeRuntime(rt)
-	out, err := runComposeCapture(rt, []string{"-f", absPath, "ps", "--format", "{{.State}}"})
+	projectName := composeProjectName(absPath)
+	out, err := runComposeCapture(rt, []string{"-p", projectName, "-f", absPath, "ps", "--format", "{{.State}}"})
 	if err != nil {
 		return "", fmt.Errorf("%s compose ps failed: %w", rt, err)
 	}
@@ -434,7 +445,11 @@ func parseComposeStates(raw string) string {
 }
 
 func filterServices(services []efmService, stack string) []efmService {
-	projectName := strings.TrimSuffix(filepath.Base(stack), filepath.Ext(stack))
+	absPath, err := efmFilepathAbs(stack)
+	if err != nil {
+		absPath = stack
+	}
+	projectName := composeProjectName(absPath)
 	var filtered []efmService
 	for _, svc := range services {
 		if strings.HasPrefix(svc.Name, projectName) {

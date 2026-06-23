@@ -442,7 +442,10 @@ func TestRunnerCronEnqueue(t *testing.T) {
 	resetHooks(t)
 	q := openRunnerQueue(t)
 
-	_newTicker = func(d time.Duration) *time.Ticker { return time.NewTicker(1 * time.Nanosecond) }
+	// Use a millisecond ticker instead of nanosecond to avoid overwhelming the
+	// SQLite queue under the race detector, which can cause the runner to take
+	// longer than the 2s timeout to exit after cancellation.
+	_newTicker = func(d time.Duration) *time.Ticker { return time.NewTicker(1 * time.Millisecond) }
 
 	enqueued := make(chan struct{}, 1)
 	r := &Runner{
@@ -459,13 +462,13 @@ func TestRunnerCronEnqueue(t *testing.T) {
 		go func() { _ = r.Run(ctx); close(done) }()
 		select {
 		case <-enqueued:
-		case <-time.After(2 * time.Second):
+		case <-time.After(5 * time.Second):
 			t.Fatal("expected cron enqueue")
 		}
 		cancel()
 		select {
 		case <-done:
-		case <-time.After(2 * time.Second):
+		case <-time.After(5 * time.Second):
 			t.Fatal("runner did not exit")
 		}
 	})

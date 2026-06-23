@@ -42,6 +42,8 @@ func canonicalBinary(name string) string {
 		"frontend":      "sin-frontend-design",
 		"mcpbuilder":    "sin-mcp-server-builder",
 		"grillme":       "sin-grill-me",
+		"simone":        "simone-cli",
+		"symfonylens":   "symfony-lens",
 	}
 	if b, ok := m[name]; ok {
 		return b
@@ -57,6 +59,39 @@ func findOnPath(names ...string) string {
 		}
 	}
 	return ""
+}
+
+// pythonCliEntrypoint returns a stdio ServerConfig for Python skills that
+// expose their MCP server through a CLI wrapper script (e.g. sin-context-bridge
+// ships scripts/sin_context_bridge.py with a "serve" subcommand). The script is
+// run from the repo root so relative imports (e.g. lib.*) resolve.
+func pythonCliEntrypoint(repo, dir, name string) (ServerConfig, bool) {
+	bin := canonicalBinary(name)
+	binBase := strings.TrimPrefix(bin, "sin-")
+	underscored := "sin_" + strings.ReplaceAll(binBase, "-", "_")
+	base := strings.ReplaceAll(name, "_", "-")
+	candidates := []string{
+		filepath.Join(dir, "scripts", underscored+".py"),
+		filepath.Join(dir, "scripts", "sin_"+name+".py"),
+		filepath.Join(dir, "scripts", "sin-"+base+".py"),
+		filepath.Join(dir, "scripts", name+".py"),
+		filepath.Join(dir, "scripts", base+".py"),
+		filepath.Join(dir, "scripts", "mcp_server.py"),
+	}
+	for _, script := range candidates {
+		if _, err := os.Stat(script); err == nil {
+			cfg := ServerConfig{
+				Name:      name,
+				Transport: "stdio",
+				Command:   "python3",
+				Args:      []string{script, "serve"},
+				Dir:       dir,
+				Env:       map[string]string{"PYTHONPATH": dir},
+			}
+			return cfg, true
+		}
+	}
+	return ServerConfig{}, false
 }
 
 // pythonConfig returns a stdio ServerConfig for a discovered Python MCP
@@ -136,6 +171,57 @@ func findMcpServer(dir string) string {
 	return ""
 }
 
+// simoneConfig returns the stdio ServerConfig for the Simone-MCP skill.
+// The upstream repo is Python (src/cli.py) and also ships the simone-cli
+// console script when installed via pip.
+func simoneConfig(skillsDir string) ServerConfig {
+	name := "simone"
+	if skillsDir != "" {
+		dir := filepath.Join(skillsDir, "Simone-MCP")
+		cli := filepath.Join(dir, "src", "cli.py")
+		if _, err := os.Stat(cli); err == nil {
+			return ServerConfig{Name: name, Transport: "stdio", Command: "python3", Args: []string{cli, "serve-mcp"}, Dir: dir}
+		}
+	}
+	candidates := []string{
+		canonicalBinary(name) + "-mcp",
+		"sin-" + name + "-mcp",
+		canonicalBinary(name),
+		"sin-" + name,
+		name,
+	}
+	if p := findOnPath(candidates...); p != "" {
+		return ServerConfig{Name: name, Transport: "stdio", Command: p, Args: []string{"serve-mcp"}}
+	}
+	return ServerConfig{Name: name, Transport: "stdio", Command: canonicalBinary(name), Args: []string{"serve-mcp"}}
+}
+
+// symfonyLensConfig returns the stdio ServerConfig for the Symfony-Lens skill.
+// The upstream repo exposes the MCP server as the Python module
+// symfony_lens.server and also ships the symfony-lens console script.
+func symfonyLensConfig(skillsDir string) ServerConfig {
+	name := "symfonylens"
+	if skillsDir != "" {
+		dir := filepath.Join(skillsDir, "SIN-Code-Symfony-Lens")
+		if _, err := os.Stat(filepath.Join(dir, "symfony_lens", "server.py")); err == nil {
+			cfg := ServerConfig{Name: name, Transport: "stdio", Command: "python3", Args: []string{"-m", "symfony_lens.server"}, Dir: dir}
+			cfg.Env = map[string]string{"PYTHONPATH": dir}
+			return cfg
+		}
+	}
+	candidates := []string{
+		canonicalBinary(name) + "-mcp",
+		"sin-" + name + "-mcp",
+		canonicalBinary(name),
+		"sin-" + name,
+		name,
+	}
+	if p := findOnPath(candidates...); p != "" {
+		return ServerConfig{Name: name, Transport: "stdio", Command: p}
+	}
+	return ServerConfig{Name: name, Transport: "stdio", Command: canonicalBinary(name)}
+}
+
 // DefaultServers returns the ecosystem registry. Server names double as
 // tool-name prefixes ("websearch__search", "browser__navigate", ...), which
 // the permission matrix gates via the "mcp" policy class.
@@ -153,10 +239,12 @@ func DefaultServers() []ServerConfig {
 		}
 		if skillsDir != "" {
 			localDir := filepath.Join(skillsDir, repo)
-			// Prefer the canonical root-level mcp_server.py, then discover the
-			// actual MCP server module inside the package tree. Repo-cloned skills
-			// are the preferred source; PATH binaries are the fallback.
-			if script := findMcpServer(localDir); script != "" {
+			// Some Python skills expose the MCP server via a CLI wrapper script
+			// (e.g. sin-context-bridge's scripts/sin_context_bridge.py serve).
+			// Prefer that over the module entrypoint when present.
+			if cliCfg, ok := pythonCliEntrypoint(repo, localDir, name); ok {
+				cfg = cliCfg
+			} else if script := findMcpServer(localDir); script != "" {
 				cfg = pythonConfig(localDir, script)
 				cfg.Name = name
 			} else {
@@ -206,11 +294,11 @@ func DefaultServers() []ServerConfig {
 		py("SIN-Code-Frontend-Design-Skill"),
 		py("SIN-Code-MCP-Server-Builder-Skill"),
 		py("SIN-Browser-Tools"),
-		py("Simone-MCP"),
-		py("SIN-Code-Symfony-Lens"),
+		simoneConfig(skillsDir),
+		symfonyLensConfig(skillsDir),
 
-		// v3.22.0: sin-analyse-suite — multimodal preprocessing (image, video, PDF, logs, data, audio)
-		goNative("sin-analyse-suite", "sin-analyse", "serve"),
+		// v3.22.0: SIN-Analyse-Suite — multimodal preprocessing (image, video, PDF, logs, data, audio)
+		goNative("SIN-Analyse-Suite", "sin-analyse", "serve"),
 
 		// v3.22.0 (issue #382): native_browser — pure-Go headless browser facade
 		// (cmd/sin-code/internal/native_browser). Registered here so its tool
@@ -230,6 +318,7 @@ func shortName(repo string) string {
 	m := map[string]string{
 		"web_search_bundle":                 "websearch",
 		"sin-analyse-suite":                 "analyse",
+		"SIN-Analyse-Suite":                 "analyse",
 		"native_browser":                    "native_browser",
 		"SIN-Code-Websearch-Skill":          "websearch",
 		"SIN-Code-Scheduler-Skill":          "scheduler",

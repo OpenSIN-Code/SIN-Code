@@ -4,161 +4,39 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-23
 
-### Vision — `sin-code analyse-image` native image analysis (closes #423)
-- **New command:** `sin-code analyse-image <path>` sends an image to a vision-capable
-  LLM and returns a structured description (visible text, UI elements, layout,
-  diagram structure). No Tesseract or other OCR runtime dependency is required.
-- **Default model:** `accounts/fireworks/models/minimax-m3` (vision-capable, via any
-  OpenAI-compatible endpoint). Overridable via `llm.model` config or the
-  `SIN_ANALYSE_IMAGE_MODEL` env var.
-- **Configuration:** reuses the existing `llm.base_url`, `llm.api_key`, `llm.model`
-  config; env overrides `SIN_ANALYSE_IMAGE_BASE_URL`, `SIN_ANALYSE_IMAGE_API_KEY`,
-  `SIN_ANALYSE_IMAGE_MODEL` take precedence. Local providers (127.0.0.1/localhost)
-  do not require an API key.
-- **MCP surface:** new `sin_analyse_image` tool exposed by `sin-code serve`.
-- **New files:** `cmd/sin-code/internal/vision/vision.go` (HTTP transport + image
-  encoding), `cmd/sin-code/analyse_image_cmd.go` (CLI), plus tests.
-
-### Security — `security scan secrets` vendored scanner integration
-- **New command:** `sin-code security scan secrets [path]` runs the vendored
-  `SIN-Code-Secrets-Scanner` (22+ detection rules, entropy filtering, severity
-  classification) against the workspace. Findings are masked in the output;
-  `--format json` is available for CI pipelines.
-- **Binary resolution:** the scanner is located via `$SIN_SECRETS_BIN`, a
-  `sin-secrets` binary on `PATH`, or by building the vendored module into the
-  user cache with `CGO_ENABLED=0`. Use `--no-build` to fail fast instead of
-  compiling.
-- **New files:** `cmd/sin-code/internal/security_secrets.go` (bridge),
-  `cmd/sin-code/internal/security_secrets_test.go` (tests), and updates to
-  `security.doc.md`.
-
-### Ecosystem skills — deprecation, batch install, and doctor
-- **Skill registry now supports deprecation metadata:**
-  - `cmd/sin-code/internal/skillmgr.SkillInfo` gains `Deprecated`,
-    `DeprecatedReason`, and `SkipInInstallAll` fields.
-  - `KnownSkillsInfo()` becomes the single source of truth for ecosystem
-    skills; `KnownSkills()` remains a backward-compatible shortname→repo
-    map.
-  - `Install`, `Status`, and `sin-code skill status` surface deprecated
-    skills with their reasons and a `deprecated` status column.
-  - `InstallAll()` skips `SkipInInstallAll` entries so
-    `sin-code skill install all` never fails because of stale upstream repos.
-  - `Doctor()` returns a health report with explicit `not installed` details
-    for skills that are neither cloned nor available on PATH.
-- **Runnability improvements:**
-  - `Status` now falls back to console scripts on PATH when a repo is not
-    cloned locally.
-  - `verifyEntrypoint` detects pre-built Go binaries (e.g. `sin-analyse`) in
-    the repo root without requiring a local `go.mod`, so status reports
-    `go binary present` for Go-native ecosystem skills.
-  - Extra PATH candidates for `simone` (`simone-cli`) and `symfonylens`
-    (`symfony-lens`) so their system packages are discovered correctly.
-- **Tests** in `cmd/sin-code/internal/skillmgr/`: shop-skill deprecation
-  (`TestKnownSkillsInfo_MarksShopSkillsDeprecated`), `InstallAll` skip
-  behavior (`TestInstallAll_SkipsDeprecatedSkills`), `InstallAll` failure
-  reporting (`TestInstallAll_ReportsFailures`), `Doctor` empty-dir and
-  runnable-skill cases, and `TestStatusDetectsAnalyseGoBinary`. All pass
-  under `go test -race -count=1 ./cmd/sin-code/internal/skillmgr/...`.
-- **Shop skills** marked `deprecated: true` in their bundled `SKILL.md`
-  frontmatter and skipped in `sin-code skill install all`.
-
-## [Unreleased] - 2026-06-19
-
-### Added — `sin_run_loop` + `sin_goal_*` MCP tools (5 new tools, 44+ → 49+)
-- **`sin_run_loop`** MCP tool: synchronous full-agent-loop delegation
-  (PLAN→ACT→VERIFY→DONE) via MCP. Any MCP client (opencode, Claude Code,
-  Codex) can now delegate a complete verified task in one call. In-process
-  via `loopbuilder.Build()`, includes Verify-Gate, Stop-Gate, Lessons,
-  Compaction, Loop-Detection. Returns `{session_id, summary, verified,
-  turns}`. Factory injection pattern avoids import cycle (`internal` →
-  `loopbuilder` → `internal`); `serve_loop_factory.go` in `cmd/sin-code/`
-  registers the concrete builder at startup.
-- **`sin_goal_add`**, **`sin_goal_list`**, **`sin_goal_status`**,
-  **`sin_goal_complete`** MCP tools: asynchronous goal queue management via
-  MCP. Enqueue goals for the daemon, poll status, mark complete. Direct API
-  access to `autonomy.Queue` (no subprocess). `handleGoalAdd` supports
-  contract criteria (activates stop-gate). `goalQueuePath` var is
-  overridable for tests.
-- **Permission defaults:** `sin_run_loop` = `ask` (runs full loop, costs
-  tokens), `sin_goal_add` = `ask` (enqueues autonomous work, M4),
-  `sin_goal_list` = `allow` (read-only), `sin_goal_status` = `allow`
-  (read-only), `sin_goal_complete` = `ask` (marks goal done, M4).
-
-### Security — `SIN_CODE_FILE_MODE` env knob (closes #422)
-- **New package** `cmd/sin-code/internal/filemode/` centralises the
-  file-mode policy for write paths that previously hard-coded
-  `0o644`. `filemode.Default()` returns the env value when set, else
-  `0o644`. `filemode.Resolve(envValue, fallback)` parses the knob as
-  an octal string (accepts both `0o600` and `0600` forms) and
-  refuses modes that grant group or other write — the knob may
-  tighten, never loosen, the `0o644` baseline.
-- **Migration** — every non-test `0o644` literal in `cmd/sin-code/`
-  (49 files, including `chat_tools.go`, `spec_cmd.go`,
-  `research_cmd.go`, `skilldist`, `compress`, `instinct`, `ledger`,
-  `agentloop` and the `tui/` family) now reads through
-  `filemode.Default()`. The two close-to-source exceptions stay
-  intentionally tight: `internal/update_manifest.go` writes the
-  install manifest at `0o600` (operator-only secret material) and
-  `internal/index_store.go` creates the index dir at `0o750`
-  (owner+group workspace). `internal/dox/dox.go`'s `DefaultFileMode`
-  switched from `const` to `var` so it can read the env knob at
-  package init.
-- **`dox.DefaultFileMode` stays the package surface** — callers in
-  `stack` continue to consume `dox.DefaultDirMode`; only the value
-  source changed. CLI-visible behaviour unchanged unless
-  `SIN_CODE_FILE_MODE` is explicitly set.
-- **New tests** in `cmd/sin-code/internal/filemode/filemode_test.go`
-  cover: default fallback (`0o644`), both `0o600`/`0600` forms,
-  invalid octal rejection, empty fallback, group/other-write
-  rejection (`0o666`, `0o664`, `0o660`, `0o662`, `0o646`), and
-  executable-bit preservation (`0o755` still accepted because some
-  write paths land in directories that must be runnable). All six
-  pass under `go test -race -count=1
-  ./cmd/sin-code/internal/filemode/...`.
-
-### Security — Default sandbox on for headless `chat -p` and `daemon` (closes #420)
-- **Headless `sin-code chat`** (`-p` and `--json`) now defaults to
-  `sandbox.enabled=true` with workspace rooted at `$PWD`. The
-  per-session `setSandboxConfig` call is replaced by a new
-  `applyChatSandboxPolicy(opts, headless, workspace)` helper in
-  `cmd/sin-code/chat_cmd.go` that declares the M3 (verification
-  gate) + M4 (headless ask→deny) mandate and emits the decision to
-  stderr so no silent security-posture change is possible.
-- **`sin-code daemon`** now forces `setSandboxConfig("", cwd)` at
-  startup — the package-level `sandboxConfig.enabled` was
-  previously false (zero value) for every goal worker because
-  daemon never called the helper. There is no `--no-sandbox`
-  opt-out on the daemon; the autonomous worker is headless by
-  mandate and OS-level syscall isolation is non-negotiable.
-- **New `--no-sandbox` flag** on `sin-code chat` is the single
-  explicit escape hatch for `--sandbox none`. It prints a WARN to
-  stderr (`WARN: --no-sandbox disables OS-level isolation for
-  sin_bash ...`) so the relaxed posture is visible in CI logs.
-  The legacy `--sandbox none` path is preserved verbatim and
-  emits no WARN (operator used the explicit backend vocabulary).
-- **M3 / M4 mandates updated** in `AGENTS.md §3` (Headless
-  sandbox mandate and Headless-mode sandbox baseline paragraphs)
-  to formalise the rule: every `chat -p`, `chat --json`, and
-  `daemon` invocation routes `sin_bash` through
-  `sandbox.Command`. Bare `sh -c` in `toolBash` is reserved for
-  non-headless REPL mode only.
-- **Audit table** for the remaining operator-controlled
-  `exec.CommandContext("sh", "-c", ...)` sinks:
-  | File | Sink | LLM-supplied? | Resolution |
-  |---|---|---|---|
-  | `cmd/sin-code/chat_tools.go:285` | `toolBash` fallback | YES | Headless → sandbox on (issue #420) |
-  | `cmd/sin-code/tui/tools.go:276` | `tuiToolBash` fallback | YES | Interactive REPL; defaults to sandbox when workspace ≠ "" (issue #367) |
-  | `cmd/sin-code/chat_cmd.go:708` | `commandRunner` | NO (operator `--verify-cmd`) | Outside verify-gate scope; unchanged |
-  | `cmd/sin-code/internal/loopbuilder/builder.go:766` | verify runner | NO (operator `--verify-cmd`) | Containerised via `--container` when enabled; bare `sh -c` otherwise |
-  | `cmd/sin-code/internal/spec/check.go:168` | spec verify | NO (operator `*.spec.md`) | Operator-supplied only |
-  | `cmd/sin-code/internal/hooks/hooks.go:181` | command hook | NO (operator `hooks.json`) | Operator-supplied only |
-- **New tests** in `cmd/sin-code/chat_cmd_test.go`:
-  `TestChat_HeadlessDefaultsSandboxOn`,
-  `TestChat_NoSandboxFlag_DisablesSandbox`,
-  `TestChat_NoSandboxNonHeadless_SilentOverride`,
-  `TestChat_ExplicitSandboxNoneHeadless_NoWarn`,
-  `TestSandboxBackendDisplay`. All five pass under
-  `go test -race -count=1 ./cmd/sin-code/...`.
+### Added — Ecosystem skill diagnostics and install-all improvements
+- **`cmd/sin-code/internal/skillmgr.Doctor`** — new diagnostic method that
+  checks every known ecosystem skill and reports why it is not runnable
+  (not installed, missing MCP entrypoint, dependency unreachable, or
+  deprecated). Returns `SkillStatus` for each skill with a populated
+  `Detail` field.
+- **`sin-code skill doctor`** — new CLI subcommand that renders the
+  diagnostic report. It prints a table with `INSTALLED`, `RUNNABLE`, and
+  `DETAIL` columns and a summary line. Supports `--json` for structured
+  output.
+- **`sin-code skill install all --json`** — the batch ecosystem install
+  command now emits structured JSON output for CI/automation.
+- **`checkSkillStatus` helper** in `internal/skillmgr` — shared per-skill
+  state computation used by `Status` and `Doctor`, eliminating duplication.
+- **`findPythonCliEntrypoint`** helper in `internal/skillmgr` — discovers
+  Python CLI wrapper scripts (e.g. `scripts/sin_context_bridge.py`) so the
+  diagnostic/install path recognizes the same entrypoints as the MCP
+  registry.
+- **Ecosystem skills activation (honcho / simone / symfonylens / analyse / contextbridge / grillme)** —
+  `mcpclient.DefaultServers()` and `skillmgr` now resolve the correct
+  entrypoints for `simone` (`python3 src/cli.py serve-mcp` or
+  `simone-cli serve-mcp`), `symfonylens` (`python3 -m symfony_lens.server`
+  or `symfony-lens`), `analyse` (`SIN-Analyse-Suite` exact repo casing),
+  `contextbridge` (`scripts/sin_context_bridge.py serve`), and `grillme`
+  (`python3 -m sin_grill_me.mcp_server`). The external Honcho server is
+  probed for `honcho` before reporting it as runnable.
+- **Tests** — 6 new race-clean tests in `manager_test.go` for `Doctor`,
+  5 new tests in `commands_test.go` for the `skill doctor` and
+  `skill install all` cobra surfaces, and `--json` round-trip tests,
+  plus new tests in `manager_test.go` and `registry_test.go` for the
+  `simone`/`symfonylens` entrypoints and `honcho` health check, and for
+  `analyse` casing, `contextbridge` CLI entrypoint, and `findPythonCliEntrypoint`.
+- **Docs** — `docs/SKILLS.md` updated with the new `--json` flags.
 
 ### Added — Shop-Center skill integration (issue #142 fusion)
 - **`KnownSkills()` registry extended** with the three shop skills
@@ -930,38 +808,6 @@ spec's signatures.
   `Lean already. Ship.`. `net_lines` and `net_deps` are included in JSON output.
 - **Tests**: `cmd/sin-code/internal/complexity/complexity_test.go` + golden file,
   race-clean.
-
-### Added — TUI / agentloop / headless live progress (issue #424)
-- **Live tool timing + NDJSON progress + live token/cost footer**
-  (`043f574`): TUI, agent loop, and headless mode now surface live per-tool
-  timing, structured NDJSON progress events, and a real-time token/cost
-  footer. Progress events are emitted on the configured destination
-  (`stderr` by default) so the headless JSON contract on stdout stays
-  untouched.
-- **Esc cancels in-flight prompt** (`290f70b`): pressing `Esc` in the TUI
-  now actually interrupts the current in-flight prompt rather than being
-  silently swallowed.
-- **Stale-branch merge** (`ea0b0ad`): valuable content from 5 stale branches
-  merged into main; no duplicate features retained.
-
-### Fixed
-- **Autonomy trigger loops respect context cancellation** (`8927718`): file
-  watchers and cron triggers exit promptly when their context is cancelled
-  instead of completing another iteration.
-
-### Tests
-- **Skip Docker-dependent tests when daemon is unavailable** (`e4a6736`):
-  internal security/harvest tests detect a missing Docker daemon and skip
-  container-dependent assertions rather than failing.
-- **Remove timing race in parallel DAG test** (`5d4af5a`): orchestrator
-  parallel DAG test no longer depends on wall-clock timing for completion
-  assertions.
-- **Eliminate race in cron/watch enqueue tests** (`98c9d11`): autonomy cron
-  and file-watch enqueue tests are now race-clean under
-  `go test -race -count=1`.
-- **Make security + harvest tests environment-independent** (`b54a3d8`):
-  internal security and harvest tests isolate environment assumptions so
-  they pass regardless of the host's tooling or network state.
 
 ## [v3.23.0] - 2026-06-18
 
