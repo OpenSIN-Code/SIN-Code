@@ -122,8 +122,19 @@ type chatOptions struct {
 	fusionMaxCost      float64
 	thinkingEnabled    bool
 	thinkingBudget     int
-	noTUI              bool
-	watch              string
+	// --context-compaction, --compaction-trigger, --compaction-threshold,
+	// --context-window, --compaction-max-tokens, --compaction-preserve-evidence,
+	// --compaction-recent-turns: forward into the loop's compaction knobs
+	// (issue: compaction-modes, first PR). CLI values override config.
+	contextCompaction         string
+	compactionTrigger         string
+	compactionThreshold       float64
+	contextWindow             int
+	compactionMaxTokens       int
+	compactionPreserveEvidence bool
+	compactionRecentTurns     int
+	noTUI                     bool
+	watch                     string
 }
 
 func NewChatCmd() *cobra.Command {
@@ -185,6 +196,13 @@ func NewChatCmd() *cobra.Command {
 	f.Float64Var(&opts.fusionMaxCost, "fusion-max-cost", 5.0, "USD kill-switch per tournament invocation (issue #290)")
 	f.BoolVar(&opts.thinkingEnabled, "thinking-enabled", false, "send thinking{type:\"enabled\"} on each LLM request (issue: thinking-budget-enforcement)")
 	f.IntVar(&opts.thinkingBudget, "thinking-budget", 0, "per-request thinking.budget_tokens cap (0 = unbounded; requires --thinking-enabled)")
+	f.StringVar(&opts.contextCompaction, "context-compaction", "", "context compaction mode: off|deterministic|llm|hybrid (issue: compaction-modes; default from config)")
+	f.StringVar(&opts.compactionTrigger, "compaction-trigger", "", "compaction trigger: turns|tokens|both (issue: compaction-modes; default from config)")
+	f.Float64Var(&opts.compactionThreshold, "compaction-threshold", 0, "compaction threshold fraction in (0,1] (issue: compaction-modes; default 0.8 from config)")
+	f.IntVar(&opts.contextWindow, "context-window", 0, "effective context window for token-based compaction trigger (issue: compaction-modes; 0 = auto)")
+	f.IntVar(&opts.compactionMaxTokens, "compaction-max-tokens", 0, "token budget for compacted messages (issue: compaction-modes; default 8000)")
+	f.BoolVar(&opts.compactionPreserveEvidence, "compaction-preserve-evidence", true, "preserve verification evidence during compaction (default true; mandate M3)")
+	f.IntVar(&opts.compactionRecentTurns, "compaction-recent-turns", 4, "number of recent human turns the retain rule keeps (default 4)")
 	f.BoolVar(&opts.noTUI, "no-tui", false, "skip TUI and use plain CLI loop")
 	f.StringVar(&opts.watch, "watch", "", "watch file patterns (comma-separated, e.g. *.go,*.py) and re-run the last prompt on change")
 	return cmd
@@ -455,7 +473,75 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		loop.LocalTool = lazyCombinedTool(workspace, mcpMgr, loader, loop)
 	}
 
-	if sinCfg.AgentLoopCompactionStrategy != "off" && sinCfg.AgentLoopCompactionStrategy != "" {
+	// Context Compaction Modes (issue: compaction-modes, first PR): the
+	// CLI flags override the config keys. Preferred order:
+	//   1. CLI --context-compaction / --compaction-trigger / ... /
+	//      --compaction-recent-turns (highest precedence)
+	//   2. Config agentloop.context_compaction + friends
+	//   3. Legacy agentloop.compaction_strategy as a soft fallback
+	modeStr := opts.contextCompaction
+	if modeStr == "" {
+		modeStr = sinCfg.AgentLoopContextCompaction
+	}
+	triggerStr := opts.compactionTrigger
+	if triggerStr == "" {
+		triggerStr = sinCfg.AgentLoopCompactionTrigger
+	}
+	threshold := opts.compactionThreshold
+	if threshold == 0 {
+		threshold = sinCfg.AgentLoopCompactionThreshold
+	}
+	contextWin := opts.contextWindow
+	if contextWin == 0 {
+		contextWin = sinCfg.AgentLoopContextWindow
+	}
+	maxTkns := opts.compactionMaxTokens
+	if maxTkns == 0 {
+		maxTkns = 8000
+	}
+	recentTurns := opts.compactionRecentTurns
+	if recentTurns == 0 {
+		recentTurns = sinCfg.AgentLoopCompactionRecentTurns
+	}
+	if recentTurns == 0 {
+		recentTurns = 4
+	}
+	preserveEvidence := opts.compactionPreserveEvidence || sinCfg.AgentLoopCompactionPreserveEvidence
+
+	cmode := agentloop.ContextCompactionOff
+	if modeStr != "" {
+		parsed, modeErr := agentloop.ParseContextCompactionMode(modeStr)
+		if modeErr != nil {
+			fmt.Fprintf(chatStderr, "warn: invalid context compaction mode %q: %v\n", modeStr, modeErr)
+		} else {
+			cmode = parsed
+		}
+	}
+
+	if cmode != agentloop.ContextCompactionOff {
+		trigger, terr := agentloop.ParseCompactionTrigger(triggerStr)
+		if terr != nil {
+			trigger = agentloop.CompactionTriggerTokens
+		}
+		compactor := agentloop.NewCompactor(nil)
+		compactor.Configure(agentloop.CompactorConfig{
+			Mode:             cmode,
+			Trigger:          trigger,
+			Threshold:        threshold,
+			ContextWindow:    contextWin,
+			MaxTokens:        maxTkns,
+			PreserveEvidence: preserveEvidence,
+			RecentTurns:      recentTurns,
+		})
+		loop.Compactor = compactor
+		loop.ContextCompactionMode = cmode
+		loop.CompactionTrigger = trigger
+		loop.CompactionThreshold = threshold
+		loop.ContextWindow = contextWin
+		loop.CompactionMaxTokens = maxTkns
+		loop.CompactionPreserveEvidence = preserveEvidence
+		loop.CompactionRecentTurns = recentTurns
+	} else if sinCfg.AgentLoopCompactionStrategy != "off" && sinCfg.AgentLoopCompactionStrategy != "" {
 		strategy, err := agentloop.ParseCompactionStrategy(sinCfg.AgentLoopCompactionStrategy)
 		if err != nil {
 			fmt.Fprintf(chatStderr, "warn: invalid compaction strategy %q: %v\n", sinCfg.AgentLoopCompactionStrategy, err)

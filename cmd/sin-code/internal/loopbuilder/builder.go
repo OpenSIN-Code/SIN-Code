@@ -116,6 +116,36 @@ type Config struct {
 	// Also activated by config agentloop.compaction_strategy=<strategy>.
 	CompactionStrategy string
 
+	// ContextCompaction (issue: compaction-modes, first PR) wires the new
+	// mode-based compactor. Closed set: "off" | "deterministic" | "llm" |
+	// "hybrid". When set, this takes priority over CompactionStrategy.
+	// Also activated by config agentloop.context_compaction=<mode>.
+	ContextCompaction string
+	// CompactionTrigger (issue: compaction-modes) selects the trigger:
+	// "turns" | "tokens" (default) | "both". Forwarded into Loop.
+	// Also activated by config agentloop.compaction_trigger=<trigger>.
+	CompactionTrigger string
+	// CompactionThreshold is the fraction of the cap at which compaction
+	// fires. 0 = unset (loop uses its built-in 0.8 default).
+	// Also activated by config agentloop.compaction_threshold=<float>.
+	CompactionThreshold float64
+	// ContextWindow is the effective token cap. 0 = auto (loop derives
+	// from CompactionMaxTokens * 4).
+	// Also activated by config agentloop.context_window=<int>.
+	ContextWindow int
+	// CompactionPreserveEvidence enables evidence-preserving retain.
+	// Defaults to true when unset together with a non-off mode.
+	// Also activated by config agentloop.compaction_preserve_evidence=<bool>.
+	CompactionPreserveEvidence bool
+	// CompactionRecentTurns is the number of recent human turns the
+	// retain rule keeps. 0 = unset (use 4).
+	// Also activated by config agentloop.compaction_recent_turns=<int>.
+	CompactionRecentTurns int
+	// CompactionMaxTokens is the token budget for compacted messages.
+	// 0 = unset (use loop's default of 8000).
+	// Also activated by config agentloop.compaction_max_tokens=<int>.
+	CompactionMaxTokens int
+
 	// FrustrationDetection: when true, wires a FrustrationDetector into the
 	// agent loop (issue #271).
 	// Also activated by config agentloop.frustration_detection=true.
@@ -203,6 +233,24 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		}
 		if cfg.CompactionStrategy == "" {
 			cfg.CompactionStrategy = sinCfg.AgentLoopCompactionStrategy
+		}
+		if cfg.ContextCompaction == "" {
+			cfg.ContextCompaction = sinCfg.AgentLoopContextCompaction
+		}
+		if cfg.CompactionTrigger == "" {
+			cfg.CompactionTrigger = sinCfg.AgentLoopCompactionTrigger
+		}
+		if cfg.CompactionThreshold == 0 {
+			cfg.CompactionThreshold = sinCfg.AgentLoopCompactionThreshold
+		}
+		if cfg.ContextWindow == 0 {
+			cfg.ContextWindow = sinCfg.AgentLoopContextWindow
+		}
+		if !cfg.CompactionPreserveEvidence && sinCfg.AgentLoopCompactionPreserveEvidence {
+			cfg.CompactionPreserveEvidence = true
+		}
+		if cfg.CompactionRecentTurns == 0 {
+			cfg.CompactionRecentTurns = sinCfg.AgentLoopCompactionRecentTurns
 		}
 		if !cfg.FrustrationDetectionEnabled {
 			cfg.FrustrationDetectionEnabled = sinCfg.AgentLoopFrustrationDetection
@@ -394,7 +442,34 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	// Compactor (issue #278): opt-in via config agentloop.compaction_strategy.
 	// Chained after CompressMessages — the compactor runs when
 	// ShouldCompact(msgCount, maxTurns, threshold) is true.
-	if cfg.CompactionStrategy != "" {
+	//
+	// Issue: compaction-modes (first PR). ContextCompaction takes priority
+	// over CompactionStrategy: when the mode is non-off, the loop uses
+	// Compact2 with the mode's evidence-preserving rules. The legacy
+	// single-strategy path remains available for callers that neither set
+	// the new mode nor the legacy CompactionStrategy.
+	if cfg.ContextCompaction != "" && cfg.ContextCompaction != "off" {
+		mode, merr := agentloop.ParseContextCompactionMode(cfg.ContextCompaction)
+		if merr != nil {
+			fmt.Fprintf(os.Stderr, "warn: invalid context compaction mode %q: %v (falling back to off)\n", cfg.ContextCompaction, merr)
+			mode = agentloop.ContextCompactionOff
+		}
+		trigger, terr := agentloop.ParseCompactionTrigger(cfg.CompactionTrigger)
+		if terr != nil {
+			trigger = agentloop.CompactionTriggerTokens
+		}
+		loop.Compactor = agentloop.NewCompactor(nil)
+		loop.ContextCompactionMode = mode
+		loop.CompactionTrigger = trigger
+		loop.CompactionThreshold = cfg.CompactionThreshold
+		loop.ContextWindow = cfg.ContextWindow
+		loop.CompactionMaxTokens = 0 // let loop derive default when not set
+		if cfg.CompactionMaxTokens > 0 {
+			loop.CompactionMaxTokens = cfg.CompactionMaxTokens
+		}
+		loop.CompactionPreserveEvidence = cfg.CompactionPreserveEvidence
+		loop.CompactionRecentTurns = cfg.CompactionRecentTurns
+	} else if cfg.CompactionStrategy != "" && cfg.CompactionStrategy != "off" {
 		strategy, serr := agentloop.ParseCompactionStrategy(cfg.CompactionStrategy)
 		if serr != nil {
 			fmt.Fprintf(os.Stderr, "warn: invalid compaction strategy %q: %v (falling back to hybrid)\n", cfg.CompactionStrategy, serr)
@@ -402,6 +477,7 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		}
 		loop.Compactor = agentloop.NewCompactor(nil)
 		loop.CompactionStrategy = strategy
+		loop.Compactor.Threshold = cfg.CompactionThreshold
 	}
 
 	// FrustrationDetector (issue #271): opt-in via config
