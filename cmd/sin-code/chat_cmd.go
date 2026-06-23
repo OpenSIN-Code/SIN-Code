@@ -124,6 +124,12 @@ type chatOptions struct {
 	thinkingBudget     int
 	noTUI              bool
 	watch              string
+	contextCompaction  string
+	compactionTrigger  string
+	compactionMaxTokens int
+	contextWindow      int
+	preserveEvidence   bool
+	compactionRecentTurns int
 }
 
 func NewChatCmd() *cobra.Command {
@@ -187,6 +193,12 @@ func NewChatCmd() *cobra.Command {
 	f.IntVar(&opts.thinkingBudget, "thinking-budget", 0, "per-request thinking.budget_tokens cap (0 = unbounded; requires --thinking-enabled)")
 	f.BoolVar(&opts.noTUI, "no-tui", false, "skip TUI and use plain CLI loop")
 	f.StringVar(&opts.watch, "watch", "", "watch file patterns (comma-separated, e.g. *.go,*.py) and re-run the last prompt on change")
+	f.StringVar(&opts.contextCompaction, "context-compaction", "", "compaction mode: off|deterministic|llm|hybrid (default from config)")
+	f.StringVar(&opts.compactionTrigger, "compaction-trigger", "", "when compaction fires: turns|tokens|both (default from config)")
+	f.IntVar(&opts.compactionMaxTokens, "compaction-max-tokens", 0, "token budget for compacted messages (default 8000)")
+	f.IntVar(&opts.contextWindow, "context-window", 0, "effective token cap for compaction; 0 = auto (default from config)")
+	f.BoolVar(&opts.preserveEvidence, "compaction-preserve-evidence", false, "preserve verification evidence across compaction (default true)")
+	f.IntVar(&opts.compactionRecentTurns, "compaction-recent-turns", 0, "recent human turns to retain (default 4)")
 	return cmd
 }
 
@@ -513,6 +525,25 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		if sinCfg.AgentLoopFrustrationDetection {
 			loop.Frustration = agentloop.NewFrustrationDetector()
 		}
+		// Apply config-file defaults for mode-based compaction (second PR).
+		if opts.contextCompaction == "" {
+			opts.contextCompaction = sinCfg.AgentLoopContextCompaction
+		}
+		if opts.compactionTrigger == "" {
+			opts.compactionTrigger = sinCfg.AgentLoopCompactionTrigger
+		}
+		if opts.compactionMaxTokens == 0 {
+			opts.compactionMaxTokens = sinCfg.AgentLoopCompactionMaxTokens
+		}
+		if opts.contextWindow == 0 {
+			opts.contextWindow = sinCfg.AgentLoopContextWindow
+		}
+		if !opts.preserveEvidence {
+			opts.preserveEvidence = sinCfg.AgentLoopCompactionPreserveEvidence
+		}
+		if opts.compactionRecentTurns == 0 {
+			opts.compactionRecentTurns = sinCfg.AgentLoopCompactionRecentTurns
+		}
 		if opts.yolo && sinCfg.PermissionYoloRiskThreshold != "" {
 			classifier := permission.NewRiskClassifier()
 			if level, perr := permission.ParseRiskLevel(sinCfg.PermissionYoloRiskThreshold); perr == nil {
@@ -520,6 +551,28 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 			}
 			perm.Risk = classifier
 		}
+	}
+
+	// Apply CLI overrides for mode-based compaction.
+	if opts.contextCompaction != "" {
+		mode, _ := agentloop.ParseContextCompactionMode(opts.contextCompaction)
+		loop.ContextCompactionMode = mode
+	}
+	if opts.compactionTrigger != "" {
+		trig, _ := agentloop.ParseCompactionTrigger(opts.compactionTrigger)
+		loop.CompactionTrigger = trig
+	}
+	if opts.compactionMaxTokens > 0 {
+		loop.CompactionMaxTokens = opts.compactionMaxTokens
+	}
+	if opts.contextWindow > 0 {
+		loop.ContextWindow = opts.contextWindow
+	}
+	if opts.preserveEvidence {
+		loop.CompactionPreserveEvidence = true
+	}
+	if opts.compactionRecentTurns > 0 {
+		loop.CompactionRecentTurns = opts.compactionRecentTurns
 	}
 
 	dispatchUserPrompt := func(prompt string) {
