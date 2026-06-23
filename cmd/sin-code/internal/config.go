@@ -528,6 +528,8 @@ worktree.target_branch = %q
 		cfg.LLMStyle,
 		cfg.AgentVerifyMode, cfg.AgentMaxTurns, cfg.AgentHeadless, cfg.AgentYolo,
 		strings.Join(cfg.AgentLoopRequiredTools, ","), strings.Join(cfg.AgentLoopForbiddenTools, ","),
+		cfg.AgentLoopAutoLint, cfg.AgentLoopAutoTest,
+		cfg.AgentLoopAutoLintTimeout, cfg.AgentLoopAutoTestTimeout,
 		strings.Join(cfg.ToolsAllow, ","), strings.Join(cfg.ToolsDeny, ","),
 		cfg.PathsMCPConfig, cfg.PathsSkillsDir,
 		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds, cfg.TestUseLLM, cfg.TestRepairRounds,
@@ -914,6 +916,8 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"permission.yolo_risk_threshold", cfg.PermissionYoloRiskThreshold},
 		{"worktree.conflict_check", cfg.WorktreeConflictCheck},
 		{"worktree.target_branch", cfg.WorktreeTargetBranch},
+		{"autonomy.max_subgoal_depth", fmt.Sprintf("%d", cfg.AutonomyMaxSubgoalDepth)},
+		{"autonomy.subgoal_timeout_s", fmt.Sprintf("%d", cfg.AutonomySubgoalTimeoutS)},
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Key < pairs[j].Key })
 	return pairs
