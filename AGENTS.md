@@ -4,52 +4,12 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** v3.18.0 (2026-06-16) —
-> bundled skills reorganized into category directories and renamed to
-> `skill-<category>-<name>`; `github-skills/` category added; 35 bundled skills
-> embedded in the binary. Branch protection on `main` permanently relaxed to
-> **Last verified against main:** v3.19.0 (2026-06-16) —
-> `sin-code serve --compress-tools` wired (issue #173): ponytail-tag
-> compressor `cmd/sin-code/internal/mcpcompress/` shrinks the 47-tool
-> manifest on the wire (delete|stdlib|native|yagni|shrink tags,
-> byte-stable per `(tool_spec, ruleset)`). Bundled skills reorganized
-> into category directories and renamed to `skill-<category>-<name>`;
-> `github-skills/` category added; 35 bundled skills embedded in the
-> binary. Branch protection on `main` permanently relaxed to
-> `required_approving_review_count: 0` for solo-maintainer workflow.
-> `sin-code install` (issue #170) — new 40th subcommand; root `install.sh`
-> rewritten to a 27-line curl|bash shim; matching `install.ps1` for Windows.
-> `sin-code compress` (issue #172): deterministic + LLM compaction for
-> lessons / instincts / summaries / memory / AGENTS.md; snapshot+rollback
-> for lossless Apply; 39 → 40 subcommands. Branch protection on `main`
-> permanently relaxed to `required_approving_review_count: 0` for
-> solo-maintainer workflow.
-> `sin-code debt` (issue #177) — sin-debt marker convention
-> (`// sin-debt: <ceiling>, upgrade: <trigger>`) adopted from ponytail;
-> 41st subcommand, `cmd/sin-code/internal/sindept/` package with byte-stable
-> scanner + aggregator + report + policy gate.
-> **Last verified against main:** v3.19.0 (2026-06-16) —
-> `autoactivate` hooklife subpackage (issue #176) wired into `sin-code chat`
-> with `--activate <rule>` + `--no-trigger` flags; project-local
-> `.sin-code/autoactivate.toml`; deterministic byte-stable rule rendering;
-> race-safe per-session state (mandate M7). Branch protection on `main`
-> permanently relaxed to `required_approving_review_count: 0` for solo-
-> maintainer workflow.
-> `sin-code audit` + `sin-code ceo-audit` added (issue #180): complexity-audit
-> engine in `cmd/sin-code/internal/audit/`, 48th CEO-audit gate.
-> `sin-code install` (issue #170) — 40th subcommand; `sin-code review --complexity`
-> (issue #179) — 41st subcommand.
-> **Last verified against main:** v3.20.0 (2026-06-17) —
-> agent profiles now expose the full `sin_*` + registered MCP prefix surface
-> while keeping destructive builtins at `ask` (issue #249); system-prompt M6
-> enforcement fragment prefers SIN tools over naive bash/read equivalents
-> (issue #253); runtime `ToolCoverageEnforcer` rejects completion when
-> `required_tools` are missing or `forbidden_tools` were used (issue #248);
-> tool-usage telemetry in `internal/ledger/` drives `ledger tools --heatmap`
-> / `--coverage` / `--unused` / `--json` (issue #250); orchestrator planner
-> emits mandatory `ToolChain` per classified intent (issue #252); unified
-> catalog enumerates 49+ MCP tools, 17+ chat tools, and 14+ external MCP
-> prefixes via `sin-code catalog` / `hub search --unused` (issue #251).
+> **Last verified against main:** v3.24.0 (2026-06-23) —
+> TUI/agentloop/headless live progress: live tool timing, NDJSON progress
+> output, live token/cost footer, Esc interrupts in-flight prompts; autonomy
+> trigger loops honor context cancellation; test suite green and environment-
+> independent (Docker-dependent tests auto-skip, parallel DAG / cron/watch /
+> security / harvest races fixed).
 
 ---
 
@@ -91,12 +51,6 @@ reports success. No other coding agent in the world enforces this.
   (`/Users/jeremy/dev/sin-code-web-ui-v2`) and is wired via
   `sin-code serve` over stdio + `@ai-sdk/mcp`. The WebUI PR cycle is owned
   by a separate agent — never edit WebUI-v2 from this repo's agent loop.
-
-> **Last verified against main:** v3.23.0 (2026-06-18) —
-> containerized execution for autonomous goals (issue #389) wired into
-> `sin-code daemon` via `--container` / `--container-image` and config keys
-> `autonomy.container.enabled` / `autonomy.container.image`. Docker is an
-> external binary dependency; the Go code remains CGO-free (M2).
 
 ---
 
@@ -219,20 +173,19 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code daemon        ← autonomous worker: lease → verify → learn
   ├─ sin-code skill         ← install/status ecosystem skills (v3.5.0)
   ├─ sin-code serve         ← unified MCP server (49+ tools)
-  ├─ sin-code tui           ← standalone TUI binary
+  ├─ sin-code tui           ← standalone TUI binary (live footer/token/cost, v3.24.0)
   ├─ sin-code webui         ← WebUI serve mode
   ├─ sin-code gh            ← v3.9.0: GitHub bridge (3-tier policy)
   ├─ sin-code hub           ← v3.12.0: tool catalog hub
   ├─ sin-code ledger        ← v3.13.0: semantic session ledger
   ├─ sin-code summary       ← v3.13.0: session auto-summary
   ├─ sin-code compress      ← v3.18.0: deterministic + LLM compaction (issue #172)
-  └─ 40 subcommands
   ├─ sin-code audit         ← v3.18.0: repo-wide complexity audit (issue #180)
   ├─ sin-code ceo-audit     ← v3.18.0: 48-gate CEO audit with complexity gate (issue #180)
-  └─ 42 subcommands
   ├─ sin-code review        ← v3.19.0: ponytail complexity review (issue #179)
   ├─ sin-code image-graph   ← v3.20.0: SOTA ECharts chart generation (bar/line/pie/area)
-  └─ 42 subcommands (v3.20.0)
+  ├─ sin-code catalog       ← v3.18.0: unified tool catalog
+  └─ 50+ subcommands (v3.24.0)
 
          │
          ▼
@@ -333,12 +286,12 @@ SIN-Code/
 │       └── sin-profile.md      ← v3.18.0: single-source-of-truth per-agent profile (issue #175)
 │
 ├── cmd/
-│   ├── sin-code/              ← MAIN BINARY (40 subcommands — v3.18.0)
+│   ├── sin-code/              ← MAIN BINARY (50+ subcommands — v3.24.0)
 │   ├── complexity-review.md    ← v3.19.0: ponytail complexity review docs
 │   └── mcp.json.example
 │
 ├── cmd/
-│   ├── sin-code/              ← MAIN BINARY (42 subcommands — v3.20.0)
+│   ├── sin-code/              ← MAIN BINARY (50+ subcommands — v3.24.0)
 │   │   ├── main.go            ← cobra root; AddCommand for all subcommands
 │   │   ├── tui.go, webui_cmd.go
 │   │   ├── chat_cmd.go        ← v3.4.0: chat + -p headless
@@ -718,6 +671,24 @@ untouched. Tool events include only metadata (`tool`, `output_bytes`,
 `error`); raw output is never echoed. Progress output is also wired into
 `sin-code daemon` with `goal_id` and `worker_id` decoration.
 
+### TUI live footer and tool timing (v3.24.0)
+
+The interactive TUI (`sin-code tui`) displays a persistent footer that
+updates live during streaming and agent runs:
+
+- **Token/cost footer**: live token count, estimated USD cost, and stream
+  duration refresh every 250 ms while the model is streaming or a tool is
+  running.
+- **Tool timing**: every local tool invocation fires `Loop.ToolStart` and
+  `Loop.ToolEnd` callbacks carrying the elapsed `duration`. The TUI renders
+  these in the tool tree and footer; headless mode forwards them through the
+  same `ProgressWriter` as structured NDJSON events.
+- **Esc interrupt**: pressing `Esc` in the TUI chat input cancels the
+  in-flight prompt/model request and stops the live ticker immediately.
+
+The footer is read-only telemetry; it does not change tool behavior or the
+verification gate.
+
 ### Verbosity / compression mode (issue #167)
 
 | Config key | Allowed values | Default |
@@ -745,7 +716,7 @@ Headless JSON contract (stable API — never break without major bump):
 
 ---
 
-## 8. Roadmap (versions 3.0.0 – 3.23.0)
+## 8. Roadmap (versions 3.0.0 – 3.24.0)
 
 | Version | Status | Contents |
 |---|---|---|
@@ -783,6 +754,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.22.0 | ✅ SHIPPED | SIN Fusion v1 enhancements: **Plan-Merge mode** (issue #393 — N planners → judge merges → 1 coder → verify, preserves all insights); **Oracle as default** (issue #394 — quality over cost, was: PoC first-pass-wins); **Model Performance Registry** (issue #395 — `modelperf.db`, `fusion benchmark/rank/recommend` CLI, auto-wired into `loopbuilder`). |
 | v3.22.0 | ✅ SHIPPED | pre-existing fixes stacked into the same release: `llm/provider.go`+`recorder.go`+`stream.go` ThinkingTokens + 8-arg `RecordUsage`; `agentloop/compaction_helpers.go` for `compaction_types.go`; vet fix in `orchestrator/event_dispatch_test.go`. |
 | v3.23.0 | ✅ SHIPPED | v3.23.0 roadmap batch 1: autonomous research report (`sin-code research`, issue #384), SWE-bench test suite (issue #363), scientific research skill (issue #387), `sin_apply_diff`/`sin_generate_diff` chat tools (issue #365), dynamic MCP server discovery (`sin-code mcp discover/add`, issue #368). Also repaired main build drift from parallel-agent WIP. Remaining open: #364, #373, #374, #388, #389. |
+| v3.24.0 | 🚧 WIP | TUI/agentloop/headless live progress: live tool timing + NDJSON progress + live token/cost footer (issue #424); Esc cancels in-flight TUI prompt; autonomy trigger loops exit promptly on context cancellation; test suite made environment-independent (Docker-dependent tests auto-skip when daemon unavailable, remove parallel DAG timing race, eliminate cron/watch enqueue race, make security/harvest tests env-independent). |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -792,6 +764,9 @@ updates `homebrew-sin` formula, and ships to GitHub Releases.
 ## 9. Development workflow
 
 - Go 1.23+. Before EVERY commit: `go build ./... && go test ./... -race -count=1`.
+  The full suite is now green and environment-independent: Docker-dependent
+  tests auto-skip when the daemon is unavailable; orchestrator, autonomy,
+  security, and harvest tests no longer depend on ambient environment or timing.
 - Conventional commits (`feat:`, `fix:`, `docs:`, `feat!:` for breaking).
 - Releases: tag push `vX.Y.Z` ⇒ goreleaser builds multi-arch + updates brew.
 - Never reduce test count or coverage. New loop code targets ≥80% coverage.
@@ -915,28 +890,25 @@ canonical pattern; renaming `skill-code-lazy` would require a
 major bump because the `lazy_skill` keyword is part of the
 external activate-mode contract (issue #176).
 
-### CLI subcommands (verified `cmd/sin-code/main.go`, v3.5.0)
+### CLI subcommands (verified `cmd/sin-code/main.go`, v3.24.0)
 
 ```
 Core:      discover, execute, map, grasp, scout, harvest, orchestrate,
            ibd, poc, sckg, adw, oracle, efm
-Agents:    chat, sessions, mcp, goal, daemon, skill, superpowers,
-           vane, stack, gh, install
-           vane, stack, gh, install, profile
-           vane, stack, gh, debt
-           (sessions: list|show|rm|fork|tree, issue #194)
+Agents:    chat, sessions (list|show|rm|fork|tree), mcp, goal, daemon,
+           skill, skills, swarm, superpowers, dox, vane, stack, gh, install,
+           hub, ledger, summary, autodev, compress, review, eval, trace,
+           profile, rtk, codegraph, spec, triage, catalog, compile-spec, grill,
+           subagent, auto-pr, checkpoint, rewind, debt, audit, ceo-audit,
+           cover, instinct, hooks, assets, evalset, prp, image-graph, status,
+           fusion, research, permission, tokens, analyse, auto
 Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
            orchestrator_agents, orchestrator_plan, update
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
-           config, self-update, hub, ledger, summary
-``` (v3.18.0: 40 subcommands; `install` is the v3.18.0 single-binary installer from issue #170)
-           config, self-update, hub, ledger, summary, compress
-``` (v3.18.0: 40 subcommands, up from 39 in v3.13.0)
-``` (v3.18.0: 40 subcommands, up from 39 in v3.16.0;
-`install` is the v3.18.0 single-binary installer from issue #170;
-`profile` is the v3.18.0 single-source-of-truth per-agent renderer
-from issue #175.)
+           config, self-update
+```
+(v3.24.0: 50+ subcommands.)
 
 ### Per-agent profile distribution (issue #175)
 
@@ -972,11 +944,6 @@ same anchor (`SIN-CODE-SKILL`) so a downstream parser finds both
 per-skill bundles and per-profile mirrors with one regex. Profile
 renders are idempotent (rerun with unchanged source = byte-identical
 output), exactly as skilldist demands.
-``` (v3.18.0: 42 subcommands — `debt` is issue #177, sin-debt markers; `install` is issue #170; `eval`, `evalset`, `prp`, `instinct`, `assets`, `hooks`, `rtk`, `codegraph`, `spec` follow)
-Audit:     audit, ceo-audit
-``` (v3.18.0: 42 subcommands, up from 39 in v3.13.0)
-           config, self-update, hub, ledger, summary, review, image-graph
-``` (v3.20.0: 42 subcommands — `image-graph` added: SOTA ECharts chart generation)
 
 ### Hook events (verified `internal/hooks/hooks.go`, v3.5.0)
 

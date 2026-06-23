@@ -871,6 +871,38 @@ spec's signatures.
 - **Tests**: `cmd/sin-code/internal/complexity/complexity_test.go` + golden file,
   race-clean.
 
+### Added — TUI / agentloop / headless live progress (issue #424)
+- **Live tool timing + NDJSON progress + live token/cost footer**
+  (`043f574`): TUI, agent loop, and headless mode now surface live per-tool
+  timing, structured NDJSON progress events, and a real-time token/cost
+  footer. Progress events are emitted on the configured destination
+  (`stderr` by default) so the headless JSON contract on stdout stays
+  untouched.
+- **Esc cancels in-flight prompt** (`290f70b`): pressing `Esc` in the TUI
+  now actually interrupts the current in-flight prompt rather than being
+  silently swallowed.
+- **Stale-branch merge** (`ea0b0ad`): valuable content from 5 stale branches
+  merged into main; no duplicate features retained.
+
+### Fixed
+- **Autonomy trigger loops respect context cancellation** (`8927718`): file
+  watchers and cron triggers exit promptly when their context is cancelled
+  instead of completing another iteration.
+
+### Tests
+- **Skip Docker-dependent tests when daemon is unavailable** (`e4a6736`):
+  internal security/harvest tests detect a missing Docker daemon and skip
+  container-dependent assertions rather than failing.
+- **Remove timing race in parallel DAG test** (`5d4af5a`): orchestrator
+  parallel DAG test no longer depends on wall-clock timing for completion
+  assertions.
+- **Eliminate race in cron/watch enqueue tests** (`98c9d11`): autonomy cron
+  and file-watch enqueue tests are now race-clean under
+  `go test -race -count=1`.
+- **Make security + harvest tests environment-independent** (`b54a3d8`):
+  internal security and harvest tests isolate environment assumptions so
+  they pass regardless of the host's tooling or network state.
+
 ## [v3.23.0] - 2026-06-18
 
 ### Added — v3.23.0 Roadmap
