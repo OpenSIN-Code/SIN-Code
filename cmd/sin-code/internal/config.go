@@ -122,6 +122,20 @@ type SinCodeConfig struct {
 	// (issue #271). When true, the loop appends an adaptive system-prompt
 	// suffix when frustration is detected. Default false.
 	AgentLoopFrustrationDetection bool `toml:"agentloop.frustration_detection"`
+	// AgentLoopInjectLessons gates lesson briefings in the session-
+	// context block injected as the first user message of every run
+	// (issue #379). Default false — privacy-first, opt-in only.
+	AgentLoopInjectLessons bool `toml:"agentloop.inject_lessons"`
+	// AgentLoopInjectMemory gates long-term memory entries in the
+	// session-context block (issue #379). Default false.
+	AgentLoopInjectMemory bool `toml:"agentloop.inject_memory"`
+	// AgentLoopInjectGoals gates pending autonomous-goals rows in
+	// the session-context block (issue #379). Default false.
+	AgentLoopInjectGoals bool `toml:"agentloop.inject_goals"`
+	// AgentLoopContextTopK bounds per-source entries pulled into the
+	// session-context block (issue #379). Default 5; values <1 fall
+	// back to 5 inside the injector.
+	AgentLoopContextTopK int `toml:"agentloop.context_top_k"`
 	// Permission: YOLO risk threshold (issue #272).
 	PermissionYoloRiskThreshold string `toml:"permission.yolo_risk_threshold"`
 	// Worktree conflict prediction (issue #319).
@@ -181,6 +195,11 @@ func defaultConfig() SinCodeConfig {
 		PermissionYoloRiskThreshold:   "",
 		WorktreeConflictCheck:         "off",
 		WorktreeTargetBranch:          "",
+		// Issue #379: every inject_* flag is opt-in. Default 0 / false.
+		AgentLoopInjectLessons:        false,
+		AgentLoopInjectMemory:         false,
+		AgentLoopInjectGoals:          false,
+		AgentLoopContextTopK:          5,
 	}
 }
 
@@ -657,6 +676,14 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.AgentLoopCompactionThreshold), nil
 	case "agentloop.frustration_detection":
 		return fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection), nil
+	case "agentloop.inject_lessons":
+		return fmt.Sprintf("%v", cfg.AgentLoopInjectLessons), nil
+	case "agentloop.inject_memory":
+		return fmt.Sprintf("%v", cfg.AgentLoopInjectMemory), nil
+	case "agentloop.inject_goals":
+		return fmt.Sprintf("%v", cfg.AgentLoopInjectGoals), nil
+	case "agentloop.context_top_k":
+		return fmt.Sprintf("%d", cfg.AgentLoopContextTopK), nil
 	case "permission.yolo_risk_threshold":
 		return cfg.PermissionYoloRiskThreshold, nil
 	case "worktree.conflict_check":
@@ -842,6 +869,18 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.AgentLoopCompactionThreshold = v
 	case "agentloop.frustration_detection":
 		cfg.AgentLoopFrustrationDetection = value == "true" || value == "1"
+	case "agentloop.inject_lessons":
+		cfg.AgentLoopInjectLessons = value == "true" || value == "1"
+	case "agentloop.inject_memory":
+		cfg.AgentLoopInjectMemory = value == "true" || value == "1"
+	case "agentloop.inject_goals":
+		cfg.AgentLoopInjectGoals = value == "true" || value == "1"
+	case "agentloop.context_top_k":
+		v, err := strconv.Atoi(value)
+		if err != nil || v <= 0 {
+			return fmt.Errorf("agentloop.context_top_k must be a positive integer, got %q", value)
+		}
+		cfg.AgentLoopContextTopK = v
 	case "permission.yolo_risk_threshold":
 		cfg.PermissionYoloRiskThreshold = value
 	case "worktree.conflict_check":
@@ -911,6 +950,10 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"agentloop.compaction_strategy", cfg.AgentLoopCompactionStrategy},
 		{"agentloop.compaction_threshold", fmt.Sprintf("%v", cfg.AgentLoopCompactionThreshold)},
 		{"agentloop.frustration_detection", fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection)},
+		{"agentloop.inject_lessons", fmt.Sprintf("%v", cfg.AgentLoopInjectLessons)},
+		{"agentloop.inject_memory", fmt.Sprintf("%v", cfg.AgentLoopInjectMemory)},
+		{"agentloop.inject_goals", fmt.Sprintf("%v", cfg.AgentLoopInjectGoals)},
+		{"agentloop.context_top_k", fmt.Sprintf("%d", cfg.AgentLoopContextTopK)},
 		{"permission.yolo_risk_threshold", cfg.PermissionYoloRiskThreshold},
 		{"worktree.conflict_check", cfg.WorktreeConflictCheck},
 		{"worktree.target_branch", cfg.WorktreeTargetBranch},
@@ -1178,6 +1221,17 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.AgentLoopCompactionThreshold = v
 		case "agentloop.frustration_detection":
 			cfg.AgentLoopFrustrationDetection = val == "true" || val == "1"
+		case "agentloop.inject_lessons":
+			cfg.AgentLoopInjectLessons = val == "true" || val == "1"
+		case "agentloop.inject_memory":
+			cfg.AgentLoopInjectMemory = val == "true" || val == "1"
+		case "agentloop.inject_goals":
+			cfg.AgentLoopInjectGoals = val == "true" || val == "1"
+		case "agentloop.context_top_k":
+			v, _ := strconv.Atoi(val)
+			if v > 0 {
+				cfg.AgentLoopContextTopK = v
+			}
 		case "permission.yolo_risk_threshold":
 			cfg.PermissionYoloRiskThreshold = val
 		case "worktree.conflict_check":

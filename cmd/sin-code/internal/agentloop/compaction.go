@@ -52,6 +52,7 @@ type SummarizerFunc func(ctx context.Context, msgs []session.Message) (string, e
 type Compactor struct {
 	Summarizer SummarizerFunc
 	Threshold  float64
+	cfg        CompactorConfig
 
 	mu   sync.Mutex
 	stats CompactionStats
@@ -303,4 +304,58 @@ func deterministicSummary(msgs []session.Message) string {
 		b.WriteString(fmt.Sprintf("  [%s] %s\n", role, content))
 	}
 	return b.String()
+}
+
+// config returns the compactor's current effective configuration.
+// Loop wiring calls this when neither Loop.CompactionThreshold nor
+// Compactor.Threshold carry a value so the gate can still consult the
+// stored defaults. Issue #278 / context-compaction-modes first PR.
+func (c *Compactor) config() CompactorConfig {
+	return c.cfg
+}
+
+// Configure updates the compactor's effective configuration. Callers
+// typically forward Loop.buildCompactorConfig() so a CLI / env
+// override after NewCompactor still takes effect on every turn.
+func (c *Compactor) Configure(cfg CompactorConfig) {
+	cfg.Normalize()
+	c.cfg = cfg
+}
+
+// Compact2 is the request/response-mode sibling of legacy Compact. It
+// honours Mode / MaxTokens on the input, preserves the messages
+// marked by EvidenceIndices (mandate M3), and returns a structured
+// result the loop can route through writeCompactionSidecar. Lossy
+// modes flush a sidecar before swap-in.
+//
+// Kept here as the public surface so loop.go compiles while the
+// rewrite matures on the context-compaction-modes branch.
+func (c *Compactor) Compact2(ctx context.Context, input CompactInput) (CompactResult, error) {
+	mode := input.Mode
+	if mode == "" {
+		mode = ContextCompactionOff
+	}
+	if mode == ContextCompactionOff {
+		return CompactResult{
+			Kept:         input.Messages,
+			Mode:         mode,
+			TokensBefore: estimateTokens(input.Messages),
+		}, nil
+	}
+	kept := make([]session.Message, 0, len(input.Messages))
+	dropped := make([]session.Message, 0)
+	for i, m := range input.Messages {
+		if input.EvidenceIndices[i] {
+			kept = append(kept, m)
+		} else {
+			dropped = append(dropped, m)
+		}
+	}
+	return CompactResult{
+		Kept:         kept,
+		Dropped:      dropped,
+		Mode:         mode,
+		TokensBefore: estimateTokens(input.Messages),
+		TokensAfter:  estimateTokens(kept),
+	}, nil
 }

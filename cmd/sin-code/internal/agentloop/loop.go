@@ -283,6 +283,15 @@ type Loop struct {
 	// The returned string is appended as a user message before the prompt.
 	// Optional — nil preserves legacy behavior.
 	MemoryPrime func(ctx context.Context, prompt string) (string, error)
+
+	// SessionContextBuilder, when set, is called once at session start
+	// to assemble a markdown block aggregating top-K entries from
+	// lessons, memory, and pending goals. The block is appended as a
+	// user message immediately BEFORE the goal prompt so the worker
+	// reads it on the first turn. Privacy-first — off unless the
+	// caller wires an opt-in ContextInjector (issue #379). Optional —
+	// nil preserves legacy behavior.
+	SessionContextBuilder func(ctx context.Context, prompt string) (string, error)
 }
 
 // TournamentRunner is the interface for fusion verify-tournaments (issue
@@ -654,6 +663,16 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	if strings.TrimSpace(l.Preamble) != "" {
 		msgs = append(msgs, session.Message{Role: "user", Content: l.Preamble})
 	}
+	// Issue #379: session-context injection from lessons / memory /
+	// autonomy. Fires at session start, OPT-IN ONLY — the builder is
+	// nil unless loopbuilder wired an explicit ContextInjector, so
+	// legacy sessions keep their exact pre-#379 message stream.
+	if l.SessionContextBuilder != nil {
+		if blk, berr := l.SessionContextBuilder(ctx, prompt); berr == nil && strings.TrimSpace(blk) != "" {
+			msgs = append(msgs, session.Message{Role: "user", Content: blk})
+			l.fire(ctx, hooks.SessionStart, "", map[string]any{"bytes": len(blk)})
+		}
+	}
 	msgs = append(msgs, session.Message{Role: "user", Content: prompt})
 
 	if l.Frustration != nil {
@@ -775,19 +794,82 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			}
 			reqMsgs = append([]session.Message{{Role: "system", Content: sysContent}}, reqMsgs...)
 		}
-		resp, err := l.Completion(ctx, reqMsgs, tools)
+		// Issue #375: per-turn budget CUT OFF BEFORE SENDING. If a
+		// prior turn already exhausted the per-turn cap, refuse to
+		// spend another wire call: synthesize an empty Completion
+		// with no tool calls and set verifiedOnly=true so the per-run
+		// accounting is skipped as well. The existing no-tool-calls
+		// branch below then runs the verify-gate consult — M3 wins:
+		// verification is the source of truth, not the budget.
+		verifiedOnly := false
+		var resp *Completion
+		var err error
+		if l.perTurnBudget != nil {
+			if err := l.perTurnBudget.PreFlight(); err != nil {
+				l.fire(ctx, hooks.BudgetExceeded, "", map[string]any{
+					"stage":  "preflight",
+					"source": "per_turn",
+					"turn":   turn,
+					"detail": err.Error(),
+				})
+				if serr := l.saveHistory(ctx, sess, msgs); serr != nil {
+					return nil, serr
+				}
+				resp = &Completion{Text: "", Raw: session.Message{Role: "assistant", Content: ""}}
+				verifiedOnly = true
+				err = nil
+			}
+		}
+		if !verifiedOnly {
+			resp, err = l.Completion(ctx, reqMsgs, tools)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("turn %d: %w", turn, err)
 		}
 		msgs = append(msgs, resp.Raw)
-		// Token budget accounting (issue #151). Provider usage is optional;
-		// if zero we simply skip the guard for that turn.
-		if u := resp.Usage.TotalTokens; u > 0 {
-			totalTokens += u
-		} else {
-			totalTokens += resp.Usage.PromptTokens + resp.Usage.CompletionTokens
+		// Issue #375: per-turn Charge. Adds the just-received usage to
+		// the per-turn accumulator and returns ErrPerTurnBudgetExceeded
+		// when either cap is crossed. Done BEFORE the per-run MaxTokens
+		// check so cap-within-cap ordering is obvious: a single turn
+		// can't exceed the per-turn cap before the per-run kicks in.
+		// Skipped when verifiedOnly=true: no real provider call was
+		// made, so there is nothing to account for.
+		if !verifiedOnly && l.perTurnBudget != nil {
+			if err := l.perTurnBudget.Charge(resp.Usage.ThinkingTokens, resp.Usage.TotalTokens); err != nil {
+				l.fire(ctx, hooks.BudgetExceeded, "", map[string]any{
+					"stage":           "post_response",
+					"source":          "per_turn",
+					"turn":            turn,
+					"thinking_tokens": resp.Usage.ThinkingTokens,
+					"total_tokens":    resp.Usage.TotalTokens,
+					"detail":          err.Error(),
+				})
+				l.record(ctx, ledger.TypeTokenBudgetExhausted,
+					map[string]any{
+						"source":          "per_turn",
+						"thinking_tokens": resp.Usage.ThinkingTokens,
+						"total_tokens":    resp.Usage.TotalTokens,
+					},
+					"per-turn budget exceeded: "+err.Error())
+				// Mandate M3: still consult the verify gate on the
+				// current workspace before declaring failure. We KEEP
+				// verifiedOnly=true so the per-run accumulation is
+				// skipped as well (no further provider call should be
+				// spent; honour the cap with the cheapest recovery).
+				verifiedOnly = true
+			}
 		}
-		if l.MaxTokens > 0 {
+		// Token budget accounting (issue #151). Provider usage is optional;
+		// if zero we simply skip the guard for that turn. Skipped when
+		// verifiedOnly=true (issue #375).
+		if !verifiedOnly {
+			if u := resp.Usage.TotalTokens; u > 0 {
+				totalTokens += u
+			} else {
+				totalTokens += resp.Usage.PromptTokens + resp.Usage.CompletionTokens
+			}
+		}
+		if !verifiedOnly && l.MaxTokens > 0 {
 			if !warnedBudget && l.BudgetWarnRatio > 0 &&
 				float64(totalTokens) >= l.BudgetWarnRatio*float64(l.MaxTokens) {
 				warnedBudget = true
@@ -819,8 +901,9 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 		// provider's reported reasoning-token usage and stop the run
 		// when the per-run cap is exceeded (ThinkingBudgetPerRequest > 0).
 		// Zero values from providers that do not surface the field are
-		// safe — they never trigger the guard.
-		if resp.Usage.ThinkingTokens > 0 {
+		// safe — they never trigger the guard. Skipped under
+		// verifiedOnly=true (issue #375).
+		if !verifiedOnly && resp.Usage.ThinkingTokens > 0 {
 			l.thinkingUsed += resp.Usage.ThinkingTokens
 		}
 		if l.ThinkingBudgetPerRequest > 0 && l.thinkingUsed > l.ThinkingBudgetPerRequest {
