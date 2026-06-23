@@ -437,5 +437,3 @@ func goBinaryName(repo string) string {
 	}
 	return "sin-" + strings.ReplaceAll(repo, "_", "-")
 }
-
-

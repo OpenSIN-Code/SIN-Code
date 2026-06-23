@@ -700,22 +700,22 @@ block between <!-- SIN-CODE-SKILL-START: <name> --> and
 				enc.SetIndent("", "  ")
 				return enc.Encode(sts)
 			}
-		fmt.Fprintf(cmd.OutOrStdout(), "%-15s %-10s %-9s %-10s %s\n", "SKILL", "INSTALLED", "RUNNABLE", "STATUS", "DETAIL")
-		for _, s := range sts {
-			status := ""
-			if s.Deprecated {
-				status = "deprecated"
-			}
-			detail := s.Detail
-			if s.Deprecated && s.DeprecatedReason != "" {
-				if detail != "" {
-					detail = "DEPRECATED: " + s.DeprecatedReason + " | " + detail
-				} else {
-					detail = "DEPRECATED: " + s.DeprecatedReason
+			fmt.Fprintf(cmd.OutOrStdout(), "%-15s %-10s %-9s %-10s %s\n", "SKILL", "INSTALLED", "RUNNABLE", "STATUS", "DETAIL")
+			for _, s := range sts {
+				status := ""
+				if s.Deprecated {
+					status = "deprecated"
 				}
+				detail := s.Detail
+				if s.Deprecated && s.DeprecatedReason != "" {
+					if detail != "" {
+						detail = "DEPRECATED: " + s.DeprecatedReason + " | " + detail
+					} else {
+						detail = "DEPRECATED: " + s.DeprecatedReason
+					}
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "%-15s %-10v %-9v %-10s %s\n", s.Name, s.Installed, s.Runnable, status, detail)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "%-15s %-10v %-9v %-10s %s\n", s.Name, s.Installed, s.Runnable, status, detail)
-		}
 			return nil
 		},
 	}
