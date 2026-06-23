@@ -39,9 +39,21 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 	var content strings.Builder
 	mdRenderer := newMarkdownRenderer(styles)
 
-	for i, msg := range m.ChatHistory {
+	maxRenderLines := chatHeight * 3
+	renderedLines := 0
+	startIdx := 0
+	if n := len(m.ChatHistory); n > 50 {
+		startIdx = n - 50
+	}
+
+	for i := startIdx; i < len(m.ChatHistory); i++ {
+		msg := m.ChatHistory[i]
 		rendered := renderChatMessageCompact(msg, mdRenderer, styles, width, i == m.ChatFocusIdx, m.Spinner)
 		content.WriteString(rendered)
+		renderedLines += strings.Count(rendered, "\n") + 1
+		if renderedLines > maxRenderLines {
+			break
+		}
 	}
 
 	m.ChatViewport.SetWidth(width)

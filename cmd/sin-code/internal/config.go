@@ -769,6 +769,9 @@ func showTOML(cfg SinCodeConfig, mask bool) error {
 		AgentLoopRequiredTools: cfg.AgentLoopRequiredTools, AgentLoopForbiddenTools: cfg.AgentLoopForbiddenTools,
 		ToolsAllow:               cfg.ToolsAllow, ToolsDeny: cfg.ToolsDeny,
 		PathsMCPConfig:           cfg.PathsMCPConfig, PathsSkillsDir: cfg.PathsSkillsDir,
+		TestCoverageThreshold:    cfg.TestCoverageThreshold, TestMutationThreshold: cfg.TestMutationThreshold,
+		TestAutoGenerate:         cfg.TestAutoGenerate, TestTimeoutSeconds: cfg.TestTimeoutSeconds,
+		TestUseLLM:               cfg.TestUseLLM, TestRepairRounds: cfg.TestRepairRounds,
 	}))
 	return nil
 }
@@ -809,6 +812,9 @@ func validateConfig(cfg SinCodeConfig) []string {
 	}
 	if cfg.TestTimeoutSeconds <= 0 {
 		issues = append(issues, fmt.Sprintf("test.timeout_seconds must be > 0, got %d", cfg.TestTimeoutSeconds))
+	}
+	if cfg.TestRepairRounds < 0 {
+		issues = append(issues, fmt.Sprintf("test.repair_rounds must be >= 0, got %d", cfg.TestRepairRounds))
 	}
 	return issues
 }

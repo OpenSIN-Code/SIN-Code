@@ -105,10 +105,19 @@ func (i *Input) Attachments() []*attachments.Attachment {
 	return i.attachments
 }
 
+// WasPaste reports whether the current input was populated by a bracketed
+// paste block (tea.PasteMsg) since the last Clear. Other components can use
+// this to treat large pastes as a single block instead of replaying them
+// character-by-character. The flag is reset by Clear.
+func (i *Input) WasPaste() bool {
+	return i.pasteDetected
+}
+
 func (i *Input) Clear() {
 	i.textarea.Reset()
 	i.attachments = nil
 	i.filePicker.active = false
+	i.pasteDetected = false
 }
 
 func (i *Input) Attach(path string) error {
@@ -204,6 +213,7 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 	var cmd tea.Cmd
 	switch msg := msg.(type) {
 	case tea.PasteMsg:
+		i.pasteDetected = true
 		i.handlePaste(msg.Content)
 		return nil, nil
 	case tea.KeyPressMsg:

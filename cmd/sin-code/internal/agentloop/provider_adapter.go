@@ -83,6 +83,87 @@ func NewProviderCompletion(c *llm.Client, model string, maxTokens int, temperatu
 	return NewProviderCompletionWithCache(c, model, maxTokens, temperature, nil)
 }
 
+// NewProviderCompletionWithThinking creates a completion func that sends
+// {"thinking":{"type":"enabled"}} in every request for models that support
+// reasoning/thinking mode (Fireworks: GLM 5.2, Kimi K2.7, DeepSeek V4 Pro,
+// MiniMax M3, Qwen 3.7 Plus). When thinkingEnabled is false, behaves
+// identically to NewProviderCompletion (issue #290).
+func NewProviderCompletionWithThinking(c *llm.Client, model string, maxTokens int, temperature float64, thinkingEnabled bool) func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
+	return func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
+		wt := make([]wireTool, 0, len(tools))
+		for _, t := range tools {
+			wt = append(wt, wireTool{Type: "function", Function: wireFunction{
+				Name:        t.Name,
+				Description: t.Description,
+				Parameters:  t.InputSchema,
+			}})
+		}
+		req := wireRequest{
+			Model: model, Messages: history, Tools: wt,
+			MaxTokens: maxTokens, Temperature: temperature,
+		}
+		if thinkingEnabled {
+			req.Thinking = &wireThinking{Type: "enabled"}
+		}
+		body, err := json.Marshal(req)
+		if err != nil {
+			return nil, fmt.Errorf("marshal completion request: %w", err)
+		}
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			c.BaseURL+"/chat/completions", bytes.NewReader(body))
+		if err != nil {
+			return nil, err
+		}
+		httpReq.Header.Set("Content-Type", "application/json")
+		if c.APIKey != "" {
+			httpReq.Header.Set("Authorization", "Bearer "+c.APIKey)
+		}
+		resp, err := c.HTTP.Do(httpReq)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			data, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("LLM API error %d: %s", resp.StatusCode, string(data))
+		}
+		var out wireResponse
+		if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+			return nil, fmt.Errorf("decode completion response: %w", err)
+		}
+		if len(out.Choices) == 0 {
+			return nil, fmt.Errorf("LLM returned no choices")
+		}
+		msg := out.Choices[0].Message
+		raw := session.Message{Role: msg.Role, Content: msg.Content}
+		if raw.Role == "" {
+			raw.Role = "assistant"
+		}
+		if len(msg.ToolCalls) > 0 {
+			rawTC, err := marshalToolCalls(msg.ToolCalls)
+			if err != nil {
+				return nil, fmt.Errorf("re-marshal tool_calls: %w", err)
+			}
+			raw.ToolCalls = rawTC
+		}
+		calls := make([]ToolCall, 0, len(msg.ToolCalls))
+		for _, tc := range msg.ToolCalls {
+			args := map[string]any{}
+			if tc.Function.Arguments != "" {
+				if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+					return nil, fmt.Errorf("tool call %s: bad arguments JSON: %w", tc.Function.Name, err)
+				}
+			}
+			calls = append(calls, ToolCall{ID: tc.ID, Name: tc.Function.Name, Args: args})
+		}
+		return &Completion{Text: msg.Content, ToolCalls: calls, Raw: raw, Usage: Usage{
+			PromptTokens:     out.Usage.PromptTokens,
+			CompletionTokens: out.Usage.CompletionTokens,
+			TotalTokens:      out.Usage.TotalTokens,
+		}}, nil
+	}
+}
+
 func NewProviderCompletionWithCache(c *llm.Client, model string, maxTokens int, temperature float64, cache *llm.PromptCache) func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
 	return func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
 		wt := make([]wireTool, 0, len(tools))
