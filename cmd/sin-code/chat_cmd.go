@@ -124,6 +124,14 @@ type chatOptions struct {
 	thinkingBudget     int
 	noTUI              bool
 	watch              string
+	// Context Compaction Modes CLI flags (second PR — compaction-wiring).
+	contextCompaction          string
+	compactionTrigger          string
+	compactionThreshold        float64
+	contextWindow              int
+	compactionMaxTokens        int
+	compactionPreserveEvidence bool
+	compactionRecentTurns      int
 }
 
 func NewChatCmd() *cobra.Command {
@@ -187,6 +195,13 @@ func NewChatCmd() *cobra.Command {
 	f.IntVar(&opts.thinkingBudget, "thinking-budget", 0, "per-request thinking.budget_tokens cap (0 = unbounded; requires --thinking-enabled)")
 	f.BoolVar(&opts.noTUI, "no-tui", false, "skip TUI and use plain CLI loop")
 	f.StringVar(&opts.watch, "watch", "", "watch file patterns (comma-separated, e.g. *.go,*.py) and re-run the last prompt on change")
+	f.StringVar(&opts.contextCompaction, "context-compaction", "", "compaction mode: off|deterministic|llm|hybrid (default from config)")
+	f.StringVar(&opts.compactionTrigger, "compaction-trigger", "", "compaction trigger: turns|tokens|both (default from config)")
+	f.Float64Var(&opts.compactionThreshold, "compaction-threshold", 0, "compaction threshold fraction (0-1, default 0.8)")
+	f.IntVar(&opts.contextWindow, "context-window", 0, "effective token cap (0=auto, default from config)")
+	f.IntVar(&opts.compactionMaxTokens, "compaction-max-tokens", 0, "token budget for compacted messages (default 8000)")
+	f.BoolVar(&opts.compactionPreserveEvidence, "compaction-preserve-evidence", false, "preserve verification evidence (M3, default true)")
+	f.IntVar(&opts.compactionRecentTurns, "compaction-recent-turns", 0, "recent human turns to retain (default 4)")
 	return cmd
 }
 
@@ -453,6 +468,32 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		loader := mcpclient.NewLazyToolLoader(allSpecsAsMCPClient(mcpMgr))
 		loop.LocalSpec = lazyCombinedSpecs()
 		loop.LocalTool = lazyCombinedTool(workspace, mcpMgr, loader, loop)
+	}
+
+	// Context Compaction Modes (second PR — compaction-wiring):
+	// apply CLI flags (override config defaults when non-zero).
+	if opts.contextCompaction != "" {
+		loop.ContextCompactionMode = agentloop.ContextCompactionMode(opts.contextCompaction)
+	}
+	if opts.compactionTrigger != "" {
+		loop.CompactionTrigger = agentloop.CompactionTrigger(opts.compactionTrigger)
+	}
+	if opts.compactionThreshold > 0 {
+		loop.CompactionThreshold = opts.compactionThreshold
+	} else if sinCfg.AgentLoopCompactionThreshold > 0 {
+		loop.CompactionThreshold = sinCfg.AgentLoopCompactionThreshold
+	}
+	if opts.contextWindow > 0 {
+		loop.ContextWindow = opts.contextWindow
+	}
+	if opts.compactionMaxTokens > 0 {
+		loop.CompactionMaxTokens = opts.compactionMaxTokens
+	}
+	if opts.compactionPreserveEvidence {
+		loop.CompactionPreserveEvidence = true
+	}
+	if opts.compactionRecentTurns > 0 {
+		loop.CompactionRecentTurns = opts.compactionRecentTurns
 	}
 
 	if sinCfg.AgentLoopCompactionStrategy != "off" && sinCfg.AgentLoopCompactionStrategy != "" {

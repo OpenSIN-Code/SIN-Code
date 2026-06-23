@@ -116,6 +116,16 @@ type Config struct {
 	// Also activated by config agentloop.compaction_strategy=<strategy>.
 	CompactionStrategy string
 
+	// ContextCompactionModes config (second PR — compaction-wiring).
+	// When non-empty, sets the ContextCompactionMode on the loop.
+	// Also activated by config agentloop.context_compaction=<mode>.
+	ContextCompaction          string
+	CompactionTrigger          string
+	CompactionMaxTokens         int
+	ContextWindow              int
+	CompactionPreserveEvidence bool
+	CompactionRecentTurns      int
+
 	// FrustrationDetection: when true, wires a FrustrationDetector into the
 	// agent loop (issue #271).
 	// Also activated by config agentloop.frustration_detection=true.
@@ -203,6 +213,24 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		}
 		if cfg.CompactionStrategy == "" {
 			cfg.CompactionStrategy = sinCfg.AgentLoopCompactionStrategy
+		}
+		if cfg.ContextCompaction == "" {
+			cfg.ContextCompaction = sinCfg.AgentLoopContextCompaction
+		}
+		if cfg.CompactionTrigger == "" {
+			cfg.CompactionTrigger = sinCfg.AgentLoopCompactionTrigger
+		}
+		if cfg.CompactionMaxTokens <= 0 {
+			cfg.CompactionMaxTokens = sinCfg.AgentLoopCompactionMaxTokens
+		}
+		if cfg.ContextWindow <= 0 && sinCfg.AgentLoopContextWindow > 0 {
+			cfg.ContextWindow = sinCfg.AgentLoopContextWindow
+		}
+		if !cfg.CompactionPreserveEvidence {
+			cfg.CompactionPreserveEvidence = sinCfg.AgentLoopCompactionPreserveEvidence
+		}
+		if cfg.CompactionRecentTurns <= 0 {
+			cfg.CompactionRecentTurns = sinCfg.AgentLoopCompactionRecentTurns
 		}
 		if !cfg.FrustrationDetectionEnabled {
 			cfg.FrustrationDetectionEnabled = sinCfg.AgentLoopFrustrationDetection
@@ -389,6 +417,24 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	headroomHook := agentloop.NewHeadroomHook(headroom.LoadConfigFromEnv())
 	if headroomHook.Enabled() {
 		loop.CompressMessages = headroomHook.CompressMessages
+	}
+
+	// Context Compaction Modes config (second PR — compaction-wiring):
+	// forward the compaction-mode-aware fields to the loop. These are
+	// separate from CompactionStrategy — the mode-based path (Compact2)
+	// is active when ContextCompactionMode != off.
+	loop.ContextCompactionMode = agentloop.ContextCompactionMode(cfg.ContextCompaction)
+	loop.CompactionTrigger = agentloop.CompactionTrigger(cfg.CompactionTrigger)
+	threshold := 0.8
+	if sinCfg, err := internal.LoadMergedConfig(); err == nil && sinCfg.AgentLoopCompactionThreshold > 0 {
+		threshold = sinCfg.AgentLoopCompactionThreshold
+	}
+	loop.CompactionThreshold = threshold
+	if cfg.ContextCompaction != "" && cfg.ContextCompaction != "off" {
+		loop.ContextWindow = cfg.ContextWindow
+		loop.CompactionMaxTokens = cfg.CompactionMaxTokens
+		loop.CompactionPreserveEvidence = cfg.CompactionPreserveEvidence
+		loop.CompactionRecentTurns = cfg.CompactionRecentTurns
 	}
 
 	// Compactor (issue #278): opt-in via config agentloop.compaction_strategy.
