@@ -68,7 +68,10 @@ func (k *Kernel) Capture(ctx context.Context, label string, state AgentState, gr
 		return nil, fmt.Errorf("kernel capture tree: %w", err)
 	}
 
-	stateJSON, _ := json.Marshal(state)
+	stateJSON, err := json.Marshal(state)
+	if err != nil {
+		return nil, err
+	}
 
 	if k.db == nil {
 		return &Checkpoint{Label: label, TreeSHA: tree, State: state, Green: green, CreatedAt: timeNow()}, nil
@@ -184,31 +187,19 @@ func (k *Kernel) writeTree(ctx context.Context) (string, error) {
 	return tree, nil
 }
 
-// kernelGitCmd runs git in the kernel workdir and returns combined output.
-// Tests override this hook to avoid spawning real subprocesses.
-var kernelGitCmd = func(ctx context.Context, dir string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = dir
-	return cmd.CombinedOutput()
-}
-
-// kernelGitOutCmd runs git in the kernel workdir and returns stdout.
-// Tests override this hook to avoid spawning real subprocesses.
-var kernelGitOutCmd = func(ctx context.Context, dir string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", args...)
-	cmd.Dir = dir
-	return cmd.Output()
-}
-
 func (k *Kernel) git(ctx context.Context, args ...string) error {
-	if out, err := kernelGitCmd(ctx, k.Workdir, args...); err != nil {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = k.Workdir
+	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git %v: %s: %w", args, string(out), err)
 	}
 	return nil
 }
 
 func (k *Kernel) gitOut(ctx context.Context, args ...string) (string, error) {
-	out, err := kernelGitOutCmd(ctx, k.Workdir, args...)
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = k.Workdir
+	out, err := cmd.Output()
 	return strings.TrimSpace(string(out)), err
 }
 

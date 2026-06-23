@@ -114,13 +114,8 @@ func (mp *MutationProbe) Run(ctx context.Context, lines []ChangedLine) (*ProbeRe
 	} else {
 		res.ObservabilityScore = 1.0
 	}
-	probeRunHook(res)
 	return res, nil
 }
-
-// probeRunHook is invoked after a probe run completes. Tests mutate the
-// result to simulate low observability.
-var probeRunHook = func(res *ProbeResult) {}
 
 func (mp *MutationProbe) applyAndTest(ctx context.Context, cl ChangedLine, mutated string) (killed bool, err error) {
 	if mp.Workdir == "" {
@@ -132,7 +127,7 @@ func (mp *MutationProbe) applyAndTest(ctx context.Context, cl ChangedLine, mutat
 		return false, fmt.Errorf("probe read %s: %w", cl.File, err)
 	}
 	defer func() {
-		if werr := mutationWriteFile(path, original, 0o600); werr != nil && err == nil {
+		if werr := os.WriteFile(path, original, 0o600); werr != nil && err == nil {
 			err = fmt.Errorf("probe restore %s: %w", cl.File, werr)
 		}
 	}()
@@ -145,27 +140,17 @@ func (mp *MutationProbe) applyAndTest(ctx context.Context, cl ChangedLine, mutat
 		return true, nil
 	}
 	fileLines[cl.Line-1] = mutated
-	if err := mutationWriteFile(path, []byte(strings.Join(fileLines, "\n")), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(strings.Join(fileLines, "\n")), 0o600); err != nil {
 		return false, fmt.Errorf("probe write %s: %w", cl.File, err)
 	}
 
 	if len(mp.TestCmd) == 0 {
 		return false, nil
 	}
-	runErr := mutationExecCommand(ctx, mp.Workdir, mp.TestCmd...)
+	cmd := exec.CommandContext(ctx, mp.TestCmd[0], mp.TestCmd[1:]...)
+	cmd.Dir = mp.Workdir
+	runErr := cmd.Run()
 	return runErr != nil, nil
-}
-
-// mutationWriteFile is a hook for os.WriteFile inside the mutation probe.
-var mutationWriteFile = func(path string, data []byte, perm os.FileMode) error {
-	return os.WriteFile(path, data, perm)
-}
-
-// mutationExecCommand is a hook for the mutation probe test command.
-var mutationExecCommand = func(ctx context.Context, workdir string, args ...string) error {
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	cmd.Dir = workdir
-	return cmd.Run()
 }
 
 func ParseAddedLines(diff string) []ChangedLine {

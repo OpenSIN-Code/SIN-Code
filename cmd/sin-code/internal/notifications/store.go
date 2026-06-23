@@ -24,17 +24,6 @@ const (
 
 var (
 	ErrNotFound = fmt.Errorf("notifications: not found")
-
-	// testHook* variables let coverage tests inject faults without changing
-	// production logic.
-	testHookBoltOpen           = bolt.Open
-	testHookJSONMarshalStore   = json.Marshal
-	testHookCreateBucket       = (*bolt.Tx).CreateBucketIfNotExists
-	testHookAddPut             = (*bolt.Bucket).Put
-	testHookUpdatePut          = (*bolt.Bucket).Put
-	testHookUpdateDeleteUnread = (*bolt.Bucket).Delete
-	testHookPruneDelete        = (*bolt.Cursor).Delete
-	testHookClearDelete        = (*bolt.Bucket).Delete
 )
 
 type Type string
@@ -82,13 +71,13 @@ func Open(path string) (*Store, error) {
 	if err := mkdirAll(dirOf(path), 0o755); err != nil {
 		return nil, err
 	}
-	db, err := testHookBoltOpen(path, 0o644, &bolt.Options{Timeout: 2 * time.Second})
+	db, err := bolt.Open(path, 0o644, &bolt.Options{Timeout: 2 * time.Second})
 	if err != nil {
 		return nil, fmt.Errorf("open notifications db: %w", err)
 	}
 	if err := db.Update(func(tx *bolt.Tx) error {
 		for _, b := range []string{bucketNotifs, bucketIdxUnread, bucketIdxType, bucketIdxTodo} {
-			if _, err := testHookCreateBucket(tx, []byte(b)); err != nil {
+			if _, err := tx.CreateBucketIfNotExists([]byte(b)); err != nil {
 				return err
 			}
 		}
@@ -123,12 +112,12 @@ func (s *Store) Add(n *Notification) error {
 		n.Created = time.Now().UTC()
 	}
 	return s.db.Update(func(tx *bolt.Tx) error {
-		raw, err := testHookJSONMarshalStore(n)
+		raw, err := json.Marshal(n)
 		if err != nil {
 			return err
 		}
 		b := tx.Bucket([]byte(bucketNotifs))
-		if err := testHookAddPut(b, key(n.Created, n.ID), raw); err != nil {
+		if err := b.Put(key(n.Created, n.ID), raw); err != nil {
 			return err
 		}
 		writeIndex(tx, bucketIdxType, string(n.Type), n.ID)
@@ -246,15 +235,15 @@ func updateNotifInTx(tx *bolt.Tx, id string, fn func(*Notification) bool, remove
 			continue
 		}
 		changed := fn(&n)
-		raw, err := testHookJSONMarshalStore(&n)
+		raw, err := json.Marshal(&n)
 		if err != nil {
 			return err
 		}
-		if err := testHookUpdatePut(tx.Bucket([]byte(bucketNotifs)), k, raw); err != nil {
+		if err := tx.Bucket([]byte(bucketNotifs)).Put(k, raw); err != nil {
 			return err
 		}
 		if changed && removeUnread {
-			if err := testHookUpdateDeleteUnread(tx.Bucket([]byte(bucketIdxUnread)), []byte("1\x00"+id)); err != nil {
+			if err := tx.Bucket([]byte(bucketIdxUnread)).Delete([]byte("1\x00" + id)); err != nil {
 				return err
 			}
 		}
@@ -266,9 +255,8 @@ func updateNotifInTx(tx *bolt.Tx, id string, fn func(*Notification) bool, remove
 func (s *Store) Clear() error {
 	return s.db.Update(func(tx *bolt.Tx) error {
 		for _, b := range []string{bucketNotifs, bucketIdxUnread, bucketIdxType, bucketIdxTodo} {
-			bucket := tx.Bucket([]byte(b))
-			if err := bucket.ForEach(func(k, _ []byte) error {
-				return testHookClearDelete(bucket, k)
+			if err := tx.Bucket([]byte(b)).ForEach(func(k, _ []byte) error {
+				return tx.Bucket([]byte(b)).Delete(k)
 			}); err != nil {
 				return err
 			}
@@ -291,7 +279,7 @@ func (s *Store) Prune(ttl time.Duration) (int, error) {
 				continue
 			}
 			if n.Created.Before(cutoff) || n.Dismissed {
-				if err := testHookPruneDelete(c); err != nil {
+				if err := c.Delete(); err != nil {
 					return err
 				}
 				pruned++

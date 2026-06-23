@@ -15,11 +15,6 @@ import (
 var (
 	tuiChanMu sync.RWMutex
 	tuiChan   = make(chan *Notification, 100)
-
-	// testHookExecLookPath and testHookHTTPNewRequest allow tests to simulate
-	// missing macOS tooling or webhook request construction failures.
-	testHookExecLookPath   = exec.LookPath
-	testHookHTTPNewRequest = http.NewRequest
 )
 
 // TUIBroadcaster returns the channel that the TUI subscribes to.
@@ -87,7 +82,7 @@ func (d *Dispatcher) sendStderr(n *Notification) {
 }
 
 func (d *Dispatcher) sendMacOS(n *Notification) {
-	if _, err := testHookExecLookPath("osascript"); err != nil {
+	if _, err := exec.LookPath("osascript"); err != nil {
 		return
 	}
 	script := fmt.Sprintf(`display notification "%s" with title "sin-code" subtitle "%s"`, escape(n.Message), escape(n.Title))
@@ -100,7 +95,7 @@ func (d *Dispatcher) sendWebhook(n *Notification) {
 		return
 	}
 	body, _ := jsonMarshal(n)
-	req, err := testHookHTTPNewRequest("POST", d.WebhookURL, bytes.NewReader(body))
+	req, err := http.NewRequest("POST", d.WebhookURL, bytes.NewReader(body))
 	if err != nil {
 		return
 	}

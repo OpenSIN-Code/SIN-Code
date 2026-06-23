@@ -3,7 +3,7 @@ cmp stdout help.golden
 
 -- help.golden --
 sin-code is the unified Go binary for the SIN-Code tool suite.
-It consolidates 44+ subcommands into a single cobra-based CLI:
+It consolidates 39+ subcommands into a single cobra-based CLI:
 
   Core analysis:    discover, execute, map, grasp, scout, harvest, orchestrate
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
@@ -12,8 +12,7 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
                     vane, stack, gh, hub, ledger, summary
   Other:            completion, read, write, edit, lsp, plugin, index,
                     orchestrator-run, orchestrator-agents, orchestrator-plan,
-                    todo, notifications, memory, assets, evalset, hooks,
-                    instinct, prp, skills
+                    todo, notifications, memory
 
 Each subcommand is also a thin pass-through to the standalone tool repos
 for backwards compatibility — the standalone binaries are still maintained
@@ -24,7 +23,6 @@ Usage:
 
 Available Commands:
   adw                 Architectural Debt Watchdogs — detect god modules, circular deps, etc.
-  assets              Manage harvested agents/commands/skills
   auto                Ultra-autonomous mode: pursue a program.md objective on your behalf
   autodev             Bridge to OpenSIN-Code/autodev-cli (Python autoresearch loop, never vendored)
   chat                Run the SIN-Code agent loop (interactive REPL or headless one-shot)
@@ -37,7 +35,6 @@ Available Commands:
   edit                Hashline-anchored surgical edits with validation
   efm                 Ephemeral Full-Stack Mocking — spin up disposable test environments
   eval                Run Golden Dataset evaluation suites
-  evalset             Eval-driven development harness (EvalSets, Runs, regression compare)
   execute             Execute shell commands safely with secret redaction and timeout
   gh                  Bridge to the GitHub CLI (gh) with a 3-tier verb-allowlist policy
   goal                Manage the autonomous goal queue
@@ -45,11 +42,9 @@ Available Commands:
   harvest             Fetch URLs with caching, structure extraction, and change detection
   headroom            Manage Headroom context compression integration
   help                Help about any command
-  hooks               Inspect and test lifecycle hooks
   hub                 Tool catalog and landing page for sin-code
   ibd                 Intent-Based Diffing — compare code changes against stated intent
   index               Manage persistent incremental code index
-  instinct            Manage learned instincts (continuous learning)
   ledger              Query the semantic session ledger
   lsp                 LSP (Language Server Protocol) — IDE-grade code intelligence
   map                 Map code architecture with dependency graphs and hot-path analysis
@@ -63,7 +58,6 @@ Available Commands:
   orchestrator-run    Run a prompt through the multi-agent orchestrator (Pre-LLM router → planner → parallel agents)
   plugin              Manage user-installed plugins (subcommands, agents, tools, hooks)
   poc                 Proof-of-Correctness — verify code satisfies its specification
-  prp                 Product Requirement Prompt workflow (plan→implement→verify→pr)
   read                Read files with hashline anchors, outline, and size guards
   rtk                 Bridge to rtk (Rust Token Killer) to cut LLM token usage 60-90%
   sbom                Generate SPDX or CycloneDX JSON SBOM for a project
@@ -74,7 +68,6 @@ Available Commands:
   serve               Start an MCP server exposing all 15 sin-code tools
   sessions            Manage persisted agent sessions
   skill               Install and manage ecosystem MCP skills
-  skills              List and install bundled project-local skills
   spec                Author, validate & inspect *.spec.md contracts (Spec-Layer)
   stack               Manage the DOX + Superpowers + Vane methodology stack
   summary             Build a deterministic summary from the session ledger

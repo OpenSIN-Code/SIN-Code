@@ -45,6 +45,7 @@ type daemonOptions struct {
 	maxContinuations int
 	maxDepth         int
 	noContract       bool
+	noBaseline       bool
 }
 
 func NewDaemonCmd() *cobra.Command {
@@ -52,7 +53,7 @@ func NewDaemonCmd() *cobra.Command {
 	var verifyCmd string
 	var maxTurns, concurrency, maxProcs int
 	var maxContinuations, maxDepth int
-	var noContract bool
+	var noContract, noBaseline bool
 	var repos []string
 	var maxMemory, minDisk string
 	cmd := &cobra.Command{
@@ -85,6 +86,7 @@ func NewDaemonCmd() *cobra.Command {
 				maxContinuations: maxContinuations,
 				maxDepth:         maxDepth,
 				noContract:       noContract,
+				noBaseline:       noBaseline,
 			})
 		},
 	}
@@ -100,6 +102,7 @@ func NewDaemonCmd() *cobra.Command {
 	cmd.Flags().IntVar(&maxContinuations, "max-continuations", 5, "max times a goal may checkpoint+resume past max-turns before failing (0 = disabled)")
 	cmd.Flags().IntVar(&maxDepth, "max-depth", 3, "max sub-goal nesting depth an agent may spawn via spawn_subgoal")
 	cmd.Flags().BoolVar(&noContract, "no-contract", false, "disable Definition-of-Done contracts (revert to single verify-gate)")
+	cmd.Flags().BoolVar(&noBaseline, "no-baseline", false, "disable the always-on SinCode loop baseline (tests/debug/docs/completeness DoD); also via SIN_BASELINE=off")
 	return cmd
 }
 
@@ -266,11 +269,12 @@ func executeGoal(ctx context.Context, queue *autonomy.Queue, store *session.Stor
 			persisted = &goalcontract.GoalContract{}
 		}
 		resolved, rerr := goalcontract.Resolve(goalcontract.ResolveOptions{
-			Workspace:  goal.Workspace,
-			GoalID:     fmt.Sprintf("%d", goal.ID),
-			Criteria:   persisted.SemanticCriteria,
-			VerifyCmd:  opt.verifyCmd,
-			AutoDetect: true,
+			Workspace:       goal.Workspace,
+			GoalID:          fmt.Sprintf("%d", goal.ID),
+			Criteria:        persisted.SemanticCriteria,
+			VerifyCmd:       opt.verifyCmd,
+			AutoDetect:      true,
+			IncludeBaseline: goalcontract.BaselineEnabled(opt.noBaseline),
 		})
 		if rerr != nil {
 			fmt.Fprintf(os.Stderr, "daemon: goal %d contract resolve failed: %v\n", goal.ID, rerr)

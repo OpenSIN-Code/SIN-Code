@@ -144,12 +144,6 @@ func (a *LLMAgent) Run(ctx context.Context, task *Task, scratch *Scratchpad) (st
 }
 
 func (a *LLMAgent) loadSystemPrompt() (string, error) {
-	return loadSystemPromptHook(a)
-}
-
-// loadSystemPromptHook loads the system prompt for an agent. Tests override
-// it to simulate prompt-loading failures.
-var loadSystemPromptHook = func(a *LLMAgent) (string, error) {
 	if a.cfg.SystemFile == "" {
 		return a.defaultSystemPrompt(), nil
 	}
@@ -162,11 +156,11 @@ var loadSystemPromptHook = func(a *LLMAgent) (string, error) {
 		candidates = append(candidates, filepath.Join(env, a.cfg.SystemFile))
 	}
 	for _, p := range candidates {
-		if p != "" {
-			data, err := os.ReadFile(p)
-			if err == nil {
-				return string(data), nil
-			}
+		if p == "" {
+			continue
+		}
+		if data, err := os.ReadFile(p); err == nil {
+			return string(data), nil
 		}
 	}
 	return a.defaultSystemPrompt(), nil
@@ -197,20 +191,8 @@ func (a *LLMAgent) buildUserPrompt(task *Task, priorInputs string, priorOutputs 
 	return b.String()
 }
 
-// memoryStore is the subset of the memory store used by the orchestrator.
-type memoryStore interface {
-	Prime(query, project string, topK int) (string, error)
-	Close() error
-}
-
-// memoryOpenHook opens the project memory store. Tests override it to inject
-// fake stores.
-var memoryOpenHook = func(path string) (memoryStore, error) {
-	return memory.Open(path)
-}
-
 func (a *LLMAgent) primeContext(task *Task) (string, error) {
-	store, err := memoryOpenHook("")
+	store, err := memory.Open("")
 	if err != nil {
 		return "", err
 	}
