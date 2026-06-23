@@ -121,6 +121,22 @@ type Config struct {
 	// Also activated by config agentloop.frustration_detection=true.
 	FrustrationDetectionEnabled bool
 
+	// ObserverWindow: rolling-history size for the LoopDetector
+	// (issue #377). Defaults to 20 when zero. Set to a negative
+	// value or 0 to disable detection entirely.
+	// Also activated by config agentloop.observer_window=<n>.
+	ObserverWindow int
+
+	// ObserverMinPatternLength: minimum repeating pattern length the
+	// LoopDetector considers. Defaults to 3 when zero.
+	// Also activated by config agentloop.observer_min_pattern_length=<n>.
+	ObserverMinPatternLength int
+
+	// ObserverMinRepeats: minimum repeat count (>=) required to trip
+	// the LoopDetector. Defaults to 2 when zero.
+	// Also activated by config agentloop.observer_min_repeats=<n>.
+	ObserverMinRepeats int
+
 	// YoloRiskThreshold: when non-empty and Yolo is true, wires a
 	// RiskClassifier into the permission engine so YOLO auto-approves
 	// only low/medium/high risk tools (issue #272).
@@ -155,6 +171,25 @@ type Config struct {
 	// prior on new plan creation.
 	// Also activated by config orchestrator.episodic_memory=true.
 	EpisodicMemoryEnabled bool
+
+	// SessionContextInjectLessons: when true, the session-context
+	// injector (issue #379) includes top-K lesson briefings in the
+	// first user message of the run. Agents opt in explicitly per
+	// source — never implicitly. Activated by config
+	// agentloop.inject_lessons=true.
+	SessionContextInjectLessons bool
+	// SessionContextInjectMemory: like InjectLessons but for
+	// long-term store Prime results. Activated by config
+	// agentloop.inject_memory=true.
+	SessionContextInjectMemory bool
+	// SessionContextInjectGoals: like InjectLessons but for pending
+	// autonomous-goals queue rows. Activated by config
+	// agentloop.inject_goals=true.
+	SessionContextInjectGoals bool
+	// SessionContextTopK bounds each source's contribution. Defaults
+	// to agentloop.ContextTopK (5) when zero. Activated by config
+	// agentloop.context_top_k=<n>.
+	SessionContextTopK int
 }
 
 // Build constructs a fully wired agentloop.Loop with all mandates applied
@@ -206,6 +241,15 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		}
 		if !cfg.FrustrationDetectionEnabled {
 			cfg.FrustrationDetectionEnabled = sinCfg.AgentLoopFrustrationDetection
+		}
+		if cfg.ObserverWindow == 0 {
+			cfg.ObserverWindow = sinCfg.AgentLoopObserverWindow
+		}
+		if cfg.ObserverMinPatternLength == 0 {
+			cfg.ObserverMinPatternLength = sinCfg.AgentLoopObserverMinPatternLength
+		}
+		if cfg.ObserverMinRepeats == 0 {
+			cfg.ObserverMinRepeats = sinCfg.AgentLoopObserverMinRepeats
 		}
 		if cfg.YoloRiskThreshold == "" {
 			cfg.YoloRiskThreshold = sinCfg.PermissionYoloRiskThreshold
@@ -302,6 +346,11 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	}
 
 	hookEngine := hooks.New(loadHooks(cfg.Workspace))
+
+	// Collect Close funcs from any optional DBs the session-context
+	// injector opens (issue #379). Iteration is FIFO so stores close
+	// in the order they were opened.
+	var cleanupClosers []func() error
 
 	mode := cfg.VerifyMode
 	if mode == "" {
@@ -411,6 +460,19 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		loop.Frustration = agentloop.NewFrustrationDetector()
 	}
 
+	// LoopDetector / Observer (issue #377): opt-in via config
+	// agentloop.observer_*. Wires a LoopDetector that refrains from
+	// dispatching any tool call that would close a repeated-sequence
+	// cycle. Window <= 0 disables detection entirely so legacy
+	// callers see no behaviour change.
+	if cfg.ObserverWindow > 0 {
+		loop.Observer = agentloop.NewLoopDetector(
+			cfg.ObserverWindow,
+			cfg.ObserverMinPatternLength,
+			cfg.ObserverMinRepeats,
+		)
+	}
+
 	if cfg.MemoryPrimeEnabled {
 		memStore := cfg.MemoryStore
 		if memStore == nil {
@@ -426,6 +488,60 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		}
 	}
 
+	// Issue #379: session-context injection (lessons + memory + goals).
+	// Reads the per-source flags + top_k from merged config so a CLI
+	// override propagates even when the caller did not pass a value
+	// (matches the pattern of every other Loop field above). Wires a
+	// ContextInjector into the loop when ANY of the three flags is
+	// true; no master switch — privacy-first, every source is off
+	// by default and the user must explicitly opt in.
+	if sinCfg, err := internal.LoadMergedConfig(); err == nil {
+		cfg.SessionContextInjectLessons = cfg.SessionContextInjectLessons || sinCfg.AgentLoopInjectLessons
+		cfg.SessionContextInjectMemory = cfg.SessionContextInjectMemory || sinCfg.AgentLoopInjectMemory
+		cfg.SessionContextInjectGoals = cfg.SessionContextInjectGoals || sinCfg.AgentLoopInjectGoals
+		if cfg.SessionContextTopK == 0 {
+			cfg.SessionContextTopK = sinCfg.AgentLoopContextTopK
+		}
+	}
+	if cfg.SessionContextInjectLessons || cfg.SessionContextInjectMemory || cfg.SessionContextInjectGoals {
+		inj := agentloop.ContextInjector{
+			Lessons:       memStore,
+			Memory:        cfg.MemoryStore,
+			Goals:         nil, // intentionally — opened lazily below for tests/cleanups
+			Workspace:     cfg.Workspace,
+			TopK:          cfg.SessionContextTopK,
+			InjectLessons: cfg.SessionContextInjectLessons,
+			InjectMemory:  cfg.SessionContextInjectMemory,
+			InjectGoals:   cfg.SessionContextInjectGoals,
+			Redactor:      agentloop.DefaultRedactor(),
+		}
+		// Open an autonomy queue only when goals injection was requested.
+		// The default path lives at ~/.local/share/sin-code/goals.db and
+		// does not require the daemon to be running — a CLI one-shot
+		// still hits the same DB.
+		if cfg.SessionContextInjectGoals {
+			if q, qerr := autonomy.Open(autonomy.DefaultPath()); qerr == nil {
+				inj.Goals = q
+				cleanupClosers = append(cleanupClosers, func() error { _ = q.Close(); return nil })
+			} else {
+				fmt.Fprintf(os.Stderr, "warn: autonomy goals store unavailable, --inject-goals disabled: %v\n", qerr)
+			}
+		}
+		// Open a memory store if caller didn't supply one and injection
+		// was requested.
+		if inj.Memory == nil && cfg.SessionContextInjectMemory {
+			if m, merr := memory.Open(""); merr == nil {
+				inj.Memory = m
+				cleanupClosers = append(cleanupClosers, func() error { _ = m.Close(); return nil })
+			} else {
+				fmt.Fprintf(os.Stderr, "warn: memory store unavailable, --inject-memory disabled: %v\n", merr)
+			}
+		}
+		if inj.Enabled() {
+			loop.SessionContextBuilder = inj.Invoke
+		}
+	}
+
 	// SIN Fusion v1 (issue #290): wire verify-tournament when enabled.
 	WireFusion(loop, cfg, gate, client, memStore, ledgerStore, hookEngine)
 
@@ -435,6 +551,9 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 			_ = ledgerStore.Close()
 		}
 		_ = headroomHook.Close()
+		for _, c := range cleanupClosers {
+			_ = c()
+		}
 		return nil
 	}
 	return loop, cleanup, nil

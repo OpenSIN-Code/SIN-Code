@@ -74,6 +74,15 @@ func DefaultServers() []ServerConfig {
 		// v3.22.0: sin-analyse-suite — multimodal preprocessing (image, video, PDF, logs, data, audio)
 		goNative("sin-analyse-suite", "sin-analyse", "serve"),
 
+		// v3.22.0 (issue #382): native_browser — pure-Go headless browser facade
+		// (cmd/sin-code/internal/native_browser). Registered here so its tool
+		// namespace native_browser__* is enumerated by the catalog + permission
+		// matrix; the actual implementation runs in-process behind the Driver
+		// seam and never spawns a subprocess. The optional sin-native-browser
+		// binary is a future stdio shim — see issue #382 follow-up for the
+		// release that promotes an MCP façade behind the same namespace.
+		goNative("native_browser", "sin-native-browser", "serve"),
+
 		// External MCP server (Python stdio) — autodev-cli v0.4.0 (Bridged-External, never vendored)
 		{Name: "autodev", Transport: "stdio", Command: "autodev-mcp"},
 	}
@@ -82,7 +91,8 @@ func DefaultServers() []ServerConfig {
 func shortName(repo string) string {
 	m := map[string]string{
 		"web_search_bundle":                 "websearch",
-		"sin-analyse-suite":                  "analyse",
+		"sin-analyse-suite":                 "analyse",
+		"native_browser":                    "native_browser",
 		"SIN-Code-Websearch-Skill":          "websearch",
 		"SIN-Code-Scheduler-Skill":          "scheduler",
 		"SIN-Code-Goal-Mode-Skill":          "goalmode",

@@ -842,6 +842,24 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.AgentLoopCompactionThreshold = v
 	case "agentloop.frustration_detection":
 		cfg.AgentLoopFrustrationDetection = value == "true" || value == "1"
+	case "agentloop.observer_window":
+		v, err := strconv.Atoi(value)
+		if err != nil || v < 0 {
+			return fmt.Errorf("agentloop.observer_window must be a non-negative integer, got %q", value)
+		}
+		cfg.AgentLoopObserverWindow = v
+	case "agentloop.observer_min_repeats":
+		v, err := strconv.Atoi(value)
+		if err != nil || v < 1 {
+			return fmt.Errorf("agentloop.observer_min_repeats must be a positive integer, got %q", value)
+		}
+		cfg.AgentLoopObserverMinRepeats = v
+	case "agentloop.observer_min_pattern_length":
+		v, err := strconv.Atoi(value)
+		if err != nil || v < 1 {
+			return fmt.Errorf("agentloop.observer_min_pattern_length must be a positive integer, got %q", value)
+		}
+		cfg.AgentLoopObserverMinPatternLength = v
 	case "permission.yolo_risk_threshold":
 		cfg.PermissionYoloRiskThreshold = value
 	case "worktree.conflict_check":

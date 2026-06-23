@@ -9,6 +9,8 @@
 //	          exit 2 = BLOCK (stdout fed back to the agent), else warn.
 //	webhook — HTTP POST of the event JSON (fire-and-forget unless blocking).
 //	prompt  — injects static text into the next agent turn.
+//	listener — programmatic Go PostListener (issue #376); fires only on
+//	           tool.post and merges its return into PromptInjects.
 //
 // Only *.pre events and permission.ask honor blocking.
 package hooks
@@ -56,6 +58,11 @@ const (
 	// Token budget lifecycle (issue #151).
 	BudgetWarn      = "budget.warn"
 	BudgetExhausted = "budget.exhausted"
+	// BudgetExceeded fires when a single LLM turn crosses the
+	// per-turn cap (issue #375). Distinct from BudgetExhausted which
+	// fires once per run when the cumulative cap is hit. Per-turn
+	// is the granular signal; per-run is the gross one.
+	BudgetExceeded = "budget.exceeded"
 	// ReflectIssues fires when the self-reflection pass finds problems the
 	// worker must fix before completion is evaluated.
 	ReflectIssues = "reflect.issues"
@@ -91,6 +98,14 @@ const (
 
 	// Fusion lifecycle (issue #290).
 	FusionDispatch = "fusion.dispatch"
+
+	// LoopDetected fires when the LoopDetector refuses dispatch
+	// because the worker entered a repeated tool-call sequence
+	// (issue #377). The data payload carries pattern_length,
+	// repeats and tool name so telemetry / UI / audit pipelines can
+	// surface the stall. Not blockable — the loop has already been
+	// broken by the dispatch site.
+	LoopDetected = "loop.detected"
 )
 
 // blockable events: a blocking hook result is honored only for these.
@@ -126,16 +141,49 @@ type Result struct {
 }
 
 type Engine struct {
-	hooks  []Hook
-	client *http.Client
+	hooks         []Hook
+	client        *http.Client
+	postListeners []PostListener
 }
+
+// PostListener is a programmatic listener registered via
+// Engine.RegisterPostListener. It fires on tool.post events only and
+// returns messages that are merged into Result.PromptInjects (and
+// emitted to stderr for human visibility). It can never block — the
+// tool.post event intentionally does not honor blocking so post-write
+// automation stays advisory. Listeners MUST return promptly (≤ a few
+// seconds) and MUST NOT panic; both are enforced by convention here,
+// and callers should wrap long work in their own context with timeout.
+//
+// Use case: auto-lint, auto-test, auto-format, post-edit notes (issue
+// #376). They are opt-in via config (agentloop.auto_lint,
+// agentloop.auto_test) so legacy callers see no behavior change.
+type PostListener func(ctx context.Context, p Payload) []string
 
 func New(hooks []Hook) *Engine {
 	return &Engine{hooks: hooks, client: &http.Client{Timeout: 15 * time.Second}}
 }
 
+// RegisterPostListener appends a programmatic listener that fires on
+// every tool.post event. Multiple listeners are invoked in the order
+// they were registered; their return values are concatenated into
+// Result.PromptInjects. Calling RegisterPostListener on a nil Engine
+// is a no-op (defence-in-depth for tests that skip Engine.New).
+func (e *Engine) RegisterPostListener(fn PostListener) {
+	if e == nil || fn == nil {
+		return
+	}
+	e.postListeners = append(e.postListeners, fn)
+}
+
 // Fire runs all hooks matching the event (and matcher) sequentially.
 // Hooks never crash the agent: errors degrade to warnings on stderr.
+//
+// For tool.post, registered PostListeners (programmatic Go funcs, not
+// user-config files) also fire in registration order. Their return is
+// merged into PromptInjects so the agent sees lint/test feedback in
+// the next turn. PostListeners never block — tool.post is not in the
+// blockable set by design.
 func (e *Engine) Fire(ctx context.Context, p Payload) Result {
 	p.Timestamp = time.Now().UTC().Format(time.RFC3339)
 	var res Result
@@ -157,6 +205,14 @@ func (e *Engine) Fire(ctx context.Context, p Payload) Result {
 			}
 		default:
 			fmt.Fprintf(os.Stderr, "warn: hook with unknown type %q ignored\n", h.Type)
+		}
+	}
+	if p.Event == ToolPost {
+		for _, fn := range e.postListeners {
+			msgs := safeInvokePostListener(fn, ctx, p)
+			if len(msgs) > 0 {
+				res.PromptInjects = append(res.PromptInjects, msgs...)
+			}
 		}
 	}
 	return res
@@ -223,4 +279,21 @@ func matchName(pattern, name string) bool {
 	}
 	ok, _ := path.Match(strings.ToLower(pattern), strings.ToLower(name))
 	return ok
+}
+
+// safeInvokePostListener calls a registered PostListener, recovering
+// from any panic so one misbehaving listener cannot crash the agent
+// loop. Listeners are advisory — silence on panic is the correct
+// policy because the tool's primary work already succeeded.
+func safeInvokePostListener(fn PostListener, ctx context.Context, p Payload) (out []string) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "warn: post-listener panicked on %s: %v\n", p.Name, r)
+			out = nil
+		}
+	}()
+	if fn == nil {
+		return nil
+	}
+	return fn(ctx, p)
 }
