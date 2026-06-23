@@ -2,6 +2,126 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [Unreleased — context-compaction-modes first PR]
+
+### Added — Context Compaction Modes (issue: compaction-modes, first PR)
+
+- **New types** in `cmd/sin-code/internal/agentloop/compaction_types.go`:
+  `ContextCompactionMode` (`off|deterministic|llm|hybrid`),
+  `CompactionTrigger` (`turns|tokens|both`), `CompactorConfig`,
+  `CompactInput`, `CompactResult`. Closed-set validations with typed
+  errors.
+
+- **`Compactor.Configure(CompactorConfig)`**: concurrency-safe writer
+  (mandate M7) that normalises defaults and switches `c.Threshold`
+  to 0 when the explicit mode is `off` so legacy turn triggers
+  never re-fire on opted-out callers. `Compactor.config()` returns a
+  snapshot suitable for read-after-write use.
+
+- **`Compactor.Compact2(ctx, CompactInput)`**: canonical mode-based
+  entry point. Honours `input.Mode`: `deterministic` runs the
+  evidence-preserving retain filter, `llm` collapses to a single
+  summariser-driven system message, `hybrid` retains evidence
+  verbatim + prepends a summary system message of the dropped middle.
+  Empty mode falls back to the legacy `CompactStrategy` dispatch so
+  issue #278 callers stay byte-stable.
+
+- **Evidence preservation (mandate M3)**: `retainEvidence` keeps
+  the system prompt, the first user goal, the last 2×RecentTurns
+  messages (sliding window), every role:tool message, and any
+  message whose content matches one of the closed verify markers
+  (`VERIFICATION PASSED`, `VERIFICATION FAILED`, `NOT DONE`,
+  `Open acceptance criteria`). Order is preserved.
+
+- **`Loop` field additions** (`cmd/sin-code/internal/agentloop/loop.go`):
+  `ContextCompactionMode`, `CompactionTrigger`, `CompactionThreshold`,
+  `ContextWindow`, `CompactionMaxTokens`, `CompactionPreserveEvidence`,
+  `CompactionRecentTurns`. Plus helper methods `shouldFireCompaction`,
+  `effectiveContextWindow`, `buildCompactorConfig`,
+  `compactionSnapshot`, `writeCompactionSidecar`, `identifyEvidence`,
+  `sessionIDHash`.
+
+- **Trigger evaluation**: `ShouldCompactTokens(reqTokens, ctxWindow, threshold)`
+  is the bytes-stable token trigger; the loop does OR over
+  turns-triggers and tokens-triggers when trigger is `both`. The
+  trigger field honours the compactor's existing threshold
+  (legacy compatibility) until the user opts into the new flow.
+
+- **Sidecar snapshots**: lossy modes (`llm`, `hybrid`) write
+  content-addressed JSON snapshots at
+  `~/.local/share/sin-code/context-snapshots/<session-id-hash>/turn-NNNNN.json`
+  via atomic `temp+rename`. The persisted session DB keeps the
+  full history, so M3 auditability holds end-to-end.
+
+- **Config keys** (`cmd/sin-code/internal/config.go`):
+  `agentloop.context_compaction` (default `off`),
+  `agentloop.compaction_trigger` (default `tokens`),
+  `agentloop.context_window` (default 0 = auto),
+  `agentloop.compaction_preserve_evidence` (default `true`),
+  `agentloop.compaction_recent_turns` (default 4),
+  `agentloop.compaction_max_tokens` (default 8000). Wired into
+  `defaultConfig`, `getConfigValueFrom`, `setConfigValueIn`,
+  `configPairs`, `applyMap`, `validateConfig`. All values typed
+  (closed-set for modes/triggers; bounded for ints; bool toggle
+  for evidence).
+
+- **CLI flags on `sin-code chat`**: `--context-compaction`,
+  `--compaction-trigger`, `--compaction-threshold`,
+  `--context-window`, `--compaction-max-tokens`,
+  `--compaction-preserve-evidence` (default true),
+  `--compaction-recent-turns` (default 4). CLI wins over config.
+
+- **`loopbuilder` forwarding** (`cmd/sin-code/internal/loopbuilder/builder.go`):
+  new `Config` fields `ContextCompaction`, `CompactionTrigger`,
+  `CompactionThreshold`, `ContextWindow`, `CompactionMaxTokens`,
+  `CompactionPreserveEvidence`, `CompactionRecentTurns`. Mode wins
+  over legacy `CompactionStrategy` when both are configured.
+
+### Tests — Context Compaction Modes
+
+- `cmd/sin-code/internal/agentloop/compaction_test.go`: extended with
+  `TestCompact2_Off_NoOp`, `TestCompact2_Deterministic_EvidencePreserved`,
+  `TestCompact2_LLM_SingleSummary`, `TestCompact2_Hybrid_EvidencePlusSummary`,
+  `TestCompact2_LegacyStrategy_Unchanged`, `TestCompact2_ByteStableDeterministic`,
+  `TestCompact2_RecentTurnsConfigurable`, `TestIdentifyEvidence_FindsMarkers`.
+  All `-race -count=1` clean.
+
+- `cmd/sin-code/internal/agentloop/loop_compaction_test.go` (NEW):
+  `TestLoopCompaction_OffMode_NoOp`,
+  `TestLoopCompaction_TokensTrigger_Fires`,
+  `TestLoopCompaction_TurnsTrigger_Fires`,
+  `TestLoopCompaction_LossyModeWritesSidecar` (verifies sidecar file
+  is created under HOME/.local/share/...),
+  `TestLoopCompaction_DroppedEvidencePreservedAcrossCompaction`
+  (mandate M3 invariant).
+
+- `cmd/sin-code/internal/compaction_config_test.go` (NEW; co-located
+  next to `config.go` because the canonical helpers — `defaultConfig`,
+  `getConfigValueFrom`, `setConfigValueIn`, `applyMap`, `validateConfig`,
+  `configPairs` — are unexported and not visible across packages):
+  `TestCompactionConfigRoundtrip`,
+  `TestCompactionConfigApplyMap`, `TestCompactionConfigPairs`,
+  `TestValidateCompactionConfig`. Cover the closed-set validators
+  and the `validateConfig` failure cases. Spec deviation: file
+  lives at `cmd/sin-code/internal/compaction_config_test.go` rather
+  than the originally named `cmd/sin-code/internal/config/config_compaction_test.go`.
+
+### Hard mandates honored
+
+- **M2 (single static binary, CGO_ENABLED=0):** no new dependencies;
+  stdlib only.
+- **M3 (verification gate is sacred):** evidence-preservation is
+  default-on in every mode that drops content, and the persisted
+  session DB never loses the full history. Sidecar JSON snapshots
+  capture dropped messages so the audit trail is fully reconstructable.
+- **M5 (module path):** all new imports follow
+  `github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/...`. No
+  `SIN-Code-Bundle` references.
+- **M7 (race-free):** `Compactor.Config`, `Compactor.stats`,
+  `Loop.thinkingUsed` and every new field is guarded by `sync.Mutex`
+  or stays in single-goroutine scope per the existing `agentloop` M7
+  doctrine.
+
 ## [v3.22.0] - 2026-06-18
 
 ### Added — SIN Fusion v1 Enhancements (v3.22.0)
