@@ -172,6 +172,7 @@ func NewModel() *Model {
 		ArgInput:   ArgInputState{Input: ti},
 		Palette:    PaletteState{Open: false, Sel: 0, Items: defaultPaletteCommands(), Filter: defaultPaletteCommands()},
 	}
+	footer.SetView(ViewChat)
 	m.ApplyTheme()
 	return m
 }

@@ -135,6 +135,36 @@ func (f Footer) ProgressBar(width int) string {
 }
 
 func (f Footer) Render(styles Styles) string {
+	if f.view == ViewChat {
+		return f.renderChatFooter(styles)
+	}
+	return f.renderClassicFooter(styles)
+}
+
+func (f Footer) renderChatFooter(styles Styles) string {
+	var parts []string
+
+	if f.Streaming {
+		parts = append(parts, styles.AccentText.Render("⟳ running"))
+	} else {
+		parts = append(parts, styles.Muted.Render("● idle"))
+	}
+
+	model := f.AgentName()
+	if model != "" {
+		parts = append(parts, styles.FooterKey.Render(model))
+	}
+
+	parts = append(parts, styles.Muted.Render(fmt.Sprintf("%d tokens", f.Tokens)))
+	if f.Cost != "" && f.Cost != "$0.00" {
+		parts = append(parts, styles.Muted.Render(f.Cost))
+	}
+
+	line := strings.Join(parts, styles.Muted.Render(" · "))
+	return styles.Footer.Render(line)
+}
+
+func (f Footer) renderClassicFooter(styles Styles) string {
 	var left, mid, right strings.Builder
 
 	left.WriteString(styles.FooterKey.Render(" " + f.view.String() + " "))
