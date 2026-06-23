@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -64,7 +65,13 @@ func fakeStat(exists ...string) func(string) (os.FileInfo, error) {
 
 func fakeGlob(matches ...string) func(string) ([]string, error) {
 	return func(pattern string) ([]string, error) {
-		return matches, nil
+		var out []string
+		for _, m := range matches {
+			if matched, _ := filepath.Match(pattern, m); matched {
+				out = append(out, m)
+			}
+		}
+		return out, nil
 	}
 }
 
@@ -234,8 +241,9 @@ func TestVerifyEntrypoint_PythonWithTools(t *testing.T) {
 
 	saveHooks(t, &_osStat, fakeStat(entry))
 	saveHooks(t, &_execCommandContext, fakeCommand(t, `{"tools":[{"name":"a"}]}`, 0))
+	saveHooks(t, &_execLookPath, func(string) (string, error) { return "", os.ErrNotExist })
 
-	runnable, detail := verifyEntrypoint(context.Background(), dir)
+	runnable, detail := verifyEntrypoint(context.Background(), dir, "test-repo")
 	if !runnable || detail != "1 tools" {
 		t.Fatalf("expected runnable with 1 tools, got %v %q", runnable, detail)
 	}
@@ -247,8 +255,9 @@ func TestVerifyEntrypoint_PythonNoTools(t *testing.T) {
 
 	saveHooks(t, &_osStat, fakeStat(entry))
 	saveHooks(t, &_execCommandContext, fakeCommand(t, `{"tools":[]}`, 0))
+	saveHooks(t, &_execLookPath, func(string) (string, error) { return "", os.ErrNotExist })
 
-	runnable, detail := verifyEntrypoint(context.Background(), dir)
+	runnable, detail := verifyEntrypoint(context.Background(), dir, "test-repo")
 	if !runnable || detail != "entrypoint responds (tool list format unknown)" {
 		t.Fatalf("unexpected result: %v %q", runnable, detail)
 	}
@@ -260,10 +269,11 @@ func TestVerifyEntrypoint_PythonSmokeFail(t *testing.T) {
 
 	saveHooks(t, &_osStat, fakeStat(entry))
 	saveHooks(t, &_execCommandContext, fakeCommand(t, "boom", 1))
+	saveHooks(t, &_execLookPath, func(string) (string, error) { return "", os.ErrNotExist })
 
-	runnable, detail := verifyEntrypoint(context.Background(), dir)
-	if runnable || detail == "" {
-		t.Fatalf("expected smoke-fail result, got %v %q", runnable, detail)
+	runnable, detail := verifyEntrypoint(context.Background(), dir, "test-repo")
+	if !runnable || !strings.HasPrefix(detail, "root mcp_server.py") {
+		t.Fatalf("expected root mcp_server.py present after smoke-fail, got %v %q", runnable, detail)
 	}
 }
 
@@ -272,8 +282,9 @@ func TestVerifyEntrypoint_PythonModule(t *testing.T) {
 
 	saveHooks(t, &_osStat, fakeStat())
 	saveHooks(t, &_filepathGlob, fakeGlob(filepath.Join(dir, "src", "foo", "__main__.py")))
+	saveHooks(t, &_execLookPath, func(string) (string, error) { return "", os.ErrNotExist })
 
-	runnable, detail := verifyEntrypoint(context.Background(), dir)
+	runnable, detail := verifyEntrypoint(context.Background(), dir, "test-repo")
 	if !runnable || detail == "" {
 		t.Fatalf("expected module result, got %v %q", runnable, detail)
 	}
@@ -290,8 +301,9 @@ func TestVerifyEntrypoint_Node(t *testing.T) {
 	}
 	saveHooks(t, &_osStat, stat)
 	saveHooks(t, &_filepathGlob, fakeGlob())
+	saveHooks(t, &_execLookPath, func(string) (string, error) { return "", os.ErrNotExist })
 
-	runnable, detail := verifyEntrypoint(context.Background(), dir)
+	runnable, detail := verifyEntrypoint(context.Background(), dir, "test-repo")
 	if !runnable || detail != "node entrypoint (package.json)" {
 		t.Fatalf("unexpected node result: %v %q", runnable, detail)
 	}
@@ -309,9 +321,10 @@ func TestVerifyEntrypoint_GoSuccess(t *testing.T) {
 	saveHooks(t, &_osStat, stat)
 	saveHooks(t, &_filepathGlob, fakeGlob())
 	saveHooks(t, &_execCommandContext, fakeCommand(t, "", 0))
+	saveHooks(t, &_execLookPath, func(string) (string, error) { return "", os.ErrNotExist })
 
-	runnable, detail := verifyEntrypoint(context.Background(), dir)
-	if !runnable || detail != "go entrypoint builds" {
+	runnable, detail := verifyEntrypoint(context.Background(), dir, "test-repo")
+	if !runnable || detail != "go entrypoint builds: sin-test-repo" {
 		t.Fatalf("unexpected go success result: %v %q", runnable, detail)
 	}
 }
@@ -328,8 +341,9 @@ func TestVerifyEntrypoint_GoBuildFail(t *testing.T) {
 	saveHooks(t, &_osStat, stat)
 	saveHooks(t, &_filepathGlob, fakeGlob())
 	saveHooks(t, &_execCommandContext, fakeCommand(t, "build fail", 1))
+	saveHooks(t, &_execLookPath, func(string) (string, error) { return "", os.ErrNotExist })
 
-	runnable, detail := verifyEntrypoint(context.Background(), dir)
+	runnable, detail := verifyEntrypoint(context.Background(), dir, "test-repo")
 	if runnable || detail == "" {
 		t.Fatalf("expected go build failure result, got %v %q", runnable, detail)
 	}
@@ -340,8 +354,9 @@ func TestVerifyEntrypoint_None(t *testing.T) {
 
 	saveHooks(t, &_osStat, fakeStat())
 	saveHooks(t, &_filepathGlob, fakeGlob())
+	saveHooks(t, &_execLookPath, func(string) (string, error) { return "", os.ErrNotExist })
 
-	runnable, detail := verifyEntrypoint(context.Background(), dir)
+	runnable, detail := verifyEntrypoint(context.Background(), dir, "test-repo")
 	if runnable || detail != "no recognized MCP entrypoint" {
 		t.Fatalf("expected none result, got %v %q", runnable, detail)
 	}
@@ -352,6 +367,7 @@ func TestVerifyEntrypoint_ContextTimeout(t *testing.T) {
 	entry := filepath.Join(dir, "mcp_server.py")
 
 	saveHooks(t, &_osStat, fakeStat(entry))
+	saveHooks(t, &_execLookPath, func(string) (string, error) { return "", os.ErrNotExist })
 	// Block longer than the supplied context timeout.
 	saveHooks(t, &_execCommandContext, func(ctx context.Context, name string, args ...string) *exec.Cmd {
 		cmd := exec.CommandContext(ctx, os.Args[0])
@@ -367,5 +383,5 @@ func TestVerifyEntrypoint_ContextTimeout(t *testing.T) {
 	defer cancel()
 	<-ctx.Done() // ensure context is already expired
 
-	verifyEntrypoint(ctx, dir)
+	verifyEntrypoint(ctx, dir, "test-repo")
 }

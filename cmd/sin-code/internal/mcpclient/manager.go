@@ -49,6 +49,7 @@ type ServerConfig struct {
 	Args      []string          `json:"args,omitempty"`
 	URL       string            `json:"url,omitempty"`
 	Env       map[string]string `json:"env,omitempty"`
+	Dir       string            `json:"dir,omitempty"`
 }
 
 type Tool struct {
@@ -136,6 +137,9 @@ func (m *Manager) connect(ctx context.Context, client *sdk.Client, cfg ServerCon
 			cmd.Env = os.Environ()
 			for k, v := range cfg.Env {
 				cmd.Env = append(cmd.Env, k+"="+v)
+			}
+			if cfg.Dir != "" {
+				cmd.Dir = cfg.Dir
 			}
 			transport = &sdk.CommandTransport{Command: cmd}
 		case "http":

@@ -9,6 +9,7 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/vision"
 
 	"github.com/spf13/cobra"
 
@@ -498,6 +500,35 @@ func projectConfigPath() string {
 // exported for use by the command layer (issue #248 and others).
 func LoadMergedConfig() (SinCodeConfig, error) {
 	return loadMergedConfig()
+}
+
+// VisionConfigFromEnv returns a vision.Config wired from the merged sin-code
+// config plus optional SIN_ANALYSE_IMAGE_* environment overrides. This helper
+// lives in the internal package to avoid an import cycle between vision and
+// internal (issue #423).
+func VisionConfigFromEnv() (vision.Config, error) {
+	cfg, err := loadMergedConfig()
+	if err != nil {
+		return vision.Config{}, fmt.Errorf("load merged config: %w", err)
+	}
+	return vision.Config{
+		BaseURL: firstNonEmpty(os.Getenv("SIN_ANALYSE_IMAGE_BASE_URL"), cfg.LLMBaseURL),
+		APIKey:  firstNonEmpty(os.Getenv("SIN_ANALYSE_IMAGE_API_KEY"), cfg.LLMAPIKey),
+		Model:   firstNonEmpty(os.Getenv("SIN_ANALYSE_IMAGE_MODEL"), cfg.LLMModel, vision.DefaultVisionModel),
+		Prompt:  vision.DefaultPrompt,
+		HTTP:    http.DefaultClient,
+	}, nil
+}
+
+// firstNonEmpty returns the first non-whitespace string in values, or "" if
+// all are empty.
+func firstNonEmpty(values ...string) string {
+	for _, v := range values {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 func loadMergedConfig() (SinCodeConfig, error) {

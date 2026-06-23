@@ -82,6 +82,9 @@ func TestDefaultServersFallbacksWhenNoSkillsDir(t *testing.T) {
 	orig := userHomeDirHook
 	userHomeDirHook = func() (string, error) { return "", errors.New("no home") }
 	t.Cleanup(func() { userHomeDirHook = orig })
+	origLP := lookPathHook
+	lookPathHook = func(string) (string, error) { return "", errors.New("not found") }
+	t.Cleanup(func() { lookPathHook = origLP })
 	t.Setenv("SIN_SKILLS_DIR", "")
 
 	for _, s := range DefaultServers() {
@@ -99,6 +102,82 @@ func TestDefaultServersFallbacksWhenNoSkillsDir(t *testing.T) {
 }
 
 func TestDefaultServersPythonSkillWithSkillsDir(t *testing.T) {
+	orig := lookPathHook
+	lookPathHook = func(string) (string, error) { return "", os.ErrNotExist }
+	t.Cleanup(func() { lookPathHook = orig })
+
+	dir := t.TempDir()
+	t.Setenv("SIN_SKILLS_DIR", dir)
+
+	// Create the root mcp_server.py so the registry selects the local script.
+	script := filepath.Join(dir, "SIN-Code-Scheduler-Skill", "mcp_server.py")
+	if err := os.MkdirAll(filepath.Dir(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(script, []byte("# mock"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, s := range DefaultServers() {
+		if s.Name != "scheduler" {
+			continue
+		}
+		if s.Command != "python3" || len(s.Args) != 1 || s.Args[0] != script {
+			t.Fatalf("scheduler should use python3 + skills dir, got %+v", s)
+		}
+		return
+	}
+	t.Fatal("scheduler server not found in DefaultServers")
+}
+
+func TestDefaultServersPythonSkillDiscoversNestedMcpServer(t *testing.T) {
+	orig := lookPathHook
+	lookPathHook = func(string) (string, error) { return "", errors.New("not found") }
+	t.Cleanup(func() { lookPathHook = orig })
+
+	dir := t.TempDir()
+	pkgDir := filepath.Join(dir, "SIN-Code-Scheduler-Skill", "src", "sin_scheduler")
+	script := filepath.Join(pkgDir, "mcp_server.py")
+	if err := os.MkdirAll(pkgDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(script, []byte("# mock"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pkgDir, "__init__.py"), []byte("# mock"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SIN_SKILLS_DIR", dir)
+
+	for _, s := range DefaultServers() {
+		if s.Name != "scheduler" {
+			continue
+		}
+		if s.Command != "python3" || len(s.Args) != 2 || s.Args[0] != "-m" || s.Args[1] != "sin_scheduler.mcp_server" {
+			t.Fatalf("scheduler should run as module, got %+v", s)
+		}
+		wantDir := filepath.Join(dir, "SIN-Code-Scheduler-Skill")
+		if s.Dir != wantDir {
+			t.Fatalf("scheduler dir mismatch: got %q, want %q", s.Dir, wantDir)
+		}
+		if s.Env == nil || s.Env["PYTHONPATH"] != filepath.Join(wantDir, "src") {
+			t.Fatalf("scheduler PYTHONPATH mismatch: got %v", s.Env)
+		}
+		return
+	}
+	t.Fatal("scheduler server not found in DefaultServers")
+}
+
+func TestDefaultServersPythonSkillFallsBackToPath(t *testing.T) {
+	orig := lookPathHook
+	lookPathHook = func(name string) (string, error) {
+		if name == "sin-scheduler" {
+			return "/opt/bin/sin-scheduler", nil
+		}
+		return "", errors.New("not found")
+	}
+	t.Cleanup(func() { lookPathHook = orig })
+
 	dir := t.TempDir()
 	t.Setenv("SIN_SKILLS_DIR", dir)
 
@@ -106,9 +185,8 @@ func TestDefaultServersPythonSkillWithSkillsDir(t *testing.T) {
 		if s.Name != "scheduler" {
 			continue
 		}
-		want := filepath.Join(dir, "SIN-Code-Scheduler-Skill", "mcp_server.py")
-		if s.Command != "python3" || len(s.Args) != 1 || s.Args[0] != want {
-			t.Fatalf("scheduler should use python3 + skills dir, got %+v", s)
+		if s.Command != "/opt/bin/sin-scheduler" {
+			t.Fatalf("scheduler should fall back to PATH binary, got %q", s.Command)
 		}
 		return
 	}

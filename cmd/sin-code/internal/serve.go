@@ -647,6 +647,19 @@ func registerAllMCPTools(server *mcp.Server) {
 			schema:      map[string]any{"type": "object", "properties": map[string]any{}},
 		},
 		{
+			name:        "sin_analyse_image",
+			description: "Analyze an image with a vision-capable LLM (no Tesseract). Returns a structured description including visible text, UI elements, and layout.",
+			handler:     handleAnalyseImage,
+			schema: map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"path":   map[string]any{"type": "string", "description": "Path to the image file"},
+					"prompt": map[string]any{"type": "string", "description": "Custom prompt for the vision model (optional)"},
+				},
+				"required": []string{"path"},
+			},
+		},
+		{
 			name:        "sin_read",
 			description: "Read files token-efficiently: hashline mode emits LINE:HASH anchors for sin_edit, outline mode returns structure only for large files, raw mode is offset/limit guarded. Always prefer over native read.",
 			handler:     handleRead,

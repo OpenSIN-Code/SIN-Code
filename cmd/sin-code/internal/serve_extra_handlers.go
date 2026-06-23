@@ -16,6 +16,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/vision"
 )
 
 // package-level hooks so tests can inject errors without touching the filesystem.
@@ -345,6 +346,33 @@ func handleAgentDoctor(ctx context.Context, args map[string]any) (string, error)
 
 func handleLspServers(ctx context.Context, args map[string]any) (string, error) {
 	return runSinCodeCLI("lsp", "servers", "--format", "json")
+}
+
+// handleAnalyseImage dispatches sin_analyse_image MCP calls to the vision
+// package. The path argument is required; prompt is optional. Returns a JSON
+// description on success.
+func handleAnalyseImage(ctx context.Context, args map[string]any) (string, error) {
+	path := stringArg(args, "path", "")
+	if path == "" {
+		return "", fmt.Errorf("sin_analyse_image: path is required")
+	}
+	prompt := stringArg(args, "prompt", "")
+	cfg, err := VisionConfigFromEnv()
+	if err != nil {
+		return "", fmt.Errorf("sin_analyse_image: load config: %w", err)
+	}
+	if prompt != "" {
+		cfg.Prompt = prompt
+	}
+	result, err := vision.AnalyzeImageWithConfig(ctx, path, cfg)
+	if err != nil {
+		return "", fmt.Errorf("sin_analyse_image: %w", err)
+	}
+	b, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("sin_analyse_image: marshal result: %w", err)
+	}
+	return string(b), nil
 }
 
 func handleTodoDep(ctx context.Context, args map[string]any) (string, error) {

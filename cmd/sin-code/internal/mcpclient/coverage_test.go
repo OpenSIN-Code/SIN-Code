@@ -307,6 +307,10 @@ func TestRealSession_Close_NilSession(t *testing.T) {
 }
 
 func TestDefaultServers_PythonSkills(t *testing.T) {
+	orig := lookPathHook
+	lookPathHook = func(string) (string, error) { return "", os.ErrNotExist }
+	defer func() { lookPathHook = orig }()
+
 	dir := t.TempDir()
 	testSkillsDir = &dir
 	defer func() { testSkillsDir = nil }()
@@ -363,6 +367,10 @@ func TestDefaultServers_EmptySkillsDir(t *testing.T) {
 	empty := ""
 	testSkillsDir = &empty
 	defer func() { testSkillsDir = nil }()
+
+	orig := lookPathHook
+	lookPathHook = func(string) (string, error) { return "", os.ErrNotExist }
+	defer func() { lookPathHook = orig }()
 
 	servers := DefaultServers()
 	for _, s := range servers {

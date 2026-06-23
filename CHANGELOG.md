@@ -2,6 +2,36 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [Unreleased] - 2026-06-23
+
+### Vision — `sin-code analyse-image` native image analysis (closes #423)
+- **New command:** `sin-code analyse-image <path>` sends an image to a vision-capable
+  LLM and returns a structured description (visible text, UI elements, layout,
+  diagram structure). No Tesseract or other OCR runtime dependency is required.
+- **Default model:** `accounts/fireworks/models/minimax-m3` (vision-capable, via any
+  OpenAI-compatible endpoint). Overridable via `llm.model` config or the
+  `SIN_ANALYSE_IMAGE_MODEL` env var.
+- **Configuration:** reuses the existing `llm.base_url`, `llm.api_key`, `llm.model`
+  config; env overrides `SIN_ANALYSE_IMAGE_BASE_URL`, `SIN_ANALYSE_IMAGE_API_KEY`,
+  `SIN_ANALYSE_IMAGE_MODEL` take precedence. Local providers (127.0.0.1/localhost)
+  do not require an API key.
+- **MCP surface:** new `sin_analyse_image` tool exposed by `sin-code serve`.
+- **New files:** `cmd/sin-code/internal/vision/vision.go` (HTTP transport + image
+  encoding), `cmd/sin-code/analyse_image_cmd.go` (CLI), plus tests.
+
+### Security — `security scan secrets` vendored scanner integration
+- **New command:** `sin-code security scan secrets [path]` runs the vendored
+  `SIN-Code-Secrets-Scanner` (22+ detection rules, entropy filtering, severity
+  classification) against the workspace. Findings are masked in the output;
+  `--format json` is available for CI pipelines.
+- **Binary resolution:** the scanner is located via `$SIN_SECRETS_BIN`, a
+  `sin-secrets` binary on `PATH`, or by building the vendored module into the
+  user cache with `CGO_ENABLED=0`. Use `--no-build` to fail fast instead of
+  compiling.
+- **New files:** `cmd/sin-code/internal/security_secrets.go` (bridge),
+  `cmd/sin-code/internal/security_secrets_test.go` (tests), and updates to
+  `security.doc.md`.
+
 ## [Unreleased] - 2026-06-19
 
 ### Added — `sin_run_loop` + `sin_goal_*` MCP tools (5 new tools, 44+ → 49+)

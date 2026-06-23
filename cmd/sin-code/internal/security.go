@@ -75,6 +75,8 @@ func init() {
 	SecurityCmd.Flags().StringP("format", "f", "text", "Output format: text, json")
 	SecurityCmd.Flags().IntP("timeout", "", 300, "Timeout per tool in seconds")
 	SecurityCmd.Flags().BoolP("strict", "s", false, "Exit with error if any issues are found")
+
+	SecurityCmd.AddCommand(NewSecurityScanCmd())
 }
 
 // ─── Data models ───────────────────────────────────────────────────────────

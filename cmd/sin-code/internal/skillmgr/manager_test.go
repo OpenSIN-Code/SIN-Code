@@ -3,6 +3,8 @@ package skillmgr
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -59,5 +61,73 @@ func TestStatusOnEmptyDir(t *testing.T) {
 		if st.Installed {
 			t.Errorf("skill %q should NOT be installed in tempdir", st.Name)
 		}
+	}
+}
+
+func TestStatusReportsPathFallbackWhenNotInstalled(t *testing.T) {
+	orig := _execLookPath
+	_execLookPath = func(name string) (string, error) {
+		if name == "sin-scheduler" {
+			return "/opt/bin/sin-scheduler", nil
+		}
+		return "", os.ErrNotExist
+	}
+	t.Cleanup(func() { _execLookPath = orig })
+	t.Setenv("SIN_SKILLS_DIR", t.TempDir())
+
+	sts := Status(context.Background())
+	for _, st := range sts {
+		if st.Name == "scheduler" {
+			if st.Installed {
+				t.Errorf("scheduler should not be installed in tempdir")
+			}
+			if !st.Runnable {
+				t.Fatalf("scheduler should be runnable via PATH fallback")
+			}
+			if st.Detail == "" {
+				t.Errorf("expected PATH detail for scheduler")
+			}
+			return
+		}
+	}
+	t.Fatal("scheduler not found in status")
+}
+
+func TestStatusDetectsNestedMcpServer(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("SIN_SKILLS_DIR", dir)
+	repo := "SIN-Code-Scheduler-Skill"
+	script := filepath.Join(dir, repo, "src", "sin_scheduler", "mcp_server.py")
+	if err := os.MkdirAll(filepath.Dir(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(script, []byte("# mock"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	sts := Status(context.Background())
+	for _, st := range sts {
+		if st.Name == "scheduler" {
+			if !st.Installed {
+				t.Fatalf("scheduler should be installed in tempdir")
+			}
+			if !st.Runnable {
+				t.Fatalf("nested mcp_server.py should be runnable")
+			}
+			if st.Detail == "" {
+				t.Errorf("expected entrypoint detail for scheduler")
+			}
+			return
+		}
+	}
+	t.Fatal("scheduler not found in status")
+}
+
+func TestVerifyEntrypointGoBinaryName(t *testing.T) {
+	if got, want := goBinaryName("web_search_bundle"), "sin-websearch"; got != want {
+		t.Errorf("goBinaryName(web_search_bundle) = %q, want %q", got, want)
+	}
+	if got, want := goBinaryName("sin-analyse-suite"), "sin-analyse"; got != want {
+		t.Errorf("goBinaryName(sin-analyse-suite) = %q, want %q", got, want)
 	}
 }

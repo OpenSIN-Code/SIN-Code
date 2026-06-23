@@ -22,6 +22,8 @@ Usage:
 
 Available Commands:
   adw                 Architectural Debt Watchdogs — detect god modules, circular deps, etc.
+  analyse             Passive bridge shell for the sin-analyse-suite Python MCP (read-only)
+  analyse-image       Analyze an image with a vision-capable LLM (no Tesseract)
   assets              Manage harvested agents/commands/skills
   audit               Repo-wide audits (complexity, ...)
   auto                Ultra-autonomous mode: pursue a program.md objective on your behalf
@@ -72,6 +74,7 @@ Available Commands:
   orchestrator-agents List available agents (default + user-defined + plugin)
   orchestrator-plan   Build a plan from a prompt (no execution)
   orchestrator-run    Run a prompt through the multi-agent orchestrator (Pre-LLM router → planner → parallel agents)
+  permission          Reactive permission engine utilities
   plugin              Manage user-installed plugins (subcommands, agents, tools, hooks)
   poc                 Proof-of-Correctness — verify code satisfies its specification
   profile             Render & verify the single-source-of-truth agent profile (issue #175)
@@ -89,8 +92,8 @@ Available Commands:
   self-update         Check for and install the latest sin-code release
   serve               Start an MCP server exposing all 15 sin-code tools
   sessions            Manage persisted agent sessions
-  skill               Install and manage ecosystem MCP skills
-  skills              List and install bundled project-local skills
+  skill               Manage ecosystem skills from upstream repos (install, status, update)
+  skills              Manage bundled project-local skills embedded in the binary (install, list)
   spec                Author, validate & inspect *.spec.md contracts (Spec-Layer)
   stack               Manage the DOX + Superpowers + Vane methodology stack
   status              Print a readiness snapshot of the local SIN-Code state
@@ -99,6 +102,7 @@ Available Commands:
   superpowers         Integrate obra/superpowers skills into SIN-Code
   swarm               Race N agent profiles on the same prompt (first verified wins)
   todo                Issue tracker with dependencies, audit log, and project namespaces
+  tokens              Inspect LLM token usage (per session, day, lifetime, model)
   tool-search         Debug tool relevance ranking
   trace               Configure + verify OpenTelemetry tracer setup
   triage              Read the open issue backlog via gh, score, group, and render

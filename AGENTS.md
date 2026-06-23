@@ -901,7 +901,7 @@ Agents:    chat, sessions (list|show|rm|fork|tree), mcp, goal, daemon,
            profile, rtk, codegraph, spec, triage, catalog, compile-spec, grill,
            subagent, auto-pr, checkpoint, rewind, debt, audit, ceo-audit,
            cover, instinct, hooks, assets, evalset, prp, image-graph, status,
-           fusion, research, permission, tokens, analyse, auto
+           fusion, research, permission, tokens, analyse, analyse-image, auto
 Frontend:  serve, tui, webui
 Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
            orchestrator_agents, orchestrator_plan, update

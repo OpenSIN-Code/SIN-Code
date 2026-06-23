@@ -27,6 +27,7 @@ Usage:
 Available Commands:
   adw                 Architectural Debt Watchdogs — detect god modules, circular deps, etc.
   analyse             Passive bridge shell for the sin-analyse-suite Python MCP (read-only)
+  analyse-image       Analyze an image with a vision-capable LLM (no Tesseract)
   assets              Manage harvested agents/commands/skills
   audit               Repo-wide audits (complexity, ...)
   auto                Ultra-autonomous mode: pursue a program.md objective on your behalf
