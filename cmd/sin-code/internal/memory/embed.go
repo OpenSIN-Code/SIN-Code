@@ -55,9 +55,6 @@ func (e *Embedder) EmbedOne(ctx context.Context, text string) ([]float32, error)
 	if err != nil {
 		return nil, err
 	}
-	if len(results) == 0 {
-		return nil, errors.New("no embedding returned")
-	}
 	return results[0], nil
 }
 
