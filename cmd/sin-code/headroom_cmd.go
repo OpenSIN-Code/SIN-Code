@@ -13,6 +13,39 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
 )
 
+// headroomCmdHooks are package-level hooks to make external headroom calls and
+// error branches testable without requiring the headroom CLI to be installed.
+var (
+	headroomNewCompressorHook = func(cfg headroom.Config) *headroom.Compressor { return headroom.NewCompressor(cfg) }
+	headroomNewCLIClientHook  = func(cfg headroom.Config) *headroom.CLIClient { return headroom.NewCLIClient(cfg) }
+	headroomStartHook = func(comp *headroom.Compressor, ctx context.Context) error {
+		if comp == nil {
+			return nil
+		}
+		return comp.Start(ctx)
+	}
+	headroomCompressContentHook = func(comp *headroom.Compressor, ctx context.Context, content string) (string, *headroom.CompressionResult, error) {
+		if comp == nil {
+			return content, nil, nil
+		}
+		return comp.CompressContent(ctx, content)
+	}
+	headroomCloseHook = func(comp *headroom.Compressor) error {
+		if comp == nil {
+			return nil
+		}
+		return comp.Close()
+	}
+	headroomReadFileHook = func(path string) ([]byte, error) { return os.ReadFile(path) }
+	headroomReadAllHook = func(r io.Reader) ([]byte, error) { return io.ReadAll(r) }
+	headroomLearnHook = func(client *headroom.CLIClient, ctx context.Context, log string) error {
+		if client == nil {
+			return nil
+		}
+		return client.Learn(ctx, log)
+	}
+)
+
 // headroomCmd represents the headroom command
 var headroomCmd = &cobra.Command{
 	Use:   "headroom",
@@ -59,12 +92,12 @@ var headroomStatsCmd = &cobra.Command{
 	Short: "Show compression statistics",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := headroom.LoadConfigFromEnv()
-		comp := headroom.NewCompressor(cfg)
+		comp := headroomNewCompressorHook(cfg)
 		ctx := context.Background()
-		if err := comp.Start(ctx); err != nil {
+		if err := headroomStartHook(comp, ctx); err != nil {
 			return fmt.Errorf("headroom not available: %w", err)
 		}
-		defer comp.Close()
+		defer headroomCloseHook(comp)
 
 		stats := comp.GetStats()
 		fmt.Printf("📊 Headroom Statistics\n")
@@ -85,18 +118,18 @@ var headroomTestCmd = &cobra.Command{
 	Short: "Test Headroom connection and compression",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg := headroom.LoadConfigFromEnv()
-		comp := headroom.NewCompressor(cfg)
+		comp := headroomNewCompressorHook(cfg)
 		ctx := context.Background()
-		if err := comp.Start(ctx); err != nil {
+		if err := headroomStartHook(comp, ctx); err != nil {
 			return fmt.Errorf("headroom not available: %w\nInstall headroom: pip install headroom-ai[all]", err)
 		}
-		defer comp.Close()
+		defer headroomCloseHook(comp)
 
 		testContent := `This is a test of headroom compression. It should reduce the token count significantly. 
 Repeat this sentence many times to see the effect. Repeat this sentence many times to see the effect. 
 Repeat this sentence many times to see the effect.`
 
-		compressed, result, err := comp.CompressContent(ctx, testContent)
+		compressed, result, err := headroomCompressContentHook(comp, ctx, testContent)
 		if err != nil {
 			return fmt.Errorf("compression test failed: %w", err)
 		}
@@ -121,7 +154,7 @@ var headroomLearnCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var logContent string
 		if len(args) > 0 && args[0] != "" {
-			data, err := os.ReadFile(args[0])
+			data, err := headroomReadFileHook(args[0])
 			if err != nil {
 				return fmt.Errorf("failed to read log file: %w", err)
 			}
@@ -130,7 +163,7 @@ var headroomLearnCmd = &cobra.Command{
 			// Read from stdin
 			stat, _ := os.Stdin.Stat()
 			if (stat.Mode() & os.ModeCharDevice) == 0 {
-				data, err := io.ReadAll(os.Stdin)
+				data, err := headroomReadAllHook(os.Stdin)
 				if err != nil {
 					return err
 				}
@@ -141,8 +174,8 @@ var headroomLearnCmd = &cobra.Command{
 		}
 
 		cfg := headroom.LoadConfigFromEnv()
-		client := headroom.NewCLIClient(cfg)
-		if err := client.Learn(context.Background(), logContent); err != nil {
+		client := headroomNewCLIClientHook(cfg)
+		if err := headroomLearnHook(client, context.Background(), logContent); err != nil {
 			return fmt.Errorf("learning failed: %w", err)
 		}
 		fmt.Println("✅ Headroom learned from the provided session")
