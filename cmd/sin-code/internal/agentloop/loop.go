@@ -461,7 +461,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	stopRejects := 0 // tracks how many times the stop-gate rejected completion
 	lastCritFingerprint := ""
 	stallCount := 0
-	totalTokens := 0 // issue #151: cumulative tokens across the run
+	totalTokens := 0      // issue #151: cumulative tokens across the run
 	warnedBudget := false // fires hooks.BudgetWarn once per run
 	// Issue: Thinking Budget Enforcement (first PR). Reset the per-run
 	// thinking accumulator so a second Run() on the same Loop instance
