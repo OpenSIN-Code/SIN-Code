@@ -18,6 +18,27 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ghbridge"
 )
 
+// ghBridger abstracts the ghbridge operations used by the CLI so tests
+// can inject fake successes/failures without touching the real gh binary.
+type ghBridger interface {
+	Health(ctx context.Context) error
+	Execute(ctx context.Context, args []string) (string, ghbridge.Tier, error)
+}
+
+// ghServer abstracts the ghbridge stdio MCP server for testing.
+type ghServer interface {
+	Serve(ctx context.Context) error
+}
+
+// Package-level hooks overridden by gh_cmd_coverage_test.go.
+var (
+	ghbridgeRegisterMCPHook = ghbridge.RegisterMCP
+	ghbridgeNewHook         = func() ghBridger { return ghbridge.New() }
+	ghbridgeClassifyHook    = ghbridge.Classify
+	ghbridgeNewServerHook   = func() ghServer { return ghbridge.NewServer() }
+	ghLookPathHook          = exec.LookPath
+)
+
 // NewGhCmd builds the `gh` cobra subcommand. Pattern matches
 // NewVaneCmd / NewSuperpowersCmd: returns *cobra.Command with the
 // relevant subcommands attached.
@@ -69,7 +90,7 @@ func newGhSetupCmd() *cobra.Command {
 		Use:   "setup",
 		Short: "Register the gh stdio MCP bridge in mcp.json (idempotent)",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			writtenPath, err := ghbridge.RegisterMCP(ghbridge.MCPConfigPath())
+			writtenPath, err := ghbridgeRegisterMCPHook(ghbridge.MCPConfigPath())
 			if err != nil {
 				fmt.Println("✗ register gh MCP bridge:", err)
 				return err
@@ -91,7 +112,7 @@ func newGhDoctorCmd() *cobra.Command {
 		Use:   "doctor",
 		Short: "Check gh install + auth status",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			ghPath, err := exec.LookPath("gh")
+			ghPath, err := ghLookPathHook("gh")
 			if err != nil {
 				fmt.Println("✗ gh binary not found in PATH")
 				fmt.Println("  install: https://cli.github.com")
@@ -101,7 +122,7 @@ func newGhDoctorCmd() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
 			defer cancel()
-			if err := ghbridge.New().Health(ctx); err != nil {
+			if err := ghbridgeNewHook().Health(ctx); err != nil {
 				fmt.Println("✗ gh health:", err)
 				fmt.Println("  run: gh auth login")
 				return fmt.Errorf("gh unhealthy")
@@ -134,7 +155,7 @@ stdin, never prompts, and returns the gh exit code via cobra's standard
 error propagation.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			tier, err := ghbridge.Classify(args)
+			tier, err := ghbridgeClassifyHook(args)
 			if err != nil {
 				return fmt.Errorf("classify: %w", err)
 			}
@@ -150,11 +171,11 @@ error propagation.`,
 			case ghbridge.TierReadOnly:
 				ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
 				defer cancel()
-				stdout, _, err := ghbridge.New().Execute(ctx, args)
+				stdout, _, err := ghbridgeNewHook().Execute(ctx, args)
 				if err != nil {
 					return err
 				}
-				fmt.Print(stdout)
+				fmt.Fprint(cmd.OutOrStdout(), stdout)
 				return nil
 			default:
 				return fmt.Errorf("unknown tier %d for args: %s", tier, strings.Join(args, " "))
@@ -172,8 +193,8 @@ func newGhSurfaceCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "surface",
 		Short: "Print the gh 3-tier policy groups and verb allowlists",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			fmt.Print(ghbridge.AllowedSurface())
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			fmt.Fprint(cmd.OutOrStdout(), ghbridge.AllowedSurface())
 			return nil
 		},
 	}
@@ -188,7 +209,7 @@ func newGhServeCmd() *cobra.Command {
 		Use:   "serve",
 		Short: "Run the gh stdio MCP bridge server (used by mcp.json)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return ghbridge.NewServer().Serve(cmd.Context())
+			return ghbridgeNewServerHook().Serve(cmd.Context())
 		},
 	}
 }
