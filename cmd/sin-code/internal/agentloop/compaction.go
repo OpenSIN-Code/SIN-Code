@@ -53,8 +53,9 @@ type Compactor struct {
 	Summarizer SummarizerFunc
 	Threshold  float64
 
-	mu   sync.Mutex
-	stats CompactionStats
+	mu      sync.Mutex
+	stats   CompactionStats
+	cfg     CompactorConfig
 }
 
 func NewCompactor(summarizer SummarizerFunc) *Compactor {
@@ -112,6 +113,18 @@ func ShouldCompact(msgCount, maxTurns int, threshold float64) bool {
 	return float64(msgCount) > float64(maxTurns)*threshold
 }
 
+// ShouldCompactTokens is the token-budget-based variant of
+// ShouldCompact. The loop's request-only compaction path calls it
+// when CompactionTrigger=CompactionTriggerTokens. Returns true when
+// tokens exceed threshold * ctxWindow. Negative inputs map to "no
+// compaction" so callers never trip on bad data.
+func ShouldCompactTokens(tokens, ctxWindow int, threshold float64) bool {
+	if tokens <= 0 || ctxWindow <= 0 || threshold <= 0 {
+		return false
+	}
+	return float64(tokens) >= float64(ctxWindow)*threshold
+}
+
 func estimateTokens(msgs []session.Message) int {
 	total := 0
 	for _, m := range msgs {
@@ -162,6 +175,95 @@ func (c *Compactor) Stats() CompactionStats {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.stats
+}
+
+// config returns the compactor's most recently configured settings
+// without disturbing the lock. Used by the loop to read back the
+// effective threshold when the caller has neither set
+// CompactionStrategy nor wired CompactionThreshold directly.
+func (c *Compactor) config() CompactorConfig {
+	if c == nil {
+		return DefaultCompactorConfig()
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.cfg.Mode == "" {
+		c.cfg = DefaultCompactorConfig()
+		if c.Threshold > 0 {
+			c.cfg.Threshold = c.Threshold
+		}
+	}
+	return c.cfg
+}
+
+// Configure applies the given CompactorConfig to the compactor and
+// clamps zero-value fields to safe defaults so callers can pass a
+// partially-filled struct without surprise behaviour.
+func (c *Compactor) Configure(cfg CompactorConfig) {
+	if c == nil {
+		return
+	}
+	cfg.Normalize()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cfg = cfg
+	if cfg.Threshold > 0 {
+		c.Threshold = cfg.Threshold
+	}
+}
+
+// Compact2 is the request-only entry point the mode-based compaction
+// path calls (issue: compaction-modes, M3). On non-off modes the
+// loop keeps the persisted history complete and produces a
+// compacted view for the model via this API. When Mode is the
+// explicit "off" sentinel the loop's compact view equals the input
+// — no Compact() call, no stats bump. An empty Mode is treated as
+// the legacy strategy path and the matching Compact() call
+// increments stats.Compactions so existing tests keep working.
+func (c *Compactor) Compact2(ctx context.Context, in CompactInput) (CompactResult, error) {
+	if c == nil {
+		return CompactResult{Kept: in.Messages, Mode: in.Mode}, nil
+	}
+	tokensBefore := estimateTokens(in.Messages)
+	res := CompactResult{
+		TokensBefore: tokensBefore,
+		Mode:         in.Mode,
+	}
+	if in.Mode == ContextCompactionOff {
+		res.Kept = in.Messages
+		res.TokensAfter = tokensBefore
+		return res, nil
+	}
+	strategy := in.Strategy
+	if strategy == 0 {
+		strategy = DefaultCompactionStrategy()
+	}
+	maxTokens := in.MaxTokens
+	if maxTokens <= 0 {
+		maxTokens = 8000
+	}
+	if in.EvidenceIndices != nil {
+		preserved := make([]session.Message, 0, len(in.Messages))
+		rest := make([]session.Message, 0, len(in.Messages))
+		for i, m := range in.Messages {
+			if in.EvidenceIndices[i] {
+				preserved = append(preserved, m)
+			} else {
+				rest = append(rest, m)
+			}
+		}
+		if len(rest) > 0 {
+			compacted := c.Compact(ctx, rest, strategy, maxTokens)
+			res.Kept = append(preserved, compacted...)
+			res.TokensAfter = estimateTokens(res.Kept)
+			res.Dropped = append(res.Dropped, rest...)
+			return res, nil
+		}
+	}
+	kept := c.Compact(ctx, in.Messages, strategy, maxTokens)
+	res.Kept = kept
+	res.TokensAfter = estimateTokens(kept)
+	return res, nil
 }
 
 func (c *Compactor) compactSummarize(ctx context.Context, messages []session.Message, maxTokens int) []session.Message {
