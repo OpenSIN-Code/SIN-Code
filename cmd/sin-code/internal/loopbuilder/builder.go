@@ -149,6 +149,12 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		}
 		gate := stopgate.New(cfg.Workspace, gateOpts...)
 		loop.StopGate = gate.LoopGate(*cfg.Contract)
+
+		// Tell the worker the rubric up front (SinCode Loop System): the same
+		// semantic criteria the stop-gate will enforce are injected as a
+		// Definition-of-Done preamble so tests/debug/docs/completeness are
+		// handled on the first pass instead of after a rejection.
+		loop.Preamble = goalcontract.Preamble(*cfg.Contract)
 	}
 
 	// Headroom context compression (issue #118): opt-in via HEADROOM_ENABLED.

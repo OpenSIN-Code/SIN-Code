@@ -102,15 +102,12 @@ func (p *Plugin) Validate() error {
 }
 
 func DefaultPluginDir() string {
-	dir, err := userConfigDir()
+	dir, err := os.UserConfigDir()
 	if err != nil {
 		return ""
 	}
 	return filepath.Join(dir, "sin-code", "plugins")
 }
-
-// userConfigDir is a hook for os.UserConfigDir so tests can inject errors.
-var userConfigDir = os.UserConfigDir
 
 func Load(path string) (*Plugin, error) {
 	data, err := os.ReadFile(path)

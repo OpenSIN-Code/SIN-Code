@@ -43,14 +43,6 @@ type GovernorResult struct {
 
 type AgentFactory func(rung Rung) []Agent
 
-var criticDriveHook = func(c *Critic, ctx context.Context, ag Agent, task *Task, scratch *Scratchpad) (*CriticResult, error) {
-	return c.Drive(ctx, ag, task, scratch)
-}
-
-var specRunHook = func(s *SpeculativeRunner, ctx context.Context, task *Task, agents []Agent, scratch *Scratchpad) (*SpecResult, error) {
-	return s.Run(ctx, task, agents, scratch)
-}
-
 type Governor struct {
 	Ladder   []Rung
 	Verifier *Verifier
@@ -103,7 +95,7 @@ func (g *Governor) runRung(ctx context.Context, rung Rung, task *Task, scratch *
 	if rung.Agents <= 1 {
 		critic := NewCritic(g.Verifier, g.Checks)
 		critic.Policy.MaxAttempts = rung.RepairRounds + 1
-		cres, err := criticDriveHook(critic, ctx, agents[0], task, scratch)
+		cres, err := critic.Drive(ctx, agents[0], task, scratch)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -116,7 +108,7 @@ func (g *Governor) runRung(ctx context.Context, rung Rung, task *Task, scratch *
 	if limit > len(agents) {
 		limit = len(agents)
 	}
-	sres, err := specRunHook(spec, ctx, task, agents[:limit], scratch)
+	sres, err := spec.Run(ctx, task, agents[:limit], scratch)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -137,7 +129,7 @@ func (g *Governor) runRung(ctx context.Context, rung Rung, task *Task, scratch *
 	wvf := NewVerifier(sres.Winner.Worktree)
 	critic := NewCritic(wvf, g.Checks)
 	critic.Policy.MaxAttempts = rung.RepairRounds
-	cres, err := criticDriveHook(critic, ctx, sres.Winner.Agent, task, scratch)
+	cres, err := critic.Drive(ctx, sres.Winner.Agent, task, scratch)
 	if err != nil {
 		return sres.Winner.Verdict, rounds, err
 	}

@@ -45,7 +45,6 @@ type Criterion struct {
 
 // Spec is a parsed *.spec.md document.
 type Spec struct {
-	ID           string // stable identifier (filename-safe slug of the title)
 	Title        string
 	Objective    string
 	Requirements []Requirement
@@ -116,79 +115,7 @@ func Parse(raw string) (*Spec, error) {
 		return nil, err
 	}
 	s.Objective = strings.TrimSpace(objective.String())
-	if s.ID == "" {
-		s.ID = slugID(s.Title)
-	}
 	return s, nil
-}
-
-// slugID returns a filename-safe identifier derived from a title.
-// Lower-cases, replaces non-alphanumerics with '-', trims leading/
-// trailing dashes, and falls back to "spec" if the result is empty.
-func slugID(title string) string {
-	var b strings.Builder
-	prevDash := false
-	for _, r := range strings.ToLower(title) {
-		switch {
-		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
-			b.WriteRune(r)
-			prevDash = false
-		case r == ' ' || r == '-' || r == '_':
-			if !prevDash {
-				b.WriteRune('-')
-				prevDash = true
-			}
-		}
-	}
-	id := strings.Trim(b.String(), "-")
-	if id == "" {
-		return "spec"
-	}
-	if len(id) > 60 {
-		id = id[:60]
-	}
-	return id
-}
-
-// Marshal renders a Spec back to its canonical Markdown form. The
-// output is what `sin spec author` writes via the --out flag and
-// what a hand-edited *.spec.md file should look like.
-func Marshal(s *Spec) ([]byte, error) {
-	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", s.Title)
-	if s.Objective != "" {
-		fmt.Fprintf(&b, "## Objective\n\n%s\n\n", s.Objective)
-	}
-	if len(s.Requirements) > 0 {
-		b.WriteString("## Requirements\n\n")
-		for _, r := range s.Requirements {
-			prio := string(r.Priority)
-			if prio == "" {
-				prio = "must"
-			}
-			fmt.Fprintf(&b, "- [%s] %s: %s\n", prio, r.ID, r.Text)
-		}
-		b.WriteString("\n")
-	}
-	if len(s.Criteria) > 0 {
-		b.WriteString("## Acceptance Criteria\n\n")
-		for _, c := range s.Criteria {
-			if c.Verify != "" {
-				fmt.Fprintf(&b, "- %s: %s  `verify: %s`\n", c.ID, c.Text, c.Verify)
-			} else {
-				fmt.Fprintf(&b, "- %s: %s\n", c.ID, c.Text)
-			}
-		}
-		b.WriteString("\n")
-	}
-	if len(s.Invariants) > 0 {
-		b.WriteString("## Invariants\n\n")
-		for _, inv := range s.Invariants {
-			fmt.Fprintf(&b, "- %s\n", inv)
-		}
-		b.WriteString("\n")
-	}
-	return []byte(b.String()), nil
 }
 
 // parseRequirement extracts an optional "[must]/[should]/[may]" prefix and a
@@ -203,42 +130,18 @@ func parseRequirement(item string, n int) Requirement {
 	return r
 }
 
-// parseCriterion extracts an optional "An:" id and a trailing
-// "`verify: cmd`". The verify annotation must be backtick-wrapped
-// (e.g. "`verify: go test ./...`") so the parser can distinguish
-// it from a literal "verify:" in the criterion's text. Unwrapped
-// occurrences of "verify:" are left in the text.
+// parseCriterion extracts an optional "An:" id and a trailing "`verify: cmd`".
 func parseCriterion(item string, n int) Criterion {
 	c := Criterion{ID: fmt.Sprintf("A%d", n)}
 	if id, rest, ok := stripID(item); ok {
 		c.ID, item = id, rest
 	}
-	if cmd, ok := extractVerify(item); ok {
-		c.Verify = cmd
-		item = strings.TrimRight(item[:strings.LastIndex(item, "`verify:")], " `")
+	if i := strings.Index(item, "verify:"); i >= 0 {
+		c.Verify = strings.TrimSpace(strings.Trim(item[i+len("verify:"):], " `"))
+		item = strings.TrimRight(item[:i], " `")
 	}
 	c.Text = strings.TrimSpace(item)
 	return c
-}
-
-// extractVerify finds the last backtick-wrapped `verify: <cmd>` in
-// item. Returns the trimmed command and true on success, "" and
-// false otherwise. The backtick requirement prevents the parser
-// from misinterpreting prose like "verify: the parser works" as
-// a verify-command.
-func extractVerify(item string) (string, bool) {
-	const open = "`verify:"
-	const close = "`"
-	i := strings.LastIndex(item, open)
-	if i < 0 {
-		return "", false
-	}
-	rest := item[i+len(open):]
-	j := strings.Index(rest, close)
-	if j < 0 {
-		return "", false
-	}
-	return strings.TrimSpace(rest[:j]), true
 }
 
 func stripPriority(item string, def Priority) (string, Priority) {

@@ -11,11 +11,6 @@ import (
 	"sort"
 )
 
-// rowsErrHook wraps rows.Err() so tests can inject iteration errors.
-var rowsErrHook = func(rows *sql.Rows) error {
-	return rows.Err()
-}
-
 type ConfidenceClaim struct {
 	AgentName string
 	TaskClass TaskClass
@@ -84,7 +79,7 @@ func (c *Calibrator) Calibrate(ctx context.Context, agent string, declared float
 		o.p = pi == 1
 		all = append(all, o)
 	}
-	if err := rowsErrHook(rows); err != nil {
+	if err := rows.Err(); err != nil {
 		return declared, err
 	}
 
