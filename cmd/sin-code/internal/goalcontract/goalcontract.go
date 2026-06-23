@@ -92,6 +92,12 @@ type ResolveOptions struct {
 	// AutoDetect enables language/repo auto-detection (Go repo -> go build/
 	// test/vet plus a "no new TODO/FIXME" guard). Defaults on via Resolve.
 	AutoDetect bool
+	// IncludeBaseline merges the always-on SinCode Loop System Definition-of-
+	// Done baseline (tests for new behavior, no debug scaffolding, goal fully
+	// addressed, docs kept in sync) into the contract. It is additive and
+	// deduped against everything else. Callers gate this on
+	// BaselineEnabled(--no-baseline) so it is ON by default everywhere.
+	IncludeBaseline bool
 }
 
 // Resolve builds a GoalContract from the configured sources, in priority
@@ -152,6 +158,23 @@ func Resolve(opts ResolveOptions) (*GoalContract, error) {
 		}
 	}
 
+	// (2b) Always-on SinCode Loop System baseline (additive, deduped). This is
+	// what makes "write tests / debug / update docs / finish the job" implicit
+	// for every goal — the user never has to ask for it again.
+	if opts.IncludeBaseline {
+		base := Baseline(opts.Workspace)
+		for _, ck := range base.DeterministicChecks {
+			if !hasCheckNamed(c.DeterministicChecks, ck.Name) {
+				c.DeterministicChecks = append(c.DeterministicChecks, ck)
+			}
+		}
+		for _, cr := range base.SemanticCriteria {
+			if !hasCriterion(c.SemanticCriteria, cr) {
+				c.SemanticCriteria = append(c.SemanticCriteria, cr)
+			}
+		}
+	}
+
 	// (3) Fallback: verify-cmd as the single deterministic check when we
 	// still have no deterministic coverage at all.
 	if len(c.DeterministicChecks) == 0 && strings.TrimSpace(opts.VerifyCmd) != "" {
@@ -199,6 +222,16 @@ exit 0`
 func hasCheckNamed(checks []orchestrator.Check, name string) bool {
 	for _, c := range checks {
 		if c.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+func hasCriterion(criteria []string, want string) bool {
+	want = strings.TrimSpace(want)
+	for _, c := range criteria {
+		if strings.TrimSpace(c) == want {
 			return true
 		}
 	}

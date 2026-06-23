@@ -59,15 +59,12 @@ func (r *Registry) List() []AgentConfig {
 }
 
 func DefaultUserAgentsPath() string {
-	cfg, err := userConfigDir()
+	cfg, err := os.UserConfigDir()
 	if err != nil {
 		return ""
 	}
 	return filepath.Join(cfg, "sin-code", "agents")
 }
-
-// userConfigDir is a hook for os.UserConfigDir so tests can inject paths.
-var userConfigDir = os.UserConfigDir
 
 func LoadUserAgents(baseDir string) ([]AgentConfig, error) {
 	if baseDir == "" {

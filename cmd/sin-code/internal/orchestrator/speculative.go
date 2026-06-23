@@ -131,18 +131,12 @@ func (s *SpeculativeRunner) addWorktree(ctx context.Context, id string) (string,
 		}
 		return dir, nil
 	}
-	if out, err := specWorktreeAdd(ctx, s.RepoRoot, dir); err != nil {
+	cmd := exec.CommandContext(ctx, "git", "worktree", "add", "--detach", dir)
+	cmd.Dir = s.RepoRoot
+	if out, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("git worktree add: %s: %w", string(out), err)
 	}
 	return dir, nil
-}
-
-// specWorktreeAdd runs `git worktree add` in a repo root. Tests override this
-// hook to avoid spawning real subprocesses.
-var specWorktreeAdd = func(ctx context.Context, repoRoot, dir string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", "worktree", "add", "--detach", dir)
-	cmd.Dir = repoRoot
-	return cmd.CombinedOutput()
 }
 
 func (s *SpeculativeRunner) removeWorktree(dir string) {
@@ -164,35 +158,25 @@ func (s *SpeculativeRunner) MergeWinner(ctx context.Context, winner *Candidate) 
 	if s.RepoRoot == "" {
 		return "", fmt.Errorf("speculative: RepoRoot unset; cannot diff against base")
 	}
-	diff, err := specDiff(ctx, winner.Worktree)
+	diffCmd := exec.CommandContext(ctx, "git", "diff", "HEAD")
+	diffCmd.Dir = winner.Worktree
+	diff, err := diffCmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("diff winner: %w", err)
 	}
 	if len(diff) == 0 {
 		return "", nil
 	}
-	if out, err := specApply(ctx, s.RepoRoot, diff); err != nil {
+	apply := exec.CommandContext(ctx, "git", "apply", "--3way", "-")
+	apply.Dir = s.RepoRoot
+	apply.Stdin = strings.NewReader(string(diff))
+	if out, err := apply.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("apply winner diff: %s: %w", string(out), err)
 	}
 	if !s.KeepLosers {
 		s.removeWorktree(winner.Worktree)
 	}
 	return string(diff), nil
-}
-
-// specDiff returns `git diff HEAD` in a worktree. Tests override this hook.
-var specDiff = func(ctx context.Context, worktree string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", "diff", "HEAD")
-	cmd.Dir = worktree
-	return cmd.Output()
-}
-
-// specApply applies a diff to the repo root. Tests override this hook.
-var specApply = func(ctx context.Context, repoRoot string, diff []byte) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "git", "apply", "--3way", "-")
-	cmd.Dir = repoRoot
-	cmd.Stdin = strings.NewReader(string(diff))
-	return cmd.CombinedOutput()
 }
 
 func maxInt(a, b int) int {

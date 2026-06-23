@@ -115,23 +115,15 @@ func (adv *Adversary) executeProbe(ctx context.Context, a *Attack, idx int) (lan
 	cctx, cancel := context.WithTimeout(ctx, adv.ProbeTimeout)
 	defer cancel()
 	rel := relOrDot(adv.Workdir, pkgDir)
-	out, runErr := adversaryExecCommand(cctx, adv.Workdir, rel, adv.ProbeTimeout)
+	cmd := exec.CommandContext(cctx, "go", "test", "-run", "TestAdversary", "-count=1", "./"+rel)
+	cmd.Dir = adv.Workdir
+	out, runErr := cmd.CombinedOutput()
 
 	landed = runErr != nil
 	if !landed {
 		_ = os.Remove(probePath)
 	}
 	return landed, string(out), nil
-}
-
-// adversaryExecCommand runs the adversary probe test command. Tests override
-// this hook to avoid spawning real subprocesses.
-var adversaryExecCommand = func(ctx context.Context, workdir, rel string, timeout time.Duration) ([]byte, error) {
-	cctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-	cmd := exec.CommandContext(cctx, "go", "test", "-run", "TestAdversary", "-count=1", "./"+rel)
-	cmd.Dir = workdir
-	return cmd.CombinedOutput()
 }
 
 func probePackageDir(src, workdir string) (string, error) {

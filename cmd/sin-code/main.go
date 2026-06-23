@@ -26,7 +26,7 @@ var rootCmd = &cobra.Command{
 	Use:   "sin-code",
 	Short: "SIN-Code unified analysis & manipulation toolchain",
 	Long: `sin-code is the unified Go binary for the SIN-Code tool suite.
-It consolidates 44+ subcommands into a single cobra-based CLI:
+It consolidates 39+ subcommands into a single cobra-based CLI:
 
   Core analysis:    discover, execute, map, grasp, scout, harvest, orchestrate
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
@@ -35,8 +35,7 @@ It consolidates 44+ subcommands into a single cobra-based CLI:
                     vane, stack, gh, hub, ledger, summary
   Other:            completion, read, write, edit, lsp, plugin, index,
                     orchestrator-run, orchestrator-agents, orchestrator-plan,
-                    todo, notifications, memory, assets, evalset, hooks,
-                    instinct, prp, skills
+                    todo, notifications, memory
 
 Each subcommand is also a thin pass-through to the standalone tool repos
 for backwards compatibility — the standalone binaries are still maintained
@@ -84,10 +83,9 @@ func init() {
 		NewLedgerCmd(), NewSummaryCmd(), NewAutodevCmd(), // v3.4.0 + v3.5.0 + v3.6.0 + v3.7.0 + v3.8.0 + v3.9.0 + v3.12.0 + v3.13.0 + autodev-bridge (Python MIT v0.4.0, stdio MCP via autodev-mcp)
 		NewSkillsCmd(),              // bundled project-local agent skills
 		NewEvalCmd(), NewTraceCmd(), // v3.18.0: Eval + Observability System (issue #75)
-		NewRtkCmd(),                                                                                    // rtk (Rust Token Killer) bridge (issue #123)
-		NewCodeGraphCmd(),                                                                              // CodeGraph multi-language analysis bridge (issue #126)
-		NewSpecCmd(),                                                                                   // Spec-Layer: *.spec.md contracts (issue #122)
-		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + eval + prp workflow
+		NewRtkCmd(),       // rtk (Rust Token Killer) bridge (issue #123)
+		NewCodeGraphCmd(), // CodeGraph multi-language analysis bridge (issue #126)
+		NewSpecCmd(),      // Spec-Layer: *.spec.md contracts (issue #122)
 	)
 
 	// Pass build-time version to self-update module.

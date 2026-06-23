@@ -23,13 +23,13 @@ func writeFile(t *testing.T, dir, name, content string) {
 
 func TestTodoMarkerParsing(t *testing.T) {
 	cases := map[string]struct{ marker, note string }{
-		"// TODO: fix the thing":  {"TODO", "fix the thing"},
-		"//FIXME broken":          {"FIXME", "broken"},
-		"# TODO: python style":    {"TODO", "python style"},
-		"  // XXX danger":         {"XXX", "danger"},
-		"/* HACK temporary */":    {"HACK", "temporary"},
-		"no marker here":          {"", ""},
-		`s := "TODO in a string"`: {"", ""}, // not in a comment prefix
+		"// TODO: fix the thing":   {"TODO", "fix the thing"},
+		"//FIXME broken":           {"FIXME", "broken"},
+		"# TODO: python style":     {"TODO", "python style"},
+		"  // XXX danger":          {"XXX", "danger"},
+		"/* HACK temporary */":     {"HACK", "temporary"},
+		"no marker here":           {"", ""},
+		`s := "TODO in a string"`:  {"", ""}, // not in a comment prefix
 	}
 	for line, want := range cases {
 		m, note := todoMarker(line)
