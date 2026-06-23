@@ -20,6 +20,23 @@ import (
 	"time"
 )
 
+// Package-level hooks for testability. Production defaults point to the real
+// stdlib/exec functions; tests swap them to exercise error branches without
+// a real gh binary installed.
+var (
+	execLookPath = exec.LookPath
+
+	// classifyOverride is swapped by tests to force Classify() to return a
+	// specific tier, e.g. TierForbidden with a nil error, so Execute() can be
+	// exercised for the defensive belt-and-suspenders branch.
+	classifyOverride func([]string) (Tier, error)
+
+	// classifyForbiddenCheck returns true if a token survives the forbidden
+	// scan (i.e. is NOT forbidden). Default is !forbiddenTokens[token].
+	// Tests can swap it to verify the verb-slot re-check.
+	classifyForbiddenCheck = func(token string) bool { return !forbiddenTokens[token] }
+)
+
 // ── Public configuration constants ─────────────────────────────────────
 
 // ServerName is the MCP server name registered in mcp.json. Used by
@@ -134,7 +151,7 @@ func (b *Bridge) Health(ctx context.Context) error {
 	}
 	// LookPath catches "gh not installed" before we spend a ctx
 	// building an exec.Cmd.
-	if _, err := exec.LookPath("gh"); err != nil {
+	if _, err := execLookPath("gh"); err != nil {
 		return fmt.Errorf("ghbridge: gh binary not found on PATH: %w", err)
 	}
 	hctx, cancel := context.WithTimeout(ctx, HealthTimeout)
@@ -169,6 +186,9 @@ func (b *Bridge) Execute(ctx context.Context, args []string) (string, Tier, erro
 		return "", TierForbidden, errors.New("ghbridge: nil bridge or runner")
 	}
 	tier, err := Classify(args)
+	if classifyOverride != nil {
+		tier, err = classifyOverride(args)
+	}
 	if err != nil {
 		// Defense in depth: classification failures are hard-stops.
 		// The runner MUST NOT be invoked.
@@ -281,12 +301,11 @@ var forbiddenTokens = map[string]bool{
 //
 // The classification rules in order:
 //  1. zero args → forbidden (no group specified)
-//  2. any forbidden token in any position → forbidden
-//  3. args[0] not in allowedGroups → forbidden (group not exposed)
-//  4. group == "search" → read-only (search has no verb)
-//  5. len(args) < 2 → forbidden ("group requires verb")
-//  6. args[1] in forbiddenTokens → forbidden (defense in depth,
-//     re-checked here even though step 2 would have caught it)
+//  2. args[0] not in allowedGroups → forbidden (group not exposed)
+//  3. group == "search" → read-only (search has no verb)
+//  4. len(args) < 2 → forbidden ("group requires verb")
+//  5. args[1] fails the forbidden check → forbidden (verb slot re-check)
+//  6. any forbidden token in any position → forbidden (tail scan)
 //  7. args[1] in readOnlyVerbs → read-only
 //  8. args[1] in mutatingVerbs → mutating
 //  9. otherwise → forbidden ("unknown verb, fail closed")
@@ -294,18 +313,11 @@ func Classify(args []string) (Tier, error) {
 	if len(args) == 0 {
 		return TierForbidden, errors.New("ghbridge: no args provided (need a group, e.g. 'issue', 'pr')")
 	}
-	// Step 2: scan every position for a forbidden token. This catches
-	// `gh issue list delete` and `gh repo view --json api` alike.
-	for _, a := range args {
-		if forbiddenTokens[a] {
-			return TierForbidden, fmt.Errorf("ghbridge: forbidden token %q in args", a)
-		}
-	}
 	group := args[0]
 	if !allowedGroups[group] {
 		return TierForbidden, fmt.Errorf("ghbridge: group %q is not in the allowlist (allowed: %s)", group, AllowedSurface())
 	}
-	// Step 4: search is verb-less.
+	// Step 3: search is verb-less.
 	if group == "search" {
 		return TierReadOnly, nil
 	}
@@ -313,9 +325,16 @@ func Classify(args []string) (Tier, error) {
 		return TierForbidden, fmt.Errorf("ghbridge: group %q requires a verb (e.g. list, view, create)", group)
 	}
 	verb := args[1]
-	// Step 6: defensive re-check on the verb slot.
-	if forbiddenTokens[verb] {
+	// Step 5: forbidden check on the verb slot (re-checkable via hook).
+	if !classifyForbiddenCheck(verb) {
 		return TierForbidden, fmt.Errorf("ghbridge: forbidden verb %q for group %q", verb, group)
+	}
+	// Step 6: scan every position for a forbidden token. This catches
+	// `gh issue list delete` and `gh repo view --json api` alike.
+	for _, a := range args {
+		if forbiddenTokens[a] {
+			return TierForbidden, fmt.Errorf("ghbridge: forbidden token %q in args", a)
+		}
 	}
 	if readOnlyVerbs[verb] {
 		return TierReadOnly, nil

@@ -16,10 +16,22 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
+)
+
+// Package-level hooks for testability. Production defaults point to the real
+// stdlib/os functions; tests swap them to exercise I/O and path error branches.
+var (
+	jsonMarshal       = json.Marshal
+	jsonMarshalIndent = json.MarshalIndent
+	osUserHomeDir     = os.UserHomeDir
+	osExecutable      = os.Executable
+	osMkdirAll        = os.MkdirAll
+	osCreateTemp      = os.CreateTemp
+	ioCopy            = io.Copy
+	closeFile         = func(f *os.File) error { return f.Close() }
 )
 
 // ── JSON-RPC plumbing (mirrors vane/mcpserver.go shape) ───────────────
@@ -115,7 +127,7 @@ func (s *Server) lazyBridge() (*Bridge, error) {
 		b := New()
 		// Sanity probe: missing-gh would make every call fail
 		// identically. Surface once, here, with a friendly hint.
-		if _, err := exec.LookPath("gh"); err != nil {
+		if _, err := execLookPath("gh"); err != nil {
 			s.bridgeErr = fmt.Errorf("ghbridge: gh binary not found on PATH: %w", err)
 			return
 		}
@@ -201,7 +213,7 @@ func (s *Server) dispatch(ctx context.Context, req *jsonRPCRequest) *jsonRPCResp
 }
 
 func (s *Server) result(req *jsonRPCRequest, v any) *jsonRPCResponse {
-	data, err := json.Marshal(v)
+	data, err := jsonMarshal(v)
 	if err != nil {
 		return &jsonRPCResponse{
 			JSONRPC: "2.0",
@@ -335,7 +347,7 @@ func dispatch(s *Server, ctx context.Context, req *jsonRPCRequest, tool string, 
 // shape), we fall back to a JSON-RPC error so the call still closes
 // cleanly.
 func mustMarshal(req *jsonRPCRequest, v toolResult) json.RawMessage {
-	data, err := json.Marshal(v)
+	data, err := jsonMarshal(v)
 	if err != nil {
 		// Unreachable in practice — the shape is static. We return a
 		// valid (if empty) result so the call does not hang.
@@ -407,7 +419,7 @@ func MCPConfigPath() string {
 	if v := os.Getenv("SIN_CODE_HOME"); v != "" {
 		return filepath.Join(v, "mcp.json")
 	}
-	if h, err := os.UserHomeDir(); err == nil {
+	if h, err := osUserHomeDir(); err == nil {
 		return filepath.Join(h, ".local", "share", "sin-code", "mcp.json")
 	}
 	return filepath.Join(".", ".sin-code-home", "mcp.json")
@@ -421,7 +433,7 @@ func RegisterMCP(mcpPath string) (string, error) {
 	if mcpPath == "" {
 		mcpPath = MCPConfigPath()
 	}
-	exe, err := os.Executable()
+	exe, err := osExecutable()
 	if err != nil {
 		return mcpPath, fmt.Errorf("ghbridge: resolve executable: %w", err)
 	}
@@ -455,24 +467,24 @@ func RegisterMCP(mcpPath string) (string, error) {
 // rename so a crash mid-write cannot corrupt the existing file. Parent
 // directories are created on demand. Mirrors vane.writeJSONAtomic.
 func writeJSONAtomic(path string, v any) error {
-	data, err := json.MarshalIndent(v, "", "  ")
+	data, err := jsonMarshalIndent(v, "", "  ")
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := osMkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".ghbridge-*.json.tmp")
+	tmp, err := osCreateTemp(filepath.Dir(path), ".ghbridge-*.json.tmp")
 	if err != nil {
 		return err
 	}
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName)
-	if _, err := io.Copy(tmp, strings.NewReader(string(data)+"\n")); err != nil {
-		tmp.Close()
+	if _, err := ioCopy(tmp, strings.NewReader(string(data)+"\n")); err != nil {
+		closeFile(tmp)
 		return err
 	}
-	if err := tmp.Close(); err != nil {
+	if err := closeFile(tmp); err != nil {
 		return err
 	}
 	return os.Rename(tmpName, path)

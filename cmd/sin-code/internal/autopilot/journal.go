@@ -7,6 +7,7 @@ package autopilot
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -21,6 +22,28 @@ const (
 	OutcomeKept       Outcome = "kept"        // verified AND metric improved
 	OutcomeReverted   Outcome = "reverted"    // regressed or no improvement
 	OutcomeVerifyFail Outcome = "verify_fail" // never passed the gate
+)
+
+// testJournalDBErr and testJournalExecErr are injected by coverage tests to
+// exercise the OpenJournal error paths. errJournalOpen is the sentinel value
+// the tests expect back. journalOpen and journalExec wrap the real sql.DB
+// calls so the error branches after the calls are also exercised.
+var (
+	testJournalDBErr   error
+	testJournalExecErr error
+	errJournalOpen     = errors.New("journal: open failed")
+	journalOpen        = func(driverName, dataSourceName string) (*sql.DB, error) {
+		if testJournalDBErr != nil {
+			return nil, testJournalDBErr
+		}
+		return sql.Open(driverName, dataSourceName)
+	}
+	journalExec = func(db *sql.DB, query string, args ...any) (sql.Result, error) {
+		if testJournalExecErr != nil {
+			return nil, testJournalExecErr
+		}
+		return db.Exec(query, args...)
+	}
 )
 
 // Experiment is one row of the journal.
@@ -45,7 +68,7 @@ type Journal struct {
 
 // OpenJournal opens (and migrates) the journal at path.
 func OpenJournal(path string) (*Journal, error) {
-	db, err := sql.Open("sqlite", path)
+	db, err := journalOpen("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +88,7 @@ CREATE TABLE IF NOT EXISTS experiments (
 );
 CREATE INDEX IF NOT EXISTS idx_experiments_outcome ON experiments(outcome);
 `
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := journalExec(db, schema); err != nil {
 		return nil, err
 	}
 	return &Journal{db: db}, nil

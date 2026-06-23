@@ -15,6 +15,34 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// Database hooks are swapped by coverage tests to exercise error paths.
+// They default to the real sql.DB/Tx methods so production behavior is
+// unchanged.
+var (
+	_dbOpen = sql.Open
+	_dbExec = func(db *sql.DB, query string, args ...any) (sql.Result, error) {
+		return (*sql.DB).Exec(db, query, args...)
+	}
+	_dbExecContext = func(db *sql.DB, ctx context.Context, query string, args ...any) (sql.Result, error) {
+		return (*sql.DB).ExecContext(db, ctx, query, args...)
+	}
+	_dbQueryContext = func(db *sql.DB, ctx context.Context, query string, args ...any) (*sql.Rows, error) {
+		return (*sql.DB).QueryContext(db, ctx, query, args...)
+	}
+	_dbBeginTx = func(db *sql.DB, ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
+		return (*sql.DB).BeginTx(db, ctx, opts)
+	}
+	_txQueryRowContext = func(tx *sql.Tx, ctx context.Context, query string, args ...any) *sql.Row {
+		return (*sql.Tx).QueryRowContext(tx, ctx, query, args...)
+	}
+	_txExecContext = func(tx *sql.Tx, ctx context.Context, query string, args ...any) (sql.Result, error) {
+		return (*sql.Tx).ExecContext(tx, ctx, query, args...)
+	}
+	_txCommit    = func(tx *sql.Tx) error { return (*sql.Tx).Commit(tx) }
+	_userHomeDir = os.UserHomeDir
+	_mkdirAll    = os.MkdirAll
+)
+
 type GoalStatus string
 
 const (
@@ -44,7 +72,7 @@ type Queue struct {
 }
 
 func Open(path string) (*Queue, error) {
-	db, err := sql.Open("sqlite", path)
+	db, err := _dbOpen("sqlite", path)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +93,7 @@ CREATE TABLE IF NOT EXISTS goals (
 );
 CREATE INDEX IF NOT EXISTS idx_goals_status_priority ON goals(status, priority DESC);
 `
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := _dbExec(db, schema); err != nil {
 		return nil, err
 	}
 	return &Queue{db: db}, nil
@@ -76,7 +104,7 @@ func (q *Queue) Close() error { return q.db.Close() }
 // Add enqueues a goal. Returns its ID.
 func (q *Queue) Add(ctx context.Context, prompt, workspace string, priority, maxRetries int) (int64, error) {
 	now := time.Now().UTC().Format(time.RFC3339)
-	res, err := q.db.ExecContext(ctx, `
+	res, err := _dbExecContext(q.db, ctx, `
 INSERT INTO goals (prompt, workspace, priority, max_retries, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?)`, prompt, workspace, priority, maxRetries, now, now)
 	if err != nil {
@@ -91,7 +119,7 @@ func (q *Queue) Lease(ctx context.Context, leaseDur time.Duration) (*Goal, error
 	leaseUntil := now.Add(leaseDur).Format(time.RFC3339)
 	nowStr := now.Format(time.RFC3339)
 
-	tx, err := q.db.BeginTx(ctx, nil)
+	tx, err := _dbBeginTx(q.db, ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -99,7 +127,7 @@ func (q *Queue) Lease(ctx context.Context, leaseDur time.Duration) (*Goal, error
 
 	var g Goal
 	var created, updated string
-	err = tx.QueryRowContext(ctx, `
+	err = _txQueryRowContext(tx, ctx, `
 SELECT id, prompt, workspace, priority, status, attempts, max_retries, session_id, last_error, created_at, updated_at
 FROM goals
 WHERE (status = 'pending')
@@ -113,12 +141,12 @@ LIMIT 1`, nowStr).Scan(&g.ID, &g.Prompt, &g.Workspace, &g.Priority, &g.Status,
 	if err != nil {
 		return nil, err
 	}
-	if _, err := tx.ExecContext(ctx, `
+	if _, err := _txExecContext(tx, ctx, `
 UPDATE goals SET status = 'running', attempts = attempts + 1, lease_until = ?, updated_at = ?
 WHERE id = ?`, leaseUntil, nowStr, g.ID); err != nil {
 		return nil, err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := _txCommit(tx); err != nil {
 		return nil, err
 	}
 	g.Status = StatusRunning
@@ -137,7 +165,7 @@ func (q *Queue) Complete(ctx context.Context, id int64, sessionID string) error 
 // budget is spent, then becomes exhausted.
 func (q *Queue) Fail(ctx context.Context, id int64, sessionID, errMsg string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := q.db.ExecContext(ctx, `
+	_, err := _dbExecContext(q.db, ctx, `
 UPDATE goals SET
   status = CASE WHEN attempts >= max_retries THEN 'exhausted' ELSE 'pending' END,
   session_id = ?, last_error = ?, lease_until = '', updated_at = ?
@@ -147,7 +175,7 @@ WHERE id = ?`, sessionID, errMsg, now, id)
 
 func (q *Queue) setStatus(ctx context.Context, id int64, s GoalStatus, sessionID, errMsg string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, err := q.db.ExecContext(ctx, `
+	_, err := _dbExecContext(q.db, ctx, `
 UPDATE goals SET status = ?, session_id = ?, last_error = ?, lease_until = '', updated_at = ?
 WHERE id = ?`, s, sessionID, errMsg, now, id)
 	return err
@@ -162,7 +190,7 @@ func (q *Queue) List(ctx context.Context, status GoalStatus) ([]Goal, error) {
 		args = append(args, status)
 	}
 	query += ` ORDER BY id DESC LIMIT 200`
-	rows, err := q.db.QueryContext(ctx, query, args...)
+	rows, err := _dbQueryContext(q.db, ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -186,11 +214,11 @@ func (q *Queue) List(ctx context.Context, status GoalStatus) ([]Goal, error) {
 func DefaultPath() string {
 	dir := os.Getenv("XDG_DATA_HOME")
 	if dir == "" {
-		home, _ := os.UserHomeDir()
+		home, _ := _userHomeDir()
 		dir = filepath.Join(home, ".local", "share")
 	}
 	base := filepath.Join(dir, "sin-code")
-	_ = os.MkdirAll(base, 0o755)
+	_ = _mkdirAll(base, 0o755)
 	return filepath.Join(base, "goals.db")
 }
 

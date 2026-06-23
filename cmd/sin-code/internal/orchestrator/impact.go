@@ -16,6 +16,10 @@ import (
 	"time"
 )
 
+// filepathToSlash is a hook for filepath.ToSlash so tests can inject path
+// normalization behavior.
+var filepathToSlash = filepath.ToSlash
+
 type PkgNode struct {
 	ImportPath string
 	Dir        string
@@ -33,6 +37,14 @@ type ImpactGraph struct {
 	repoRoot  string
 }
 
+// impactGoList runs `go list -json ./...` in a directory. Tests override this
+// hook to avoid spawning real subprocesses.
+var impactGoList = func(ctx context.Context, dir string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "go", "list", "-json", "./...")
+	cmd.Dir = dir
+	return cmd.Output()
+}
+
 func BuildImpactGraph(ctx context.Context, repoRoot string) (*ImpactGraph, error) {
 	g := &ImpactGraph{
 		nodes:     map[string]*PkgNode{},
@@ -45,9 +57,7 @@ func BuildImpactGraph(ctx context.Context, repoRoot string) (*ImpactGraph, error
 	if repoRoot == "" {
 		return g, nil
 	}
-	cmd := exec.CommandContext(ctx, "go", "list", "-json", "./...")
-	cmd.Dir = repoRoot
-	out, err := cmd.Output()
+	out, err := impactGoList(ctx, repoRoot)
 	if err != nil {
 		return nil, fmt.Errorf("impact: go list: %w", err)
 	}
@@ -104,12 +114,15 @@ type Impact struct {
 }
 
 func (g *ImpactGraph) Predict(changedFiles []string) *Impact {
+	if g == nil {
+		return &Impact{}
+	}
 	g.mu.RLock()
 	defer g.mu.RUnlock()
 
 	changed := map[string]bool{}
 	for _, f := range changedFiles {
-		if pkg, ok := g.fileToPkg[filepath.ToSlash(f)]; ok {
+		if pkg, ok := g.fileToPkg[filepathToSlash(f)]; ok {
 			changed[pkg] = true
 		} else if pkg, ok := g.fileToPkg[f]; ok {
 			changed[pkg] = true

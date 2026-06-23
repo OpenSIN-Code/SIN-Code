@@ -16,6 +16,26 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// Package-level hooks for testing error branches without mocking the
+// SQLite driver. Production defaults are never changed by the package.
+var (
+	sqlOpen = sql.Open
+	execSchema = func(db *sql.DB, schema string) error {
+		_, err := db.Exec(schema)
+		return err
+	}
+	rowsScan = (*sql.Rows).Scan
+	rowsErrHook = (*sql.Rows).Err
+	countSessions = func(s *Store, id string) (int, error) {
+		var exists int
+		err := s.db.QueryRow(`SELECT COUNT(1) FROM sessions WHERE id = ?`, id).Scan(&exists)
+		return exists, err
+	}
+	marshalMessages = json.Marshal
+	txCommit = (*sql.Tx).Commit
+	saveHistory = (*Session).SaveHistory
+)
+
 type Message struct {
 	Role       string          `json:"role"`
 	Content    string          `json:"content"`
@@ -46,7 +66,7 @@ func DefaultPath() string {
 }
 
 func Open(dbPath string) (*Store, error) {
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sqlOpen("sqlite", dbPath)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +83,7 @@ CREATE TABLE IF NOT EXISTS messages (
   payload    TEXT NOT NULL,
   PRIMARY KEY (session_id, idx)
 );`
-	if _, err := db.Exec(schema); err != nil {
+	if err := execSchema(db, schema); err != nil {
 		return nil, fmt.Errorf("migrate sessions db: %w", err)
 	}
 	return &Store{db: db}, nil
@@ -99,7 +119,7 @@ func (s *Store) StartOrResume(id string) (*Session, error) {
 	var history []Message
 	for rows.Next() {
 		var payload string
-		if err := rows.Scan(&payload); err != nil {
+		if err := rowsScan(rows, &payload); err != nil {
 			return nil, err
 		}
 		var m Message
@@ -108,12 +128,11 @@ func (s *Store) StartOrResume(id string) (*Session, error) {
 		}
 		history = append(history, m)
 	}
-	if err := rows.Err(); err != nil {
+	if err := rowsErrHook(rows); err != nil {
 		return nil, err
 	}
-	var exists int
-	if err := s.db.QueryRow(
-		`SELECT COUNT(1) FROM sessions WHERE id = ?`, id).Scan(&exists); err != nil {
+	exists, err := countSessions(s, id)
+	if err != nil {
 		return nil, err
 	}
 	if exists == 0 && history == nil {
@@ -137,7 +156,7 @@ func (sess *Session) SaveHistory(msgs []Message) error {
 		return err
 	}
 	for i, m := range msgs {
-		payload, err := json.Marshal(m)
+		payload, err := marshalMessages(m)
 		if err != nil {
 			return err
 		}
@@ -152,7 +171,7 @@ func (sess *Session) SaveHistory(msgs []Message) error {
 		time.Now().UTC().Format(time.RFC3339), sess.ID); err != nil {
 		return err
 	}
-	if err := tx.Commit(); err != nil {
+	if err := txCommit(tx); err != nil {
 		return err
 	}
 	sess.history = append([]Message(nil), msgs...)
@@ -169,12 +188,12 @@ func (s *Store) List() ([]Info, error) {
 	var out []Info
 	for rows.Next() {
 		var i Info
-		if err := rows.Scan(&i.ID, &i.CreatedAt, &i.UpdatedAt, &i.Title); err != nil {
+		if err := rowsScan(rows, &i.ID, &i.CreatedAt, &i.UpdatedAt, &i.Title); err != nil {
 			return nil, err
 		}
 		out = append(out, i)
 	}
-	return out, rows.Err()
+	return out, rowsErrHook(rows)
 }
 
 func (s *Store) Delete(id string) error {
@@ -198,7 +217,7 @@ func (s *Store) Fork(src string, turn int) (*Session, error) {
 	var history []Message
 	for rows.Next() {
 		var payload string
-		if err := rows.Scan(&payload); err != nil {
+		if err := rowsScan(rows, &payload); err != nil {
 			return nil, err
 		}
 		var m Message
@@ -207,12 +226,11 @@ func (s *Store) Fork(src string, turn int) (*Session, error) {
 		}
 		history = append(history, m)
 	}
-	if err := rows.Err(); err != nil {
+	if err := rowsErrHook(rows); err != nil {
 		return nil, err
 	}
-	var exists int
-	if err := s.db.QueryRow(
-		`SELECT COUNT(1) FROM sessions WHERE id = ?`, src).Scan(&exists); err != nil {
+	exists, err := countSessions(s, src)
+	if err != nil {
 		return nil, err
 	}
 	if exists == 0 {
@@ -233,7 +251,7 @@ func (s *Store) Fork(src string, turn int) (*Session, error) {
 		child.ID, now, now); err != nil {
 		return nil, err
 	}
-	if err := child.SaveHistory(forked); err != nil {
+	if err := saveHistory(child, forked); err != nil {
 		return nil, err
 	}
 	return child, nil

@@ -7,8 +7,13 @@ import (
 	"path/filepath"
 )
 
+var (
+	// testHookUserConfigDir lets tests inject config-dir failures.
+	testHookUserConfigDir = os.UserConfigDir
+)
+
 func defaultConfigDir() (string, error) {
-	cfg, err := os.UserConfigDir()
+	cfg, err := testHookUserConfigDir()
 	if err != nil {
 		return "", err
 	}

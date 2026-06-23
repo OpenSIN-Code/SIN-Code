@@ -86,11 +86,8 @@ func (m *Miner) RecordSequence(ctx context.Context, ep SeqEpisode) error {
 	if m == nil || m.db == nil {
 		return nil
 	}
-	seq, err := json.Marshal(ep.Sequence)
-	if err != nil {
-		return err
-	}
-	_, err = m.db.ExecContext(ctx,
+	seq, _ := json.Marshal(ep.Sequence)
+	_, err := m.db.ExecContext(ctx,
 		`INSERT OR REPLACE INTO episode_sequences (episode_id, class, sequence_json, passed)
 		 VALUES (?, ?, ?, ?)`,
 		ep.EpisodeID, string(ep.Class), string(seq), boolToInt(ep.Passed))

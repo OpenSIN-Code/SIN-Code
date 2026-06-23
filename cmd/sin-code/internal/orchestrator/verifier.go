@@ -119,7 +119,9 @@ func (vf *Verifier) Verify(ctx context.Context, taskID, candidate string, checks
 	return v
 }
 
-func (vf *Verifier) runCheck(ctx context.Context, c Check) CheckResult {
+// verifierRunCheck runs a single check in a workdir. Tests override this hook
+// to avoid spawning real subprocesses.
+var verifierRunCheck = func(ctx context.Context, c Check, workdir string) CheckResult {
 	timeout := c.Timeout
 	if timeout == 0 {
 		timeout = 3 * time.Minute
@@ -132,7 +134,7 @@ func (vf *Verifier) runCheck(ctx context.Context, c Check) CheckResult {
 		return CheckResult{Check: c, Passed: false, Output: "empty check command"}
 	}
 	cmd := exec.CommandContext(cctx, c.Cmd[0], c.Cmd[1:]...)
-	cmd.Dir = vf.Workdir
+	cmd.Dir = workdir
 	out, err := cmd.CombinedOutput()
 	return CheckResult{
 		Check:    c,
@@ -140,6 +142,10 @@ func (vf *Verifier) runCheck(ctx context.Context, c Check) CheckResult {
 		Output:   string(out),
 		Duration: timeNow().Sub(start),
 	}
+}
+
+func (vf *Verifier) runCheck(ctx context.Context, c Check) CheckResult {
+	return verifierRunCheck(ctx, c, vf.Workdir)
 }
 
 func DefaultGoChecks() []Check {

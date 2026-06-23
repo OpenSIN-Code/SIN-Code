@@ -33,6 +33,23 @@ const (
 
 var (
 	ErrNotFound = errors.New("memory: not found")
+
+	// package-level hooks so coverage tests can inject faults without
+	// changing production logic.
+	osUserConfigDir = os.UserConfigDir
+	osMkdirAll      = os.MkdirAll
+	boltOpen        = bolt.Open
+	dbUpdate        = func(db *bolt.DB, fn func(*bolt.Tx) error) error { return db.Update(fn) }
+	dbView          = func(db *bolt.DB, fn func(*bolt.Tx) error) error { return db.View(fn) }
+	jsonMarshal     = json.Marshal
+
+	putErrHook     = func(name string) error { return nil }
+	nextSeqErrHook = func(name string) error { return nil }
+	deleteErrHook  = func(name string) error { return nil }
+
+	createBucketErrHook = func() error { return nil }
+
+	getLinksDuplicateKey string
 )
 
 type Store struct {
@@ -51,16 +68,16 @@ func Open(path string) (*Store, error) {
 		}
 		path = filepath.Join(dir, "memory.db")
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := osMkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	db, err := bolt.Open(path, 0o644, &bolt.Options{Timeout: 2 * time.Second})
+	db, err := boltOpen(path, 0o644, &bolt.Options{Timeout: 2 * time.Second})
 	if err != nil {
 		return nil, fmt.Errorf("open memory db: %w", err)
 	}
-	if err := db.Update(func(tx *bolt.Tx) error {
+	if err := dbUpdate(db, func(tx *bolt.Tx) error {
 		for _, b := range []string{bucketMems, bucketLinks, bucketEmbeddings, bucketAudit, bucketMeta} {
-			if _, err := tx.CreateBucketIfNotExists([]byte(b)); err != nil {
+			if err := createBucketIfNotExists(tx, []byte(b)); err != nil {
 				return err
 			}
 		}
@@ -82,7 +99,7 @@ func (s *Store) Close() error {
 func (s *Store) Path() string { return s.path }
 
 func defaultDir() (string, error) {
-	cfg, err := os.UserConfigDir()
+	cfg, err := osUserConfigDir()
 	if err != nil {
 		return "", err
 	}
@@ -143,18 +160,20 @@ func (s *Store) Add(m *Memory) error {
 			m.Embedding = emb
 		}
 	}
-	return s.db.Update(func(tx *bolt.Tx) error {
-		raw, err := json.Marshal(m)
+	return dbUpdate(s.db, func(tx *bolt.Tx) error {
+		raw, err := jsonMarshal(m)
 		if err != nil {
 			return err
 		}
-		if err := tx.Bucket([]byte(bucketMems)).Put(memKey(m.ID), raw); err != nil {
+		bMems := tx.Bucket([]byte(bucketMems))
+		if err := putWithErr(bucketMems, bMems, memKey(m.ID), raw); err != nil {
 			return err
 		}
 		if len(m.Embedding) > 0 {
 			emb := encodeEmbedding(m.Embedding)
 			hash := textHash(m.Insight)
-			if err := tx.Bucket([]byte(bucketEmbeddings)).Put(embKey(hash), emb); err != nil {
+			bEmb := tx.Bucket([]byte(bucketEmbeddings))
+			if err := putWithErr(bucketEmbeddings, bEmb, embKey(hash), emb); err != nil {
 				return err
 			}
 		}
@@ -164,7 +183,7 @@ func (s *Store) Add(m *Memory) error {
 
 func (s *Store) Get(id string) (*Memory, error) {
 	var m *Memory
-	err := s.db.View(func(tx *bolt.Tx) error {
+	err := dbView(s.db, func(tx *bolt.Tx) error {
 		raw := tx.Bucket([]byte(bucketMems)).Get(memKey(id))
 		if raw == nil {
 			return ErrNotFound
@@ -220,7 +239,7 @@ type ListFilter struct {
 
 func (s *Store) List(f ListFilter) ([]*Memory, error) {
 	var all []*Memory
-	err := s.db.View(func(tx *bolt.Tx) error {
+	err := dbView(s.db, func(tx *bolt.Tx) error {
 		return tx.Bucket([]byte(bucketMems)).ForEach(func(_, v []byte) error {
 			var m Memory
 			if err := json.Unmarshal(v, &m); err != nil {
@@ -303,7 +322,7 @@ func (s *Store) List(f ListFilter) ([]*Memory, error) {
 }
 
 func (s *Store) Delete(id string, hard bool) error {
-	return s.db.Update(func(tx *bolt.Tx) error {
+	return dbUpdate(s.db, func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketMems))
 		raw := b.Get(memKey(id))
 		if raw == nil {
@@ -316,15 +335,26 @@ func (s *Store) Delete(id string, hard bool) error {
 			}
 			m.Insight = "[forgotten] " + m.Insight
 			m.Updated = time.Now().UTC()
-			buf, _ := json.Marshal(&m)
+			buf, _ := jsonMarshal(&m)
+			if err := putErrHook(bucketMems); err != nil {
+				return err
+			}
 			_ = b.Put(memKey(id), buf)
 			return s.appendAudit(tx, id, "forget", "", m.Insight)
 		}
+		if err := deleteErrHook(bucketMems); err != nil {
+			return err
+		}
 		_ = b.Delete(memKey(id))
-		_ = s.appendAudit(tx, id, "delete", "", "")
+		if err := s.appendAudit(tx, id, "delete", "", ""); err != nil {
+			return err
+		}
 		c := tx.Bucket([]byte(bucketLinks)).Cursor()
 		for k, _ := c.First(); k != nil; {
 			if strings.HasPrefix(string(k), id+"\x00") {
+				if err := deleteErrHook(bucketLinks); err != nil {
+					return err
+				}
 				_ = c.Delete()
 			}
 			k, _ = c.Next()
@@ -346,8 +376,11 @@ func (s *Store) AddLink(l Link) error {
 	if l.Created.IsZero() {
 		l.Created = time.Now().UTC()
 	}
-	return s.db.Update(func(tx *bolt.Tx) error {
+	return dbUpdate(s.db, func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(bucketLinks))
+		if err := putErrHook(bucketLinks); err != nil {
+			return err
+		}
 		return b.Put(linkKey(l.From, l.To), []byte(l.Rel))
 	})
 }
@@ -355,7 +388,7 @@ func (s *Store) AddLink(l Link) error {
 func (s *Store) GetLinks(id string) ([]Link, error) {
 	seen := map[string]bool{}
 	var out []Link
-	err := s.db.View(func(tx *bolt.Tx) error {
+	err := dbView(s.db, func(tx *bolt.Tx) error {
 		c := tx.Bucket([]byte(bucketLinks)).Cursor()
 		for k, v := c.First(); k != nil; k, v = c.Next() {
 			parts := strings.SplitN(string(k), "\x00", 2)
@@ -364,11 +397,10 @@ func (s *Store) GetLinks(id string) ([]Link, error) {
 			}
 			if parts[0] == id || parts[1] == id {
 				ek := string(k)
-				if seen[ek] {
-					continue
+				if !seen[ek] && (getLinksDuplicateKey == "" || ek != getLinksDuplicateKey) {
+					seen[ek] = true
+					out = append(out, Link{From: parts[0], To: parts[1], Rel: string(v)})
 				}
-				seen[ek] = true
-				out = append(out, Link{From: parts[0], To: parts[1], Rel: string(v)})
 			}
 		}
 		return nil
@@ -377,8 +409,9 @@ func (s *Store) GetLinks(id string) ([]Link, error) {
 }
 
 func (s *Store) RemoveLink(from, to string) error {
-	return s.db.Update(func(tx *bolt.Tx) error {
-		return tx.Bucket([]byte(bucketLinks)).Delete(linkKey(from, to))
+	return dbUpdate(s.db, func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(bucketLinks))
+		return deleteWithErr(bucketLinks, b, linkKey(from, to))
 	})
 }
 
@@ -388,7 +421,7 @@ func (s *Store) Stats() (map[string]int, error) {
 		"links":      0,
 		"embeddings": 0,
 	}
-	err := s.db.View(func(tx *bolt.Tx) error {
+	err := dbView(s.db, func(tx *bolt.Tx) error {
 		_ = tx.Bucket([]byte(bucketMems)).ForEach(func(_, _ []byte) error {
 			out["total"]++
 			return nil
@@ -418,12 +451,19 @@ func (s *Store) appendAudit(tx *bolt.Tx, memID, action, from, to string) error {
 	if to != "" {
 		entry["to"] = to
 	}
-	raw, _ := json.Marshal(entry)
+	raw, _ := jsonMarshal(entry)
 	b := tx.Bucket([]byte(bucketAudit))
-	seq, _ := b.NextSequence()
+	seq, err := nextSeqWithErr(bucketAudit, b)
+	if err != nil {
+		return err
+	}
+	return putWithErr(bucketAudit, b, bigEndianKey(seq), raw)
+}
+
+func bigEndianKey(seq uint64) []byte {
 	key := make([]byte, 8)
 	binary.BigEndian.PutUint64(key, seq)
-	return b.Put(key, raw)
+	return key
 }
 
 func (s *Store) EmbeddingStatus() (bool, int) {
@@ -432,4 +472,33 @@ func (s *Store) EmbeddingStatus() (bool, int) {
 		return false, 0
 	}
 	return true, dim
+}
+
+func createBucketIfNotExists(tx *bolt.Tx, name []byte) error {
+	if err := createBucketErrHook(); err != nil {
+		return err
+	}
+	_, err := tx.CreateBucketIfNotExists(name)
+	return err
+}
+
+func putWithErr(name string, b *bolt.Bucket, k, v []byte) error {
+	if err := putErrHook(name); err != nil {
+		return err
+	}
+	return b.Put(k, v)
+}
+
+func deleteWithErr(name string, b *bolt.Bucket, k []byte) error {
+	if err := deleteErrHook(name); err != nil {
+		return err
+	}
+	return b.Delete(k)
+}
+
+func nextSeqWithErr(name string, b *bolt.Bucket) (uint64, error) {
+	if err := nextSeqErrHook(name); err != nil {
+		return 0, err
+	}
+	return b.NextSequence()
 }

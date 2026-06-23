@@ -55,6 +55,17 @@ type wireResponse struct {
 	} `json:"choices"`
 }
 
+// marshalToolCallsHook is swapped by coverage tests to exercise the JSON
+// re-marshal error branch.
+var marshalToolCallsHook func(v any) ([]byte, error)
+
+func marshalToolCalls(v any) ([]byte, error) {
+	if marshalToolCallsHook != nil {
+		return marshalToolCallsHook(v)
+	}
+	return json.Marshal(v)
+}
+
 func NewProviderCompletion(c *llm.Client, model string, maxTokens int, temperature float64) func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
 	return func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
 		wt := make([]wireTool, 0, len(tools))
@@ -104,7 +115,7 @@ func NewProviderCompletion(c *llm.Client, model string, maxTokens int, temperatu
 			raw.Role = "assistant"
 		}
 		if len(msg.ToolCalls) > 0 {
-			rawTC, err := json.Marshal(msg.ToolCalls)
+			rawTC, err := marshalToolCalls(msg.ToolCalls)
 			if err != nil {
 				return nil, fmt.Errorf("re-marshal tool_calls: %w", err)
 			}
