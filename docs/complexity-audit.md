@@ -61,6 +61,16 @@ sin-code ceo-audit .
 sin-code ceo-audit . --strict --max-net-lines 500
 ```
 
+The security-scan gate (gate 3) is populated by a lightweight `RunSecurityAudit` pass that auto-detects the project type and runs one fast tool (`go vet`, `bandit`, `npm audit`, or `secrets grep`). Findings are reported as `warn` and do not affect the score; in `--strict` mode they cause the audit to exit with an error.
+
+## Security audit subcommand
+
+```bash
+sin-code audit security
+sin-code audit security ./ --format json
+sin-code audit security ./ --strict --timeout 30
+```
+
 ## Static pass
 
 The deterministic static pass (no LLM) detects:

@@ -15,6 +15,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/audit"
 )
 
@@ -92,9 +93,15 @@ func runCEOAUDIT(cmd *cobra.Command, args []string) error {
 	}
 	start := time.Now()
 
+	// Security gate: lightweight, single-tool scan based on project type.
+	// It runs before the legacy gates so the security-scan stub can be
+	// replaced with real results while keeping the total gate count at 48.
+	secRes := internal.RunSecurityAudit(abs)
+
 	var gates []ceoGate
-	// 47 legacy gates are represented as a single pass stub.
-	gates = append(gates, runLegacyGates(abs)...)
+	// 47 legacy gates are represented as stubs; security-scan is updated with
+	// the actual lightweight scan result below.
+	gates = append(gates, runLegacyGates(abs, secRes)...)
 
 	// 48th gate: complexity audit.
 	var complexityTags []string
@@ -151,7 +158,9 @@ func runCEOAUDIT(cmd *cobra.Command, args []string) error {
 	case "json":
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		return enc.Encode(result)
+		if err := enc.Encode(result); err != nil {
+			return err
+		}
 	default:
 		printCEOResult(result)
 	}
@@ -162,13 +171,18 @@ func runCEOAUDIT(cmd *cobra.Command, args []string) error {
 	if ceoStrict && ceoMaxNet > 0 && compRes != nil && compRes.NetLines > ceoMaxNet {
 		return fmt.Errorf("complexity net-lines %d exceed threshold %d", compRes.NetLines, ceoMaxNet)
 	}
+	if ceoStrict && secRes.Summary.Issues > 0 {
+		return fmt.Errorf("security scan found %d issue(s) (strict mode)", secRes.Summary.Issues)
+	}
 	return nil
 }
 
 // runLegacyGates simulates the 47 original CEO-audit gates. Each gate is a
 // stub that reports pass with zero score; the real implementations live in
 // external scanners and CI. The score is carried entirely by gate 48 here.
-func runLegacyGates(path string) []ceoGate {
+// The security-scan gate is populated from the lightweight RunSecurityAudit
+// result so it reflects the current project state.
+func runLegacyGates(path string, secRes internal.SecurityResult) []ceoGate {
 	names := []string{
 		"license-check", "readme-check", "security-scan", "dependency-check",
 		"go-vet", "golangci-lint", "govulncheck", "gosec", "tests-pass",
@@ -185,9 +199,35 @@ func runLegacyGates(path string) []ceoGate {
 	}
 	gates := make([]ceoGate, 0, len(names))
 	for _, n := range names {
-		gates = append(gates, ceoGate{Name: n, Status: "pass", Score: 0})
+		g := ceoGate{Name: n, Status: "pass", Score: 0}
+		if n == "security-scan" {
+			g = securityGateFromResult(secRes)
+		}
+		gates = append(gates, g)
 	}
 	return gates
+}
+
+// securityGateFromResult maps a lightweight security scan result to a CEO
+// gate status. The gate is intentionally fail-safe: it warns on findings but
+// never fails the audit unless the caller is in strict mode.
+func securityGateFromResult(r internal.SecurityResult) ceoGate {
+	g := ceoGate{Name: "security-scan"}
+	switch {
+	case r.Summary.Issues > 0:
+		g.Status = "warn"
+		g.Note = fmt.Sprintf("%d security issue(s) found in %s project", r.Summary.Issues, r.ProjectType)
+	case r.Summary.Errors > 0:
+		g.Status = "warn"
+		g.Note = "security scan encountered errors"
+	case r.Summary.ToolsRun == 0:
+		g.Status = "skipped"
+		g.Note = "no security scanner available"
+	default:
+		g.Status = "pass"
+		g.Note = fmt.Sprintf("no security issues in %s project", r.ProjectType)
+	}
+	return g
 }
 
 func gradeForScore(score int) string {

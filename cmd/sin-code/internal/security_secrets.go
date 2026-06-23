@@ -68,9 +68,137 @@ func NewSecurityScanCmd() *cobra.Command {
 		Short: "Specialized security scans",
 		Long:  `scan runs focused security scanners (e.g. secrets detection) on a project path.`,
 	}
+	cmd.AddCommand(NewSecurityScanAllCmd())
 	cmd.AddCommand(NewSecurityScanSecretsCmd())
 	cmd.AddCommand(NewSecurityScanSastCmd())
+	cmd.AddCommand(NewSecurityScanScaCmd())
+	cmd.AddCommand(NewSecurityScanSbomCmd())
+	cmd.AddCommand(NewSecurityScanContainerCmd())
 	return cmd
+}
+
+// NewSecurityScanAllCmd returns the `sin-code security scan all` subcommand.
+func NewSecurityScanAllCmd() *cobra.Command {
+	var (
+		severity string
+		format   string
+		strict   bool
+		timeout  int
+		noBuild  bool
+	)
+
+	cmd := &cobra.Command{
+		Use:   "all [path]",
+		Short: "Run secrets and SAST scanners and aggregate findings",
+		Long: `all runs the vendored secrets and SAST scanners against the given path
+and aggregates their findings into a single report.
+
+Output formats:
+  text (default) — human-readable summary
+  json           — machine-readable aggregated report
+  sarif          — SARIF 2.1.0 JSON for CI/security gateways`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			path := "."
+			if len(args) > 0 {
+				path = args[0]
+			}
+			abs, err := filepath.Abs(path)
+			if err != nil {
+				return fmt.Errorf("resolve scan path: %w", err)
+			}
+
+			findings, issues, err := runSecurityScanAll(abs, severity, timeout, noBuild)
+			if err != nil {
+				return err
+			}
+
+			switch format {
+			case "json":
+				out, _ := json.MarshalIndent(map[string]any{
+					"path":     abs,
+					"issues":   issues,
+					"findings": findings,
+				}, "", "  ")
+				fmt.Println(string(out))
+			case "sarif":
+				findings = normalizeFindingPaths(abs, findings)
+				if err := writeSarif(cmd, findings); err != nil {
+					return err
+				}
+			default:
+				printSecurityScanAllResult(abs, issues, findings)
+			}
+
+			if strict && issues > 0 {
+				return fmt.Errorf("security scan all found %d issues (strict mode)", issues)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&severity, "severity", "low", "Minimum severity: low, medium, high, critical")
+	cmd.Flags().StringVarP(&format, "format", "f", "text", "Output format: text, json, sarif")
+	cmd.Flags().BoolVar(&strict, "strict", false, "Exit with error if any issues are found")
+	cmd.Flags().IntVar(&timeout, "timeout", 300, "Timeout per scanner in seconds")
+	cmd.Flags().BoolVar(&noBuild, "no-build", false, "Do not build vendored scanners if missing")
+
+	return cmd
+}
+
+// runSecurityScanAll runs the secrets and SAST scanners and returns aggregated findings.
+func runSecurityScanAll(path, severity string, timeout int, noBuild bool) ([]SecurityFinding, int, error) {
+	findings := []SecurityFinding{}
+	issues := 0
+
+	secretsBin, err := secretsBinLocator(path, noBuild)
+	if err == nil {
+		secretsResult, err := runSecretsScanner(secretsBin, path, severity, "", "", timeout, true)
+		if err == nil {
+			for _, f := range secretsResult.Findings {
+				findings = append(findings, secretsFindingToSecurity(f))
+			}
+			issues += secretsResult.Summary.SecretsFound
+		}
+	}
+
+	sastBin, err := sastBinLocator(path, noBuild)
+	if err == nil {
+		sastResult, err := runSASTScanner(sastBin, path, severity, "", "", timeout)
+		if err == nil {
+			for _, f := range sastResult.Findings {
+				findings = append(findings, sastFindingToSecurity(f))
+			}
+			issues += sastResult.Summary.Critical + sastResult.Summary.High + sastResult.Summary.Medium + sastResult.Summary.Low
+		}
+	}
+
+	return findings, issues, nil
+}
+
+// printSecurityScanAllResult renders an aggregated scan summary.
+func printSecurityScanAllResult(path string, issues int, findings []SecurityFinding) {
+	fmt.Printf("🔒 Security Scan All — %s\n", path)
+	fmt.Printf("   Findings: %d\n\n", issues)
+	for _, f := range findings {
+		fmt.Printf("   [%s] %s — %s\n", strings.ToUpper(f.Severity), f.RuleID, f.RuleName)
+		if f.File != "" {
+			fmt.Printf("   File: %s", f.File)
+			if f.Line > 0 {
+				fmt.Printf(":%d", f.Line)
+			}
+			fmt.Println()
+		}
+		if f.CWE != "" || f.OWASP != "" {
+			fmt.Printf("   CWE: %s | OWASP: %s\n", f.CWE, f.OWASP)
+		}
+		if f.Remediation != "" {
+			fmt.Printf("   Remediation: %s\n", f.Remediation)
+		}
+	}
+	if issues == 0 {
+		fmt.Println("   ✅ No security issues detected")
+	}
 }
 
 // NewSecurityScanSecretsCmd returns the `sin-code security scan secrets` subcommand.
@@ -138,7 +266,7 @@ Use --no-build to fail fast instead of compiling the vendored scanner.`,
 	cmd.Flags().StringVarP(&severity, "severity", "s", "low", "Minimum severity: low, medium, high, critical")
 	cmd.Flags().StringVarP(&types, "types", "t", "", "Comma-separated secret types (api-key,token,password,private-key,certificate,config-file)")
 	cmd.Flags().StringVarP(&exclude, "exclude", "e", "", "Comma-separated patterns to exclude")
-	cmd.Flags().StringVarP(&format, "format", "f", "text", "Output format: text, json")
+	cmd.Flags().StringVarP(&format, "format", "f", "text", "Output format: text, json, sarif")
 	cmd.Flags().BoolVar(&strict, "strict", false, "Exit with error if any secrets are found")
 	cmd.Flags().IntVar(&timeout, "timeout", 300, "Timeout per scan in seconds")
 	cmd.Flags().BoolVar(&noEntropy, "no-entropy", false, "Disable entropy filtering")

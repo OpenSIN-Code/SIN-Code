@@ -13,18 +13,20 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/audit"
 )
 
 var (
-	auditPath   string
-	auditFormat string
-	auditTags   string
-	auditRank   string
-	auditSince  string
-	auditMaxNet int
-	auditStrict bool
-	auditNoLLM  bool
+	auditPath       string
+	auditFormat     string
+	auditTags       string
+	auditRank       string
+	auditSince      string
+	auditMaxNet     int
+	auditStrict     bool
+	auditNoLLM      bool
+	auditSecTimeout int
 )
 
 // NewAuditCmd creates `sin-code audit` with `complexity` subcommand.
@@ -65,8 +67,67 @@ End with: net: -<N> lines, -<M> deps possible.  or  Lean already. Ship.
 	complexityCmd.Flags().BoolVarP(&auditStrict, "strict", "s", false, "Exit with error if threshold exceeded")
 	complexityCmd.Flags().BoolVar(&auditNoLLM, "no-llm", false, "Skip LLM second pass")
 
+	securityCmd := &cobra.Command{
+		Use:   "security [path]",
+		Short: "Lightweight security scan — auto-detects project type and runs one fast tool",
+		Long: `Run a lightweight security scan based on the project type detected at <path>:
+
+  Go      → go vet
+  Python  → bandit (if available)
+  Node.js → npm audit
+  Generic → secrets grep
+
+The scan is fast (default 30s timeout per tool) and reports findings without
+failing the audit unless --strict is set. Use --format json for machine output.`,
+		Args:    cobra.MaximumNArgs(1),
+		Version: Version,
+		RunE:    runSecurityAudit,
+	}
+	securityCmd.Flags().StringVarP(&auditFormat, "format", "f", "text", "Output format: text, json")
+	securityCmd.Flags().IntVar(&auditSecTimeout, "timeout", 30, "Timeout per tool in seconds")
+	securityCmd.Flags().BoolVarP(&auditStrict, "strict", "s", false, "Exit with error if any issues are found")
+
 	cmd.AddCommand(complexityCmd)
+	cmd.AddCommand(securityCmd)
 	return cmd
+}
+
+func runSecurityAudit(cmd *cobra.Command, args []string) error {
+	root := "."
+	if len(args) > 0 {
+		root = args[0]
+	}
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return fmt.Errorf("invalid path: %w", err)
+	}
+	info, err := os.Stat(abs)
+	if err != nil {
+		return fmt.Errorf("path not found: %w", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("path is not a directory: %s", abs)
+	}
+	if auditFormat != "text" && auditFormat != "json" {
+		return fmt.Errorf("format must be text or json")
+	}
+
+	res := internal.RunSecurityAuditWithTimeout(abs, auditSecTimeout)
+	res.Strict = auditStrict
+
+	switch auditFormat {
+	case "json":
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(res)
+	default:
+		internal.PrintSecurityResult(res)
+	}
+
+	if auditStrict && res.Summary.Issues > 0 {
+		return fmt.Errorf("security scan found %d issue(s) (strict mode)", res.Summary.Issues)
+	}
+	return nil
 }
 
 func runComplexityAudit(cmd *cobra.Command, args []string) error {

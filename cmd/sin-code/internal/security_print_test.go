@@ -13,7 +13,7 @@ import (
 func captureSecurityPrint(t *testing.T, r SecurityResult) string {
 	t.Helper()
 	get := captureStdout(t)
-	printSecurityResult(r)
+	PrintSecurityResult(r)
 	return get()
 }
 

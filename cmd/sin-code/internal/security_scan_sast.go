@@ -113,12 +113,21 @@ Use --no-build to fail fast instead of compiling the vendored scanner.`,
 			}
 
 			out := cmd.OutOrStdout()
-			if format == "json" {
+			switch format {
+			case "json":
 				enc := json.NewEncoder(out)
 				enc.SetIndent("", "  ")
 				return enc.Encode(result)
+			case "sarif":
+				findings := make([]SecurityFinding, 0, len(result.Findings))
+				for _, f := range result.Findings {
+					findings = append(findings, sastFindingToSecurity(f))
+				}
+				findings = normalizeFindingPaths(abs, findings)
+				return writeSarif(cmd, findings)
+			default:
+				printSASTResult(result)
 			}
-			printSASTResult(result)
 
 			if strict && result.Summary.Critical > 0 {
 				return fmt.Errorf("sast scan found %d critical issue(s) (strict mode)", result.Summary.Critical)
@@ -130,7 +139,7 @@ Use --no-build to fail fast instead of compiling the vendored scanner.`,
 	cmd.Flags().StringVarP(&severity, "severity", "s", "low", "Minimum severity: low, medium, high, critical")
 	cmd.Flags().StringVarP(&langs, "languages", "l", "", "Comma-separated languages to scan (e.g. go,python,javascript)")
 	cmd.Flags().StringVarP(&exclude, "exclude", "e", "", "Comma-separated patterns to exclude")
-	cmd.Flags().StringVarP(&format, "format", "f", "text", "Output format: text, json")
+	cmd.Flags().StringVarP(&format, "format", "f", "text", "Output format: text, json, sarif")
 	cmd.Flags().BoolVar(&strict, "strict", false, "Exit with error if any critical findings are found")
 	cmd.Flags().IntVar(&timeout, "timeout", 300, "Timeout per scan in seconds")
 	cmd.Flags().BoolVar(&noBuild, "no-build", false, "Do not build the vendored scanner if missing")

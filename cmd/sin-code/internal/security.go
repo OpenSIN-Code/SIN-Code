@@ -55,11 +55,17 @@ Use --format json for machine-readable output.`,
 		result := runSecurityScan(path, projType, toolFilter, timeoutSec)
 		result.Strict = strict
 
-		if format == "json" {
+		switch format {
+		case "json":
 			out, _ := json.MarshalIndent(result, "", "  ")
 			fmt.Println(string(out))
-		} else {
-			printSecurityResult(result)
+		case "sarif":
+			findings := normalizeFindingPaths(path, securityResultToFindings(result))
+			if err := writeSarif(cmd, findings); err != nil {
+				return err
+			}
+		default:
+			PrintSecurityResult(result)
 		}
 
 		if strict && result.Summary.Issues > 0 {
@@ -72,11 +78,39 @@ Use --format json for machine-readable output.`,
 func init() {
 	SecurityCmd.Flags().StringP("type", "t", "auto", "Project type: auto, go, python, node, generic")
 	SecurityCmd.Flags().StringP("tools", "T", "", "Comma-separated tool whitelist (e.g. govulncheck,gosec)")
-	SecurityCmd.Flags().StringP("format", "f", "text", "Output format: text, json")
+	SecurityCmd.Flags().StringP("format", "f", "text", "Output format: text, json, sarif")
 	SecurityCmd.Flags().IntP("timeout", "", 300, "Timeout per tool in seconds")
 	SecurityCmd.Flags().BoolP("strict", "s", false, "Exit with error if any issues are found")
 
 	SecurityCmd.AddCommand(NewSecurityScanCmd())
+}
+
+// RunSecurityAudit runs a lightweight, single-tool security scan suitable for
+// the audit/CEO-audit pipeline. It auto-detects the project type and picks the
+// fastest available scanner. Findings are reported but do not block the audit;
+// callers in strict mode should check Summary.Issues.
+//
+// The scan is capped at a short per-tool timeout so the CEO audit stays fast.
+func RunSecurityAudit(path string) SecurityResult {
+	return RunSecurityAuditWithTimeout(path, 30)
+}
+
+// RunSecurityAuditWithTimeout allows tests to use a shorter timeout.
+func RunSecurityAuditWithTimeout(path string, timeoutSec int) SecurityResult {
+	projType := detectProjectType(path)
+	// Use one fast tool per project type to keep the audit snappy.
+	var toolFilter string
+	switch projType {
+	case "go":
+		toolFilter = "go vet"
+	case "python":
+		toolFilter = "bandit"
+	case "node":
+		toolFilter = "npm audit"
+	default:
+		toolFilter = "secrets grep"
+	}
+	return runSecurityScan(path, projType, toolFilter, timeoutSec)
 }
 
 // ─── Data models ───────────────────────────────────────────────────────────
@@ -464,7 +498,7 @@ func countNonEmptyLines(s string) int {
 
 // ─── Output formatting ───────────────────────────────────────────────────
 
-func printSecurityResult(r SecurityResult) {
+func PrintSecurityResult(r SecurityResult) {
 	fmt.Printf("🔒 Security Scan Summary — %s project at %s\n", r.ProjectType, r.Path)
 	fmt.Printf("   Duration: %s\n\n", r.Duration)
 

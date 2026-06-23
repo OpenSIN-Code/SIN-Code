@@ -150,6 +150,78 @@ func TestCEOAUDITCommand48Gates(t *testing.T) {
 	}
 }
 
+func TestCEOAUDITCommandSecurityGateWarnsOnIssues(t *testing.T) {
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "go.mod"), "module test\n")
+
+	// Put a fake go vet that reports issues.
+	binDir := t.TempDir()
+	makeFakeSecurityToolForCEO(t, filepath.Join(binDir, "go"), "vet found issues", 1)
+	os.Setenv("PATH", binDir)
+
+	cmd := NewCEOAUDITCmd()
+	cmd.SetArgs([]string{dir, "--format", "json"})
+	out := captureOutput(t, cmd)
+
+	var result ceoResult
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	var secGate *ceoGate
+	for i := range result.Gates {
+		if result.Gates[i].Name == "security-scan" {
+			secGate = &result.Gates[i]
+			break
+		}
+	}
+	if secGate == nil {
+		t.Fatal("security-scan gate not found")
+	}
+	if secGate.Status != "warn" {
+		t.Fatalf("expected security-scan status warn, got %s", secGate.Status)
+	}
+}
+
+func TestCEOAUDITCommandSecurityGateStrictFails(t *testing.T) {
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "go.mod"), "module test\n")
+
+	binDir := t.TempDir()
+	makeFakeSecurityToolForCEO(t, filepath.Join(binDir, "go"), "vet found issues", 1)
+	os.Setenv("PATH", binDir)
+
+	cmd := NewCEOAUDITCmd()
+	cmd.SetArgs([]string{dir, "--format", "json", "--strict"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("expected strict mode to fail with security issues")
+	}
+}
+
+func TestAuditSecuritySubcommand(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "config.env"), `api_key = "supersecret123456789"`)
+
+	cmd := NewAuditCmd()
+	cmd.SetArgs([]string{"security", dir, "--format", "json"})
+	out := captureOutput(t, cmd)
+
+	if !strings.Contains(out, "issues found") && !strings.Contains(out, "\"issues\":") {
+		t.Fatalf("expected security issues in output:\n%s", out)
+	}
+}
+
+func makeFakeSecurityToolForCEO(t *testing.T, path, output string, exit int) {
+	t.Helper()
+	script := fmt.Sprintf("#!/bin/sh\necho '%s'\nexit %d\n", output, exit)
+	os.WriteFile(path, []byte(script), 0o755)
+}
+
 func mustWrite(t *testing.T, path, content string) {
 	t.Helper()
 	_ = os.MkdirAll(filepath.Dir(path), 0755)

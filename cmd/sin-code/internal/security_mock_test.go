@@ -643,6 +643,104 @@ func TestSecurityFake_FilePermissionsWorldWritable(t *testing.T) {
 	}
 }
 
+func TestRunSecurityAudit_GoProjectUsesGoVet(t *testing.T) {
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module test\n"), 0o644)
+
+	binDir := t.TempDir()
+	makeFakeSecurityTool(t, filepath.Join(binDir, "go"), "go vet ok", 0)
+	os.Setenv("PATH", binDir)
+
+	res := RunSecurityAuditWithTimeout(dir, 5)
+	if res.ProjectType != "go" {
+		t.Errorf("expected project type 'go', got %q", res.ProjectType)
+	}
+	found := false
+	for _, tr := range res.Tools {
+		if tr.Name == "go vet" && tr.Status == "ok" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected go vet to run, got %+v", res.Tools)
+	}
+}
+
+func TestRunSecurityAudit_GenericProjectUsesSecretsGrep(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "config.env"), []byte(`api_key = "supersecret123456789"`), 0o644)
+
+	res := RunSecurityAuditWithTimeout(dir, 5)
+	if res.ProjectType != "generic" {
+		t.Errorf("expected project type 'generic', got %q", res.ProjectType)
+	}
+	found := false
+	for _, tr := range res.Tools {
+		if tr.Name == "secrets grep" && tr.Issues >= 1 {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected secrets grep to find issues, got %+v", res.Tools)
+	}
+}
+
+func TestRunSecurityAudit_NodeProjectUsesNpmAudit(t *testing.T) {
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{"name":"x"}`), 0o644)
+
+	binDir := t.TempDir()
+	makeFakeSecurityTool(t, filepath.Join(binDir, "npm"), `{"vulnerabilities": {}}`, 0)
+	os.Setenv("PATH", binDir)
+
+	res := RunSecurityAuditWithTimeout(dir, 5)
+	if res.ProjectType != "node" {
+		t.Errorf("expected project type 'node', got %q", res.ProjectType)
+	}
+	found := false
+	for _, tr := range res.Tools {
+		if tr.Name == "npm audit" && tr.Status == "ok" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected npm audit to run, got %+v", res.Tools)
+	}
+}
+
+func TestRunSecurityAudit_PythonProjectUsesBandit(t *testing.T) {
+	oldPath := os.Getenv("PATH")
+	defer os.Setenv("PATH", oldPath)
+
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "requirements.txt"), []byte("flask==2.0\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "main.py"), []byte("print('hi')\n"), 0o644)
+
+	binDir := t.TempDir()
+	makeFakeSecurityTool(t, filepath.Join(binDir, "bandit"), `{"results": []}`, 0)
+	os.Setenv("PATH", binDir)
+
+	res := RunSecurityAuditWithTimeout(dir, 5)
+	if res.ProjectType != "python" {
+		t.Errorf("expected project type 'python', got %q", res.ProjectType)
+	}
+	found := false
+	for _, tr := range res.Tools {
+		if tr.Name == "bandit" && tr.Status == "ok" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected bandit to run, got %+v", res.Tools)
+	}
+}
+
 func TestSecurityFake_NpmAuditError(t *testing.T) {
 	oldPath := os.Getenv("PATH")
 	defer os.Setenv("PATH", oldPath)
