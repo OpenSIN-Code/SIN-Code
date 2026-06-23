@@ -20,17 +20,15 @@ single ``sin mcp-server`` subcommand group::
 from __future__ import annotations
 
 import json
-import shutil
-import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
 
 from .publisher import Publisher
-from .registrar import McpServerEntry, Registrar, build_local_entry
-from .scaffolder import ScaffoldSpec, Scaffolder
-from .templates import TemplateEngine, list_templates
+from .registrar import McpServerEntry, Registrar
+from .scaffolder import Scaffolder, ScaffoldSpec
+from .templates import list_templates
 from .test_gen import TestGenerator
 from .tool_adder import ToolAdder, ToolSpec
 from .validator import Validator
@@ -82,7 +80,9 @@ def mcp_scaffold(
     target: Path = typer.Option(Path("./out"), "--target", help="Output directory."),
     version: str = typer.Option("0.1.0", "--version", help="Initial version."),
     author: str = typer.Option(
-        "OpenSIN-Code <contact@opensincode.org>", "--author", help="Author for pyproject/package.json."
+        "OpenSIN-Code <contact@opensincode.org>",
+        "--author",
+        help="Author for pyproject/package.json.",
     ),
 ) -> None:
     """Scaffold a new MCP server from a template."""
@@ -112,9 +112,7 @@ def mcp_add_tool(
         Path("mcp_server.py"), "--server", help="Path to mcp_server.py."
     ),
     description: str = typer.Option("", "--description", "-d", help="Tool docstring."),
-    params: str = typer.Option(
-        "", "--params", help="JSON list of [name, type, default] tuples."
-    ),
+    params: str = typer.Option("", "--params", help="JSON list of [name, type, default] tuples."),
     body: str = typer.Option('result = {"ok": True}', "--body", help="Python body."),
     test_path: Optional[Path] = typer.Option(None, "--test", help="Test file to append to."),
 ) -> None:
@@ -240,7 +238,9 @@ def mcp_validate(
 @app.command("publish")
 def mcp_publish(
     path: Path = typer.Argument(Path("."), help="MCP server project root."),
-    template: str = typer.Option("python-fastmcp", "--template", "-t", help="python-fastmcp | node-mcp | go-mcp"),
+    template: str = typer.Option(
+        "python-fastmcp", "--template", "-t", help="python-fastmcp | node-mcp | go-mcp"
+    ),
     test: bool = typer.Option(False, "--test", help="Publish to TestPyPI instead of PyPI."),
     skip_build: bool = typer.Option(False, "--skip-build", help="Skip `python -m build`."),
     registry: str = typer.Option("https://registry.npmjs.org/", "--registry", help="npm registry."),
@@ -274,7 +274,9 @@ def mcp_publish(
 @app.command("audit")
 def mcp_audit(
     path: Path = typer.Argument(Path("."), help="MCP server project root."),
-    profile: str = typer.Option("QUICK", "--profile", help="ceo-audit profile (QUICK|FULL|SECURITY|RELEASE)."),
+    profile: str = typer.Option(
+        "QUICK", "--profile", help="ceo-audit profile (QUICK|FULL|SECURITY|RELEASE)."
+    ),
     grade: str = typer.Option("B", "--grade", help="Minimum grade gate (A|B|C)."),
     json_out: bool = typer.Option(False, "--json", help="JSON output."),
 ) -> None:
@@ -287,7 +289,9 @@ def mcp_audit(
         typer.echo(json.dumps(report.to_dict(), indent=2))
     else:
         if report.ok:
-            typer.echo(f"[OK] {report.project} {report.grade} ({report.gates_passed}/{report.gates_total})")
+            typer.echo(
+                f"[OK] {report.project} {report.grade} ({report.gates_passed}/{report.gates_total})"
+            )
         else:
             typer.echo(f"[FAIL] {report.project} {report.grade}", err=True)
     if not report.ok:

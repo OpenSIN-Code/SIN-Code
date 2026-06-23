@@ -26,7 +26,8 @@ def _redact(text: str) -> str:
 
 async def tool_bash(*, cmd: str, cwd: str, timeout_s: float = 300.0) -> dict[str, Any]:
     proc = await asyncio.create_subprocess_shell(
-        cmd, cwd=cwd,
+        cmd,
+        cwd=cwd,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
@@ -48,20 +49,17 @@ async def tool_bash(*, cmd: str, cwd: str, timeout_s: float = 300.0) -> dict[str
     return result
 
 
-async def tool_read(*, path: str, cwd: str,
-                    start: int = 1, limit: int = 400) -> dict[str, Any]:
+async def tool_read(*, path: str, cwd: str, start: int = 1, limit: int = 400) -> dict[str, Any]:
     p = (Path(cwd) / path).resolve()
     if not str(p).startswith(str(Path(cwd).resolve())):
         raise PermissionError(f"path escapes workspace: {path}")
     lines = p.read_text(encoding="utf-8", errors="replace").splitlines()
-    window = lines[start - 1: start - 1 + limit]
+    window = lines[start - 1 : start - 1 + limit]
     return {
         "path": str(p),
         "total_lines": len(lines),
         "start": start,
-        "content": "\n".join(
-            f"{i + start}\t{line}" for i, line in enumerate(window)
-        ),
+        "content": "\n".join(f"{i + start}\t{line}" for i, line in enumerate(window)),
     }
 
 
@@ -82,15 +80,15 @@ async def tool_edit(*, path: str, old: str, new: str, cwd: str) -> dict[str, Any
         raise ValueError(f"anchor not found in {path}")
     if count > 1:
         raise ValueError(
-            f"anchor ambiguous in {path} ({count} matches) — "
-            "provide more surrounding context"
+            f"anchor ambiguous in {path} ({count} matches) — provide more surrounding context"
         )
     p.write_text(text.replace(old, new, 1), encoding="utf-8")
     return {"path": str(p), "replaced": 1}
 
 
-async def tool_search(*, pattern: str, cwd: str,
-                      glob: str = "**/*.py", limit: int = 50) -> dict[str, Any]:
+async def tool_search(
+    *, pattern: str, cwd: str, glob: str = "**/*.py", limit: int = 50
+) -> dict[str, Any]:
     rx = re.compile(pattern)
     hits: list[dict[str, Any]] = []
     root = Path(cwd)
@@ -102,8 +100,9 @@ async def tool_search(*, pattern: str, cwd: str,
                 f.read_text(encoding="utf-8", errors="replace").splitlines(), 1
             ):
                 if rx.search(line):
-                    hits.append({"file": str(f.relative_to(root)),
-                                 "line": i, "text": line.strip()[:200]})
+                    hits.append(
+                        {"file": str(f.relative_to(root)), "line": i, "text": line.strip()[:200]}
+                    )
                     if len(hits) >= limit:
                         return {"hits": hits, "truncated": True}
         except OSError:

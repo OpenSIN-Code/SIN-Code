@@ -43,13 +43,12 @@ def plan_from_dict(data: dict, repo: str = ".") -> Plan:
         key = rt.get("key") or rt["title"]
         draft = _task_from(rt, deps=())
         if rt.get("id"):
-            draft = Task(**{**{f: getattr(draft, f)
-                                for f in draft.__dataclass_fields__},
-                            "id": rt["id"]})
+            draft = Task(
+                **{**{f: getattr(draft, f) for f in draft.__dataclass_fields__}, "id": rt["id"]}
+            )
         drafts[key] = draft
 
-    key_to_final_id = {k: t.id or t.finalize().id
-                       for k, t in drafts.items()}
+    key_to_final_id = {k: t.id or t.finalize().id for k, t in drafts.items()}
 
     # pass 2: rebuild with resolved dep ids. If a dep already IS a task
     # id (not a human key), use it directly.

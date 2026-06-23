@@ -16,8 +16,6 @@ Exposes the same surface as the legacy Click CLI as ``sin slash ...``::
 from __future__ import annotations
 
 import json
-import sys
-from typing import Optional
 
 import typer
 
@@ -87,9 +85,7 @@ def slash_register(
     name: str = typer.Argument(..., help="Command name (no leading slash)."),
     description: str = typer.Argument(..., help="Human-readable description."),
     action: str = typer.Argument(..., help="Action to execute."),
-    action_type: str = typer.Option(
-        "shell", "--type", help="Action type: shell | sin | script."
-    ),
+    action_type: str = typer.Option("shell", "--type", help="Action type: shell | sin | script."),
 ) -> None:
     """Register a new custom slash command."""
     registry = _registry()

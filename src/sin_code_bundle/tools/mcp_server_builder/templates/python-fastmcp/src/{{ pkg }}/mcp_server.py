@@ -18,9 +18,11 @@ def _json(payload: Any) -> str:
     return json.dumps(payload, indent=2, default=str)
 
 
-{% for tool in tools %}
+{ % for tool in tools % }
+
+
 @mcp.tool()
-def {{ tool }}() -> str:
+def {{tool}}() -> str:
     """
     {{ tool }} — generated tool.
 
@@ -29,7 +31,7 @@ def {{ tool }}() -> str:
     """
     result = {"tool": "{{ tool }}", "ok": True}
     return _json(result)
-{% endfor %}
+{ % endfor % }
 
 
 def main() -> None:

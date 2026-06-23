@@ -6,7 +6,11 @@ Docs: test_test_gen.doc.md
 
 import pytest
 
-from sin_code_bundle.tools.mcp_server_builder.test_gen import TestGenerator, _empty_value, _sample_value
+from sin_code_bundle.tools.mcp_server_builder.test_gen import (
+    TestGenerator,
+    _empty_value,
+    _sample_value,
+)
 
 
 class TestSampleValue:

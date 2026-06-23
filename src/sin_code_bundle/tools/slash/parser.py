@@ -94,11 +94,15 @@ class SlashParser:
             if long_match:
                 flag_name = long_match.group(1)
                 flag_value = long_match.group(2)
-                flags[flag_name] = self._coerce_value(flag_value) if flag_value is not None else True
+                flags[flag_name] = (
+                    self._coerce_value(flag_value) if flag_value is not None else True
+                )
             elif short_match:
                 flag_name = short_match.group(1)
                 flag_value = short_match.group(2)
-                flags[flag_name] = self._coerce_value(flag_value) if flag_value is not None else True
+                flags[flag_name] = (
+                    self._coerce_value(flag_value) if flag_value is not None else True
+                )
             else:
                 args.append(token)
 

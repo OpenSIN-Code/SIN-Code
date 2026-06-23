@@ -52,9 +52,7 @@ class Verifier:
             stderr=asyncio.subprocess.STDOUT,
         )
         try:
-            out, _ = await asyncio.wait_for(
-                proc.communicate(), timeout=self.stage_timeout_s
-            )
+            out, _ = await asyncio.wait_for(proc.communicate(), timeout=self.stage_timeout_s)
         except asyncio.TimeoutError:
             proc.kill()
             return 124, f"timeout after {self.stage_timeout_s}s: {cmd}"
@@ -66,7 +64,8 @@ class Verifier:
             self.telemetry.emit("verify_stage", stage="architecture", code=code)
             if code != 0:
                 return Verdict(
-                    kind=VerdictKind.FAIL_ARCHITECTURE, detail=out,
+                    kind=VerdictKind.FAIL_ARCHITECTURE,
+                    detail=out,
                     repair_hint=(
                         "Fix architecture-rule violations reported above "
                         "before re-running. Do not bypass ADW rules."
@@ -76,15 +75,15 @@ class Verifier:
         code, diff = await self._run("git diff --unified=0 HEAD")
         if code == 0 and diff:
             deleted = sum(
-                1 for line in diff.splitlines()
+                1
+                for line in diff.splitlines()
                 if line.startswith("-") and not line.startswith("---")
             )
             if deleted > self.max_deleted_lines:
                 return Verdict(
                     kind=VerdictKind.FAIL_SEMANTIC,
                     detail=(
-                        f"{deleted} deleted lines exceeds safety cap "
-                        f"({self.max_deleted_lines})."
+                        f"{deleted} deleted lines exceeds safety cap ({self.max_deleted_lines})."
                     ),
                     repair_hint=(
                         "The change deletes too much code. Split the work "
@@ -108,7 +107,8 @@ class Verifier:
             self.telemetry.emit("verify_stage", stage="lint", code=code)
             if code != 0:
                 return Verdict(
-                    kind=VerdictKind.FAIL_LINT, detail=out,
+                    kind=VerdictKind.FAIL_LINT,
+                    detail=out,
                     repair_hint=(
                         "Fix the lint errors above. Prefer minimal, "
                         "targeted fixes over disabling rules."
@@ -120,7 +120,8 @@ class Verifier:
             self.telemetry.emit("verify_stage", stage="tests", code=code)
             if code != 0:
                 return Verdict(
-                    kind=VerdictKind.FAIL_TESTS, detail=out,
+                    kind=VerdictKind.FAIL_TESTS,
+                    detail=out,
                     repair_hint=(
                         "Make the failing tests pass. Read the assertion "
                         "output above; fix the code under test, never "

@@ -25,8 +25,7 @@ class Check:
 
 def _run(cmd: list, timeout: int = 10) -> tuple:
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True,
-                           timeout=timeout)
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         return p.returncode, p.stdout + p.stderr
     except subprocess.TimeoutExpired:
         return -1, "timeout"
@@ -46,9 +45,8 @@ def check_git_config() -> Check:
         code, _ = _run(["git", "config", "--global", key])
         if code != 0:
             return Check(
-                "git config", False,
-                f"{key} not set — run: git config --global {key} "
-                f"'Your Name'")
+                "git config", False, f"{key} not set — run: git config --global {key} 'Your Name'"
+            )
     return Check("git config", True, "user.name and user.email configured")
 
 
@@ -57,17 +55,18 @@ def check_repo(path: str) -> Check:
     if not p.exists():
         return Check("repository", False, f"{path} does not exist")
     if not (p / ".git").exists():
-        return Check("repository", False,
-                     f"{path} is not a git repository")
+        return Check("repository", False, f"{path} is not a git repository")
     code, out = _run(["git", "-C", str(p), "status", "--porcelain"])
     if code != 0:
         return Check("repository", False, f"git status failed: {out}")
-    dirty = [l for l in out.splitlines() if l.strip()]
+    dirty = [line for line in out.splitlines() if line.strip()]
     if dirty:
         return Check(
-            "repository", False,
-            f"working directory has uncommitted changes: "
-            f"{len(dirty)} file(s)", level="warning")
+            "repository",
+            False,
+            f"working directory has uncommitted changes: {len(dirty)} file(s)",
+            level="warning",
+        )
     return Check("repository", True, "clean working directory")
 
 
@@ -80,9 +79,7 @@ def check_backend(backend: str, model: str = "") -> Check:
         "codex": "install via: pip install codex-cli",
     }
     if not shutil.which(backend):
-        return Check(
-            backend, False,
-            f"{backend} CLI not found. {hints.get(backend, '')}")
+        return Check(backend, False, f"{backend} CLI not found. {hints.get(backend, '')}")
     code, out = _run([backend, "--version"])
     if code not in (0, -1):
         return Check(backend, False, f"{backend} --version failed")
@@ -90,12 +87,10 @@ def check_backend(backend: str, model: str = "") -> Check:
     return Check(backend, True, version)
 
 
-def check_ledger(ledger_path: str = "~/.sin-code/delegate/ledger.db"
-                 ) -> Check:
+def check_ledger(ledger_path: str = "~/.sin-code/delegate/ledger.db") -> Check:
     p = Path(ledger_path).expanduser()
     if not p.exists():
-        return Check("ledger", True,
-                     "will be created on first run", level="info")
+        return Check("ledger", True, "will be created on first run", level="info")
     if not p.is_file():
         return Check("ledger", False, f"{p} is not a file")
     try:
@@ -110,13 +105,16 @@ def check_ledger(ledger_path: str = "~/.sin-code/delegate/ledger.db"
 def check_memory() -> Check:
     try:
         from sin_brain import __version__  # type: ignore
-        return Check("sin-brain", True, f"v{__version__} (memory loop active)",
-                     level="info")
+
+        return Check("sin-brain", True, f"v{__version__} (memory loop active)", level="info")
     except ImportError:
         return Check(
-            "sin-brain", True,
+            "sin-brain",
+            True,
             "not installed (memory loop disabled, install with "
-            "pip install 'sin-code-delegate[memory]')", level="warning")
+            "pip install 'sin-code-delegate[memory]')",
+            level="warning",
+        )
 
 
 def doctor(repo: str = ".", backends: list | None = None) -> list:

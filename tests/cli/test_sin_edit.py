@@ -13,6 +13,7 @@ Tests cover:
 - Empty --new (acts as delete)
 - --intent flag (recorded in patch metadata)
 """
+
 from __future__ import annotations
 
 import json
@@ -82,9 +83,7 @@ def test_sin_edit_intent_recorded(tmp_path: Path):
     """`--intent "..."` is preserved in the patch metadata for auditing."""
     f = tmp_path / "x.py"
     f.write_text("foo\n")
-    result = _run_cli(
-        str(f), "--old", "foo", "--new", "bar", "--intent", "rename foo → bar"
-    )
+    result = _run_cli(str(f), "--old", "foo", "--new", "bar", "--intent", "rename foo → bar")
     assert result.returncode == 0
     data = json.loads(result.stdout)
     assert data["success"] is True

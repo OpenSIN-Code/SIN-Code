@@ -181,9 +181,7 @@ class Registrar:
         return text
 
 
-def build_local_entry(
-    name: str, command: list[str], env: dict | None = None
-) -> McpServerEntry:
+def build_local_entry(name: str, command: list[str], env: dict | None = None) -> McpServerEntry:
     """Helper: build a `type: local` entry with `command` as a list of strings."""
     return McpServerEntry(
         name=name,

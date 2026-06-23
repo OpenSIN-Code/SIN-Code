@@ -76,12 +76,8 @@ class TestGenerator:
         params = self._extract_params(text, tool_name)
         test_code = self._render_tests(tool_name, params)
         if output_path is not None:
-            existing = (
-                output_path.read_text(encoding="utf-8") if output_path.is_file() else ""
-            )
-            output_path.write_text(
-                existing.rstrip() + "\n" + test_code, encoding="utf-8"
-            )
+            existing = output_path.read_text(encoding="utf-8") if output_path.is_file() else ""
+            output_path.write_text(existing.rstrip() + "\n" + test_code, encoding="utf-8")
         return test_code
 
     # ── Internals ──────────────────────────────────────

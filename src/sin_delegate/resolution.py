@@ -36,52 +36,49 @@ def apply_resolutions(plan: Plan, ledger: Ledger | None = None) -> dict:
         except ValueError:
             # Corrupt resolution entry: skip it rather than crashing the
             # resume path. A synthetic event lets operators investigate.
-            ledger.emit(plan.id, res.get("task_id", "*"),
-                        "ledger:corrupt_resolution", {"res": res})
+            ledger.emit(plan.id, res.get("task_id", "*"), "ledger:corrupt_resolution", {"res": res})
             continue
         task_id = res["task_id"]
         eid = res["escalation_id"]
 
         if action == ActionType.RETRY_WITH_GUIDANCE:
             broker.mark_applied(plan.id, task_id, eid)
-            ledger.emit(plan.id, task_id, "state:pending",
-                        {"via": "escalation_retry"})
+            ledger.emit(plan.id, task_id, "state:pending", {"via": "escalation_retry"})
             if res.get("user_input"):
                 guidance[task_id] = (
                     "Ein menschlicher Reviewer hat deinen letzten Versuch "
                     "geprüft und folgende Anweisung gegeben — befolge sie "
-                    "exakt:\n" + res["user_input"])
+                    "exakt:\n" + res["user_input"]
+                )
             _recreate_worktree(plan, task_id)
 
         elif action == ActionType.ACCEPT_BRANCH:
             ok = _merge_branch(plan, task_id, ledger)
             broker.mark_applied(plan.id, task_id, eid)
-            ledger.emit(plan.id, task_id,
-                        "state:done" if ok else "state:escalated",
-                        {"via": "accept_branch",
-                         "verdict_overridden": True})
+            ledger.emit(
+                plan.id,
+                task_id,
+                "state:done" if ok else "state:escalated",
+                {"via": "accept_branch", "verdict_overridden": True},
+            )
 
         elif action == ActionType.MANUAL_MERGE:
             broker.mark_applied(plan.id, task_id, eid)
-            ledger.emit(plan.id, task_id, "state:done",
-                        {"via": "manual_merge"})
+            ledger.emit(plan.id, task_id, "state:done", {"via": "manual_merge"})
             _cleanup_worktree(plan, task_id)
 
         elif action == ActionType.DROP_TASK:
             broker.mark_applied(plan.id, task_id, eid)
-            ledger.emit(plan.id, task_id, "state:skipped",
-                        {"via": "drop_task"})
+            ledger.emit(plan.id, task_id, "state:skipped", {"via": "drop_task"})
 
         elif action == ActionType.ABORT_PLAN:
             broker.mark_applied(plan.id, task_id, eid)
             aborted = True
             states = ledger.task_states(plan.id)
-            terminal = {TaskState.DONE, TaskState.FAILED, TaskState.SKIPPED,
-                        TaskState.CANCELLED}
+            terminal = {TaskState.DONE, TaskState.FAILED, TaskState.SKIPPED, TaskState.CANCELLED}
             for tid in (t.id for t in plan.tasks):
                 if states.get(tid) not in terminal:
-                    ledger.emit(plan.id, tid, "state:cancelled",
-                                {"via": "abort_plan"})
+                    ledger.emit(plan.id, tid, "state:cancelled", {"via": "abort_plan"})
 
         applied += 1
 
@@ -103,13 +100,11 @@ def _merge_branch(plan: Plan, task_id: str, ledger: Ledger) -> bool:
         wtm = WorktreeManager(plan.repo, plan.base_branch)
         wt = wtm.create(plan.id, task_id)
         snapshot = wt.merge_back()
-        ledger.emit(plan.id, task_id, "merged",
-                    {"snapshot": snapshot, "via": "accept_branch"})
+        ledger.emit(plan.id, task_id, "merged", {"snapshot": snapshot, "via": "accept_branch"})
         wt.destroy()
         return True
     except GitError as e:
-        ledger.emit(plan.id, task_id, "escalation:merge_retry_failed",
-                    {"error": str(e)})
+        ledger.emit(plan.id, task_id, "escalation:merge_retry_failed", {"error": str(e)})
         return False
 
 

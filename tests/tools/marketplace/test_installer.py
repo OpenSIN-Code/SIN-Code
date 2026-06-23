@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from sin_code_bundle.tools.marketplace.installer import InstallError, Installer
+from sin_code_bundle.tools.marketplace.installer import Installer, InstallError
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -27,6 +27,7 @@ class TestInstallerInstall:
         # We'll simulate a simple git repo locally
         with tempfile.TemporaryDirectory() as repo_dir:
             import subprocess
+
             subprocess.run(["git", "init", "--bare", repo_dir], check=True, capture_output=True)
             # Actually, let's use a real local repo
         # For this test, we'll test with a simple file path
@@ -35,20 +36,24 @@ class TestInstallerInstall:
             (source_path / "SKILL.md").write_text("# Test Skill")
             # Make it a git repo
             import subprocess
+
             subprocess.run(["git", "init", source_dir], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", source_dir, "config", "user.email", "test@test.com"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "-C", source_dir, "config", "user.name", "Test"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             (source_path / "file.txt").write_text("content")
             subprocess.run(["git", "-C", source_dir, "add", "."], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", source_dir, "commit", "-m", "init"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
 
             record = tmp_installer.install(
@@ -66,20 +71,24 @@ class TestInstallerInstall:
             source_path = Path(source_dir)
             (source_path / "SKILL.md").write_text("# Test Skill")
             import subprocess
+
             subprocess.run(["git", "init", source_dir], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", source_dir, "config", "user.email", "test@test.com"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "-C", source_dir, "config", "user.name", "Test"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             (source_path / "file.txt").write_text("content")
             subprocess.run(["git", "-C", source_dir, "add", "."], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", source_dir, "commit", "-m", "init"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
 
             tmp_installer.install(
@@ -100,20 +109,24 @@ class TestInstallerInstall:
             source_path = Path(source_dir)
             (source_path / "SKILL.md").write_text("# Test Skill")
             import subprocess
+
             subprocess.run(["git", "init", source_dir], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", source_dir, "config", "user.email", "test@test.com"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "-C", source_dir, "config", "user.name", "Test"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             (source_path / "file.txt").write_text("content")
             subprocess.run(["git", "-C", source_dir, "add", "."], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", source_dir, "commit", "-m", "init"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
 
             tmp_installer.install(
@@ -144,20 +157,24 @@ class TestInstallerRemove:
             source_path = Path(source_dir)
             (source_path / "SKILL.md").write_text("# Test Skill")
             import subprocess
+
             subprocess.run(["git", "init", source_dir], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", source_dir, "config", "user.email", "test@test.com"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "-C", source_dir, "config", "user.name", "Test"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             (source_path / "file.txt").write_text("content")
             subprocess.run(["git", "-C", source_dir, "add", "."], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", source_dir, "commit", "-m", "init"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
 
             tmp_installer.install(
@@ -176,20 +193,24 @@ class TestInstallerRemove:
             source_path = Path(source_dir)
             (source_path / "SKILL.md").write_text("# Test Skill")
             import subprocess
+
             subprocess.run(["git", "init", source_dir], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", source_dir, "config", "user.email", "test@test.com"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "-C", source_dir, "config", "user.name", "Test"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             (source_path / "file.txt").write_text("content")
             subprocess.run(["git", "-C", source_dir, "add", "."], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", source_dir, "commit", "-m", "init"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
 
             tmp_installer.install(
@@ -210,20 +231,24 @@ class TestInstallerList:
             source_path = Path(source_dir)
             (source_path / "SKILL.md").write_text("# Test Skill")
             import subprocess
+
             subprocess.run(["git", "init", source_dir], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", source_dir, "config", "user.email", "test@test.com"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "-C", source_dir, "config", "user.name", "Test"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             (source_path / "file.txt").write_text("content")
             subprocess.run(["git", "-C", source_dir, "add", "."], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", source_dir, "commit", "-m", "init"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
 
             tmp_installer.install(

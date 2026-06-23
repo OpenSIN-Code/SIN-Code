@@ -12,7 +12,7 @@ from sin_code_bundle.tools.mcp_server_builder.publisher import Publisher
 class TestPublisher:
     def _make_python_project(self, tmp_path):
         (tmp_path / "pyproject.toml").write_text(
-            "[project]\n" 'name = "demo"\n' 'version = "0.3.2"\n',
+            '[project]\nname = "demo"\nversion = "0.3.2"\n',
             encoding="utf-8",
         )
         (tmp_path / "README.md").write_text("# demo\n")

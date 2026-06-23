@@ -9,9 +9,7 @@ Tests cover dispatch, history, and command resolution.
 import os
 import tempfile
 
-import pytest
-
-from sin_code_bundle.tools.slash.dispatcher import CommandDispatcher, DispatchResult
+from sin_code_bundle.tools.slash.dispatcher import CommandDispatcher
 from sin_code_bundle.tools.slash.registry import CommandRegistry
 
 

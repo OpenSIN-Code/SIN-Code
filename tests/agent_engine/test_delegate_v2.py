@@ -9,21 +9,31 @@ import time
 import pytest
 
 from sin_code_bundle.agent_engine.delegate import (
-    AdaptiveBudgetAllocator, DelegationCache, DelegationContext,
-    DelegationSupervisor, validate_result,
+    AdaptiveBudgetAllocator,
+    DelegationCache,
+    DelegationContext,
+    DelegationSupervisor,
+    validate_result,
 )
 
 
 def _result(**overrides):
     base = {
-        "outcome": "success", "verdict": "pass", "elapsed_s": 1.0,
-        "steps_ok": 2, "steps_total": 2, "lessons": [],
-        "depth": 1, "delegation_id": "abc", "cached": False,
+        "outcome": "success",
+        "verdict": "pass",
+        "elapsed_s": 1.0,
+        "steps_ok": 2,
+        "steps_total": 2,
+        "lessons": [],
+        "depth": 1,
+        "delegation_id": "abc",
+        "cached": False,
     }
     return {**base, **overrides}
 
 
 # ------------------------------------------------------------- contract
+
 
 def test_contract_strips_unknown_keys_and_caps_lessons():
     raw = _result(lessons=[f"lesson-{i}" * 100 for i in range(20)])
@@ -31,7 +41,7 @@ def test_contract_strips_unknown_keys_and_caps_lessons():
     clean = validate_result(raw)
     assert "malicious_context_dump" not in clean
     assert len(clean["lessons"]) == 5
-    assert all(len(l) <= 300 for l in clean["lessons"])
+    assert all(len(lesson) <= 300 for lesson in clean["lessons"])
 
 
 def test_contract_rejects_wrong_types():
@@ -44,6 +54,7 @@ def test_contract_rejects_wrong_types():
 
 
 # ---------------------------------------------------------------- cache
+
 
 def test_cache_only_stores_successes_and_respects_tree():
     cache = DelegationCache()
@@ -68,6 +79,7 @@ def test_cache_ttl_expiry(monkeypatch):
 
 # ------------------------------------------------------------ allocator
 
+
 class _FakeMemory:
     def __init__(self, hits):
         self._hits = hits
@@ -77,8 +89,7 @@ class _FakeMemory:
 
 
 def test_allocator_uses_history_p75():
-    hits = [{"outcome": "success", "elapsed_s": s}
-            for s in (10, 20, 30, 40, 100)]
+    hits = [{"outcome": "success", "elapsed_s": s} for s in (10, 20, 30, 40, 100)]
     alloc = AdaptiveBudgetAllocator(_FakeMemory(hits), min_s=5)
     grant = alloc.grant("refactor auth", parent_remaining_s=1000)
     # p75 von [10,20,30,40,100] = 40 -> *1.5 = 60, weit unter cap (500)
@@ -104,28 +115,29 @@ def test_goal_class_normalization():
 
 # -------------------------------------------------------------- context
 
+
 def test_child_deadline_never_exceeds_parent():
-    parent = DelegationContext(deadline_wall=time.monotonic() + 200,
-                               safety_margin_s=20)
+    parent = DelegationContext(deadline_wall=time.monotonic() + 200, safety_margin_s=20)
     child = parent.child(granted_budget_s=10_000)
     assert child.remaining_s() <= parent.remaining_s() - 19
 
 
 def test_can_delegate_blocks_when_budget_too_low():
-    ctx = DelegationContext(deadline_wall=time.monotonic() + 50,
-                            safety_margin_s=20, min_budget_s=60)
+    ctx = DelegationContext(
+        deadline_wall=time.monotonic() + 50, safety_margin_s=20, min_budget_s=60
+    )
     ok, reason = ctx.can_delegate()
     assert not ok and "budget" in reason
 
 
 def test_can_delegate_blocks_at_max_depth():
-    ctx = DelegationContext(depth=3, max_depth=3,
-                            deadline_wall=time.monotonic() + 1000)
+    ctx = DelegationContext(depth=3, max_depth=3, deadline_wall=time.monotonic() + 1000)
     ok, reason = ctx.can_delegate()
     assert not ok and "depth" in reason
 
 
 # ------------------------------------------------------------ supervisor
+
 
 def test_global_limit_caps_breadth_not_just_depth():
     async def scenario():
@@ -139,11 +151,12 @@ def test_global_limit_caps_breadth_not_just_depth():
             running["now"] -= 1
             return i
 
-        results = await asyncio.gather(*[
-            sup.supervise(delegation_id=f"d{i}", goal="g", depth=1,
-                          coro=child(i))
-            for i in range(6)
-        ])
+        results = await asyncio.gather(
+            *[
+                sup.supervise(delegation_id=f"d{i}", goal="g", depth=1, coro=child(i))
+                for i in range(6)
+            ]
+        )
         assert sorted(results) == list(range(6))
         assert running["peak"] <= 2
 
@@ -158,8 +171,9 @@ def test_cancel_all_kills_tree():
             await asyncio.sleep(60)
 
         tasks = [
-            asyncio.ensure_future(sup.supervise(
-                delegation_id=f"d{i}", goal="g", depth=1, coro=hang()))
+            asyncio.ensure_future(
+                sup.supervise(delegation_id=f"d{i}", goal="g", depth=1, coro=hang())
+            )
             for i in range(3)
         ]
         await asyncio.sleep(0.05)

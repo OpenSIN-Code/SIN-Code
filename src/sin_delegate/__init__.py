@@ -6,15 +6,31 @@ Public API:
     Delegator, delegate — programmatic engine
 """
 
-from .models import (
-    AgentSpec, Budget, Plan, RunResult, Risk, Task, TaskOutcome,
-    TaskState, Verdict,
-)
 from .engine import Delegator, delegate
+from .models import (
+    AgentSpec,
+    Budget,
+    Plan,
+    Risk,
+    RunResult,
+    Task,
+    TaskOutcome,
+    TaskState,
+    Verdict,
+)
 
 __version__ = "0.1.0"
 __all__ = [
-    "AgentSpec", "Budget", "Delegator", "Plan", "RunResult", "Risk",
-    "Task", "TaskOutcome", "TaskState", "Verdict",
-    "delegate", "__version__",
+    "AgentSpec",
+    "Budget",
+    "Delegator",
+    "Plan",
+    "RunResult",
+    "Risk",
+    "Task",
+    "TaskOutcome",
+    "TaskState",
+    "Verdict",
+    "delegate",
+    "__version__",
 ]

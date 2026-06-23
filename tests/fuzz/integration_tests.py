@@ -23,9 +23,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import time
 import unittest
-from pathlib import Path
 from typing import Any
 
 # ── Paths ────────────────────────────────────────────────
@@ -80,9 +78,7 @@ def run_tool(tool_name: str, *args: str, timeout: float = 30.0) -> dict[str, Any
         print(f"  [STDERR] {tool_name}: {stderr[:500]}", file=sys.stderr)
 
     if proc.returncode != 0:
-        raise RuntimeError(
-            f"{tool_name} exited {proc.returncode}: {stderr[:300]}"
-        )
+        raise RuntimeError(f"{tool_name} exited {proc.returncode}: {stderr[:300]}")
 
     if not stdout:
         return {"_empty": True, "_stderr": stderr}
@@ -251,14 +247,18 @@ class TestWorkflow1_DiscoverToGrasp(unittest.TestCase):
         """Step 1: Discover all Go files in the test project."""
         result = run_tool(
             "discover",
-            "-path", self.test_dir,
-            "-pattern", "**/*.go",
-            "-max_results", "20",
+            "-path",
+            self.test_dir,
+            "-pattern",
+            "**/*.go",
+            "-max_results",
+            "20",
         )
         self.assertIn("total_matches", result)
         self.assertIn("files", result)
-        self.assertGreaterEqual(result["total_matches"], 3,
-                                f"Expected >=3 Go files, got {result.get('total_matches')}")
+        self.assertGreaterEqual(
+            result["total_matches"], 3, f"Expected >=3 Go files, got {result.get('total_matches')}"
+        )
         self._discovered_files = result["files"]
         self._discover_result = result
 
@@ -284,11 +284,13 @@ class TestWorkflow1_DiscoverToGrasp(unittest.TestCase):
                     return
 
             grasp = run_tool("grasp", "-file", file_path)
-            grasp_results.append({
-                "file_path": file_path,
-                "file_name": file_info.get("name", os.path.basename(file_path)),
-                "grasp": grasp,
-            })
+            grasp_results.append(
+                {
+                    "file_path": file_path,
+                    "file_name": file_info.get("name", os.path.basename(file_path)),
+                    "grasp": grasp,
+                }
+            )
 
         self._grasp_results = grasp_results
 
@@ -301,8 +303,7 @@ class TestWorkflow1_DiscoverToGrasp(unittest.TestCase):
             file_path = gr["file_path"]
 
             # grasp should return the target file
-            self.assertIn("target_file", grasp,
-                          f"grasp for {file_path} missing target_file field")
+            self.assertIn("target_file", grasp, f"grasp for {file_path} missing target_file field")
             grasp_target = grasp.get("target_file", "")
 
             # The grasp target should match the file we passed
@@ -311,20 +312,17 @@ class TestWorkflow1_DiscoverToGrasp(unittest.TestCase):
                 os.path.basename(file_path) in grasp_target
                 or grasp_target == file_path
                 or file_path.endswith(grasp_target),
-                f"grasp target '{grasp_target}' does not match file '{file_path}'"
+                f"grasp target '{grasp_target}' does not match file '{file_path}'",
             )
 
             # grasp should have a structure section
-            self.assertIn("structure", grasp,
-                          f"grasp for {file_path} missing structure")
+            self.assertIn("structure", grasp, f"grasp for {file_path} missing structure")
 
             # Each grasp should find functions
             struct = grasp.get("structure", {})
             functions = struct.get("functions", [])
-            self.assertIsInstance(functions, list,
-                                  f"functions should be a list in {file_path}")
-            self.assertGreater(len(functions), 0,
-                               f"Expected at least 1 function in {file_path}")
+            self.assertIsInstance(functions, list, f"functions should be a list in {file_path}")
+            self.assertGreater(len(functions), 0, f"Expected at least 1 function in {file_path}")
 
         # Cross-reference: check that discovered files and grasped files match 1:1
         discovered_names = {f.get("name", "") for f in self._discovered_files}
@@ -332,7 +330,7 @@ class TestWorkflow1_DiscoverToGrasp(unittest.TestCase):
         self.assertSetEqual(
             discovered_names,
             grasped_names,
-            f"Discovered files {discovered_names} don't match grasped {grasped_names}"
+            f"Discovered files {discovered_names} don't match grasped {grasped_names}",
         )
 
 
@@ -351,15 +349,22 @@ class TestWorkflow2_ScoutToGrasp(unittest.TestCase):
         """Step 1: Use scout to search for a specific function"""
         result = run_tool(
             "scout",
-            "-query", "loadConfig",
-            "-search_type", "regex",
-            "-path", self.test_dir,
-            "-max_results", "10",
+            "-query",
+            "loadConfig",
+            "-search_type",
+            "regex",
+            "-path",
+            self.test_dir,
+            "-max_results",
+            "10",
         )
         self.assertIn("results", result)
         self.assertIn("total_matches", result)
-        self.assertGreater(result["total_matches"], 0,
-                           f"Expected loadConfig matches, got {result.get('total_matches')}")
+        self.assertGreater(
+            result["total_matches"],
+            0,
+            f"Expected loadConfig matches, got {result.get('total_matches')}",
+        )
         self._scout_result = result
 
     def test_grasp_scout_files(self):
@@ -382,11 +387,13 @@ class TestWorkflow2_ScoutToGrasp(unittest.TestCase):
                 continue
 
             grasp = run_tool("grasp", "-file", file_path)
-            grasp_results.append({
-                "scout_item": item,
-                "file_path": file_path,
-                "grasp": grasp,
-            })
+            grasp_results.append(
+                {
+                    "scout_item": item,
+                    "file_path": file_path,
+                    "grasp": grasp,
+                }
+            )
 
         self._grasp_results = grasp_results
 
@@ -399,7 +406,7 @@ class TestWorkflow2_ScoutToGrasp(unittest.TestCase):
             scout_item = gr["scout_item"]
 
             # The scout match content should contain the function name
-            scout_content = scout_item.get("content", "")
+            scout_item.get("content", "")
             scout_file = scout_item.get("file", "")
 
             # grasp functions should include the scouted symbol
@@ -408,8 +415,9 @@ class TestWorkflow2_ScoutToGrasp(unittest.TestCase):
             function_names = {f.get("name", "") for f in functions}
 
             self.assertIn(
-                "loadConfig", function_names,
-                f"grasp of {scout_file} should find 'loadConfig' in {function_names}"
+                "loadConfig",
+                function_names,
+                f"grasp of {scout_file} should find 'loadConfig' in {function_names}",
             )
 
             # Verify that grasp found more context about loadConfig
@@ -418,8 +426,7 @@ class TestWorkflow2_ScoutToGrasp(unittest.TestCase):
                     # loadConfig should have a signature or purpose
                     purpose = func.get("purpose", "")
                     self.assertNotEqual(
-                        purpose, "",
-                        f"loadConfig in grasp should have a purpose, got '{purpose}'"
+                        purpose, "", f"loadConfig in grasp should have a purpose, got '{purpose}'"
                     )
 
 
@@ -438,9 +445,12 @@ class TestWorkflow3_MapToScout(unittest.TestCase):
         """Step 1: Build a dependency graph of the test project."""
         result = run_tool(
             "map",
-            "-path", self.test_dir,
-            "-action", "map",
-            "-format", "json",
+            "-path",
+            self.test_dir,
+            "-action",
+            "map",
+            "-format",
+            "json",
         )
         self.assertIn("modules", result)
         self.assertIn("dependency_graph", result)
@@ -458,8 +468,7 @@ class TestWorkflow3_MapToScout(unittest.TestCase):
         expected = {"main", "loadConfig", "NewDataProcessor"}
         found = all_symbols & expected
         self.assertGreater(
-            len(found), 0,
-            f"Expected some of {expected} in exported symbols, got {all_symbols}"
+            len(found), 0, f"Expected some of {expected} in exported symbols, got {all_symbols}"
         )
         self._map_result = result
 
@@ -483,10 +492,14 @@ class TestWorkflow3_MapToScout(unittest.TestCase):
         for symbol in symbols_to_check[:5]:  # Check up to 5 symbols
             result = run_tool(
                 "scout",
-                "-query", symbol,
-                "-search_type", "symbol",
-                "-path", self.test_dir,
-                "-max_results", "5",
+                "-query",
+                symbol,
+                "-search_type",
+                "symbol",
+                "-path",
+                self.test_dir,
+                "-max_results",
+                "5",
             )
             scout_results[symbol] = result
 
@@ -501,7 +514,7 @@ class TestWorkflow3_MapToScout(unittest.TestCase):
 
         # For each module, check that its symbols are findable by scout
         for mod in modules:
-            mod_deps = set(mod.get("dependencies", []))
+            set(mod.get("dependencies", []))
             exported = set(mod.get("exported_symbols", []))
 
             for symbol in list(exported)[:3]:
@@ -510,15 +523,18 @@ class TestWorkflow3_MapToScout(unittest.TestCase):
                 sr = scout_results[symbol]
                 total = sr.get("total_matches", 0)
                 self.assertGreater(
-                    total, 0,
-                    f"scout should find symbol '{symbol}' (exported by module '{mod['name']}')"
+                    total,
+                    0,
+                    f"scout should find symbol '{symbol}' (exported by module '{mod['name']}')",
                 )
 
         # Verify architecture information from scout includes layers found by map
         for symbol, sr in scout_results.items():
             arch = sr.get("architecture", {})
             layers = arch.get("layers", {})
-            self.assertIsInstance(layers, dict, f"Architecture layers for '{symbol}' should be a dict")
+            self.assertIsInstance(
+                layers, dict, f"Architecture layers for '{symbol}' should be a dict"
+            )
 
         # Check that map's dependency count is consistent with scouted symbol count
         deps_graph = self._map_result.get("dependency_graph", {})
@@ -533,8 +549,11 @@ class TestWorkflow3_MapToScout(unittest.TestCase):
                 if f:
                     scouted_files.add(os.path.basename(f))
 
-        map_file_names = {os.path.basename(n.get("id", n.get("name", "")))
-                          for n in map_nodes if n.get("id") or n.get("name")}
+        map_file_names = {
+            os.path.basename(n.get("id", n.get("name", "")))
+            for n in map_nodes
+            if n.get("id") or n.get("name")
+        }
         # Map nodes may use directory names (e.g. "src") while scouted files use
         # individual filenames (e.g. "helpers.go"). We check that at least one
         # scouted file path contains a substring that mathches a map node name.
@@ -552,8 +571,9 @@ class TestWorkflow3_MapToScout(unittest.TestCase):
                 overlap.add("LAYERS_FOUND")
 
         self.assertGreater(
-            len(overlap), 0,
-            f"Scouted files {scouted_files} should have some relationship to map nodes {map_file_names}"
+            len(overlap),
+            0,
+            f"Scouted files {scouted_files} should have some relationship to map nodes {map_file_names}",
         )
 
 
@@ -573,22 +593,26 @@ class TestWorkflow4_ExecuteToSINBrain(unittest.TestCase):
         # Check Go syntax with `gofmt -e` (non-destructive)
         result = run_tool(
             "execute",
-            "-command", f"gofmt -e {self.test_dir}/src/*.go",
-            "-work_dir", self.test_dir,
-            "-safety", "false",
+            "-command",
+            f"gofmt -e {self.test_dir}/src/*.go",
+            "-work_dir",
+            self.test_dir,
+            "-safety",
+            "false",
         )
         self.assertIn("exit_code", result)
         self.assertIn("stdout", result)
         # gofmt should succeed if files are syntactically valid
         self.assertEqual(
-            result.get("exit_code", -1), 0,
-            f"gofmt should exit 0, got {result.get('exit_code')}: {result.get('stderr', '')}"
+            result.get("exit_code", -1),
+            0,
+            f"gofmt should exit 0, got {result.get('exit_code')}: {result.get('stderr', '')}",
         )
         self._execute_result = result
 
     def test_store_in_sinbrain(self):
         """Step 2: Store execute results in SIN-Brain memory.
-        
+
         Uses a subprocess to avoid import/threading conflicts with the
         test runner process. SIN-Brain runs cleanly in its own venv.
         """
@@ -629,11 +653,12 @@ class TestWorkflow4_ExecuteToSINBrain(unittest.TestCase):
 
         proc = subprocess.run(
             [sys.executable, script_path],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
             cwd="/Users/jeremy/dev/SIN-Brain/src",
         )
-        self.assertEqual(proc.returncode, 0,
-                         f"remember subprocess failed: {proc.stderr[:300]}")
+        self.assertEqual(proc.returncode, 0, f"remember subprocess failed: {proc.stderr[:300]}")
         mem_id = proc.stdout.strip()
         self.assertIsNotNone(mem_id, "remember() should return a memory ID")
         self.assertGreater(len(mem_id), 0, "Memory ID should not be empty")
@@ -662,11 +687,12 @@ class TestWorkflow4_ExecuteToSINBrain(unittest.TestCase):
 
         proc = subprocess.run(
             [sys.executable, script_path],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
             cwd="/Users/jeremy/dev/SIN-Brain/src",
         )
-        self.assertEqual(proc.returncode, 0,
-                         f"recall subprocess failed: {proc.stderr[:300]}")
+        self.assertEqual(proc.returncode, 0, f"recall subprocess failed: {proc.stderr[:300]}")
 
         results = json.loads(proc.stdout.strip())
         self.assertIsInstance(results, list, "recall should return a list")
@@ -680,7 +706,9 @@ class TestWorkflow4_ExecuteToSINBrain(unittest.TestCase):
                 found = True
                 break
 
-        self.assertTrue(found, f"recall should find the memory we stored: '{self._content[:80]}...'")
+        self.assertTrue(
+            found, f"recall should find the memory we stored: '{self._content[:80]}...'"
+        )
 
 
 class TestWorkflow5_HarvestToExecute(unittest.TestCase):
@@ -705,7 +733,7 @@ class TestWorkflow5_HarvestToExecute(unittest.TestCase):
                     {"title": "Integration Test", "type": "all"},
                     {"title": "Cross-Tool Workflow", "type": "test"},
                 ],
-                "title": "Harvest to Execute Pipeline"
+                "title": "Harvest to Execute Pipeline",
             }
         }
 
@@ -723,25 +751,21 @@ class TestWorkflow5_HarvestToExecute(unittest.TestCase):
         # Verify harvest binary exists and supports JSON output
         harvest_path = TOOLS["harvest"]
         self.assertTrue(
-            os.path.isfile(harvest_path),
-            f"harvest binary must exist at {harvest_path}"
+            os.path.isfile(harvest_path), f"harvest binary must exist at {harvest_path}"
         )
         self.assertTrue(
-            os.access(harvest_path, os.X_OK),
-            f"harvest binary must be executable at {harvest_path}"
+            os.access(harvest_path, os.X_OK), f"harvest binary must be executable at {harvest_path}"
         )
 
         # Verify harvest can be invoked (help output)
         proc = subprocess.run(
             [harvest_path, "--help"],
-            capture_output=True, text=True, timeout=5,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
-        self.assertGreater(
-            len(proc.stdout), 0,
-            "harvest --help should produce output"
-        )
-        self.assertIn("url", proc.stdout.lower(),
-                      "harvest help should mention 'url' parameter")
+        self.assertGreater(len(proc.stdout), 0, "harvest --help should produce output")
+        self.assertIn("url", proc.stdout.lower(), "harvest help should mention 'url' parameter")
 
     def test_pipe_harvest_to_execute(self):
         """Step 2: Simulate harvest output -> execute JSON parsing pipeline."""
@@ -749,7 +773,7 @@ class TestWorkflow5_HarvestToExecute(unittest.TestCase):
 
         # Use execute to pipe harvest-like JSON through Python JSON parser
         parse_cmd = (
-            f"python3 -c \""
+            f'python3 -c "'
             f"import json; "
             f"data=json.load(open('{json_path}')); "
             f"print('PARSED:', type(data).__name__); "
@@ -760,14 +784,18 @@ class TestWorkflow5_HarvestToExecute(unittest.TestCase):
 
         result = run_tool(
             "execute",
-            "-command", parse_cmd,
-            "-work_dir", self.test_dir,
-            "-safety", "false",
+            "-command",
+            parse_cmd,
+            "-work_dir",
+            self.test_dir,
+            "-safety",
+            "false",
         )
         self.assertIn("exit_code", result)
         self.assertEqual(
-            result.get("exit_code"), 0,
-            f"Python JSON parse should succeed: {result.get('stderr', '')[:200]}"
+            result.get("exit_code"),
+            0,
+            f"Python JSON parse should succeed: {result.get('stderr', '')[:200]}",
         )
 
         combined = result.get("combined_output", "")
@@ -791,16 +819,10 @@ class TestWorkflow5_HarvestToExecute(unittest.TestCase):
             "TITLE: Harvest to Execute Pipeline",
         ]
         for field in expected_fields:
-            self.assertIn(
-                field, combined,
-                f"Execute output should contain '{field}'"
-            )
+            self.assertIn(field, combined, f"Execute output should contain '{field}'")
 
         # Verify the execute tool's metadata
-        self.assertTrue(
-            self._execute_result.get("success"),
-            "Execute should report success=True"
-        )
+        self.assertTrue(self._execute_result.get("success"), "Execute should report success=True")
         safety = self._execute_result.get("safety_check", {})
         self.assertIn("risk_level", safety, "Safety check should report risk level")
 
@@ -821,10 +843,14 @@ class TestWorkflow6_OrchestrateToEverything(unittest.TestCase):
         # Task 1: Discover the project
         t1 = run_tool(
             "orchestrate",
-            "-action", "add",
-            "-title", "Discover Go Project",
-            "-description", "Use discover tool to find all Go files",
-            "-tags", "integration_test,step_1",
+            "-action",
+            "add",
+            "-title",
+            "Discover Go Project",
+            "-description",
+            "Use discover tool to find all Go files",
+            "-tags",
+            "integration_test,step_1",
         )
         self.assertEqual(t1.get("action"), "add")
         t1_id = t1.get("task_id", "")
@@ -833,11 +859,16 @@ class TestWorkflow6_OrchestrateToEverything(unittest.TestCase):
         # Task 2: Map the architecture (depends on Task 1)
         t2 = run_tool(
             "orchestrate",
-            "-action", "add",
-            "-title", "Map Architecture",
-            "-description", "Use map tool to build dependency graph",
-            "-dependencies", t1_id,
-            "-tags", "integration_test,step_2",
+            "-action",
+            "add",
+            "-title",
+            "Map Architecture",
+            "-description",
+            "Use map tool to build dependency graph",
+            "-dependencies",
+            t1_id,
+            "-tags",
+            "integration_test,step_2",
         )
         t2_id = t2.get("task_id", "")
         self.assertTrue(t2_id, "Task ID should be set")
@@ -845,11 +876,16 @@ class TestWorkflow6_OrchestrateToEverything(unittest.TestCase):
         # Task 3: Scout for symbols (depends on Task 2)
         t3 = run_tool(
             "orchestrate",
-            "-action", "add",
-            "-title", "Scout Symbols",
-            "-description", "Use scout to find all exported symbols",
-            "-dependencies", t2_id,
-            "-tags", "integration_test,step_3",
+            "-action",
+            "add",
+            "-title",
+            "Scout Symbols",
+            "-description",
+            "Use scout to find all exported symbols",
+            "-dependencies",
+            t2_id,
+            "-tags",
+            "integration_test,step_3",
         )
         t3_id = t3.get("task_id", "")
         self.assertTrue(t3_id, "Task ID should be set")
@@ -857,10 +893,14 @@ class TestWorkflow6_OrchestrateToEverything(unittest.TestCase):
         # Task 4: Execute a build (no dependency)
         t4 = run_tool(
             "orchestrate",
-            "-action", "add",
-            "-title", "Execute Build Check",
-            "-description", f"Run gofmt -e on {self.test_dir}/src",
-            "-tags", "integration_test,step_4",
+            "-action",
+            "add",
+            "-title",
+            "Execute Build Check",
+            "-description",
+            f"Run gofmt -e on {self.test_dir}/src",
+            "-tags",
+            "integration_test,step_4",
         )
         t4_id = t4.get("task_id", "")
         self.assertTrue(t4_id, "Task ID should be set")
@@ -881,9 +921,12 @@ class TestWorkflow6_OrchestrateToEverything(unittest.TestCase):
         # Step 1: Discover
         r_discover = run_tool(
             "discover",
-            "-path", self.test_dir,
-            "-pattern", "**/*.go",
-            "-max_results", "10",
+            "-path",
+            self.test_dir,
+            "-pattern",
+            "**/*.go",
+            "-max_results",
+            "10",
         )
         results["discover"] = r_discover
         self.assertGreater(r_discover.get("total_matches", 0), 0, "Discover should find Go files")
@@ -891,17 +934,23 @@ class TestWorkflow6_OrchestrateToEverything(unittest.TestCase):
         # Mark task 1 complete
         run_tool(
             "orchestrate",
-            "-action", "complete",
-            "-task_id", self._task_ids["discover"],
-            "-format", "json",
+            "-action",
+            "complete",
+            "-task_id",
+            self._task_ids["discover"],
+            "-format",
+            "json",
         )
 
         # Step 2: Map (takes discover results as context)
         r_map = run_tool(
             "map",
-            "-path", self.test_dir,
-            "-action", "map",
-            "-format", "json",
+            "-path",
+            self.test_dir,
+            "-action",
+            "map",
+            "-format",
+            "json",
         )
         results["map"] = r_map
         self.assertIn("modules", r_map, "Map should return modules")
@@ -910,9 +959,12 @@ class TestWorkflow6_OrchestrateToEverything(unittest.TestCase):
         # Mark task 2 complete
         run_tool(
             "orchestrate",
-            "-action", "complete",
-            "-task_id", self._task_ids["map"],
-            "-format", "json",
+            "-action",
+            "complete",
+            "-task_id",
+            self._task_ids["map"],
+            "-format",
+            "json",
         )
 
         # Step 3: Scout (takes exported symbols from map as targets)
@@ -925,10 +977,14 @@ class TestWorkflow6_OrchestrateToEverything(unittest.TestCase):
         for symbol in list(all_symbols)[:3]:
             scout_result = run_tool(
                 "scout",
-                "-query", symbol,
-                "-search_type", "symbol",
-                "-path", self.test_dir,
-                "-max_results", "5",
+                "-query",
+                symbol,
+                "-search_type",
+                "symbol",
+                "-path",
+                self.test_dir,
+                "-max_results",
+                "5",
             )
             if scout_result.get("total_matches", 0) > 0:
                 break
@@ -938,27 +994,38 @@ class TestWorkflow6_OrchestrateToEverything(unittest.TestCase):
         # Mark task 3 complete
         run_tool(
             "orchestrate",
-            "-action", "complete",
-            "-task_id", self._task_ids["scout"],
-            "-format", "json",
+            "-action",
+            "complete",
+            "-task_id",
+            self._task_ids["scout"],
+            "-format",
+            "json",
         )
 
         # Step 4: Execute
         r_exec = run_tool(
             "execute",
-            "-command", f"gofmt -e {self.test_dir}/src/*.go",
-            "-work_dir", self.test_dir,
-            "-safety", "false",
+            "-command",
+            f"gofmt -e {self.test_dir}/src/*.go",
+            "-work_dir",
+            self.test_dir,
+            "-safety",
+            "false",
         )
         results["execute"] = r_exec
-        self.assertEqual(r_exec.get("exit_code"), 0, f"gofmt should succeed: {r_exec.get('stderr', '')}")
+        self.assertEqual(
+            r_exec.get("exit_code"), 0, f"gofmt should succeed: {r_exec.get('stderr', '')}"
+        )
 
         # Mark task 4 complete
         run_tool(
             "orchestrate",
-            "-action", "complete",
-            "-task_id", self._task_ids["execute"],
-            "-format", "json",
+            "-action",
+            "complete",
+            "-task_id",
+            self._task_ids["execute"],
+            "-format",
+            "json",
         )
 
         self._workflow_results = results
@@ -970,7 +1037,8 @@ class TestWorkflow6_OrchestrateToEverything(unittest.TestCase):
         # Get status
         status = run_tool(
             "orchestrate",
-            "-action", "status",
+            "-action",
+            "status",
         )
         progress = status.get("progress", {})
         completed = progress.get("completed", 0)
@@ -1006,17 +1074,11 @@ class TestWorkflow6_OrchestrateToEverything(unittest.TestCase):
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Run SIN-Code cross-tool integration tests"
-    )
+    parser = argparse.ArgumentParser(description="Run SIN-Code cross-tool integration tests")
     parser.add_argument(
-        "--workflow", "-w", type=int, choices=range(1, 7),
-        help="Run only a specific workflow (1-6)"
+        "--workflow", "-w", type=int, choices=range(1, 7), help="Run only a specific workflow (1-6)"
     )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true",
-        help="Show verbose tool output"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show verbose tool output")
     args, unknown = parser.parse_known_args()
 
     global VERBOSE

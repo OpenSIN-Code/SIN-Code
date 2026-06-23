@@ -4,12 +4,9 @@
 Docs: test_developer_cli.doc.md
 """
 
-import os
 import subprocess
 import tempfile
 from pathlib import Path
-
-import pytest
 
 
 def _run(args, timeout=30):
@@ -25,8 +22,8 @@ def _run(args, timeout=30):
 
 # ── lint tests ──────────────────────────────────────
 
-class TestLintCommands:
 
+class TestLintCommands:
     def test_lint_help(self):
         r = _run(["python", "-m", "sin_code_bundle.cli", "lint", "--help"])
         assert r.returncode == 0
@@ -48,15 +45,17 @@ class TestLintCommands:
             assert r.returncode in (0, 1)
 
     def test_lint_run_unknown_tool(self):
-        r = _run(["python", "-m", "sin_code_bundle.cli", "lint", "run", ".", "--tool", "nonexistent"])
+        r = _run(
+            ["python", "-m", "sin_code_bundle.cli", "lint", "run", ".", "--tool", "nonexistent"]
+        )
         assert r.returncode == 1
         assert "Unknown linter" in r.stderr or "Unknown linter" in r.stdout
 
 
 # ── docs tests ──────────────────────────────────────
 
-class TestDocsCommands:
 
+class TestDocsCommands:
     def test_docs_help(self):
         r = _run(["python", "-m", "sin_code_bundle.cli", "docs", "--help"])
         assert r.returncode == 0
@@ -67,9 +66,22 @@ class TestDocsCommands:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a fake Python project
             pyproject = Path(tmpdir) / "pyproject.toml"
-            pyproject.write_text('[project]\nname = "test-proj"\nversion = "1.0.0"\ndescription = "A test project"\n')
+            pyproject.write_text(
+                '[project]\nname = "test-proj"\nversion = "1.0.0"\ndescription = "A test project"\n'
+            )
 
-            r = _run(["python", "-m", "sin_code_bundle.cli", "docs", "generate", tmpdir, "--output", "README.md"])
+            r = _run(
+                [
+                    "python",
+                    "-m",
+                    "sin_code_bundle.cli",
+                    "docs",
+                    "generate",
+                    tmpdir,
+                    "--output",
+                    "README.md",
+                ]
+            )
             assert r.returncode == 0
 
             readme = Path(tmpdir) / "README.md"
@@ -82,9 +94,22 @@ class TestDocsCommands:
     def test_docs_generate_js_project(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             package_json = Path(tmpdir) / "package.json"
-            package_json.write_text('{"name": "test-js", "version": "2.0.0", "description": "JS test", "dependencies": {"lodash": "^4.17.0"}}')
+            package_json.write_text(
+                '{"name": "test-js", "version": "2.0.0", "description": "JS test", "dependencies": {"lodash": "^4.17.0"}}'
+            )
 
-            r = _run(["python", "-m", "sin_code_bundle.cli", "docs", "generate", tmpdir, "--output", "README.md"])
+            r = _run(
+                [
+                    "python",
+                    "-m",
+                    "sin_code_bundle.cli",
+                    "docs",
+                    "generate",
+                    tmpdir,
+                    "--output",
+                    "README.md",
+                ]
+            )
             assert r.returncode == 0
 
             readme = Path(tmpdir) / "README.md"
@@ -99,7 +124,18 @@ class TestDocsCommands:
             go_mod = Path(tmpdir) / "go.mod"
             go_mod.write_text("module github.com/example/test-go\n\ngo 1.21\n")
 
-            r = _run(["python", "-m", "sin_code_bundle.cli", "docs", "generate", tmpdir, "--output", "README.md"])
+            r = _run(
+                [
+                    "python",
+                    "-m",
+                    "sin_code_bundle.cli",
+                    "docs",
+                    "generate",
+                    tmpdir,
+                    "--output",
+                    "README.md",
+                ]
+            )
             assert r.returncode == 0
 
             readme = Path(tmpdir) / "README.md"
@@ -117,7 +153,9 @@ class TestDocsCommands:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create a Python file with docstring
             py_file = Path(tmpdir) / "test.py"
-            py_file.write_text('"""Module docstring."""\ndef foo():\n    """Function docstring."""\n    pass\n')
+            py_file.write_text(
+                '"""Module docstring."""\ndef foo():\n    """Function docstring."""\n    pass\n'
+            )
 
             r = _run(["python", "-m", "sin_code_bundle.cli", "docs", "check", tmpdir])
             assert r.returncode == 0
@@ -141,8 +179,8 @@ class TestDocsCommands:
 
 # ── git tests ──────────────────────────────────────
 
-class TestGitCommands:
 
+class TestGitCommands:
     def test_git_help(self):
         r = _run(["python", "-m", "sin_code_bundle.cli", "git", "--help"])
         assert r.returncode == 0
@@ -161,7 +199,9 @@ class TestGitCommands:
         with tempfile.TemporaryDirectory() as tmpdir:
             # Initialize git repo
             subprocess.run(["git", "init"], cwd=tmpdir, capture_output=True)
-            subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=tmpdir, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@test.com"], cwd=tmpdir, capture_output=True
+            )
             subprocess.run(["git", "config", "user.name", "Test"], cwd=tmpdir, capture_output=True)
             # Create and commit a file
             test_file = Path(tmpdir) / "test.txt"
@@ -176,7 +216,9 @@ class TestGitCommands:
     def test_git_status_with_changes(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             subprocess.run(["git", "init"], cwd=tmpdir, capture_output=True)
-            subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=tmpdir, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@test.com"], cwd=tmpdir, capture_output=True
+            )
             subprocess.run(["git", "config", "user.name", "Test"], cwd=tmpdir, capture_output=True)
             test_file = Path(tmpdir) / "test.txt"
             test_file.write_text("hello")
@@ -192,19 +234,35 @@ class TestGitCommands:
     def test_git_commit(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             subprocess.run(["git", "init"], cwd=tmpdir, capture_output=True)
-            subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=tmpdir, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@test.com"], cwd=tmpdir, capture_output=True
+            )
             subprocess.run(["git", "config", "user.name", "Test"], cwd=tmpdir, capture_output=True)
             test_file = Path(tmpdir) / "test.txt"
             test_file.write_text("hello")
 
-            r = _run(["python", "-m", "sin_code_bundle.cli", "git", "commit", "test commit", "--path", tmpdir, "--all"])
+            r = _run(
+                [
+                    "python",
+                    "-m",
+                    "sin_code_bundle.cli",
+                    "git",
+                    "commit",
+                    "test commit",
+                    "--path",
+                    tmpdir,
+                    "--all",
+                ]
+            )
             assert r.returncode == 0
             assert "Committed" in r.stdout
 
     def test_git_log(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             subprocess.run(["git", "init"], cwd=tmpdir, capture_output=True)
-            subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=tmpdir, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@test.com"], cwd=tmpdir, capture_output=True
+            )
             subprocess.run(["git", "config", "user.name", "Test"], cwd=tmpdir, capture_output=True)
             test_file = Path(tmpdir) / "test.txt"
             test_file.write_text("hello")
@@ -218,7 +276,9 @@ class TestGitCommands:
     def test_git_clean_dry_run(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             subprocess.run(["git", "init"], cwd=tmpdir, capture_output=True)
-            subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=tmpdir, capture_output=True)
+            subprocess.run(
+                ["git", "config", "user.email", "test@test.com"], cwd=tmpdir, capture_output=True
+            )
             subprocess.run(["git", "config", "user.name", "Test"], cwd=tmpdir, capture_output=True)
             test_file = Path(tmpdir) / "test.txt"
             test_file.write_text("hello")
@@ -245,8 +305,8 @@ class TestGitCommands:
 
 # ── Integration smoke tests for all developer CLI commands ──────────────────────────────────────
 
-class TestDeveloperCLIIntegration:
 
+class TestDeveloperCLIIntegration:
     def test_all_developer_cli_commands_exist(self):
         """Verify all developer CLI subcommands are registered."""
         r = _run(["python", "-m", "sin_code_bundle.cli", "--help"])

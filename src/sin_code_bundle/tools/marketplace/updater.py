@@ -71,7 +71,7 @@ class Updater:
 
         try:
             origin = repo.remotes.origin
-            fetch_info = origin.fetch()
+            origin.fetch()
             local_sha = repo.head.commit.hexsha
             remote_sha = origin.refs[repo.active_branch.name].commit.hexsha
         except (AttributeError, IndexError, git.GitCommandError) as exc:
@@ -139,7 +139,12 @@ class Updater:
             local_sha = repo.head.commit.hexsha
             remote_sha = origin.refs[repo.active_branch.name].commit.hexsha
         except (AttributeError, IndexError, git.GitCommandError) as exc:
-            return {"slug": slug, "behind": False, "commits_behind": 0, "message": f"Fetch failed: {exc}"}
+            return {
+                "slug": slug,
+                "behind": False,
+                "commits_behind": 0,
+                "message": f"Fetch failed: {exc}",
+            }
 
         if local_sha == remote_sha:
             return {"slug": slug, "behind": False, "commits_behind": 0, "message": "Up to date"}
