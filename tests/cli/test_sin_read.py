@@ -13,6 +13,7 @@ Tests cover:
 - Directory path (returns listing)
 - URI scheme (graceful error when sckg not installed)
 """
+
 from __future__ import annotations
 
 import json

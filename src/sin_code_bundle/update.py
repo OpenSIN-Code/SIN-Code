@@ -84,9 +84,7 @@ def _run(
     """Run *cmd* and capture stdout/stderr. Never raises — non-zero exits
     surface as ``returncode`` so callers can decide how to react.
     """
-    return subprocess.run(
-        cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout
-    )
+    return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout)
 
 
 def _git_describe(repo: Path) -> str:
@@ -103,9 +101,7 @@ def _git_describe(repo: Path) -> str:
 
 def _git_branch(repo: Path) -> str:
     """Return the current branch name, or empty string when detached/empty."""
-    res = _run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo, timeout=10
-    )
+    res = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=repo, timeout=10)
     if res.returncode != 0:
         return ""
     branch = res.stdout.strip()
@@ -145,9 +141,7 @@ def _pipx_version(pkg: str = DEFAULT_PIPX_PKG) -> str:
 
 
 # ── Update steps ─────────────────────────────────────────────────────────
-def update_python(
-    pkg: str = DEFAULT_PIPX_PKG, *, check: bool = False
-) -> UpdateResult:
+def update_python(pkg: str = DEFAULT_PIPX_PKG, *, check: bool = False) -> UpdateResult:
     """Run ``pipx upgrade <pkg>`` (or print it in --check mode)."""
     old = _pipx_version(pkg)
     if check:
@@ -174,8 +168,7 @@ def update_python(
             old_version=old,
             new_version=new or old,
             status="failed",
-            detail=(res.stderr or res.stdout).strip().splitlines()[-1:]
-            or ["unknown error"],
+            detail=(res.stderr or res.stdout).strip().splitlines()[-1:] or ["unknown error"],
         )
     if new and old and new == old:
         status = "up-to-date"
@@ -184,9 +177,7 @@ def update_python(
     else:
         # can't determine — treat as updated if pipx reported success
         status = "updated" if not res.stderr else "up-to-date"
-    return UpdateResult(
-        target=pkg, old_version=old, new_version=new, status=status
-    )
+    return UpdateResult(target=pkg, old_version=old, new_version=new, status=status)
 
 
 def update_go_tool(tool: GoTool, *, check: bool = False) -> UpdateResult:
@@ -224,15 +215,12 @@ def update_go_tool(tool: GoTool, *, check: bool = False) -> UpdateResult:
             new_version="(would pull + rebuild)",
             status="would-update",
             detail=(
-                f"git pull --ff-only @ {branch} && "
-                f"go build -o {tool.binary} ./cmd/{tool.name}"
+                f"git pull --ff-only @ {branch} && go build -o {tool.binary} ./cmd/{tool.name}"
             ),
         )
 
     if not already_current:
-        pull = _run(
-            ["git", "pull", "--ff-only"], cwd=tool.repo, timeout=120
-        )
+        pull = _run(["git", "pull", "--ff-only"], cwd=tool.repo, timeout=120)
         if pull.returncode != 0:
             return UpdateResult(
                 target=tool.name,
@@ -245,9 +233,7 @@ def update_go_tool(tool: GoTool, *, check: bool = False) -> UpdateResult:
     return _build_tool(tool, _git_describe(tool.repo), installed_version)
 
 
-def _build_tool(
-    tool: GoTool, source_version: str, installed_version: str
-) -> UpdateResult:
+def _build_tool(tool: GoTool, source_version: str, installed_version: str) -> UpdateResult:
     """Run ``go build`` with a version ldflag and report success/failure."""
     if not shutil.which("go"):
         return UpdateResult(
@@ -277,8 +263,7 @@ def _build_tool(
             old_version=installed_version,
             new_version=installed_version,
             status="failed",
-            detail=(build.stderr or build.stdout).strip().splitlines()[-1:]
-            or ["build error"],
+            detail=(build.stderr or build.stdout).strip().splitlines()[-1:] or ["build error"],
         )
     new_installed = _binary_version(tool.binary)
     status = "up-to-date" if new_installed == installed_version else "updated"

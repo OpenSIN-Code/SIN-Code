@@ -9,9 +9,9 @@ This module provides tools for the Pocock development paradigm:
 - Runtime stability utilities (zod-patch, safe-start, cleanup-hook)
 """
 
+from .dag_kanban import DAGKanban, run_dag_kanban
 from .grill_me import GrillMe, run_grill_me
 from .tdd_enforcer import TDDEnforcer, run_tdd_enforcer
-from .dag_kanban import DAGKanban, run_dag_kanban
 
 __all__ = [
     "GrillMe",

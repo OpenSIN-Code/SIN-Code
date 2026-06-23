@@ -5,14 +5,12 @@ Docs: test_cyclonedx.doc.md
 """
 
 import json
-import pytest
 
-from sbom_generator.cyclonedx_generator import generate_cyclonedx, cyclonedx_to_json
-from sbom_generator.models import SBOM, SBOMPackage, SBOMMetadata
+from sbom_generator.cyclonedx_generator import cyclonedx_to_json, generate_cyclonedx
+from sbom_generator.models import SBOM, SBOMMetadata, SBOMPackage
 
 
 class TestCycloneDXGenerator:
-
     def test_generate_cyclonedx_basic(self):
         metadata = SBOMMetadata(document_name="test-sbom")
         packages = [
@@ -43,7 +41,9 @@ class TestCycloneDXGenerator:
     def test_generate_cyclonedx_with_cpe(self):
         metadata = SBOMMetadata(document_name="test-sbom")
         packages = [
-            SBOMPackage(name="openssl", version="3.1.2", cpe="cpe:2.3:a:openssl:openssl:3.1.2:*:*:*:*:*:*:*"),
+            SBOMPackage(
+                name="openssl", version="3.1.2", cpe="cpe:2.3:a:openssl:openssl:3.1.2:*:*:*:*:*:*:*"
+            ),
         ]
         sbom = SBOM(metadata=metadata, packages=packages)
         doc = generate_cyclonedx(sbom)
@@ -53,7 +53,9 @@ class TestCycloneDXGenerator:
     def test_generate_cyclonedx_with_checksums(self):
         metadata = SBOMMetadata(document_name="test-sbom")
         packages = [
-            SBOMPackage(name="test", version="1.0.0", checksums={"sha256": "abc123", "sha512": "def456"}),
+            SBOMPackage(
+                name="test", version="1.0.0", checksums={"sha256": "abc123", "sha512": "def456"}
+            ),
         ]
         sbom = SBOM(metadata=metadata, packages=packages)
         doc = generate_cyclonedx(sbom)
@@ -76,7 +78,13 @@ class TestCycloneDXGenerator:
     def test_generate_cyclonedx_with_vulns(self):
         metadata = SBOMMetadata(document_name="test-sbom")
         packages = [
-            SBOMPackage(name="vuln-pkg", version="1.0.0", has_vulnerabilities=True, critical_vulns=2, high_vulns=1),
+            SBOMPackage(
+                name="vuln-pkg",
+                version="1.0.0",
+                has_vulnerabilities=True,
+                critical_vulns=2,
+                high_vulns=1,
+            ),
         ]
         sbom = SBOM(metadata=metadata, packages=packages)
         doc = generate_cyclonedx(sbom)
@@ -90,7 +98,9 @@ class TestCycloneDXGenerator:
     def test_generate_cyclonedx_with_dependencies(self):
         metadata = SBOMMetadata(document_name="test-sbom")
         packages = [
-            SBOMPackage(name="parent", version="1.0.0", purl="pkg:npm/parent@1.0.0", dependencies=["child"]),
+            SBOMPackage(
+                name="parent", version="1.0.0", purl="pkg:npm/parent@1.0.0", dependencies=["child"]
+            ),
         ]
         sbom = SBOM(metadata=metadata, packages=packages)
         doc = generate_cyclonedx(sbom)

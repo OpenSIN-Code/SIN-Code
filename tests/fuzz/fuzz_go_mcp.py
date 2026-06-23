@@ -11,13 +11,12 @@ Usage:
 
 from __future__ import annotations
 
+import argparse
 import json
+import os
+import signal
 import subprocess
 import sys
-import time
-import os
-import argparse
-import signal
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -60,6 +59,7 @@ class FuzzReport:
 
 # ── Payload generators ──────────────────────────────────
 
+
 def make_empty_inputs():
     return [
         ("empty_string", b""),
@@ -101,34 +101,67 @@ def make_missing_method():
 def make_weird_method_names():
     return [
         ("unicode_emoji", json.dumps({"jsonrpc": "2.0", "method": "\U0001f4a9", "id": 1}).encode()),
-        ("unicode_chinese", json.dumps({"jsonrpc": "2.0", "method": "\u4f60\u597d\u4e16\u754c", "id": 2}).encode()),
-        ("special_chars", json.dumps({"jsonrpc": "2.0", "method": "tool/!@#$%^&*()", "id": 3}).encode()),
-        ("sql_injection_method", json.dumps({"jsonrpc": "2.0", "method": "\"; DROP TABLE;--", "id": 4}).encode()),
+        (
+            "unicode_chinese",
+            json.dumps({"jsonrpc": "2.0", "method": "\u4f60\u597d\u4e16\u754c", "id": 2}).encode(),
+        ),
+        (
+            "special_chars",
+            json.dumps({"jsonrpc": "2.0", "method": "tool/!@#$%^&*()", "id": 3}).encode(),
+        ),
+        (
+            "sql_injection_method",
+            json.dumps({"jsonrpc": "2.0", "method": '"; DROP TABLE;--', "id": 4}).encode(),
+        ),
         ("empty_method", json.dumps({"jsonrpc": "2.0", "method": "", "id": 5}).encode()),
     ]
 
 
 def make_long_method_name():
-    name_10kb = "a" * (10 * 1024)    # 10 KB
+    name_10kb = "a" * (10 * 1024)  # 10 KB
     name_100kb = "a" * (100 * 1024)  # 100 KB
     return [
         ("long_method_10kb", json.dumps({"jsonrpc": "2.0", "method": name_10kb, "id": 1}).encode()),
-        ("long_method_100kb", json.dumps({"jsonrpc": "2.0", "method": name_100kb, "id": 1}).encode()),
+        (
+            "long_method_100kb",
+            json.dumps({"jsonrpc": "2.0", "method": name_100kb, "id": 1}).encode(),
+        ),
     ]
 
 
 def make_missing_params():
     return [
-        ("missing_params", json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": 1}).encode()),
+        (
+            "missing_params",
+            json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": 1}).encode(),
+        ),
     ]
 
 
 def make_weird_params():
     return [
-        ("params_as_array", json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": [1, 2, 3]}).encode()),
-        ("params_as_string", json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": "hello"}).encode()),
-        ("params_as_number", json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": 42}).encode()),
-        ("params_as_null", json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": None}).encode()),
+        (
+            "params_as_array",
+            json.dumps(
+                {"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": [1, 2, 3]}
+            ).encode(),
+        ),
+        (
+            "params_as_string",
+            json.dumps(
+                {"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": "hello"}
+            ).encode(),
+        ),
+        (
+            "params_as_number",
+            json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": 42}).encode(),
+        ),
+        (
+            "params_as_null",
+            json.dumps(
+                {"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": None}
+            ).encode(),
+        ),
     ]
 
 
@@ -140,7 +173,10 @@ def make_nested_objects(depth=1000):
         current = current["nested"]
     current["value"] = "bottom"
     return [
-        ("nested_1000_levels", json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": obj}).encode()),
+        (
+            "nested_1000_levels",
+            json.dumps({"jsonrpc": "2.0", "method": "tools/call", "id": 1, "params": obj}).encode(),
+        ),
     ]
 
 
@@ -150,7 +186,10 @@ def make_weird_ids():
         ("float_id", json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": 3.14}).encode()),
         ("string_id", json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": "abc"}).encode()),
         ("null_id", json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": None}).encode()),
-        ("very_large_id", json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": 2**63}).encode()),
+        (
+            "very_large_id",
+            json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": 2**63}).encode(),
+        ),
     ]
 
 
@@ -173,8 +212,16 @@ def make_batch_requests():
 
 def make_notifications():
     return [
-        ("notification_no_id", json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}).encode()),
-        ("notification_params", json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {"key": "val"}}).encode()),
+        (
+            "notification_no_id",
+            json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}).encode(),
+        ),
+        (
+            "notification_params",
+            json.dumps(
+                {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {"key": "val"}}
+            ).encode(),
+        ),
     ]
 
 
@@ -200,6 +247,7 @@ def make_invalid_json_syntax():
 
 # ── Response validation ────────────────────────────────
 
+
 def validate_jsonrpc_response(response_json: Any) -> str:
     """Check JSON-RPC 2.0 compliance. Returns violation description or ""."""
     if not isinstance(response_json, dict):
@@ -220,7 +268,6 @@ def validate_jsonrpc_response(response_json: Any) -> str:
 
     # id field handling - note notifications don't get responses,
     # but if we get a response it must have id or error
-    has_id = "id" in response_json
     has_result = "result" in response_json
     has_error = "error" in response_json
 
@@ -244,9 +291,8 @@ def validate_jsonrpc_response(response_json: Any) -> str:
 
 # ── Core fuzzing logic ─────────────────────────────────
 
-def run_single_attack(
-    binary: str, name: str, payload: bytes, timeout: float = 5.0
-) -> AttackResult:
+
+def run_single_attack(binary: str, name: str, payload: bytes, timeout: float = 5.0) -> AttackResult:
     """Send one attack payload via subprocess to a Go MCP binary."""
     result = AttackResult(name=name, payload=repr(payload[:100]))
 
@@ -302,7 +348,7 @@ def run_single_attack(
                 violation = validate_jsonrpc_response(result.response_json)
                 if violation:
                     result.protocol_violation = violation
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError:
                 result.protocol_violation = f"non_json_response: {stdout_data[:200]!r}"
 
     except FileNotFoundError:
@@ -322,14 +368,18 @@ def fuzz_go_tool(binary: str, tool_label: str, timeout: float = 5.0) -> FuzzRepo
     # Verify binary exists
     if not os.path.exists(binary):
         print(f"  ❌ Binary not found: {binary}")
-        report.results.append(AttackResult(name="binary_check", payload=None, crashed=True,
-                                            error_msg="binary_not_found"))
+        report.results.append(
+            AttackResult(
+                name="binary_check", payload=None, crashed=True, error_msg="binary_not_found"
+            )
+        )
         return report
 
     # Quick startup test: valid tools/list
     print(f"  → Startup check ({tool_label})...")
     startup = run_single_attack(
-        binary, "startup_check",
+        binary,
+        "startup_check",
         json.dumps({"jsonrpc": "2.0", "method": "tools/list", "id": 1}).encode(),
         timeout=timeout,
     )
@@ -337,12 +387,12 @@ def fuzz_go_tool(binary: str, tool_label: str, timeout: float = 5.0) -> FuzzRepo
     if startup.crashed or startup.hung:
         print(f"  ⚠️  Startup failed: crash={startup.crashed}, hang={startup.hung}")
     else:
-        print(f"  ✅ Startup OK")
+        print("  ✅ Startup OK")
 
     all_attacks = []
 
     # ── Category 1: Empty/invalid raw input ────────────
-    print(f"  → Testing empty/malformed raw input...")
+    print("  → Testing empty/malformed raw input...")
     for name, payload in make_empty_inputs():
         all_attacks.append((name, payload))
     for name, payload in make_non_json():
@@ -351,7 +401,7 @@ def fuzz_go_tool(binary: str, tool_label: str, timeout: float = 5.0) -> FuzzRepo
         all_attacks.append((name, payload))
 
     # ── Category 2: Invalid JSON-RPC structure ─────────
-    print(f"  → Testing invalid JSON-RPC...")
+    print("  → Testing invalid JSON-RPC...")
     for name, payload in make_invalid_json_rpc():
         all_attacks.append((name, payload))
     for name, payload in make_missing_method():
@@ -362,34 +412,34 @@ def fuzz_go_tool(binary: str, tool_label: str, timeout: float = 5.0) -> FuzzRepo
         all_attacks.append((name, payload))
 
     # ── Category 3: Weird params ───────────────────────
-    print(f"  → Testing weird params...")
+    print("  → Testing weird params...")
     for name, payload in make_missing_params():
         all_attacks.append((name, payload))
     for name, payload in make_weird_params():
         all_attacks.append((name, payload))
 
     # ── Category 4: Long inputs ────────────────────────
-    print(f"  → Testing long method names...")
+    print("  → Testing long method names...")
     for name, payload in make_long_method_name():
         all_attacks.append((name, payload))
 
     # ── Category 5: Deep nesting ───────────────────────
-    print(f"  → Testing deep nesting...")
+    print("  → Testing deep nesting...")
     for name, payload in make_nested_objects(1000):
         all_attacks.append((name, payload))
 
     # ── Category 6: Batches ────────────────────────────
-    print(f"  → Testing batch requests...")
+    print("  → Testing batch requests...")
     for name, payload in make_batch_requests():
         all_attacks.append((name, payload))
 
     # ── Category 7: Notifications ──────────────────────
-    print(f"  → Testing notifications...")
+    print("  → Testing notifications...")
     for name, payload in make_notifications():
         all_attacks.append((name, payload))
 
     # ── Category 8: Oversized ──────────────────────────
-    print(f"  → Testing oversized payload (10MB)...")
+    print("  → Testing oversized payload (10MB)...")
     for name, payload in make_oversized():
         all_attacks.append((name, payload))
 
@@ -400,13 +450,15 @@ def fuzz_go_tool(binary: str, tool_label: str, timeout: float = 5.0) -> FuzzRepo
 
         # Progress indicator
         if result.crashed:
-            print(f"    [{i+1}/{len(all_attacks)}] 💥 {name}: CRASH (exit={result.exit_code})")
+            print(f"    [{i + 1}/{len(all_attacks)}] 💥 {name}: CRASH (exit={result.exit_code})")
         elif result.hung:
-            print(f"    [{i+1}/{len(all_attacks)}] ⏳ {name}: HANG (>5s)")
+            print(f"    [{i + 1}/{len(all_attacks)}] ⏳ {name}: HANG (>5s)")
         elif result.protocol_violation:
-            print(f"    [{i+1}/{len(all_attacks)}] ⚠️  {name}: protocol violation ({result.protocol_violation})")
+            print(
+                f"    [{i + 1}/{len(all_attacks)}] ⚠️  {name}: protocol violation ({result.protocol_violation})"
+            )
         else:
-            print(f"    [{i+1}/{len(all_attacks)}] ✅ {name}: OK")
+            print(f"    [{i + 1}/{len(all_attacks)}] ✅ {name}: OK")
 
     return report
 
@@ -444,14 +496,10 @@ def print_report(report: FuzzReport):
                 print(f"       Response: {json.dumps(r.response_json)[:200]}")
 
     # Severity score
-    severity = (
-        len(report.crashes) * 10
-        + len(report.hangs) * 5
-        + len(report.violations) * 2
-    )
+    severity = len(report.crashes) * 10 + len(report.hangs) * 5 + len(report.violations) * 2
     print()
     if severity == 0:
-        print(f"  🛡️  SEVERITY: NONE — Tool survived all attacks")
+        print("  🛡️  SEVERITY: NONE — Tool survived all attacks")
     elif severity < 20:
         print(f"  ⚠️  SEVERITY: LOW ({severity})")
     elif severity < 50:

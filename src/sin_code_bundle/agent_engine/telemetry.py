@@ -15,8 +15,7 @@ from typing import Any
 class Telemetry:
     def __init__(self, log_path: str | None = None, *, echo: bool = False) -> None:
         env_path = os.environ.get("SIN_AGENT_LOG", "")
-        self.log_path = Path(log_path or env_path
-                            or Path.home() / ".sin" / "agent-events.jsonl")
+        self.log_path = Path(log_path or env_path or Path.home() / ".sin" / "agent-events.jsonl")
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         self.echo = echo
         self.counters: Counter[str] = Counter()

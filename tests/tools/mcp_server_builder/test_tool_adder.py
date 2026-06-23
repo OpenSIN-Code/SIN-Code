@@ -89,9 +89,7 @@ class TestToolAdder:
 
     def test_add_to_python_missing_file_raises(self, tmp_path):
         with pytest.raises(FileNotFoundError):
-            ToolAdder().add_to_python(
-                tmp_path / "missing.py", ToolSpec(name="x", description="x")
-            )
+            ToolAdder().add_to_python(tmp_path / "missing.py", ToolSpec(name="x", description="x"))
 
     def test_add_test_appends(self, tmp_path):
         test = tmp_path / "test_mcp_server.py"

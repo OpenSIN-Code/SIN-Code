@@ -57,25 +57,28 @@ class Policy:
                 new_tasks.append(task)
             else:
                 backend, model = choice
-                new_tasks.append(replace(
-                    task, agent=AgentSpec(
-                        backend=backend, model=model,
-                        command=task.agent.command,
-                        system_hint=task.agent.system_hint,
-                        env=task.agent.env)))
+                new_tasks.append(
+                    replace(
+                        task,
+                        agent=AgentSpec(
+                            backend=backend,
+                            model=model,
+                            command=task.agent.command,
+                            system_hint=task.agent.system_hint,
+                            env=task.agent.env,
+                        ),
+                    )
+                )
         return replace(plan, tasks=tuple(new_tasks)), decisions
 
-    def _route(self, task: Task,
-               rng: random.Random) -> tuple:
+    def _route(self, task: Task, rng: random.Random) -> tuple:
         pinned = (task.agent.backend, task.agent.model)
         if task.agent.model or task.agent.backend == "command":
             return pinned, "pinned"
 
         cls = task_class_of(task)
-        best = self.analytics.best_backend(cls, self.candidates,
-                                           self.min_trials)
-        if (task.risk == Risk.LOW and best is not None
-                and rng.random() < self.epsilon):
+        best = self.analytics.best_backend(cls, self.candidates, self.min_trials)
+        if task.risk == Risk.LOW and best is not None and rng.random() < self.epsilon:
             others = [c for c in self.candidates if c != best]
             if others:
                 return rng.choice(others), "explore"

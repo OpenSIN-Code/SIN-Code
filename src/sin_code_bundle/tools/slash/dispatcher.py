@@ -12,15 +12,16 @@ The dispatcher is the central router that:
 
 import json
 import sqlite3
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+from sin_code_bundle.tools.slash.commands import BUILTIN_COMMANDS
+from sin_code_bundle.tools.slash.commands import get_command_help as get_builtin_help
+from sin_code_bundle.tools.slash.executor import CommandExecutor
 from sin_code_bundle.tools.slash.parser import ParsedCommand, SlashParser
 from sin_code_bundle.tools.slash.registry import CommandRegistry
-from sin_code_bundle.tools.slash.executor import CommandExecutor
-from sin_code_bundle.tools.slash.commands import BUILTIN_COMMANDS, get_command_help as get_builtin_help
 
 
 @dataclass
@@ -126,9 +127,7 @@ class CommandDispatcher:
         if command_name in BUILTIN_COMMANDS:
             action = BUILTIN_COMMANDS[command_name]
             try:
-                output = self._executor.execute_builtin(
-                    command_name, action, args, flags
-                )
+                output = self._executor.execute_builtin(command_name, action, args, flags)
                 success = True
                 error = None
             except Exception as e:
@@ -140,9 +139,7 @@ class CommandDispatcher:
             custom = self._registry.get(command_name)
             if custom:
                 try:
-                    output = self._executor.execute_custom(
-                        custom, args, flags
-                    )
+                    output = self._executor.execute_custom(custom, args, flags)
                     success = True
                     error = None
                 except Exception as e:

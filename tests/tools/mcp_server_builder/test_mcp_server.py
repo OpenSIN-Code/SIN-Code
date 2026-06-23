@@ -144,9 +144,7 @@ class TestMcpValidate:
 
 class TestMcpPublish:
     def test_dry_run(self, tmp_path):
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='x'\nversion='0.1.0'\n"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\nversion='0.1.0'\n")
         result = json.loads(
             mcp_publish(
                 project_dir=str(tmp_path),

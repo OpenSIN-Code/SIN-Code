@@ -4,13 +4,12 @@
 Docs: cyclonedx_generator.doc.md
 """
 
+import hashlib
 import json
 import uuid
-import hashlib
-from datetime import datetime, timezone
-from typing import Dict, List, Any, Optional
-from .models import SBOM, SBOMPackage
+from typing import Any, Dict
 
+from .models import SBOM, SBOMPackage
 
 CYCLONEDX_SPEC_VERSION = "1.5"
 CYCLONEDX_SCHEMA = "http://cyclonedx.org/schema/bom-1.5.schema.json"
@@ -28,11 +27,13 @@ def generate_cyclonedx(sbom: SBOM) -> Dict[str, Any]:
         "version": 1,
         "metadata": {
             "timestamp": sbom.metadata.timestamp,
-            "tools": [{
-                "vendor": "OpenSIN-Code",
-                "name": sbom.metadata.tool_name,
-                "version": sbom.metadata.tool_version,
-            }],
+            "tools": [
+                {
+                    "vendor": "OpenSIN-Code",
+                    "name": sbom.metadata.tool_name,
+                    "version": sbom.metadata.tool_version,
+                }
+            ],
             "authors": [{"name": a} for a in sbom.metadata.authors],
         },
         "components": [],
@@ -77,47 +78,62 @@ def _package_to_cyclonedx(pkg: SBOMPackage) -> Dict[str, Any]:
         component["description"] = pkg.description
 
     if pkg.homepage:
-        component["externalReferences"] = [{
-            "type": "website",
-            "url": pkg.homepage,
-        }]
+        component["externalReferences"] = [
+            {
+                "type": "website",
+                "url": pkg.homepage,
+            }
+        ]
 
     if pkg.checksums:
         component["hashes"] = [
-            {"alg": _map_hash_algo(algo), "content": val}
-            for algo, val in pkg.checksums.items()
+            {"alg": _map_hash_algo(algo), "content": val} for algo, val in pkg.checksums.items()
         ]
 
     # License info
     if pkg.license_concluded or pkg.license_declared:
         component["licenses"] = []
         if pkg.license_concluded:
-            component["licenses"].append({
-                "license": {"id": pkg.license_concluded} if _is_spdx_license(pkg.license_concluded) else {"name": pkg.license_concluded}
-            })
+            component["licenses"].append(
+                {
+                    "license": {"id": pkg.license_concluded}
+                    if _is_spdx_license(pkg.license_concluded)
+                    else {"name": pkg.license_concluded}
+                }
+            )
         if pkg.license_declared and pkg.license_declared != pkg.license_concluded:
-            component["licenses"].append({
-                "license": {"id": pkg.license_declared} if _is_spdx_license(pkg.license_declared) else {"name": pkg.license_declared}
-            })
+            component["licenses"].append(
+                {
+                    "license": {"id": pkg.license_declared}
+                    if _is_spdx_license(pkg.license_declared)
+                    else {"name": pkg.license_declared}
+                }
+            )
 
     # Vulnerability info (if present)
     if pkg.has_vulnerabilities:
         if "properties" not in component:
             component["properties"] = []
-        component["properties"].append({
-            "name": "sin:security:vulnerability_count",
-            "value": str(pkg.vulnerability_count),
-        })
+        component["properties"].append(
+            {
+                "name": "sin:security:vulnerability_count",
+                "value": str(pkg.vulnerability_count),
+            }
+        )
         if pkg.critical_vulns > 0:
-            component["properties"].append({
-                "name": "sin:security:critical_vulns",
-                "value": str(pkg.critical_vulns),
-            })
+            component["properties"].append(
+                {
+                    "name": "sin:security:critical_vulns",
+                    "value": str(pkg.critical_vulns),
+                }
+            )
         if pkg.high_vulns > 0:
-            component["properties"].append({
-                "name": "sin:security:high_vulns",
-                "value": str(pkg.high_vulns),
-            })
+            component["properties"].append(
+                {
+                    "name": "sin:security:high_vulns",
+                    "value": str(pkg.high_vulns),
+                }
+            )
 
     return component
 
@@ -156,17 +172,31 @@ def _is_spdx_license(license_id: str) -> bool:
     """Check if a license identifier is a known SPDX license ID."""
     # Simplified check: contains common SPDX licenses or no spaces
     known_spdx = {
-        "MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "GPL-2.0-only",
-        "GPL-2.0-or-later", "GPL-3.0-only", "GPL-3.0-or-later", "LGPL-2.1-only",
-        "LGPL-2.1-or-later", "LGPL-3.0-only", "LGPL-3.0-or-later", "MPL-2.0",
-        "ISC", "Unlicense", "CC0-1.0", "EPL-2.0", "EPL-1.0", "BSL-1.0",
+        "MIT",
+        "Apache-2.0",
+        "BSD-2-Clause",
+        "BSD-3-Clause",
+        "GPL-2.0-only",
+        "GPL-2.0-or-later",
+        "GPL-3.0-only",
+        "GPL-3.0-or-later",
+        "LGPL-2.1-only",
+        "LGPL-2.1-or-later",
+        "LGPL-3.0-only",
+        "LGPL-3.0-or-later",
+        "MPL-2.0",
+        "ISC",
+        "Unlicense",
+        "CC0-1.0",
+        "EPL-2.0",
+        "EPL-1.0",
+        "BSL-1.0",
     }
     return license_id in known_spdx
 
 
 def uuid_from_namespace(namespace: str) -> str:
     """Generate a deterministic UUID from a namespace string."""
-    import hashlib
     return str(uuid.UUID(hashlib.md5(namespace.encode()).hexdigest()[:32]))
 
 

@@ -8,8 +8,6 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from sin_code_bundle.tools.marketplace.catalog import Catalog
 from sin_code_bundle.tools.marketplace.installer import Installer
 from sin_code_bundle.tools.marketplace.registry import Registry
@@ -31,30 +29,37 @@ class TestIntegration:
             subprocess.run(["git", "init", str(source_dir)], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", str(source_dir), "config", "user.email", "test@test.com"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "-C", str(source_dir), "config", "user.name", "Test"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             (source_dir / "file.txt").write_text("content")
-            subprocess.run(["git", "-C", str(source_dir), "add", "."], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "-C", str(source_dir), "add", "."], check=True, capture_output=True
+            )
             subprocess.run(
                 ["git", "-C", str(source_dir), "commit", "-m", "init"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
 
             # Catalog
-            catalog = Catalog([
-                {
-                    "slug": "test-skill",
-                    "name": "Test Skill",
-                    "title": "Test",
-                    "description": "Integration test skill",
-                    "source": str(source_dir),
-                    "destination": str(skills_dir / "test-skill"),
-                }
-            ])
+            catalog = Catalog(
+                [
+                    {
+                        "slug": "test-skill",
+                        "name": "Test Skill",
+                        "title": "Test",
+                        "description": "Integration test skill",
+                        "source": str(source_dir),
+                        "destination": str(skills_dir / "test-skill"),
+                    }
+                ]
+            )
             assert len(catalog) == 1
 
             # Install
@@ -118,11 +123,23 @@ class TestIntegration:
             assert catalog.get_by_slug("a") is not None
 
     def test_search_across_fields(self) -> None:
-        catalog = Catalog([
-            {"slug": "skill-a", "name": "Alpha", "title": "Alpha Skill", "description": "First"},
-            {"slug": "skill-b", "name": "Beta", "title": "Beta Skill", "description": "Second"},
-            {"slug": "skill-c", "name": "Gamma", "title": "Gamma Skill", "description": "Third"},
-        ])
+        catalog = Catalog(
+            [
+                {
+                    "slug": "skill-a",
+                    "name": "Alpha",
+                    "title": "Alpha Skill",
+                    "description": "First",
+                },
+                {"slug": "skill-b", "name": "Beta", "title": "Beta Skill", "description": "Second"},
+                {
+                    "slug": "skill-c",
+                    "name": "Gamma",
+                    "title": "Gamma Skill",
+                    "description": "Third",
+                },
+            ]
+        )
         # Search by slug
         assert len(catalog.search("skill-a")) == 1
         # Search by name
@@ -144,17 +161,22 @@ class TestIntegration:
             subprocess.run(["git", "init", str(source_dir)], check=True, capture_output=True)
             subprocess.run(
                 ["git", "-C", str(source_dir), "config", "user.email", "test@test.com"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             subprocess.run(
                 ["git", "-C", str(source_dir), "config", "user.name", "Test"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
             (source_dir / "file.txt").write_text("content")
-            subprocess.run(["git", "-C", str(source_dir), "add", "."], check=True, capture_output=True)
+            subprocess.run(
+                ["git", "-C", str(source_dir), "add", "."], check=True, capture_output=True
+            )
             subprocess.run(
                 ["git", "-C", str(source_dir), "commit", "-m", "init"],
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
 
             installer = Installer(skills_dir=skills_dir, config_path=config_path)

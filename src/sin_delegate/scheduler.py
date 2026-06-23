@@ -41,10 +41,14 @@ def critical_path_priority(plan: Plan) -> dict[str, int]:
 
 
 class Scheduler:
-    def __init__(self, plan: Plan, ledger: Ledger,
-                 executor: TaskExecutor,
-                 max_parallel: int = 4,
-                 failure_threshold: float = 0.5) -> None:
+    def __init__(
+        self,
+        plan: Plan,
+        ledger: Ledger,
+        executor: TaskExecutor,
+        max_parallel: int = 4,
+        failure_threshold: float = 0.5,
+    ) -> None:
         plan.validate()
         self.plan = plan
         self.ledger = ledger
@@ -64,17 +68,17 @@ class Scheduler:
         states: dict[str, TaskState] = {}
         for tid in self.tasks:
             prev = persisted.get(tid)
-            states[tid] = (TaskState.DONE if prev == TaskState.DONE
-                          else TaskState.PENDING)
+            states[tid] = TaskState.DONE if prev == TaskState.DONE else TaskState.PENDING
         return states
 
     def _circuit_open(self, states: dict[str, TaskState]) -> bool:
-        finished = [s for s in states.values()
-                    if s in (TaskState.DONE, TaskState.FAILED,
-                             TaskState.ESCALATED)]
+        finished = [
+            s
+            for s in states.values()
+            if s in (TaskState.DONE, TaskState.FAILED, TaskState.ESCALATED)
+        ]
         failed = [s for s in finished if s != TaskState.DONE]
-        return (len(finished) >= 2
-                and len(failed) / len(finished) > self.failure_threshold)
+        return len(finished) >= 2 and len(failed) / len(finished) > self.failure_threshold
 
     async def run(self) -> dict[str, TaskOutcome]:
         states = self._resume_states()
@@ -96,13 +100,15 @@ class Scheduler:
             return out
 
         def doomed() -> list[str]:
-            bad = {tid for tid, s in states.items()
-                   if s in (TaskState.FAILED, TaskState.SKIPPED,
-                            TaskState.ESCALATED, TaskState.CANCELLED)}
+            bad = {
+                tid
+                for tid, s in states.items()
+                if s
+                in (TaskState.FAILED, TaskState.SKIPPED, TaskState.ESCALATED, TaskState.CANCELLED)
+            }
             out = []
             for tid, t in self.tasks.items():
-                if states[tid] == TaskState.PENDING and any(
-                        d in bad for d in t.deps):
+                if states[tid] == TaskState.PENDING and any(d in bad for d in t.deps):
                     out.append(tid)
             return out
 
@@ -110,8 +116,8 @@ class Scheduler:
             for tid in doomed():
                 states[tid] = TaskState.SKIPPED
                 self.outcomes[tid] = TaskOutcome(
-                    tid, TaskState.SKIPPED,
-                    error="upstream dependency failed")
+                    tid, TaskState.SKIPPED, error="upstream dependency failed"
+                )
                 self.ledger.emit(self.plan.id, tid, "state:skipped")
 
             if self._cancelled or self._circuit_open(states):
@@ -120,8 +126,7 @@ class Scheduler:
                 for tid, st in states.items():
                     if st in (TaskState.PENDING, TaskState.RUNNING):
                         states[tid] = TaskState.CANCELLED
-                        self.outcomes[tid] = TaskOutcome(
-                            tid, TaskState.CANCELLED)
+                        self.outcomes[tid] = TaskOutcome(tid, TaskState.CANCELLED)
                         self.ledger.emit(self.plan.id, tid, "state:cancelled")
                 break
 
@@ -134,8 +139,7 @@ class Scheduler:
             if not running:
                 break
 
-            done, _ = await asyncio.wait(
-                running.keys(), return_when=asyncio.FIRST_COMPLETED)
+            done, _ = await asyncio.wait(running.keys(), return_when=asyncio.FIRST_COMPLETED)
             for fut in done:
                 tid = running.pop(fut)
                 try:
@@ -143,15 +147,19 @@ class Scheduler:
                 except asyncio.CancelledError:
                     outcome = TaskOutcome(tid, TaskState.CANCELLED)
                 except Exception as e:
-                    outcome = TaskOutcome(
-                        tid, TaskState.FAILED, error=str(e))
+                    outcome = TaskOutcome(tid, TaskState.FAILED, error=str(e))
                 states[tid] = outcome.state
                 self.outcomes[tid] = outcome
                 self.ledger.emit(
-                    self.plan.id, tid, f"state:{outcome.state.value}",
-                    {"error": outcome.error,
-                     "seconds": outcome.seconds,
-                     "attempts": outcome.attempts})
+                    self.plan.id,
+                    tid,
+                    f"state:{outcome.state.value}",
+                    {
+                        "error": outcome.error,
+                        "seconds": outcome.seconds,
+                        "attempts": outcome.attempts,
+                    },
+                )
         return self.outcomes
 
     async def _execute(self, task: Task) -> TaskOutcome:
@@ -163,8 +171,8 @@ class Scheduler:
                 if self._cancelled:
                     return TaskOutcome(task.id, TaskState.CANCELLED)
                 self.ledger.emit(
-                    self.plan.id, task.id, "attempt",
-                    {"n": base_attempts + attempt + 1})
+                    self.plan.id, task.id, "attempt", {"n": base_attempts + attempt + 1}
+                )
                 outcome = await self.executor(task)
                 outcome.attempts = base_attempts + attempt + 1
                 outcome.seconds = time.monotonic() - start
@@ -175,7 +183,8 @@ class Scheduler:
                     return outcome
                 await asyncio.sleep(task.budget.retry_delay(attempt))
             return TaskOutcome(
-                task.id, TaskState.FAILED,
+                task.id,
+                TaskState.FAILED,
                 attempts=base_attempts + task.budget.max_retries + 1,
                 seconds=time.monotonic() - start,
                 error=last_error or "exhausted retries",

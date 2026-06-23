@@ -6,18 +6,20 @@ from __future__ import annotations
 import asyncio
 import json
 
-import pytest
-
 from sin_code_bundle.agent_engine.distiller import (
-    KnowledgeDistiller, _heuristic_rule, _signature,
-)
-from sin_code_bundle.agent_engine.tracing import (
-    Span, SpanEmitter, TraceAssembler, TraceContext,
+    KnowledgeDistiller,
+    _heuristic_rule,
+    _signature,
 )
 from sin_code_bundle.agent_engine.telemetry import Telemetry
-
+from sin_code_bundle.agent_engine.tracing import (
+    SpanEmitter,
+    TraceAssembler,
+    TraceContext,
+)
 
 # --------------------------------------------------------------- tracing
+
 
 def _write_spans(tmp_path, records):
     log = tmp_path / "events.jsonl"
@@ -28,20 +30,48 @@ def _write_spans(tmp_path, records):
 def test_assembler_builds_nested_tree(tmp_path):
     t = "trace1"
     records = [
-        {"event": "span_start", "trace_id": t, "span_id": "root",
-         "parent_span_id": None, "kind": "run", "name": "main", "ts": 1.0},
-        {"event": "span_start", "trace_id": t, "span_id": "d1",
-         "parent_span_id": "root", "kind": "delegate", "name": "sub-a",
-         "ts": 2.0},
-        {"event": "span_start", "trace_id": t, "span_id": "d2",
-         "parent_span_id": "d1", "kind": "delegate", "name": "sub-a-1",
-         "ts": 3.0},
-        {"event": "span_end", "trace_id": t, "span_id": "d2",
-         "status": "success", "duration_s": 1.0},
-        {"event": "span_end", "trace_id": t, "span_id": "d1",
-         "status": "success", "duration_s": 2.5},
-        {"event": "span_end", "trace_id": t, "span_id": "root",
-         "status": "ok", "duration_s": 5.0},
+        {
+            "event": "span_start",
+            "trace_id": t,
+            "span_id": "root",
+            "parent_span_id": None,
+            "kind": "run",
+            "name": "main",
+            "ts": 1.0,
+        },
+        {
+            "event": "span_start",
+            "trace_id": t,
+            "span_id": "d1",
+            "parent_span_id": "root",
+            "kind": "delegate",
+            "name": "sub-a",
+            "ts": 2.0,
+        },
+        {
+            "event": "span_start",
+            "trace_id": t,
+            "span_id": "d2",
+            "parent_span_id": "d1",
+            "kind": "delegate",
+            "name": "sub-a-1",
+            "ts": 3.0,
+        },
+        {
+            "event": "span_end",
+            "trace_id": t,
+            "span_id": "d2",
+            "status": "success",
+            "duration_s": 1.0,
+        },
+        {
+            "event": "span_end",
+            "trace_id": t,
+            "span_id": "d1",
+            "status": "success",
+            "duration_s": 2.5,
+        },
+        {"event": "span_end", "trace_id": t, "span_id": "root", "status": "ok", "duration_s": 5.0},
     ]
     roots = TraceAssembler(_write_spans(tmp_path, records)).assemble(t)
     assert len(roots) == 1
@@ -56,10 +86,24 @@ def test_assembler_builds_nested_tree(tmp_path):
 
 def test_assembler_defaults_to_latest_trace(tmp_path):
     records = [
-        {"event": "span_start", "trace_id": "old", "span_id": "a",
-         "parent_span_id": None, "kind": "run", "name": "old-run", "ts": 1},
-        {"event": "span_start", "trace_id": "new", "span_id": "b",
-         "parent_span_id": None, "kind": "run", "name": "new-run", "ts": 2},
+        {
+            "event": "span_start",
+            "trace_id": "old",
+            "span_id": "a",
+            "parent_span_id": None,
+            "kind": "run",
+            "name": "old-run",
+            "ts": 1,
+        },
+        {
+            "event": "span_start",
+            "trace_id": "new",
+            "span_id": "b",
+            "parent_span_id": None,
+            "kind": "run",
+            "name": "new-run",
+            "ts": 2,
+        },
     ]
     roots = TraceAssembler(_write_spans(tmp_path, records)).assemble()
     assert [r.name for r in roots] == ["new-run"]
@@ -67,10 +111,16 @@ def test_assembler_defaults_to_latest_trace(tmp_path):
 
 def test_chrome_export_is_valid_json(tmp_path):
     records = [
-        {"event": "span_start", "trace_id": "t", "span_id": "a",
-         "parent_span_id": None, "kind": "run", "name": "r", "ts": 1.0},
-        {"event": "span_end", "trace_id": "t", "span_id": "a",
-         "status": "ok", "duration_s": 2.0},
+        {
+            "event": "span_start",
+            "trace_id": "t",
+            "span_id": "a",
+            "parent_span_id": None,
+            "kind": "run",
+            "name": "r",
+            "ts": 1.0,
+        },
+        {"event": "span_end", "trace_id": "t", "span_id": "a", "status": "ok", "duration_s": 2.0},
     ]
     raw = TraceAssembler(_write_spans(tmp_path, records)).to_chrome_trace("t")
     data = json.loads(raw)
@@ -93,12 +143,13 @@ def test_span_emitter_writes_start_and_end(tmp_path):
     ctx = TraceContext(trace_id="t1", span_id="s1")
     started = em.start(ctx, kind="run", name="x", goal="g")
     em.end(ctx, started, status="ok", steps=3)
-    recs = [json.loads(l) for l in log.read_text().splitlines()]
+    recs = [json.loads(line) for line in log.read_text().splitlines()]
     assert recs[0]["event"] == "span_start" and recs[0]["kind"] == "run"
     assert recs[1]["event"] == "span_end" and recs[1]["status"] == "ok"
 
 
 # -------------------------------------------------------------- distiller
+
 
 def _distiller(tmp_path, **kw):
     return KnowledgeDistiller(db_path=str(tmp_path / "mem.db"), **kw)
@@ -169,7 +220,9 @@ class _FakeEmpty:
 
 
 def test_harvest_lessons_from_real_memory(tmp_path):
-    import sqlite3, time as _t
+    import sqlite3
+    import time as _t
+
     db = tmp_path / "mem.db"
     con = sqlite3.connect(db)
     con.executescript("""
@@ -179,11 +232,13 @@ def test_harvest_lessons_from_real_memory(tmp_path):
         repair_rounds INTEGER DEFAULT 0, lessons TEXT DEFAULT '[]',
         plan_json TEXT DEFAULT '{}', elapsed_s REAL DEFAULT 0
     );""")
-    con.execute("INSERT INTO agent_runs (ts, task_id, goal, outcome, "
-                "lessons) VALUES (?, 't1', 'fix lint', 'failed:lint', ?)",
-                (_t.time(), '["round 0: fail_lint — typo"]'))
+    con.execute(
+        "INSERT INTO agent_runs (ts, task_id, goal, outcome, "
+        "lessons) VALUES (?, 't1', 'fix lint', 'failed:lint', ?)",
+        (_t.time(), '["round 0: fail_lint — typo"]'),
+    )
     con.commit()
     con.close()
     d = KnowledgeDistiller(db_path=str(db))
     lessons = d.harvest_lessons(since_s=10_000_000)
-    assert any("fail_lint" in l for l in lessons)
+    assert any("fail_lint" in lesson for lesson in lessons)

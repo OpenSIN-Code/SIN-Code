@@ -8,12 +8,11 @@ Provides a command-line interface for running slash commands directly.
 
 import json
 import sys
-from typing import Optional
 
 import click
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
 from sin_code_bundle.tools.slash.dispatcher import CommandDispatcher
 from sin_code_bundle.tools.slash.registry import CommandRegistry
@@ -89,7 +88,9 @@ def list(built_in: bool, custom: bool) -> None:
 @click.argument("name", required=True)
 @click.argument("description", required=True)
 @click.argument("action", required=True)
-@click.option("--type", "action_type", default="shell", type=click.Choice(["shell", "sin", "script"]))
+@click.option(
+    "--type", "action_type", default="shell", type=click.Choice(["shell", "sin", "script"])
+)
 def register(name: str, description: str, action: str, action_type: str) -> None:
     """Register a custom command.
 

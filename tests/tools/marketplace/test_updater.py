@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from sin_code_bundle.tools.marketplace.updater import Updater, UpdateError
+from sin_code_bundle.tools.marketplace.updater import UpdateError, Updater
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -17,17 +17,20 @@ def _init_git_repo(path: str) -> None:
     subprocess.run(["git", "init", path], check=True, capture_output=True)
     subprocess.run(
         ["git", "-C", path, "config", "user.email", "test@test.com"],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
     subprocess.run(
         ["git", "-C", path, "config", "user.name", "Test"],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
     Path(path, "file.txt").write_text("v1")
     subprocess.run(["git", "-C", path, "add", "."], check=True, capture_output=True)
     subprocess.run(
         ["git", "-C", path, "commit", "-m", "v1"],
-        check=True, capture_output=True,
+        check=True,
+        capture_output=True,
     )
 
 

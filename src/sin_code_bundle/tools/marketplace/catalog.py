@@ -130,8 +130,7 @@ class Catalog:
         matches: CatalogData = []
         for entry in self._entries:
             text = " ".join(
-                str(entry.get(k, ""))
-                for k in ("name", "title", "description", "slug")
+                str(entry.get(k, "")) for k in ("name", "title", "description", "slug")
             ).lower()
             if query_lower in text:
                 matches.append(entry)
@@ -176,11 +175,7 @@ class Catalog:
             Skills whose ``category`` field equals the query.
         """
         cat_lower = category.lower()
-        return [
-            entry
-            for entry in self._entries
-            if entry.get("category", "").lower() == cat_lower
-        ]
+        return [entry for entry in self._entries if entry.get("category", "").lower() == cat_lower]
 
     def __len__(self) -> int:
         """Return number of loaded skills."""

@@ -54,9 +54,7 @@ class TestScaffoldSpec:
             ScaffoldSpec(name="x", tools=["1bad"])
 
     def test_context_dict(self):
-        spec = ScaffoldSpec(
-            name="My Tool", tools=["do_x", "do_y"], template="python-fastmcp"
-        )
+        spec = ScaffoldSpec(name="My Tool", tools=["do_x", "do_y"], template="python-fastmcp")
         ctx = spec.to_context()
         assert ctx["name"] == "My Tool"
         assert ctx["slug"] == "my-tool"
@@ -115,9 +113,7 @@ class TestScaffolder:
     def test_scaffold_renders_pkg_name(self, tmp_path):
         """The `{{ pkg }}` path placeholder must be replaced."""
         target = tmp_path / "out"
-        spec = ScaffoldSpec(
-            name="My Cool Tool", template="python-fastmcp", tools=["ping"]
-        )
+        spec = ScaffoldSpec(name="My Cool Tool", template="python-fastmcp", tools=["ping"])
         Scaffolder().scaffold(target, spec)
         # 'My Cool Tool' → 'my_cool_tool' (package form).
         assert (target / "src" / "my_cool_tool" / "mcp_server.py").is_file()

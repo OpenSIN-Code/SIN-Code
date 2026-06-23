@@ -68,29 +68,35 @@ class TestRegistryCRUD:
 
     def test_list_all(self, tmp_registry: Registry) -> None:
         for i in range(3):
-            tmp_registry.install({
-                "slug": f"skill-{i}",
-                "source": f"https://github.com/test/skill-{i}",
-                "destination": f"/tmp/skills/skill-{i}",
-            })
+            tmp_registry.install(
+                {
+                    "slug": f"skill-{i}",
+                    "source": f"https://github.com/test/skill-{i}",
+                    "destination": f"/tmp/skills/skill-{i}",
+                }
+            )
         skills = tmp_registry.list_all()
         assert len(skills) == 3
 
     def test_exists(self, tmp_registry: Registry) -> None:
         assert not tmp_registry.exists("test-skill")
-        tmp_registry.install({
-            "slug": "test-skill",
-            "source": "https://github.com/test/skill",
-            "destination": "/tmp/skills/test-skill",
-        })
+        tmp_registry.install(
+            {
+                "slug": "test-skill",
+                "source": "https://github.com/test/skill",
+                "destination": "/tmp/skills/test-skill",
+            }
+        )
         assert tmp_registry.exists("test-skill")
 
     def test_update_timestamp(self, tmp_registry: Registry) -> None:
-        tmp_registry.install({
-            "slug": "test-skill",
-            "source": "https://github.com/test/skill",
-            "destination": "/tmp/skills/test-skill",
-        })
+        tmp_registry.install(
+            {
+                "slug": "test-skill",
+                "source": "https://github.com/test/skill",
+                "destination": "/tmp/skills/test-skill",
+            }
+        )
         assert tmp_registry.update_timestamp("test-skill") is True
         # Verify updated_at changed
         record = tmp_registry.get("test-skill")
@@ -108,21 +114,25 @@ class TestRegistryCRUD:
         assert tmp_registry.get_meta("missing") is None
 
     def test_clear(self, tmp_registry: Registry) -> None:
-        tmp_registry.install({
-            "slug": "test-skill",
-            "source": "https://github.com/test/skill",
-            "destination": "/tmp/skills/test-skill",
-        })
+        tmp_registry.install(
+            {
+                "slug": "test-skill",
+                "source": "https://github.com/test/skill",
+                "destination": "/tmp/skills/test-skill",
+            }
+        )
         tmp_registry.clear()
         assert len(tmp_registry) == 0
 
     def test_len(self, tmp_registry: Registry) -> None:
         assert len(tmp_registry) == 0
-        tmp_registry.install({
-            "slug": "test-skill",
-            "source": "https://github.com/test/skill",
-            "destination": "/tmp/skills/test-skill",
-        })
+        tmp_registry.install(
+            {
+                "slug": "test-skill",
+                "source": "https://github.com/test/skill",
+                "destination": "/tmp/skills/test-skill",
+            }
+        )
         assert len(tmp_registry) == 1
 
     def test_install_overwrites(self, tmp_registry: Registry) -> None:
@@ -143,6 +153,7 @@ class TestRegistryCRUD:
         # Just verify it doesn't crash when using default path
         with tempfile.TemporaryDirectory() as tmpdir:
             import os
+
             old_home = os.environ.get("HOME")
             os.environ["HOME"] = tmpdir
             try:

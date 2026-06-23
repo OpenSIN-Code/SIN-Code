@@ -24,11 +24,10 @@ __all__ = [
     "app",
 ]
 
-from .commands import BUILTIN_COMMANDS, get_command_help
-from .dispatcher import CommandDispatcher, DispatchResult
-from .executor import CommandExecutor
-from .parser import ParsedCommand, SlashParser
-from .registry import CommandRegistry, CustomCommand
-
 # `app` is the Typer subcommand for `sin slash ...`
 from .app import app  # noqa: E402
+from .commands import BUILTIN_COMMANDS, get_command_help  # noqa: F401
+from .dispatcher import CommandDispatcher, DispatchResult  # noqa: F401
+from .executor import CommandExecutor  # noqa: F401
+from .parser import ParsedCommand, SlashParser  # noqa: F401
+from .registry import CommandRegistry, CustomCommand  # noqa: F401

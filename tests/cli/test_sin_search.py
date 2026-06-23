@@ -14,6 +14,7 @@ Tests cover:
 - --type flag (regex/semantic/symbol/usage)
 - Hard ceiling on python-regex fallback (max 200 results)
 """
+
 from __future__ import annotations
 
 import json
@@ -60,9 +61,7 @@ def test_sin_search_no_match_returns_empty(tmp_path: Path):
 
 def test_sin_search_nonexistent_path():
     """A missing path returns a graceful JSON error."""
-    result = _run_cli(
-        "--query", "anything", "--path", "/no/such/dir/sin-search", "--type", "regex"
-    )
+    result = _run_cli("--query", "anything", "--path", "/no/such/dir/sin-search", "--type", "regex")
     assert result.returncode == 0
     data = json.loads(result.stdout)
     # Either {"error": "..."} from python-regex fallback, or
@@ -88,11 +87,11 @@ def test_sin_search_max_ceiling_200():
     We don't actually run a 200+ match query (too slow); we just verify
     the implementation by importing the function and checking the docstring.
     """
-    from sin_code_bundle.file_ops import sin_search
-
     # The implementation has a `if len(results) >= 200: break` ceiling.
     # Source-check: look for the literal in the function body.
     import inspect
+
+    from sin_code_bundle.file_ops import sin_search
 
     src = inspect.getsource(sin_search)
     assert "200" in src

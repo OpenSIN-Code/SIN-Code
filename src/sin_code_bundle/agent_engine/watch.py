@@ -55,7 +55,8 @@ class DashboardState:
             self.task_id = rec.get("task_id", "?")
         elif ev == "step_start":
             self.steps[sid] = _StepView(
-                step_id=sid, tool=rec.get("tool", "?"),
+                step_id=sid,
+                tool=rec.get("tool", "?"),
                 attempts=int(rec.get("attempt", 1)),
             )
         elif ev == "step_ok" and sid in self.steps:
@@ -66,9 +67,7 @@ class DashboardState:
         elif ev == "step_fail" and sid in self.steps:
             self.steps[sid].state = "fail"
             for skipped in rec.get("skipped", []):
-                self.steps.setdefault(
-                    skipped, _StepView(step_id=skipped)
-                ).state = "skip"
+                self.steps.setdefault(skipped, _StepView(step_id=skipped)).state = "skip"
         elif ev == "verdict":
             mark = "PASS" if rec.get("ok") else str(rec.get("kind", "?")).upper()
             self.verdicts.append(f"round {rec.get('round', '?')}: {mark}")
@@ -87,16 +86,13 @@ class DashboardState:
             return f"{code}{text}{_RESET}" if color else text
 
         lines = [
-            style(_BOLD, f"sin agent watch  task={self.task_id}  "
-                         f"events={self.events}"),
+            style(_BOLD, f"sin agent watch  task={self.task_id}  events={self.events}"),
             "",
-            style(_BOLD, f"{'STATE':<6}{'STEP':<28}{'TOOL':<14}"
-                         f"{'TRY':<5}{'TIME':<8}"),
+            style(_BOLD, f"{'STATE':<6}{'STEP':<28}{'TOOL':<14}{'TRY':<5}{'TIME':<8}"),
         ]
         for v in list(self.steps.values())[-30:]:
             code, label = _STATE_STYLE.get(v.state, (_DIM, v.state[:4]))
-            dur = (v.duration_s if v.duration_s is not None
-                   else time.monotonic() - v.started)
+            dur = v.duration_s if v.duration_s is not None else time.monotonic() - v.started
             lines.append(
                 style(code, f"{label:<6}")
                 + f"{v.step_id[:26]:<28}{v.tool[:12]:<14}"
@@ -108,17 +104,23 @@ class DashboardState:
         if self.swarm:
             lines += ["", style(_BOLD, "SWARM")]
             for member, status in self.swarm.items():
-                code = {"ok": _GREEN, "merged": _GREEN, "fail": _RED,
-                        "conflict": _YELLOW, "reverted": _YELLOW}.get(
-                    status, _CYAN)
+                code = {
+                    "ok": _GREEN,
+                    "merged": _GREEN,
+                    "fail": _RED,
+                    "conflict": _YELLOW,
+                    "reverted": _YELLOW,
+                }.get(status, _CYAN)
                 lines.append(f"  {member:<20}" + style(code, status))
         return "\n".join(lines)
 
 
-def watch(log_path: str | None = None, *, refresh_s: float = 0.5,
-          once: bool = False) -> None:
-    path = Path(log_path or os.environ.get("SIN_AGENT_LOG", "")
-                or Path.home() / ".sin" / "agent-events.jsonl")
+def watch(log_path: str | None = None, *, refresh_s: float = 0.5, once: bool = False) -> None:
+    path = Path(
+        log_path
+        or os.environ.get("SIN_AGENT_LOG", "")
+        or Path.home() / ".sin" / "agent-events.jsonl"
+    )
     state = DashboardState()
     is_tty = sys.stdout.isatty()
     pos = 0

@@ -14,8 +14,9 @@ async def main() -> None:
         from mcp.server import Server
         from mcp.server.stdio import stdio_server
     except ImportError:
-        print("mcp package not installed; run: "
-              "pip install 'sin-code-delegate[mcp]'", file=sys.stderr)
+        print(
+            "mcp package not installed; run: pip install 'sin-code-delegate[mcp]'", file=sys.stderr
+        )
         return
 
     server = Server("sin-delegate-mcp")
@@ -23,11 +24,11 @@ async def main() -> None:
     handlers: dict = {}
 
     def add_tool(name, description, schema, handler):
-        tools.append({"name": name, "description": description,
-                      "inputSchema": schema})
+        tools.append({"name": name, "description": description, "inputSchema": schema})
         handlers[name] = handler
 
     from .mcp_tools import register
+
     register(add_tool)
 
     from mcp import types
@@ -37,8 +38,7 @@ async def main() -> None:
         return [types.Tool(**t) for t in tools]
 
     @server.call_tool()
-    async def call_tool(name: str, arguments: dict | None
-                        ) -> list:
+    async def call_tool(name: str, arguments: dict | None) -> list:
         handler = handlers.get(name)
         if handler is None:
             payload = {"error": f"unknown tool {name!r}"}
@@ -47,13 +47,10 @@ async def main() -> None:
                 payload = await handler(arguments or {})
             except Exception as e:
                 payload = {"error": f"{type(e).__name__}: {e}"}
-        return [types.TextContent(type="text",
-                                  text=__import__("json").dumps(
-                                      payload, default=str))]
+        return [types.TextContent(type="text", text=__import__("json").dumps(payload, default=str))]
 
     async with stdio_server() as (read, write):
-        await server.run(read, write,
-                         server.create_initialization_options())
+        await server.run(read, write, server.create_initialization_options())
 
 
 if __name__ == "__main__":

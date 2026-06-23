@@ -37,15 +37,25 @@ from sin_delegate.worktree import GitError, WorktreeManager
 
 def _git_init(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "init", "-b", "main", str(path)],
-                   capture_output=True, check=True)
+    subprocess.run(["git", "init", "-b", "main", str(path)], capture_output=True, check=True)
     (path / "README.md").write_text("# init")
-    subprocess.run(["git", "-C", str(path), "add", "-A"],
-                   capture_output=True, check=True)
-    subprocess.run(["git", "-C", str(path),
-                    "-c", "user.email=t@t", "-c", "user.name=t",
-                    "commit", "-m", "init"],
-                   capture_output=True, check=True)
+    subprocess.run(["git", "-C", str(path), "add", "-A"], capture_output=True, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(path),
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-m",
+            "init",
+        ],
+        capture_output=True,
+        check=True,
+    )
 
 
 # ---------------------------------------------------------- MCP validation
@@ -74,10 +84,12 @@ async def test_mcp_delegate_rejects_plan_without_tasks():
 
 @pytest.mark.asyncio
 async def test_mcp_delegate_rejects_non_integer_parallel():
-    result = await _tool_delegate({
-        "plan": '{"goal": "g", "tasks": []}',
-        "parallel": "four",
-    })
+    result = await _tool_delegate(
+        {
+            "plan": '{"goal": "g", "tasks": []}',
+            "parallel": "four",
+        }
+    )
     assert "error" in result
     assert "integer" in result["error"]
 
@@ -101,12 +113,14 @@ async def test_mcp_resolve_rejects_missing_fields():
 
 
 def test_budget_governor_lease_respects_global_cap():
-    plan = Plan(goal="g", tasks=(
-        Task(title="a", instructions="a").finalize(),
-        Task(title="b", instructions="b").finalize(),
-    ))
-    gov = BudgetGovernor(plan, global_seconds=120, priority={
-        t.id: 1 for t in plan.tasks})
+    plan = Plan(
+        goal="g",
+        tasks=(
+            Task(title="a", instructions="a").finalize(),
+            Task(title="b", instructions="b").finalize(),
+        ),
+    )
+    gov = BudgetGovernor(plan, global_seconds=120, priority={t.id: 1 for t in plan.tasks})
     grant_a = asyncio.run(gov.lease(plan.tasks[0].id))
     assert 0 < grant_a <= 120
     grant_b = asyncio.run(gov.lease(plan.tasks[1].id))
@@ -115,11 +129,8 @@ def test_budget_governor_lease_respects_global_cap():
 
 
 def test_budget_governor_release_and_extension():
-    plan = Plan(goal="g", tasks=(
-        Task(title="a", instructions="a").finalize(),
-    ))
-    gov = BudgetGovernor(plan, global_seconds=300, priority={
-        plan.tasks[0].id: 1})
+    plan = Plan(goal="g", tasks=(Task(title="a", instructions="a").finalize(),))
+    gov = BudgetGovernor(plan, global_seconds=300, priority={plan.tasks[0].id: 1})
     grant = asyncio.run(gov.lease(plan.tasks[0].id))
     asyncio.run(gov.release(plan.tasks[0].id, used_seconds=grant - 30))
     snapshot = gov.snapshot()
@@ -142,8 +153,7 @@ def test_ledger_corrupt_state_is_resilient(tmp_path):
     assert states["T1"] == TaskState.DONE
 
     history = ledger.history("p1")
-    corrupt_events = [e for e in history
-                      if e["kind"] == "ledger:corrupt_state"]
+    corrupt_events = [e for e in history if e["kind"] == "ledger:corrupt_state"]
     assert len(corrupt_events) == 1
     assert corrupt_events[0]["payload"]["kind"] == "state:invalid_xyz"
 
@@ -173,8 +183,15 @@ def test_escalation_state_mapping(tmp_path):
     ledger = Ledger(tmp_path / "l.db")
     broker = EscalationBroker(ledger)
     esc = broker.raise_escalation(
-        "p1", "T1", "task title", EscalationKind.GATE_FAILURE,
-        "gates failed", {"diff": "boom"}, branch="b1", worktree="w1")
+        "p1",
+        "T1",
+        "task title",
+        EscalationKind.GATE_FAILURE,
+        "gates failed",
+        {"diff": "boom"},
+        branch="b1",
+        worktree="w1",
+    )
 
     open_ = broker.open_escalations("p1")
     assert len(open_) == 1
@@ -194,14 +211,16 @@ def test_escalation_state_mapping(tmp_path):
 
 
 def test_resolution_apply_handles_corrupt_action(tmp_path):
-    plan = Plan(goal="g", tasks=(
-        Task(title="t", instructions="t", id="T1"),))
+    plan = Plan(goal="g", tasks=(Task(title="t", instructions="t", id="T1"),))
     ledger = Ledger(tmp_path / "l.db")
     ledger.register_run(plan.id, "goal", "{}")
     # Manually inject a corrupt resolution record
-    ledger.emit(plan.id, "T1", "escalation:resolved", {
-        "escalation_id": "e1", "task_id": "T1",
-        "action": "not_a_valid_action", "option_id": "x"})
+    ledger.emit(
+        plan.id,
+        "T1",
+        "escalation:resolved",
+        {"escalation_id": "e1", "task_id": "T1", "action": "not_a_valid_action", "option_id": "x"},
+    )
     result = apply_resolutions(plan, ledger)
     assert result["applied"] == 0
 
@@ -210,14 +229,16 @@ def test_resolution_apply_handles_corrupt_action(tmp_path):
 
 
 def test_resolution_drop_skips_downstream(tmp_path):
-    plan = Plan(goal="g", tasks=(
-        Task(title="a", instructions="a", id="A"),
-        Task(title="b", instructions="b", id="B", deps=("A",)),
-    ))
+    plan = Plan(
+        goal="g",
+        tasks=(
+            Task(title="a", instructions="a", id="A"),
+            Task(title="b", instructions="b", id="B", deps=("A",)),
+        ),
+    )
     ledger = Ledger(tmp_path / "l.db")
     broker = EscalationBroker(ledger)
-    esc = broker.raise_escalation(
-        plan.id, "A", "a", EscalationKind.GATE_FAILURE, "boom", {})
+    esc = broker.raise_escalation(plan.id, "A", "a", EscalationKind.GATE_FAILURE, "boom", {})
     broker.resolve(plan.id, esc.id, "drop")
 
     result = apply_resolutions(plan, ledger)
@@ -238,10 +259,10 @@ def test_two_phase_merger_stages_and_rolls_back(tmp_path):
     wt.commit_all("commit")
 
     ledger = Ledger(tmp_path / "l.db")
-    merger = TwoPhaseMerger({"repo": type("R", (), {
-        "path": str(repo), "base_branch": "main"})()}, ledger, "plan1")
-    merger.stage(type("U", (), {
-        "task_id": "T1", "worktree": wt, "repo_name": "repo"})())
+    merger = TwoPhaseMerger(
+        {"repo": type("R", (), {"path": str(repo), "base_branch": "main"})()}, ledger, "plan1"
+    )
+    merger.stage(type("U", (), {"task_id": "T1", "worktree": wt, "repo_name": "repo"})())
     assert len(merger.units) == 1
 
     # Commit succeeds; rollback path is covered by unit tests in the
@@ -263,17 +284,29 @@ def test_two_phase_merger_rollback_on_conflict(tmp_path):
 
     # Introduce a conflicting commit on main after the worktree branched
     (repo / "conflict.txt").write_text("main version")
-    subprocess.run(["git", "-C", str(repo), "add", "-A"],
-                   capture_output=True, check=True)
-    subprocess.run(["git", "-C", str(repo), "-c", "user.email=t@t",
-                    "-c", "user.name=t", "commit", "-m", "main commit"],
-                   capture_output=True, check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], capture_output=True, check=True)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "commit",
+            "-m",
+            "main commit",
+        ],
+        capture_output=True,
+        check=True,
+    )
 
     ledger = Ledger(tmp_path / "l.db")
-    merger = TwoPhaseMerger({"repo": type("R", (), {
-        "path": str(repo), "base_branch": "main"})()}, ledger, "plan1")
-    merger.stage(type("U", (), {
-        "task_id": "T1", "worktree": wt, "repo_name": "repo"})())
+    merger = TwoPhaseMerger(
+        {"repo": type("R", (), {"path": str(repo), "base_branch": "main"})()}, ledger, "plan1"
+    )
+    merger.stage(type("U", (), {"task_id": "T1", "worktree": wt, "repo_name": "repo"})())
 
     with pytest.raises(GitError):
         merger.commit(["T1"])
@@ -287,9 +320,13 @@ def test_two_phase_merger_rollback_on_conflict(tmp_path):
     assert rollback[0]["payload"]["failed_unit"] == "T1"
     assert rollback[0]["payload"]["rolled_back_repos"] == []
 
-    head = subprocess.run(["git", "-C", str(repo), "rev-parse", "HEAD"],
-                          capture_output=True, text=True, check=True).stdout.strip()
-    snap = subprocess.run(["git", "-C", str(repo), "rev-parse",
-                           "sin-global-snap/plan1"],
-                          capture_output=True, text=True, check=True).stdout.strip()
+    head = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
+    ).stdout.strip()
+    snap = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "sin-global-snap/plan1"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
     assert head == snap

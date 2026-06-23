@@ -52,13 +52,11 @@ class ToolRouter:
     _circuits: dict[str, _Circuit] = field(default_factory=dict)
     _stats: dict[str, dict[str, int]] = field(default_factory=dict)
 
-    def register(self, name: str, fn: ToolFn, *,
-                 failure_threshold: int = 5,
-                 cooldown_s: float = 30.0) -> None:
+    def register(
+        self, name: str, fn: ToolFn, *, failure_threshold: int = 5, cooldown_s: float = 30.0
+    ) -> None:
         self._tools[name] = fn
-        self._circuits[name] = _Circuit(
-            failure_threshold=failure_threshold, cooldown_s=cooldown_s
-        )
+        self._circuits[name] = _Circuit(failure_threshold=failure_threshold, cooldown_s=cooldown_s)
         self._stats[name] = {"calls": 0, "failures": 0, "retries": 0}
 
     def stats(self) -> dict[str, dict[str, Any]]:
@@ -101,6 +99,4 @@ class ToolRouter:
                 self._stats[name]["retries"] += 1
                 await asyncio.sleep(delay)
 
-        raise RuntimeError(
-            f"tool {name!r} failed after retries: {last_err}"
-        ) from last_err
+        raise RuntimeError(f"tool {name!r} failed after retries: {last_err}") from last_err

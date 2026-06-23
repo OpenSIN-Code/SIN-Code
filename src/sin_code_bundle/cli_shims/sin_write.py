@@ -12,6 +12,7 @@ Example:
     $ sin-write /tmp/hello.py --content 'print("hi")'
     {"success": true, "path": "/tmp/hello.py", "chars": 12, "verified": true, "backup": null}
 """
+
 from __future__ import annotations
 
 import argparse

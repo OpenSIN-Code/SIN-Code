@@ -43,25 +43,40 @@ class MemoryBridge:
         con.row_factory = sqlite3.Row
         return con
 
-    def remember_run(self, *, task_id: str, goal: str, outcome: str,
-                    repair_rounds: int, lessons: list[str],
-                    plan_json: str, elapsed_s: float = 0.0) -> None:
+    def remember_run(
+        self,
+        *,
+        task_id: str,
+        goal: str,
+        outcome: str,
+        repair_rounds: int,
+        lessons: list[str],
+        plan_json: str,
+        elapsed_s: float = 0.0,
+    ) -> None:
         with self._conn() as con:
             con.execute(
                 "INSERT INTO agent_runs "
                 "(ts, task_id, goal, outcome, repair_rounds, lessons, "
                 "plan_json, elapsed_s) "
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                (time.time(), task_id, goal, outcome, repair_rounds,
-                 json.dumps(lessons, ensure_ascii=False), plan_json,
-                 float(elapsed_s)),
+                (
+                    time.time(),
+                    task_id,
+                    goal,
+                    outcome,
+                    repair_rounds,
+                    json.dumps(lessons, ensure_ascii=False),
+                    plan_json,
+                    float(elapsed_s),
+                ),
             )
 
     def recall_similar(self, goal: str, limit: int = 5) -> list[dict[str, Any]]:
         terms = " OR ".join(
-            w for w in "".join(
-                c if c.isalnum() or c.isspace() else " " for c in goal
-            ).split() if len(w) > 2
+            w
+            for w in "".join(c if c.isalnum() or c.isspace() else " " for c in goal).split()
+            if len(w) > 2
         )
         if not terms:
             return []

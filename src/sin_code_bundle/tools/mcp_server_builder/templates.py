@@ -107,9 +107,7 @@ class TemplateEngine:
 
     def iter_files(self, template_name: str) -> Iterable[Path]:
         """Yield every file in a template (used by the scaffolder)."""
-        return iter(
-            p for p in self.get_template_dir(template_name).rglob("*") if p.is_file()
-        )
+        return iter(p for p in self.get_template_dir(template_name).rglob("*") if p.is_file())
 
 
 def list_templates() -> list[dict[str, str]]:

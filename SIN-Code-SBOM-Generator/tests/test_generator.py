@@ -8,14 +8,11 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from sbom_generator.generator import SBOMGenerator
-from sbom_generator.models import SBOM, SBOMPackage, SBOMMetadata
+from sbom_generator.models import SBOM, SBOMMetadata, SBOMPackage
 
 
 class TestSBOMGenerator:
-
     def test_init(self):
         gen = SBOMGenerator()
         assert gen.tool_name == "SIN-Code-SBOM-Generator"
@@ -58,7 +55,12 @@ class TestSBOMGenerator:
     def test_generate_from_raw_dependencies(self):
         gen = SBOMGenerator()
         deps = [
-            {"name": "requests", "version": "2.31.0", "license": "Apache-2.0", "purl": "pkg:pypi/requests@2.31.0"},
+            {
+                "name": "requests",
+                "version": "2.31.0",
+                "license": "Apache-2.0",
+                "purl": "pkg:pypi/requests@2.31.0",
+            },
             {"name": "urllib3", "version": "2.0.7", "license": "MIT"},
         ]
         sbom = gen.generate_from_raw_dependencies(deps, document_name="python-deps")
@@ -167,4 +169,10 @@ class TestSBOMGenerator:
             SBOMPackage(name="lodash", version="4.17.21", license_concluded="MIT", type="library"),
             SBOMPackage(name="express", version="4.18.2", license_concluded="MIT", type="library"),
         ]
-        return SBOM(metadata=metadata, packages=packages, total_packages=2, total_dependencies=0, unique_licenses=["MIT"])
+        return SBOM(
+            metadata=metadata,
+            packages=packages,
+            total_packages=2,
+            total_dependencies=0,
+            unique_licenses=["MIT"],
+        )

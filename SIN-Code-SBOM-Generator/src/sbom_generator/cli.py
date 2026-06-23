@@ -11,13 +11,10 @@ from typing import Optional
 
 import click
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
-from rich.text import Text
+from rich.table import Table
 
 from .generator import SBOMGenerator
-from .models import SBOM, SBOMPackage, SBOMMetadata
-
 
 console = Console()
 
@@ -26,16 +23,27 @@ console = Console()
 @click.version_option(version="1.0.0", prog_name="sin-sbom")
 @click.pass_context
 def cli(ctx):
-    """SIN-Code SBOM Generator — Generate SPDX and CycloneDX SBOMs.
-    """
+    """SIN-Code SBOM Generator — Generate SPDX and CycloneDX SBOMs."""
     ctx.ensure_object(dict)
     ctx.obj["generator"] = SBOMGenerator()
 
 
 @cli.command()
 @click.argument("input_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-@click.option("--format", "fmt", type=click.Choice(["spdx", "cyclonedx", "both"]), default="both", show_default=True, help="SBOM output format")
-@click.option("--output", "-o", type=click.Path(path_type=Path), help="Output directory (default: current directory)")
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["spdx", "cyclonedx", "both"]),
+    default="both",
+    show_default=True,
+    help="SBOM output format",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(path_type=Path),
+    help="Output directory (default: current directory)",
+)
 @click.option("--name", default="sbom", show_default=True, help="SBOM document name")
 @click.option("--summary", is_flag=True, help="Print human-readable summary")
 @click.pass_context
@@ -68,7 +76,9 @@ def generate(ctx, input_path: Path, fmt: str, output: Optional[Path], name: str,
         console.print(f"[green]✅ CycloneDX SBOM written to {cdx_path}[/green]")
 
     if summary:
-        console.print(Panel(generator.export_summary(sbom), title="SBOM Summary", border_style="blue"))
+        console.print(
+            Panel(generator.export_summary(sbom), title="SBOM Summary", border_style="blue")
+        )
 
     # Print stats table
     table = Table(title="SBOM Statistics", show_header=True, header_style="bold magenta")
@@ -83,9 +93,21 @@ def generate(ctx, input_path: Path, fmt: str, output: Optional[Path], name: str,
 
 @cli.command()
 @click.argument("name", default="sbom")
-@click.option("--format", "fmt", type=click.Choice(["spdx", "cyclonedx", "both"]), default="both", show_default=True)
-@click.option("--output", "-o", type=click.Path(path_type=Path), default=Path("."), help="Output directory")
-@click.option("--packages", type=click.STRING, help='JSON array of packages, e.g., \'[{"name":"lodash","version":"4.17.21"}]\'')
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["spdx", "cyclonedx", "both"]),
+    default="both",
+    show_default=True,
+)
+@click.option(
+    "--output", "-o", type=click.Path(path_type=Path), default=Path("."), help="Output directory"
+)
+@click.option(
+    "--packages",
+    type=click.STRING,
+    help='JSON array of packages, e.g., \'[{"name":"lodash","version":"4.17.21"}]\'',
+)
 @click.pass_context
 def from_deps(ctx, name: str, fmt: str, output: Path, packages: str):
     """Generate SBOM from a raw list of dependencies (JSON string)."""
