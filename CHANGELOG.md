@@ -32,6 +32,36 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   `cmd/sin-code/internal/security_secrets_test.go` (tests), and updates to
   `security.doc.md`.
 
+### Ecosystem skills — deprecation, batch install, and doctor
+- **Skill registry now supports deprecation metadata:**
+  - `cmd/sin-code/internal/skillmgr.SkillInfo` gains `Deprecated`,
+    `DeprecatedReason`, and `SkipInInstallAll` fields.
+  - `KnownSkillsInfo()` becomes the single source of truth for ecosystem
+    skills; `KnownSkills()` remains a backward-compatible shortname→repo
+    map.
+  - `Install`, `Status`, and `sin-code skill status` surface deprecated
+    skills with their reasons and a `deprecated` status column.
+  - `InstallAll()` skips `SkipInInstallAll` entries so
+    `sin-code skill install all` never fails because of stale upstream repos.
+  - `Doctor()` returns a health report with explicit `not installed` details
+    for skills that are neither cloned nor available on PATH.
+- **Runnability improvements:**
+  - `Status` now falls back to console scripts on PATH when a repo is not
+    cloned locally.
+  - `verifyEntrypoint` detects pre-built Go binaries (e.g. `sin-analyse`) in
+    the repo root without requiring a local `go.mod`, so status reports
+    `go binary present` for Go-native ecosystem skills.
+  - Extra PATH candidates for `simone` (`simone-cli`) and `symfonylens`
+    (`symfony-lens`) so their system packages are discovered correctly.
+- **Tests** in `cmd/sin-code/internal/skillmgr/`: shop-skill deprecation
+  (`TestKnownSkillsInfo_MarksShopSkillsDeprecated`), `InstallAll` skip
+  behavior (`TestInstallAll_SkipsDeprecatedSkills`), `InstallAll` failure
+  reporting (`TestInstallAll_ReportsFailures`), `Doctor` empty-dir and
+  runnable-skill cases, and `TestStatusDetectsAnalyseGoBinary`. All pass
+  under `go test -race -count=1 ./cmd/sin-code/internal/skillmgr/...`.
+- **Shop skills** marked `deprecated: true` in their bundled `SKILL.md`
+  frontmatter and skipped in `sin-code skill install all`.
+
 ## [Unreleased] - 2026-06-19
 
 ### Added — `sin_run_loop` + `sin_goal_*` MCP tools (5 new tools, 44+ → 49+)

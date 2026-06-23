@@ -52,6 +52,9 @@ func TestInstallUnknownSkillFails(t *testing.T) {
 }
 
 func TestStatusOnEmptyDir(t *testing.T) {
+	orig := _execLookPath
+	_execLookPath = func(string) (string, error) { return "", os.ErrNotExist }
+	t.Cleanup(func() { _execLookPath = orig })
 	t.Setenv("SIN_SKILLS_DIR", t.TempDir())
 	sts := Status(context.Background())
 	if len(sts) == 0 {
@@ -64,7 +67,7 @@ func TestStatusOnEmptyDir(t *testing.T) {
 	}
 }
 
-func TestStatusReportsPathFallbackWhenNotInstalled(t *testing.T) {
+func TestStatusReportsPathBinaryAsInstalledAndRunnable(t *testing.T) {
 	orig := _execLookPath
 	_execLookPath = func(name string) (string, error) {
 		if name == "sin-scheduler" {
@@ -78,8 +81,8 @@ func TestStatusReportsPathFallbackWhenNotInstalled(t *testing.T) {
 	sts := Status(context.Background())
 	for _, st := range sts {
 		if st.Name == "scheduler" {
-			if st.Installed {
-				t.Errorf("scheduler should not be installed in tempdir")
+			if !st.Installed {
+				t.Fatalf("scheduler should be installed via PATH binary")
 			}
 			if !st.Runnable {
 				t.Fatalf("scheduler should be runnable via PATH fallback")
@@ -91,6 +94,46 @@ func TestStatusReportsPathFallbackWhenNotInstalled(t *testing.T) {
 		}
 	}
 	t.Fatal("scheduler not found in status")
+}
+
+func TestStatusReportsEcosystemSkillsInstalledOnPath(t *testing.T) {
+	wantPathInstalled := map[string]bool{
+		"browser":     true,
+		"codocs":      true,
+		"frontend":    true,
+		"goalmode":    true,
+		"marketplace": true,
+		"mcpbuilder":  true,
+		"scheduler":   true,
+	}
+	orig := _execLookPath
+	_execLookPath = func(name string) (string, error) {
+		for skill := range wantPathInstalled {
+			if name == canonicalBinary(skill)+"-mcp" {
+				return "/opt/bin/" + name, nil
+			}
+		}
+		return "", os.ErrNotExist
+	}
+	t.Cleanup(func() { _execLookPath = orig })
+	t.Setenv("SIN_SKILLS_DIR", t.TempDir())
+
+	sts := Status(context.Background())
+	for _, st := range sts {
+		if !wantPathInstalled[st.Name] {
+			continue
+		}
+		if !st.Installed {
+			t.Errorf("%s should be installed via PATH binary", st.Name)
+		}
+		if !st.Runnable {
+			t.Errorf("%s should be runnable via PATH binary", st.Name)
+		}
+		delete(wantPathInstalled, st.Name)
+	}
+	for skill := range wantPathInstalled {
+		t.Errorf("expected status entry for %s", skill)
+	}
 }
 
 func TestStatusDetectsNestedMcpServer(t *testing.T) {

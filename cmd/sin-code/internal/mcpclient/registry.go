@@ -154,16 +154,11 @@ func DefaultServers() []ServerConfig {
 		if skillsDir != "" {
 			localDir := filepath.Join(skillsDir, repo)
 			// Prefer the canonical root-level mcp_server.py, then discover the
-			// actual MCP server module inside the package tree.
+			// actual MCP server module inside the package tree. Repo-cloned skills
+			// are the preferred source; PATH binaries are the fallback.
 			if script := findMcpServer(localDir); script != "" {
-				// Installed console scripts are the canonical runtime entry point;
-				// use the local repo script only when no console script is on PATH.
-				if bin := findOnPath(candidates...); bin != "" {
-					cfg.Command = bin
-				} else {
-					cfg = pythonConfig(localDir, script)
-					cfg.Name = name
-				}
+				cfg = pythonConfig(localDir, script)
+				cfg.Name = name
 			} else {
 				// No local checkout entrypoint: fall back to a console script on PATH.
 				cfg.Command = findOnPath(candidates...)

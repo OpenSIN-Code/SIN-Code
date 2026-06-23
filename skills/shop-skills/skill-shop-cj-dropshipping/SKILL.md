@@ -14,6 +14,8 @@ required_tools:
   - sin_execute
   - sin_harvest
 lifecycle: external
+deprecated: true
+deprecated_reason: upstream repo SIN-Shop-Center/cj-dropshipping-skill is not maintained and no runnable MCP entrypoint exists
 sources:
   - https://github.com/OpenSIN-Code/cj-dropshipping-skill
   - https://github.com/SIN-Shop-Center/SIN-CJDropshipping-Bundle

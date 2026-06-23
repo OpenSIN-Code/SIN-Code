@@ -54,6 +54,21 @@ skill-code-build                   [native   ]  —            —
 legacy skill that has not been migrated. Run
 `scripts/sync_lifecycle.py --apply` to fix.
 
+### Ecosystem skill install
+
+```bash
+sin-code skill install <name>      # clone/update one ecosystem MCP skill
+sin-code skill install all         # install all non-deprecated ecosystem skills
+sin-code skill status              # install + runnable state
+sin-code skill doctor              # diagnose why skills are not runnable
+```
+
+`install all` skips deprecated skills (e.g. the shop skills) so a stale
+upstream repo never breaks the batch. Deprecated skills can still be
+installed explicitly by name. `doctor` checks every known ecosystem skill
+and reports `not installed` (or the concrete verification failure) for any
+skill that is not runnable.
+
 ## Acceptance criteria (from #139)
 
 - [x] `lifecycle` field in every bundled SKILL.md (34/34 after migration)

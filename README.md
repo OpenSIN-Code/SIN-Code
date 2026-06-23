@@ -138,6 +138,7 @@ sin-code session fork <session-id> 8
 sin-code mcp list      # configured MCP servers
 sin-code mcp status    # reachability + tool counts
 sin-code skill status  # installed skill repos
+sin-code skill doctor  # diagnose why skills are not runnable
 sin-code knowledge list # accumulated lessons
 
 # Swarm mode (v3.6.0)

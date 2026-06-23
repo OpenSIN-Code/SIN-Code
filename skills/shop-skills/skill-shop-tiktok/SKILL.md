@@ -14,6 +14,8 @@ required_tools:
   - sin_execute
   - sin_harvest
 lifecycle: external
+deprecated: true
+deprecated_reason: upstream repo SIN-Shop-Center/SIN-eCommerce-Scraper-Bundle is not maintained and no runnable MCP entrypoint exists
 sources:
   - https://github.com/SIN-Shop-Center/SIN-eCommerce-Scraper-Bundle
 ---

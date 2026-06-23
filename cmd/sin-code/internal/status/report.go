@@ -156,10 +156,12 @@ type SkillsSection struct {
 
 // SkillItem is a slim, stable view of skillmgr.SkillStatus.
 type SkillItem struct {
-	Name      string `json:"name"`
-	Installed bool   `json:"installed"`
-	Runnable  bool   `json:"runnable"`
-	Detail    string `json:"detail,omitempty"`
+	Name             string `json:"name"`
+	Installed        bool   `json:"installed"`
+	Runnable         bool   `json:"runnable"`
+	Detail           string `json:"detail,omitempty"`
+	Deprecated       bool   `json:"deprecated,omitempty"`
+	DeprecatedReason string `json:"deprecated_reason,omitempty"`
 }
 
 // Collect gathers data from every available subsystem. Errors are captured
@@ -406,10 +408,12 @@ func collectSkills(ctx context.Context) SkillsSection {
 			section.Runnable++
 		}
 		section.Items = append(section.Items, SkillItem{
-			Name:      s.Name,
-			Installed: s.Installed,
-			Runnable:  s.Runnable,
-			Detail:    s.Detail,
+			Name:             s.Name,
+			Installed:        s.Installed,
+			Runnable:         s.Runnable,
+			Detail:           s.Detail,
+			Deprecated:       s.Deprecated,
+			DeprecatedReason: s.DeprecatedReason,
 		})
 	}
 	section.Items = sortedSkills(section.Items)

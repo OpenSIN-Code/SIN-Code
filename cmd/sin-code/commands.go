@@ -573,6 +573,10 @@ func reservedAgentNames() []string {
 // isolation trivial.
 var bundledSkillFS = func() (fs.FS, error) { return skills.ListFS() }
 
+// skillmgrInstallAllHook is overridden by tests to avoid real git
+// clone/pull operations during `sin-code skill install all`.
+var skillmgrInstallAllHook = skillmgr.InstallAll
+
 // resolveHome picks the home directory for install paths. Order of
 // precedence: $SIN_CODE_HOME > $HOME > os.UserHomeDir().
 func resolveHome() (string, error) {
@@ -696,10 +700,22 @@ block between <!-- SIN-CODE-SKILL-START: <name> --> and
 				enc.SetIndent("", "  ")
 				return enc.Encode(sts)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "%-15s %-10s %-9s %s\n", "SKILL", "INSTALLED", "RUNNABLE", "DETAIL")
-			for _, s := range sts {
-				fmt.Fprintf(cmd.OutOrStdout(), "%-15s %-10v %-9v %s\n", s.Name, s.Installed, s.Runnable, s.Detail)
+		fmt.Fprintf(cmd.OutOrStdout(), "%-15s %-10s %-9s %-10s %s\n", "SKILL", "INSTALLED", "RUNNABLE", "STATUS", "DETAIL")
+		for _, s := range sts {
+			status := ""
+			if s.Deprecated {
+				status = "deprecated"
 			}
+			detail := s.Detail
+			if s.Deprecated && s.DeprecatedReason != "" {
+				if detail != "" {
+					detail = "DEPRECATED: " + s.DeprecatedReason + " | " + detail
+				} else {
+					detail = "DEPRECATED: " + s.DeprecatedReason
+				}
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "%-15s %-10v %-9v %-10s %s\n", s.Name, s.Installed, s.Runnable, status, detail)
+		}
 			return nil
 		},
 	}
@@ -770,18 +786,40 @@ filters the report to one target (use "all" for the unfiltered view).`,
 // runSkillInstallEcosystem is the pre-existing v3.5.0 behaviour: clone
 // (or pull) an upstream skill repo and verify its MCP entrypoint.
 //
+// Deprecated skills are skipped when the magic `all` argument is used, but
+// can still be installed explicitly by name. This keeps `install all` green
+// while preserving the ability to audit or recover a deprecated skill.
+//
 // Kept as a helper so the parent install command stays readable.
 func runSkillInstallEcosystem(cmd *cobra.Command, args []string) error {
-	names := args
-	if len(args) == 1 && args[0] == "all" {
-		names = names[:0]
-		for n := range skillmgr.KnownSkills() {
-			names = append(names, n)
+	allMode := len(args) == 1 && args[0] == "all"
+
+	// Batch mode: delegate to the skill manager so the CLI and the library
+	// share the same deprecation/skip logic.
+	if allMode {
+		sts, err := skillmgrInstallAllHook(cmd.Context())
+		skipped := 0
+		for _, info := range skillmgr.KnownSkillsInfo() {
+			if info.SkipInInstallAll {
+				skipped++
+			}
 		}
-		sort.Strings(names)
+		for _, st := range sts {
+			if st.Installed {
+				fmt.Fprintf(cmd.OutOrStdout(), "OK   %s (runnable=%v, %s)\n", st.Name, st.Runnable, st.Detail)
+			} else {
+				fmt.Fprintf(os.Stderr, "FAIL %s: %s\n", st.Name, st.Detail)
+			}
+		}
+		if skipped > 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "SKIPPED %d deprecated skill(s) in `install all`\n", skipped)
+		}
+		return err
 	}
+
+	// Single-skill mode preserves the original per-name confirmation.
 	failed := 0
-	for _, n := range names {
+	for _, n := range args {
 		st, err := skillmgr.Install(cmd.Context(), n)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "FAIL %s: %v\n", n, err)
@@ -859,10 +897,11 @@ func runSkillInstallDistribute(cmd *cobra.Command, args []string, agentFlag stri
 // bundled skill × every agent family; --installed filters out rows with
 // zero installs; --agent filters the agent columns to one target.
 type listRow struct {
-	Skill     string          `json:"skill"`
-	Lifecycle string          `json:"lifecycle,omitempty"` // issue #139
-	Targets   map[string]bool `json:"targets"`
-	HasAny    bool            `json:"has_any"`
+	Skill      string          `json:"skill"`
+	Lifecycle  string          `json:"lifecycle,omitempty"` // issue #139
+	Deprecated bool            `json:"deprecated,omitempty"`
+	Targets    map[string]bool `json:"targets"`
+	HasAny     bool            `json:"has_any"`
 }
 
 func runSkillList(cmd *cobra.Command, agentFlag string, installedOnly, jsonOut bool) error {
@@ -888,13 +927,15 @@ func runSkillList(cmd *cobra.Command, agentFlag string, installedOnly, jsonOut b
 	rows := make([]listRow, 0, len(skillNames))
 	for _, sk := range skillNames {
 		row := listRow{Skill: sk, Targets: make(map[string]bool, len(targets))}
-		// Read the lifecycle from the embedded SKILL.md frontmatter
-		// (issue #139). Bundled skills are content-addressed; the
-		// lifecycle field is part of the manifest. If missing
-		// (legacy skills before the migration), the field is
+		// Read the lifecycle and deprecation flags from the embedded
+		// SKILL.md frontmatter (issue #139). Bundled skills are
+		// content-addressed; the lifecycle field is part of the manifest.
+		// If missing (legacy skills before the migration), the field is
 		// empty and the CLI shows a `[unknown]` marker.
 		if sm, err := fs.ReadFile(src, sk+"/SKILL.md"); err == nil {
-			row.Lifecycle = parseLifecycleFromFrontmatter(string(sm))
+			body := string(sm)
+			row.Lifecycle = parseLifecycleFromFrontmatter(body)
+			row.Deprecated = parseDeprecatedFromFrontmatter(body)
 		}
 		for _, ag := range targets {
 			tgt := skilldist.Targets[ag]
@@ -932,7 +973,10 @@ func runSkillList(cmd *cobra.Command, agentFlag string, installedOnly, jsonOut b
 		if lc == "" {
 			lc = "unknown"
 		}
-		row := fmt.Sprintf("%-32s [%-8s]", r.Skill, lc)
+		if r.Deprecated {
+			lc += ",deprecated"
+		}
+		row := fmt.Sprintf("%-32s [%-16s]", r.Skill, lc)
 		for _, ag := range targets {
 			if r.Targets[ag] {
 				row += " ✓           "
@@ -1029,6 +1073,34 @@ func parseLifecycleFromFrontmatter(s string) string {
 		}
 	}
 	return ""
+}
+
+// parseDeprecatedFromFrontmatter extracts the `deprecated:` boolean value
+// from a SKILL.md's YAML frontmatter. It recognises true-ish values
+// (`true`, `yes`, `1`) in a case-insensitive way.
+func parseDeprecatedFromFrontmatter(s string) bool {
+	const openDelim = "---"
+	if !strings.HasPrefix(s, openDelim) {
+		return false
+	}
+	rest := strings.TrimPrefix(s, openDelim)
+	idx := strings.Index(rest, "\n---")
+	if idx < 0 {
+		return false
+	}
+	fm := rest[:idx]
+	for _, line := range strings.Split(fm, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "deprecated:") {
+			val := strings.TrimSpace(strings.TrimPrefix(line, "deprecated:"))
+			if len(val) >= 2 && (val[0] == '"' && val[len(val)-1] == '"') {
+				val = val[1 : len(val)-1]
+			}
+			val = strings.ToLower(val)
+			return val == "true" || val == "yes" || val == "1"
+		}
+	}
+	return false
 }
 
 // ============================================================================

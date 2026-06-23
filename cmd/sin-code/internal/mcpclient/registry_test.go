@@ -193,6 +193,40 @@ func TestDefaultServersPythonSkillFallsBackToPath(t *testing.T) {
 	t.Fatal("scheduler server not found in DefaultServers")
 }
 
+func TestDefaultServersPythonSkillPrefersRepoOverPath(t *testing.T) {
+	// When a local checkout entrypoint exists AND a console script is on PATH,
+	// the repo-cloned skill must be the preferred source.
+	orig := lookPathHook
+	lookPathHook = func(name string) (string, error) {
+		if name == "sin-scheduler" {
+			return "/opt/bin/sin-scheduler", nil
+		}
+		return "", errors.New("not found")
+	}
+	t.Cleanup(func() { lookPathHook = orig })
+
+	dir := t.TempDir()
+	script := filepath.Join(dir, "SIN-Code-Scheduler-Skill", "mcp_server.py")
+	if err := os.MkdirAll(filepath.Dir(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(script, []byte("# mock"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SIN_SKILLS_DIR", dir)
+
+	for _, s := range DefaultServers() {
+		if s.Name != "scheduler" {
+			continue
+		}
+		if s.Command != "python3" || len(s.Args) != 1 || s.Args[0] != script {
+			t.Fatalf("scheduler should prefer local repo script, got %+v", s)
+		}
+		return
+	}
+	t.Fatal("scheduler server not found in DefaultServers")
+}
+
 func TestShortNameDefaultReturnsRepo(t *testing.T) {
 	if got := shortName("Unknown-Repo-Name"); got != "Unknown-Repo-Name" {
 		t.Fatalf("expected repo name unchanged, got %q", got)

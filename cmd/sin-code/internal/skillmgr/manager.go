@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -29,12 +30,25 @@ var (
 
 const orgURL = "https://github.com/OpenSIN-Code/"
 
+// SkillInfo is the canonical metadata for an ecosystem skill. It augments the
+// shortname->repo mapping with deprecation state so the CLI can skip stale
+// skills during `install all` while still surfacing them in `skill status`.
+type SkillInfo struct {
+	Name             string `json:"name"`
+	Repo             string `json:"repo"`
+	Deprecated       bool   `json:"deprecated,omitempty"`
+	DeprecatedReason string `json:"deprecated_reason,omitempty"`
+	SkipInInstallAll bool   `json:"skip_in_install_all,omitempty"`
+}
+
 type SkillStatus struct {
-	Name      string `json:"name"`
-	Repo      string `json:"repo"`
-	Installed bool   `json:"installed"`
-	Runnable  bool   `json:"runnable"`
-	Detail    string `json:"detail,omitempty"`
+	Name             string `json:"name"`
+	Repo             string `json:"repo"`
+	Installed        bool   `json:"installed"`
+	Runnable         bool   `json:"runnable"`
+	Detail           string `json:"detail,omitempty"`
+	Deprecated       bool   `json:"deprecated,omitempty"`
+	DeprecatedReason string `json:"deprecated_reason,omitempty"`
 }
 
 // SkillsDir resolves the local skills checkout directory.
@@ -121,46 +135,131 @@ func findMcpServer(dir string) string {
 	return ""
 }
 
+// KnownSkillsInfo returns the canonical metadata for every ecosystem skill.
+// It is the single source of truth for the registry; KnownSkills() provides a
+// backward-compatible shortname->repo map.
+func KnownSkillsInfo() []SkillInfo {
+	return []SkillInfo{
+		{Name: "websearch", Repo: "web_search_bundle"},
+		{Name: "scheduler", Repo: "SIN-Code-Scheduler-Skill"},
+		{Name: "goalmode", Repo: "SIN-Code-Goal-Mode-Skill"},
+		{Name: "grillme", Repo: "SIN-Code-Grill-Me-Skill"},
+		{Name: "marketplace", Repo: "SIN-Code-Marketplace-Skill"},
+		{Name: "codocs", Repo: "SIN-Code-Doc-Coauthoring-Skill"},
+		{Name: "contextbridge", Repo: "SIN-Code-Context-Bridge-Skill"},
+		{Name: "honcho", Repo: "SIN-Code-Honcho-Rollback-Skill"},
+		{Name: "frontend", Repo: "SIN-Code-Frontend-Design-Skill"},
+		{Name: "mcpbuilder", Repo: "SIN-Code-MCP-Server-Builder-Skill"},
+		{Name: "browser", Repo: "SIN-Browser-Tools"},
+		{Name: "simone", Repo: "Simone-MCP"},
+		{Name: "symfonylens", Repo: "SIN-Code-Symfony-Lens"},
+		// v3.22.0: SIN-Analyse-Suite — Go-native multimodal preprocessing.
+		{Name: "analyse", Repo: "SIN-Analyse-Suite"},
+
+		// Shop / commerce (issue #142 fusion). The bundled skills
+		// document the canonical implementation; the upstream repos
+		// below are no longer maintained and are deprecated.
+		{
+			Name:             "shop-cj-dropshipping",
+			Repo:             "cj-dropshipping-skill",
+			Deprecated:       true,
+			DeprecatedReason: "upstream repo SIN-Shop-Center/cj-dropshipping-skill is not maintained and no runnable MCP entrypoint exists",
+			SkipInInstallAll: true,
+		},
+		{
+			Name:             "shop-stripe",
+			Repo:             "SIN-Stripe-Bundle",
+			Deprecated:       true,
+			DeprecatedReason: "upstream repo SIN-Shop-Center/SIN-Stripe-Bundle is not maintained and no runnable MCP entrypoint exists",
+			SkipInInstallAll: true,
+		},
+		{
+			Name:             "shop-tiktok",
+			Repo:             "SIN-eCommerce-Scraper-Bundle",
+			Deprecated:       true,
+			DeprecatedReason: "upstream repo SIN-Shop-Center/SIN-eCommerce-Scraper-Bundle is not maintained and no runnable MCP entrypoint exists",
+			SkipInInstallAll: true,
+		},
+	}
+}
+
 // KnownSkills maps server names to their org repos — MUST stay in sync
 // with mcpclient.DefaultServers (ecosystem-sync CI enforces it).
 func KnownSkills() map[string]string {
-	return map[string]string{
-		"websearch":     "web_search_bundle",
-		"scheduler":     "SIN-Code-Scheduler-Skill",
-		"goalmode":      "SIN-Code-Goal-Mode-Skill",
-		"grillme":       "SIN-Code-Grill-Me-Skill",
-		"marketplace":   "SIN-Code-Marketplace-Skill",
-		"codocs":        "SIN-Code-Doc-Coauthoring-Skill",
-		"contextbridge": "SIN-Code-Context-Bridge-Skill",
-		"honcho":        "SIN-Code-Honcho-Rollback-Skill",
-		"frontend":      "SIN-Code-Frontend-Design-Skill",
-		"mcpbuilder":    "SIN-Code-MCP-Server-Builder-Skill",
-		"browser":       "SIN-Browser-Tools",
-		"simone":        "Simone-MCP",
-		"symfonylens":   "SIN-Code-Symfony-Lens",
-		// Shop / commerce (issue #142 fusion). The bundled skills
-		// document the canonical implementation; the source repos
-		// listed below are the install targets for
-		// `sin-code skill install <name>`. The skill name and
-		// repo are 1:1 unless a single repo covers multiple
-		// bundled skills (see skillmgr.InstallBatch).
-		// v3.22.0: sin-analyse-suite — Go-native multimodal preprocessing.
-		"analyse": "sin-analyse-suite",
-
-		"shop-cj-dropshipping": "cj-dropshipping-skill",
-		"shop-stripe":          "SIN-Stripe-Bundle",
-		"shop-tiktok":          "SIN-eCommerce-Scraper-Bundle",
+	info := KnownSkillsInfo()
+	m := make(map[string]string, len(info))
+	for _, i := range info {
+		m[i.Name] = i.Repo
 	}
+	return m
+}
+
+// LookupSkillInfo returns the canonical SkillInfo for a known ecosystem skill,
+// or nil if the name is not registered.
+func LookupSkillInfo(name string) *SkillInfo {
+	for _, i := range KnownSkillsInfo() {
+		if i.Name == name {
+			// Return a copy to prevent callers from mutating the registry.
+			cp := i
+			return &cp
+		}
+	}
+	return nil
+}
+
+// InstallAll installs every non-deprecated ecosystem skill. It is the
+// implementation of `sin-code skill install all`. Deprecated skills are
+// skipped (but still reported as Installed=false with their deprecation reason
+// in Detail) so the batch command never fails because of stale repos.
+func InstallAll(ctx context.Context) ([]SkillStatus, error) {
+	var out []SkillStatus
+	failed := 0
+	for _, info := range KnownSkillsInfo() {
+		if info.SkipInInstallAll {
+			out = append(out, SkillStatus{
+				Name:             info.Name,
+				Repo:             info.Repo,
+				Installed:        false,
+				Runnable:         false,
+				Detail:           "deprecated: " + info.DeprecatedReason,
+				Deprecated:       info.Deprecated,
+				DeprecatedReason: info.DeprecatedReason,
+			})
+			continue
+		}
+		st, err := Install(ctx, info.Name)
+		if err != nil {
+			failed++
+			out = append(out, SkillStatus{
+				Name:      info.Name,
+				Repo:      info.Repo,
+				Installed: false,
+				Runnable:  false,
+				Detail:    err.Error(),
+			})
+			continue
+		}
+		out = append(out, *st)
+	}
+	if failed > 0 {
+		return out, fmt.Errorf("%d skill(s) failed to install", failed)
+	}
+	return out, nil
 }
 
 // Install clones (or pulls) a skill repo and verifies its entrypoint.
 func Install(ctx context.Context, name string) (*SkillStatus, error) {
-	repo, ok := KnownSkills()[name]
-	if !ok {
+	info := LookupSkillInfo(name)
+	if info == nil {
 		return nil, fmt.Errorf("unknown skill %q (see `sin-code skill list`)", name)
 	}
-	dir := filepath.Join(SkillsDir(), repo)
-	st := &SkillStatus{Name: name, Repo: repo}
+	dir := filepath.Join(SkillsDir(), info.Repo)
+	st := &SkillStatus{
+		Name:             name,
+		Repo:             info.Repo,
+		Deprecated:       info.Deprecated,
+		DeprecatedReason: info.DeprecatedReason,
+	}
 
 	cctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
@@ -173,31 +272,37 @@ func Install(ctx context.Context, name string) (*SkillStatus, error) {
 		if err := _osMkdirAll(SkillsDir(), 0o755); err != nil {
 			return st, err
 		}
-		cmd := _execCommandContext(cctx, "git", "clone", "--depth", "1", "--quiet", orgURL+repo, dir)
+		cmd := _execCommandContext(cctx, "git", "clone", "--depth", "1", "--quiet", orgURL+info.Repo, dir)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return st, fmt.Errorf("git clone: %w\n%s", err, out)
 		}
 	}
 	st.Installed = true
-	st.Runnable, st.Detail = verifyEntrypoint(cctx, dir, repo)
+	st.Runnable, st.Detail = verifyEntrypoint(cctx, dir, info.Repo)
 	return st, nil
 }
 
 // Status reports install + runnable state for every known skill.
 func Status(ctx context.Context) []SkillStatus {
 	var out []SkillStatus
-	for name, repo := range KnownSkills() {
-		st := SkillStatus{Name: name, Repo: repo}
-		dir := filepath.Join(SkillsDir(), repo)
+	for _, info := range KnownSkillsInfo() {
+		st := SkillStatus{
+			Name:             info.Name,
+			Repo:             info.Repo,
+			Deprecated:       info.Deprecated,
+			DeprecatedReason: info.DeprecatedReason,
+		}
+		dir := filepath.Join(SkillsDir(), info.Repo)
 		if _, err := _osStat(dir); err == nil {
 			st.Installed = true
 			cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-			st.Runnable, st.Detail = verifyEntrypoint(cctx, dir, repo)
+			st.Runnable, st.Detail = verifyEntrypoint(cctx, dir, info.Repo)
 			cancel()
 		} else {
 			// Even if the repo is not cloned, a system-installed console script
-			// on PATH makes the skill runnable.
-			if bin := findSkillBinary(name); bin != "" {
+			// on PATH makes the skill installed and runnable.
+			if bin := findSkillBinary(info.Name); bin != "" {
+				st.Installed = true
 				st.Runnable = true
 				st.Detail = "available on PATH: " + bin
 			}
@@ -212,6 +317,14 @@ func verifyEntrypoint(ctx context.Context, dir, repo string) (bool, string) {
 	// Python MCP server: prefer the canonical root mcp_server.py, then
 	// discover the actual module inside the package tree.
 	if script := findMcpServer(dir); script != "" {
+		// Honcho's rollback skill is useless without the external Honcho server.
+		// Probe it and report the failure explicitly rather than claiming the
+		// skill is runnable.
+		if repo == "SIN-Code-Honcho-Rollback-Skill" {
+			if err := checkHonchoServer(ctx); err != nil {
+				return false, fmt.Sprintf("entrypoint found but Honcho server unreachable at %s: %v", honchoServerURL(), err)
+			}
+		}
 		if filepath.Base(filepath.Dir(script)) == filepath.Base(dir) {
 			// Root-level mcp_server.py: try the non-standard --list-tools probe
 			// for extra detail, but do not fail the whole verification if the
@@ -247,13 +360,14 @@ func verifyEntrypoint(ctx context.Context, dir, repo string) (bool, string) {
 	if _, err := _osStat(filepath.Join(dir, "package.json")); err == nil {
 		return true, "node entrypoint (package.json)"
 	}
+
+	// Go-native skill: a pre-built binary in the repo root is enough.
+	binary := goBinaryName(repo)
+	binPath := filepath.Join(dir, binary)
+	if _, err := _osStat(binPath); err == nil {
+		return true, "go binary present: " + binary
+	}
 	if _, err := _osStat(filepath.Join(dir, "go.mod")); err == nil {
-		binary := goBinaryName(repo)
-		binPath := filepath.Join(dir, binary)
-		// If the binary is already built, skip the expensive rebuild in status.
-		if _, err := _osStat(binPath); err == nil {
-			return true, "go binary present: " + binary
-		}
 		// Go-native skill: build the binary into the repo root so the MCP
 		// registry can use the full path (SIN_SKILLS_DIR/<repo>/<binary>).
 		cmd := _execCommandContext(ctx, "go", "build", "-o", binary, "./cmd/"+binary)
@@ -266,11 +380,41 @@ func verifyEntrypoint(ctx context.Context, dir, repo string) (bool, string) {
 	return false, "no recognized MCP entrypoint"
 }
 
+// honchoServerURL returns the configured Honcho server endpoint for the
+// SIN-Code-Honcho-Rollback-Skill probe.
+func honchoServerURL() string {
+	if u := os.Getenv("HONCHO_SERVER_URL"); u != "" {
+		return u
+	}
+	return "http://localhost:8000"
+}
+
+// checkHonchoServer probes whether the external Honcho server is reachable.
+// It returns nil when the server responds, otherwise the connection error.
+func checkHonchoServer(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, honchoServerURL()+"/health", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 500 {
+		return fmt.Errorf("honcho server returned %s", resp.Status)
+	}
+	return nil
+}
+
 // repoNameFromRepo returns the short skill name for a repo by stripping the
 // org-specific prefix/suffix. This is only used for PATH fallback lookups.
 func repoNameFromRepo(repo string) string {
 	// The short names are already the keys in KnownSkills; for a single-repo
 	// lookup we reverse-engineer the common patterns.
+	if repo == "SIN-Analyse-Suite" {
+		return "analyse"
+	}
 	repo = strings.TrimPrefix(repo, "SIN-Code-")
 	repo = strings.TrimSuffix(repo, "-Skill")
 	repo = strings.TrimSuffix(repo, "-Tools")
@@ -286,10 +430,12 @@ func goBinaryName(repo string) string {
 	switch repo {
 	case "web_search_bundle":
 		return "sin-websearch"
-	case "sin-analyse-suite":
+	case "sin-analyse-suite", "SIN-Analyse-Suite":
 		return "sin-analyse"
 	case "native_browser":
 		return "sin-native-browser"
 	}
 	return "sin-" + strings.ReplaceAll(repo, "_", "-")
 }
+
+
