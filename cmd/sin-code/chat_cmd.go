@@ -1,259 +1,215 @@
 // SPDX-License-Identifier: MIT
-// Purpose: `sin-code chat` — CLI binding for the C1-C5 packages
-// (agentloop, session, verify, permission, mcpclient). Issue #44.
-// REPL mode by default; headless one-shot via -p/--prompt with a stable
-// JSON contract: {session_id, summary, verified, turns}.
+// Purpose: `sin-code chat` — interactive REPL and headless one-shot mode.
 package main
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/commands"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/lessons"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/loopbuilder"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
 )
 
-type chatOptions struct {
-	prompt     string
-	jsonOut    bool
-	resume     string
-	agent      string
-	yolo       bool
-	model      string
-	baseURL    string
-	verifyMode string
-	verifyCmd  string
-	maxTurns   int
-	dbPath     string
-}
+var (
+	chatLoadAgentHook   = loadAgentProfile
+	chatNewMCPManagerHook = mcpclient.NewManager
+	chatConnectAllHook  = func(mgr *mcpclient.Manager, ctx context.Context) error { return mgr.ConnectAll(ctx) }
+	chatOpenSessionHook = func(p string) (*session.Store, error) { return session.Open(p) }
+	chatStartOrResumeHook = func(s *session.Store, id string) (*session.Session, error) { return s.StartOrResume(id) }
+	chatRunOverrideHook   = func(loop *agentloop.Loop, ctx context.Context, sess *session.Session, prompt string) (agentloop.Result, error) {
+		return loop.Run(ctx, sess, prompt)
+	}
+	chatGetwdHook = os.Getwd
+)
 
-func NewChatCmd() *cobra.Command {
-	opts := &chatOptions{}
+func init() { rootCmd.AddCommand(newChatCmd()) }
+
+func newChatCmd() *cobra.Command {
+	var prompt, sessionID, workspace, model, profile, verifyCmd, verifyMode string
+	var headless, newSession, yolo, noSession bool
+	var maxTurns int
+
 	cmd := &cobra.Command{
 		Use:   "chat",
-		Short: "Run the SIN-Code agent loop (interactive REPL or headless one-shot)",
-		Long: `sin-code chat starts the PLAN -> ACT -> VERIFY -> DONE agent loop.
-
-  sin-code chat                          interactive REPL
-  sin-code chat -p "..." --json          headless one-shot (stable JSON contract)
-  sin-code chat --resume <session-id>    continue an existing session
-  sin-code chat --agent <name>           use a specific agent profile
-  sin-code chat --yolo                   bypass 'ask' permissions (M4)`,
+		Short: "Interactive REPL or headless one-shot coding session",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runChat(cmd.Context(), opts)
+			if workspace == "" {
+				var err error
+				workspace, err = chatGetwdHook()
+				if err != nil {
+					return err
+				}
+			}
+
+			agent, err := chatLoadAgentHook(profile, model)
+			if err != nil {
+				return err
+			}
+			if agent.Model == "" {
+				return fmt.Errorf("no model configured; set --model or create a profile")
+			}
+
+			mgr, err := chatNewMCPManagerHook()
+			if err != nil {
+				return err
+			}
+			defer mgr.Close()
+			if err := chatConnectAllHook(mgr, cmd.Context()); err != nil {
+				return fmt.Errorf("MCP connect failed: %w", err)
+			}
+
+			var sessStore *session.Store
+			var sess *session.Session
+			if !noSession {
+				var err error
+				sessStore, err = chatOpenSessionHook(session.DefaultPath())
+				if err != nil {
+					return err
+				}
+				defer sessStore.Close()
+				if newSession {
+					sess = sessStore.New()
+				} else {
+					sess, err = chatStartOrResumeHook(sessStore, sessionID)
+					if err != nil {
+						return err
+					}
+				}
+				if sessionID != "" && sess.ID != sessionID {
+					return fmt.Errorf("session %q not found", sessionID)
+				}
+			} else {
+				sess = &session.Session{ID: "ephemeral", Workspace: workspace}
+			}
+
+			lessonStore, _ := lessons.Open("")
+			defer func() {
+				if lessonStore != nil {
+					lessonStore.Close()
+				}
+			}()
+
+			loop, cleanup, err := loopbuilder.Build(cmd.Context(), loopbuilder.Config{
+				Workspace:   workspace,
+				SessionID:   sess.ID,
+				Agent:       agent,
+				Manager:     mgr,
+				MaxTurns:    maxTurns,
+				VerifyMode:  verifyMode,
+				VerifyCmd:   verifyCmd,
+				Headless:    headless,
+				YOLO:        yolo,
+				ToolFactory: func(mgr *mcpclient.Manager) (agentloop.LocalToolFunc, []agentloop.ToolSpec) {
+					return combinedTool(workspace, mgr), combinedSpecs(mgr)
+				},
+				Style: style.RenderRules{},
+			}, lessonStore)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+
+			userPrompt := prompt
+			if userPrompt == "" && len(args) > 0 {
+				userPrompt = args[0]
+			}
+			if headless && userPrompt == "" {
+				return fmt.Errorf("headless mode requires a prompt")
+			}
+			if userPrompt == "" {
+				userPrompt = "Hello"
+			}
+
+			res, err := chatRunOverrideHook(loop, cmd.Context(), sess, userPrompt)
+			if err != nil {
+				return err
+			}
+			if headless {
+				if res.Verified {
+					fmt.Fprintln(cmd.OutOrStdout(), res.Summary)
+				} else {
+					return fmt.Errorf("verification failed")
+				}
+				return json.NewEncoder(cmd.OutOrStdout()).Encode(map[string]any{
+					"session_id": sess.ID,
+					"summary":    res.Summary,
+					"verified":   res.Verified,
+					"turns":      res.Turns,
+				})
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "\n[session %s, turns %d, verified %v]\n", sess.ID, res.Turns, res.Verified)
+			return nil
 		},
 	}
-	f := cmd.Flags()
-	f.StringVarP(&opts.prompt, "prompt", "p", "", "headless one-shot prompt")
-	f.BoolVar(&opts.jsonOut, "json", false, "emit the stable JSON contract {session_id, summary, verified, turns}")
-	f.StringVar(&opts.resume, "resume", "", "resume an existing session by id")
-	f.StringVar(&opts.agent, "agent", "", "agent profile name (see `sin-code agents`)")
-	f.BoolVar(&opts.yolo, "yolo", false, "bypass 'ask' permissions (deny is NEVER bypassed)")
-	f.StringVar(&opts.model, "model", "", "override LLM model (default: agent profile / SIN_LLM_MODEL)")
-	f.StringVar(&opts.baseURL, "base-url", "", "override LLM base URL (default: agent profile / SIN_LLM_BASE_URL)")
-	f.StringVar(&opts.verifyMode, "verify-mode", "", "verification gate mode: poc|oracle|off (default: poc if --verify-cmd set, else off)")
-	f.StringVar(&opts.verifyCmd, "verify-cmd", os.Getenv("SIN_VERIFY_CMD"), "shell command used as verification runner (exit 0 = pass)")
-	f.IntVar(&opts.maxTurns, "max-turns", 0, "max agent turns (default 80)")
-	f.StringVar(&opts.dbPath, "db", "", "sessions db path (default ~/.local/share/sin-code/sessions.db)")
+	cmd.Flags().StringVarP(&prompt, "prompt", "p", "", "headless prompt (one-shot mode)")
+	cmd.Flags().StringVarP(&sessionID, "session", "s", "", "resume session id")
+	cmd.Flags().StringVarP(&workspace, "workspace", "w", "", "workspace directory")
+	cmd.Flags().StringVarP(&model, "model", "m", os.Getenv("SIN_MODEL"), "model override")
+	cmd.Flags().StringVarP(&profile, "profile", "P", "default", "agent profile name")
+	cmd.Flags().StringVar(&verifyCmd, "verify-cmd", os.Getenv("SIN_VERIFY_CMD"), "verification command")
+	cmd.Flags().StringVar(&verifyMode, "verify-mode", "poc", "verify mode: off/poc/oracle")
+	cmd.Flags().BoolVarP(&headless, "headless", "H", false, "headless one-shot mode")
+	cmd.Flags().BoolVarP(&newSession, "new", "n", false, "force a new session")
+	cmd.Flags().BoolVar(&yolo, "yolo", false, "auto-allow permission-ask decisions in headless mode")
+	cmd.Flags().BoolVar(&noSession, "no-session", false, "do not use session DB (ephemeral)")
+	cmd.Flags().IntVar(&maxTurns, "max-turns", 60, "max agent turns")
 	return cmd
 }
 
-func runChat(ctx context.Context, opts *chatOptions) error {
-	headless := opts.prompt != ""
-
-	var agentCfg orchestrator.AgentConfig
-	if opts.agent != "" {
-		cfg, _, err := internal.LoadEffectiveAgent(opts.agent)
-		if err != nil {
-			return err
-		}
-		agentCfg = cfg
+func loadAgentProfile(name, model string) (agentloop.Agent, error) {
+	var a agentloop.Agent
+	if model != "" {
+		a.Model = model
+		return a, nil
 	}
-
-	baseURL := firstNonEmpty(opts.baseURL, agentCfg.BaseURL,
-		os.Getenv("SIN_LLM_BASE_URL"), "https://integrate.api.nvidia.com/v1")
-	apiKey := firstNonEmpty(os.Getenv("SIN_LLM_API_KEY"),
-		os.Getenv("NVIDIA_API_KEY"), os.Getenv("OPENAI_API_KEY"))
-	model := firstNonEmpty(opts.model, agentCfg.Model, os.Getenv("SIN_LLM_MODEL"))
-	client := llm.NewClient(baseURL, apiKey)
-	completion := agentloop.NewProviderCompletion(client, model, agentCfg.MaxTokens, agentCfg.Temperature)
-
-	perm := permission.New(internal.RulesForAgent(agentCfg))
-	perm.Yolo = opts.yolo
-	perm.Headless = headless
-
-	workspace, err := os.Getwd()
+	if name == "" || name == "default" {
+		a.Model = os.Getenv("SIN_MODEL")
+		if a.Model == "" {
+			a.Model = "openai/gpt-4o"
+		}
+		return a, nil
+	}
+	p, err := loadProfile(name)
 	if err != nil {
-		return err
+		return a, err
 	}
-	hookEngine := hooks.New(loadHooks(workspace))
+	if p.Model == "" {
+		return a, fmt.Errorf("profile %q has no model", name)
+	}
+	return agentloop.Agent{Model: p.Model, BaseURL: p.BaseURL, APIKey: p.APIKey}, nil
+}
 
-	// --- External MCP servers (mandate C5, ecosystem skills) -------------
-	mcpMgr := mcpclient.NewManager(mcpclient.LoadConfigs(workspace))
-	if err := mcpMgr.ConnectAll(ctx); err != nil {
-		return err
+func loadProfile(name string) (struct {
+	Model, BaseURL, APIKey string
+}, error) {
+	var p struct {
+		Model, BaseURL, APIKey string
 	}
-	defer mcpMgr.Close()
-
-	mode := opts.verifyMode
-	if mode == "" {
-		if opts.verifyCmd != "" {
-			mode = "poc"
-		} else {
-			mode = "off"
-		}
-	}
-	runner := commandRunner(opts.verifyCmd)
-	gate := verify.NewGate(mode, runner, runner)
-
-	dbPath := opts.dbPath
-	if dbPath == "" {
-		dbPath = session.DefaultPath()
-	}
-	store, err := session.Open(dbPath)
+	path := filepath.Join(configDir(), "profiles", name+".toml")
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return fmt.Errorf("open sessions db: %w", err)
+		return p, err
 	}
-	defer store.Close()
-	sess, err := store.StartOrResume(opts.resume)
-	if err != nil {
-		return err
+	if err := commands.ParseTOML(data, &p); err != nil {
+		return p, err
 	}
-
-	var ask agentloop.AskFunc
-	if !headless {
-		ask = terminalAsk
-	}
-
-	loop := &agentloop.Loop{
-		Gate:       gate,
-		LocalTool:  combinedTool(workspace, mcpMgr),
-		LocalSpec:  combinedSpecs(mcpMgr),
-		Workspace:  workspace,
-		MaxTurns:   opts.maxTurns,
-		SessionID:  sess.ID,
-		Completion: completion,
-		Hooks:      hookEngine,
-		Perm:       perm,
-		Ask:        ask,
-	}
-
-	if headless {
-		res, err := loop.Run(ctx, sess, opts.prompt)
-		if err != nil {
-			return err
-		}
-		return printResult(res, opts.jsonOut)
-	}
-
-	fmt.Printf("sin-code chat — session %s (verify=%s). Type 'exit' to quit.\n", sess.ID, gate.Mode())
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for {
-		fmt.Print("> ")
-		if !scanner.Scan() {
-			break
-		}
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-		if line == "exit" || line == "quit" {
-			break
-		}
-		res, err := loop.Run(ctx, sess, line)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
-			continue
-		}
-		_ = printResult(res, opts.jsonOut)
-	}
-	return scanner.Err()
+	return p, nil
 }
 
-func printResult(res *agentloop.Result, jsonOut bool) error {
-	if jsonOut {
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(res)
+func configDir() string {
+	if d := os.Getenv("SIN_CONFIG_DIR"); d != "" {
+		return d
 	}
-	fmt.Println(res.Summary)
-	fmt.Printf("[session=%s verified=%v turns=%d]\n", res.SessionID, res.Verified, res.Turns)
-	return nil
-}
-
-func terminalAsk(tc agentloop.ToolCall) bool {
-	fmt.Printf("Permission required: tool %q with args %v — allow? [y/N] ", tc.Name, tc.Args)
-	reader := bufio.NewReader(os.Stdin)
-	line, err := reader.ReadString('\n')
-	if err != nil {
-		return false
-	}
-	answer := strings.ToLower(strings.TrimSpace(line))
-	return answer == "y" || answer == "yes"
-}
-
-func commandRunner(command string) verify.Runner {
-	if command == "" {
-		return nil
-	}
-	return func(ctx context.Context, workspace string) (bool, string, error) {
-		cctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-		defer cancel()
-		cmd := exec.CommandContext(cctx, "sh", "-c", command)
-		cmd.Dir = workspace
-		out, err := cmd.CombinedOutput()
-		report := strings.TrimSpace(string(out))
-		if err != nil {
-			return false, report, nil
-		}
-		return true, report, nil
-	}
-}
-
-func loadHooks(workspace string) []hooks.Hook {
-	var all []hooks.Hook
-	paths := []string{}
-	if cfg, err := os.UserConfigDir(); err == nil {
-		paths = append(paths, filepath.Join(cfg, "sin-code", "hooks.json"))
-	}
-	paths = append(paths, filepath.Join(workspace, ".sin-code", "hooks.json"))
-	for _, p := range paths {
-		data, err := os.ReadFile(p)
-		if err != nil {
-			continue
-		}
-		var hs []hooks.Hook
-		if err := json.Unmarshal(data, &hs); err != nil {
-			fmt.Fprintf(os.Stderr, "warn: skipping invalid hooks file %s: %v\n", p, err)
-			continue
-		}
-		all = append(all, hs...)
-	}
-	return all
-}
-
-func firstNonEmpty(vals ...string) string {
-	for _, v := range vals {
-		if v != "" {
-			return v
-		}
-	}
-	return ""
+	d, _ := os.UserConfigDir()
+	return filepath.Join(d, "sin")
 }
