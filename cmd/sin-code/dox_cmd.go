@@ -16,6 +16,19 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/dox"
 )
 
+// Package-level hooks for error-path testing. Overridden by
+// *_coverage_test.go files to avoid real filesystem mutations.
+var (
+	doxInjectRootHook   = dox.InjectRoot
+	doxScaffoldHook     = dox.Scaffold
+	doxCheckHook        = dox.Check
+	doxRenderTreeHook   = dox.RenderTree
+	doxWriteFileHook    = os.WriteFile
+	doxMkdirAllHook     = os.MkdirAll
+	doxFilepathAbsHook  = filepath.Abs
+	doxNewFileInfoHook  = os.Stat
+)
+
 // NewDoxCmd builds the `dox` cobra subcommand. Pattern matches
 // NewSuperpowersCmd: returns *cobra.Command with four subcommands
 // (init, new, check, tree) attached.
@@ -53,29 +66,29 @@ in the same file.`,
 			if len(args) == 1 {
 				dir = args[0]
 			}
-			abs, err := filepath.Abs(dir)
+			abs, err := doxFilepathAbsHook(dir)
 			if err != nil {
 				return err
 			}
-			if err := os.MkdirAll(abs, 0o755); err != nil {
+			if err := doxMkdirAllHook(abs, 0o755); err != nil {
 				return err
 			}
 			agentsPath := filepath.Join(abs, dox.AgentsFileName)
-			if _, err := os.Stat(agentsPath); err != nil && !force {
+			if _, err := doxNewFileInfoHook(agentsPath); err != nil && !force {
 				// Seed a minimal root AGENTS.md.
 				seed := "---\n" +
 					"title: " + filepath.Base(abs) + "\n" +
 					"---\n\n" +
 					"# " + filepath.Base(abs) + "\n\n" +
 					"Root of the dox-managed AGENTS.md tree.\n"
-				if err := os.WriteFile(agentsPath, []byte(seed), 0o644); err != nil {
+				if err := doxWriteFileHook(agentsPath, []byte(seed), 0o644); err != nil {
 					return err
 				}
 			}
 			body := "## Dox-managed regions\n\n" +
 				"This block is owned by `sin-code dox`. Do not edit by hand.\n" +
 				"Re-run `sin-code dox init` to refresh.\n"
-			if err := dox.InjectRoot(agentsPath, body); err != nil {
+			if err := doxInjectRootHook(agentsPath, body); err != nil {
 				return err
 			}
 			if jsonOut {
@@ -83,11 +96,11 @@ in the same file.`,
 					"agents_path": agentsPath,
 					"marker":      dox.BeginMarker,
 				}
-				enc := json.NewEncoder(os.Stdout)
+				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(out)
 			}
-			fmt.Printf("initialized %s\n", agentsPath)
+			fmt.Fprintf(cmd.OutOrStdout(), "initialized %s\n", agentsPath)
 			return nil
 		},
 	}
@@ -109,11 +122,11 @@ immediately discoverable by ` + "`sin-code dox check`" + `.`,
 			if parent == "" {
 				parent = "."
 			}
-			abs, err := filepath.Abs(parent)
+			abs, err := doxFilepathAbsHook(parent)
 			if err != nil {
 				return err
 			}
-			child, err := dox.Scaffold(abs, name, title)
+			child, err := doxScaffoldHook(abs, name, title)
 			if err != nil {
 				return err
 			}
@@ -123,11 +136,11 @@ immediately discoverable by ` + "`sin-code dox check`" + `.`,
 					"name":  name,
 					"title": title,
 				}
-				enc := json.NewEncoder(os.Stdout)
+				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(out)
 			}
-			fmt.Printf("scaffolded %s\n", child)
+			fmt.Fprintf(cmd.OutOrStdout(), "scaffolded %s\n", child)
 			return nil
 		},
 	}
@@ -149,7 +162,7 @@ fail the check.`,
 			if len(args) == 1 {
 				root = args[0]
 			}
-			findings, err := dox.Check(root)
+			findings, err := doxCheckHook(root)
 			if err != nil {
 				return err
 			}
@@ -160,21 +173,21 @@ fail the check.`,
 					"findings": findings,
 					"healthy":  !hasErrors(findings),
 				}
-				enc := json.NewEncoder(os.Stdout)
+				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				if err := enc.Encode(out); err != nil {
 					return err
 				}
 			} else {
 				if len(findings) == 0 {
-					fmt.Println("healthy: no findings")
+					fmt.Fprintln(cmd.OutOrStdout(), "healthy: no findings")
 				} else {
 					for _, f := range findings {
 						tag := "WARN"
 						if f.Severity == "error" {
 							tag = "ERR "
 						}
-						fmt.Printf("%s %-12s %s — %s\n", tag, f.Kind, f.Path, f.Message)
+						fmt.Fprintf(cmd.OutOrStdout(), "%s %-12s %s — %s\n", tag, f.Kind, f.Path, f.Message)
 					}
 				}
 			}
@@ -196,16 +209,16 @@ fail the check.`,
 			if len(args) == 1 {
 				root = args[0]
 			}
-			out, err := dox.RenderTree(root)
+			out, err := doxRenderTreeHook(root)
 			if err != nil {
 				return err
 			}
 			if jsonOut {
-				enc := json.NewEncoder(os.Stdout)
+				enc := json.NewEncoder(cmd.OutOrStdout())
 				enc.SetIndent("", "  ")
 				return enc.Encode(map[string]string{"tree": out})
 			}
-			fmt.Print(out)
+			fmt.Fprint(cmd.OutOrStdout(), out)
 			return nil
 		},
 	}

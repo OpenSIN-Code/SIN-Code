@@ -18,6 +18,26 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/ghbridge"
 )
 
+// ghBridger abstracts the ghbridge operations used by the CLI so tests
+// can inject fake successes/failures without touching the real gh binary.
+type ghBridger interface {
+	Health(ctx context.Context) error
+	Execute(ctx context.Context, args []string) (string, ghbridge.Tier, error)
+}
+
+// ghServer abstracts the ghbridge stdio MCP server for testing.
+type ghServer interface {
+	Serve(ctx context.Context) error
+}
+
+// Package-level hooks overridden by gh_cmd_coverage_test.go.
+var (
+	ghbridgeRegisterMCPHook = ghbridge.RegisterMCP
+	ghbridgeNewHook         = func() ghBridger { return ghbridge.New() }
+	ghbridgeClassifyHook    = ghbridge.Classify
+	ghbridgeNewServerHook   = func() ghServer { return ghbridge.NewServer() }
+)
+
 // NewGhCmd builds the `gh` cobra subcommand. Pattern matches
 // NewVaneCmd / NewSuperpowersCmd: returns *cobra.Command with the
 // relevant subcommands attached.
@@ -69,7 +89,7 @@ func newGhSetupCmd() *cobra.Command {
 		Use:   "setup",
 		Short: "Register the gh stdio MCP bridge in mcp.json (idempotent)",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			writtenPath, err := ghbridge.RegisterMCP(ghbridge.MCPConfigPath())
+			writtenPath, err := ghbridgeRegisterMCPHook(ghbridge.MCPConfigPath())
 			if err != nil {
 				fmt.Println("✗ register gh MCP bridge:", err)
 				return err
