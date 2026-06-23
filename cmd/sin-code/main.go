@@ -106,6 +106,7 @@ func init() {
 		internal.InstinctCmd, internal.HooksCmd, internal.AssetsCmd, internal.EvalCmd, internal.PRPCmd, // continuous learning + lifecycle hooks + asset harvest + evalset + prp workflow
 		NewImageGraphCmd(),              // image-graph: deterministic chart generation (bar/line/pie/area)
 		NewStatusCmd(),                    // v3.22.0 — readiness/status snapshot (issue #326)
+		NewFusionCmd(),                    // v3.22.0 — SIN Fusion v1 status/config (issue #290)
 	)
 
 	// Pass build-time version to self-update module.

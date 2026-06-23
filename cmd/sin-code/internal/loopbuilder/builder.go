@@ -534,10 +534,26 @@ func WireFusion(loop *agentloop.Loop, cfg Config, gate *verify.Gate, client *llm
 		Mode:               mode,
 	}
 	if cfg.FusionOracleMode {
-		judge := fusion.NewLLMOracleJudge(client, cfg.Model)
+		// Prefer SIN_EVALUATOR_MODEL over the worker model so the judge is
+		// not the same model that generated the candidates — this avoids
+		// self-preference bias (mirrors the stop-gate pattern at line 334).
+		// When SIN_EVALUATOR_BASE_URL is set, a separate client is created
+		// for the judge so it can target a different provider entirely.
+		evalModel := firstNonEmpty(os.Getenv("SIN_EVALUATOR_MODEL"), cfg.Model)
+		evalClient := client
+		if base := os.Getenv("SIN_EVALUATOR_BASE_URL"); base != "" {
+			fallbackKey := ""
+			if client != nil {
+				fallbackKey = client.APIKey
+			}
+			evalClient = llm.NewClient(base, firstNonEmpty(os.Getenv("SIN_EVALUATOR_API_KEY"), fallbackKey))
+		}
+		judge := fusion.NewLLMOracleJudge(evalClient, evalModel)
 		tournament.OracleJudge = judge.Judge
+		loop.TournamentRunner = &fusionAdapter{t: tournament, gate: gate, cfg: cfg, client: client, memStore: memStore, oracleJudge: judge}
+	} else {
+		loop.TournamentRunner = &fusionAdapter{t: tournament, gate: gate, cfg: cfg, client: client, memStore: memStore}
 	}
-	loop.TournamentRunner = &fusionAdapter{t: tournament, gate: gate, cfg: cfg, client: client, memStore: memStore}
 }
 
 func firstNonEmpty(vals ...string) string {
@@ -595,11 +611,12 @@ func commandRunner(command string) verify.Runner {
 // the fork function and run function that require loopbuilder-scoped
 // dependencies (session store, llm client, etc.) (issue #290).
 type fusionAdapter struct {
-	t        *fusion.Tournament
-	gate     *verify.Gate
-	cfg      Config
-	client   *llm.Client
-	memStore *lessons.Store
+	t          *fusion.Tournament
+	gate       *verify.Gate
+	cfg        Config
+	client     *llm.Client
+	memStore   *lessons.Store
+	oracleJudge *fusion.LLMOracleJudge
 }
 
 func (a *fusionAdapter) ShouldRun(vr verify.Result) bool {
@@ -607,6 +624,29 @@ func (a *fusionAdapter) ShouldRun(vr verify.Result) bool {
 		return !vr.Passed
 	}
 	return fusion.ShouldTournament(vr)
+}
+
+// ShouldRunWithConfidence is the confidence-aware difficulty gate (issue
+// #290). When the orchestrator confidence and attempt count are both zero
+// (no signals available), it falls back to the legacy text-only ShouldRun
+// heuristic. Otherwise it delegates to fusion.ShouldTournamentWithConfidence
+// with the error type classified from the verify result.
+func (a *fusionAdapter) ShouldRunWithConfidence(vr verify.Result, confidence float64, attemptCount int) bool {
+	if vr.Passed {
+		return false
+	}
+	if !a.cfg.FusionDifficultyGate {
+		return true
+	}
+	if confidence == 0 && attemptCount == 0 {
+		return fusion.ShouldTournament(vr)
+	}
+	return fusion.ShouldTournamentWithConfidence(fusion.DifficultyInput{
+		VerifyReport:    vr.Report,
+		AttemptCount:    attemptCount,
+		ConfidenceScore: confidence,
+		ErrorType:       classifyError(vr),
+	})
 }
 
 func (a *fusionAdapter) Run(ctx context.Context, prompt string) (string, int, error) {
@@ -625,4 +665,58 @@ func (a *fusionAdapter) Run(ctx context.Context, prompt string) (string, int, er
 		return "", 0, fmt.Errorf("fusion: no winner")
 	}
 	return result.Winner.Output, result.Winner.TokensUsed, nil
+}
+
+// classifyError maps a verify.Result to the ErrorType expected by the
+// fusion difficulty gate. ModeOracle failures are "stylistic" (oracle is
+// subjective). ModePoC failures are classified by keyword matching against
+// the verify report. Unknown patterns return "" so the difficulty gate
+// falls back to the text heuristic.
+func classifyError(vr verify.Result) string {
+	if vr.Mode == verify.ModeOracle {
+		return "stylistic"
+	}
+	r := strings.ToLower(vr.Report)
+
+	// Stylistic indicators are checked first, matching the order in
+	// shouldTournamentByText (difficulty.go) so that "documentation
+	// missing" is classified as stylistic, not compile.
+	stylisticIndicators := []string{
+		"style", "format", "naming", "convention",
+		"documentation", "comment", "readability",
+		"cosmetic", "whitespace", "indentation",
+	}
+	for _, ind := range stylisticIndicators {
+		if strings.Contains(r, ind) {
+			return "stylistic"
+		}
+	}
+
+	compileIndicators := []string{
+		"compile", "build", "syntax error", "parse error",
+		"undefined", "unresolved", "cannot find",
+		"type error", "type mismatch",
+		"missing", "not found", "no such file",
+	}
+	for _, ind := range compileIndicators {
+		if strings.Contains(r, ind) {
+			return "compile"
+		}
+	}
+
+	runtimeIndicators := []string{"panic", "segfault", "nil pointer"}
+	for _, ind := range runtimeIndicators {
+		if strings.Contains(r, ind) {
+			return "runtime"
+		}
+	}
+
+	testIndicators := []string{"test fail", "tests failed", "test: fail"}
+	for _, ind := range testIndicators {
+		if strings.Contains(r, ind) {
+			return "test"
+		}
+	}
+
+	return ""
 }

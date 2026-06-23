@@ -521,6 +521,12 @@ func (s *stubTournamentRunner) ShouldRun(vr verify.Result) bool {
 	return s.shouldRunVal
 }
 
+func (s *stubTournamentRunner) ShouldRunWithConfidence(vr verify.Result, confidence float64, attemptCount int) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.shouldRunVal
+}
+
 func (s *stubTournamentRunner) Run(ctx context.Context, prompt string) (string, int, error) {
 	s.mu.Lock()
 	s.runCalled = true

@@ -237,8 +237,15 @@ type Loop struct {
 // and token count. On failure, the loop falls back to the legacy same-model
 // retry. Defined here (not in internal/fusion) to avoid a circular import
 // (fusion imports agentloop for Result).
+//
+// ShouldRunWithConfidence is the confidence-aware variant (issue #290
+// difficulty gate). It receives the orchestrator confidence score (0 =
+// unknown / not available) and the verify-fail attempt count. When both
+// signals are zero the implementation should fall back to the legacy
+// text-only ShouldRun heuristic, preserving backward compatibility.
 type TournamentRunner interface {
 	ShouldRun(vr verify.Result) bool
+	ShouldRunWithConfidence(vr verify.Result, confidence float64, attemptCount int) bool
 	Run(ctx context.Context, prompt string) (output string, tokens int, err error)
 }
 
@@ -436,6 +443,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	stopRejects := 0 // tracks how many times the stop-gate rejected completion
 	lastCritFingerprint := ""
 	stallCount := 0
+	verifyFailCount := 0 // issue #290: verify-fail attempts for the difficulty gate
 	totalTokens := 0      // issue #151: cumulative tokens across the run
 	warnedBudget := false // fires hooks.BudgetWarn once per run
 	reflectedThisProposal := false
@@ -542,9 +550,10 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				continue
 			}
 
-			res := l.Gate.Run(ctx, l.Workspace)
-			if !res.Passed {
-				vf := l.fire(ctx, hooks.VerifyFail, "", map[string]any{
+		res := l.Gate.Run(ctx, l.Workspace)
+		if !res.Passed {
+			verifyFailCount++
+			vf := l.fire(ctx, hooks.VerifyFail, "", map[string]any{
 					"mode": string(res.Mode), "report": res.Report,
 				})
 				l.record(ctx, ledger.TypeVerifyFail, map[string]any{"mode": string(res.Mode)}, "verification failed ("+string(res.Mode)+")")
@@ -564,9 +573,9 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			// Oracle mode is also supported when the tournament is
 			// explicitly configured for oracle (issue #344); the
 			// tournament judge selects the winner, not first-pass-wins.
-			if l.TournamentRunner != nil &&
-				(l.Gate.Mode() == verify.ModePoC || l.Gate.Mode() == verify.ModeOracle) &&
-				l.TournamentRunner.ShouldRun(res) {
+		if l.TournamentRunner != nil &&
+			(l.Gate.Mode() == verify.ModePoC || l.Gate.Mode() == verify.ModeOracle) &&
+			l.TournamentRunner.ShouldRunWithConfidence(res, 0, verifyFailCount) {
 					output, tokens, terr := l.TournamentRunner.Run(ctx, prompt)
 					if terr == nil && output != "" {
 						l.fire(ctx, hooks.VerifyPass, "", map[string]any{
