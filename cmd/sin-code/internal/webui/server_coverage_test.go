@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -774,11 +775,17 @@ func TestListenAndServeStopSignal(t *testing.T) {
 
 func TestOpenInBrowserWindows(t *testing.T) {
 	setHook(t, &goosHook, func() string { return "windows" })
+	setHook(t, &browserExecHook, func(name string, args ...string) *exec.Cmd {
+		return exec.Command("true")
+	})
 	_ = openInBrowser("http://127.0.0.1:1")
 }
 
 func TestOpenInBrowserLinux(t *testing.T) {
 	setHook(t, &goosHook, func() string { return "linux" })
+	setHook(t, &browserExecHook, func(name string, args ...string) *exec.Cmd {
+		return exec.Command("true")
+	})
 	_ = openInBrowser("http://127.0.0.1:1")
 }
 

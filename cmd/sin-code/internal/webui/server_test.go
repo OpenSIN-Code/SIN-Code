@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -516,6 +517,9 @@ func TestDetectRuntimeEmpty(t *testing.T) {
 }
 
 func TestOpenInBrowserDoesNotPanic(t *testing.T) {
+	setHook(t, &browserExecHook, func(name string, args ...string) *exec.Cmd {
+		return exec.Command("true")
+	})
 	_ = openInBrowser("http://127.0.0.1:1")
 }
 

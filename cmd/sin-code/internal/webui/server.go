@@ -67,6 +67,7 @@ var (
 	goosHook          = func() string { return runtime.GOOS }
 	lookPathHook      = exec.LookPath
 	readDirHook       = os.ReadDir
+	browserExecHook   = exec.Command
 	readFileHook      = os.ReadFile
 	// execCommandRunner hard-caps each invocation at 2s so a hung docker
 	// daemon (or any unresponsive subprocess on `ps`/`docker`/`which`)
@@ -737,11 +738,11 @@ func openInBrowser(target string) error {
 	var cmd *exec.Cmd
 	switch goosHook() {
 	case "darwin":
-		cmd = exec.Command("open", target) // #nosec G204 — opens validated user URL in browser
+		cmd = browserExecHook("open", target) // #nosec G204 — opens validated user URL in browser
 	case "windows":
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", target) // #nosec G204 — opens validated user URL in browser
+		cmd = browserExecHook("rundll32", "url.dll,FileProtocolHandler", target) // #nosec G204 — opens validated user URL in browser
 	default:
-		cmd = exec.Command("xdg-open", target) // #nosec G204 — opens validated user URL in browser
+		cmd = browserExecHook("xdg-open", target) // #nosec G204 — opens validated user URL in browser
 	}
 	cmd.Stdout = io.Discard
 	cmd.Stderr = io.Discard
