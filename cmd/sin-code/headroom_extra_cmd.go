@@ -19,6 +19,29 @@ var (
 	lessonsPath   string
 )
 
+// headroomExtraCmdHooks are package-level hooks to make the proxy and lessons
+// subcommands testable without starting real HTTP servers or touching the FS.
+var (
+	headroomNewProxyHook = func(cfg headroom.Config, comp *headroom.Compressor, upstream string) (*headroom.Proxy, error) {
+		return headroom.NewProxy(cfg, comp, upstream)
+	}
+	headroomProxyStartHook = func(proxy *headroom.Proxy, addr string) error {
+		if proxy == nil {
+			return nil
+		}
+		return proxy.Start(addr)
+	}
+	headroomProxyShutdownHook = func(proxy *headroom.Proxy, ctx context.Context) error {
+		if proxy == nil {
+			return nil
+		}
+		return proxy.Shutdown(ctx)
+	}
+	headroomNewLessonStoreHook = func(path string) (*headroom.LessonStore, error) { return headroom.NewLessonStore(path) }
+	headroomRemoveHook         = func(path string) error { return os.Remove(path) }
+	headroomSignalNotifyHook = func(c chan<- os.Signal, sig ...os.Signal) { signal.Notify(c, sig...) }
+)
+
 // headroomProxyCmd starts the Headroom HTTP compression proxy.
 var headroomProxyCmd = &cobra.Command{
 	Use:   "proxy",
@@ -40,34 +63,34 @@ Point your LLM client's base URL at this proxy for zero-code-change compression:
 			cfg.Mode = headroom.ModeCLI
 		}
 
-		comp := headroom.NewCompressor(cfg)
+		comp := headroomNewCompressorHook(cfg)
 		ctx := context.Background()
-		if err := comp.Start(ctx); err != nil {
+		if err := headroomStartHook(comp, ctx); err != nil {
 			return fmt.Errorf("headroom backend not available: %w\nInstall headroom: pip install headroom-ai[all]", err)
 		}
-		defer comp.Close()
+		defer headroomCloseHook(comp)
 
-		proxy, err := headroom.NewProxy(cfg, comp, proxyUpstream)
+		proxy, err := headroomNewProxyHook(cfg, comp, proxyUpstream)
 		if err != nil {
 			return err
 		}
 
 		// Graceful shutdown on SIGINT/SIGTERM.
 		errCh := make(chan error, 1)
-		go func() { errCh <- proxy.Start(proxyAddr) }()
+		go func() { errCh <- headroomProxyStartHook(proxy, proxyAddr) }()
 
 		fmt.Printf("Headroom proxy listening on %s -> %s\n", proxyAddr, proxyUpstream)
 		fmt.Printf("Set your client base URL to http://localhost%s/v1\n", proxyAddr)
 
 		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		headroomSignalNotifyHook(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
 		select {
 		case err := <-errCh:
 			return err
 		case <-sigCh:
 			fmt.Println("\nShutting down proxy...")
-			return proxy.Shutdown(context.Background())
+			return headroomProxyShutdownHook(proxy, context.Background())
 		}
 	},
 }
@@ -77,7 +100,7 @@ var headroomLessonsCmd = &cobra.Command{
 	Use:   "lessons",
 	Short: "Inspect lessons learned from failed sessions",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		store, err := headroom.NewLessonStore(lessonsPath)
+		store, err := headroomNewLessonStoreHook(lessonsPath)
 		if err != nil {
 			return fmt.Errorf("opening lessons store: %w", err)
 		}
@@ -106,7 +129,7 @@ var headroomLessonsClearCmd = &cobra.Command{
 		if path == "" {
 			path = headroom.DefaultLessonsPath()
 		}
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		if err := headroomRemoveHook(path); err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("clearing lessons: %w", err)
 		}
 		fmt.Println("Lessons cleared.")
