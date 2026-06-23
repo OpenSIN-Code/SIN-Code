@@ -116,6 +116,14 @@ type Config struct {
 	// Also activated by config agentloop.compaction_strategy=<strategy>.
 	CompactionStrategy string
 
+	// Context Compaction Modes (second PR — agentloop-compaction-wiring).
+	ContextCompaction    string
+	CompactionTrigger    string
+	CompactionMaxTokens  int
+	ContextWindow        int
+	PreserveEvidence     bool
+	CompactionRecentTurns int
+
 	// FrustrationDetection: when true, wires a FrustrationDetector into the
 	// agent loop (issue #271).
 	// Also activated by config agentloop.frustration_detection=true.
@@ -403,6 +411,36 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		loop.Compactor = agentloop.NewCompactor(nil)
 		loop.CompactionStrategy = strategy
 	}
+
+	// Context Compaction Modes (second PR): mode-based Compact2 fields.
+	// These override strategy-based compaction when the mode is non-"off".
+	// Apply config-file defaults first, then CLI overrides.
+	if sinCfg, err := internal.LoadMergedConfig(); err == nil {
+		if cfg.ContextCompaction == "" {
+			cfg.ContextCompaction = sinCfg.AgentLoopContextCompaction
+		}
+		if cfg.CompactionTrigger == "" {
+			cfg.CompactionTrigger = sinCfg.AgentLoopCompactionTrigger
+		}
+		if cfg.CompactionMaxTokens == 0 {
+			cfg.CompactionMaxTokens = sinCfg.AgentLoopCompactionMaxTokens
+		}
+		if cfg.ContextWindow == 0 {
+			cfg.ContextWindow = sinCfg.AgentLoopContextWindow
+		}
+		if !cfg.PreserveEvidence {
+			cfg.PreserveEvidence = sinCfg.AgentLoopCompactionPreserveEvidence
+		}
+		if cfg.CompactionRecentTurns == 0 {
+			cfg.CompactionRecentTurns = sinCfg.AgentLoopCompactionRecentTurns
+		}
+	}
+	loop.ContextCompactionMode, _ = agentloop.ParseContextCompactionMode(cfg.ContextCompaction)
+	loop.CompactionTrigger, _ = agentloop.ParseCompactionTrigger(cfg.CompactionTrigger)
+	loop.CompactionMaxTokens = cfg.CompactionMaxTokens
+	loop.ContextWindow = cfg.ContextWindow
+	loop.CompactionPreserveEvidence = cfg.PreserveEvidence
+	loop.CompactionRecentTurns = cfg.CompactionRecentTurns
 
 	// FrustrationDetector (issue #271): opt-in via config
 	// agentloop.frustration_detection. Appends a system-prompt suffix

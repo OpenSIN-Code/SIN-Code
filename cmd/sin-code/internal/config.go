@@ -127,6 +127,19 @@ type SinCodeConfig struct {
 	// Worktree conflict prediction (issue #319).
 	WorktreeConflictCheck string `toml:"worktree.conflict_check"`
 	WorktreeTargetBranch  string `toml:"worktree.target_branch"`
+	// Context Compaction Modes (second PR — agentloop-compaction-wiring).
+	// Mode selects Compact2-based compaction (off|deterministic|llm|hybrid).
+	AgentLoopContextCompaction string `toml:"agentloop.context_compaction"`
+	// Trigger decides when compaction fires (turns|tokens|both).
+	AgentLoopCompactionTrigger string `toml:"agentloop.compaction_trigger"`
+	// MaxTokens is the token budget for compacted messages. Default 8000.
+	AgentLoopCompactionMaxTokens int `toml:"agentloop.compaction_max_tokens"`
+	// ContextWindow is the effective token cap. 0 = auto (maxTokens*4).
+	AgentLoopContextWindow int `toml:"agentloop.context_window"`
+	// PreserveEvidence keeps verification markers across compaction. Default true.
+	AgentLoopCompactionPreserveEvidence bool `toml:"agentloop.compaction_preserve_evidence"`
+	// RecentTurns retained by the compaction retain rule. Default 4.
+	AgentLoopCompactionRecentTurns int `toml:"agentloop.compaction_recent_turns"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -181,6 +194,12 @@ func defaultConfig() SinCodeConfig {
 		PermissionYoloRiskThreshold:   "",
 		WorktreeConflictCheck:         "off",
 		WorktreeTargetBranch:          "",
+		AgentLoopContextCompaction:            "off",
+		AgentLoopCompactionTrigger:            "tokens",
+		AgentLoopCompactionMaxTokens:          8000,
+		AgentLoopContextWindow:                0,
+		AgentLoopCompactionPreserveEvidence:   true,
+		AgentLoopCompactionRecentTurns:        4,
 	}
 }
 
@@ -523,6 +542,20 @@ test.repair_rounds = %d
 # target_branch: integration branch to compare against when creating a worktree
 worktree.conflict_check = %q
 worktree.target_branch = %q
+
+# Context Compaction Modes (issue #278 second PR).
+# context_compaction: off|deterministic|llm|hybrid — selects Compact2 mode
+# compaction_trigger: turns|tokens|both — when compaction fires
+# compaction_max_tokens: token budget for compacted messages (default 8000)
+# context_window: effective token cap; 0 = auto (maxTokens * 4)
+# compaction_preserve_evidence: keep verification markers across compaction (M3)
+# compaction_recent_turns: number of recent human turns to retain (default 4)
+agentloop.context_compaction = %q
+agentloop.compaction_trigger = %q
+agentloop.compaction_max_tokens = %d
+agentloop.context_window = %d
+agentloop.compaction_preserve_evidence = %v
+agentloop.compaction_recent_turns = %d
 `, cfg.Theme, cfg.DefaultTimeout, cfg.DefaultFormat, cfg.MCPServerEnabled,
 		cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMMaxTokens, cfg.LLMTemperature,
 		cfg.LLMStyle,
@@ -531,7 +564,10 @@ worktree.target_branch = %q
 		strings.Join(cfg.ToolsAllow, ","), strings.Join(cfg.ToolsDeny, ","),
 		cfg.PathsMCPConfig, cfg.PathsSkillsDir,
 		cfg.TestCoverageThreshold, cfg.TestMutationThreshold, cfg.TestAutoGenerate, cfg.TestTimeoutSeconds, cfg.TestUseLLM, cfg.TestRepairRounds,
-		cfg.WorktreeConflictCheck, cfg.WorktreeTargetBranch)
+		cfg.WorktreeConflictCheck, cfg.WorktreeTargetBranch,
+		cfg.AgentLoopContextCompaction, cfg.AgentLoopCompactionTrigger,
+		cfg.AgentLoopCompactionMaxTokens, cfg.AgentLoopContextWindow,
+		cfg.AgentLoopCompactionPreserveEvidence, cfg.AgentLoopCompactionRecentTurns)
 }
 
 func initConfig() error {
@@ -663,6 +699,18 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return cfg.WorktreeConflictCheck, nil
 	case "worktree.target_branch":
 		return cfg.WorktreeTargetBranch, nil
+	case "agentloop.context_compaction":
+		return cfg.AgentLoopContextCompaction, nil
+	case "agentloop.compaction_trigger":
+		return cfg.AgentLoopCompactionTrigger, nil
+	case "agentloop.compaction_max_tokens":
+		return fmt.Sprintf("%d", cfg.AgentLoopCompactionMaxTokens), nil
+	case "agentloop.context_window":
+		return fmt.Sprintf("%d", cfg.AgentLoopContextWindow), nil
+	case "agentloop.compaction_preserve_evidence":
+		return fmt.Sprintf("%v", cfg.AgentLoopCompactionPreserveEvidence), nil
+	case "agentloop.compaction_recent_turns":
+		return fmt.Sprintf("%d", cfg.AgentLoopCompactionRecentTurns), nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -851,6 +899,38 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.WorktreeConflictCheck = value
 	case "worktree.target_branch":
 		cfg.WorktreeTargetBranch = value
+	case "agentloop.context_compaction":
+		allowed := map[string]bool{"off": true, "none": true, "default": true, "deterministic": true, "det": true, "llm": true, "summarize": true, "hybrid": true, "llm+deterministic": true}
+		if !allowed[strings.ToLower(strings.TrimSpace(value))] {
+			return fmt.Errorf("agentloop.context_compaction must be off|deterministic|llm|hybrid, got %q", value)
+		}
+		cfg.AgentLoopContextCompaction = value
+	case "agentloop.compaction_trigger":
+		allowed := map[string]bool{"turns": true, "messages": true, "tokens": true, "both": true, "any": true}
+		if !allowed[strings.ToLower(strings.TrimSpace(value))] {
+			return fmt.Errorf("agentloop.compaction_trigger must be turns|tokens|both, got %q", value)
+		}
+		cfg.AgentLoopCompactionTrigger = value
+	case "agentloop.compaction_max_tokens":
+		v, err := strconv.Atoi(value)
+		if err != nil || v <= 0 {
+			return fmt.Errorf("agentloop.compaction_max_tokens must be a positive integer, got %q", value)
+		}
+		cfg.AgentLoopCompactionMaxTokens = v
+	case "agentloop.context_window":
+		v, err := strconv.Atoi(value)
+		if err != nil || v < 0 {
+			return fmt.Errorf("agentloop.context_window must be a non-negative integer, got %q", value)
+		}
+		cfg.AgentLoopContextWindow = v
+	case "agentloop.compaction_preserve_evidence":
+		cfg.AgentLoopCompactionPreserveEvidence = value == "true" || value == "1"
+	case "agentloop.compaction_recent_turns":
+		v, err := strconv.Atoi(value)
+		if err != nil || v <= 0 {
+			return fmt.Errorf("agentloop.compaction_recent_turns must be a positive integer, got %q", value)
+		}
+		cfg.AgentLoopCompactionRecentTurns = v
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}
@@ -914,6 +994,12 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"permission.yolo_risk_threshold", cfg.PermissionYoloRiskThreshold},
 		{"worktree.conflict_check", cfg.WorktreeConflictCheck},
 		{"worktree.target_branch", cfg.WorktreeTargetBranch},
+		{"agentloop.context_compaction", cfg.AgentLoopContextCompaction},
+		{"agentloop.compaction_trigger", cfg.AgentLoopCompactionTrigger},
+		{"agentloop.compaction_max_tokens", fmt.Sprintf("%d", cfg.AgentLoopCompactionMaxTokens)},
+		{"agentloop.context_window", fmt.Sprintf("%d", cfg.AgentLoopContextWindow)},
+		{"agentloop.compaction_preserve_evidence", fmt.Sprintf("%v", cfg.AgentLoopCompactionPreserveEvidence)},
+		{"agentloop.compaction_recent_turns", fmt.Sprintf("%d", cfg.AgentLoopCompactionRecentTurns)},
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Key < pairs[j].Key })
 	return pairs
@@ -971,8 +1057,14 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 			"yolo":        cfg.AgentYolo,
 		},
 		"agentloop": map[string]any{
-			"required_tools": cfg.AgentLoopRequiredTools,
-			"forbidden_tools": cfg.AgentLoopForbiddenTools,
+			"required_tools":          cfg.AgentLoopRequiredTools,
+			"forbidden_tools":         cfg.AgentLoopForbiddenTools,
+			"context_compaction":      cfg.AgentLoopContextCompaction,
+			"compaction_trigger":      cfg.AgentLoopCompactionTrigger,
+			"compaction_max_tokens":   cfg.AgentLoopCompactionMaxTokens,
+			"context_window":          cfg.AgentLoopContextWindow,
+			"compaction_preserve_evidence": cfg.AgentLoopCompactionPreserveEvidence,
+			"compaction_recent_turns": cfg.AgentLoopCompactionRecentTurns,
 		},
 		"permissions": map[string]any{
 			"tools_allow": cfg.ToolsAllow,
@@ -1012,6 +1104,12 @@ func showTOML(cfg SinCodeConfig, mask bool) error {
 		TestUseLLM:               cfg.TestUseLLM, TestRepairRounds: cfg.TestRepairRounds,
 		WorktreeConflictCheck:    cfg.WorktreeConflictCheck,
 		WorktreeTargetBranch:     cfg.WorktreeTargetBranch,
+		AgentLoopContextCompaction:          cfg.AgentLoopContextCompaction,
+		AgentLoopCompactionTrigger:          cfg.AgentLoopCompactionTrigger,
+		AgentLoopCompactionMaxTokens:        cfg.AgentLoopCompactionMaxTokens,
+		AgentLoopContextWindow:              cfg.AgentLoopContextWindow,
+		AgentLoopCompactionPreserveEvidence: cfg.AgentLoopCompactionPreserveEvidence,
+		AgentLoopCompactionRecentTurns:      cfg.AgentLoopCompactionRecentTurns,
 	}))
 	return nil
 }
@@ -1069,7 +1167,52 @@ func validateConfig(cfg SinCodeConfig) []string {
 	if cfg.WorktreeConflictCheck != "" && cfg.WorktreeConflictCheck != "off" && cfg.WorktreeConflictCheck != "warn" && cfg.WorktreeConflictCheck != "abort" {
 		issues = append(issues, fmt.Sprintf("worktree.conflict_check must be 'off', 'warn', or 'abort', got %q", cfg.WorktreeConflictCheck))
 	}
+	if cfg.AgentLoopContextCompaction != "" && cfg.AgentLoopContextCompaction != "off" {
+		if _, err := parseContextCompactionMode(cfg.AgentLoopContextCompaction); err != nil {
+			issues = append(issues, fmt.Sprintf("agentloop.context_compaction: %v", err))
+		}
+	}
+	if cfg.AgentLoopCompactionTrigger != "" && cfg.AgentLoopCompactionTrigger != "tokens" {
+		if _, err := parseCompactionTrigger(cfg.AgentLoopCompactionTrigger); err != nil {
+			issues = append(issues, fmt.Sprintf("agentloop.compaction_trigger: %v", err))
+		}
+	}
+	if cfg.AgentLoopCompactionMaxTokens < 0 {
+		issues = append(issues, fmt.Sprintf("agentloop.compaction_max_tokens must be >= 0, got %d", cfg.AgentLoopCompactionMaxTokens))
+	}
+	if cfg.AgentLoopContextWindow < 0 {
+		issues = append(issues, fmt.Sprintf("agentloop.context_window must be >= 0, got %d", cfg.AgentLoopContextWindow))
+	}
+	if cfg.AgentLoopCompactionRecentTurns < 0 {
+		issues = append(issues, fmt.Sprintf("agentloop.compaction_recent_turns must be >= 0, got %d", cfg.AgentLoopCompactionRecentTurns))
+	}
 	return issues
+}
+
+func parseContextCompactionMode(s string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "off", "none", "disabled", "", "default":
+		return "off", nil
+	case "deterministic", "det":
+		return "deterministic", nil
+	case "llm", "summarize":
+		return "llm", nil
+	case "hybrid", "llm+deterministic":
+		return "hybrid", nil
+	}
+	return "", fmt.Errorf("unknown context_compaction mode %q", s)
+}
+
+func parseCompactionTrigger(s string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "turns", "messages":
+		return "turns", nil
+	case "tokens":
+		return "tokens", nil
+	case "", "both", "any", "default":
+		return "both", nil
+	}
+	return "", fmt.Errorf("unknown compaction trigger %q", s)
 }
 
 func applyMap(cfg *SinCodeConfig, m map[string]string) {
@@ -1184,6 +1327,18 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.WorktreeConflictCheck = val
 		case "worktree.target_branch":
 			cfg.WorktreeTargetBranch = val
+		case "agentloop.context_compaction":
+			cfg.AgentLoopContextCompaction = val
+		case "agentloop.compaction_trigger":
+			cfg.AgentLoopCompactionTrigger = val
+		case "agentloop.compaction_max_tokens":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionMaxTokens)
+		case "agentloop.context_window":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopContextWindow)
+		case "agentloop.compaction_preserve_evidence":
+			cfg.AgentLoopCompactionPreserveEvidence = val == "true" || val == "1"
+		case "agentloop.compaction_recent_turns":
+			_, _ = fmt.Sscanf(val, "%d", &cfg.AgentLoopCompactionRecentTurns)
 		}
 	}
 }
