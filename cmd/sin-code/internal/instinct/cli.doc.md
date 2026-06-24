@@ -1,4 +1,4 @@
-# instinct/cli.go — `sin instinct ...`
+# instinct/manager.go — `sin instinct ...`
 
 Thin cobra command tree. All heavy lifting lives in `Manager`. The
 command tree is wired into `cmd/sin-code/main.go` exactly once.

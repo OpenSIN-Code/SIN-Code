@@ -111,6 +111,7 @@ func DefaultPluginDir() string {
 	return filepath.Join(dir, "sin-code", "plugins")
 }
 
+// sin-debt: delete, upgrade: remove when test no longer needs this override
 // userConfigDir is a hook for os.UserConfigDir so tests can inject errors.
 var userConfigDir = os.UserConfigDir
 

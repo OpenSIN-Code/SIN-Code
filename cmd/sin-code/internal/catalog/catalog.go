@@ -59,6 +59,7 @@ type Asset struct {
 // because the two backends differ significantly: the hub is a static
 // function call (no I/O), the asset loader is a Registry walk. Both
 // can be expressed as a Source with the three methods below.
+// sin-debt: yagni, upgrade: when a remote registry Source implementation lands, remove this marker
 type Source interface {
 	// Name returns the source's identifier ("hub", "assets", ...).
 	// Used in the Source field of Asset and in de-duplication keys.

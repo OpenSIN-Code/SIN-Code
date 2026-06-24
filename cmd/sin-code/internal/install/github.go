@@ -29,6 +29,8 @@ func NewHTTPClient() *http.Client {
 	return &http.Client{Timeout: 90 * time.Second}
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // FetchLatest resolves the latest published release for the canonical
 // Repo via the GitHub REST API. Returns the Release with at least one
 // matching platform asset, or an error suitable for surfacing to the

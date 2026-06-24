@@ -194,6 +194,8 @@ func readBundledSkillBody(skillName string) (string, error) {
 	return "", nil
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // ReadBundledSkillBody is the exported alias for readBundledSkillBody.
 // Public so the CLI (eval_cmd.go) can layer its own arm defaults
 // on top of the comparator's discovery path.

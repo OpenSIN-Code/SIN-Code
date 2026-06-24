@@ -91,10 +91,14 @@ type Styles struct {
 	Toast lipgloss.Style
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // Default returns the canonical SIN-Code dark theme.
 func Default() *Styles {
 	return buildStyles(&Palette)
 }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 // Light returns the warm-light theme. Same shape as Default, swapped palette.
 func Light() *Styles {

@@ -4,18 +4,195 @@
 // fail loudly instead of corrupting files, drift up to ±25 lines is
 // auto-resolved, occurrence counting prevents ambiguous string replaces, and
 // every edit re-runs the atomic write path with syntax validation.
-// Docs: cmd/sin-code/internal/edit.doc.md
+// Also contains: read — token-efficient, anchor-aware file reading (merged from read.go).
+// Also contains: write — atomic, validated file writing (merged from write.go).
+// Docs: cmd/sin-code/internal/read.doc.md, cmd/sin-code/internal/edit.doc.md, cmd/sin-code/internal/write.doc.md
 package internal
 
 import (
 	"encoding/json"
 	"fmt"
+	"go/parser"
+	"go/token"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 )
+
+// ── read ───────────────────────────────────────────────────────────────
+// read — token-efficient, anchor-aware file reading. Replaces naive
+// native read/cat for agents: hashline mode emits stable edit anchors,
+// outline mode emits structure instead of raw content (80–95% token
+// savings on large files), and hard byte/line guards prevent context
+// blowouts.
+
+var buildOutlineMarshal = func(v any) ([]byte, error) { return json.MarshalIndent(v, "", "  ") }
+
+var (
+	readMode     string
+	readOffset   int
+	readLimit    int
+	readMaxBytes int64
+	readFormat   string
+)
+
+var readAbsPath = filepath.Abs
+
+const readDefaultLimit = 2000
+const readDefaultMaxBytes int64 = 1 << 20
+
+var ReadCmd = &cobra.Command{
+	Use:   "read [path]",
+	Short: "Read files with hashline anchors, outline, and size guards",
+	Long: `Token-efficient file reading for agents and humans.
+
+Modes:
+  hashline  (default) lines prefixed with "LINE:HASH|" — anchors feed 'sin-code edit'
+  raw       plain content (still offset/limit guarded)
+  outline   structure only: imports, functions, classes, exports (huge files)
+
+Examples:
+  sin-code read main.go
+  sin-code read main.go --mode outline
+  sin-code read big.log --offset 5000 --limit 200 --mode raw
+  sin-code read pkg/x.go --format json`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		absPath, err := readAbsPath(args[0])
+		if err != nil {
+			return fmt.Errorf("invalid path: %w", err)
+		}
+		result, err := readFile(absPath, readMode, readOffset, readLimit, readMaxBytes)
+		if err != nil {
+			return err
+		}
+		if readFormat == "json" {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			return enc.Encode(result)
+		}
+		fmt.Print(result.Content)
+		if result.Truncated {
+			fmt.Fprintf(os.Stderr, "\n[truncated: showing lines %d-%d of %d — use --offset/--limit, or --mode outline]\n",
+				result.Offset, result.Offset+result.ReturnedLines-1, result.TotalLines)
+		}
+		return nil
+	},
+}
+
+func init() {
+	ReadCmd.Flags().StringVarP(&readMode, "mode", "m", "hashline", "Mode: hashline, raw, outline")
+	ReadCmd.Flags().IntVar(&readOffset, "offset", 1, "1-based line to start from")
+	ReadCmd.Flags().IntVar(&readLimit, "limit", 0, fmt.Sprintf("Max lines to return (default %d)", readDefaultLimit))
+	ReadCmd.Flags().Int64Var(&readMaxBytes, "max-bytes", readDefaultMaxBytes, "Refuse raw/hashline reads of files larger than this")
+	ReadCmd.Flags().StringVarP(&readFormat, "format", "f", "text", "Output: text, json")
+}
+
+type readResult struct {
+	Path          string `json:"path"`
+	Mode          string `json:"mode"`
+	Language      string `json:"language"`
+	Size          int64  `json:"size"`
+	TotalLines    int    `json:"total_lines"`
+	Offset        int    `json:"offset"`
+	ReturnedLines int    `json:"returned_lines"`
+	Truncated     bool   `json:"truncated"`
+	Content       string `json:"content"`
+}
+
+func readFile(path, mode string, offset, limit int, maxBytes int64) (*readResult, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, fmt.Errorf("file not found: %w", err)
+	}
+	if info.IsDir() {
+		return nil, fmt.Errorf("path is a directory: %s (use 'sin-code discover')", path)
+	}
+	if mode != "outline" && maxBytes > 0 && info.Size() > maxBytes {
+		return nil, fmt.Errorf("file is %d bytes (limit %d) — use --mode outline, narrow with --offset/--limit, or raise --max-bytes",
+			info.Size(), maxBytes)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if !utf8.Valid(data) {
+		return nil, fmt.Errorf("binary or non-UTF-8 file: %s (use 'sin-code execute' with a hex tool if needed)", path)
+	}
+
+	content := string(data)
+	lang := detectLanguage(path)
+	lines, _ := SplitLines(content)
+	total := len(lines)
+
+	res := &readResult{
+		Path: path, Mode: mode, Language: lang,
+		Size: info.Size(), TotalLines: total,
+	}
+
+	if mode == "outline" {
+		return buildOutlineResult(res, content, lang), nil
+	}
+
+	if offset < 1 {
+		offset = 1
+	}
+	if offset > total && total > 0 {
+		return nil, fmt.Errorf("offset %d beyond end of file (%d lines)", offset, total)
+	}
+	if limit <= 0 {
+		limit = readDefaultLimit
+	}
+	end := offset - 1 + limit
+	if end > total {
+		end = total
+	}
+	window := lines[offset-1 : end]
+
+	res.Offset = offset
+	res.ReturnedLines = len(window)
+	res.Truncated = offset > 1 || end < total
+
+	switch mode {
+	case "raw":
+		res.Content = JoinLines(window, true)
+	case "hashline":
+		res.Content = FormatHashlines(window, offset)
+	default:
+		return nil, fmt.Errorf("unknown mode %q: want hashline, raw, or outline", mode)
+	}
+	return res, nil
+}
+
+func buildOutlineResult(res *readResult, content, lang string) *readResult {
+	outline := parseOutline(res.Path, []byte(content))
+	exports := extractExports(content, lang)
+	deps := extractDependencies(res.Path)
+
+	outlineMap := map[string]any{
+		"language":     outline.Language,
+		"engine":       outline.Engine,
+		"total_lines":  res.TotalLines,
+		"symbols":      outline.Symbols,
+		"imports":      outline.Imports,
+		"exports":      exports,
+		"dependencies": deps,
+	}
+	b, err := buildOutlineMarshal(outlineMap)
+	if err != nil {
+		b = []byte(fmt.Sprintf(`{"error":"%v"}`, err))
+	}
+	res.Offset = 1
+	res.Content = string(b) + "\n"
+	return res
+}
+
+// ── edit ───────────────────────────────────────────────────────────────
 
 var (
 	editAnchor     string
@@ -400,4 +577,285 @@ func unifiedDiff(path string, before, after []string) string {
 		fmt.Fprintf(&buf, " %s\n", before[i])
 	}
 	return buf.String()
+}
+
+// write — atomic, validated file writing. Replaces naive native write:
+// temp-file + fsync + rename (never a half-written file), syntax pre-validation
+// before anything touches disk (Go via go/parser, JSON via encoding/json,
+// bracket-balance heuristic elsewhere), and optional backup.
+
+var (
+	writeContent     string
+	writeStdin       bool
+	writeNoValidate  bool
+	writeBackup      bool
+	writeMkdir       bool
+	writeFormat      string
+	writeStdinReader = io.Reader(os.Stdin)
+)
+
+var writeAbsPath = filepath.Abs
+
+var WriteCmd = &cobra.Command{
+	Use:   "write [path]",
+	Short: "Write files atomically with syntax pre-validation",
+	Long: `Atomic file writing: content is validated, written to a temp file in the
+target directory, fsynced, then renamed over the destination. A crash or
+validation failure never leaves a corrupt file behind.
+
+Validation (skip with --no-validate):
+  .go    full parse via go/parser
+  .json  encoding/json
+  other  bracket/brace/paren balance heuristic (string/comment aware)
+
+Examples:
+  sin-code write pkg/new.go --content "$(cat /tmp/draft.go)"
+  cat draft.json | sin-code write config.json --stdin --backup
+  sin-code write docs/new/file.md --stdin --mkdir < notes.md`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		absPath, err := writeAbsPath(args[0])
+		if err != nil {
+			return fmt.Errorf("invalid path: %w", err)
+		}
+		content := writeContent
+		if writeStdin {
+			data, err := io.ReadAll(writeStdinReader)
+			if err != nil {
+				return fmt.Errorf("reading stdin: %w", err)
+			}
+			content = string(data)
+		}
+		result, err := writeFileAtomic(absPath, content, writeOpts{
+			validate: !writeNoValidate,
+			backup:   writeBackup,
+			mkdir:    writeMkdir,
+		})
+		if err != nil {
+			return err
+		}
+		if writeFormat == "json" {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			return enc.Encode(result)
+		}
+		fmt.Printf("wrote %s (%d bytes, %d lines)%s\n", result.Path, result.Bytes, result.Lines,
+			map[bool]string{true: " [backup: " + result.BackupPath + "]", false: ""}[result.BackupPath != ""])
+		return nil
+	},
+}
+
+func init() {
+	WriteCmd.Flags().StringVarP(&writeContent, "content", "c", "", "Content to write")
+	WriteCmd.Flags().BoolVar(&writeStdin, "stdin", false, "Read content from stdin")
+	WriteCmd.Flags().BoolVar(&writeNoValidate, "no-validate", false, "Skip syntax pre-validation")
+	WriteCmd.Flags().BoolVar(&writeBackup, "backup", false, "Keep a .bak copy of the previous content")
+	WriteCmd.Flags().BoolVar(&writeMkdir, "mkdir", false, "Create parent directories if missing")
+	WriteCmd.Flags().StringVarP(&writeFormat, "format", "f", "text", "Output: text, json")
+}
+
+type writeOpts struct {
+	validate bool
+	backup   bool
+	mkdir    bool
+}
+
+type writeResult struct {
+	Path       string `json:"path"`
+	Bytes      int    `json:"bytes"`
+	Lines      int    `json:"lines"`
+	Created    bool   `json:"created"`
+	Validated  bool   `json:"validated"`
+	BackupPath string `json:"backup_path,omitempty"`
+}
+
+// writeHooks abstracts the file-system operations in writeFileAtomic so
+// every error branch can be exercised without depending on real disk faults.
+// Production uses the default hooks; tests override individual functions.
+type writeHooks struct {
+	createTemp func(dir, pattern string) (*os.File, error)
+	writeAll   func(w io.Writer, data []byte) (int, error)
+	syncFile   func(f *os.File) error
+	closeFile  func(f *os.File) error
+	chmod      func(name string, mode os.FileMode) error
+	rename     func(oldpath, newpath string) error
+	remove     func(name string) error
+	readFile   func(name string) ([]byte, error)
+	writeFile  func(name string, data []byte, perm os.FileMode) error
+	mkdirAll   func(path string, perm os.FileMode) error
+	stat       func(name string) (os.FileInfo, error)
+}
+
+var defaultWriteHooks = writeHooks{
+	createTemp: os.CreateTemp,
+	writeAll:   func(w io.Writer, data []byte) (int, error) { return w.Write(data) },
+	syncFile:   func(f *os.File) error { return f.Sync() },
+	closeFile:  func(f *os.File) error { return f.Close() },
+	chmod:      os.Chmod,
+	rename:     os.Rename,
+	remove:     os.Remove,
+	readFile:   os.ReadFile,
+	writeFile:  os.WriteFile,
+	mkdirAll:   os.MkdirAll,
+	stat:       os.Stat,
+}
+
+// writeHooksCurrent is the active hook set. It is reset after each test by
+// TestMain, but tests can override individual fields directly.
+var writeHooksCurrent = defaultWriteHooks
+
+func writeFileAtomic(path, content string, opts writeOpts) (*writeResult, error) {
+	hooks := writeHooksCurrent
+	return writeFileAtomicWithHooks(path, content, opts, hooks)
+}
+
+func writeFileAtomicWithHooks(path, content string, opts writeOpts, hooks writeHooks) (*writeResult, error) {
+	if opts.validate {
+		if err := validateSyntax(path, content); err != nil {
+			return nil, fmt.Errorf("validation failed, nothing written: %w", err)
+		}
+	}
+
+	dir := filepath.Dir(path)
+	if opts.mkdir {
+		if err := hooks.mkdirAll(dir, 0755); err != nil {
+			return nil, fmt.Errorf("creating parent directories: %w", err)
+		}
+	}
+	if _, err := hooks.stat(dir); err != nil {
+		return nil, fmt.Errorf("parent directory missing: %s (use --mkdir)", dir)
+	}
+
+	res := &writeResult{Path: path, Bytes: len(content), Validated: opts.validate}
+
+	prevInfo, statErr := hooks.stat(path)
+	res.Created = statErr != nil
+	mode := os.FileMode(0644)
+	if statErr == nil {
+		mode = prevInfo.Mode().Perm()
+		if opts.backup {
+			bak := path + ".bak"
+			prev, err := hooks.readFile(path)
+			if err != nil {
+				return nil, fmt.Errorf("reading previous content for backup: %w", err)
+			}
+			if err := hooks.writeFile(bak, prev, mode); err != nil {
+				return nil, fmt.Errorf("writing backup: %w", err)
+			}
+			res.BackupPath = bak
+		}
+	}
+
+	tmp, err := hooks.createTemp(dir, ".sin-write-*")
+	if err != nil {
+		return nil, fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpName := tmp.Name()
+	cleanup := func() { _ = hooks.closeFile(tmp); _ = hooks.remove(tmpName) }
+
+	if _, err := hooks.writeAll(tmp, []byte(content)); err != nil {
+		cleanup()
+		return nil, fmt.Errorf("writing temp file: %w", err)
+	}
+	if err := hooks.syncFile(tmp); err != nil {
+		cleanup()
+		return nil, fmt.Errorf("fsync: %w", err)
+	}
+	if err := hooks.closeFile(tmp); err != nil {
+		_ = hooks.remove(tmpName)
+		return nil, fmt.Errorf("closing temp file: %w", err)
+	}
+	if err := hooks.chmod(tmpName, mode); err != nil {
+		_ = hooks.remove(tmpName)
+		return nil, fmt.Errorf("chmod: %w", err)
+	}
+	if err := hooks.rename(tmpName, path); err != nil {
+		_ = hooks.remove(tmpName)
+		return nil, fmt.Errorf("atomic rename: %w", err)
+	}
+
+	lines, _ := SplitLines(content)
+	res.Lines = len(lines)
+	return res, nil
+}
+
+func validateSyntax(path, content string) error {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".go":
+		fset := token.NewFileSet()
+		if _, err := parser.ParseFile(fset, filepath.Base(path), content, parser.AllErrors); err != nil {
+			return fmt.Errorf("go syntax: %v", err)
+		}
+		return nil
+	case ".json":
+		var v any
+		if err := json.Unmarshal([]byte(content), &v); err != nil {
+			return fmt.Errorf("json syntax: %v", err)
+		}
+		return nil
+	case ".md", ".txt", ".log", "":
+		return nil
+	default:
+		return checkBracketBalance(path, content)
+	}
+}
+
+func checkBracketBalance(path, content string) error {
+	pairs := map[rune]rune{')': '(', ']': '[', '}': '{'}
+	var stack []rune
+	inString := rune(0)
+	escaped := false
+	lineComment := false
+	line := 1
+
+	for _, r := range content {
+		if r == '\n' {
+			line++
+			lineComment = false
+			if inString == '\'' || inString == '"' {
+				inString = 0
+			}
+			continue
+		}
+		if lineComment {
+			continue
+		}
+		if inString != 0 {
+			if escaped {
+				escaped = false
+			} else if r == '\\' {
+				escaped = true
+			} else if r == inString {
+				inString = 0
+			}
+			continue
+		}
+		switch r {
+		case '"', '\'', '`':
+			inString = r
+		case '#':
+			if isHashCommentLang(path) {
+				lineComment = true
+			}
+		case '(', '[', '{':
+			stack = append(stack, r)
+		case ')', ']', '}':
+			if len(stack) == 0 || stack[len(stack)-1] != pairs[r] {
+				return fmt.Errorf("bracket balance: unexpected %q at line %d (use --no-validate to override)", r, line)
+			}
+			stack = stack[:len(stack)-1]
+		}
+	}
+	if len(stack) > 0 {
+		return fmt.Errorf("bracket balance: %d unclosed brackets — content looks truncated (use --no-validate to override)", len(stack))
+	}
+	return nil
+}
+
+func isHashCommentLang(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".py", ".rb", ".sh", ".bash", ".yaml", ".yml", ".toml", ".pl", ".r":
+		return true
+	}
+	return false
 }

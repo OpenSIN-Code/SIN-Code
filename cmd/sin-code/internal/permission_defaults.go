@@ -196,6 +196,8 @@ func RulesForAgent(cfg orchestrator.AgentConfig) []permission.Rule {
 	return append(rules, DefaultPermissionRules()...)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func LoadEffectiveAgent(name string) (orchestrator.AgentConfig, string, error) {
 	return loadEffectiveAgent(name)
 }

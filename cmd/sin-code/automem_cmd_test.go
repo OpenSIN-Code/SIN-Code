@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Purpose: coverage tests for automem_cmd.go.
-package internal
+package main
 
 import (
 	"errors"

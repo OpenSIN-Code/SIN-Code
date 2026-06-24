@@ -15,9 +15,13 @@ var (
 	getDepsFn      = (*Store).GetDeps
 )
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func depKey(from, to string, dtype DepType) []byte {
 	return []byte(from + "\x00" + to + "\x00" + string(dtype))
 }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 func depPrefix(from string) []byte {
 	return []byte(from + "\x00")

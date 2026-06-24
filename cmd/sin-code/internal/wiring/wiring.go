@@ -7,6 +7,7 @@ package wiring
 
 import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/adapters"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/assets"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/dispatch"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/evalharness"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooklife"
@@ -19,7 +20,7 @@ import (
 
 // Package-level hooks let coverage tests inject failures without
 // touching the filesystem or network. They follow the pattern used
-// elsewhere in the codebase (e.g. cmd/sin-code/internal/todo/todo.go).
+// elsewhere in the codebase (e.g. cmd/sin-code/internal/todo/store.go).
 var (
 	learningNewHook = func(opts learning.Options) (*learning.Learner, error) {
 		return learning.New(opts)
@@ -88,4 +89,17 @@ func Build(d Deps) (*Bundle, error) {
 		Eval:     evalFactory,
 		PRP:      prpDeps,
 	}, nil
+}
+
+// BuildDispatcher wires the asset registry to the prompt sink (main
+// loop) and the subagent runner (orchestrator). Either sink may be
+// nil during bring-up.
+func BuildDispatcher(assetBase string, prompts dispatch.PromptSink, agents dispatch.SubagentRunner) (*dispatch.Dispatcher, error) {
+	list, err := assets.LoadStandardLayout(assetBase)
+	if err != nil {
+		return nil, err
+	}
+	reg := assets.NewRegistry()
+	reg.AddAll(list)
+	return &dispatch.Dispatcher{Reg: reg, Prompts: prompts, Agents: agents}, nil
 }

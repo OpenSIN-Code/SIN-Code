@@ -43,6 +43,8 @@ type SyntaxHighlighter struct {
 }
 
 var highlighterInit sync.Once
+
+// sin-debt: verify, upgrade: analyzer false positive — var is read in non-test code
 var sharedLangConfigs map[string]*langConfig
 
 func initLangConfigs() {

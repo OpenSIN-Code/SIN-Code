@@ -9,6 +9,8 @@ type PlatformGuard struct {
 	cleanup func()
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // SetupPlatformGuard initializes the platform-specific guard.
 // Returns a guard whose Cleanup method must be called on exit.
 func SetupPlatformGuard() *PlatformGuard {

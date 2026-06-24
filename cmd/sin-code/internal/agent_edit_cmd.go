@@ -248,3 +248,13 @@ func splitCSV(s string) []string {
 	}
 	return out
 }
+
+// truncate shortens s to at most n rune bytes, preserving the byte budget
+// with a single ellipsis rune. It is the canonical helper for internal
+// package callers that previously relied on the memory command's truncate.
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n-1] + "…"
+}

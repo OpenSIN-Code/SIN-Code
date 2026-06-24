@@ -453,12 +453,16 @@ func matchSegs(g, p []string) bool {
 	return len(p) == 0
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // pathMatch wraps path.Match with a permissive fallback so that
 // patterns like `agentloop/**` (no leading slash) match the
 // last segment of a path containing that fragment.
 func pathMatch(pattern, name string) (bool, error) {
 	return pathMatch2(pattern, name)
 }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 // pathMatch2 returns true if pattern matches name. We swap in a
 // custom impl here so we don't have to wrap path.Match twice.

@@ -371,6 +371,8 @@ var (
 	serveStdout io.Writer = os.Stdout
 )
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func Serve(ctx context.Context) error {
 	return NewServerWithIO(serveStdin, serveStdout, os.Stderr, "").Serve(ctx)
 }

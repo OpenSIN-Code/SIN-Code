@@ -372,6 +372,7 @@ type MemoryReader interface {
 	Query(q string, n int) ([]string, error)
 }
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 type GoalReader interface {
 	Active() ([]string, error)
 }
@@ -380,6 +381,7 @@ type TodoReader interface {
 	Open(blockedOnly bool) ([]string, error)
 }
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 type SessionSummaryReader interface {
 	Summary(sessionID string) (string, error)
 }

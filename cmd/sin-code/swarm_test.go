@@ -112,16 +112,6 @@ func TestCancelledMarkers(t *testing.T) {
 	}
 }
 
-func TestTruncate(t *testing.T) {
-	t.Parallel()
-	if got := truncate("hello", 10); got != "hello" {
-		t.Errorf("truncate short: %q", got)
-	}
-	if got := truncate("hello world", 5); got != "hello..." {
-		t.Errorf("truncate long: %q", got)
-	}
-}
-
 func TestSanitizeFile(t *testing.T) {
 	t.Parallel()
 	cases := []struct{ in, want string }{

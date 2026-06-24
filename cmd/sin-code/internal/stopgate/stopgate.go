@@ -25,6 +25,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 )
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 // Judge is the subset of *eval.Judge the stop-gate needs. Declared as an
 // interface so tests can inject a fake without an HTTP server and so a nil
 // judge cleanly disables semantic evaluation.

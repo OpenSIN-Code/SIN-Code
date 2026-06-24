@@ -9,6 +9,8 @@ import (
 	"testing"
 )
 
+var errTest = fmt.Errorf("simulated error")
+
 // writeFakeScanner writes a small shell script that prints the given JSON and
 // exits 0, so the scan orchestrator can be exercised without vendored tools.
 func writeFakeScanner(t *testing.T, dir, name, output string) string {

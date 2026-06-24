@@ -25,6 +25,7 @@ import (
 	"strings"
 )
 
+// sin-debt: delete, upgrade: remove when test no longer needs this override
 // userConfigDir is a package-level hook for os.UserConfigDir so tests
 // can hermetic-mock the platform-specific user directory.
 var userConfigDir = os.UserConfigDir

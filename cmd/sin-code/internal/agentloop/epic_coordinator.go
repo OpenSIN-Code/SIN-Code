@@ -32,6 +32,7 @@ type Epic struct {
 	Completed   []int
 }
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 // EpicLoader loads epic data from an external source (GitHub API in
 // production, a mock in tests). Implementations must be safe for
 // concurrent use.

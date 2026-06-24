@@ -22,6 +22,7 @@ func platformCommand(ctx context.Context, _ Policy, name string, args ...string)
 	}, nil
 }
 
+// sin-debt: shrink, upgrade: when a second platform-specific function is needed, merge into a shared file
 // ApplyAndExec is the no-op fallback on non-Linux platforms. The
 // sandbox re-exec shim in main.go calls this only when SIN_SANDBOX_ACTIVE
 // is set (set by platformCommand on Linux), so on non-Linux it should

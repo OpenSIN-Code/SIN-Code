@@ -20,6 +20,8 @@ type LLMAgent struct {
 	client *llm.Client
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func NewLLMAgent(cfg AgentConfig) *LLMAgent {
 	return NewLLMAgentWithClient(cfg, nil)
 }
@@ -61,7 +63,11 @@ func inferProviderFromEnv() string {
 // Backwards-compat alias.
 type NIMAgent = LLMAgent
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func NewNIMAgent(cfg AgentConfig) *NIMAgent { return NewLLMAgent(cfg) }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 func NewNIMAgentWithClient(cfg AgentConfig, client *llm.Client) *NIMAgent {
 	return NewLLMAgentWithClient(cfg, client)
 }

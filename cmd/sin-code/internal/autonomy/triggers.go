@@ -5,9 +5,14 @@ package autonomy
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"hash"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -263,4 +268,38 @@ func matchDoubleStar(pattern, rel string) bool {
 	}
 	ok, _ := filepath.Match(parts[1], filepath.Base(rel))
 	return ok
+}
+
+// ── Thin wrappers (merged from helpers.go) ──────────────────────────────
+
+func sha256Sum() hash.Hash                   { return sha256.New() }
+func hexEncodeToString(h hash.Hash) string   { return hex.EncodeToString(h.Sum(nil)) }
+func jsonUnmarshal(data []byte, v any) error { return json.Unmarshal(data, v) }
+
+// ── Slugify (merged from slugify_helper.go) ─────────────────────────────
+
+var dashRun = regexp.MustCompile(`-+`)
+
+func Slugify(topic string) string {
+	t := strings.ToLower(strings.TrimSpace(topic))
+	var b strings.Builder
+	for _, r := range t {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+			b.WriteRune(r)
+		case r == ' ' || r == '_' || r == '.' || r == ':' || r == ',':
+			b.WriteByte('-')
+		case r == '/':
+			// skip forward slash entirely so "a/b" becomes "ab"
+		}
+	}
+	out := dashRun.ReplaceAllString(b.String(), "-")
+	if len(out) > 80 {
+		out = out[:80]
+		out = strings.TrimRight(out, "-")
+	}
+	if out == "" {
+		return "report"
+	}
+	return out
 }

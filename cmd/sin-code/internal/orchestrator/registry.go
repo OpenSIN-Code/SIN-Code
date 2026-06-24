@@ -66,6 +66,7 @@ func DefaultUserAgentsPath() string {
 	return filepath.Join(cfg, "sin-code", "agents")
 }
 
+// sin-debt: delete, upgrade: remove when test no longer needs this override
 // userConfigDir is a hook for os.UserConfigDir so tests can inject paths.
 var userConfigDir = os.UserConfigDir
 

@@ -14,6 +14,7 @@
 package sindept
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -68,12 +69,16 @@ func TestParseGoldenFamilyCoverage(t *testing.T) {
 func TestParseGoldenUpgradeAttribution(t *testing.T) {
 	mk := parseGolden(t)
 	want := map[string]bool{
-		"per-account locks when throughput > 1k req/s":           true,
-		"switch to map lookup when n > 100":                      true,
-		"use cenkalti/backoff when context cancellation matters": true,
-		"switch to fsnotify when file count > 100":               true,
-		"switch to redis when instances > 1":                     true,
-		"replace with text/template when content grows 10x":      true,
+		"per-account locks when throughput > 1k req/s":                   true,
+		"switch to map lookup when n > 100":                              true,
+		"use cenkalti/backoff when context cancellation matters":         true,
+		"switch to fsnotify when file count > 100":                       true,
+		"switch to redis when instances > 1":                             true,
+		"replace with text/template when content grows 10x":              true,
+		"add a second fixture example":                                   true,
+		"add a markdown fixture with an upgrade trigger":                 true,
+		"switch to async I/O when latency budget exceeds 50ms":           true,
+		"switch to inotify/fsnotify when watched file count exceeds 100": true,
 	}
 	for _, m := range mk {
 		if m.HasUpg {
@@ -106,11 +111,11 @@ func TestAggregateStatsMatchesGoldenView(t *testing.T) {
 	if stats.Total != 10 {
 		t.Fatalf("Total=%d want 10", stats.Total)
 	}
-	if stats.WithUpgrade != 6 {
-		t.Fatalf("WithUpgrade=%d want 6", stats.WithUpgrade)
+	if stats.WithUpgrade != 10 {
+		t.Fatalf("WithUpgrade=%d want 10", stats.WithUpgrade)
 	}
-	if stats.WithoutUpgrade != 4 {
-		t.Fatalf("WithoutUpgrade=%d want 4", stats.WithoutUpgrade)
+	if stats.WithoutUpgrade != 0 {
+		t.Fatalf("WithoutUpgrade=%d want 0", stats.WithoutUpgrade)
 	}
 	if len(stats.ByFile) != 5 {
 		t.Fatalf("ByFile size=%d want 5", len(stats.ByFile))
@@ -118,8 +123,8 @@ func TestAggregateStatsMatchesGoldenView(t *testing.T) {
 	if len(stats.ByLanguage) != 5 {
 		t.Fatalf("ByLanguage size=%d want 5", len(stats.ByLanguage))
 	}
-	if len(stats.RotRisk) != 4 {
-		t.Fatalf("RotRisk size=%d want 4", len(stats.RotRisk))
+	if len(stats.RotRisk) != 0 {
+		t.Fatalf("RotRisk size=%d want 0", len(stats.RotRisk))
 	}
 }
 
@@ -138,7 +143,6 @@ func TestRenderStatsByteStable(t *testing.T) {
 		"## By file",
 		"## By reason",
 		"## By language",
-		"## Rot-risk markers",
 		"Total markers:",
 	} {
 		if !strings.Contains(s1, want) {
@@ -157,7 +161,7 @@ func TestRenderListStringByteStable(t *testing.T) {
 	if !strings.Contains(a, "| file | line | symbol | reason | upgrade | rot |") {
 		t.Fatalf("missing header row in list report")
 	}
-	if !strings.Contains(a, "_10 markers total. 6 with upgrade, 4 in rot-risk._") {
+	if !strings.Contains(a, "_10 markers total. 10 with upgrade, 0 in rot-risk._") {
 		t.Fatalf("missing footer counts in list report")
 	}
 }
@@ -234,7 +238,7 @@ func TestPolicyCheckFailsOverThreshold(t *testing.T) {
 	p := DefaultPolicy()
 	p.MaxNoUpgrade = 1
 	p.RequireUpgrade = false
-	mk := parseGolden(t)
+	mk := rotRiskFixture(t, 4)
 	r := p.RunCheck(mk)
 	if r.Ok {
 		t.Fatalf("expected fail, got %+v", r)
@@ -248,7 +252,7 @@ func TestPolicyRequireUpgradeForceFails(t *testing.T) {
 	p := DefaultPolicy()
 	p.RequireUpgrade = true
 	p.MaxNoUpgrade = 0
-	mk := parseGolden(t)
+	mk := rotRiskFixture(t, 4)
 	r := p.RunCheck(mk)
 	if r.Ok {
 		t.Fatalf("expected fail with require_upgrade=true")
@@ -256,6 +260,24 @@ func TestPolicyRequireUpgradeForceFails(t *testing.T) {
 	if len(r.Failed) != 4 {
 		t.Fatalf("expected 4 failed markers, got %d", len(r.Failed))
 	}
+}
+
+// rotRiskFixture returns n markers without upgrade clauses for policy tests.
+func rotRiskFixture(t *testing.T, n int) []Marker {
+	t.Helper()
+	dir := t.TempDir()
+	for i := 0; i < n; i++ {
+		path := filepath.Join(dir, fmt.Sprintf("rot%d.go", i))
+		writeFile(t, path, fmt.Sprintf("package x\n// sin-debt: rot-risk example %d\n", i))
+	}
+	mk, err := ParseDir(dir, DefaultOptions())
+	if err != nil {
+		t.Fatalf("ParseDir: %v", err)
+	}
+	if len(mk) != n {
+		t.Fatalf("expected %d rot-risk markers, got %d", n, len(mk))
+	}
+	return mk
 }
 
 func TestParseInlineCommentFamilies(t *testing.T) {

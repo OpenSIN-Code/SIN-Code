@@ -56,6 +56,7 @@ func mergeAgentConfig(base, override orchestrator.AgentConfig) orchestrator.Agen
 	return base
 }
 
+// sin-debt: delete, upgrade: remove when test no longer needs this override
 // osUserConfigDir is a test hook for the os.UserConfigDir error path.
 var osUserConfigDir = os.UserConfigDir
 

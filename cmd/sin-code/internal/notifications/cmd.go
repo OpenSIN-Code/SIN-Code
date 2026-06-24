@@ -58,6 +58,8 @@ func init() {
 	NotificationsCmd.AddCommand(statsCmd)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func openStore() (*Store, error) {
 	return testHookOpenStore(notifDBPath)
 }

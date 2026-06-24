@@ -16,6 +16,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -205,12 +206,12 @@ func (r *Runner) applyRules(tc *TestCase, res *RunResult) RunResult {
 	// what happened inside the LLM. Tests that care about Constraints.Must*
 	// must supply a Loop that records tools_used.
 	for _, need := range tc.Constraints.MustUseTools {
-		if !contains(res.ToolsUsed, need) {
+		if !slices.Contains(res.ToolsUsed, need) {
 			violations = append(violations, "missing required tool: "+need)
 		}
 	}
 	for _, ban := range tc.Constraints.ForbiddenTools {
-		if contains(res.ToolsUsed, ban) {
+		if slices.Contains(res.ToolsUsed, ban) {
 			violations = append(violations, "used forbidden tool: "+ban)
 		}
 	}
@@ -279,14 +280,4 @@ func (r *Runner) applyScorer(tc *TestCase, res *RunResult) {
 	if res.Error == "" && !passed {
 		res.Error = fmt.Sprintf("scorer: score=%.2f detail=%s", score, detail)
 	}
-}
-
-// contains is a small linear scan; test cases are tiny (≤ 100 tools).
-func contains(list []string, want string) bool {
-	for _, s := range list {
-		if s == want {
-			return true
-		}
-	}
-	return false
 }

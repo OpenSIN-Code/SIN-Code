@@ -158,6 +158,7 @@ type Issue struct {
 	Labels []string // normalized to lowercase
 }
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 // IssueFetcher is the pluggable source of GitHub issues. Production
 // uses NewGHBridgeFetcher so `gh issue view` does the work; tests
 // install a stub via SetFetcher.
@@ -230,6 +231,7 @@ func (f *BridgeFetcher) Fetch(ctx context.Context, owner, repo string, num int) 
 	}, nil
 }
 
+// sin-debt: verify, upgrade: analyzer false positive — var is read in non-test code
 // ErrFetcherNotConfigured is returned by NewGHBridgeFetcher when the
 // supplied ghbridge.Runner is nil (production wire-up mistake) and by
 // NewIssueFromGitHub when no fetcher is installed for the current

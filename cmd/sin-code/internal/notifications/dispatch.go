@@ -128,6 +128,8 @@ func escape(s string) string {
 	return string(out)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // jsonMarshal is a small wrapper to keep the dispatch import surface small.
 func jsonMarshal(v interface{}) ([]byte, error) {
 	return jsonEncode(v)

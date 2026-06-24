@@ -85,6 +85,8 @@ func init() {
 	SecurityCmd.AddCommand(NewSecurityScanCmd())
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // RunSecurityAudit runs a lightweight, single-tool security scan suitable for
 // the audit/CEO-audit pipeline. It auto-detects the project type and picks the
 // fastest available scanner. Findings are reported but do not block the audit;
@@ -481,6 +483,8 @@ func runWithTimeout(cmd string, args []string, dir string, timeoutSec int) ([]by
 func countSubstring(s, sub string) int {
 	return strings.Count(s, sub)
 }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 func countLinesSimple(s string) int {
 	return len(strings.Split(s, "\n"))

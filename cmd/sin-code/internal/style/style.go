@@ -202,6 +202,8 @@ func RenderRules(m Mode, skillBody string) string {
 	return b.String()
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // RenderSystemBlock is the convenience entry point used by the
 // agent loop and config getters. Returns "" when level is empty,
 // default, verbose, or unknown. Matches the

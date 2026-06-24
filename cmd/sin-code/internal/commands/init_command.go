@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -275,7 +276,7 @@ func (c *InitCommand) fillCommands(info *ProjectInfo, root string) {
 		info.BuildCmd = "go build ./..."
 		info.TestCmd = "go test ./... -race -count=1"
 		info.LintCmd = "go vet ./..."
-		if contains(info.Tools, "golangci-lint") {
+		if slices.Contains(info.Tools, "golangci-lint") {
 			info.LintCmd = "golangci-lint run"
 		}
 		info.ModulePath = c.extractGoModule(root)
@@ -290,14 +291,14 @@ func (c *InitCommand) fillCommands(info *ProjectInfo, root string) {
 			info.TestCmd = "python -m pytest"
 		}
 		info.LintCmd = "ruff check ."
-		if !contains(info.Tools, "ruff") {
+		if !slices.Contains(info.Tools, "ruff") {
 			info.LintCmd = "python -m pyflakes ."
 		}
 	case "node":
 		info.BuildCmd = "npm run build"
 		info.TestCmd = "npm test"
 		info.LintCmd = "npm run lint"
-		if contains(info.Tools, "eslint") {
+		if slices.Contains(info.Tools, "eslint") {
 			info.LintCmd = "npx eslint ."
 		}
 		pkg := readPackageJSON(root)
@@ -482,15 +483,6 @@ func readPackageJSON(root string) map[string]any {
 		}
 	}
 	return pkg
-}
-
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
 }
 
 func isIgnoredDir(name string) bool {

@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -219,7 +220,7 @@ func (m *Manager) Synthesize(id string) (Synthesize, error) {
 		// "probably" in the answer is flagged as an assumption.
 		if d.Status == "answered" {
 			low := d.Answer
-			if contains(low, "assume") || contains(low, "probably") || contains(low, "guess") {
+			if strings.Contains(low, "assume") || strings.Contains(low, "probably") || strings.Contains(low, "guess") {
 				out.Assumptions = append(out.Assumptions, d.Question+" (assumed: "+d.Answer+")")
 			}
 		}
@@ -274,18 +275,6 @@ func (m *Manager) load(id string) (*Session, error) {
 
 func (m *Manager) path(id string) string {
 	return filepath.Join(m.dir, id+".json")
-}
-
-func contains(s, sub string) bool {
-	if sub == "" {
-		return true
-	}
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }
 
 // openingQuestion returns the seed question for a new session. The

@@ -46,6 +46,7 @@ type Output struct {
 	USD float64 `json:"usd,omitempty"`
 }
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 // Subject is the thing under evaluation: an agent, a verify gate, a model
 // call. Implement this to plug SIN-Code's runtime into the harness.
 type Subject interface {

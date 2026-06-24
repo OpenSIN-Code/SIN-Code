@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Purpose: Unit tests for the sin-code memory command helpers. (st-cov1)
-package internal
+package main
 
 import (
 	"fmt"
@@ -29,9 +29,9 @@ func TestTruncate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got := truncate(tt.input, tt.n)
+			got := memTruncate(tt.input, tt.n)
 			if got != tt.want {
-				t.Errorf("truncate(%q, %d) = %q, want %q", tt.input, tt.n, got, tt.want)
+				t.Errorf("memTruncate(%q, %d) = %q, want %q", tt.input, tt.n, got, tt.want)
 			}
 		})
 	}

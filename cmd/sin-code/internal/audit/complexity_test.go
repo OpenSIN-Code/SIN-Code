@@ -30,7 +30,9 @@ func TestGoFilesSkipsVendorAndTests(t *testing.T) {
 
 func TestDetectSingleImplInterface(t *testing.T) {
 	src := `package foo
-type Reader interface { Read() }`
+type Reader interface { Read() }
+type reader struct{}
+func (reader) Read() {}`
 	f, fset := parseFile(t, "x.go", src)
 	findings := staticPass(packageInfo{f: f, src: src, fset: fset, path: "x.go"}, allTagsMap(), DefaultSinDebtRE())
 	found := false
@@ -46,8 +48,10 @@ type Reader interface { Read() }`
 
 func TestDetectSingleProductFactory(t *testing.T) {
 	src := `package foo
-func NewThing() *Thing { return &Thing{} }
-type Thing struct{}`
+type Widget interface { Do() }
+type widget struct{}
+func (widget) Do() {}
+func NewThing() Widget { return widget{} }`
 	f, fset := parseFile(t, "x.go", src)
 	findings := staticPass(packageInfo{f: f, src: src, fset: fset, path: "x.go"}, allTagsMap(), DefaultSinDebtRE())
 	found := false
@@ -130,7 +134,7 @@ func contains(s, sub string) bool { return strings.Contains(s, sub) }`
 func TestSinDebtApproval(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "x.go")
-	mustWrite(t, path, "package foo\n// sin-debt: legacy shim\ntype Reader interface { Read() }\n")
+	mustWrite(t, path, "package foo\n// sin-debt: legacy shim\ntype Reader interface { Read() }\ntype reader struct{}\nfunc (reader) Read() {}\n")
 	re := DefaultSinDebtRE()
 
 	f, fset := parseFile(t, path, string(mustRead(t, path)))

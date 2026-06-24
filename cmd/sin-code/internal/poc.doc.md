@@ -18,7 +18,7 @@ Verifies that code satisfies its specification by comparing required functions/c
 - `cmd/sin-code/main.go` — registers `PocCmd` into the root cobra command
 - `cmd/sin-code/internal/poc.go` — self-contained spec parser and verifier
 - `cmd/sin-code/internal/oracle.go` — shares `extractSymbols` pattern and `symbolInfo` struct
-- `cmd/sin-code/internal/grasp.go` — reuses `detectLanguage` and structure extraction patterns
+- `cmd/sin-code/internal/analysis_tools.go` — reuses `detectLanguage` and structure extraction patterns
 - `cmd/sin-code/internal/sckg.go` — shares symbol extraction concepts
 
 ## Important config values & limits

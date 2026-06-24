@@ -244,6 +244,8 @@ func nextSymbol(content string, markerLineIdx int) string {
 	return ""
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // ParseFile reads a single file and returns its sorted-by-line markers.
 // Returns an empty slice and no error for an unreadable, hidden, or empty
 // file; the caller can verify with `len(result) == 0`.
@@ -278,6 +280,15 @@ func ParseFileWithCap(path string, max int64) ([]Marker, error) {
 	}
 	content := buf.String()
 	rawLines := strings.Split(content, "\n")
+
+	// For Markdown files outside testdata, skip entirely — sin-debt markers
+	// in .md files are documentation examples, not real debt markers.
+	// testdata/*.md files are scanner fixtures and must be parsed.
+	isMarkdown := strings.HasSuffix(strings.ToLower(path), ".md")
+	isTestdata := strings.Contains(filepath.ToSlash(path), "/testdata/") || strings.HasPrefix(filepath.ToSlash(path), "testdata/")
+	if isMarkdown && !isTestdata {
+		return nil, nil
+	}
 
 	idx := markerRe.FindAllStringSubmatchIndex(content, -1)
 	if len(idx) == 0 {

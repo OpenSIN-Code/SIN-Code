@@ -7,6 +7,7 @@ package resource
 
 import "golang.org/x/sys/unix"
 
+// sin-debt: shrink, upgrade: when a second platform-specific function is needed, merge into a shared file
 // DiskFree returns the number of bytes available to an unprivileged
 // process on the filesystem that contains path. ok is false when the
 // probe is unavailable (then callers must skip the disk gate).

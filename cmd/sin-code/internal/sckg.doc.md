@@ -16,7 +16,7 @@ Builds and queries a knowledge graph of a codebase: files, functions, types, imp
 - `cmd/sin-code/main.go` — registers `SckgCmd` into the root cobra command
 - `cmd/sin-code/internal/sckg.go` — self-contained graph builder and query engine
 - `cmd/sin-code/internal/discover.go` — reuses `extractDependencies` for import edges
-- `cmd/sin-code/internal/grasp.go` — reuses `detectLanguage` and structure extraction concepts
+- `cmd/sin-code/internal/analysis_tools.go` — reuses `detectLanguage` and structure extraction concepts
 - `cmd/sin-code/internal/map.go` — shares the file-walking and module-detection logic
 
 ## Important config values & limits

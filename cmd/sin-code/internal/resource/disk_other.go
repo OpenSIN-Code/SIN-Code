@@ -6,6 +6,7 @@
 // rather than guessing (issue #71).
 package resource
 
+// sin-debt: shrink, upgrade: when a second platform-specific function is needed, merge into a shared file
 // DiskFree is unavailable off unix; callers skip the disk gate when
 // ok is false.
 func DiskFree(_ string) (free int64, ok bool) {

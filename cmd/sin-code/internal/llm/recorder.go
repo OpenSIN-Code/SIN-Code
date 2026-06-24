@@ -65,6 +65,7 @@ const (
 //
 // The default NopRecorder is the no-op implementation. Wire a real
 // recorder via ClientOptions.Recorder when you want persistence.
+// sin-debt: yagni, upgrade: when a second Recorder implementation lands, remove this marker
 type Recorder interface {
 	// RecordUsage persists a single usage event. Returns an error
 	// if the underlying store fails; the LLM client logs but

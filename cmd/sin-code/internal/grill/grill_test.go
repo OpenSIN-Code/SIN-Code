@@ -352,7 +352,7 @@ func TestContains(t *testing.T) {
 		{"abcabc", "cab", true},
 	}
 	for _, c := range cases {
-		if got := contains(c.s, c.sub); got != c.want {
+		if got := strings.Contains(c.s, c.sub); got != c.want {
 			t.Errorf("contains(%q,%q) = %v, want %v", c.s, c.sub, got, c.want)
 		}
 	}

@@ -398,6 +398,8 @@ func SwePrintSummary(w io.Writer, r *SweReport) {
 	}
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func sanitizeRepo(repo string) string {
 	return strings.NewReplacer("/", "_", "\\", "_", ":", "_").Replace(repo)
 }

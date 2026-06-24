@@ -19,7 +19,7 @@ Compares two versions of code and scores whether the changes match the stated in
 
 - `cmd/sin-code/main.go` — registers `IbdCmd` into the root cobra command
 - `cmd/sin-code/internal/ibd.go` — self-contained diff engine and intent scorer
-- `cmd/sin-code/internal/grasp.go` — reuses `detectLanguage` and `extractStructure` patterns via `extractSymbolsFromContent`
+- `cmd/sin-code/internal/analysis_tools.go` — reuses `detectLanguage` and `extractStructure` patterns via `extractSymbolsFromContent`
 - `cmd/sin-code/internal/poc.go` — shares `symbolInfo` struct definition (currently duplicated; should be unified)
 
 ## Important config values & limits
@@ -55,5 +55,5 @@ sin-code ibd --before src.go --after src.go --intent "add error handling" --form
 - **Diff is naive positional:** Lines are compared by index. If a block of code was moved, every line in the block appears as removed+added, inflating the change count.
 - **Intent scoring is keyword-based, not semantic:** It does not understand the actual logic of changes. A comment saying "retry" could score higher than a real retry implementation.
 - **Git integration is a stub:** `--from`/`--to` do not extract historical versions. Always use `--before`/`--after` with actual file paths.
-- **Symbol extraction is regex-based for non-Go:** Same limitations as `grasp.go` — may miss multi-line or complex definitions.
+- **Symbol extraction is regex-based for non-Go:** Same limitations as `analysis_tools.go` (grasp section) — may miss multi-line or complex definitions.
 - **Score can be misleading:** A score of 80+ ("strong") does not guarantee the change is correct, only that the keywords and structural changes align with the stated intent.

@@ -60,6 +60,7 @@ type ArgInputState struct {
 	Input textinput.Model
 }
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 type teaProgramIface interface {
 	Send(msg any)
 }

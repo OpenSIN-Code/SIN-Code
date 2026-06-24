@@ -8,6 +8,7 @@ import (
 	"sync"
 )
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 type CommitFilter interface {
 	FilterCommitMessage(msg string) string
 }

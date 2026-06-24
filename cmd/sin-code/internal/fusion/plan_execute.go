@@ -84,6 +84,7 @@ type BestResult struct {
 	Verified bool    `json:"verified"`
 }
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 // Arbiter selects the best plan from candidates and the best result from
 // candidates. Implementations may use heuristics (longest plan, verified
 // result) or an LLM judge.

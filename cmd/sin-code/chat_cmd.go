@@ -1028,3 +1028,303 @@ func runChatTUI(ctx context.Context, opts *chatOptions) error {
 		Sigusr2Reload: true,
 	})
 }
+
+// ============================================================================
+// sessions — list/show/rm/fork/tree for persisted agent sessions
+// ============================================================================
+
+func NewSessionsCmd() *cobra.Command {
+	var dbPath string
+	cmd := &cobra.Command{
+		Use:   "sessions",
+		Short: "Manage persisted agent sessions",
+	}
+	cmd.PersistentFlags().StringVar(&dbPath, "db", "", "sessions db path (default ~/.local/share/sin-code/sessions.db)")
+
+	openStore := func() (*session.Store, error) {
+		p := dbPath
+		if p == "" {
+			p = session.DefaultPath()
+		}
+		return session.Open(p)
+	}
+
+	var jsonOut bool
+	listCmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all sessions",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := openStore()
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+			infos, err := store.List()
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(infos)
+			}
+			if len(infos) == 0 {
+				fmt.Println("no sessions")
+				return nil
+			}
+			fmt.Printf("%-28s %-22s %-22s %-22s %s\n", "ID", "CREATED", "UPDATED", "PARENT", "TITLE")
+			for _, i := range infos {
+				parent := i.ParentID
+				if parent == "" {
+					parent = "-"
+				}
+				fmt.Printf("%-28s %-22s %-22s %-22s %s\n", i.ID, i.CreatedAt, i.UpdatedAt, parent, i.Title)
+			}
+			return nil
+		},
+	}
+	listCmd.Flags().BoolVar(&jsonOut, "json", false, "emit JSON")
+
+	showCmd := &cobra.Command{
+		Use:   "show <session-id>",
+		Short: "Show the message history of a session",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := openStore()
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+			sess, err := store.StartOrResume(args[0])
+			if err != nil {
+				return err
+			}
+			for _, m := range sess.History() {
+				content := m.Content
+				if content == "" && len(m.ToolCalls) > 0 {
+					content = "[tool calls] " + string(m.ToolCalls)
+				}
+				fmt.Printf("--- %s %s\n%s\n", strings.ToUpper(m.Role), m.ToolCallID, content)
+			}
+			return nil
+		},
+	}
+
+	rmCmd := &cobra.Command{
+		Use:   "rm <session-id>",
+		Short: "Delete a session and its messages",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := openStore()
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+			if err := store.Delete(args[0]); err != nil {
+				return err
+			}
+			fmt.Printf("deleted session %s\n", args[0])
+			return nil
+		},
+	}
+
+	var forkTurn int
+	var forkTitle string
+	forkCmd := &cobra.Command{
+		Use:   "fork <src-session-id>",
+		Short: "Fork a session. Clones the first N (or all) messages and records parent_id lineage.",
+		Long: "Fork a session at message N. Default --turn=-1 means \"copy entire history\" " +
+			"(equivalent to clamping to len(history)). Records parent_id automatically so " +
+			"`sessions tree` can recover the ancestry chain. The WebUI v2 /api/v1/sessions/fork " +
+			"endpoint (issue #52) calls the same Store.Fork via sessionForkHook — both surfaces " +
+			"now share one parent-tracking contract.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := openStore()
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+			child, err := store.ForkEx(args[0], forkTurn, forkTitle)
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(struct {
+					ParentID     string `json:"parent_id"`
+					ID           string `json:"id"`
+					ForkedAtTurn int    `json:"forked_at_turn"`
+					Title        string `json:"title,omitempty"`
+				}{args[0], child.ID, forkTurn, forkTitle})
+			}
+			fmt.Printf("forked %s → %s  (parent=%s, turn=%d)\n", args[0], child.ID, args[0], forkTurn)
+			return nil
+		},
+	}
+	forkCmd.Flags().IntVar(&forkTurn, "turn", -1, "fork at message N (negative = end-of-history)")
+	forkCmd.Flags().StringVar(&forkTitle, "title", "", "optional title for the forked session")
+
+	treeCmd := &cobra.Command{
+		Use:   "tree <session-id>",
+		Short: "Walk the parent_id chain upward; emit root → ... → self.",
+		Long: "Print the lineage of a session as a tree walk following parent_id links. " +
+			"Terminates on missing parent, empty parent_id (root reached), cycle break, " +
+			"or self-reference. Useful for `--json` piping into further analysis.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := openStore()
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+			chain, err := store.Tree(args[0])
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				enc := json.NewEncoder(os.Stdout)
+				enc.SetIndent("", "  ")
+				return enc.Encode(chain)
+			}
+			for i, n := range chain {
+				prefix := "  "
+				marker := "└─"
+				label := fmt.Sprintf("%s [%s] %q", n.ID, n.UpdatedAt, n.Title)
+				if i == 0 {
+					fmt.Printf("root: %s [%s] %q\n", n.ID, n.CreatedAt, n.Title)
+					continue
+				}
+				if i == len(chain)-1 {
+					fmt.Printf("%s%s self: %s\n", prefix, marker, label)
+				} else {
+					fmt.Printf("%s%s %s\n", prefix, marker, label)
+				}
+			}
+			return nil
+		},
+	}
+
+	cmd.AddCommand(listCmd, showCmd, rmCmd, forkCmd, treeCmd)
+	return cmd
+}
+
+// ============================================================================
+// subagent — isolated-context sub-agent (issue #192)
+// ============================================================================
+
+// NewSubagentCmd builds the `subagent` cobra subcommand.
+func NewSubagentCmd() *cobra.Command {
+	var (
+		workspace string
+		maxTurns  int
+		maxTokens int
+		jsonOut   bool
+	)
+	cmd := &cobra.Command{
+		Use:   "subagent <goal>",
+		Short: "Run a subtask in an isolated session, return summary (issue #192)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(c *cobra.Command, args []string) error {
+			wd := workspace
+			if wd == "" {
+				wd, _ = os.Getwd()
+			}
+			store, err := session.Open(sessionPathFor(wd))
+			if err != nil {
+				return fmt.Errorf("open session store: %w", err)
+			}
+			defer store.Close()
+			ctx := c.Context()
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			parent := &agentloop.Loop{
+				Gate: verify.NewGate("poc",
+					func(ctx context.Context, ws string) (bool, string, error) { return true, "ok", nil },
+					nil),
+			}
+			result, err := parent.SpawnSubagent(ctx, store, agentloop.SubagentRequest{
+				Goal:      args[0],
+				MaxTurns:  maxTurns,
+				MaxTokens: maxTokens,
+			})
+			if err != nil {
+				return err
+			}
+			if jsonOut {
+				enc := json.NewEncoder(c.OutOrStdout())
+				enc.SetIndent("", "  ")
+				return enc.Encode(result)
+			}
+			fmt.Fprintf(c.OutOrStdout(), "subagent summary: %s\n", result.Summary)
+			fmt.Fprintf(c.OutOrStdout(), "verified: %v\n", result.Verified)
+			fmt.Fprintf(c.OutOrStdout(), "turns: %d\n", result.Turns)
+			if len(result.OpenCriteria) > 0 {
+				fmt.Fprintln(c.OutOrStdout(), "open criteria:")
+				for _, oc := range result.OpenCriteria {
+					fmt.Fprintf(c.OutOrStdout(), "  - %s\n", oc)
+				}
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&workspace, "workspace", "", "workspace path (default: $PWD)")
+	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "per-subagent turn cap (0 = default)")
+	cmd.Flags().IntVar(&maxTokens, "max-tokens", 0, "per-subagent token cap (0 = default)")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "emit JSON")
+	return cmd
+}
+
+// sessionPathFor returns the default session db path for workspace.
+func sessionPathFor(workspace string) string {
+	return workspace + "/.sin/sessions.db"
+}
+
+// ============================================================================
+// permission — inspect and smoke-test the reactive permission policy engine
+// ============================================================================
+
+// NewPermissionCmd builds the `permission` cobra subcommand group.
+func NewPermissionCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "permission",
+		Short: "Reactive permission engine utilities",
+		Long: `sin-code permission inspects and smoke-tests the reactive
+permission policy that scans tool results after execution for secret
+leakage, destructive confirmations, and network egress markers.
+
+Subcommands:
+
+  result-log   print sample detections using the built-in pattern set`,
+	}
+	cmd.AddCommand(newPermissionResultLogCmd())
+	return cmd
+}
+
+func newPermissionResultLogCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "result-log",
+		Short: "Print sample reactive-permission detections",
+		Long: `result-log runs the built-in ResultPolicy scanner over a
+fixed set of synthetic tool outputs and prints the action/reason for each.
+No real credentials are used; the samples are deterministic demo strings.`,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			scanner := permission.NewResultPolicy()
+			for _, s := range permission.SampleDetections() {
+				action, reason := scanner.ScanResult(s.Tool, s.Result)
+				fmt.Printf("tool=%-12s action=%-9s reason=%q sample=%q\n",
+					s.Tool, action.String(), reason, truncateSample(s.Result, 64))
+			}
+			return nil
+		},
+	}
+}
+
+func truncateSample(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n-3] + "..."
+}

@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -306,7 +307,7 @@ func TestApplyRules_MultipleViolations(t *testing.T) {
 }
 
 func TestContains_False(t *testing.T) {
-	if contains([]string{"a", "b"}, "c") {
+	if slices.Contains([]string{"a", "b"}, "c") {
 		t.Fatal("expected false")
 	}
 }

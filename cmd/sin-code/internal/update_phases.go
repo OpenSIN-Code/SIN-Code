@@ -138,6 +138,8 @@ func RunGoPhase(ctx context.Context, opts UpdateOptions) (*PhaseResult, error) {
 	return res, nil
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func RunSkillsPhase(ctx context.Context, opts UpdateOptions) (*PhaseResult, error) {
 	return RunPythonPhase(ctx, opts)
 }

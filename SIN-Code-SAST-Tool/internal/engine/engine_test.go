@@ -4,6 +4,7 @@ package engine
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/OpenSIN-Code/SIN-Code-SAST-Tool/pkg/models"
@@ -166,10 +167,10 @@ func TestBuildSummary(t *testing.T) {
 }
 
 func TestContains(t *testing.T) {
-	if !contains([]string{"a", "b", "c"}, "b") {
+	if !slices.Contains([]string{"a", "b", "c"}, "b") {
 		t.Fatal("expected contains to return true")
 	}
-	if contains([]string{"a", "b", "c"}, "d") {
+	if slices.Contains([]string{"a", "b", "c"}, "d") {
 		t.Fatal("expected contains to return false")
 	}
 }

@@ -13,7 +13,7 @@ Analyzes a single file to extract structure, dependencies, exports, and line met
 ## Files that import / touch it
 
 - `cmd/sin-code/main.go` — registers `GraspCmd` into the root cobra command
-- `cmd/sin-code/internal/grasp.go` — self-contained; defines `analyzeFile`, `detectLanguage`, `extractStructure`, `extractExports`
+- `cmd/sin-code/internal/analysis_tools.go` — self-contained; defines `analyzeFile`, `detectLanguage`, `extractStructure`, `extractExports`
 - `cmd/sin-code/internal/discover.go` — reuses `extractDependencies` for import parsing
 - `cmd/sin-code/internal/oracle.go` — reuses `detectLanguage` and `extractSymbols` patterns
 - `cmd/sin-code/internal/poc.go` — reuses `extractSymbols` and `detectLanguage`

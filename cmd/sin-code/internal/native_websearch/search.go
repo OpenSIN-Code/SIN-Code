@@ -52,6 +52,8 @@ type Client struct {
 	robotsTTL   time.Duration
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // NewClient returns a Client with sane defaults wired up: 15s HTTP
 // timeout, the canonical DuckDuckGo HTML endpoint, an LRU cache large
 // enough for a real session's worth of distinct queries, and the

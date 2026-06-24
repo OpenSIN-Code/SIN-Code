@@ -38,6 +38,7 @@ var (
 
 	// package-level hooks so coverage tests can inject faults without
 	// changing production logic.
+	// sin-debt: delete, upgrade: remove when test no longer needs this override
 	osUserConfigDir = os.UserConfigDir
 	osMkdirAll      = os.MkdirAll
 	boltOpen        = bolt.Open
@@ -108,11 +109,17 @@ func defaultDir() (string, error) {
 	return filepath.Join(cfg, "sin-code"), nil
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func memKey(id string) []byte { return []byte(id) }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 func linkKey(from, to string) []byte {
 	return []byte(from + "\x00" + to)
 }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 func embKey(textHash string) []byte { return []byte(textHash) }
 

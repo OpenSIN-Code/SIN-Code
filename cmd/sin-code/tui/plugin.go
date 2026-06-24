@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+// sin-debt: yagni, upgrade: when a second TUIPlugin implementation lands, remove this marker
 type TUIPlugin interface {
 	Name() string
 	Render(styles Styles, width, height int) string

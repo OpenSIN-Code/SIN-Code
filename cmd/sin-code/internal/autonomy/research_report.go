@@ -30,14 +30,17 @@ type Source struct {
 	Error     string    `json:"error,omitempty"`
 }
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 type Searcher interface {
 	Search(ctx context.Context, query string, max int) ([]Source, error)
 }
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 type Fetcher interface {
 	Fetch(ctx context.Context, url string) (body string, fetchedAt time.Time, err error)
 }
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 type LLM interface {
 	Ask(ctx context.Context, system, user string) (string, error)
 }

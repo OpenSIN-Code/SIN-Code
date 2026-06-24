@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -132,7 +133,7 @@ func (e *Engine) scanFile(file, lang string) ([]models.SASTFinding, int, error) 
 		line := scanner.Text()
 
 		for _, rule := range e.Rules {
-			if !contains(rule.Languages, lang) && !contains(rule.Languages, "*") {
+			if !slices.Contains(rule.Languages, lang) && !slices.Contains(rule.Languages, "*") {
 				continue
 			}
 			for _, pattern := range rule.Patterns {
@@ -211,13 +212,4 @@ func buildSummary(findings []models.SASTFinding, files, lines int) models.SASTSu
 	}
 	summary.RulesTriggered = len(seenRules)
 	return summary
-}
-
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
 }

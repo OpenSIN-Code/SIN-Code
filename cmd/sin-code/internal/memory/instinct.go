@@ -211,6 +211,7 @@ WHERE id = ?`, instinctContradictDecrement, instinctDemoteThreshold,
 	return tx.Commit()
 }
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 type instinctScanner interface {
 	Scan(dest ...any) error
 }

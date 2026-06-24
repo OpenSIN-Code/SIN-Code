@@ -59,6 +59,7 @@ type memorySearcher interface {
 	Search(query string, project string, limit int) ([]ScoredMemory, error)
 }
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 type lessonsSearcher interface {
 	Query(ctx context.Context, workspace string, limit int) ([]lessons.Entry, error)
 }

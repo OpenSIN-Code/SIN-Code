@@ -60,14 +60,20 @@ func IsInstalled(bin string) bool {
 // callers can errors.Is() either layer.
 var ErrNotInstalled = errors.New("autodev: binary not installed")
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // ResolveAutodevBin returns ErrNotInstalled (wrapping exec.ErrNotFound)
 // when DefaultBin() does not resolve on PATH or as an absolute path.
 func ResolveAutodevBin() error { return resolve(DefaultBin()) }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 // ResolveAutodevMCPBin returns ErrNotInstalled when DefaultMCPBin() is
 // absent. Identical semantics to ResolveAutodevBin; split into two
 // functions so callers can tick the right install gate independently.
 func ResolveAutodevMCPBin() error { return resolve(DefaultMCPBin()) }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 // Version shells out to `autodev --version` (per the upstream bridge
 // contract) and returns the trimmed stdout on clean exit. Any non-zero

@@ -25,6 +25,8 @@ func HandleGitRefresh(m *Model, msg GitRefreshMsg) {
 	m.Footer.GitBranch = GitBranchShort(msg.Status)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func InitGitRefresh() tea.Cmd {
 	return RefreshGitCmd()
 }

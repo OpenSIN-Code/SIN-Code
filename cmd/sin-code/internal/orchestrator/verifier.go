@@ -8,7 +8,9 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -180,4 +182,101 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "\n...[truncated]"
+}
+
+// ── ecosystem detection (issue #154) ───────────────────────────────────
+
+type ecosystem struct {
+	marker string
+	checks []Check
+}
+
+// detectors are evaluated in order; every matching ecosystem contributes its
+// checks (monorepos may match several). The order matters: Go first, then
+// JS/TS (package.json), then Rust, then Python.
+var detectors = []ecosystem{
+	{
+		marker: "go.mod",
+		checks: []Check{
+			{Kind: CheckBuild, Name: "go build", Cmd: []string{"go", "build", "./..."}},
+			{Kind: CheckTest, Name: "go test", Cmd: []string{"go", "test", "./...", "-count=1", "-timeout=120s"}},
+			{Kind: CheckLint, Name: "go vet", Cmd: []string{"go", "vet", "./..."}},
+		},
+	},
+	{
+		marker: "package.json",
+		checks: []Check{
+			{Kind: CheckBuild, Name: "npm build", Cmd: []string{"npm", "run", "--if-present", "build"}},
+			{Kind: CheckTest, Name: "npm test", Cmd: []string{"npm", "test", "--if-present"}},
+			{Kind: CheckLint, Name: "npm lint", Cmd: []string{"npm", "run", "--if-present", "lint"}},
+		},
+	},
+	{
+		marker: "Cargo.toml",
+		checks: []Check{
+			{Kind: CheckBuild, Name: "cargo build", Cmd: []string{"cargo", "build"}},
+			{Kind: CheckTest, Name: "cargo test", Cmd: []string{"cargo", "test"}},
+			{Kind: CheckLint, Name: "cargo clippy", Cmd: []string{"cargo", "clippy", "--", "-D", "warnings"}},
+		},
+	},
+	{
+		marker: "pyproject.toml",
+		checks: []Check{
+			{Kind: CheckTest, Name: "pytest", Cmd: []string{"python", "-m", "pytest", "-q"}},
+			{Kind: CheckLint, Name: "ruff", Cmd: []string{"ruff", "check", "."}},
+		},
+	},
+}
+
+// DetectChecks returns the combined check suite for every ecosystem detected
+// in workspace. Falls back to DefaultGoChecks if nothing matches (preserves
+// current behavior on Go-only repos with unusual layouts).
+func DetectChecks(workspace string) []Check {
+	if workspace == "" {
+		return DefaultGoChecks()
+	}
+	matched := map[string]bool{}
+	var out []Check
+	for _, det := range detectors {
+		if fileExists(filepath.Join(workspace, det.marker)) {
+			for _, c := range det.checks {
+				key := c.Name + "|" + det.marker
+				if matched[key] {
+					continue
+				}
+				matched[key] = true
+				out = append(out, c)
+			}
+		}
+	}
+	entries, err := os.ReadDir(workspace)
+	if err == nil {
+		for _, e := range entries {
+			if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
+				continue
+			}
+			sub := filepath.Join(workspace, e.Name())
+			for _, det := range detectors {
+				if fileExists(filepath.Join(sub, det.marker)) {
+					for _, c := range det.checks {
+						key := c.Name + "|" + det.marker
+						if matched[key] {
+							continue
+						}
+						matched[key] = true
+						out = append(out, c)
+					}
+				}
+			}
+		}
+	}
+	if len(out) == 0 {
+		return DefaultGoChecks()
+	}
+	return out
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

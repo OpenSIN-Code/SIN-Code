@@ -996,6 +996,8 @@ func handleDiscover(ctx context.Context, args map[string]any) (string, error) {
 	return runSubcommandRaw(ctx, cmdArgs)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func handleExecute(ctx context.Context, args map[string]any) (string, error) {
 	return runSubcommand(ctx, "execute", args)
 }
@@ -1075,13 +1077,19 @@ func handleScout(ctx context.Context, args map[string]any) (string, error) {
 	return string(b), nil
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func handleHarvest(ctx context.Context, args map[string]any) (string, error) {
 	return runSubcommand(ctx, "harvest", args)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func handleOrchestrate(ctx context.Context, args map[string]any) (string, error) {
 	return runSubcommand(ctx, "orchestrate", args)
 }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 func handleIbd(ctx context.Context, args map[string]any) (string, error) {
 	return runSubcommand(ctx, "ibd", args)
@@ -1168,9 +1176,13 @@ func handleAdw(ctx context.Context, args map[string]any) (string, error) {
 	return runSubcommandRaw(ctx, cmdArgs)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func handleOracle(ctx context.Context, args map[string]any) (string, error) {
 	return runSubcommand(ctx, "oracle", args)
 }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 func handleEfm(ctx context.Context, args map[string]any) (string, error) {
 	return runSubcommand(ctx, "efm", args)

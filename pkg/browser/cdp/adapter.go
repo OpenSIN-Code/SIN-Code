@@ -10,6 +10,7 @@ import (
 // a suggestion and expects the agent to perform the concrete remediation
 // (LLM code edit, config change, endpoint check, ...). Revert undoes the last
 // applied fix when a regression is detected.
+// sin-debt: yagni, upgrade: when a second FixExecutor implementation lands, remove this marker
 type FixExecutor interface {
 	// Apply attempts a fix for one suggestion. Return ok=false if this executor
 	// does not handle the suggestion's FixClass (the loop then tries the next).

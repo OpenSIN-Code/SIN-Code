@@ -25,6 +25,15 @@ import (
 // maxItems limits the number of detail rows rendered per section.
 const maxItems = 10
 
+// Config controls what the status report collects and how it is rendered.
+type Config struct {
+	Workspace string    // directory used for debt scanning and workspace filtering
+	Since     time.Time // optional ledger time filter (zero = all time)
+	Markdown  bool      // render markdown (default output)
+	JSON      bool      // render JSON
+	OutPath   string    // when non-empty, write report to this file instead of stdout
+}
+
 // Report is the unit rendered by RenderMarkdown / RenderJSON. Every field is
 // populated best-effort; an Error string means the section is unavailable.
 type Report struct {

@@ -296,6 +296,7 @@ func defaultConfig() SinCodeConfig {
 	}
 }
 
+// sin-debt: delete, upgrade: remove when test no longer needs this override
 // ConfigCmd is the root `sin-code config` command.
 var ConfigCmd = &cobra.Command{
 	Use:   "config",
@@ -495,6 +496,7 @@ func projectConfigPath() string {
 }
 
 // ─── Load / save / merge ────────────────────────────────────────────────────
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 // LoadMergedConfig returns the merged user + project configuration. It is
 // exported for use by the command layer (issue #248 and others).

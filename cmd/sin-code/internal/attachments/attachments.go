@@ -28,6 +28,7 @@ var (
 	ErrNotFound = errors.New("attachment not found")
 
 	// Test hooks (overridden in tests).
+	// sin-debt: delete, upgrade: remove when test no longer needs this override
 	osUserConfigDir = os.UserConfigDir
 	osMkdirAll      = os.MkdirAll
 	osOpen          = os.Open

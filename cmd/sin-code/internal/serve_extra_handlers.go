@@ -120,9 +120,13 @@ func handleTodoClaim(ctx context.Context, args map[string]any) (string, error) {
 	return runSinCodeCLI(cliArgs...)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func handleTodoReady(ctx context.Context, args map[string]any) (string, error) {
 	return runSinCodeCLI("todo", "ready", "--format", "json")
 }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 func handleTodoBlocked(ctx context.Context, args map[string]any) (string, error) {
 	return runSinCodeCLI("todo", "blocked", "--format", "json")
@@ -136,9 +140,12 @@ func handleTodoSearch(ctx context.Context, args map[string]any) (string, error) 
 	return runSinCodeCLI("todo", "list", "--format", "json", "--all", "--search", query)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 func handleTodoPrime(ctx context.Context, args map[string]any) (string, error) {
 	return runSinCodeCLI("todo", "prime")
 }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 func handleTodoStats(ctx context.Context, args map[string]any) (string, error) {
 	return runSinCodeCLI("todo", "stats", "--format", "json")
@@ -304,6 +311,8 @@ func handleOrchestratorPlan(ctx context.Context, args map[string]any) (string, e
 	return runSinCodeCLI("orchestrator-plan", prompt, "--format", "json")
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func handleOrchestratorAgents(ctx context.Context, args map[string]any) (string, error) {
 	return runSinCodeCLI("orchestrator-agents", "--format", "json")
 }
@@ -343,6 +352,8 @@ func handleAgentDoctor(ctx context.Context, args map[string]any) (string, error)
 	}
 	return runSinCodeCLI(cliArgs...)
 }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 func handleLspServers(ctx context.Context, args map[string]any) (string, error) {
 	return runSinCodeCLI("lsp", "servers", "--format", "json")

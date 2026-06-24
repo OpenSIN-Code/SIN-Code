@@ -13,6 +13,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/todo"
 )
 
+// sin-debt: yagni, upgrade: when a second implementation lands, remove this marker
 // NotificationSource is the interface used by NotificationMsg to access
 // notification fields. Implemented by *notifications.Notification and by
 // test doubles in todos_view_test.go.

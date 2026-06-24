@@ -52,6 +52,7 @@ const (
 // uses Driver as its sole seam to the outside world — adding a new
 // backend means implementing this interface and registering with
 // mcpclient registry.go.
+// sin-debt: yagni, upgrade: when HTTPOnlyDriver or a third backend lands, remove this marker
 type Driver interface {
 	// Name returns a stable identifier for telemetry + logs
 	// ("http-direct" | "http-only" | "stub" | future "chromium").

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// Purpose: sin-debt marker parser — respects `// sin-debt:` annotations (issue #177).
+// Purpose: sin-debt marker parser — respects the "sin-debt:" annotation format (issue #177).
 package complexity
 
 import (
@@ -10,16 +10,16 @@ import (
 	"strings"
 )
 
-// Marker is a single `// sin-debt:` annotation.
+// Marker is a single "sin-debt:" annotation.
 type Marker struct {
 	Path   string
 	Line   int
 	Reason string
 }
 
-var sinDebtRE = regexp.MustCompile(`(?:^|\s)(?://|#)\s*sin-debt:\s*(.*)$`)
+var sinDebtRE = regexp.MustCompile(`(?:^|\s)(?://|#)\s*sin-debt:\s*(?P<reason>[^,\n\r]+?)(?:\s*,\s*upgrade:\s*(?P<upgrade>.+?))?\s*$`)
 
-// ParseMarkers walks root and returns every `// sin-debt:` or `# sin-debt:` marker
+// ParseMarkers walks root and returns every "sin-debt:" marker; also accepts the hash-style form.
 // mapped by cleaned relative path. Only regular files are scanned.
 func ParseMarkers(root string) (map[string][]Marker, error) {
 	root, err := filepath.Abs(root)

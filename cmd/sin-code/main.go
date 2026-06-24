@@ -83,7 +83,7 @@ func init() {
 	rootCmd.AddCommand(internal.UpdateCmd)
 	rootCmd.AddCommand(todo.TodoCmd)
 	rootCmd.AddCommand(notifications.NotificationsCmd)
-	rootCmd.AddCommand(internal.MemoryCmd)
+	rootCmd.AddCommand(MemoryCmd)
 	rootCmd.AddCommand(internal.RulesCmd)
 	rootCmd.AddCommand(internal.ReadCmd)
 	rootCmd.AddCommand(internal.WriteCmd)

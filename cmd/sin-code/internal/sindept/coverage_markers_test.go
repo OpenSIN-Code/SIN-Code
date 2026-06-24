@@ -2,6 +2,7 @@ package sindept
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -85,7 +86,16 @@ func TestScan_AllCommentFamilies(t *testing.T) {
 }
 
 func TestScan_NoUpgradeClause_IsRotRisk(t *testing.T) {
-	mk := parseGolden(t)
+	dir := t.TempDir()
+	reasons := []string{"global mutex", "polling loop", "sync I/O", "plain text storage"}
+	for i, reason := range reasons {
+		path := filepath.Join(dir, fmt.Sprintf("rot%d.go", i))
+		writeFile(t, path, fmt.Sprintf("package x\n// sin-debt: %s\n", reason))
+	}
+	mk, err := ParseDir(dir, DefaultOptions())
+	if err != nil {
+		t.Fatalf("ParseDir: %v", err)
+	}
 	var rot []Marker
 	for _, m := range mk {
 		if !m.HasUpg || m.Upgrade == "" {

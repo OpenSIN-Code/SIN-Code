@@ -14,7 +14,7 @@ Discovers files with pattern matching, relevance scoring, and dependency parsing
 
 - `cmd/sin-code/main.go` — registers `DiscoverCmd` into the root cobra command
 - `cmd/sin-code/internal/discover_test.go` — unit tests for glob matching, scoring, and dependency extraction
-- `cmd/sin-code/internal/grasp.go` — reuses `extractDependencies` for dependency analysis
+- `cmd/sin-code/internal/analysis_tools.go` — reuses `extractDependencies` for dependency analysis
 - `cmd/sin-code/internal/map.go` — reuses `extractDependencies` for architecture mapping
 - `cmd/sin-code/internal/scout.go` — reuses directory walking logic for search
 - `cmd/sin-code/internal/sckg.go` — reuses `extractDependencies` for graph building

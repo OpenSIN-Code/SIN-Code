@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -479,10 +480,10 @@ func TestApplyRules(t *testing.T) {
 }
 
 func TestContains(t *testing.T) {
-	if contains([]string{"a", "b"}, "a") != true {
+	if slices.Contains([]string{"a", "b"}, "a") != true {
 		t.Fatal("expected contains a")
 	}
-	if contains([]string{"a", "b"}, "c") != false {
+	if slices.Contains([]string{"a", "b"}, "c") != false {
 		t.Fatal("expected not contains c")
 	}
 }

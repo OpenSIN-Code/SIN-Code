@@ -131,6 +131,8 @@ func defaultSelfUpdateDeps() *selfUpdateDeps {
 	}
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func runSelfUpdate(dryRun bool) error {
 	return runSelfUpdateWithDeps(defaultSelfUpdateDeps(), dryRun)
 }

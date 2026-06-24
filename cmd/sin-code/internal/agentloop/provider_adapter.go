@@ -82,6 +82,8 @@ func marshalToolCalls(v any) ([]byte, error) {
 	return json.Marshal(v)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func NewProviderCompletion(c *llm.Client, model string, maxTokens int, temperature float64) func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
 	return NewProviderCompletionWithCache(c, model, maxTokens, temperature, nil)
 }
@@ -94,6 +96,8 @@ type ThinkingConfig struct {
 	Enabled bool // send thinking{type:"enabled"} when true
 	Budget  int  // optional budget_tokens cap; 0 = provider default / unbounded
 }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 func NewProviderCompletionWithCache(c *llm.Client, model string, maxTokens int, temperature float64, cache *llm.PromptCache) func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error) {
 	return NewProviderCompletionFull(c, model, maxTokens, temperature, cache, nil)

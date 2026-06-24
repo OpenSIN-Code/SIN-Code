@@ -166,6 +166,8 @@ func truncateString(s string, maxLen int) string {
 	return s[:maxLen-3] + "..."
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func formatTokens(tokens int) string {
 	return FormatTokens(tokens)
 }

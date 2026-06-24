@@ -132,6 +132,8 @@ func RenderCommandPalette(items []string, sel int, query string, styles Styles, 
 var agentIcons = []string{"🔨", "🛡", "📊"}
 var agentDescs = []string{"Default coding agent", "Security & quality review", "Metrics & analysis"}
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 func RenderSubagentsPopup(styles Styles, width, height int) string {
 	return RenderSubagentsPopupWithAgent(styles, width, height, 0)
 }

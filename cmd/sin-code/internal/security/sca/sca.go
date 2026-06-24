@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"golang.org/x/mod/modfile"
 )
 
 // resolvePath is swappable for tests that exercise the error path.
@@ -55,10 +57,14 @@ func NewWithGrype(grype *GrypeClient) *Scanner {
 	return &Scanner{grype: grype}
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // IsGoProject reports whether path contains a go.mod file.
 func IsGoProject(path string) bool {
 	return fileExists(filepath.Join(path, "go.mod"))
 }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 // DetectGoProject is an alias for IsGoProject that matches the detector style
 // used elsewhere in the security subcommand.
@@ -170,4 +176,50 @@ func lower(s string) string {
 func fileExists(p string) bool {
 	_, err := os.Stat(p)
 	return err == nil
+}
+
+// ── Go.mod parsing (merged from gomod.go) ───────────────────────────────
+
+// readFile is swappable for tests that exercise ParseGoMod.
+var readFile = os.ReadFile
+
+// modfileParse is swappable for tests that exercise the defensive
+// nil/empty require branch.
+var modfileParse = modfile.Parse
+
+// ParseGoMod reads go.mod in projectPath and returns direct and indirect
+// module dependencies as Go-ecosystem packages.
+func ParseGoMod(projectPath string) ([]Package, error) {
+	goMod := filepath.Join(projectPath, "go.mod")
+	data, err := readFile(goMod)
+	if err != nil {
+		return nil, fmt.Errorf("read go.mod: %w", err)
+	}
+	return parseGoModBytes(data)
+}
+
+// parseGoModBytes parses go.mod content using golang.org/x/mod/modfile.
+func parseGoModBytes(data []byte) ([]Package, error) {
+	f, err := modfileParse("go.mod", data, nil)
+	if err != nil {
+		return nil, fmt.Errorf("parse go.mod: %w", err)
+	}
+
+	out := make([]Package, 0, len(f.Require))
+	seen := make(map[string]bool, len(f.Require))
+	for _, r := range f.Require {
+		if r == nil || r.Mod.Path == "" {
+			continue
+		}
+		if seen[r.Mod.Path] {
+			continue
+		}
+		seen[r.Mod.Path] = true
+		out = append(out, Package{
+			Name:      r.Mod.Path,
+			Version:   r.Mod.Version,
+			Ecosystem: "Go",
+		})
+	}
+	return out, nil
 }

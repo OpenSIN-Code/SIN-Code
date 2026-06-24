@@ -380,6 +380,8 @@ func canonicalize(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
+
 // walkGoFiles is a small filesystem walker. The full SIN-Code repo
 // has a custom walker (cmd/sin-code/internal/walk); for spec drift
 // we use a minimal version to keep this package dependency-free.

@@ -35,6 +35,7 @@ const (
 // who convinced the TUI's planner to issue a dangerous command would
 // skip isolation entirely.
 var (
+	// sin-debt: delete, upgrade: remove when test no longer needs this override
 	tuiSandboxConfigMu sync.RWMutex
 	tuiSandboxConfig   struct {
 		enabled   bool

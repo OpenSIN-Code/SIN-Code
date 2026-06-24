@@ -20,7 +20,7 @@ Detects architectural debt in codebases: god modules, circular dependencies, hig
 - `cmd/sin-code/internal/adw.go` — self-contained debt scanner
 - `cmd/sin-code/internal/discover.go` — reuses `extractDependencies` for import analysis
 - `cmd/sin-code/internal/map.go` — shares `detectLanguage` and reverse-dependency concepts
-- `cmd/sin-code/internal/grasp.go` — shares language detection and structure extraction patterns
+- `cmd/sin-code/internal/analysis_tools.go` — shares language detection and structure extraction patterns
 
 ## Important config values & limits
 

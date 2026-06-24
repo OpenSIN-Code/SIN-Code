@@ -17,6 +17,7 @@ const EmbeddingDim = 384
 // Embedder turns a text into a fixed-dimension float vector. The
 // returned slice MUST have length EmbeddingDim; the retriever
 // asserts this and returns an error otherwise.
+// sin-debt: yagni, upgrade: when a second Embedder implementation lands, remove this marker
 type Embedder interface {
 	// Embed returns the embedding for text. Implementations must
 	// be safe for concurrent use across many goroutines (the

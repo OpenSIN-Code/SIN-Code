@@ -16,7 +16,7 @@ Compares source files against test files to verify that every function/method ha
 
 - `cmd/sin-code/main.go` — registers `OracleCmd` into the root cobra command
 - `cmd/sin-code/internal/oracle.go` — self-contained coverage verifier
-- `cmd/sin-code/internal/grasp.go` — reuses `detectLanguage` and `extractSymbols` patterns
+- `cmd/sin-code/internal/analysis_tools.go` — reuses `detectLanguage` and `extractSymbols` patterns
 - `cmd/sin-code/internal/poc.go` — shares `symbolInfo` struct and symbol extraction logic
 - `cmd/sin-code/internal/sckg.go` — shares Go AST parsing and symbol extraction concepts
 
