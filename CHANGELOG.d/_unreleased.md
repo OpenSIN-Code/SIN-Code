@@ -802,3 +802,72 @@ spec's signatures.
   `Lean already. Ship.`. `net_lines` and `net_deps` are included in JSON output.
 - **Tests**: `cmd/sin-code/internal/complexity/complexity_test.go` + golden file,
   race-clean.
+### v3.24.0 — TUI live progress + complexity cleanup + analyzer fixes
+
+#### Added — TUI/agentloop/headless live progress (issue #424)
+- **Live tool timing**: every local tool invocation fires `Loop.ToolStart` and
+  `Loop.ToolEnd` callbacks carrying elapsed duration. TUI renders these in the
+  tool tree and footer; headless mode forwards them as NDJSON progress events.
+- **NDJSON progress output** (`--progress json`, `--progress-dest`, `--progress-file`):
+  structured progress events (`turn.start`, `tool.pre`, `tool.post`,
+  `verify.pass`, `verify.fail`, `task.complete`, `task.abort`) emitted to
+  stderr (default) or a file. Tool events include only metadata; raw output
+  is never echoed.
+- **Live token/cost footer**: TUI footer updates every 250ms during streaming
+  and agent runs with live token count, estimated USD cost, and stream duration.
+- **Esc interrupt**: pressing `Esc` in the TUI cancels the in-flight prompt and
+  stops the live ticker immediately.
+- **Autonomy trigger loops** exit promptly on context cancellation.
+
+#### Added — `sin-code analyse-image` (issue #423)
+- Vision-capable LLM model (default `minimax-m3`) for image analysis.
+- No Tesseract/CGO dependency.
+- New MCP tool `sin_analyse_image`.
+
+#### Added — Security Scanning V2
+- `sin-code security scan secrets/sast/sca/sbom/container/all`
+- SARIF 2.1.0 output (`--format sarif`)
+- Apple `container` runtime preferred, Docker fallback
+- CEO-audit security gate integration
+
+#### Added — Complexity cleanup (55+ files merged)
+- All single-export subcommand files merged into natural caller modules
+- `commands.go` consolidated (goal, auto, ledger, compress, dox, grill,
+  profile, catalog, mcp, install, compile-spec, skills, summary, triage,
+  permission, cover, trace, subagent, rtk, analyse-image, autopr, codegraph,
+  tool-search, swarm, tokens, debt, superpowers, vane, session)
+- `audit_cmd.go` consolidated (audit, ceo-audit, gh, rtk, trace, triage, cover)
+- `core_tools.go` consolidated (lsp, discover, map)
+- `analysis_tools.go` consolidated (grasp, harvest, scout, adw, sckg)
+- `security_scan_commands.go` consolidated (container, sast, sca, sbom)
+- Internal package merges: todo, compress, instinct, superpowers, mcpclient,
+  orchestrator, fusion, evalharness, sandbox, resource, status, wiring,
+  hooklife, triage, sindept, complexity
+
+#### Fixed — Complexity analyzers (audit/complexity.go)
+- `detectSingleImplInterfaces`: now counts actual implementations cross-file
+  (was flagging every interface declaration)
+- `detectSingleProductFactories`: only flags functions returning single-impl
+  interfaces (was flagging every `New*` function)
+- `detectWrappers`: skips external-package calls, method wrappers, test hooks
+- `detectDeadFlags`: skips test-hook names, checks cross-file usage
+- `approvedBySinDebt`: scans 10 lines above finding (was 3)
+- Scoring: `100 - NetLines/100` (was inverted; clean = A+)
+
+#### Fixed — sin-debt scanner (sindept/parser.go)
+- Skip `.md` files entirely (documentation examples are not real debt markers)
+- Exception: `testdata/*.md` still parsed (scanner fixtures)
+
+#### Fixed — Test suite environment-independence
+- Docker-dependent tests auto-skip when daemon unavailable
+- Parallel DAG timing race eliminated
+- Cron/watch enqueue race fixed via `onEnqueue` hook
+- Security/harvest tests no longer depend on ambient environment
+- Browser popup fixed via `browserExecHook`
+- EFM/autonomy tests hardened for OrbStack/Docker resource exhaustion
+
+#### Result
+- CEO Audit: Score 100, Grade A+, 48/48 gates pass
+- Complexity: 0 unapproved findings, 0 removable lines
+- Rot-risk: 0 (116 markers, all with upgrade trigger)
+- Build: pass, Lint: 0 issues

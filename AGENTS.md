@@ -4,12 +4,14 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** v3.24.0 (2026-06-23) —
-> TUI/agentloop/headless live progress: live tool timing, NDJSON progress
-> output, live token/cost footer, Esc interrupts in-flight prompts; autonomy
-> trigger loops honor context cancellation; test suite green and environment-
-> independent (Docker-dependent tests auto-skip, parallel DAG / cron/watch /
-> security / harvest races fixed).
+> **Last verified against main:** v3.24.0 (2026-06-24) —
+> Complexity cleanup: 55+ single-export files merged, all 5 complexity
+> analyzers fixed (cross-file interface counting, cobra-constructor
+> exemption, method-wrapper/test-hook skipping, cross-file dead-flag
+> detection, 10-line approval scan window), scoring corrected
+> (100 - NetLines/100, clean = A+), sin-debt scanner skips .md docs.
+> CEO Audit: Score 100, A+, 48/48 gates, 0 unapproved findings, 0 rot-risk.
+> Test suite green and environment-independent.
 
 ---
 
@@ -754,7 +756,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.22.0 | ✅ SHIPPED | SIN Fusion v1 enhancements: **Plan-Merge mode** (issue #393 — N planners → judge merges → 1 coder → verify, preserves all insights); **Oracle as default** (issue #394 — quality over cost, was: PoC first-pass-wins); **Model Performance Registry** (issue #395 — `modelperf.db`, `fusion benchmark/rank/recommend` CLI, auto-wired into `loopbuilder`). |
 | v3.22.0 | ✅ SHIPPED | pre-existing fixes stacked into the same release: `llm/provider.go`+`recorder.go`+`stream.go` ThinkingTokens + 8-arg `RecordUsage`; `agentloop/compaction_helpers.go` for `compaction_types.go`; vet fix in `orchestrator/event_dispatch_test.go`. |
 | v3.23.0 | ✅ SHIPPED | v3.23.0 roadmap batch 1: autonomous research report (`sin-code research`, issue #384), SWE-bench test suite (issue #363), scientific research skill (issue #387), `sin_apply_diff`/`sin_generate_diff` chat tools (issue #365), dynamic MCP server discovery (`sin-code mcp discover/add`, issue #368). Also repaired main build drift from parallel-agent WIP. Remaining open: #364, #373, #374, #388, #389. |
-| v3.24.0 | 🚧 WIP | TUI/agentloop/headless live progress: live tool timing + NDJSON progress + live token/cost footer (issue #424); Esc cancels in-flight TUI prompt; autonomy trigger loops exit promptly on context cancellation; test suite made environment-independent (Docker-dependent tests auto-skip when daemon unavailable, remove parallel DAG timing race, eliminate cron/watch enqueue race, make security/harvest tests env-independent). |
+| v3.24.0 | ✅ SHIPPED | TUI/agentloop/headless live progress: live tool timing + NDJSON progress + live token/cost footer (issue #424); Esc cancels in-flight TUI prompt; autonomy trigger loops exit promptly on context cancellation; test suite made environment-independent; `sin-code analyse-image` vision model (issue #423); Security Scanning V2 (secrets/SAST/SCA/SBOM/container/SARIF); Complexity cleanup: 55+ files merged, all analyzers fixed, scoring corrected, 0 unapproved findings, 0 rot-risk markers. |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
