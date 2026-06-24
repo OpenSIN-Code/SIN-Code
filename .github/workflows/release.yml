@@ -36,6 +36,7 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAP_GITHUB_TOKEN: ${{ secrets.SIN_GITHUB_FALLBACK_TOKEN }}
 
       - name: Generate build provenance attestation
         uses: actions/attest-build-provenance@v1
