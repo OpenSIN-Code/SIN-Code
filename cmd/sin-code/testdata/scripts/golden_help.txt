@@ -33,6 +33,7 @@ Available Commands:
   auto                Ultra-autonomous mode: pursue a program.md objective on your behalf
   autodev             Bridge to OpenSIN-Code/autodev-cli (Python autoresearch loop, never vendored)
   autopr              Self-healing pipeline: auto-fix trivial regressions and open a PR
+  benchmark           Run eval golden datasets and produce a scoring report
   catalog             Unified tool catalog (hub + assets, one CLI)
   ceo-audit           CEO-grade SOTA repository audit (48 gates)
   chat                Run the SIN-Code agent loop (interactive REPL or headless one-shot)
@@ -45,7 +46,9 @@ Available Commands:
   cover               Coverage scanner and test-generation coordinator
   daemon              Run the autonomous worker: lease goals, execute, verify, learn
   debt                Inspect sin-debt markers (issue #177)
+  diff                Git diff with complexity + sin-debt overlay
   discover            Discover files with relevance scoring and pattern matching
+  doctor              Run a unified health check of the entire SIN-Code installation
   dox                 Self-maintaining AGENTS.md hierarchy (agent0ai/dox protocol)
   edit                Hashline-anchored surgical edits with validation
   efm                 Ephemeral Full-Stack Mocking — spin up disposable test environments

@@ -102,6 +102,7 @@ func init() {
 		NewLedgerCmd(), NewSummaryCmd(), NewAutodevCmd(), // v3.4.0 + v3.5.0 + v3.6.0 + v3.7.0 + v3.8.0 + v3.9.0 + v3.12.0 + v3.13.0 + autodev-bridge
 		NewCompressCmd(),            // v3.18.0 — deterministic + LLM compaction (issue #172)
 		NewReviewCmd(),              // v3.19.0 — review --complexity (issue #179)
+		NewDiffCmd(),                // git diff with complexity + sin-debt overlay
 		NewSkillsCmd(),              // bundled project-local agent skills
 		NewEvalCmd(), NewTraceCmd(), // v3.18.0: Eval & Observability System (issue #75)
 		NewProfileCmd(),                    // v3.18.0 — single-source-of-truth per-agent profile renderer (issue #175)
@@ -129,6 +130,8 @@ func init() {
 		NewAnalyseCmd(),      // v3.23.0 — static analysis runner
 		NewAnalyseImageCmd(), // v3.24.0 — vision-based image analysis (issue #423)
 		NewAutoCmd(),         // v3.23.0 — ultra-autonomous mode
+		NewDoctorCmd(),       // unified health check
+		NewBenchmarkCmd(),    // benchmark — run eval golden datasets with scoring report
 	)
 
 	// Pass build-time version to self-update module.

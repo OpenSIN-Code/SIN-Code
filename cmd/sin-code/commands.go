@@ -2093,6 +2093,7 @@ LLM call captured via internal/llm (issue #168).
   tokens show [--session ID] [--today] [--month] [--cost] [--share]
   tokens tail [--session ID] [-n 20]
   tokens aggregate [--by day|month|model|source|session] [--json]
+  tokens cost [--json] [--model NAME] [--budget USD]
 
 Cost is USD per 1k tokens, pulled from internal/usage.DefaultPricing and
 overlaid by ` + "`llm.pricing_per_1k`" + ` from the user config.`,
@@ -2100,6 +2101,7 @@ overlaid by ` + "`llm.pricing_per_1k`" + ` from the user config.`,
 	cmd.AddCommand(newTokensShowCmd())
 	cmd.AddCommand(newTokensTailCmd())
 	cmd.AddCommand(newTokensAggregateCmd())
+	cmd.AddCommand(newTokensCostCmd())
 	return cmd
 }
 
