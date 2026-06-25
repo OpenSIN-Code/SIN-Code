@@ -4,12 +4,10 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** v3.24.1 (2026-06-25) —
-> Production-readiness sweep: 5 parallel subagents audited Go tests, Python
-> ruff+pytest, 40 skills, AGENTS.md consistency, complexity scanner, CEO audit.
-> Complexity scanner fixed (binary file crash, testdata exclusion, context window).
-> AGENTS.md deduplicated (3x layout blocks, stale roadmap rows, CLI list).
-> Python pyproject.toml bug fixed. 5 hand-rolled min/max removed.
+> **Last verified against main:** v3.25.0 (2026-06-25) —
+> 4 new subcommands: `doctor` (unified health check), `diff` (git diff with
+> complexity overlay), `benchmark` (eval golden dataset runner), `tokens cost`
+> (cost projection + budget alerts). 4 parallel subagents, 90 new tests.
 > CEO Audit: Score 100, A+, 48/48 gates, 0 unapproved findings, 0 rot-risk.
 > Test suite green and environment-independent.
 
@@ -758,6 +756,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.22.0 | ✅ SHIPPED | SIN Fusion v1 enhancements: **Plan-Merge mode** (issue #393 — N planners → judge merges → 1 coder → verify, preserves all insights); **Oracle as default** (issue #394 — quality over cost, was: PoC first-pass-wins); **Model Performance Registry** (issue #395 — `modelperf.db`, `fusion benchmark/rank/recommend` CLI, auto-wired into `loopbuilder`). Pre-existing fixes: `llm/provider.go`+`recorder.go`+`stream.go` ThinkingTokens + 8-arg `RecordUsage`; `agentloop/compaction_helpers.go` for `compaction_types.go`; vet fix in `orchestrator/event_dispatch_test.go`. |
 | v3.23.0 | ✅ SHIPPED | v3.23.0 roadmap batch 1: autonomous research report (`sin-code research`, issue #384), SWE-bench test suite (issue #363), scientific research skill (issue #387), `sin_apply_diff`/`sin_generate_diff` chat tools (issue #365), dynamic MCP server discovery (`sin-code mcp discover/add`, issue #368). Also repaired main build drift from parallel-agent work. Remaining open: #364, #373, #374, #388, #389. |
 | v3.24.0 | ✅ SHIPPED | TUI/agentloop/headless live progress: live tool timing + NDJSON progress + live token/cost footer (issue #424); Esc cancels in-flight TUI prompt; autonomy trigger loops exit promptly on context cancellation; test suite made environment-independent; `sin-code analyse-image` vision model (issue #423); Security Scanning V2 (secrets/SAST/SCA/SBOM/container/SARIF); Complexity cleanup: 55+ files merged, all analyzers fixed, scoring corrected, 0 unapproved findings, 0 rot-risk markers. |
+| v3.25.0 | ✅ SHIPPED | 4 new subcommands: `doctor` (unified health check — 11 checks, Go/config/DBs/MCP/tools/CGO/module-path), `diff` (git diff with complexity + sin-debt overlay), `benchmark` (eval golden dataset runner with scoring report), `tokens cost` (cost projection + budget alerts from token ledger). 4 parallel subagents, 90 new tests. CEO Audit: Score 100, A+, 48/48 gates. |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.

@@ -904,3 +904,29 @@ spec's signatures.
 - Skills: 40/40 pass all checks (SKILL.md, LICENSE, dirs, frontmatter)
 - CEO Audit: Score 100, A+, 48/48 gates, 0 unapproved findings
 - Rot-risk: 0 (136 markers, all with upgrade triggers)
+
+### v3.25.0 — doctor, diff, benchmark, tokens cost
+
+#### Added — `sin-code doctor`
+- Unified health check: Go toolchain, sin-code binary, config, 4 SQLite DBs,
+  MCP servers, external tools, module path (M5), CGO_ENABLED=0 (M2)
+- 11 checks with PASS/WARN/FAIL status
+- `--json`, `--quiet` flags, exit 1 on FAIL
+
+#### Added — `sin-code diff`
+- Git diff with complexity + sin-debt overlay
+- `--cached`, `--last`, `--stat`, `--json` flags
+- Complexity tags per file, ⚡ prefix for sin-debt marker lines
+- Color output via lipgloss
+
+#### Added — `sin-code benchmark`
+- Run eval golden datasets and produce scoring report
+- Auto-discovers `evals/*.json` or accepts explicit paths
+- `--model`, `--min-pass-rate`, `--timeout`, `--format`, `--dry-run`
+
+#### Added — `sin-code tokens cost`
+- Cost projection + budget alerts from token-usage ledger
+- Total/today/month, by-model breakdown, top-5 sessions
+- End-of-month projection from 7-day rolling average
+- Budget alerts: green/yellow/red/critical
+- `--json`, `--model`, `--budget` flags
