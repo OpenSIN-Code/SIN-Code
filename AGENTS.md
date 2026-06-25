@@ -4,12 +4,12 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** v3.24.0 (2026-06-24) —
-> Complexity cleanup: 55+ single-export files merged, all 5 complexity
-> analyzers fixed (cross-file interface counting, cobra-constructor
-> exemption, method-wrapper/test-hook skipping, cross-file dead-flag
-> detection, 10-line approval scan window), scoring corrected
-> (100 - NetLines/100, clean = A+), sin-debt scanner skips .md docs.
+> **Last verified against main:** v3.24.1 (2026-06-25) —
+> Production-readiness sweep: 5 parallel subagents audited Go tests, Python
+> ruff+pytest, 40 skills, AGENTS.md consistency, complexity scanner, CEO audit.
+> Complexity scanner fixed (binary file crash, testdata exclusion, context window).
+> AGENTS.md deduplicated (3x layout blocks, stale roadmap rows, CLI list).
+> Python pyproject.toml bug fixed. 5 hand-rolled min/max removed.
 > CEO Audit: Score 100, A+, 48/48 gates, 0 unapproved findings, 0 rot-risk.
 > Test suite green and environment-independent.
 

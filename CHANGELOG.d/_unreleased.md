@@ -871,3 +871,36 @@ spec's signatures.
 - Complexity: 0 unapproved findings, 0 removable lines
 - Rot-risk: 0 (116 markers, all with upgrade trigger)
 - Build: pass, Lint: 0 issues
+
+### v3.24.1 — production-readiness sweep
+
+#### Fixed — AGENTS.md consistency
+- Removed 3x duplicated internal package listings in Section 6 layout
+- Fixed CLI subcommand list: removed non-existent `knowledge`, fixed
+  underscore→hyphen for `orchestrator-run/agents/plan`, added missing
+  `headroom`, `rules`, `tool-search`
+- Removed stale `(next) TBD` roadmap rows, reordered chronologically
+- Removed archived `coder-SIN-Qwen` from active ecosystem map
+
+#### Fixed — Complexity scanner (complexity/sindebt.go + finder.go)
+- Replaced `bufio.Scanner` with `os.ReadFile` for binary files
+  (was crashing on 57MB sin-code binary with "token too long")
+- Added `testdata/` and vendored `go.mod` directory exclusions to `selectFiles()`
+- Increased marker context window from 5→10 lines to match `approvedBySinDebt`
+
+#### Fixed — Python side
+- `pyproject.toml`: `all` extra referenced `sin-code-bundle` instead of `sin-code`
+- Stale `SIN-Code-Bundle` URL in `requirements-ecosystem.txt`
+- 4 files reformatted by `ruff format`
+
+#### Fixed — Code quality
+- Removed 5 hand-rolled `min`/`max` functions (Go 1.21+ built-ins)
+- Added 20 sin-debt markers with upgrade triggers for intentional patterns
+- Fixed `security.go` marker placement (was after function, moved before)
+
+#### Verified — Production readiness (5 parallel subagents)
+- Go tests: 90+ packages green under `-race`, 5 vendored modules green
+- Python: `ruff check` clean, `ruff format` clean, 757 tests pass
+- Skills: 40/40 pass all checks (SKILL.md, LICENSE, dirs, frontmatter)
+- CEO Audit: Score 100, A+, 48/48 gates, 0 unapproved findings
+- Rot-risk: 0 (136 markers, all with upgrade triggers)
