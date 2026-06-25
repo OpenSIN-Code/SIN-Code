@@ -167,6 +167,7 @@ func Shutdown(ctx context.Context, tp *sdktrace.TracerProvider) error {
 	return tp.Shutdown(c)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 // Tracer returns a named tracer from the global provider. Falls back to
 // the OTel noop tracer if SetTracerProvider was never called so callers
 // never see nil.

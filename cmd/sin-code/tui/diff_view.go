@@ -65,6 +65,7 @@ func computeUnifiedDiff(before, after string) []diffLine {
 
 	var result []diffLine
 
+	// sin-debt: shrink, upgrade: use slices.Repeat when Go 1.23 slices.Repeat is stable
 	for i := 0; i < prefix; i++ {
 		result = append(result, diffLine{prefix: " ", content: beforeLines[i], lineType: 0})
 	}

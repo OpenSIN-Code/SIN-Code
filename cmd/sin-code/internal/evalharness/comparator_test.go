@@ -421,10 +421,3 @@ func TestSnapshotBytesAreJSON(t *testing.T) {
 		t.Fatalf("file not valid JSON: %s", raw2)
 	}
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}

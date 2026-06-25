@@ -722,6 +722,7 @@ func jsonIndent(v any, prefix, indent string) ([]byte, error) {
 	return indentingMarshal(v, prefix, indent)
 }
 
+// sin-debt: shrink, upgrade: inline when wiring is consolidated
 // indentingMarshal pulls in encoding/json once; indentingMarshal
 // is a single-line wrapper because we want to keep the wiring
 // paralell to lessons.Marshalled-style injection sites.

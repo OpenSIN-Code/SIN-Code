@@ -117,6 +117,7 @@ type Styles struct {
 	ToolCardHdr    lipgloss.Style
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated
 func c(s string) color.Color { return lipgloss.Color(s) }
 
 func NewStyles(theme Theme) Styles {

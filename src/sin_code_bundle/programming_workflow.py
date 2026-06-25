@@ -327,7 +327,6 @@ def _preflight(repo_root: Path, tool_name: str, tool_input: Dict[str, Any]) -> D
 
 
 def _write_file(repo_root: Path, target: str, content: str) -> Dict[str, Any]:
-
     # Note: calling the MCP tool directly is a circular dep risk; we just
     # do an atomic file write with the same logic for the workflow use case.
     p = repo_root / target

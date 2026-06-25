@@ -74,12 +74,12 @@ dev = [
 ]
 
 # === PyPI-clean: all available extras ===
-# `pip install sin-code-bundle[all]` → lsp + bench + mcp + otel + dev
+# `pip install sin-code[all]` → lsp + bench + mcp + otel + dev
 # For the 6 SIN-Code core ecosystem packages (sckg, ibd, poc, efsm, adw,
 # oracle), install with:
-#   pip install -r https://raw.githubusercontent.com/OpenSIN-Code/SIN-Code-Bundle/main/requirements-ecosystem.txt
+#   pip install -r https://raw.githubusercontent.com/OpenSIN-Code/SIN-Code/main/requirements-ecosystem.txt
 all = [
-  "sin-code-bundle[lsp,bench,mcp,otel,dev]",
+  "sin-code[lsp,bench,mcp,otel,dev]",
 ]
 
 [tool.setuptools.packages.find]

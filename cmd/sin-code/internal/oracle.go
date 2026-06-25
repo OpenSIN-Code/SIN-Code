@@ -317,6 +317,7 @@ func normalizeTestName(name string) string {
 	return name
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated
 func normalizeSourceName(name string) string {
 	return strings.ToLower(name)
 }

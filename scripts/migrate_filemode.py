@@ -5,6 +5,7 @@
 Operates file-by-file; safe to re-run (idempotent on already-converted
 files because the literal 0o644 will be gone).
 """
+
 import re
 import sys
 from pathlib import Path
@@ -41,7 +42,7 @@ def split_single_import(content: str) -> tuple[str, str, str]:
     m = re.search(r"^import\s+\"[^\"]+\"\s*\n", content, flags=re.MULTILINE)
     if not m:
         return "", "", ""
-    return content[: m.start()], content[m.start(): m.end()], content[m.end():]
+    return content[: m.start()], content[m.start() : m.end()], content[m.end() :]
 
 
 def collect_imports(block: str) -> list[str]:
@@ -62,7 +63,7 @@ def insert_import_line(block: str, import_line: str) -> str:
         return block
     head = "import (\n"
     foot = ")\n"
-    inner = block[len(head):-len(foot)]
+    inner = block[len(head) : -len(foot)]
 
     # split into lines preserving blank lines and comments
     raw_lines = inner.splitlines(keepends=False)
@@ -79,11 +80,7 @@ def insert_import_line(block: str, import_line: str) -> str:
     inserted = False
     new_inner = []
     for ln in raw_lines:
-        if (
-            not inserted
-            and ln.lstrip().startswith('"')
-            and ln.strip() > import_line
-        ):
+        if not inserted and ln.lstrip().startswith('"') and ln.strip() > import_line:
             new_inner.append(import_line)
             inserted = True
         new_inner.append(ln)
@@ -94,7 +91,7 @@ def insert_import_line(block: str, import_line: str) -> str:
 
 def ensure_import(content: str) -> str:
     """Add the filemode import to a Go file. Returns the new content."""
-    if IMPORT_PATH in content or "internal/filemode\"" in content:
+    if IMPORT_PATH in content or 'internal/filemode"' in content:
         return content
     if "\nimport (\n" in content:
         pre, block, post = split_imports_block(content)
@@ -109,13 +106,17 @@ def ensure_import(content: str) -> str:
         if not pkg_m:
             return content
         end_of_pkg = pkg_m.end()
-        new_block = "import (\n\t\"" + IMPORT_PATH + "\"\n)\n\n"
+        new_block = 'import (\n\t"' + IMPORT_PATH + '"\n)\n\n'
         return content[:end_of_pkg] + new_block + content[end_of_pkg:]
     # Append the new import to the single import and turn it into a block.
     new_block = (
         "import (\n"
-        + "\t" + stmt.replace("import ", "").strip() + "\n"
-        + "\t\"" + IMPORT_PATH + "\"\n"
+        + "\t"
+        + stmt.replace("import ", "").strip()
+        + "\n"
+        + '\t"'
+        + IMPORT_PATH
+        + '"\n'
         + ")\n"
     )
     return pre + new_block + post
@@ -135,7 +136,11 @@ def transform_file(path: Path) -> bool:
 
 
 def main() -> int:
-    targets = [REPO / line.strip() for line in Path("/tmp/filemode_targets.txt").read_text().splitlines() if line.strip()]
+    targets = [
+        REPO / line.strip()
+        for line in Path("/tmp/filemode_targets.txt").read_text().splitlines()
+        if line.strip()
+    ]
     # Skip the filemode package itself — its 0o644 IS the policy fallback.
     targets = [t for t in targets if "/internal/filemode/" not in str(t)]
     changed: list[Path] = []

@@ -6,6 +6,7 @@ package tui
 
 import tea "charm.land/bubbletea/v2"
 
+// sin-debt: yagni, upgrade: when a second teaProgramIface implementation lands, remove this factory
 // ProgramFromTeaProgram wraps a *tea.Program so it satisfies
 // teaProgramIface. Returns nil if p is nil.
 func ProgramFromTeaProgram(p *tea.Program) teaProgramIface {

@@ -185,6 +185,7 @@ func (s *Store) DependencyTree(root string, maxDepth int) (map[string][]Dependen
 	return out, nil
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated
 func depJSON(d Dependency) ([]byte, error) {
 	return json.Marshal(d)
 }

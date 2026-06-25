@@ -58,6 +58,7 @@ var ghAuthLoggedInRe = regexp.MustCompile(
 //
 // The regex is case-insensitive and multiline so future gh versions
 // adjusting phrasing or capitalization continue to match.
+// sin-debt: shrink, upgrade: inline when gh auth status parsing is consolidated
 func parseGhAuthStatus(out string) bool {
 	return ghAuthLoggedInRe.MatchString(out)
 }

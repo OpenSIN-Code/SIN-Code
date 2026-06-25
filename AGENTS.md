@@ -252,7 +252,7 @@ sync rules. Single-line summary:
 | Code intelligence | Simone-MCP | External MCP server (AST/LSP) |
 | Browser automation | SIN-Browser-Tools | External MCP server (106 tools) |
 | Skills (12) | websearch, scheduler, goalmode, grillme, marketplace, codocs, contextbridge, honcho, frontend, mcpbuilder, browser, simone | External MCP servers (registry.go) |
-| LLM backends | coder-SIN-Qwen, SIN-Code-FireworksAI-OpenCode-Config | Agent profiles (profiles/*.toml) |
+| LLM backends | SIN-Code-FireworksAI-OpenCode-Config | Agent profiles (profiles/*.toml) |
 | Distribution | homebrew-sin | goreleaser pushes formula `sin-code` |
 | Infra | Infra-SIN-OpenCode-Stack | Deployment |
 | **Archived — never use** | OpenSIN-Code, SIN-Code-Bundle-Web, 6 long-name duplicates, coder-SIN-Qwen | Do not reference |
@@ -260,7 +260,7 @@ sync rules. Single-line summary:
 
 ---
 
-## 6. Repository layout (verified `c06cf18`)
+## 6. Repository layout (verified `55a42c7`)
 
 ```
 SIN-Code/
@@ -289,108 +289,120 @@ SIN-Code/
 │
 ├── cmd/
 │   ├── sin-code/              ← MAIN BINARY (50+ subcommands — v3.24.0)
-│   ├── complexity-review.md    ← v3.19.0: ponytail complexity review docs
-│   └── mcp.json.example
-│
-├── cmd/
-│   ├── sin-code/              ← MAIN BINARY (50+ subcommands — v3.24.0)
 │   │   ├── main.go            ← cobra root; AddCommand for all subcommands
+│   │   ├── commands.go        ← command registration + shared helpers
 │   │   ├── tui.go, webui_cmd.go
 │   │   ├── chat_cmd.go        ← v3.4.0: chat + -p headless
 │   │   ├── chat_tools.go      ← builtin toolset
 │   │   ├── chat_tools_extra.go ← v3.5.0: sin_git_*, sin_test, sin_http_get
 │   │   ├── chat_mcp.go        ← combinedTool/combinedSpecs
-│   │   ├── session_cmd.go     ← sessions list/show/rm/fork/tree (issue #194)
-│   │   ├── mcp_cmd.go         ← mcp list|status|call (debug)
-│   │   ├── goal_cmd.go        ← v3.5.0: goal add|list
-│   │   ├── daemon_cmd.go      ← v3.5.0: autonomous worker
-│   │   ├── skill_cmd.go       ← v3.5.0: skill install|status
-│   │   ├── superpowers_cmd.go   ← v3.7.0: obra/superpowers integration
-│   │   ├── vane_cmd.go          ← v3.8.0: Vane HTTP-bridge subcommand (NewVaneCmd)
-│   │   ├── stack_cmd.go         ← v3.8.0: unified install/doctor coordinator (NewStackCmd)
-│   │   ├── hub_cmd.go           ← v3.12.0: tool catalog hub subcommand
-│   │   ├── ledger_cmd.go        ← v3.13.0: ledger query subcommand
-│   │   ├── summary_cmd.go       ← v3.13.0: summary builder subcommand
-│   │   ├── install_cmd.go       ← v3.18.0: `sin-code install` (issue #170, single-binary installer)
+│   │   ├── audit_cmd.go       ← v3.18.0: repo-wide complexity audit (issue #180)
+│   │   ├── review_cmd.go      ← v3.19.0: `review --complexity` ponytail 5-tag review (issue #179)
+│   │   ├── fusion_cmd.go      ← v3.22.0: SIN Fusion benchmark/rank/recommend
+│   │   ├── research_cmd.go    ← v3.23.0: autonomous research report (issue #384)
+│   │   ├── hub_cmd.go         ← v3.12.0: tool catalog hub subcommand
+│   │   ├── stack_cmd.go       ← v3.8.0: unified install/doctor coordinator
+│   │   ├── status_cmd.go      ← readiness snapshot
 │   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
-│   │   └── internal/          ← 18 packages (v3.18.0)
-  │   │   ├── summary_cmd.go       ← v3.13.0: summary builder subcommand
-  │   │   ├── compress_cmd.go       ← v3.18.0: sin-code compress subcommand (plan/apply/rollback, issue #172)
-  │   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
-│   │   └── internal/          ← 17 packages (v3.8.0)
-│   │   ├── install_cmd.go       ← v3.18.0: sin-code install (issue #170)
-│   │   ├── profile_cmd.go       ← v3.18.0: single-source-of-truth profile renderer (issue #175)
-│   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
-│   │   └── internal/          ← 18 packages (v3.18.0)
-│   │   ├── review_cmd.go        ← v3.19.0: `review --complexity` ponytail 5-tag review (issue #179)
-│   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
-│   │   └── internal/          ← 18 packages (v3.19.0)
+│   │   ├── security_scan_commands.go ← v3.24.0: merged security scan subcommands (secrets/SAST/SCA/SBOM/container)
+│   │   └── internal/          ← 88 packages (v3.24.0) — key ones:
 │   │       ├── agentloop/     ← PLAN→ACT→VERIFY→DONE loop
 │   │       ├── session/       ← SQLite-backed resumable sessions
 │   │       ├── permission/    ← allow/ask/deny engine
 │   │       ├── verify/        ← mandatory PoC/Oracle gate
 │   │       ├── mcpclient/     ← external MCP consumption
 │   │       ├── hooks/         ← 24 lifecycle events
+│   │       ├── hooklife/      ← v3.19.0: programmatic hook system + autoactivate
 │   │       ├── commands/      ← custom slash commands
 │   │       ├── lessons/       ← v3.4.0: closed learning loop
+│   │       ├── learning/      ← learning commands + helpers
 │   │       ├── autonomy/      ← v3.5.0: goal queue + triggers
 │   │       ├── skillmgr/      ← v3.5.0: install/verify skills
 │   │       ├── skilldist/     ← v3.17.0: marker-fenced skill distribution (issue #169)
 │   │       ├── loopbuilder/   ← v3.4.0: shared factory (DRY)
-│   │       ├── vane/          ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (internal/vane)
-│   │       ├── stack/         ← v3.8.0: unified install/doctor across 3 layers
+│   │       ├── stopgate/      ← v3.x: decoupled completion authority
+│   │       ├── goalcontract/  ← v3.x: Definition-of-Done contracts
+│   │       ├── llm/           ← provider layer
+│   │       ├── style/         ← v3.17.0: verbosity / compression mode renderer (issue #167)
+│   │       ├── orchestrator/  ← DAG, critic, adversary, governor, cartographer
+│   │       ├── memory/        ← store/search/embed
+│   │       ├── compress/      ← v3.18.0: deterministic + LLM compaction (issue #172)
+│   │       ├── mcpcompress/   ← v3.19.0: ponytail-tag compressor (issue #173)
+│   │       ├── sindept/       ← v3.18.0: sin-debt marker scanner (issue #177)
+│   │       ├── complexity/    ← v3.19.0: static ponytail complexity analyzer (issue #179)
+│   │       ├── audit/         ← v3.18.0: CEO audit engine (issue #180)
+│   │       ├── vane/          ← v3.8.0: HTTP bridge to Vane
+│   │       ├── stack/         ← v3.8.0: unified install/doctor
 │   │       ├── hub/           ← v3.12.0: static tool catalog
 │   │       ├── ledger/        ← v3.13.0: semantic session ledger (SQLite)
 │   │       ├── summary/       ← v3.13.0: deterministic session summary builder
-│   │       ├── install/       ← v3.18.0: pure-stdlib release install + SHA256 verify + atomic place (issue #170)
-│   │       ├── mcpcompress/   ← v3.19.0: ponytail-tag compressor for `serve --compress-tools`
-│   │       ├── install/       ← v3.18.0: pure-stdlib release install + SHA256 verify (issue #170)
-│   │       ├── profile/       ← v3.18.0: single-source-of-truth per-agent renderer (issue #175)
+│   │       ├── install/       ← v3.18.0: pure-stdlib release install (issue #170)
+│   │       ├── profile/       ← v3.18.0: single-source-of-truth profile renderer (issue #175)
 │   │       ├── eval/          ← v3.18.0: issue #75 eval + observability
 │   │       ├── dataset/       ← v3.18.0: golden-dataset JSON parser
 │   │       ├── trace/         ← v3.18.0: OpenTelemetry TracerProvider
 │   │       ├── evalharness/   ← v3.18.0: 4-arm comparator (issue #171)
-│   │       ├── install/       ← v3.18.0: pure-stdlib install + SHA256 (issue #170)
-│   │       ├── sindept/       ← v3.18.0: // sin-debt: marker scanner/reporter (issue #177)
-│   │       ├── complexity/    ← v3.19.0: static ponytail complexity analyzer (issue #179)
-│   │       ├── llm/           ← provider layer
-│   │       ├── style/         ← v3.17.0: verbosity / compression mode system-prompt renderer (issue #167)
-│   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
-│   │       ├── memory/        ← (existing) store/search/embed
-│   │       ├── lsp/, notifications/, todo/, plugins/, sandbox/, attachments/, webui/
-│   │       ├── agentloop/     ← PLAN→ACT→VERIFY→DONE loop
-│   │       ├── session/       ← SQLite-backed resumable sessions
-│   │       ├── permission/    ← allow/ask/deny engine
-│   │       ├── verify/        ← mandatory PoC/Oracle gate
-│   │       ├── mcpclient/     ← external MCP consumption
-│   │       ├── hooks/         ← 24 lifecycle events
-│   │       ├── commands/      ← custom slash commands
-│   │       ├── lessons/       ← v3.4.0: closed learning loop
-│   │       ├── autonomy/      ← v3.5.0: goal queue + triggers
-│   │       ├── skillmgr/      ← v3.5.0: install/verify skills
-│   │       ├── skilldist/     ← v3.18.0: marker-fenced skill distribution (issue #169)
-│   │       ├── isolation/     ← v3.20.0: git-worktree primitives (issue #194 part 2)
-│   │       ├── auto_mem/      ← v3.20.0: byte-stable MEMORY.md (Claude-Auto-Memory parity, M3-safe)
-│   │       ├── rules/         ← v3.20.0: path-scoped rule loader (Claude-Code v2.1 parity, issue #195)
-│   │       ├── sdk/           ← v3.20.0: in-process MCP Go-SDK wrapper (issue #202)
+│   │       ├── modelperf/     ← v3.22.0: per-model performance registry (issue #395)
+│   │       ├── fusion/        ← v3.22.0: SIN Fusion tournament
+│   │       ├── ghbridge/      ← v3.9.0: GitHub bridge (3-tier policy)
+│   │       ├── isolation/     ← v3.20.0: git-worktree primitives (issue #194)
+│   │       ├── auto_mem/      ← v3.20.0: byte-stable MEMORY.md
+│   │       ├── rules/         ← v3.20.0: path-scoped rule loader (issue #195)
 │   │       ├── agentteams/    ← v3.20.0: file-locked agent-team mailbox (issue #203)
-│   │       ├── loopbuilder/   ← v3.4.0: shared factory (DRY)
-│   │       ├── vane/          ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (internal/vane)
-│   │       ├── stack/         ← v3.8.0: unified install/doctor across 3 layers
-  │   │       ├── hub/           ← v3.12.0: static tool catalog
-  │   │       ├── ledger/        ← v3.13.0: semantic session ledger (SQLite)
-  │   │       ├── summary/       ← v3.13.0: deterministic session summary builder
-  │   │       ├── compress/      ← v3.18.0: deterministic + LLM compaction (issue #172)
-│   │       ├── llm/           ← provider layer
-│   │       ├── style/         ← v3.17.0: verbosity / compression mode system-prompt renderer (issue #167)
-│   │       ├── orchestrator/  ← DAG, critic, adversary, governor, ...
-│   │       ├── orchestrator/  ← DAG, critic, adversary, governor,
-│   │       │                   cartographer; caveman-style output
-│   │       │                   contracts (issue #174)
-│   │       ├── memory/        ← (existing) store/search/embed
-│   │       ├── lsp/, notifications/, todo/, plugins/, sandbox/, attachments/, webui/
+│   │       ├── imagegraph/    ← v3.20.0: SOTA ECharts chart generation
+│   │       ├── testgate/      ← v3.21.0: test-first verify-loop tools
+│   │       ├── testgen/       ← v3.21.0: test generation
+│   │       ├── swebench/      ← v3.23.0: SWE-bench test suite (issue #363)
+│   │       ├── security/      ← v3.24.0: Security Scanning V2
+│   │       ├── vision/        ← v3.24.0: vision model for analyse-image (issue #423)
+│   │       ├── telemetry/     ← v3.24.0: live progress / NDJSON events
+│   │       ├── filemode/      ← v3.x: SIN_CODE_FILE_MODE policy
+│   │       ├── sandbox/       ← v3.x: OS-level sandbox (landlock/seatbelt/bubblewrap)
+│   │       ├── config/        ← unified config subsystem
+│   │       ├── catalog/       ← v3.20.0: unified tool catalog
+│   │       ├── circuitbreaker/← v3.x: circuit breaker pattern
+│   │       ├── egress/        ← v3.x: egress filtering
+│   │       ├── health/        ← v3.x: health checks
+│   │       ├── adapters/      ← v3.x: store adapters
+│   │       ├── wiring/        ← v3.x: dependency wiring
+│   │       ├── chat/          ← v3.x: chat package
+│   │       ├── dispatch/      ← v3.x: dispatch helpers
+│   │       ├── meta/          ← v3.x: metadata
+│   │       ├── logger/        ← v3.x: structured logging
+│   │       ├── usage/         ← v3.x: token usage tracking
+│   │       ├── resource/      ← v3.x: resource management
+│   │       ├── rag/           ← v3.x: RAG helpers
+│   │       ├── native_browser/← v3.x: native browser integration
+│   │       ├── native_websearch/← v3.x: native web search
+│   │       ├── websearch/     ← v3.x: web search
+│   │       ├── autodev/       ← v3.x: autodev bridge
+│   │       ├── autopilot/     ← v3.x: autopilot mode
+│   │       ├── autopr/        ← v3.x: auto-PR
+│   │       ├── autolevel/     ← v3.x: auto-leveling
+│   │       ├── checkpoint/    ← v3.x: workspace checkpointing
+│   │       ├── codegraph/     ← v3.x: code graph bridge
+│   │       ├── coverdrohne/   ← v3.x: coverage drone
+│   │       ├── dox/           ← v3.x: AGENTS.md hierarchy (dox protocol)
+│   │       ├── grill/         ← v3.x: adversarial design review
+│   │       ├── instinct/      ← v3.x: learned instincts
+│   │       ├── prp/           ← v3.x: PRP workflow
+│   │       ├── rtk/           ← v3.x: Rust Token Killer bridge
+│   │       ├── spec/          ← v3.x: Spec-Layer contracts
+│   │       ├── status/        ← v3.x: status snapshot
+│   │       ├── triage/        ← v3.x: issue triage
+│   │       ├── tui/           ← TUI runtime
+│   │       ├── webui/         ← WebUI server
+│   │       ├── apiweb/        ← v3.x: web API helpers
+│   │       ├── assets/        ← v3.x: harvested assets
+│   │       ├── attachments/   ← v3.x: file attachments
+│   │       ├── lsp/           ← LSP integration
+│   │       ├── notifications/ ← notification management
+│   │       ├── todo/          ← issue tracker
+│   │       ├── plugins/       ← plugin management
+│   │       └── testutil/      ← test utilities
 │   ├── sin-tui/               ← standalone TUI binary
-│   └── (sin-code, sin-tui only — vendored tools live at repo root)
+│   ├── complexity-review.md   ← v3.19.0: ponytail complexity review docs
+│   └── mcp.json.example
 │
 ├── SIN-Code-Container-Tool-Go/   ← vendored Go module at repo root (own go.mod)
 ├── SIN-Code-SAST-Tool/           ← vendored Go module at repo root (own go.mod)
@@ -414,7 +426,7 @@ SIN-Code/
 │   ├── multimodal-skills/
 │   ├── planning-skills/
 │   ├── process-skills/
-│       └── shop-skills/
+│   └── shop-skills/
 ├── tests/                     ← Go + Python tests
 └── scripts/                   ← validate_skill.py, ci-precheck.sh, build_changelog.sh, marketplace-*.sh, etc.
 ```
@@ -738,24 +750,13 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.14.0 | ✅ SHIPPED | Unified config subsystem (#34): `sin-code config init/show/validate`, expanded TOML schema, user + project deep merge, atomic writes, secret masking, 39 subcommands |
 | v3.15.0 | ✅ SHIPPED | Go-native SCA Phase 1 (#41), race-flake hardening (#59) |
 | v3.16.0 | ✅ SHIPPED | Forge integration (#37): `sin forge` command, `sin status` detection, 16th MCP tool in `mcp_config` |
-| v3.18.0 | ✅ SHIPPED | Memory compaction (`internal/compress/`, `compress_cmd.go`, issue #172): deterministic dedupe + byte-budget + sort, optional LLM summarization (`--strategy llm|hybrid`) with byte-preservation validation, snapshot+rollback for lossless Apply, `compress__plan/apply/rollback` permission defaults (ask-only on `apply`). Closes #172. |
-
-| v3.18.0 | ✅ SHIPPED | `sin-code install` + curl|bash shim + PowerShell (issue #170): new 40th subcommand + internal/install/ package, 27-line install.sh mirror + 35-line install.ps1, SHA256-verified single-binary downloads from goreleaser assets |
-| (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
-| v3.19.0 | ✅ SHIPPED | `sin-code serve --compress-tools` (issue #173): ponytail-tag compressor in `internal/mcpcompress/` shrinks the 47-tool manifest on the wire. Tag set `delete|stdlib|native|yagni|shrink`, subset via `--compress-tags`, savings reported via `--print-stats`. Tool names, schemas, and behavior are unchanged (AGENTS.md §10). Closing #173. |
-
-| v3.18.0 | ✅ SHIPPED | `sin-code debt` (issue #177) — `// sin-debt: <ceiling>, upgrade: <trigger>` marker convention (ponytail adoption), byte-stable `internal/sindept/` scanner + report, policy gate via `sin-code debt check`, 41st subcommand; alongside `sin-code install` (issue #170), `eval` / `trace` (issue #75), `evalset` / `prp` / `instinct` / `assets` / `hooks` / `rtk` / `codegraph` / `spec` v0 work |
-| (next)  | TBD    | eval/trace infra hardening + first-party golden-dataset CI gate (issue #75 phase 2) |
-| v3.19.0 | ✅ SHIPPED | `autoactivate` hooklife subpackage (#176): `cmd/sin-code/internal/hooklife/autoactivate` — per-session rule injection on `SessionStart` + `UserPrompt`. `--activate <rule>` + `--no-trigger` flags on `sin-code chat`; project-local `.sin-code/autoactivate.toml`; deterministic byte-stable `RuleSet.Render()`; race-safe (mandate M7). Hooks register against any `*hooklife.Registry` via `Activator.Register(reg)`. |
 | v3.17.0 | ✅ SHIPPED | TUI runtime DB .gitignore, MCP warning deduplication, marketplace update test hardening, skills 33 → 34 |
-| v3.18.0 | ✅ SHIPPED | `sin-code install` single-binary installer (issue #170), curl/bash + PowerShell shims, SHA256-verified release downloads |
-| v3.19.0 | ✅ SHIPPED | `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format (`delete`, `stdlib`, `native`, `yagni`, `shrink`), `// sin-debt:` marker support (issue #177), text/json/markdown output, race-clean tests |
-| v3.20.0 | ✅ SHIPPED | Tool coverage, M6 enforcement, catalog, telemetry (issues #249, #253, #248, #250, #252, #251): agent profiles expose full `sin_*` + MCP prefix surface; system prompt injects SIN-tool preference fragment; runtime `ToolCoverageEnforcer` rejects missing/forbidden tool usage; `ledger tools` heatmap/coverage/unused; orchestrator planner emits mandatory `ToolChain` per intent; `sin-code catalog` unifies 49+ MCP tools, 17+ chat tools, and 14+ external MCP prefixes. |
-| v3.20.0 | ✅ SHIPPED | `sin-code image-graph` — SOTA ECharts chart generation (bar/line/pie/area); `skill-github-readme` bundled. 42 subcommands, 40 bundled skills. |
+| v3.18.0 | ✅ SHIPPED | Memory compaction (`internal/compress/`, `compress_cmd.go`, issue #172): deterministic dedupe + byte-budget + sort, optional LLM summarization (`--strategy llm|hybrid`) with byte-preservation validation, snapshot+rollback for lossless Apply, `compress__plan/apply/rollback` permission defaults (ask-only on `apply`). Closes #172. `sin-code install` single-binary installer (issue #170), curl/bash + PowerShell shims, SHA256-verified release downloads. `sin-code debt` (issue #177) — `// sin-debt:` marker convention, byte-stable `internal/sindept/` scanner + report, policy gate via `sin-code debt check`. Also: `eval` / `trace` (issue #75), `evalset` / `prp` / `instinct` / `assets` / `hooks` / `rtk` / `codegraph` / `spec` v0 work. |
+| v3.19.0 | ✅ SHIPPED | `sin-code serve --compress-tools` (issue #173): ponytail-tag compressor in `internal/mcpcompress/` shrinks the 47-tool manifest on the wire. Tag set `delete|stdlib|native|yagni|shrink`, subset via `--compress-tags`, savings reported via `--print-stats`. `autoactivate` hooklife subpackage (#176): per-session rule injection on `SessionStart` + `UserPrompt`, `--activate <rule>` + `--no-trigger` flags. `sin-code review --complexity` (issue #179): `internal/complexity/` static analyzer with ponytail 5-tag format, `// sin-debt:` marker support, text/json/markdown output, race-clean tests. |
+| v3.20.0 | ✅ SHIPPED | Tool coverage, M6 enforcement, catalog, telemetry (issues #249, #253, #248, #250, #252, #251): agent profiles expose full `sin_*` + MCP prefix surface; system prompt injects SIN-tool preference fragment; runtime `ToolCoverageEnforcer` rejects missing/forbidden tool usage; `ledger tools` heatmap/coverage/unused; orchestrator planner emits mandatory `ToolChain` per intent; `sin-code catalog` unifies 49+ MCP tools, 17+ chat tools, and 14+ external MCP prefixes. `sin-code image-graph` — SOTA ECharts chart generation (bar/line/pie/area); `skill-github-readme` bundled. 42 subcommands, 40 bundled skills. |
 | v3.21.0 | ✅ SHIPPED | Test-First Verify-Loop (RFC-test-automation.md): `sin_test` + `sin_test_generate` + `sin_quality_gate` + `sin_mutation` + `sin_fuzz` + `sin_property`; `tool.post` hook payload path; `test.*` config keys; `evals/test-generation.json` golden dataset. |
-| v3.22.0 | ✅ SHIPPED | SIN Fusion v1 enhancements: **Plan-Merge mode** (issue #393 — N planners → judge merges → 1 coder → verify, preserves all insights); **Oracle as default** (issue #394 — quality over cost, was: PoC first-pass-wins); **Model Performance Registry** (issue #395 — `modelperf.db`, `fusion benchmark/rank/recommend` CLI, auto-wired into `loopbuilder`). |
-| v3.22.0 | ✅ SHIPPED | pre-existing fixes stacked into the same release: `llm/provider.go`+`recorder.go`+`stream.go` ThinkingTokens + 8-arg `RecordUsage`; `agentloop/compaction_helpers.go` for `compaction_types.go`; vet fix in `orchestrator/event_dispatch_test.go`. |
-| v3.23.0 | ✅ SHIPPED | v3.23.0 roadmap batch 1: autonomous research report (`sin-code research`, issue #384), SWE-bench test suite (issue #363), scientific research skill (issue #387), `sin_apply_diff`/`sin_generate_diff` chat tools (issue #365), dynamic MCP server discovery (`sin-code mcp discover/add`, issue #368). Also repaired main build drift from parallel-agent WIP. Remaining open: #364, #373, #374, #388, #389. |
+| v3.22.0 | ✅ SHIPPED | SIN Fusion v1 enhancements: **Plan-Merge mode** (issue #393 — N planners → judge merges → 1 coder → verify, preserves all insights); **Oracle as default** (issue #394 — quality over cost, was: PoC first-pass-wins); **Model Performance Registry** (issue #395 — `modelperf.db`, `fusion benchmark/rank/recommend` CLI, auto-wired into `loopbuilder`). Pre-existing fixes: `llm/provider.go`+`recorder.go`+`stream.go` ThinkingTokens + 8-arg `RecordUsage`; `agentloop/compaction_helpers.go` for `compaction_types.go`; vet fix in `orchestrator/event_dispatch_test.go`. |
+| v3.23.0 | ✅ SHIPPED | v3.23.0 roadmap batch 1: autonomous research report (`sin-code research`, issue #384), SWE-bench test suite (issue #363), scientific research skill (issue #387), `sin_apply_diff`/`sin_generate_diff` chat tools (issue #365), dynamic MCP server discovery (`sin-code mcp discover/add`, issue #368). Also repaired main build drift from parallel-agent work. Remaining open: #364, #373, #374, #388, #389. |
 | v3.24.0 | ✅ SHIPPED | TUI/agentloop/headless live progress: live tool timing + NDJSON progress + live token/cost footer (issue #424); Esc cancels in-flight TUI prompt; autonomy trigger loops exit promptly on context cancellation; test suite made environment-independent; `sin-code analyse-image` vision model (issue #423); Security Scanning V2 (secrets/SAST/SCA/SBOM/container/SARIF); Complexity cleanup: 55+ files merged, all analyzers fixed, scoring corrected, 0 unapproved findings, 0 rot-risk markers. |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
@@ -905,10 +906,10 @@ Agents:    chat, sessions (list|show|rm|fork|tree), mcp, goal, daemon,
            cover, instinct, hooks, assets, evalset, prp, image-graph, status,
            fusion, research, permission, tokens, analyse, analyse-image, auto
 Frontend:  serve, tui, webui
-Lifecycle: memory, knowledge, todo, notifications, orchestrator_run,
-           orchestrator_agents, orchestrator_plan, update
+Lifecycle: memory, todo, notifications, orchestrator-run,
+           orchestrator-agents, orchestrator-plan, update
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
-           config, self-update
+           config, self-update, headroom, rules, tool-search
 ```
 (v3.24.0: 50+ subcommands.)
 
@@ -1096,7 +1097,6 @@ and inspect trajectories visually (Langfuse / Jaeger / Arize Phoenix).
 | `cmd/sin-code/eval_cmd.go` | `sin-code eval run` + `eval compare` + `eval snapshot` + `eval diff` (issue #171) |
 | `cmd/sin-code/internal/evalharness/scorer.go` | Scorers: exact, contains, success, LLM-judge, composite, **CompileAndRun** |
 | `cmd/sin-code/internal/evalharness/runner_extras.go` | Compile-and-run helpers (code extraction, sandboxed compile/run) |
-| `cmd/sin-code/eval_cmd.go` | `sin-code eval run` + `sin-code eval list` |
 | `cmd/sin-code/trace_cmd.go` | `sin-code trace doctor` — exporter-only sanity check |
 | `evals/critical.json` | Example Golden Dataset (3 cases, no LLM needed) |
 | `evals/three-arm-example.json` | v3.18.0 four-arm bench, 3 cases (issue #171) |

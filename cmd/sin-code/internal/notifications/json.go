@@ -4,6 +4,7 @@ package notifications
 
 import "encoding/json"
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated
 func jsonEncode(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
 }

@@ -272,8 +272,10 @@ func matchDoubleStar(pattern, rel string) bool {
 
 // ── Thin wrappers (merged from helpers.go) ──────────────────────────────
 
-func sha256Sum() hash.Hash                   { return sha256.New() }
-func hexEncodeToString(h hash.Hash) string   { return hex.EncodeToString(h.Sum(nil)) }
+func sha256Sum() hash.Hash                 { return sha256.New() }
+func hexEncodeToString(h hash.Hash) string { return hex.EncodeToString(h.Sum(nil)) }
+
+// sin-debt: shrink, upgrade: inline when callers are consolidated
 func jsonUnmarshal(data []byte, v any) error { return json.Unmarshal(data, v) }
 
 // ── Slugify (merged from slugify_helper.go) ─────────────────────────────

@@ -6,6 +6,7 @@ package sdk
 
 import "encoding/json"
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated
 // jsonUnmarshal decodes raw JSON into dst. Errors propagate.
 func jsonUnmarshal(raw []byte, dst any) error {
 	return json.Unmarshal(raw, dst)

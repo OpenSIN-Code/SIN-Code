@@ -514,6 +514,7 @@ func stubRunOverride(_ context.Context, sess *session.Session, prompt string) (*
 	}, nil
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or reserved follow-up is implemented
 // newLLMClientFor returns a *llm.Client. Centralised so the cmd
 // package keeps a single import path for the LLM bridge.
 func newLLMClientFor(endpoint, apiKey string) *llm.Client { //nolint:unused // reserved for follow-up

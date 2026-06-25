@@ -15,6 +15,7 @@ list of dicts; PyYAML is not a dependency for the bundled scripts).
 
 Docs: scripts/sync_lifecycle.py.doc.md
 """
+
 from __future__ import annotations
 
 import argparse

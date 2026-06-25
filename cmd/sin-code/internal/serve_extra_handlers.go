@@ -395,6 +395,7 @@ func handleTodoDep(ctx context.Context, args map[string]any) (string, error) {
 	return runSinCodeCLI("todo", "deps", child)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated
 func stringJoin(parts []string, sep string) string {
 	return strings.Join(parts, sep)
 }

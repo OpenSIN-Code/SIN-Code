@@ -480,11 +480,10 @@ func runWithTimeout(cmd string, args []string, dir string, timeoutSec int) ([]by
 	return c.CombinedOutput()
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 func countSubstring(s, sub string) int {
 	return strings.Count(s, sub)
 }
-
-// sin-debt: shrink, upgrade: inline when callers are consolidated or test seam is removed
 
 func countLinesSimple(s string) int {
 	return len(strings.Split(s, "\n"))

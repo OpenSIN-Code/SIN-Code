@@ -3,7 +3,7 @@
 package complexity
 
 import (
-	"bufio"
+	"bytes"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,8 +19,29 @@ type Marker struct {
 
 var sinDebtRE = regexp.MustCompile(`(?:^|\s)(?://|#)\s*sin-debt:\s*(?P<reason>[^,\n\r]+?)(?:\s*,\s*upgrade:\s*(?P<upgrade>.+?))?\s*$`)
 
+// skipDirs are directory base names that never contain source-level sin-debt
+// markers. They are build artifacts, vendored modules, or VCS metadata.
+var skipDirs = map[string]bool{
+	".git":          true,
+	"node_modules":  true,
+	"vendor":        true,
+	"build":         true,
+	"dist":          true,
+	"target":        true,
+	"out":           true,
+	".venv":         true,
+	"venv":          true,
+	"__pycache__":   true,
+	".pytest_cache": true,
+	".mypy_cache":   true,
+}
+
+// maxMarkerFileBytes is the per-file read cap; files above this are skipped
+// with no error. Matches the sindept package's 2 MiB default.
+const maxMarkerFileBytes = 2 << 20
+
 // ParseMarkers walks root and returns every "sin-debt:" marker; also accepts the hash-style form.
-// mapped by cleaned relative path. Only regular files are scanned.
+// mapped by cleaned relative path. Only regular source files are scanned.
 func ParseMarkers(root string) (map[string][]Marker, error) {
 	root, err := filepath.Abs(root)
 	if err != nil {
@@ -28,10 +49,19 @@ func ParseMarkers(root string) (map[string][]Marker, error) {
 	}
 	out := make(map[string][]Marker)
 	if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil {
 			return err
 		}
+		if info.IsDir() {
+			if skipDirs[info.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
 		if !info.Mode().IsRegular() {
+			return nil
+		}
+		if info.Size() > maxMarkerFileBytes {
 			return nil
 		}
 		rel, err := filepath.Rel(root, path)
@@ -53,34 +83,32 @@ func ParseMarkers(root string) (map[string][]Marker, error) {
 }
 
 func parseMarkerFile(path string) ([]Marker, error) {
-	f, err := os.Open(path)
+	data, err := os.ReadFile(path) // #nosec G304 — input is a CLI path
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-
+	if bytes.IndexByte(data, 0) >= 0 {
+		return nil, nil // binary file — skip
+	}
 	var markers []Marker
-	scanner := bufio.NewScanner(f)
-	lineNo := 1
-	for scanner.Scan() {
-		line := scanner.Text()
+	for lineNo, line := range strings.Split(string(data), "\n") {
 		if m := sinDebtRE.FindStringSubmatch(line); m != nil {
 			reason := strings.TrimSpace(m[1])
 			markers = append(markers, Marker{
 				Path:   path,
-				Line:   lineNo,
+				Line:   lineNo + 1,
 				Reason: reason,
 			})
 		}
-		lineNo++
 	}
-	return markers, scanner.Err()
+	return markers, nil
 }
 
 // markerFor returns the first marker that falls inside [start, end] or within a
-// few preceding lines of the node.
+// few preceding lines of the node. The 10-line window matches the CEO audit's
+// approvedBySinDebt scanner so the two systems stay consistent.
 func markerFor(markers map[string][]Marker, path string, start, end int) string {
-	const contextLines = 5
+	const contextLines = 10
 	for _, m := range markers[path] {
 		if m.Line >= start-contextLines && m.Line <= end {
 			return m.Reason

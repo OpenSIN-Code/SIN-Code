@@ -2073,16 +2073,6 @@ func runDoctor(jsonOut bool) error {
 	return nil
 }
 
-// min is a small helper to keep doctor.go self-contained without
-// pulling in the "min" built-in (Go 1.21+ has it, but we want the file
-// to compile cleanly under older toolchains too).
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 // Unused but kept so the package compiles even if no subcommand is
 // selected (defensive — cobra will still show help, never RunE).
 var _ = context.Background

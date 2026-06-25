@@ -470,6 +470,7 @@ func countLOC(text string) int {
 // comparator side dependency-free.
 var defaultSubject Subject = NoOpSubject{}
 
+// sin-debt: yagni, upgrade: when a second Subject implementation lands, remove this factory
 // SetDefaultSubject swaps the Subject used by the comparator
 // when the arm's Setup function does not provide its own. Returns
 // the previous subject so callers can swap back safely.
@@ -479,6 +480,7 @@ func SetDefaultSubject(s Subject) Subject {
 	return prev
 }
 
+// sin-debt: yagni, upgrade: when a second Subject implementation lands, remove this factory
 func chooseSubject(_ Arm) Subject { return defaultSubject }
 
 // NoOpSubject returns the original prompt as output. Used as the

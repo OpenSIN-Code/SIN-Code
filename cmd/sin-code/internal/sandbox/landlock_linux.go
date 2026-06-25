@@ -176,6 +176,7 @@ func applyLandlockImpl(ro, rw []string, netAllowed bool) error {
 	return nil
 }
 
+// sin-debt: shrink, upgrade: inline when a second platform-specific function is needed, merge into a shared file
 func unixExec(path string, args, env []string) error {
 	return unix.Exec(path, args, env)
 }

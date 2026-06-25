@@ -20,10 +20,12 @@ func defaultConfigDir() (string, error) {
 	return filepath.Join(cfg, "sin-code"), nil
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated
 func dirOf(p string) string {
 	return filepath.Dir(p)
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated
 func mkdirAll(p string, perm os.FileMode) error {
 	return os.MkdirAll(p, perm)
 }

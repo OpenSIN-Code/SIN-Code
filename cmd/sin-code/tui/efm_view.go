@@ -353,13 +353,6 @@ func RenderToolsView(sidebar Sidebar, styles Styles, width, height int) string {
 	return b.String()
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 // ── History view (merged from history_view.go) ──────────────────────────
 
 func RenderHistoryView(entries []HistoryEntry, selected int, styles Styles, width, height int) string {

@@ -308,6 +308,7 @@ func stripURI(uri string) string {
 	return uri
 }
 
+// sin-debt: shrink, upgrade: inline when callers are consolidated
 func langForPath(p string) string {
 	return lsp.LanguageForFile(p)
 }
@@ -1009,13 +1010,6 @@ func outputTextMap(r *mapResult) error {
 		}
 	}
 	return nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func sliceContains(haystack []string, needle string) bool {

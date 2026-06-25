@@ -84,6 +84,25 @@ func Find(opts Options) ([]Finding, error) {
 	return findings, nil
 }
 
+// selectSkipDirs are directory base names that never contain first-party
+// source files. They are build artifacts, test fixtures, VCS metadata, or
+// vendored dependencies.
+var selectSkipDirs = map[string]bool{
+	"testdata":      true,
+	"build":         true,
+	"node_modules":  true,
+	".git":          true,
+	"vendor":        true,
+	"dist":          true,
+	"target":        true,
+	"out":           true,
+	".venv":         true,
+	"venv":          true,
+	"__pycache__":   true,
+	".pytest_cache": true,
+	".mypy_cache":   true,
+}
+
 // selectFiles returns the .go files to analyze. If sinceRef is set, it analyzes
 // every .go file in directories touched by the diff.
 func selectFiles(root, sinceRef string) ([]string, error) {
@@ -122,11 +141,23 @@ func selectFiles(root, sinceRef string) ([]string, error) {
 
 	var files []string
 	if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() {
+		if err != nil {
 			return err
 		}
+		if info.IsDir() {
+			name := info.Name()
+			if selectSkipDirs[name] {
+				return filepath.SkipDir
+			}
+			if path != root {
+				if _, err := os.Stat(filepath.Join(path, "go.mod")); err == nil {
+					return filepath.SkipDir
+				}
+			}
+			return nil
+		}
 		base := filepath.Base(path)
-		if strings.HasPrefix(base, ".") || strings.Contains(path, "/vendor/") || strings.Contains(path, "\\vendor\\") {
+		if strings.HasPrefix(base, ".") {
 			return nil
 		}
 		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {

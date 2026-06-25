@@ -126,7 +126,11 @@ class SkillValidator:
                     self.add("error", f"Missing or empty frontmatter key (strict): {key}", skill_md)
             lc = front.get("lifecycle", "")
             if lc and lc not in VALID_LIFECYCLES:
-                self.add("error", f"Invalid lifecycle {lc!r} (expected one of {VALID_LIFECYCLES})", skill_md)
+                self.add(
+                    "error",
+                    f"Invalid lifecycle {lc!r} (expected one of {VALID_LIFECYCLES})",
+                    skill_md,
+                )
 
         # Optional required_tools field (issue #248 binding): if present,
         # must be a YAML list of SIN tool names. The ToolCoverageEnforcer
@@ -136,7 +140,9 @@ class SkillValidator:
             if not isinstance(rt, list):
                 self.add("error", "required_tools must be a YAML list", skill_md)
             elif not all(isinstance(t, str) and t for t in rt):
-                self.add("error", "required_tools list contains empty or non-string entries", skill_md)
+                self.add(
+                    "error", "required_tools list contains empty or non-string entries", skill_md
+                )
 
         name = front.get("name")
         if name and not NAME_RE.match(name):

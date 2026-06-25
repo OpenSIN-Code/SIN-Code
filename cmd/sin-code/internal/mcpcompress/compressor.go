@@ -320,6 +320,7 @@ func ValidateTags(in []string) []Tag {
 	return out
 }
 
+// sin-debt: shrink, upgrade: inline when test seam is removed or callers are consolidated
 // MustCompile is a tiny wrapper around regexp.MustCompile that exists
 // so the package owns its compile-time panic surface and tests can
 // share the compiled regex set.
