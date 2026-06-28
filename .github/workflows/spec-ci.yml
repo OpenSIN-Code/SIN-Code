@@ -26,6 +26,12 @@ jobs:
             echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
             exit 1
           fi
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
       - name: Lightweight pre-check
         run: |
           go vet ./cmd/sin-code/...
