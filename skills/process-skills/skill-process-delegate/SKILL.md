@@ -1,31 +1,17 @@
 ---
 name: skill-process-delegate
 description: >
-  Master subagent delegation skill for coding agents. Teaches the orchestrator
-  (main agent) how to decompose complex tasks and delegate to subagents like a
-  master — with complete context, precise task boundaries, output contracts,
-  and effort scaling. Triggers when the user says "/delegate-subagents",
-  "delegate to subagents", "use parallel subagents", "split this task",
-  "fan out to agents", "orchestrate subagents", "multi-agent", "parallelize
-  this work", or when the agent recognizes a task is complex enough to benefit
-  from decomposition (3+ independent subtasks, multiple files to modify,
-  research + implementation + testing phases, open-ended exploration).
-
-  UNCONDITIONAL TRIGGER: When the user types "/delegate-subagents" or
-  explicitly says "use the delegate-subagents skill", invoke immediately.
-
-  CONDITIONAL TRIGGER: When ANY of these hold:
-  (a) Task has 3+ independent subtasks that could run in parallel
-  (b) Task spans multiple files/modules/domains (e.g. backend + frontend + tests)
-  (c) Task involves research + implementation + verification phases
-  (d) Task is open-ended with multiple viable approaches
-  (e) User says "parallel", "simultaneously", "at the same time", "concurrent"
-  (f) User says "mit mehreren subagents" or "parallel machen"
-
-  DO NOT INVOKE for: single-file edits, quick lookups, one-line fixes,
-  anything where sequential execution is obviously correct.
+  Master subagent delegation skill. Teaches the orchestrator how to decompose
+  complex tasks and delegate to subagents with complete context, precise task
+  boundaries, output contracts, and effort scaling. Triggers on "/delegate-subagents",
+  "delegate to subagents", "use parallel subagents", "split this task", "fan out",
+  "orchestrate subagents", "multi-agent", "parallelize this work", or when the agent
+  recognizes 3+ independent subtasks, multiple files to modify, or research +
+  implementation + testing phases. DO NOT INVOKE for single-file edits or quick lookups.
 license: MIT
-compatibility: opencode
+lifecycle: native
+compatibility:
+  - opencode
 metadata:
   audience: agents
   workflow: delegation
@@ -34,6 +20,22 @@ metadata:
     OpenCode agent/subagent architecture (opencode.ai/docs/agents),
     Claude Code subagent patterns, SIN-Code orchestrator DAG
 ---
+
+## TRIGGER RULES
+
+**UNCONDITIONAL TRIGGER:** When the user types "/delegate-subagents" or
+explicitly says "use the delegate-subagents skill", invoke immediately.
+
+**CONDITIONAL TRIGGER:** When ANY of these hold:
+- (a) Task has 3+ independent subtasks that could run in parallel
+- (b) Task spans multiple files/modules/domains (e.g. backend + frontend + tests)
+- (c) Task involves research + implementation + verification phases
+- (d) Task is open-ended with multiple viable approaches
+- (e) User says "parallel", "simultaneously", "at the same time", "concurrent"
+- (f) User says "mit mehreren subagents" or "parallel machen"
+
+**DO NOT INVOKE for:** single-file edits, quick lookups, one-line fixes,
+anything where sequential execution is obviously correct.
 
 ## MASTER SUBAGENT DELEGATION SKILL
 
