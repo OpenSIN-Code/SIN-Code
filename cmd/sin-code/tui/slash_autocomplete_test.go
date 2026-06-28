@@ -10,8 +10,8 @@ import (
 func TestSlashCommandsReturnsFullList(t *testing.T) {
 	sa := NewSlashAutocomplete()
 	cmds := sa.Commands()
-	if len(cmds) != 14 {
-		t.Errorf("expected 14 commands, got %d", len(cmds))
+	if len(cmds) != 15 {
+		t.Errorf("expected 15 commands, got %d", len(cmds))
 	}
 	names := map[string]bool{}
 	for _, c := range cmds {
@@ -20,7 +20,7 @@ func TestSlashCommandsReturnsFullList(t *testing.T) {
 	expected := []string{
 		"/clear", "/help", "/attach", "/search", "/btw",
 		"/undercover", "/model", "/theme", "/compact", "/tools",
-		"/sessions", "/dag", "/ctx-viz", "/dashboard",
+		"/sessions", "/dag", "/ctx-viz", "/dashboard", "/export",
 	}
 	for _, e := range expected {
 		if !names[e] {
@@ -241,8 +241,8 @@ func TestSlashReset(t *testing.T) {
 		t.Error("expected inactive after Reset")
 	}
 	cmds := sa.Commands()
-	if len(cmds) != 14 {
-		t.Errorf("expected 14 commands after reset, got %d", len(cmds))
+	if len(cmds) != 15 {
+		t.Errorf("expected 15 commands after reset, got %d", len(cmds))
 	}
 }
 

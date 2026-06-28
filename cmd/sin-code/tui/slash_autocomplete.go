@@ -38,6 +38,7 @@ func NewSlashAutocomplete() *SlashAutocomplete {
 func defaultSlashCommands() []SlashCommand {
 	return []SlashCommand{
 		{Name: "/clear", Description: "Clear conversation", Category: "chat"},
+		{Name: "/export", Description: "Export chat to markdown", Category: "chat"},
 		{Name: "/help", Description: "Show help", Category: "meta"},
 		{Name: "/attach", Description: "Attach file", Category: "chat", Args: "<path>"},
 		{Name: "/search", Description: "Search conversation", Category: "chat"},

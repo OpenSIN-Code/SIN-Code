@@ -26,6 +26,7 @@ var DefaultSlashCommands = []SlashCommand{
 	{Name: "/memory", Description: "Search agent memory", Category: "general", Args: "<query>"},
 	{Name: "/theme", Description: "Cycle color theme", Category: "general"},
 	{Name: "/config", Description: "View or edit configuration", Category: "general", Args: "[key]"},
+	{Name: "/export", Description: "Export chat to markdown file", Category: "general"},
 }
 
 // SlashMenu is a popup menu for browsing slash commands with descriptions,

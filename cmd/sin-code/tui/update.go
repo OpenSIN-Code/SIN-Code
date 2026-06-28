@@ -58,6 +58,7 @@ var (
 	keyDiffApproval  = key.NewBinding(key.WithKeys("ctrl+a"), key.WithHelp("^a", "approve diff"))
 	keyBlockToggle   = key.NewBinding(key.WithKeys("ctrl+g"), key.WithHelp("^g", "toggle block"))
 	keySplitPane     = key.NewBinding(key.WithKeys("f2"), key.WithHelp("F2", "split pane"))
+	keyCopyMode      = key.NewBinding(key.WithKeys("ctrl+e"), key.WithHelp("^e", "copy mode"))
 	keyLeft          = key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "left"))
 	keyRight         = key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "right"))
 	keyUp            = key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up"))
@@ -562,6 +563,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.Mode == ModeDiffApproval && m.DiffApproval != nil && m.DiffApproval.Open {
 		return m.handleDiffApprovalKey(msg)
 	}
+	if m.Mode == ModeCopy && m.CopyMode != nil && m.CopyMode.Active {
+		return m.handleCopyModeKey(msg)
+	}
 
 	if m.SplitPane.Active() && m.SplitPane.SideKind() == PaneFileViewer && m.ViewKind == ViewChat {
 		switch {
@@ -683,6 +687,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, keySplitPane):
 		m.ToggleSplitPane()
+		return m, nil
+	case key.Matches(msg, keyCopyMode):
+		if m.ViewKind == ViewChat {
+			m.EnterCopyMode()
+		}
 		return m, nil
 	case msg.String() == "ctrl+o":
 		m.OpenFilePicker()
@@ -1503,6 +1512,127 @@ func (m *Model) handleDiffApprovalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case "down", "j":
 		m.DiffApproval.Next()
+		return m, nil
+	}
+	return m, nil
+}
+
+// EnterCopyMode activates copy mode with the current chat history flattened
+// into lines.
+func (m *Model) EnterCopyMode() {
+	lines := m.flattenChatLines()
+	if m.CopyMode == nil {
+		m.CopyMode = NewCopyMode(m.Styles)
+	}
+	m.CopyMode.Styles = m.Styles
+	m.CopyMode.Enter(lines)
+	m.Mode = ModeCopy
+}
+
+// ExitCopyMode deactivates copy mode and returns to normal mode.
+func (m *Model) ExitCopyMode() {
+	if m.CopyMode != nil {
+		m.CopyMode.Exit()
+	}
+	m.Mode = ModeNormal
+}
+
+// flattenChatLines converts the chat history into a flat list of text lines
+// suitable for the copy mode overlay.
+func (m *Model) flattenChatLines() []string {
+	var lines []string
+	for _, msg := range m.ChatHistory {
+		var label string
+		switch msg.Kind {
+		case chatUser:
+			label = "USER"
+		case chatAssistant:
+			label = "ASSISTANT"
+		case chatTool:
+			label = "TOOL: " + msg.Tool
+		case chatError:
+			label = "ERROR"
+		case chatSystem:
+			label = "SYSTEM"
+		default:
+			label = "MSG"
+		}
+		lines = append(lines, "["+label+"]")
+		text := msg.Text
+		if text == "" {
+			text = msg.Detail
+		}
+		if text == "" && msg.Tool != "" {
+			text = msg.ToolInput
+			if msg.ToolOutput != "" {
+				text += "\n" + msg.ToolOutput
+			}
+		}
+		if text != "" {
+			lines = append(lines, strings.Split(text, "\n")...)
+		}
+		lines = append(lines, "")
+	}
+	if len(lines) == 0 {
+		lines = []string{"(no chat history)"}
+	}
+	return lines
+}
+
+func (m *Model) handleCopyModeKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.CopyMode == nil || !m.CopyMode.Active {
+		m.Mode = ModeNormal
+		return m, nil
+	}
+	k := msg.String()
+	switch k {
+	case "q", "esc":
+		m.ExitCopyMode()
+		return m, nil
+	case "j", "down":
+		m.CopyMode.Down()
+		return m, nil
+	case "k", "up":
+		m.CopyMode.Up()
+		return m, nil
+	case "pgdown", "ctrl+d":
+		m.CopyMode.PageDown()
+		return m, nil
+	case "pgup", "ctrl+u":
+		m.CopyMode.PageUp()
+		return m, nil
+	case "g":
+		m.CopyMode.Top()
+		return m, nil
+	case "G":
+		m.CopyMode.Bottom()
+		return m, nil
+	case "v":
+		m.CopyMode.ToggleVisual()
+		return m, nil
+	case "y":
+		text := m.CopyMode.Yank()
+		m.ExitCopyMode()
+		if text != "" {
+			m.SetBanner(&NotificationItem{
+				ID:      fmt.Sprintf("yank-%d", time.Now().UnixNano()),
+				Title:   "Yanked!",
+				Message: "Selected text copied to clipboard",
+				Type:    "info",
+			})
+		}
+		return m, nil
+	case "Y":
+		text := m.CopyMode.YankAll()
+		m.ExitCopyMode()
+		if text != "" {
+			m.SetBanner(&NotificationItem{
+				ID:      fmt.Sprintf("yank-all-%d", time.Now().UnixNano()),
+				Title:   "Yanked!",
+				Message: "All text copied to clipboard",
+				Type:    "info",
+			})
+		}
 		return m, nil
 	}
 	return m, nil

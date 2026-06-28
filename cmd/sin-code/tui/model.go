@@ -35,6 +35,7 @@ const (
 	ModeHelpOverlay
 	ModeFilePicker
 	ModeDiffApproval
+	ModeCopy
 )
 
 type PaletteState struct {
@@ -293,6 +294,9 @@ type Model struct {
 	// Diff approval popup (ctrl+a when inline diff is visible)
 	DiffApproval *DiffApproval
 
+	// Copy mode (ctrl+e — select and yank chat text to clipboard)
+	CopyMode *CopyMode
+
 	Mouse *MouseHandler
 
 	RenderCache *RenderCache
@@ -496,6 +500,7 @@ func NewModel() *Model {
 		FileBrowser:   NewFileBrowser(""),
 		FileViewer:    NewFileViewer(),
 		DiffApproval:  NewDiffApproval(s),
+		CopyMode:      NewCopyMode(s),
 		Mouse:         NewMouseHandler(),
 		RenderCache:   NewRenderCache(100),
 	}

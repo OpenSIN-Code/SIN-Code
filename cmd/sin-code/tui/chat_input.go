@@ -94,6 +94,15 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 
 	// Model-level slash commands
 	switch trimmed {
+	case "/export":
+		path := DefaultExportPath()
+		if err := ExportChat(m.ChatHistory, path); err != nil {
+			m.appendChat(ChatMessage{Kind: chatError, Text: "Export failed: " + err.Error()})
+		} else {
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: "Chat exported to " + path})
+		}
+		m.AppendHistory(ViewChat.String(), "chat-export", path, true)
+		return nil
 	case "/clear":
 		m.CancelPrompt()
 		m.ChatHistory = nil
@@ -111,6 +120,7 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 			"  /attach-glob <pattern>  Attach files matching a glob pattern\n" +
 			"  /detach <name|index>  Remove an attachment\n" +
 			"  /clear  Clear chat history\n" +
+			"  /export Export chat to markdown file\n" +
 			"  /help   Show this help message\n" +
 			"  /theme custom <path>  Load custom theme from JSON\n" +
 			"  /theme export <path>  Export current theme to JSON\n\n" +

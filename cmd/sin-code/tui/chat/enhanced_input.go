@@ -146,7 +146,7 @@ func defaultEnhancedSlashCommands() []string {
 		"/attach", "/attach-glob", "/clear", "/help", "/detach",
 		"/search", "/btw", "/undercover", "/model", "/theme",
 		"/compact", "/tools", "/sessions", "/dag", "/ctx-viz",
-		"/dashboard",
+		"/dashboard", "/export",
 	}
 }
 

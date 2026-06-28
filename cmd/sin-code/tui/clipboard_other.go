@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: MIT
+//go:build !darwin && !linux && !windows
+
+package tui
+
+// CopyToClipboard is a no-op on unsupported platforms.
+func CopyToClipboard(text string) error {
+	return nil
+}

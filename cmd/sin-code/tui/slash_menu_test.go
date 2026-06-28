@@ -137,8 +137,8 @@ func TestSlashMenu_Navigation(t *testing.T) {
 	sm.Sel = 0
 	sm.Prev()
 	last := sm.Selected()
-	if last.Name != "/config" {
-		t.Errorf("expected wrap to last item /config, got %s", last.Name)
+	if last.Name != "/export" {
+		t.Errorf("expected wrap to last item /export, got %s", last.Name)
 	}
 
 	// Wrap from last to first.
