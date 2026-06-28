@@ -55,6 +55,8 @@ var (
 	keyDebugLayout   = key.NewBinding(key.WithKeys("ctrl+l"), key.WithHelp("^l", "debug layout"))
 	keyInlineDiff    = key.NewBinding(key.WithKeys("ctrl+i"), key.WithHelp("^i", "inline diff"))
 	keyClosePreview  = key.NewBinding(key.WithKeys("ctrl+f"), key.WithHelp("^f", "close preview"))
+	keyDiffApproval  = key.NewBinding(key.WithKeys("ctrl+a"), key.WithHelp("^a", "approve diff"))
+	keyBlockToggle   = key.NewBinding(key.WithKeys("ctrl+g"), key.WithHelp("^g", "toggle block"))
 	keySplitPane     = key.NewBinding(key.WithKeys("f2"), key.WithHelp("F2", "split pane"))
 	keyLeft          = key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "left"))
 	keyRight         = key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "right"))
@@ -384,10 +386,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case VerifyUpdateMsg:
 		HandleVerifyUpdate(&m.VerifyPanel, msg)
 		switch msg.State {
+		case VerifyRunning, VerifyPending:
+			m.Footer.SetVerifyGate(VerifyGateRunning, msg.Mode)
 		case VerifyPassed:
+			m.Footer.SetVerifyGate(VerifyGatePassed, msg.Mode)
 			m.Footer.ShowToast(ToastSuccess, "Verified")
 		case VerifyFailed:
+			m.Footer.SetVerifyGate(VerifyGateFailed, msg.Mode)
 			m.Footer.ShowToast(ToastError, "Verification failed")
+		case VerifyBlocked:
+			m.Footer.SetVerifyGate(VerifyGateFailed, msg.Mode)
+		case VerifyIdle:
+			m.Footer.SetVerifyGate(VerifyGateIdle, msg.Mode)
 		}
 		return m, nil
 
@@ -549,6 +559,9 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.Mode == ModeSearch {
 		return m.handleSearchKey(msg)
 	}
+	if m.Mode == ModeDiffApproval && m.DiffApproval != nil && m.DiffApproval.Open {
+		return m.handleDiffApprovalKey(msg)
+	}
 
 	if m.SplitPane.Active() && m.SplitPane.SideKind() == PaneFileViewer && m.ViewKind == ViewChat {
 		switch {
@@ -633,11 +646,19 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keymap.ToggleSidebar):
 		m.Sidebar.Toggle()
 		return m, nil
+	case key.Matches(msg, keyBlockToggle):
+		if m.ViewKind == ViewChat {
+			m.ToggleBlockCollapse(-1)
+		}
+		return m, nil
 	case key.Matches(msg, keymap.Palette):
 		m.OpenPalette()
 		return m, nil
 	case key.Matches(msg, keymap.Search):
 		m.OpenSearch()
+		return m, nil
+	case key.Matches(msg, keyDiffApproval) && m.InlineDiffOpen:
+		m.OpenDiffApprovalFromInlineDiff()
 		return m, nil
 	case key.Matches(msg, keymap.Subagents):
 		m.OpenSubagents()
@@ -1151,6 +1172,14 @@ func (m *Model) View() tea.View {
 		}
 	}
 
+	if m.Mode == ModeDiffApproval && m.DiffApproval != nil && m.DiffApproval.Open {
+		m.DiffApproval.Styles = m.Styles
+		popup := m.DiffApproval.Render()
+		if popup != "" {
+			layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
+		}
+	}
+
 	if m.FilePreview != "" {
 		popup := RenderFilePreview(m, m.Styles, m.Width, m.Height)
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
@@ -1199,9 +1228,16 @@ func (m *Model) View() tea.View {
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popupBox)
 	}
 
-	if m.ViewKind == ViewChat && m.SlashAutocomplete != nil && m.SlashAutocomplete.Active() {
-		popup := m.SlashAutocomplete.Render(m.Styles, min(m.Width-8, 70))
-		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Left, lipgloss.Bottom, popup)
+	if m.ViewKind == ViewChat {
+		if m.SlashMenu != nil && m.SlashMenu.Open {
+			m.SlashMenu.Styles = m.Styles
+			m.SlashMenu.Width = min(m.Width-8, 70)
+			popup := m.SlashMenu.Render()
+			layout = lipgloss.Place(m.Width, m.Height, lipgloss.Left, lipgloss.Bottom, popup)
+		} else if m.SlashAutocomplete != nil && m.SlashAutocomplete.Active() {
+			popup := m.SlashAutocomplete.Render(m.Styles, min(m.Width-8, 70))
+			layout = lipgloss.Place(m.Width, m.Height, lipgloss.Left, lipgloss.Bottom, popup)
+		}
 	}
 
 	if m.Footer.Toast != nil && m.Footer.Toast.Active() {
@@ -1407,6 +1443,71 @@ func (m *Model) updateSearchMatches() {
 	}
 }
 
+func (m *Model) OpenDiffApprovalFromInlineDiff() {
+	if m.DiffApproval == nil {
+		m.DiffApproval = NewDiffApproval(m.Styles)
+	}
+	diffs := RecentDiffs()
+	if len(diffs) == 0 {
+		return
+	}
+	last := diffs[len(diffs)-1]
+	diffText := computeUnifiedDiffText(last.Before, last.After, last.Path)
+	filePath := last.Path
+	m.DiffApproval.Styles = m.Styles
+	m.DiffApproval.Width = min(m.Width-4, 80)
+	m.DiffApproval.Height = min(m.Height-4, 24)
+	m.DiffApproval.Show(filePath, diffText)
+	m.Mode = ModeDiffApproval
+}
+
+func (m *Model) handleDiffApprovalKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.DiffApproval == nil || !m.DiffApproval.Open {
+		m.Mode = ModeNormal
+		return m, nil
+	}
+	k := msg.String()
+	switch k {
+	case "enter":
+		choice := m.DiffApproval.Choice()
+		m.DiffApproval.Close()
+		m.Mode = ModeNormal
+		switch choice {
+		case "approve":
+			st := PendingDiff()
+			if st.Pending {
+				_ = ApplyDiff(st.FilePath, st.NewContent)
+			}
+			ClearPendingDiff()
+			m.Footer.ShowToast(ToastSuccess, "Diff approved")
+		case "reject":
+			ClearPendingDiff()
+			m.Footer.ShowToast(ToastInfo, "Diff rejected")
+		case "edit":
+			m.Footer.ShowToast(ToastInfo, "Edit mode — return to chat")
+		}
+		return m, nil
+	case "esc":
+		m.DiffApproval.Close()
+		m.Mode = ModeNormal
+		ClearPendingDiff()
+		return m, nil
+	case "tab", "right", "l":
+		m.DiffApproval.Next()
+		return m, nil
+	case "shift+tab", "left", "h":
+		m.DiffApproval.Prev()
+		return m, nil
+	case "up", "k":
+		m.DiffApproval.Prev()
+		return m, nil
+	case "down", "j":
+		m.DiffApproval.Next()
+		return m, nil
+	}
+	return m, nil
+}
+
 func (m *Model) updateChatFocusFromViewport() {
 	yOffset := m.ChatViewport.YOffset()
 	if yOffset < 0 {
@@ -1586,17 +1687,50 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 		chatHeight = 3
 	}
 
-	if len(m.ChatHistory) == 0 {
-		welcome := "Send a message to get started.\n\nCtrl+S to send · /clear to reset · /attach for files"
-		return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, styles.Muted.Render(welcome))
-	}
-
 	modelName := m.Footer.ModelName
 	if modelName == "" {
 		modelName = m.Footer.AgentName()
 	}
 	m.SessionInfo.Update(shortSessionID(m.Tabs.Active().Name), modelName, countUserTurns(m.ChatHistory), m.VerifyPanel.State == VerifyPassed)
 	m.TokenBar.Update(m.Footer.Tokens, parseCostStr(m.Footer.Cost), modelName)
+
+	if len(m.ChatHistory) == 0 {
+		inputEmpty := true
+		if m.ChatInput != nil {
+			inputEmpty = m.ChatInput.RawValue() == ""
+		}
+
+		var viewportContent string
+		if inputEmpty {
+			info := WelcomeInfo{
+				ModelName:  modelName,
+				Session:    "new",
+				Workspace:  m.Workspace,
+				VerifyMode: m.AgentConfig.VerifyMode,
+			}
+			viewportContent = RenderWelcome(styles, info, width, chatHeight)
+		}
+
+		m.ChatViewport.SetWidth(width)
+		m.ChatViewport.SetHeight(chatHeight)
+		m.ChatViewport.SetContent(viewportContent)
+		m.ChatViewport.GotoTop()
+
+		var b strings.Builder
+		b.WriteString(m.SessionInfo.Render(styles, width))
+		b.WriteString("\n")
+		b.WriteString(m.ChatViewport.View())
+		b.WriteString("\n")
+		b.WriteString(styles.Muted.Render(strings.Repeat("─", width)))
+		b.WriteString("\n")
+		b.WriteString(m.TokenBar.Render(styles, width))
+		b.WriteString("\n")
+		if m.ChatInput != nil {
+			m.ChatInput.SetSize(width, textHeight)
+			b.WriteString(m.ChatInput.View())
+		}
+		return b.String()
+	}
 
 	highlighter := NewSyntaxHighlighter(styles.Theme)
 

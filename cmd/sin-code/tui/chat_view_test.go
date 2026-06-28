@@ -74,8 +74,8 @@ func TestChatInputInitializedOnView(t *testing.T) {
 func TestRenderChatEmpty(t *testing.T) {
 	m := NewModel()
 	out := m.renderChat(m.Styles, 80, 20)
-	if !strings.Contains(out, "Send a message") {
-		t.Error("expected empty prompt")
+	if !strings.Contains(out, "S I N - C o d e") {
+		t.Error("expected welcome banner")
 	}
 }
 
@@ -104,8 +104,8 @@ func TestRenderChatViewIncludesChatView(t *testing.T) {
 	m.Ready = true
 	m.ViewKind = ViewChat
 	out := m.View().Content
-	if !strings.Contains(out, "Send a message") {
-		t.Errorf("expected chat prompt in view, got:\n%s", out[:min(200, len(out))])
+	if !strings.Contains(out, "S I N - C o d e") {
+		t.Errorf("expected welcome banner in view, got:\n%s", out[:min(200, len(out))])
 	}
 }
 

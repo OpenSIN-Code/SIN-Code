@@ -243,6 +243,32 @@ func (m *Model) updateChat(msg tea.Msg) tea.Cmd {
 		}
 	}
 
+	// Handle SlashMenu navigation when open — takes priority over autocomplete.
+	if m.SlashMenu != nil && m.SlashMenu.Open {
+		if kp, ok := msg.(tea.KeyPressMsg); ok {
+			key := kp.String()
+			switch key {
+			case "up", "k":
+				m.SlashMenu.Prev()
+				return nil
+			case "down", "j":
+				m.SlashMenu.Next()
+				return nil
+			case "tab", "enter":
+				sel := m.SlashMenu.Selected()
+				if sel.Name != "" {
+					insertText := sel.Name + " "
+					m.ChatInput.SetValue(insertText)
+					m.SlashMenu.Close()
+					return nil
+				}
+			case "esc":
+				m.SlashMenu.Close()
+				return nil
+			}
+		}
+	}
+
 	if m.SlashAutocomplete != nil && m.SlashAutocomplete.Active() {
 		if kp, ok := msg.(tea.KeyPressMsg); ok {
 			key := kp.String()
@@ -292,17 +318,32 @@ func (m *Model) updateChat(msg tea.Msg) tea.Cmd {
 }
 
 func (m *Model) updateSlashAutocompleteFromInput() {
-	if m.SlashAutocomplete == nil || m.ChatInput == nil {
+	if m.ChatInput == nil {
 		return
 	}
 	raw := m.ChatInput.RawValue()
 	if strings.HasPrefix(raw, "/") && !strings.Contains(raw, "\n") {
-		if !m.SlashAutocomplete.Active() {
-			m.SlashAutocomplete.SetActive(true)
+		// Open and drive the richer SlashMenu.
+		if m.SlashMenu != nil {
+			if !m.SlashMenu.Open {
+				m.SlashMenu.OpenMenu()
+			}
+			m.SlashMenu.Filter_(raw)
 		}
-		m.SlashAutocomplete.Filter(raw)
-	} else if m.SlashAutocomplete.Active() {
-		m.SlashAutocomplete.SetActive(false)
+		// Keep the legacy autocomplete in sync for backward compatibility.
+		if m.SlashAutocomplete != nil {
+			if !m.SlashAutocomplete.Active() {
+				m.SlashAutocomplete.SetActive(true)
+			}
+			m.SlashAutocomplete.Filter(raw)
+		}
+	} else {
+		if m.SlashMenu != nil && m.SlashMenu.Open {
+			m.SlashMenu.Close()
+		}
+		if m.SlashAutocomplete != nil && m.SlashAutocomplete.Active() {
+			m.SlashAutocomplete.SetActive(false)
+		}
 	}
 }
 

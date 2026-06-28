@@ -28,7 +28,7 @@ index abc..def 100644
  Content
 `
 
-const testDiff = `diff --git a/cmd/sin-code/tui/git_view_test.go b/cmd/sin-code/tui/git_view_test.go
+const commitTestDiff = `diff --git a/cmd/sin-code/tui/git_view_test.go b/cmd/sin-code/tui/git_view_test.go
 index abc..def 100644
 --- a/cmd/sin-code/tui/git_view_test.go
 +++ b/cmd/sin-code/tui/git_view_test.go
@@ -103,7 +103,7 @@ func TestGitCommitFlowGenerateMessageMd(t *testing.T) {
 
 func TestGitCommitFlowGenerateMessageTest(t *testing.T) {
 	f := NewGitCommitFlow()
-	msg := f.GenerateMessage(testDiff)
+	msg := f.GenerateMessage(commitTestDiff)
 	if !strings.HasPrefix(msg, "test") {
 		t.Errorf("expected 'test' prefix for _test.go files, got %q", msg)
 	}

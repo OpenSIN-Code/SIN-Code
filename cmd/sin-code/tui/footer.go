@@ -8,6 +8,32 @@ import (
 
 var AgentNames = []string{"Build", "Audit", "Stats"}
 
+type VerifyGateStatus uint8
+
+const (
+	VerifyGateOff VerifyGateStatus = iota
+	VerifyGateIdle
+	VerifyGateRunning
+	VerifyGatePassed
+	VerifyGateFailed
+)
+
+func (s VerifyGateStatus) String() string {
+	switch s {
+	case VerifyGateOff:
+		return "off"
+	case VerifyGateIdle:
+		return "ready"
+	case VerifyGateRunning:
+		return "running"
+	case VerifyGatePassed:
+		return "verified"
+	case VerifyGateFailed:
+		return "failed"
+	}
+	return "unknown"
+}
+
 type Footer struct {
 	view            ViewKind
 	Selection       string
@@ -33,6 +59,9 @@ type Footer struct {
 	GitBranch       string
 	EstimatedCost   float64
 	EstimatedTokens int
+
+	VerifyGate VerifyGateStatus
+	VerifyMode string
 
 	PermissionPopup *PermissionPopup
 	Transition      *Transition
@@ -147,6 +176,8 @@ func NewFooter(width int) Footer {
 		ShowHints:       true,
 		HintKeys:        DefaultHints(ViewTools),
 		Spinner:         NewSpinner(),
+		VerifyGate:      VerifyGateIdle,
+		VerifyMode:      "poc",
 		PermissionPopup: NewPermissionPopup(),
 		Transition:      NewTransition(),
 		Toast:           NewToast(),
@@ -164,6 +195,27 @@ func (f *Footer) SetCompact(compact bool) {
 
 func (f *Footer) ToggleCompact() {
 	f.Compact = !f.Compact
+}
+
+func (f *Footer) SetVerifyGate(status VerifyGateStatus, mode string) {
+	f.VerifyGate = status
+	f.VerifyMode = mode
+}
+
+func (f Footer) renderVerifyGateIndicator(styles Styles) string {
+	switch f.VerifyGate {
+	case VerifyGateOff:
+		return styles.Muted.Render("verify: off")
+	case VerifyGateIdle:
+		return styles.StatusWarn.Render("verify: ready")
+	case VerifyGateRunning:
+		return styles.AccentText.Render("verify: running...")
+	case VerifyGatePassed:
+		return styles.StatusOK.Render("✓ verified")
+	case VerifyGateFailed:
+		return styles.StatusErr.Render("✗ failed")
+	}
+	return ""
 }
 
 func (f Footer) RenderStatusLine(styles Styles) string {
@@ -274,6 +326,11 @@ func (f Footer) renderChatFooter(styles Styles) string {
 		parts = append(parts, styles.Muted.Render(f.GitBranch))
 	}
 
+	vg := f.renderVerifyGateIndicator(styles)
+	if vg != "" {
+		parts = append(parts, vg)
+	}
+
 	parts = append(parts, styles.Muted.Render(fmt.Sprintf("%d tokens", f.Tokens)))
 
 	if f.Cost != "" && f.Cost != "$0.00" {
@@ -317,6 +374,12 @@ func (f Footer) renderClassicFooter(styles Styles) string {
 	if f.GitBranch != "" {
 		left.WriteString(" ")
 		left.WriteString(styles.Muted.Render(f.GitBranch))
+	}
+
+	vg := f.renderVerifyGateIndicator(styles)
+	if vg != "" {
+		left.WriteString(" ")
+		left.WriteString(vg)
 	}
 
 	agent := f.AgentName()

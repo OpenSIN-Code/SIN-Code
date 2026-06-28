@@ -34,6 +34,7 @@ const (
 	ModeSearch
 	ModeHelpOverlay
 	ModeFilePicker
+	ModeDiffApproval
 )
 
 type PaletteState struct {
@@ -87,6 +88,7 @@ type ChatState struct {
 	SearchMatches     []int
 	SearchInput       textinput.Model
 	SlashAutocomplete *SlashAutocomplete
+	SlashMenu         *SlashMenu
 	ChatSearch        *ChatSearch
 }
 
@@ -288,6 +290,9 @@ type Model struct {
 	FileBrowser *FileBrowser
 	FileViewer  *FileViewer
 
+	// Diff approval popup (ctrl+a when inline diff is visible)
+	DiffApproval *DiffApproval
+
 	Mouse *MouseHandler
 
 	RenderCache *RenderCache
@@ -468,6 +473,7 @@ func NewModel() *Model {
 			ChatViewport:      viewport.New(viewport.WithWidth(80), viewport.WithHeight(20)),
 			SearchInput:       searchInput,
 			SlashAutocomplete: NewSlashAutocomplete(),
+			SlashMenu:         NewSlashMenu(s),
 			ChatSearch:        NewChatSearch(),
 		},
 		ContextState:        DefaultContextState(),
@@ -489,6 +495,7 @@ func NewModel() *Model {
 		SplitPane:     NewSplitPane(),
 		FileBrowser:   NewFileBrowser(""),
 		FileViewer:    NewFileViewer(),
+		DiffApproval:  NewDiffApproval(s),
 		Mouse:         NewMouseHandler(),
 		RenderCache:   NewRenderCache(100),
 	}
