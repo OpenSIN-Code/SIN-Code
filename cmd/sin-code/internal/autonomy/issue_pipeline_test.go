@@ -221,3 +221,215 @@ func TestExecGHRunnerNoArgs(t *testing.T) {
 		t.Fatal("expected error for no args")
 	}
 }
+
+func TestExecGHRunnerRunEcho(t *testing.T) {
+	r := &ExecGHRunner{Workdir: ""}
+	out, err := r.Run("echo", "hello")
+	if err != nil {
+		t.Fatalf("Run echo: %v", err)
+	}
+	if out != "hello" {
+		t.Errorf("expected 'hello', got %q", out)
+	}
+}
+
+func TestExecGHRunnerRunError(t *testing.T) {
+	r := &ExecGHRunner{Workdir: ""}
+	_, err := r.Run("false")
+	if err == nil {
+		t.Fatal("expected error from 'false' command")
+	}
+}
+
+func TestExecGHRunnerRunWithWorkdir(t *testing.T) {
+	dir := t.TempDir()
+	r := &ExecGHRunner{Workdir: dir}
+	out, err := r.Run("pwd")
+	if err != nil {
+		t.Fatalf("Run pwd: %v", err)
+	}
+	if !strings.Contains(out, dir) {
+		t.Errorf("expected pwd to contain %q, got %q", dir, out)
+	}
+}
+
+func TestIssuePipelineProcessNilRunner(t *testing.T) {
+	p := NewIssuePipeline(nil, "/fake/workdir")
+	_, err := p.Process(context.Background(), 1)
+	if err == nil {
+		t.Fatal("expected error for nil runner")
+	}
+	if !strings.Contains(err.Error(), "nil GHRunner") {
+		t.Errorf("expected 'nil GHRunner' in error, got %v", err)
+	}
+}
+
+func TestIssuePipelineProcessFetchFailure(t *testing.T) {
+	gh := &mockGHRunner{
+		errs: map[string]error{
+			"gh issue view 5 --json number,title,body,labels": fmt.Errorf("network error"),
+		},
+	}
+	p := NewIssuePipeline(gh, "/fake/workdir")
+	result, err := p.Process(context.Background(), 5)
+	if err == nil {
+		t.Fatal("expected error for fetch failure")
+	}
+	if result.Success {
+		t.Error("expected Success=false")
+	}
+	if len(result.Steps) != 1 {
+		t.Fatalf("expected 1 step (fetch fail), got %d", len(result.Steps))
+	}
+	if result.Steps[0].Status != statusFail {
+		t.Errorf("expected fetch step to fail, got %s", result.Steps[0].Status)
+	}
+}
+
+func TestIssuePipelineProcessPushFailure(t *testing.T) {
+	gh := &mockGHRunner{
+		responses: map[string]string{
+			"gh issue view 3 --json number,title,body,labels": makeIssueJSON(3, "Test"),
+			"git checkout -b fix-issue-3":                     "",
+		},
+		errs: map[string]error{
+			"git push -u origin fix-issue-3": fmt.Errorf("push rejected"),
+		},
+	}
+	p := NewIssuePipeline(gh, "/fake/workdir")
+	result, err := p.Process(context.Background(), 3)
+	if err == nil {
+		t.Fatal("expected error for push failure")
+	}
+	if result.Success {
+		t.Error("expected Success=false")
+	}
+	// fetch(ok) + branch(ok) + implement(skip) + test(skip) + push(fail) = 5 steps
+	if len(result.Steps) != 5 {
+		t.Fatalf("expected 5 steps, got %d: %+v", len(result.Steps), result.Steps)
+	}
+	if result.Steps[4].Status != statusFail {
+		t.Errorf("expected push step to fail, got %s", result.Steps[4].Status)
+	}
+	if !strings.Contains(result.Steps[4].Error, "push rejected") {
+		t.Errorf("expected 'push rejected' in error, got %q", result.Steps[4].Error)
+	}
+}
+
+func TestIssuePipelineProcessPRFailure(t *testing.T) {
+	gh := &mockGHRunner{
+		responses: map[string]string{
+			"gh issue view 4 --json number,title,body,labels": makeIssueJSON(4, "PR fail"),
+			"git checkout -b fix-issue-4":                     "",
+			"git push -u origin fix-issue-4":                  "",
+		},
+		errs: map[string]error{
+			"gh pr create --title PR fail --body Closes #4 --head fix-issue-4": fmt.Errorf("pr creation failed"),
+		},
+	}
+	p := NewIssuePipeline(gh, "/fake/workdir")
+	result, err := p.Process(context.Background(), 4)
+	if err == nil {
+		t.Fatal("expected error for PR failure")
+	}
+	if result.Success {
+		t.Error("expected Success=false")
+	}
+	// 6 steps, last one is PR failure
+	if len(result.Steps) != 6 {
+		t.Fatalf("expected 6 steps, got %d: %+v", len(result.Steps), result.Steps)
+	}
+	if result.Steps[5].Status != statusFail {
+		t.Errorf("expected PR step to fail, got %s", result.Steps[5].Status)
+	}
+}
+
+func TestIssuePipelineCreatePREmptyBranch(t *testing.T) {
+	gh := &mockGHRunner{}
+	p := NewIssuePipeline(gh, "/fake/workdir")
+	_, err := p.CreatePR("", 1, "title")
+	if err == nil {
+		t.Fatal("expected error for empty branch")
+	}
+	if !strings.Contains(err.Error(), "branch required") {
+		t.Errorf("expected 'branch required', got %v", err)
+	}
+}
+
+func TestIssuePipelineCreatePRInvalidIssue(t *testing.T) {
+	gh := &mockGHRunner{}
+	p := NewIssuePipeline(gh, "/fake/workdir")
+	_, err := p.CreatePR("fix-issue-0", 0, "title")
+	if err == nil {
+		t.Fatal("expected error for issue 0")
+	}
+	if !strings.Contains(err.Error(), "positive") {
+		t.Errorf("expected 'positive' in error, got %v", err)
+	}
+}
+
+func TestIssuePipelineCreatePRGHError(t *testing.T) {
+	gh := &mockGHRunner{
+		errs: map[string]error{
+			"gh pr create --title T --body Closes #1 --head fix-issue-1": fmt.Errorf("gh error"),
+		},
+	}
+	p := NewIssuePipeline(gh, "/fake/workdir")
+	_, err := p.CreatePR("fix-issue-1", 1, "T")
+	if err == nil {
+		t.Fatal("expected error from gh")
+	}
+	if !strings.Contains(err.Error(), "gh error") {
+		t.Errorf("expected 'gh error' in message, got %v", err)
+	}
+}
+
+func TestIssuePipelineFetchIssueInvalidNumber(t *testing.T) {
+	gh := &mockGHRunner{}
+	p := NewIssuePipeline(gh, "/fake/workdir")
+	_, err := p.FetchIssue(0)
+	if err == nil {
+		t.Fatal("expected error for issue 0")
+	}
+}
+
+func TestIssuePipelineFetchIssueBadJSON(t *testing.T) {
+	gh := &mockGHRunner{
+		responses: map[string]string{
+			"gh issue view 8 --json number,title,body,labels": "not valid json",
+		},
+	}
+	p := NewIssuePipeline(gh, "/fake/workdir")
+	_, err := p.FetchIssue(8)
+	if err == nil {
+		t.Fatal("expected error for bad JSON")
+	}
+	if !strings.Contains(err.Error(), "parse issue") {
+		t.Errorf("expected 'parse issue' in error, got %v", err)
+	}
+}
+
+func TestIssuePipelineCreateBranchInvalid(t *testing.T) {
+	gh := &mockGHRunner{}
+	p := NewIssuePipeline(gh, "/fake/workdir")
+	_, err := p.CreateBranch(0)
+	if err == nil {
+		t.Fatal("expected error for issue 0")
+	}
+}
+
+func TestIssuePipelineCreateBranchGitError(t *testing.T) {
+	gh := &mockGHRunner{
+		errs: map[string]error{
+			"git checkout -b fix-issue-9": fmt.Errorf("checkout failed"),
+		},
+	}
+	p := NewIssuePipeline(gh, "/fake/workdir")
+	_, err := p.CreateBranch(9)
+	if err == nil {
+		t.Fatal("expected error from git")
+	}
+	if !strings.Contains(err.Error(), "create branch") {
+		t.Errorf("expected 'create branch' in error, got %v", err)
+	}
+}

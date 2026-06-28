@@ -6,6 +6,9 @@ package autonomy
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -305,4 +308,116 @@ func TestConflictPredictorConcurrent(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
+}
+
+// --- cpGitRunner real-git tests ---
+
+// initGitRepo creates a temp git repo with an initial commit on main.
+func initGitRepo(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	cpRunGit(t, dir, "init", "-b", "main")
+	cpRunGit(t, dir, "config", "user.email", "test@test.com")
+	cpRunGit(t, dir, "config", "user.name", "Test")
+	cpWriteGitFile(t, dir, "README.md", "init\n")
+	cpRunGit(t, dir, "add", "-A")
+	cpRunGit(t, dir, "commit", "-m", "init")
+	return dir
+}
+
+func cpRunGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %s in %s: %v\n%s", strings.Join(args, " "), dir, err, out)
+	}
+}
+
+func cpWriteGitFile(t *testing.T, dir, name, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCpGitRunnerMergeTreeClean(t *testing.T) {
+	dir := initGitRepo(t)
+	// Create a branch that adds a new file (no conflict).
+	cpRunGit(t, dir, "checkout", "-b", "feature")
+	cpWriteGitFile(t, dir, "new.go", "package main\n")
+	cpRunGit(t, dir, "add", "-A")
+	cpRunGit(t, dir, "commit", "-m", "add new.go")
+	cpRunGit(t, dir, "checkout", "main")
+
+	runner := cpGitRunner{}
+	res := runner.mergeTree(dir, "main", "feature")
+	// exit 0 = clean merge, no error.
+	if res.err != nil && res.exitCode != 0 {
+		t.Fatalf("expected clean merge, got err=%v exit=%d", res.err, res.exitCode)
+	}
+}
+
+func TestCpGitRunnerMergeTreeConflict(t *testing.T) {
+	dir := initGitRepo(t)
+	// Modify same file on both branches to create a conflict.
+	cpWriteGitFile(t, dir, "shared.go", "package main\n// branch version\n")
+	cpRunGit(t, dir, "checkout", "-b", "feature")
+	cpWriteGitFile(t, dir, "shared.go", "package main\n// branch version\n")
+	cpRunGit(t, dir, "add", "-A")
+	cpRunGit(t, dir, "commit", "-m", "branch change")
+	cpRunGit(t, dir, "checkout", "main")
+	cpWriteGitFile(t, dir, "shared.go", "package main\n// main version\n")
+	cpRunGit(t, dir, "add", "-A")
+	cpRunGit(t, dir, "commit", "-m", "main change")
+
+	runner := cpGitRunner{}
+	res := runner.mergeTree(dir, "main", "feature")
+	// exit 1 = conflicts detected, err should be nil (suppressed).
+	if res.err != nil {
+		t.Fatalf("unexpected error: %v", res.err)
+	}
+	if res.exitCode != 1 {
+		t.Fatalf("expected exit code 1 (conflicts), got %d", res.exitCode)
+	}
+	// stdout should contain the conflicted file.
+	if !strings.Contains(res.stdout, "shared.go") {
+		t.Errorf("expected 'shared.go' in stdout, got: %q", res.stdout)
+	}
+}
+
+func TestCpGitRunnerDiffNameOnly(t *testing.T) {
+	dir := initGitRepo(t)
+	// Add a file on a feature branch.
+	cpRunGit(t, dir, "checkout", "-b", "feature")
+	cpWriteGitFile(t, dir, "a.go", "package main\n")
+	cpWriteGitFile(t, dir, "b.go", "package main\n")
+	cpRunGit(t, dir, "add", "-A")
+	cpRunGit(t, dir, "commit", "-m", "add files")
+	cpRunGit(t, dir, "checkout", "main")
+
+	runner := cpGitRunner{}
+	out, err := runner.diffNameOnly(dir, "main...feature")
+	if err != nil {
+		t.Fatalf("diffNameOnly: %v", err)
+	}
+	files := parseDiffNameOnly(out)
+	if len(files) != 2 {
+		t.Fatalf("expected 2 files, got %d: %v", len(files), files)
+	}
+}
+
+func TestCpGitRunnerDiffNameOnlyNoChanges(t *testing.T) {
+	dir := initGitRepo(t)
+	runner := cpGitRunner{}
+	out, err := runner.diffNameOnly(dir, "main...main")
+	if err != nil {
+		t.Fatalf("diffNameOnly: %v", err)
+	}
+	if strings.TrimSpace(out) != "" {
+		t.Errorf("expected empty diff, got %q", out)
+	}
 }

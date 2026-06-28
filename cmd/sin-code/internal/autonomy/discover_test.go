@@ -160,3 +160,88 @@ func TestEnqueueFindingsIdempotentAcrossScans(t *testing.T) {
 		t.Fatalf("re-scan should not duplicate: n1=%d n2=%d", n1, n2)
 	}
 }
+
+func TestPriorityFor(t *testing.T) {
+	cases := []struct {
+		marker string
+		want   int
+	}{
+		{"FIXME", 2},
+		{"XXX", 2},
+		{"HACK", 1},
+		{"TODO", 0},
+		{"unknown", 0},
+		{"", 0},
+	}
+	for _, c := range cases {
+		got := priorityFor(c.marker)
+		if got != c.want {
+			t.Errorf("priorityFor(%q) = %d, want %d", c.marker, got, c.want)
+		}
+	}
+}
+
+func TestNormalizeKey(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"  Build   the widget  ", "build the widget"},
+		{"UPPER CASE", "upper case"},
+		{"single", "single"},
+		{"", ""},
+		{"\t\n tabs\n\t", "tabs"},
+	}
+	for _, c := range cases {
+		got := normalizeKey(c.in)
+		if got != c.want {
+			t.Errorf("normalizeKey(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestDiscoverMaxFindingsDefault(t *testing.T) {
+	ws := t.TempDir()
+	// With MaxFindings=0, default of 50 should apply.
+	writeFile(t, ws, "a.go", "// TODO: one\n")
+	findings, err := Discover(DiscoverConfig{Workspace: ws, ScanComments: true, MaxFindings: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding with default MaxFindings, got %d", len(findings))
+	}
+}
+
+func TestDiscoverBothSources(t *testing.T) {
+	ws := t.TempDir()
+	writeFile(t, ws, "main.go", "// TODO: implement\n")
+	writeFile(t, ws, "MASTER_TODO.md", "- [ ] Build feature\n")
+	findings, err := Discover(DiscoverConfig{Workspace: ws, ScanComments: true, ScanMaster: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 2 {
+		t.Fatalf("expected 2 findings (1 comment + 1 master), got %d", len(findings))
+	}
+}
+
+func TestDiscoverNoSources(t *testing.T) {
+	ws := t.TempDir()
+	writeFile(t, ws, "main.go", "// TODO: implement\n")
+	findings, err := Discover(DiscoverConfig{Workspace: ws})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("expected 0 findings with no scan flags, got %d", len(findings))
+	}
+}
+
+func TestScanMasterTodoNoFile(t *testing.T) {
+	ws := t.TempDir()
+	// No MASTER_TODO.md file — should return nil (not an error).
+	_, err := Discover(DiscoverConfig{Workspace: ws, ScanMaster: true})
+	if err != nil {
+		t.Fatalf("expected no error when file missing, got %v", err)
+	}
+}
