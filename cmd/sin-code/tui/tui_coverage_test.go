@@ -1654,6 +1654,7 @@ func TestUpdateChatSubmit(t *testing.T) {
 	}()
 
 	m.initChatRunner()
+	m.ChatInput.SetValue("test message")
 	m.Update(tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
 
 	select {

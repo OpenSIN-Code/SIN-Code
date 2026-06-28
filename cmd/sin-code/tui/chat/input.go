@@ -396,14 +396,19 @@ func (i *Input) submit() (tea.Cmd, *SubmitMsg) {
 			return nil, nil
 		}
 	}
-	text := i.RawValue()
-	if text != "" {
-		i.history = append(i.history, text)
-		i.historyCursor = len(i.history)
+	text := strings.TrimSpace(i.RawValue())
+	if text == "" {
+		return nil, nil
 	}
+	i.history = append(i.history, text)
+	i.historyCursor = len(i.history)
+	attachments := i.attachments
+	i.textarea.SetValue("")
+	i.attachments = nil
+	i.filePicker.active = false
 	return nil, &SubmitMsg{
 		Text:        text,
-		Attachments: i.attachments,
+		Attachments: attachments,
 	}
 }
 

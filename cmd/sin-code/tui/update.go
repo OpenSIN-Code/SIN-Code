@@ -1905,7 +1905,22 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 	isStreaming := m.Footer.Streaming
 	compact := m.CompactMode != nil && m.CompactMode.Active()
 
-	for i, msg := range m.ChatHistory {
+	// Virtualized rendering: only render the last N messages that fit in the viewport
+	maxVisibleMsgs := chatHeight / 4
+	if maxVisibleMsgs < 5 {
+		maxVisibleMsgs = 5
+	}
+	startIdx := 0
+	if len(m.ChatHistory) > maxVisibleMsgs {
+		startIdx = len(m.ChatHistory) - maxVisibleMsgs
+	}
+	if startIdx > 0 {
+		content.WriteString(styles.Muted.Render(fmt.Sprintf("⋯ %d earlier messages (scroll up to view)", startIdx)))
+		content.WriteString("\n")
+	}
+
+	for i := startIdx; i < len(m.ChatHistory); i++ {
+		msg := m.ChatHistory[i]
 		if compact {
 			content.WriteString(renderCompactMessage(msg, styles, width, i == m.ChatFocusIdx, m.Spinner))
 			continue
@@ -1913,34 +1928,52 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 		isLast := i == len(m.ChatHistory)-1
 		msgStreaming := isLast && isStreaming && (msg.Kind == chatAssistant || msg.Kind == chatThinking)
 
+		// Bug 3: Don't mutate msg.Text — use a copy for rendering only
+		renderMsg := msg
 		if msgStreaming && msg.Kind == chatAssistant && m.TypewriterBuf != nil {
 			visible := m.TypewriterBuf.Visible()
-			if visible != "" {
-				msg.Text = visible
+			if visible != "" && len(visible) < len(msg.Text) {
+				renderMsg.Text = visible
 			}
 		}
 
 		block := ChatBlock{
-			Role:      chatKindString(msg.Kind),
-			Timestamp: msg.Timestamp,
+			Role:      chatKindString(renderMsg.Kind),
+			Timestamp: renderMsg.Timestamp,
 			Collapsed: false,
 			Width:     width,
 		}
-		if msg.Kind == chatVerify {
-			if strings.Contains(msg.Detail, "PASS") {
+		if renderMsg.Kind == chatVerify {
+			if strings.Contains(renderMsg.Detail, "PASS") {
 				block.VerifyResult = "pass"
-			} else if strings.Contains(msg.Detail, "FAIL") {
+			} else if strings.Contains(renderMsg.Detail, "FAIL") {
 				block.VerifyResult = "fail"
 			}
 		}
-		if msg.Kind == chatTool {
+		if renderMsg.Kind == chatTool {
 			block.ToolCalls = 1
 		}
 		content.WriteString(RenderBlockHeader(block, styles, width))
 		content.WriteString("\n")
 
-		rendered := renderChatMessageV2(msg, highlighter, styles, width, i == m.ChatFocusIdx, m.Spinner, msgStreaming)
-		content.WriteString(rendered)
+		// Bug 4: Use RenderCache for non-streaming messages
+		if !msgStreaming && m.RenderCache != nil {
+			cacheContent := fmt.Sprintf("%d|%s|%s|%s|%s|%s|%v|%v",
+				renderMsg.Kind, renderMsg.Text, renderMsg.Tool,
+				renderMsg.ToolInput, renderMsg.ToolOutput, renderMsg.Detail,
+				renderMsg.Result, i == m.ChatFocusIdx)
+			cacheKey := renderCacheKey(i, cacheContent, width, styles.Theme.Name)
+			if cached, ok := m.RenderCache.Get(cacheKey); ok {
+				content.WriteString(cached)
+			} else {
+				rendered := renderChatMessageV2(renderMsg, highlighter, styles, width, i == m.ChatFocusIdx, m.Spinner, msgStreaming)
+				m.RenderCache.Set(cacheKey, rendered)
+				content.WriteString(rendered)
+			}
+		} else {
+			rendered := renderChatMessageV2(renderMsg, highlighter, styles, width, i == m.ChatFocusIdx, m.Spinner, msgStreaming)
+			content.WriteString(rendered)
+		}
 
 		if i < len(m.ChatHistory)-1 {
 			content.WriteString("\n")
