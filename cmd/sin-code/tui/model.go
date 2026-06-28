@@ -268,6 +268,12 @@ type Model struct {
 	// Token/cost/context bar (chat view)
 	TokenBar *TokenBar
 
+	// Context window usage meter (chat view footer)
+	ContextMeter *ContextMeter
+
+	// Typewriter buffer for streaming text reveal effect
+	TypewriterBuf *TypewriterBuffer
+
 	// Compact rendering toggle (chat view)
 	CompactMode *CompactMode
 
@@ -490,6 +496,8 @@ func NewModel() *Model {
 			VerifyMode: "poc",
 		},
 		TokenBar:      NewTokenBar(128000),
+		ContextMeter:  NewContextMeter(NewStyles(Themes[0]), 30),
+		TypewriterBuf: NewTypewriterBuffer(DefaultTypewriterConfig()),
 		CompactMode:   NewCompactMode(),
 		ModelSwitcher: NewModelSwitcher(),
 		HelpOverlay:   NewHelpOverlay(DefaultKeymapConfig()),

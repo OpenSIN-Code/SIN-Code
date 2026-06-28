@@ -48,17 +48,17 @@ var (
 	keyBannerNext    = key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "next banner"))
 	keyPgUp          = key.NewBinding(key.WithKeys("pgup"), key.WithHelp("pgup", "scroll up"))
 	keyPgDn          = key.NewBinding(key.WithKeys("pgdown"), key.WithHelp("pgdn", "scroll down"))
-	keyDiffPopup     = key.NewBinding(key.WithKeys("ctrl+d"), key.WithHelp("^d", "diff popup"))
+	keyDiffPopup     = key.NewBinding(key.WithKeys("f7"), key.WithHelp("F7", "diff popup"))
 	keyToolTree      = key.NewBinding(key.WithKeys("ctrl+t"), key.WithHelp("^t", "tool tree"))
 	keySessionTree   = key.NewBinding(key.WithKeys("ctrl+y"), key.WithHelp("^y", "session tree"))
 	keyVerifyFull    = key.NewBinding(key.WithKeys("ctrl+v"), key.WithHelp("^v", "verify panel"))
 	keyDebugLayout   = key.NewBinding(key.WithKeys("ctrl+l"), key.WithHelp("^l", "debug layout"))
 	keyInlineDiff    = key.NewBinding(key.WithKeys("ctrl+i"), key.WithHelp("^i", "inline diff"))
 	keyClosePreview  = key.NewBinding(key.WithKeys("ctrl+f"), key.WithHelp("^f", "close preview"))
-	keyDiffApproval  = key.NewBinding(key.WithKeys("ctrl+a"), key.WithHelp("^a", "approve diff"))
+	keyDiffApproval  = key.NewBinding(key.WithKeys("f8"), key.WithHelp("F8", "approve diff"))
 	keyBlockToggle   = key.NewBinding(key.WithKeys("ctrl+g"), key.WithHelp("^g", "toggle block"))
 	keySplitPane     = key.NewBinding(key.WithKeys("f2"), key.WithHelp("F2", "split pane"))
-	keyCopyMode      = key.NewBinding(key.WithKeys("ctrl+e"), key.WithHelp("^e", "copy mode"))
+	keyCopyMode      = key.NewBinding(key.WithKeys("f9"), key.WithHelp("F9", "copy mode"))
 	keyLeft          = key.NewBinding(key.WithKeys("left", "h"), key.WithHelp("←/h", "left"))
 	keyRight         = key.NewBinding(key.WithKeys("right", "l"), key.WithHelp("→/l", "right"))
 	keyUp            = key.NewBinding(key.WithKeys("up", "k"), key.WithHelp("↑/k", "up"))
@@ -332,6 +332,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ChatChunkMsg:
 		m.updatePromptDuration()
+		if m.TypewriterBuf != nil {
+			m.TypewriterBuf.Append(msg.Text)
+		}
 		if msg.Idx >= 0 && msg.Idx < len(m.ChatHistory) {
 			m.ChatHistory[msg.Idx].Kind = chatAssistant
 			m.ChatHistory[msg.Idx].Text += msg.Text
@@ -348,6 +351,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case StreamTickMsg:
 		m.updatePromptDuration()
+		if m.TypewriterBuf != nil {
+			m.TypewriterBuf.Tick()
+		}
 		if m.IsStreaming() {
 			return m, streamTickCmd()
 		}
@@ -487,7 +493,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func isGlobalHotkey(msg tea.KeyMsg) bool {
 	key := msg.String()
 	// Quit keys handled at top of Update — never route to handleKey
-	if key == "ctrl+s" || key == "ctrl+enter" || key == "ctrl+d" || key == "ctrl+x" || key == "ctrl+c" {
+	// ctrl+d and ctrl+e are standard text-editing shortcuts (delete-forward,
+	// end-of-line) that must reach the textarea, not be intercepted as global
+	// hotkeys. ctrl+a is still used by keymap.Subagents so it stays global.
+	if key == "ctrl+s" || key == "ctrl+enter" || key == "ctrl+d" || key == "ctrl+x" || key == "ctrl+c" || key == "ctrl+e" {
 		return false
 	}
 	// In chat mode, tab/shift+tab should stay in the textarea
@@ -1189,6 +1198,13 @@ func (m *Model) View() tea.View {
 		}
 	}
 
+	if m.Mode == ModeCopy && m.CopyMode != nil && m.CopyMode.Active {
+		overlay := m.CopyMode.Render(m.contentWidth(), contentHeight)
+		if overlay != "" {
+			layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, overlay)
+		}
+	}
+
 	if m.FilePreview != "" {
 		popup := RenderFilePreview(m, m.Styles, m.Width, m.Height)
 		layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
@@ -1855,6 +1871,15 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 		b.WriteString("\n")
 		b.WriteString(m.TokenBar.Render(styles, width))
 		b.WriteString("\n")
+		if m.ContextMeter != nil {
+			m.ContextMeter.SetUsage(m.Footer.Tokens, m.Footer.EstimatedTokens)
+			m.ContextMeter.Width = min(30, width/3)
+			meterLine := m.ContextMeter.Render()
+			if meterLine != "" {
+				b.WriteString(meterLine)
+				b.WriteString("\n")
+			}
+		}
 		if m.ChatInput != nil {
 			m.ChatInput.SetSize(width, textHeight)
 			b.WriteString(m.ChatInput.View())
@@ -1875,6 +1900,33 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 		}
 		isLast := i == len(m.ChatHistory)-1
 		msgStreaming := isLast && isStreaming && (msg.Kind == chatAssistant || msg.Kind == chatThinking)
+
+		if msgStreaming && msg.Kind == chatAssistant && m.TypewriterBuf != nil {
+			visible := m.TypewriterBuf.Visible()
+			if visible != "" {
+				msg.Text = visible
+			}
+		}
+
+		block := ChatBlock{
+			Role:      chatKindString(msg.Kind),
+			Timestamp: msg.Timestamp,
+			Collapsed: false,
+			Width:     width,
+		}
+		if msg.Kind == chatVerify {
+			if strings.Contains(msg.Detail, "PASS") {
+				block.VerifyResult = "pass"
+			} else if strings.Contains(msg.Detail, "FAIL") {
+				block.VerifyResult = "fail"
+			}
+		}
+		if msg.Kind == chatTool {
+			block.ToolCalls = 1
+		}
+		content.WriteString(RenderBlockHeader(block, styles, width))
+		content.WriteString("\n")
+
 		rendered := renderChatMessageV2(msg, highlighter, styles, width, i == m.ChatFocusIdx, m.Spinner, msgStreaming)
 		content.WriteString(rendered)
 
@@ -1909,6 +1961,15 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 	b.WriteString("\n")
 	b.WriteString(m.TokenBar.Render(styles, width))
 	b.WriteString("\n")
+	if m.ContextMeter != nil {
+		m.ContextMeter.SetUsage(m.Footer.Tokens, m.Footer.EstimatedTokens)
+		m.ContextMeter.Width = min(30, width/3)
+		meterLine := m.ContextMeter.Render()
+		if meterLine != "" {
+			b.WriteString(meterLine)
+			b.WriteString("\n")
+		}
+	}
 	if m.ChatInput != nil {
 		m.ChatInput.SetSize(width, textHeight)
 		b.WriteString(m.ChatInput.View())
@@ -2018,6 +2079,7 @@ func renderMarkdownWithCodeBlocks(text string, highlighter *SyntaxHighlighter, s
 			return
 		}
 		rendered := renderMarkdownSimple(textBuf.String(), styles, width)
+		rendered = LinkifyText(rendered, styles)
 		b.WriteString(strings.TrimRight(rendered, "\n"))
 		textBuf.Reset()
 	}
@@ -2168,6 +2230,9 @@ func (m *Model) autoCompactContext() {
 
 func (m *Model) setStreaming(streaming bool) {
 	m.Footer.Streaming = streaming
+	if streaming && m.TypewriterBuf != nil {
+		m.TypewriterBuf.Reset()
+	}
 }
 
 // IsStreaming reports whether the model is currently receiving a streaming
@@ -2458,6 +2523,33 @@ const (
 	chatThinking
 	chatSystem
 )
+
+func chatKindString(k chatMsgKind) string {
+	switch k {
+	case chatUser:
+		return "user"
+	case chatAssistant:
+		return "assistant"
+	case chatAgent:
+		return "agent"
+	case chatTool:
+		return "tool"
+	case chatVerify:
+		return "verify"
+	case chatAsk:
+		return "ask"
+	case chatDone:
+		return "done"
+	case chatError:
+		return "error"
+	case chatThinking:
+		return "thinking"
+	case chatSystem:
+		return "system"
+	default:
+		return "msg"
+	}
+}
 
 type ChatMessage struct {
 	ID         int64

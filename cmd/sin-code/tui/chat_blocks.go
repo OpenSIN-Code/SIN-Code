@@ -113,6 +113,18 @@ func renderHeader(b ChatBlock, styles Styles, width int) string {
 	return header
 }
 
+// RenderBlockHeader renders only the header line of a chat block, without
+// the body or border. Used when the body is rendered by a separate function.
+func RenderBlockHeader(b ChatBlock, styles Styles, width int) string {
+	if width < 10 {
+		width = 10
+	}
+	if b.Width > 0 {
+		width = b.Width
+	}
+	return renderHeader(b, styles, width)
+}
+
 // RenderBlock renders a single chat block with header + optional body.
 func RenderBlock(b ChatBlock, styles Styles, width int) string {
 	if width < 10 {
