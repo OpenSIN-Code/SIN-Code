@@ -140,13 +140,6 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "fusion__oracle_tournament", Policy: "ask"},
 		{Tool: "fusion__status", Policy: "allow"},
 		{Tool: "fusion__config", Policy: "allow"},
-		// v3.23.0: autonomous research report (issue #384). Dry-run / list
-		// are read-only projections; run enqueues a goal that may invoke the
-		// agent loop, web search, and LLM synthesis — gated at ask (M4).
-		{Tool: "research__dry_run", Policy: "allow"},
-		{Tool: "research__list", Policy: "allow"},
-		{Tool: "research__run", Policy: "ask"},
-		{Tool: "research__*", Policy: "ask"},
 		// Read-only todo MCP tools (issue #323). In headless mode (daemon),
 		// "ask" resolves to "deny" — so the daemon could not read todos
 		// without --yolo. Read-only tools are "allow"; destructive tools

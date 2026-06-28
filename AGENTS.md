@@ -270,7 +270,7 @@ SIN-Code/
 ├── .goreleaser.yaml
 ├── .github/workflows/
 │   ├── ceo-audit.yml          ← n8n delegation (mandate M1) + profile-verify job (issue #175)
-│   ├── sin-code-release.yml   ← goreleaser + brew tap
+│   ├── release.yml            ← goreleaser + brew tap
 │   └── ecosystem-sync.yml     ← prevents registry/permission/ECOSYSTEM drift
 ├── install.sh                    ← 27-line curl|bash shim → `sin-code install` (issue #170)
 ├── install.ps1                   ← PowerShell equivalent shim (issue #170)

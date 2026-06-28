@@ -410,7 +410,6 @@ func shortName(repo string) string {
 		"sin-analyse-suite":                 "analyse",
 		"SIN-Analyse-Suite":                 "analyse",
 		"native_browser":                    "native_browser",
-		"SIN-Code-Websearch-Skill":          "websearch",
 		"SIN-Code-Scheduler-Skill":          "scheduler",
 		"SIN-Code-Goal-Mode-Skill":          "goalmode",
 		"SIN-Code-Grill-Me-Skill":           "grillme",

@@ -2,7 +2,7 @@
 
 > Single source of truth for every repo developed FOR SIN-Code and its
 > integration status. CI and agents read the table below — keep it in sync
-> with `requirements-ecosystem.txt` and `internal/mcpclient/registry.go`.
+> with `requirements-ecosystem.txt` and `cmd/sin-code/internal/mcpclient/config.go`.
 
 ## Core
 
@@ -24,7 +24,7 @@
 | SIN-Code-ADW-Tool | `adw_*` | CLI subprocess | ACTIVE |
 | SIN-Code-EFM-Tool | `efm_*` | CLI subprocess | ACTIVE |
 | SIN-Code-Forge-Tool | `forge_*` | CLI subprocess + MCP server | ACTIVE |
-| SIN-Code-Symfony-Lens | `symfonylens__*` | MCP server (registry.go) | ACTIVE |
+| SIN-Code-Symfony-Lens | `symfonylens__*` | MCP server (config.go) | ACTIVE |
 | SIN-Code (security) | `sin_security_scan` (v3.11.0) | MCP tool (serve.go) | ACTIVE |
 | SIN-Code (sbom) | `sin_sbom_generate` (v3.11.0) | MCP tool (serve.go) | ACTIVE |
 | SIN-Code (run_loop) | `sin_run_loop` (unreleased) | MCP tool (serve.go) — synchronous full-agent-loop delegation | ACTIVE |
@@ -37,7 +37,7 @@
 > `sin_goal_status` / `sin_goal_list`. This brings the total to 49+ MCP tools
 > exposed by `sin-code serve`.
 
-## MCP Skill Servers (registry.go defaults)
+## MCP Skill Servers (config.go defaults)
 
 | Repo | Server name / tool prefix | Default policy | Status |
 |---|---|---|---|
@@ -61,6 +61,7 @@
 
 | [OpenSIN-Code/autodev-cli](https://github.com/OpenSIN-Code/autodev-cli) | `autodev__*` (e.g. `autodev_status`, `autodev_lessons`, `autodev_init`, `autodev_run_experiment`, `autodev_swarm`, `autodev_session_log`) | allow (read-only) + ask (mutating) — split M4 policy | ACTIVE |
 | SIN-Code (native_browser) | `native_browser__*` (e.g. `native_browser__navigate`, `native_browser__snapshot`, `native_browser__screenshot`) | allow (read-only) + ask (mutating) — split M4 policy (issue #382) | ACTIVE |
+| SIN-Code (research) | `research__dry_run`, `research__list`, `research__show`, `research__run` | allow / allow / allow / ask — split M4 policy (issue #384) | ACTIVE |
 ## LLM Backends
 
 | Repo | Integration | Status |
@@ -93,7 +94,7 @@
 
 1. Every new repo in the org MUST be added here in the same PR that creates it.
 2. Every MCP skill server MUST have an entry in
-   `cmd/sin-code/internal/mcpclient/registry.go` and a policy line in
+   `cmd/sin-code/internal/mcpclient/config.go` and a policy line in
    `cmd/sin-code/internal/permission_defaults.go`.
 3. `requirements-ecosystem.txt` lists pinned versions for everything marked ACTIVE.
 4. Every backend migration (e.g. SIN-Code-FireworksAI-OpenCode-Config →

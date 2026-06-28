@@ -30,15 +30,12 @@ type GoTool struct {
 	CmdPath string
 }
 
-var AllGoTools = []GoTool{
-	{Name: "discover", Repo: "SIN-Code-Discover-Tool", CmdPath: "cmd/discover"},
-	{Name: "execute", Repo: "SIN-Code-Execute-Tool", CmdPath: "cmd/execute"},
-	{Name: "map", Repo: "SIN-Code-Map-Tool", CmdPath: "cmd/map"},
-	{Name: "grasp", Repo: "SIN-Code-Grasp-Tool", CmdPath: "cmd/grasp"},
-	{Name: "scout", Repo: "SIN-Code-Scout-Tool", CmdPath: "cmd/scout"},
-	{Name: "harvest", Repo: "SIN-Code-Harvest-Tool", CmdPath: "cmd/harvest"},
-	{Name: "orchestrate", Repo: "SIN-Code-Orchestrate-Tool", CmdPath: "cmd/orchestrate"},
-}
+// AllGoTools lists external Go tool repos that need separate rebuilds.
+// The original 7 repos (discover, execute, map, grasp, scout, harvest,
+// orchestrate) were absorbed into the main sin-code binary as built-in
+// subcommands (v3.x). No separate repos remain — the slice is kept empty
+// so RunGoPhase is a no-op and existing callers/tests don't break.
+var AllGoTools = []GoTool{}
 
 type PhaseResult struct {
 	Name    string
