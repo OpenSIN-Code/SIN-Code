@@ -15,7 +15,7 @@ required_tools:
   - sin_write
 lifecycle: external
 sources:
-  - 
+  - "OpenSIN-Code/Infra-SIN-OpenCode-Stack"
 ---
 
 # skill-infrastructure-supabase

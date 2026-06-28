@@ -232,14 +232,13 @@ jobs:
   # single source `docs/agent-profiles/sin-profile.md`, the job fails
   # the same way the verify-gate fails in `internal/verify` (M3).
   #
-  # CEO audit (above) runs concurrently because both jobs share no
-  # state. This job does NOT intend to gate on per-machine Python
-  # skills — it strictly mirrors the byte-stable contract of
-  # internal/profile.Verify.
+  # n8n-delegated per mandate M1 (see AGENTS.md §M1). Heavy work (go build,
+  # profile render, profile verify) runs on the OCI free-tier VM via n8n.
+  # The only runner-side work is a lightweight `go vet` pre-check (~2s).
   profile-verify:
     name: Profile verify (issue #175)
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 2
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -252,38 +251,21 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Build sin-code
-        run: go build -o /tmp/sin-code ./cmd/sin-code
-
-      # Render the mirrors if absent or stale. `render all` is
-      # idempotent (byte-identical on unchanged source), so the
-      # call is also a self-test for the byte-stable contract.
-      - name: Render per-agent profile mirrors
-        run: /tmp/sin-code profile render all
-
-      - name: Verify mirrors match source SHA
+      - name: Trigger n8n webhook
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
         run: |
-          /tmp/sin-code profile verify
-          STATUS=$?
-          if [ $STATUS -ne 0 ]; then
-            echo "::error::sin-code profile verify failed (exit=$STATUS); mirrors drifted off docs/agent-profiles/sin-profile.md"
+          if [[ -z "$N8N_CI_WEBHOOK_URL" ]]; then
+            echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
             exit 1
           fi
-          echo "::notice::Profile mirrors byte-stable; verify gate passed."
+          curl -fsS -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"workflow\":\"profile-verify\",\"ref\":\"${{ github.ref }}\",\"sha\":\"${{ github.sha }}\",\"repo\":\"${{ github.repository }}\",\"actor\":\"${{ github.actor }}\"}" \
+            "$N8N_CI_WEBHOOK_URL"
 
-      - name: Upload rendered mirrors as artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: profile-mirrors-${{ github.run_id }}
-          path: |
-            .claude/skills/sin-code/SKILL.md
-            .codex/rules/sin-code.md
-            .config/opencode/skills/sin-code/SKILL.md
-            .cursor/rules/sin-code.mdc
-            .gemini/skills/sin-code/SKILL.md
-            .windsurf/rules/sin-code.md
-            .clinerules/sin-code.md
-            .github/copilot-instructions.md
-          retention-days: 14
-          if-no-files-found: warn
+      - name: Local pre-check (go vet)
+        run: |
+          go version
+          go vet ./cmd/sin-code/internal/profile/...
+          echo "Heavy profile render/verify work delegated to n8n."

@@ -64,7 +64,7 @@ execute`, …), so the legacy flow was already duplicative.
   policy. No silent sudo, no privilege escalation.
 - **M5 (module path)** — every import in this package uses
   `github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/install`.
-  No `SIN-Code-Bundle` references.
+  No `SIN-Code` references.
 - **M6 (sandbox-friendly)** — every external dependency (`curl`,
   `tar`, `unzip`) is documented at the top of the shims. No
   npm / pipx in the bootstrap path.

@@ -267,10 +267,11 @@ Examples:
 
 // ceoGate represents one of the 48 audit gates.
 type ceoGate struct {
-	Name   string `json:"name"`
-	Status string `json:"status"` // pass, warn, fail, skipped
-	Score  int    `json:"score"`
-	Note   string `json:"note,omitempty"`
+	Name    string `json:"name"`
+	Status  string `json:"status"` // pass, warn, fail, skipped
+	Passed  bool   `json:"passed"`
+	Score   int    `json:"score"`
+	Note    string `json:"note,omitempty"`
 }
 
 // ceoResult is the top-level report.
@@ -341,6 +342,7 @@ func runCEOAUDIT(cmd *cobra.Command, args []string) error {
 		cg.Note = compErr.Error()
 	} else if compRes.NetLines == 0 {
 		cg.Status = "pass"
+		cg.Passed = true
 		cg.Note = compRes.Status
 		cg.Score = 100
 	} else {
@@ -417,7 +419,7 @@ func runLegacyGates(path string, secRes internal.SecurityResult) []ceoGate {
 	}
 	gates := make([]ceoGate, 0, len(names))
 	for _, n := range names {
-		g := ceoGate{Name: n, Status: "pass", Score: 0}
+		g := ceoGate{Name: n, Status: "pass", Passed: true, Score: 0}
 		if n == "security-scan" {
 			g = securityGateFromResult(secRes)
 		}
@@ -443,6 +445,7 @@ func securityGateFromResult(r internal.SecurityResult) ceoGate {
 		g.Note = "no security scanner available"
 	default:
 		g.Status = "pass"
+		g.Passed = true
 		g.Note = fmt.Sprintf("no security issues in %s project", r.ProjectType)
 	}
 	return g

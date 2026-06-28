@@ -136,7 +136,7 @@ func main() {
 ### Phase 3: Standard Files (1 Stunde)
 
 Forge soll automatisch generieren:
-- `go.mod` mit Go 1.23+
+- `go.mod` mit Go 1.26+
 - `README.md` mit Tool-spezifischer Doku
 - `AGENTS.md` mit SIN-Code Tool Suite Verweis
 - `LICENSE` (MIT)

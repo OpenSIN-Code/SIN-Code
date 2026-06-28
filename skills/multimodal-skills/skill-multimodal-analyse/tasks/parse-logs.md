@@ -18,7 +18,7 @@ read them line-by-line into context — it routes through
 1. Verify extension in {.log, .jsonl, .ndjson}
 2. Call analyse__log_analyze(path=..., level=error, since=...)
 3. Surface errors + signatures as a ranked list
-4. Pair with skill-code-audit when security/leaked-token patterns match
+4. Pair with skill-code-ceo-audit when security/leaked-token patterns match
 5. Optional: sin_edit a config that needs the offending pattern stripped
 ```
 
@@ -67,14 +67,14 @@ Lead the user-visible summary with the top-3 signatures and a count.
 Do not paste raw error lines into the conversation; reference
 `errors[].ts` and let the user pick a window to deep-dive.
 
-### Step 4 — Pair with skill-code-audit
+### Step 4 — Pair with skill-code-ceo-audit
 
 Certain log signatures are security-relevant:
 
 | Pattern in `signatures` | Pair with |
 |------------------------|-----------|
-| `Bearer eyJ...` / `sk-...` / `ghp_...` | `skill-code-audit` secret scan |
-| `MISSING_PERMISSION` / `403` spikes | `skill-code-audit` permission flow |
+| `Bearer eyJ...` / `sk-...` / `ghp_...` | `skill-code-ceo-audit` secret scan |
+| `MISSING_PERMISSION` / `403` spikes | `skill-code-ceo-audit` permission flow |
 | `5xx` ≥ 1% of total | `skill-code-ceo-audit` reliability gate |
 
 Always surface the pairing suggestion to the user; never auto-spawn

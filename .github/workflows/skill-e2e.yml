@@ -1,3 +1,8 @@
+# Purpose: E2E tests for skill installation and MCP registration.
+# n8n-delegated per mandate M1 (see AGENTS.md §M1).
+# Heavy work (go test -tags=e2e, binary build, mcp list) runs on the OCI
+# free-tier VM via n8n. The only runner-side work is a lightweight `go vet`
+# pre-check (~2s).
 name: skill-e2e
 
 on:
@@ -15,18 +20,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  websearch:
-    name: websearch skill install E2E
+  delegate:
+    name: Delegate skill E2E to n8n
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Install websearch skill from GitHub
+      - name: Trigger n8n webhook
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
         run: |
-          go test -tags=e2e ./cmd/sin-code/internal/skillmgr/ -run TestInstallWebsearchFromGitHub -count=1 -v 2>&1 | tail -30
-      - name: Verify binary is registered
+          if [[ -z "$N8N_CI_WEBHOOK_URL" ]]; then
+            echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
+            exit 1
+          fi
+          curl -fsS -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"workflow\":\"skill-e2e\",\"ref\":\"${{ github.ref }}\",\"sha\":\"${{ github.sha }}\",\"repo\":\"${{ github.repository }}\",\"actor\":\"${{ github.actor }}\"}" \
+            "$N8N_CI_WEBHOOK_URL"
+      - name: Local pre-check (go vet)
         run: |
-          go build -o /tmp/sin-code ./cmd/sin-code
-          /tmp/sin-code mcp list | grep 'websearch'
+          go version
+          go vet ./cmd/sin-code/internal/skillmgr/...
+          go vet ./cmd/sin-code/internal/mcpclient/...
+          echo "Heavy skill E2E work delegated to n8n."

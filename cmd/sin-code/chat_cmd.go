@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -36,6 +35,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/sandbox"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/skillmgr"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/verify"
@@ -235,6 +235,19 @@ Post-edit automation (issue #376, opt-in via ~/.config/sin/sin-code.toml):
 func runChat(ctx context.Context, opts *chatOptions) error {
 	headless := opts.prompt != ""
 
+	sinCfg, _ := internal.LoadMergedConfig()
+
+	apiKey := firstNonEmpty(os.Getenv("SIN_LLM_API_KEY"),
+		os.Getenv("NVIDIA_API_KEY"), os.Getenv("OPENAI_API_KEY"),
+		sinCfg.LLMAPIKey)
+	if strings.TrimSpace(apiKey) == "" {
+		fmt.Fprintln(chatStderr, "Error: No LLM API key configured.")
+		fmt.Fprintln(chatStderr, "")
+		fmt.Fprintln(chatStderr, "Run 'sin-code config init' to set up your configuration, or manually set")
+		fmt.Fprintln(chatStderr, "llm.api_key in your config file. Run 'sin-code config path' to find the file.")
+		return fmt.Errorf("no LLM API key configured")
+	}
+
 	if !opts.noTUI && !headless && !opts.jsonOut && isTerminal(os.Stdout) {
 		return runChatTUI(ctx, opts)
 	}
@@ -250,12 +263,8 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 
 	baseURL := firstNonEmpty(opts.baseURL, agentCfg.BaseURL,
 		os.Getenv("SIN_LLM_BASE_URL"), "https://integrate.api.nvidia.com/v1")
-	apiKey := firstNonEmpty(os.Getenv("SIN_LLM_API_KEY"),
-		os.Getenv("NVIDIA_API_KEY"), os.Getenv("OPENAI_API_KEY"))
 	model := firstNonEmpty(opts.model, agentCfg.Model, os.Getenv("SIN_LLM_MODEL"))
 	client := chatNewLLMClientFn(baseURL, apiKey)
-
-	sinCfg, _ := internal.LoadMergedConfig()
 
 	enableCache := sinCfg.LLMPromptCache
 	thinkingEnabled := opts.thinkingEnabled || sinCfg.LLMThinkingEnabled
@@ -755,7 +764,15 @@ func commandRunner(command string) verify.Runner {
 	return func(ctx context.Context, workspace string) (bool, string, error) {
 		cctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		defer cancel()
-		cmd := exec.CommandContext(cctx, "sh", "-c", command)
+		policy := sandbox.DefaultPolicy(workspace, os.TempDir())
+		policy.Timeout = 0 // preserve the 10-minute cctx deadline; DefaultPolicy's 2 min would clamp it
+		cmd, sandboxResult, err := sandbox.Command(cctx, policy, "sh", "-c", command)
+		if err != nil {
+			return false, "", err
+		}
+		if !sandboxResult.Enforced && sandboxResult.Warning != "" {
+			fmt.Fprintf(chatStderr, "warn: verify-cmd sandbox: %s\n", sandboxResult.Warning)
+		}
 		cmd.Dir = workspace
 		out, err := cmd.CombinedOutput()
 		report := strings.TrimSpace(string(out))

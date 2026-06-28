@@ -1,6 +1,6 @@
 # PLAN: sin_run_loop + sin_goal_queue MCP Tools
 
-**Repo:** SIN-Code-Bundle (`/Users/jeremy/dev/SIN-Code-Bundle`)
+**Repo:** SIN-Code (`/Users/jeremy/dev/SIN-Code`)
 **Goal:** Expose the full verified agent loop and the autonomous goal queue as MCP tools so opencode (and any MCP client) can delegate complete tasks instead of writing 100 prompts in sequence.
 
 ---
@@ -247,7 +247,7 @@ Use a temp SQLite DB for the goal queue (override `autonomy.DefaultPath()` in te
 
 ### Task 3.1: Update AGENTS.md
 
-**File:** `AGENTS.md` (in SIN-Code-Bundle)
+**File:** `AGENTS.md` (in SIN-Code)
 
 - Add `sin_run_loop` and `sin_goal_*` to the MCP tool list in §10
 - Update tool count (44+ → 49+)
@@ -286,7 +286,7 @@ Each with `Purpose` + `Docs:` header per the CoDocs standard.
 ### Task 4.1: Build + vet + test
 
 ```bash
-cd /Users/jeremy/dev/SIN-Code-Bundle
+cd /Users/jeremy/dev/SIN-Code
 go build ./cmd/sin-code/...
 go vet ./cmd/sin-code/...
 go test ./cmd/sin-code/internal/ -run "TestRunLoop|TestGoal" -race -count=1

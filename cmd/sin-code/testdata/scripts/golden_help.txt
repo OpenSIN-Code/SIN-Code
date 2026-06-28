@@ -3,19 +3,23 @@ cmp stdout help.golden
 
 -- help.golden --
 sin-code is the unified Go binary for the SIN-Code tool suite.
-It consolidates 44+ subcommands into a single cobra-based CLI:
+It consolidates 90+ subcommands into a single cobra-based CLI:
 
   Core analysis:    discover, execute, map, grasp, scout, harvest, orchestrate
   Advanced tools:   ibd, poc, sckg, adw, oracle, efm
   Utility commands: security, sbom, config, self-update, tui, serve, update,
-                      tool-search
-  Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, superpowers,
-                    vane, stack, gh, hub, ledger, summary, install, compress,
-                    cover
-  Other:            completion, read, write, edit, lsp, plugin, index,
-                    orchestrator-run, orchestrator-agents, orchestrator-plan,
-                    todo, notifications, memory, assets, evalset, hooks,
-                    instinct, prp, skills, catalog, compile-spec, triage
+                      tool-search, doctor, diff, benchmark, tokens
+  Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, skills, swarm,
+                      superpowers, vane, stack, gh, hub, ledger, summary, install,
+                      compress, review, audit, ceo-audit, fusion, research,
+                      image-graph, analyse, analyse-image, auto
+  Lifecycle:        orchestrator-run, orchestrator-agents, orchestrator-plan,
+                      todo, notifications, memory, assets, evalset, hooks,
+                      instinct, prp, catalog, compile-spec, triage, grill,
+                      subagent, auto-pr, checkpoint, rewind, debt, cover,
+                      profile, rtk, codegraph, spec, permission, status
+  Frontend:         serve, tui, webui
+  Other:            completion, read, write, edit, lsp, plugin, index, rules
 
 Each subcommand is also a thin pass-through to the standalone tool repos
 for backwards compatibility — the standalone binaries are still maintained

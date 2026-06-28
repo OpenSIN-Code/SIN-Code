@@ -23,7 +23,8 @@ type ContainerRunner interface {
 type DockerRunner struct{}
 
 // NewDockerRunner returns a ContainerRunner that executes commands via
-// `docker run --rm -v <workspace>:/workspace -w /workspace <image> <command>`.
+// `docker run --rm` with security hardening flags (non-root user, no caps,
+// no network, read-only rootfs) and the workspace mounted at /workspace.
 func NewDockerRunner() ContainerRunner {
 	return &DockerRunner{}
 }
@@ -40,7 +41,15 @@ func (d *DockerRunner) RunInContainer(ctx context.Context, image, workspace, com
 		return "", fmt.Errorf("command is empty")
 	}
 	cmd := exec.CommandContext(ctx, "docker", "run", "--rm",
-		"-v", workspace+":/workspace",
+		"--user", "1000:1000",
+		"--cap-drop=ALL",
+		"--security-opt=no-new-privileges",
+		"--network=none",
+		"--read-only",
+		"--tmpfs", "/tmp",
+		// Workspace stays read-write: verify commands produce build artifacts,
+		// test outputs, and coverage files that must persist on the host.
+		"-v", workspace+":/workspace:rw",
 		"-w", "/workspace",
 		image,
 		"sh", "-c", command,

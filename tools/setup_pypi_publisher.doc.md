@@ -2,7 +2,7 @@
 
 ## What it does
 
-Automates the PyPI **Trusted Publisher** setup for `OpenSIN-Code/SIN-Code-Bundle`.
+Automates the PyPI **Trusted Publisher** setup for `OpenSIN-Code/SIN-Code`.
 After a single interactive run, every `git tag v*.*.* && git push origin v*.*.*`
 auto-publishes to PyPI via `release.yml` without any API tokens.
 
@@ -35,10 +35,10 @@ Reference: <https://docs.pypi.org/trusted-publishers/>
 ```bash
 bash tools/setup_pypi_publisher.sh
 # or with explicit args:
-bash tools/setup_pypi_publisher.sh OpenSIN-Code SIN-Code-Bundle release.yml pypi
+bash tools/setup_pypi_publisher.sh OpenSIN-Code SIN-Code release.yml pypi
 ```
 
-Defaults: owner=`OpenSIN-Code`, repo=`SIN-Code-Bundle`, workflow=`release.yml`,
+Defaults: owner=`OpenSIN-Code`, repo=`SIN-Code`, workflow=`release.yml`,
 environment=`pypi`.
 
 The script is **interactive** — it must run on a terminal (not a CI runner
@@ -107,7 +107,7 @@ publisher", and enter the same values.
 - `--max-time 30` caps any hung connection.
 - Project names are normalised per [PEP 503](https://peps.python.org/pep-0503/)
   (lowercase, underscores → hyphens) — PyPI does this on its side too, so
-  `SIN-Code-Bundle` and `sin-code-bundle` are the same project.
+  `SIN-Code` and `sin-code` are the same project.
 
 ## Related files
 

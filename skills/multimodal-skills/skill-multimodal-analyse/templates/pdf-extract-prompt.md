@@ -38,4 +38,4 @@ responding to the user.
 - List of tables with a 1-line description each.
 - If security-relevant content (credentials, internal hostnames,
   CVEs) is in the PDF, flag with `M4` notation and pair with
-  `skill-code-audit`.
+  `skill-code-ceo-audit`.

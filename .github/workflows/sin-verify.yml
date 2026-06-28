@@ -1,69 +1,40 @@
 # Purpose: verify the Python sin-code-bundle package on PRs by installing the
 # local source and running pytest + the audit-chain integrity check.
-# Docs: .github/workflows/sin-verify.yml.doc.md
+# n8n-delegated per mandate M1 (see AGENTS.md §M1).
+# Heavy work (pip install, go build, pytest, audit chain) runs on the OCI
+# free-tier VM via n8n. The only runner-side work is a lightweight `go vet`
+# pre-check (~2s).
 name: sin-verify
 
 on:
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
 
 jobs:
-  verify:
+  delegate:
+    name: Delegate sin-verify to n8n
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install SIN-Code Bundle
-        run: pip install -e ".[dev]"
-
-      - name: Configure git identity for tests
+      - name: Trigger n8n webhook
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
         run: |
-          git config --global user.email "sin-verify@opensin-code.local"
-          git config --global user.name "SIN Verify"
-          git config --global init.defaultBranch main
-
-      - name: Build and install local sin-code + tool wrappers
+          if [[ -z "$N8N_CI_WEBHOOK_URL" ]]; then
+            echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
+            exit 1
+          fi
+          curl -fsS -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"workflow\":\"sin-verify\",\"ref\":\"${{ github.ref }}\",\"sha\":\"${{ github.sha }}\",\"repo\":\"${{ github.repository }}\",\"actor\":\"${{ github.actor }}\"}" \
+            "$N8N_CI_WEBHOOK_URL"
+      - name: Local pre-check (go vet)
         run: |
-          go build -o ~/.local/bin/sin-code ./cmd/sin-code
-          mkdir -p ~/.local/bin
-          cat > ~/.local/bin/execute <<'EOF'
-          #!/bin/sh
-          exec sin-code execute "$@"
-          EOF
-          cat > ~/.local/bin/scout <<'EOF'
-          #!/bin/bash
-          args=()
-          while [ $# -gt 0 ]; do
-            case "$1" in
-              --type) args+=("--search_type"); shift;;
-              --json) args+=("--format" "json"); shift;;
-              *) args+=("$1"); shift;;
-            esac
-          done
-          exec sin-code scout "${args[@]}"
-          EOF
-          chmod +x ~/.local/bin/execute ~/.local/bin/scout
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Run test suite
-        run: pytest -q
-
-      - name: Audit chain integrity
-        run: |
-          # Passes if no audit log exists yet (clean repo).
-          python -c "
-          from pathlib import Path
-          from sin_code_bundle.policy import AuditLog
-          ok = AuditLog(Path('.')).verify_chain()
-          print('Audit chain:', 'intact' if ok else 'TAMPERED')
-          raise SystemExit(0 if ok else 1)
-          "
+          go version
+          go vet ./cmd/sin-code/...
+          echo "Heavy Python verify work delegated to n8n."

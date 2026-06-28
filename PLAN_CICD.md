@@ -93,7 +93,7 @@ Für jedes der 7 Tools erstelle `.github/workflows/ci.yml`:
 
 ## Bundle CI (Python)
 
-Für SIN-Code-Bundle:
+Für SIN-Code:
 
 ```yaml
 # .github/workflows/ci.yml
@@ -148,7 +148,7 @@ Jedes Repo sollte mindestens 70% Coverage haben.
 Wenn ein Tool-Repo released wird, soll das Bundle automatisch die neue Version erkennen:
 
 ```yaml
-# SIN-Code-Bundle/.github/workflows/update-tools.yml
+# SIN-Code/.github/workflows/update-tools.yml
 name: Update Tools
 
 on:
@@ -174,7 +174,7 @@ Pro Tool-Repo:
 - `.github/workflows/ci.yml` — Build & Test Pipeline
 - `.github/workflows/release.yml` — Release Pipeline
 
-Für SIN-Code-Bundle:
+Für SIN-Code:
 - `.github/workflows/ci.yml` — Python Tests
 - `.github/workflows/update-tools.yml` — Auto-Update
 

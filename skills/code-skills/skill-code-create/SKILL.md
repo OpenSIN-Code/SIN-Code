@@ -55,7 +55,7 @@ ADD CONTEXT/FRAMEWORKS/TASKS/TEMPLATES → VALIDATE → UPDATE REGISTRY & DOCS �
 
 | Category | Directory | Examples |
 |---|---|---|
-| Code | `code-skills/` | `skill-code-create`, `skill-code-audit`, `skill-code-build` |
+| Code | `code-skills/` | `skill-code-create`, `skill-code-ceo-audit`, `skill-code-build` |
 | Browser | `browser-skills/` | `skill-browser-tools` |
 | Debug | `debug-skills/` | `skill-debug-deep` |
 | Design | `design-skills/` | `skill-design-frontend`, `skill-design-image` |

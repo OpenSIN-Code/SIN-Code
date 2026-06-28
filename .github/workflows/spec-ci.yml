@@ -1,5 +1,4 @@
-# Purpose: spec-ci workflow — runs `sin spec check --all` on every PR
-# and push to main. A must-priority failure blocks the PR.
+# Purpose: spec-ci workflow — delegates `sin spec check --all` to the n8n CI VM.
 # Docs: docs/SPEC-LAYER.md §"CI gate"
 # n8n-delegated per mandate M1 (see AGENTS.md §M1).
 name: spec-ci
@@ -9,33 +8,32 @@ on:
   push:
     branches: [main]
 
-# Use the existing concurrency group; spec-ci is fast (<30s) so
-# cancel-in-progress is fine.
 concurrency:
   group: spec-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  spec-check:
-    name: spec check
+  delegate:
+    name: Delegate spec check to n8n
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 2
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Build sin-code
-        run: go build -o /tmp/sin-code ./cmd/sin-code/
-      - name: Run spec check
-        run: /tmp/sin-code spec check --all
-        # Spec check is fast; the timeout is a safety net for runaway
-        # `verify:` commands (e.g. `sleep 9999`).
-        timeout-minutes: 3
-      - name: Report
-        if: always()
+      - name: Check n8n webhook secret
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
         run: |
-          echo "spec-ci: see the 'Run spec check' step for details"
-          echo "  pass = no must-priority failures"
-          echo "  fail = at least one must-priority criterion failed"
+          if [[ -z "$N8N_CI_WEBHOOK_URL" ]]; then
+            echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
+            exit 1
+          fi
+      - name: Lightweight pre-check
+        run: |
+          go vet ./cmd/sin-code/...
+      - name: Trigger n8n webhook
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
+        run: |
+          curl -fsS -X POST \
+            -H "Content-Type: application/json" \
+            -d '{"event":"spec-ci","ref":"${{ github.ref }}","sha":"${{ github.sha }}"}' \
+            "$N8N_CI_WEBHOOK_URL"

@@ -18,6 +18,6 @@ Tests for the automatic hook installation system.
 ## Running
 
 ```bash
-cd /Users/jeremy/dev/SIN-Code-Bundle
+cd /Users/jeremy/dev/SIN-Code
 pytest tests/test_hooks.py -v
 ```

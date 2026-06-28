@@ -2,6 +2,27 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [v3.25.0] - 2026-06-25
+
+### Added — 4 new subcommands
+- **`sin-code doctor`** — unified health check (11 checks: Go, config, DBs, MCP, tools, CGO, module-path). `doctor_cmd.go`.
+- **`sin-code diff`** — git diff with complexity + sin-debt overlay. `diff_cmd.go`.
+- **`sin-code benchmark`** — eval golden dataset runner with scoring report. `benchmark_cmd.go`.
+- **`sin-code tokens cost`** — cost projection + budget alerts from token ledger. `tokens_cmd.go`.
+- 4 parallel subagents, 90 new tests.
+- CEO Audit: Score 100, A+, 48/48 gates, 0 unapproved findings, 0 rot-risk.
+
+## [v3.24.0] - 2026-06-23
+
+### Added — TUI/agentloop/headless live progress
+- Live tool timing + NDJSON progress + live token/cost footer (issue #424)
+- Esc cancels in-flight TUI prompt
+- `sin-code analyse-image` vision model (issue #423)
+- Security Scanning V2 (secrets/SAST/SCA/SBOM/container/SARIF)
+- Complexity cleanup: 55+ files merged, all analyzers fixed, scoring corrected
+- 0 unapproved findings, 0 rot-risk markers
+- Test suite made environment-independent
+
 ## [Unreleased] - 2026-06-23
 
 ### Added — Ecosystem skill diagnostics and install-all improvements

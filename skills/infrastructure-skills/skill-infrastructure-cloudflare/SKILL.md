@@ -15,7 +15,7 @@ required_tools:
   - sin_harvest
 lifecycle: external
 sources:
-  - 
+  - "OpenSIN-Code/Infra-SIN-OpenCode-Stack"
 ---
 
 # skill-infrastructure-cloudflare

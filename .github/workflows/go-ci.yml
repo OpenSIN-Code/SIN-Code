@@ -1,5 +1,8 @@
 # Purpose: Go CI for the sin-code binary: build, vet, tests, and benchmarks.
-# Docs: .github/workflows/go-ci.yml.doc.md
+# n8n-delegated per mandate M1 (see AGENTS.md §M1).
+# Heavy work (go build, go test, benchmarks) runs on the OCI free-tier VM
+# via n8n + OpenSIN-AI/sin-github-action. The only runner-side work is a
+# lightweight `go vet` pre-check (~2s).
 name: go-ci
 
 on:
@@ -7,91 +10,36 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
+  workflow_dispatch:
 
 concurrency:
   group: go-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: go test
+  delegate:
+    name: Delegate Go CI to n8n
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Install gopls (for lsp_live test)
-        run: go install golang.org/x/tools/gopls@latest
-      - name: Build
-        run: go build ./cmd/sin-code
-      - name: Vet
-        run: go vet ./cmd/sin-code/... ./cmd/sin-code/internal/...
-      - name: Setup Python for skill validation
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Validate bundled skills
+      - name: Trigger n8n webhook
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
         run: |
-          pip install pyyaml
-          python3 scripts/validate_skill.py --all-bundled --strict
-      - name: Test
-        run: go test ./cmd/sin-code/ ./cmd/sin-code/internal/ -count=1 -v 2>&1 | tail -50
-      - name: Test LSP live (build tag, opt-in)
-        run: go test -tags lsp_live ./cmd/sin-code/ -run TestLspLive -count=1 -v 2>&1 | tail -20
-
-  benchmark:
-    name: benchmark
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: Run benchmarks
-        run: |
-          set -euo pipefail
-          go test ./cmd/sin-code/internal/ \
-            -run='^$' \
-            -bench='Benchmark' \
-            -benchmem \
-            -count=3 \
-            -timeout=300s \
-            2>&1 | tee benchmark.out
-      - name: Check indexed vs fullscan speedup
-        run: |
-          set -euo pipefail
-          # Extract median latencies and fail if indexed is not at least 3x faster.
-          # CI runners have 2-4 cores and slower I/O; the 5x+ target is verified
-          # locally via benchmark.sh. We use float-safe awk and median, not min.
-          median() {
-            grep "BenchmarkComparisonTable/$1" benchmark.out \
-              | awk '{print $3}' | sort -n \
-              | awk '{a[NR]=$1} END {
-                if (NR==0) exit 1
-                if (NR%2) print a[(NR+1)/2]
-                else print (a[NR/2]+a[NR/2+1])/2
-              }'
-          }
-          fullscan=$(median fullscan)
-          indexed=$(median indexed)
-          echo "FullScan median: $fullscan ns/op"
-          echo "Indexed median:  $indexed ns/op"
-          if [ -z "$fullscan" ] || [ -z "$indexed" ]; then
-            echo "Missing benchmark results"
+          if [[ -z "$N8N_CI_WEBHOOK_URL" ]]; then
+            echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
             exit 1
           fi
-          awk -v fs="$fullscan" -v idx="$indexed" 'BEGIN {
-            speedup = fs / idx
-            printf "Speedup: %.1fx\n", speedup
-            if (speedup < 3.0) {
-              print "ERROR: Indexed search is not at least 3x faster than full scan"
-              exit 1
-            }
-            printf "PASS: Indexed search is %.1fx faster\n", speedup
-          }'
-      - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: benchmark.out
+          curl -fsS -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"workflow\":\"go-ci\",\"ref\":\"${{ github.ref }}\",\"sha\":\"${{ github.sha }}\",\"repo\":\"${{ github.repository }}\",\"actor\":\"${{ github.actor }}\"}" \
+            "$N8N_CI_WEBHOOK_URL"
+      - name: Local pre-check (go vet)
+        run: |
+          go version
+          go vet ./cmd/sin-code/...
+          echo "Heavy Go build/test/benchmark work delegated to n8n."

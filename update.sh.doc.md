@@ -13,7 +13,7 @@ Docs: update.sh (source of truth — this file is the "what and why")
 ## What it does (stage by stage)
 
 1. **Refresh bundle repo** — `git pull --ff-only` in `$BUNDLE_DIR` (or in
-   `$REPOS_DIR/SIN-Code-Bundle` as fallback). Skipped if the script is in
+   `$REPOS_DIR/SIN-Code` as fallback). Skipped if the script is in
    a non-git checkout. Use `--skip-pull` to test local changes.
 
 2. **Upgrade sin-code-bundle** — `pip install -e .[mcp,dev] --upgrade`
@@ -125,7 +125,7 @@ something is still wrong (rebuilds everything from scratch).
 ### Routine weekly refresh
 
 ```bash
-cd ~/dev/SIN-Code-Bundle
+cd ~/dev/SIN-Code
 bash update.sh
 ```
 
@@ -146,7 +146,7 @@ bash update.sh --skip-pull             # apply
 ### Bootstrap a new Python venv
 
 ```bash
-cd ~/dev/SIN-Code-Bundle
+cd ~/dev/SIN-Code
 uv venv .venv
 source .venv/bin/activate
 bash update.sh   # uv will pick up the venv automatically

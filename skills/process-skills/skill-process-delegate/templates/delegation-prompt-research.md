@@ -37,7 +37,7 @@ Return a structured markdown report with:
 ## Example
 
 ```
-You are exploring the SIN-Code repository at /Users/jeremy/dev/SIN-Code-Bundle.
+You are exploring the SIN-Code repository at /Users/jeremy/dev/SIN-Code.
 
 Your task: Understand how the agent loop's verification gate works.
 

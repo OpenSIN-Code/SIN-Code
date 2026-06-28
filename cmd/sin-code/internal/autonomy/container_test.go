@@ -86,7 +86,13 @@ printf '%s\n' "$@"`
 		t.Fatalf("fake docker run failed: %v", err)
 	}
 
-	for _, want := range []string{"--rm", "-v", "/tmp/ws:/workspace", "-w", "/workspace", "alpine:latest", "sh", "-c", "echo hello"} {
+	for _, want := range []string{
+		"--rm", "--user", "1000:1000", "--cap-drop=ALL",
+		"--security-opt=no-new-privileges", "--network=none",
+		"--read-only", "--tmpfs", "/tmp",
+		"-v", "/tmp/ws:/workspace:rw", "-w", "/workspace",
+		"alpine:latest", "sh", "-c", "echo hello",
+	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing expected arg %q:\n%s", want, out)
 		}

@@ -1,6 +1,8 @@
 # Purpose: Python CI for the sin-code-bundle package: ruff lint/format, pytest
 # across Python 3.11/3.12/3.13, and optional extras smoke tests.
-# Docs: .github/workflows/ci.yml.doc.md
+# n8n-delegated per mandate M1 (see AGENTS.md §M1).
+# Heavy work (pip install, pytest, ruff) runs on the OCI free-tier VM via n8n.
+# The only runner-side work is a lightweight `go vet` pre-check (~2s).
 name: ci
 
 on:
@@ -20,91 +22,36 @@ on:
       - "setup.py"
       - "setup.cfg"
       - "requirements*.txt"
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  lint:
-    name: lint & format (ruff)
+  delegate:
+    name: Delegate Python CI to n8n
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install dev dependencies
-        run: pip install -e ".[dev]"
-      - name: ruff check
-        run: ruff check .
-      - name: ruff format --check
-        run: ruff format --check .
-
-  test:
-    name: test (py${{ matrix.python-version }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install package (with dev extras)
-        run: pip install -e ".[dev]"
-      - name: Configure git identity for tests
+      - name: Trigger n8n webhook
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
         run: |
-          git config --global user.email "ci@opensin-code.local"
-          git config --global user.name "SIN CI"
-          git config --global init.defaultBranch main
-
-      - name: Build and install local sin-code + tool wrappers
+          if [[ -z "$N8N_CI_WEBHOOK_URL" ]]; then
+            echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
+            exit 1
+          fi
+          curl -fsS -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"workflow\":\"ci\",\"ref\":\"${{ github.ref }}\",\"sha\":\"${{ github.sha }}\",\"repo\":\"${{ github.repository }}\",\"actor\":\"${{ github.actor }}\"}" \
+            "$N8N_CI_WEBHOOK_URL"
+      - name: Local pre-check (go vet)
         run: |
-          go build -o ~/.local/bin/sin-code ./cmd/sin-code
-          mkdir -p ~/.local/bin
-          cat > ~/.local/bin/execute <<'EOF'
-          #!/bin/sh
-          exec sin-code execute "$@"
-          EOF
-          cat > ~/.local/bin/scout <<'EOF'
-          #!/bin/bash
-          args=()
-          while [ $# -gt 0 ]; do
-            case "$1" in
-              --type) args+=("--search_type"); shift;;
-              --json) args+=("--format" "json"); shift;;
-              *) args+=("$1"); shift;;
-            esac
-          done
-          exec sin-code scout "${args[@]}"
-          EOF
-          chmod +x ~/.local/bin/execute ~/.local/bin/scout
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Run test suite
-        run: pytest -q
-      - name: Install optional extras and re-run
-        run: |
-          pip install -e ".[dev,lsp,bench,mcp]" || echo "optional extras unavailable; skipping extra run"
-          pytest -q
-
-  consistency:
-    name: cross-repo consistency (non-blocking)
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install package
-        run: pip install -e ".[dev]"
-      - name: Check consistency
-        run: python scripts/check_consistency.py
+          go version
+          go vet ./cmd/sin-code/...
+          echo "Heavy Python lint/test work delegated to n8n."

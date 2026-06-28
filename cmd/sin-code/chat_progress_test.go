@@ -31,6 +31,10 @@ func headlessChatHarness(t *testing.T) (
 ) {
 	t.Helper()
 
+	t.Setenv("SIN_LLM_API_KEY", "test-key")
+	t.Setenv("NVIDIA_API_KEY", "")
+	t.Setenv("OPENAI_API_KEY", "")
+
 	origLoadAgent := chatLoadAgentFn
 	origNewLLMClient := chatNewLLMClientFn
 	origNewProviderCompletion := chatNewProviderCompletionFn

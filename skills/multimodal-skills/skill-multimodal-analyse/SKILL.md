@@ -105,5 +105,5 @@ This skill is independent of other bundled skills. It cooperates with:
 - `sin_code_sin_read` — receives structured payloads via
   `data.attachment.extracted_text`.
 - `sin_code_sin_edit` — receives extracted strings for surgical edits.
-- `skill-code-audit` — log analysis feeds into security-scoring for
+- `skill-code-ceo-audit` — log analysis feeds into security-scoring for
   findings such as leaked tokens in structured logs.

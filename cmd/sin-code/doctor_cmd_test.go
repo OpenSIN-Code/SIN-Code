@@ -373,7 +373,7 @@ func TestCheckModulePath_Wrong(t *testing.T) {
 	t.Cleanup(func() { doctorGoModPathHook = old })
 	tmp := t.TempDir()
 	goMod := filepath.Join(tmp, "go.mod")
-	content := "module github.com/OpenSIN-Code/SIN-Code-Bundle\n\ngo 1.26.4\n"
+	content := "module github.com/OpenSIN-Code/SIN-Code-OLD-NAME\n\ngo 1.26.4\n"
 	if err := os.WriteFile(goMod, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
 	}

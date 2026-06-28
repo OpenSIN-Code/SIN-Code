@@ -2,13 +2,20 @@
 
 > The verification-first, self-improving AI agent for code — learns from mistakes, never repeats a failure, and acts autonomously within hard safety invariants.
 
+## Why SIN-Code?
+
+- **Mandatory verification gate** — Claude Code, Codex CLI, and Cursor all allow the model to declare "done" without proof. SIN-Code refuses.
+- **Closed learning loop** — failed verifications persist across sessions. No competitor does this.
+- **Bounded autonomy** — daemon runs goals end-to-end but cannot self-escalate permissions or skip the gate.
+- **52+ MCP tools** — consumable by ANY agent via `sin-code serve`.
+
 [![test-gate](https://img.shields.io/badge/test--gate-passing-brightgreen)](#)
 [![ecosystem-sync](https://img.shields.io/badge/ecosystem--sync-passing-brightgreen)](#)
-[![version](https://img.shields.io/badge/version-v3.20.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
+[![version](https://img.shields.io/badge/version-v3.25.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
 
 ## Status
 
-- **Version**: [v3.20.0](https://github.com/OpenSIN-Code/SIN-Code/releases/tag/v3.20.0)
+- **Version**: [v3.25.0](https://github.com/OpenSIN-Code/SIN-Code/releases/tag/v3.25.0)
 - **Maturity**: Production
 - **Language**: Go (single static binary) + Python companion package
 - **Tests**: 200+ tests across Go and Python; `go test ./... -race -count=1` is the gate
@@ -49,8 +56,8 @@ swarm mode, skill bootstrapping, and methodology skills.
 
 ## MCP Integration
 
-- **MCP Server**: Go — `sin-code serve` (main binary, 44+ tools); Python legacy — `src/sin_code_bundle/mcp_server.py`
-- **Tools**: 42 subcommands, 40 bundled skills, 12 ecosystem skill servers, and external MCP servers (websearch, browser, symfony-lens, etc.)
+- **MCP Server**: Go — `sin-code serve` (main binary, 54+ tools); Python legacy — `src/sin_code_bundle/mcp_server.py`
+- **Tools**: 90+ subcommands, 41 bundled skills, 12 ecosystem skill servers, and external MCP servers (websearch, browser, symfony-lens, etc.)
 - **Register**: Add `sin-code serve` to your MCP client config (see `docs/mcp.json.example`), or register the legacy Python server via `sin mcp register sin-serve src/sin_code_bundle/mcp_server.py`
 
 ## Development
@@ -75,7 +82,7 @@ swarm mode, skill bootstrapping, and methodology skills.
 
 **Time-Travel Debugging:** Fork any session at any turn to explore parallel solution paths (`sin-code session fork <id> <turn>`).
 
-**Multi-Agent Orchestration:** 40 subcommands, 44+ MCP tools, 12 ecosystem skill servers (websearch, browser automation, goal mode, rollback, …), permission gates (allow/ask/deny), deterministic lifecycle hooks (24 events).
+**Multi-Agent Orchestration:** 90+ subcommands, 52+ MCP tools, 12 ecosystem skill servers (websearch, browser automation, goal mode, rollback, …), permission gates (allow/ask/deny), deterministic lifecycle hooks (24 events).
 
 **Swarm Mode (v3.6.0):** N agent profiles race on the same prompt with diverse strategies (different models, temperatures, tool sets); first verified solution wins. Three hard safety invariants: no gate → no daemon; headless → ask=deny; budget exhausted → hook summons the human.
 
@@ -85,9 +92,9 @@ swarm mode, skill bootstrapping, and methodology skills.
 
 **Go-Native SCA (v3.15.0):** `sin security` now uses a native Go SCA client for Go projects, parsing `go.mod` and invoking `grype` JSON output directly.
 
-## Bundled Skills (v3.17.0)
+## Bundled Skills (v3.25.0)
 
-SIN-Code ships **40 bundled skills** embedded in the binary, installable via `sin-code skills list|install`. Skills are organized into category directories and follow a unified naming convention `skill-<category>-<name>`.
+SIN-Code ships **41 bundled skills** embedded in the binary, installable via `sin-code skills list|install`. Skills are organized into category directories and follow a unified naming convention `skill-<category>-<name>`.
 
 ```bash
 sin-code skills list          # list all bundled skills
@@ -185,7 +192,7 @@ sin-code superpowers find "debug a failing test"   # auto-match a skill
 ```
 
 
-## Methodology Stack (v3.8.0)
+## Methodology Stack (v3.25.0)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -300,11 +307,11 @@ git commit -m "feat(gh-bridge): honor X-RateLimit-Reset (#128)"
 
 ```
 SIN-Code/
-├── cmd/sin-code/            ← MAIN BINARY (40 subcommands — v3.18.0)
+├── cmd/sin-code/            ← MAIN BINARY (90+ subcommands — v3.25.0)
 │   ├── main.go
 │   ├── chat_cmd.go          ← chat + -p headless
-│   ├── session_cmd.go       ← sessions list/show/rm/fork
-│   ├── mcp_cmd.go           ← MCP debug (list|status|call)
+│   ├── session_cmd.go       ← sessions list/show/rm/fork/tree
+│   ├── mcp_cmd.go           ← MCP debug (list|status|call|discover|add)
 │   ├── goal_cmd.go          ← autonomous goal queue
 │   ├── daemon_cmd.go        ← autonomous worker
 │   ├── skill_cmd.go         ← ecosystem skill management
@@ -312,26 +319,74 @@ SIN-Code/
 │   ├── superpowers_cmd.go   ← v3.7.0: obra/superpowers integration
 │   ├── vane_cmd.go          ← v3.8.0: Vane HTTP-bridge subcommand
 │   ├── stack_cmd.go         ← v3.8.0: unified install/doctor across 3 layers
-│   └── internal/            ← 20 packages
+│   ├── gh_cmd.go            ← v3.9.0: GitHub bridge (3-tier policy)
+│   ├── hub_cmd.go           ← v3.12.0: tool catalog hub
+│   ├── ledger_cmd.go        ← v3.13.0: semantic session ledger
+│   ├── summary_cmd.go       ← v3.13.0: session auto-summary
+│   ├── compress_cmd.go      ← v3.18.0: deterministic + LLM compaction
+│   ├── audit_cmd.go         ← v3.18.0: repo-wide complexity audit
+│   ├── ceo_audit_cmd.go     ← v3.18.0: 48-gate CEO audit
+│   ├── review_cmd.go        ← v3.19.0: ponytail complexity review
+│   ├── fusion_cmd.go        ← v3.22.0: SIN Fusion benchmark/rank/recommend
+│   ├── research_cmd.go      ← v3.23.0: autonomous research report
+│   ├── image_graph_cmd.go   ← v3.20.0: SOTA ECharts chart generation
+│   ├── analyse_cmd.go       ← v3.23.0: static analysis runner
+│   ├── analyse_image_cmd.go ← v3.24.0: vision-based image analysis
+│   ├── doctor_cmd.go        ← v3.25.0: unified health check
+│   ├── diff_cmd.go          ← v3.25.0: git diff with complexity overlay
+│   ├── benchmark_cmd.go     ← v3.25.0: eval golden dataset runner
+│   ├── tokens_cmd.go        ← v3.25.0: cost projection + budget alerts
+│   ├── security_scan_commands.go ← v3.24.0: merged security scan subcommands
+│   ├── permission_defaults.go ← default rules + MCP prefix policy
+│   └── internal/            ← 95+ packages
 │       ├── agentloop/       ← PLAN→ACT→VERIFY→DONE loop
 │       ├── session/, verify/, permission/  ← C2/C3/C4
 │       ├── mcpclient/       ← C5: external MCP consumption
 │       ├── hooks/           ← C7: 24 lifecycle events
+│       ├── hooklife/        ← v3.19.0: programmatic hook system + autoactivate
 │       ├── commands/        ← C8: custom slash commands
 │       ├── lessons/         ← v3.4.0: closed learning loop
 │       ├── autonomy/        ← v3.5.0: goal queue + triggers
 │       ├── skillmgr/        ← v3.5.0: install/verify skills
+│       ├── skilldist/       ← v3.17.0: marker-fenced skill distribution
 │       ├── loopbuilder/     ← v3.4.0: shared factory (DRY)
-│       ├── apiweb/          ← v3.6.0: WebUI-v2 HTTP API (sessions/knowledge/chat-SSE)
-│       ├── meta/            ← v3.6.0: sin_bootstrap_skill (self-extending)
+│       ├── stopgate/        ← decoupled completion authority
+│       ├── goalcontract/    ← Definition-of-Done contracts
+│       ├── compress/        ← v3.18.0: deterministic + LLM compaction
+│       ├── mcpcompress/     ← v3.19.0: ponytail-tag tool-description compressor
+│       ├── sindept/         ← v3.18.0: sin-debt marker scanner
+│       ├── complexity/      ← v3.19.0: static ponytail complexity analyzer
+│       ├── audit/           ← v3.18.0: CEO audit engine
+│       ├── eval/, dataset/, trace/ ← v3.18.0: eval + observability
+│       ├── evalharness/     ← v3.18.0: 4-arm comparator
+│       ├── modelperf/       ← v3.22.0: per-model performance registry
+│       ├── fusion/          ← v3.22.0: SIN Fusion tournament
+│       ├── ghbridge/        ← v3.9.0: GitHub bridge (3-tier policy)
+│       ├── ledger/, summary/ ← v3.13.0: semantic session ledger
+│       ├── telemetry/       ← v3.24.0: live progress / NDJSON events
+│       ├── vision/          ← v3.24.0: vision model for analyse-image
+│       ├── security/        ← v3.24.0: Security Scanning V2
+│       ├── sandbox/         ← OS-level sandbox (landlock/seatbelt/bubblewrap)
+│       ├── catalog/         ← v3.20.0: unified tool catalog
+│       ├── config/          ← unified config subsystem
+│       ├── testgate/        ← v3.21.0: test-first verify-loop tools
+│       ├── testgen/         ← v3.21.0: test generation
+│       ├── swebench/        ← v3.23.0: SWE-bench test suite
 │       ├── dox/             ← v3.8.0: agent0ai/dox protocol checker
 │       ├── vane/            ← v3.8.0: HTTP bridge to ItzCrazyKns/Vane (Bridged-External)
 │       ├── stack/           ← v3.8.0: unified install/doctor coordinator
+│       ├── isolation/       ← v3.20.0: git-worktree primitives
+│       ├── auto_mem/        ← v3.20.0: byte-stable MEMORY.md
+│       ├── rules/           ← v3.20.0: path-scoped rule loader
+│       ├── agentteams/      ← v3.20.0: file-locked agent-team mailbox
+│       ├── imagegraph/      ← v3.20.0: SOTA ECharts chart generation
+│       ├── profile/         ← v3.18.0: single-source-of-truth profile renderer
+│       ├── install/         ← v3.18.0: pure-stdlib release install
 │       └── llm/, orchestrator/, memory/, lsp/, todo/, ...
 ├── ECOSYSTEM.md             ← complete org inventory
 ├── AGENTS.md                ← master blueprint
 ├── profiles/                ← agent profile TOML files
-├── docs/                    ← HOOKS.md, LEARNING.md, WEBUI.md
+├── docs/                    ← HOOKS.md, LEARNING.md, WEBUI.md, agent-profiles/
 └── .github/workflows/       ← ci + ecosystem-sync + release
 ```
 
@@ -360,4 +415,4 @@ MIT — see [LICENSE](LICENSE).
 ---
 
 > **Einstein:** "Insanity is doing the same thing and expecting different results."
-> **SIN-Code v3.8.0:** The agent that learns, evolves, never forgets — and follows world-class methodology.
+> **SIN-Code v3.25.0:** The agent that learns, evolves, never forgets — and follows world-class methodology.

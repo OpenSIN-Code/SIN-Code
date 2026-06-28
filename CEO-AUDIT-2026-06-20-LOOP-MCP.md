@@ -1,4 +1,4 @@
-# CEO Audit Report — SIN-Code-Bundle
+# CEO Audit Report — SIN-Code
 
 **Date:** 2026-06-20  
 **Auditor:** CEO Audit Skill (automated)  

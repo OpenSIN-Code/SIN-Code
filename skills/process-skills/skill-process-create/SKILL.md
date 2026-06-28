@@ -10,7 +10,7 @@ compatibility:
 metadata:
   author: SIN-Code
   version: 3.23.0
-lifecycle: internal
+lifecycle: native
 ---
 
 # skill-process-create
@@ -71,7 +71,7 @@ skill-process-create/
 
 ## Naming Rules
 
-- Bundled skills: `skill-<category>-<descriptive-name>` (e.g., `skill-process-create`, `skill-code-audit`).
+- Bundled skills: `skill-<category>-<descriptive-name>` (e.g., `skill-process-create`, `skill-code-ceo-audit`).
 - Local skills: any valid kebab-case name, e.g., `skill-create`.
 - Directory name and `name:` field in `SKILL.md` frontmatter must match exactly.
 - Valid kebab-case: `^[a-z0-9]+(-[a-z0-9]+)*$`.

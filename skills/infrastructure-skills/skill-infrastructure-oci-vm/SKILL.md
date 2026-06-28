@@ -14,7 +14,7 @@ required_tools:
   - sin_execute
 lifecycle: external
 sources:
-  - 
+  - "OpenSIN-Code/Infra-SIN-OpenCode-Stack"
 ---
 
 # skill-infrastructure-oci-vm

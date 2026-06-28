@@ -6,7 +6,7 @@
 ## What it does
 
 Registers a **PyPI Trusted Publisher** for the
-`OpenSIN-Code/SIN-Code-Bundle` repo (or any other repo, via flags) in a
+`OpenSIN-Code/SIN-Code` repo (or any other repo, via flags) in a
 single CLI call. After registration, every `git tag v*.*.* && git push
 origin v*.*.*` triggers `.github/workflows/release.yml`, which mints a
 short-lived OIDC token via `id-token: write` and publishes to PyPI

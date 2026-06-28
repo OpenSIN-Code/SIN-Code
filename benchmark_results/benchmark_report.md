@@ -151,4 +151,4 @@ json.decoder.JSONDecodeError: Expecting ':' delimiter: line 3008133 column 17 (c
 
 ## Raw Data
 
-Individual JSON files are in `/Users/jeremy/dev/SIN-Code-Bundle/benchmark_results`.
+Individual JSON files are in `/Users/jeremy/dev/SIN-Code/benchmark_results`.

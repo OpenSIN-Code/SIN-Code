@@ -25,7 +25,7 @@ It is simultaneously:
 1. **A coding-agent CLI** (`sin-code chat`, `sin-code -p "..."`) — interactive
    REPL/TUI and headless one-shot mode, like Claude Code / Codex CLI, but
    with a mandatory correctness gate before any task is reported done.
-2. **A unified MCP server** (`sin-code serve` / `sin-serve`) — 44+ semantic
+2. **A unified MCP server** (`sin-code serve` / `sin-serve`) — 52+ semantic
    tools consumable by ANY agent (Claude Code, Codex, opencode, our own
    loop, WebUI-v2).
 3. **A multi-agent orchestrator** — DAG dispatcher with critic, adversary,
@@ -172,7 +172,7 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code goal          ← enqueue autonomous goals (v3.5.0)
   ├─ sin-code daemon        ← autonomous worker: lease → verify → learn
   ├─ sin-code skill         ← install/status ecosystem skills (v3.5.0)
-  ├─ sin-code serve         ← unified MCP server (49+ tools)
+  ├─ sin-code serve         ← unified MCP server (52+ tools)
   ├─ sin-code tui           ← standalone TUI binary (live footer/token/cost, v3.24.0)
   ├─ sin-code webui         ← WebUI serve mode
   ├─ sin-code gh            ← v3.9.0: GitHub bridge (3-tier policy)
@@ -185,7 +185,7 @@ SIN-CODE-CLI (this repo, cmd/sin-code)
   ├─ sin-code review        ← v3.19.0: ponytail complexity review (issue #179)
   ├─ sin-code image-graph   ← v3.20.0: SOTA ECharts chart generation (bar/line/pie/area)
   ├─ sin-code catalog       ← v3.18.0: unified tool catalog
-  └─ 50+ subcommands (v3.24.0)
+  └─ 90+ subcommands (v3.25.0)
 
          │
          ▼
@@ -286,7 +286,7 @@ SIN-Code/
 │       └── sin-profile.md      ← v3.18.0: single-source-of-truth per-agent profile (issue #175)
 │
 ├── cmd/
-│   ├── sin-code/              ← MAIN BINARY (50+ subcommands — v3.24.0)
+│   ├── sin-code/              ← MAIN BINARY (90+ subcommands — v3.25.0)
 │   │   ├── main.go            ← cobra root; AddCommand for all subcommands
 │   │   ├── commands.go        ← command registration + shared helpers
 │   │   ├── tui.go, webui_cmd.go
@@ -303,7 +303,7 @@ SIN-Code/
 │   │   ├── status_cmd.go      ← readiness snapshot
 │   │   ├── permission_defaults.go ← C4: default rules + MCP prefix policy
 │   │   ├── security_scan_commands.go ← v3.24.0: merged security scan subcommands (secrets/SAST/SCA/SBOM/container)
-│   │   └── internal/          ← 88 packages (v3.24.0) — key ones:
+│   │   └── internal/          ← 95 packages (v3.25.0) — key ones:
 │   │       ├── agentloop/     ← PLAN→ACT→VERIFY→DONE loop
 │   │       ├── session/       ← SQLite-backed resumable sessions
 │   │       ├── permission/    ← allow/ask/deny engine
@@ -412,7 +412,7 @@ SIN-Code/
 └── CEO-AUDIT-REPORT-4-...md      ← vendored reports/repos at repo root
 │
 ├── src/sin_code_bundle/       ← Python companion: `sin` CLI + `sin-serve`
-├── skills/                    ← 40 bundled skills in category directories
+├── skills/                    ← 41 bundled skills in category directories
 │   ├── browser-skills/
 │   ├── code-skills/
 │   ├── debug-skills/
@@ -765,7 +765,7 @@ updates `homebrew-sin` formula, and ships to GitHub Releases.
 
 ## 9. Development workflow
 
-- Go 1.23+. Before EVERY commit: `go build ./... && go test ./... -race -count=1`.
+- Go 1.26+. Before EVERY commit: `go build ./... && go test ./... -race -count=1`.
   The full suite is now green and environment-independent: Docker-dependent
   tests auto-skip when the daemon is unavailable; orchestrator, autonomy,
   security, and harvest tests no longer depend on ambient environment or timing.
@@ -791,7 +791,7 @@ updates `homebrew-sin` formula, and ships to GitHub Releases.
 ## 10. Naming and stability rules
 
 - Binary: `sin-code`. Brew formula: `sin-code`. MCP server name: `sin`.
-- The 49+ MCP tool names are a public API — renaming any is a breaking
+- The 52+ MCP tool names are a public API — renaming any is a breaking
   change (major bump + deprecation alias for one minor cycle).
 - Tool prefixes for external MCP servers use `server__tool` namespacing
   (e.g. `websearch__search`, `browser__navigate`).
@@ -892,7 +892,7 @@ canonical pattern; renaming `skill-code-lazy` would require a
 major bump because the `lazy_skill` keyword is part of the
 external activate-mode contract (issue #176).
 
-### CLI subcommands (verified `cmd/sin-code/main.go`, v3.24.0)
+### CLI subcommands (verified `cmd/sin-code/main.go`, v3.25.0)
 
 ```
 Core:      discover, execute, map, grasp, scout, harvest, orchestrate,
@@ -910,7 +910,7 @@ Lifecycle: memory, todo, notifications, orchestrator-run,
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
            config, self-update, headroom, rules, tool-search
 ```
-(v3.24.0: 50+ subcommands.)
+(v3.25.0: 90+ subcommands.)
 
 ### Per-agent profile distribution (issue #175)
 
@@ -987,7 +987,7 @@ single source of truth — any rule regex / order change must update the
 golden expectations in the same commit. This is a prerequisite for the
 system-prompt hash metric (issue #2).
 
-**Names are immutable.** The 49+ MCP tool `Name` field is public API
+**Names are immutable.** The 52+ MCP tool `Name` field is public API
 (§10). The compressor mutates `Description` only. `CompressSpec`
 asserts this in `TestCompressSpec_NameMutable`.
 ### sin-debt marker convention (issue #177)

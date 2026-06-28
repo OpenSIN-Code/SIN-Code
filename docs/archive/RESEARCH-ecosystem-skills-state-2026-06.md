@@ -1,7 +1,7 @@
 # RESEARCH.md — Ecosystem Skills Full Activation Phase
 
 ## Context
-- Repo: SIN-Code (`/Users/jeremy/dev/SIN-Code-Bundle`)
+- Repo: SIN-Code (`/Users/jeremy/dev/SIN-Code`)
 - Current `main`: `0beaee5`
 - CEO audit: A+ / Score 273 / 48 gates
 - Open issue: #159 (WebUI-v2 dashboard, out of scope per AGENTS.md)

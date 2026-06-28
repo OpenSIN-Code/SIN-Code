@@ -53,12 +53,12 @@ Before returning, verify your work:
 ## Example (filled in)
 
 ```
-You are working in the SIN-Code repository at /Users/jeremy/dev/SIN-Code-Bundle.
+You are working in the SIN-Code repository at /Users/jeremy/dev/SIN-Code.
 
 Your task: Implement a `sin-code doctor` subcommand — unified health check.
 
 ## Context
-- Project: Go 1.23+, cobra-based CLI, single binary (CGO_ENABLED=0)
+- Project: Go 1.26+, cobra-based CLI, single binary (CGO_ENABLED=0)
 - Module path: github.com/OpenSIN-Code/SIN-Code
 - Relevant files: cmd/sin-code/main.go (command registration),
   cmd/sin-code/status_cmd.go (similar pattern to follow),

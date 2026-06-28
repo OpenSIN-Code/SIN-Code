@@ -1,10 +1,15 @@
-# .github/workflows/lint.yml
+# Purpose: Lint and security scanning (golangci-lint, govulncheck, gosec).
+# n8n-delegated per mandate M1 (see AGENTS.md §M1).
+# Heavy scanning runs on the OCI free-tier VM via n8n. The only runner-side
+# work is a lightweight `go vet` pre-check (~2s). SARIF upload is handled
+# by the n8n side via the GitHub API.
 name: lint-and-security
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -14,49 +19,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  golangci:
-    name: golangci-lint
+  delegate:
+    name: Delegate lint & security to n8n
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          cache: true
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@v8
-        with:
-          version: v2.5.0
-          install-mode: goinstall
-          args: --timeout=5m
-
-  govulncheck:
-    name: govulncheck
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
-      - name: Run govulncheck
-        run: govulncheck ./...
-
-  gosec-sarif:
-    name: gosec (SARIF upload)
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      security-events: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run gosec
-        uses: securego/gosec@v2.22.2
-        with:
-          args: "-no-fail -fmt sarif -out gosec.sarif ./..."
-      - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: gosec.sarif
+      - name: Trigger n8n webhook
+        env:
+          N8N_CI_WEBHOOK_URL: ${{ secrets.N8N_CI_WEBHOOK_URL }}
+        run: |
+          if [[ -z "$N8N_CI_WEBHOOK_URL" ]]; then
+            echo "::error::N8N_CI_WEBHOOK_URL secret is not configured"
+            exit 1
+          fi
+          curl -fsS -X POST \
+            -H "Content-Type: application/json" \
+            -d "{\"workflow\":\"lint-and-security\",\"ref\":\"${{ github.ref }}\",\"sha\":\"${{ github.sha }}\",\"repo\":\"${{ github.repository }}\",\"actor\":\"${{ github.actor }}\"}" \
+            "$N8N_CI_WEBHOOK_URL"
+      - name: Local pre-check (go vet)
+        run: |
+          go version
+          go vet ./...
+          echo "Heavy lint/security scanning delegated to n8n."
