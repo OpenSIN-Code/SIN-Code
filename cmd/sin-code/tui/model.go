@@ -303,6 +303,9 @@ type Model struct {
 	// Copy mode (ctrl+e — select and yank chat text to clipboard)
 	CopyMode *CopyMode
 
+	// true when user manually scrolled away from bottom in chat viewport
+	userScrolledUp bool
+
 	Mouse *MouseHandler
 
 	RenderCache *RenderCache

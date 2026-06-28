@@ -786,6 +786,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case key.Matches(msg, keyPgUp):
 		if m.ViewKind == ViewChat {
+			m.userScrolledUp = true
 			m.ChatViewport.PageUp()
 			m.updateChatFocusFromViewport()
 			return m, nil
@@ -793,11 +794,15 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keyPgDn):
 		if m.ViewKind == ViewChat {
 			m.ChatViewport.PageDown()
+			if m.ChatViewport.AtBottom() {
+				m.userScrolledUp = false
+			}
 			m.updateChatFocusFromViewport()
 			return m, nil
 		}
 	case key.Matches(msg, keymap.ToolUp):
-		if m.ViewKind == ViewChat && !m.ChatViewport.AtBottom() {
+		if m.ViewKind == ViewChat {
+			m.userScrolledUp = true
 			m.ChatViewport.ScrollUp(1)
 			m.updateChatFocusFromViewport()
 			return m, nil
@@ -828,8 +833,11 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case key.Matches(msg, keymap.ToolDown):
-		if m.ViewKind == ViewChat && !m.ChatViewport.AtBottom() {
+		if m.ViewKind == ViewChat {
 			m.ChatViewport.ScrollDown(1)
+			if m.ChatViewport.AtBottom() {
+				m.userScrolledUp = false
+			}
 			m.updateChatFocusFromViewport()
 			return m, nil
 		}
@@ -1747,6 +1755,7 @@ func (m *Model) handleTabsClick(action MouseResolution) tea.Cmd {
 
 func (m *Model) handleMouseScrollUp(action MouseResolution) tea.Cmd {
 	if m.ViewKind == ViewChat {
+		m.userScrolledUp = true
 		m.ChatViewport.ScrollUp(3)
 	}
 	return nil
@@ -1755,6 +1764,9 @@ func (m *Model) handleMouseScrollUp(action MouseResolution) tea.Cmd {
 func (m *Model) handleMouseScrollDown(action MouseResolution) tea.Cmd {
 	if m.ViewKind == ViewChat {
 		m.ChatViewport.ScrollDown(3)
+		if m.ChatViewport.AtBottom() {
+			m.userScrolledUp = false
+		}
 	}
 	return nil
 }
@@ -1938,7 +1950,7 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 	m.ChatViewport.SetWidth(width)
 	m.ChatViewport.SetHeight(chatHeight)
 	m.ChatViewport.SetContent(content.String())
-	if !m.ChatViewport.AtBottom() {
+	if !m.userScrolledUp && !m.ChatViewport.AtBottom() {
 		m.ChatViewport.GotoBottom()
 	}
 

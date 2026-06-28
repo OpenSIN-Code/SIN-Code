@@ -3,6 +3,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -114,6 +115,9 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		m.ChatFocusIdx = 0
 		m.AppendHistory(ViewChat.String(), "chat-clear", "chat history cleared", true)
 		return nil
+	case "/model":
+		m.OpenModelSwitcher()
+		return nil
 	case "/help":
 		helpText := "Available commands:\n\n" +
 			"  /attach <path>  Attach a file to the next message\n" +
@@ -152,6 +156,16 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		}
 		return nil
 	}
+	if strings.HasPrefix(trimmed, "/model ") {
+		modelName := strings.TrimSpace(strings.TrimPrefix(trimmed, "/model "))
+		if modelName != "" {
+			m.AgentConfig.Model = modelName
+			m.Footer.ModelName = modelName
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: fmt.Sprintf("Switched to model: %s", modelName)})
+			m.AppendHistory(ViewChat.String(), "model-switch", modelName, true)
+			return nil
+		}
+	}
 	if strings.HasPrefix(trimmed, "/theme export ") {
 		path := strings.TrimSpace(strings.TrimPrefix(trimmed, "/theme export "))
 		if path == "" {
@@ -174,6 +188,7 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		entry += "]"
 	}
 	m.appendChat(ChatMessage{Kind: chatUser, Text: entry})
+	m.userScrolledUp = false
 	m.AppendHistory(ViewChat.String(), "chat-submit", entry, true)
 
 	m.initChatRunner()

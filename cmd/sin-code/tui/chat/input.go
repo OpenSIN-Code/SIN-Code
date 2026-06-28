@@ -279,6 +279,11 @@ func (i *Input) Update(msg tea.Msg) (tea.Cmd, *SubmitMsg) {
 				i.enterFilePicker()
 				return nil, nil
 			}
+			// Tab completion for file paths after /attach
+			val := i.textarea.Value()
+			if strings.Contains(val, "/attach ") {
+				return i.completePath(val)
+			}
 		}
 	}
 	i.textarea, cmd = i.textarea.Update(msg)
@@ -609,4 +614,79 @@ func (i *Input) filePickerView() string {
 		b.WriteString(fmt.Sprintf("%s%s%s\n", marker, it.name, suffix))
 	}
 	return b.String()
+}
+
+func (i *Input) completePath(val string) (tea.Cmd, *SubmitMsg) {
+	idx := strings.LastIndex(val, "/attach ")
+	if idx < 0 {
+		return nil, nil
+	}
+	pathPart := val[idx+8:]
+
+	expanded := pathPart
+	if strings.HasPrefix(pathPart, "~/") {
+		home, err := osUserHomeDirHook()
+		if err != nil {
+			return nil, nil
+		}
+		expanded = filepath.Join(home, pathPart[2:])
+	}
+
+	dir := filepath.Dir(expanded)
+	prefix := filepath.Base(expanded)
+	if dir == "." && !strings.Contains(expanded, "/") {
+		dir = "."
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, nil
+	}
+
+	var matches []string
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), prefix) {
+			if e.IsDir() {
+				matches = append(matches, e.Name()+"/")
+			} else {
+				matches = append(matches, e.Name())
+			}
+		}
+	}
+
+	if len(matches) == 1 {
+		completed := matches[0]
+		if dir != "." {
+			completed = filepath.Join(dir, matches[0])
+		}
+		newVal := val[:idx+8] + completed
+		i.textarea.SetValue(newVal)
+	} else if len(matches) > 1 {
+		cp := longestCommonPrefix(matches)
+		if cp != "" {
+			completed := cp
+			if dir != "." {
+				completed = filepath.Join(dir, cp)
+			}
+			newVal := val[:idx+8] + completed
+			i.textarea.SetValue(newVal)
+		}
+	}
+	return nil, nil
+}
+
+func longestCommonPrefix(strs []string) string {
+	if len(strs) == 0 {
+		return ""
+	}
+	prefix := strs[0]
+	for _, s := range strs[1:] {
+		for !strings.HasPrefix(s, prefix) {
+			prefix = prefix[:len(prefix)-1]
+			if prefix == "" {
+				return ""
+			}
+		}
+	}
+	return prefix
 }
