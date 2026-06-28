@@ -194,6 +194,17 @@ func runOrchestrator() error {
 		return err
 	}
 	o := orchestrator.NewWithAgents(extra)
+
+	// Wire sub-agents (optional). The Cartographer only needs a repo
+	// root and is always safe to wire. The Adversary and Governor need
+	// LLM-backed agent implementations (AdversaryAgent interface,
+	// AgentFactory) which are not available in the plain CLI context —
+	// they are wired by callers that have real LLM clients (e.g. the
+	// daemon, loopbuilder, or programmatic API consumers).
+	if wd, err := os.Getwd(); err == nil {
+		o.Cartographer = orchestrator.NewCartographer(wd)
+	}
+
 	plan := o.Plan(orch2Prompt)
 	if orch2PlanOnly {
 		if orch2Format == "json" {

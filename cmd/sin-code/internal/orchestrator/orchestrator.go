@@ -7,7 +7,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os/exec"
 	"time"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 )
 
 type Orchestrator struct {
@@ -18,6 +21,15 @@ type Orchestrator struct {
 	Scratchpad  *Scratchpad
 	MaxParallel int
 	Episodes    *EpisodeStore
+
+	// Sub-agents (optional, nil-safe). When non-nil they enrich the
+	// orchestrator flow: Cartographer maps the repo before planning,
+	// Adversary probes for counterexamples after dispatch, Governor
+	// runs escalating repair rounds on failed tasks.
+	Cartographer *Cartographer
+	Adversary    *Adversary
+	Governor     *Governor
+	Hooks        *hooks.Engine
 }
 
 func New() *Orchestrator {
@@ -57,6 +69,12 @@ func (o *Orchestrator) Run(ctx context.Context, prompt string, opts ...RunOption
 	for _, opt := range opts {
 		opt(cfg)
 	}
+	// Cartographer: index repo symbols before planning (best-effort,
+	// non-fatal — the planner works without it, just with less context).
+	if o.Cartographer != nil {
+		_ = o.Cartographer.IndexAll(ctx)
+	}
+
 	plan := o.Planner.BuildPlan(prompt)
 	if o.Episodes != nil && o.Episodes.hasSchema {
 		if eps, err := o.Episodes.Similar(ctx, prompt, 3); err == nil && len(eps) > 0 {
@@ -92,6 +110,38 @@ func (o *Orchestrator) Run(ctx context.Context, prompt string, opts ...RunOption
 		}
 		return nil, err
 	}
+
+	// Adversary: probe for counterexamples after dispatch succeeds
+	// (best-effort — a nil Adversary or an empty diff is a no-op).
+	if o.Adversary != nil {
+		diff := scratchDiff(o.Scratchpad, plan, o.Adversary.Workdir)
+		if diff != "" {
+			advResult, _ := o.Adversary.Review(ctx, diff, string(plan.Intent))
+			if advResult != nil && advResult.Landed > 0 {
+				for _, atk := range advResult.Attacks {
+					if atk.Landed {
+						o.Scratchpad.Write("adversary", "adversary-attack:"+atk.Hypothesis, atk.Hypothesis)
+					}
+				}
+			}
+		}
+	}
+
+	// Governor: escalating repair for failed tasks (best-effort).
+	// Only tasks that were dispatched but ended in TaskFailed are
+	// eligible — pending/blocked/cancelled tasks are left alone.
+	if o.Governor != nil {
+		for _, task := range plan.Tasks {
+			if task.Status == TaskFailed {
+				govResult, _ := o.Governor.Execute(ctx, task, o.Scratchpad)
+				if govResult != nil && govResult.Passed {
+					task.Status = TaskCompleted
+					task.Error = ""
+				}
+			}
+		}
+	}
+
 	result := o.Aggregator.Aggregate(plan)
 	if o.Episodes != nil && o.Episodes.hasSchema {
 		_ = o.Episodes.Record(ctx, &Episode{
@@ -138,4 +188,24 @@ func planToJSON(plan *Plan) json.RawMessage {
 		return json.RawMessage(`{}`)
 	}
 	return data
+}
+
+// scratchDiff extracts a diff for the Adversary to probe. It checks
+// the scratchpad for a pre-recorded diff section first, then falls
+// back to `git diff` in the workdir. Returns "" when no diff is
+// available — the Adversary call site treats empty as a no-op.
+func scratchDiff(scratch *Scratchpad, plan *Plan, workdir string) string {
+	if scratch != nil && plan != nil {
+		if diff, ok := scratch.Read("diff:" + plan.ID); ok && diff != "" {
+			return diff
+		}
+	}
+	if workdir == "" {
+		workdir = "."
+	}
+	out, err := exec.Command("git", "-C", workdir, "diff").CombinedOutput()
+	if err != nil {
+		return ""
+	}
+	return string(out)
 }
