@@ -16,6 +16,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
 
@@ -87,10 +88,20 @@ func (l *Loop) SpawnSubagent(ctx context.Context, sessions *session.Store, req S
 		// sub-agent's Run is always the default; the parent's
 		// RunOverride is its own concern.
 	}
+	l.fire(ctx, hooks.AgentSpawn, "", map[string]any{
+		"goal": req.Goal, "session_id": sub.ID,
+	})
 	res, err := child.Run(ctx, sub, req.Goal)
 	if err != nil {
+		l.fire(ctx, hooks.AgentComplete, "", map[string]any{
+			"goal": req.Goal, "session_id": sub.ID, "error": err.Error(),
+		})
 		return nil, err
 	}
+	l.fire(ctx, hooks.AgentComplete, "", map[string]any{
+		"goal": req.Goal, "session_id": sub.ID,
+		"verified": res.Verified, "turns": res.Turns,
+	})
 	return &SubagentResult{
 		Summary:      res.Summary,
 		Verified:     res.Verified,

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 )
 
@@ -122,11 +123,21 @@ func (l *Loop) runOneSubagent(ctx context.Context, sub *session.Session, req Sub
 		// SpawnSubagent (issue #153). The sub-agent's Run is always
 		// the default.
 	}
+	l.fire(ctx, hooks.AgentSpawn, "", map[string]any{
+		"goal": req.Goal, "session_id": sub.ID, "index": index,
+	})
 	res, err := child.Run(ctx, sub, req.Goal)
 	if err != nil {
+		l.fire(ctx, hooks.AgentComplete, "", map[string]any{
+			"goal": req.Goal, "session_id": sub.ID, "index": index, "error": err.Error(),
+		})
 		out.Err = fmt.Errorf("subagent %d (%s): %w", index, req.Goal, err)
 		return out
 	}
+	l.fire(ctx, hooks.AgentComplete, "", map[string]any{
+		"goal": req.Goal, "session_id": sub.ID, "index": index,
+		"verified": res.Verified, "turns": res.Turns,
+	})
 	out.Result = &SubagentResult{
 		Summary:      res.Summary,
 		Verified:     res.Verified,

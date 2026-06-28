@@ -8,6 +8,8 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 )
 
 type RepairPolicy struct {
@@ -44,6 +46,7 @@ type Critic struct {
 	Verifier *Verifier
 	Checks   []Check
 	Policy   RepairPolicy
+	Hooks    *hooks.Engine
 }
 
 func NewCritic(vf *Verifier, checks []Check) *Critic {
@@ -108,6 +111,15 @@ func (c *Critic) Drive(ctx context.Context, ag Agent, task *Task, scratch *Scrat
 		}
 	}
 	collectCriticFindings(res)
+	if !res.Passed && c.Hooks != nil {
+		c.Hooks.Fire(ctx, hooks.Payload{
+			Event: hooks.CriticReject,
+			Data: map[string]any{
+				"task_id":  task.ID,
+				"attempts": len(res.Attempts),
+			},
+		})
+	}
 	return res, nil
 }
 

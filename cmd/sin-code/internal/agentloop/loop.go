@@ -722,6 +722,12 @@ func (l *Loop) execute(ctx context.Context, tc ToolCall) (out string, injects []
 	}
 	post := l.fire(ctx, hooks.ToolPost, tc.Name, postData)
 	injects = append(injects, post.PromptInjects...)
+	if tc.Name == "sin_memory_add" {
+		l.fire(ctx, hooks.MemoryWrite, tc.Name, map[string]any{
+			"insight": tc.Args["insight"],
+			"project": tc.Args["project"],
+		})
+	}
 	l.record(ctx, ledger.TypeToolCall, map[string]any{"tool": tc.Name}, "tool call: "+tc.Name)
 	l.recordUsage(ctx, tc.Name, ledger.OutcomeOK)
 	return res, injects
@@ -827,7 +833,13 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 	toolsSeen := map[string]bool{}
 	var toolsUsed []string
 
+	var runTurns int
+	defer func() {
+		l.fire(ctx, hooks.SessionEnd, "", map[string]any{"turns": runTurns})
+	}()
+
 	for turn := 0; turn < maxTurns; turn++ {
+		runTurns = turn + 1
 		l.fire(ctx, hooks.TurnStart, "", map[string]any{"turn": turn})
 		l.emitProgress(ProgressEvent{Event: "turn.start", Turn: turn})
 		if err := ctx.Err(); err != nil {
@@ -882,13 +894,19 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 					// history so future --resume reads the trimmed view.
 					msgs = ctxSnapshot.result.Kept
 				}
-				for _, inj := range cpre.PromptInjects {
-					msgs = append(msgs, session.Message{Role: "user", Content: inj})
-				}
-				if err := l.saveHistory(ctx, sess, msgs); err != nil {
-					return nil, err
-				}
+			for _, inj := range cpre.PromptInjects {
+				msgs = append(msgs, session.Message{Role: "user", Content: inj})
 			}
+			if err := l.saveHistory(ctx, sess, msgs); err != nil {
+				return nil, err
+			}
+			l.fire(ctx, hooks.MemoryCompact, "", map[string]any{
+				"messages_before": len(msgs),
+				"messages_after":  len(ctxSnapshot.result.Kept),
+				"mode":            ctxSnapshot.mode.String(),
+				"turn":            turn,
+			})
+		}
 		}
 		reqMsgs := msgs
 		if l.CompressMessages != nil {
@@ -1328,6 +1346,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 		if err := l.saveHistory(ctx, sess, msgs); err != nil {
 			return nil, err
 		}
+		l.fire(ctx, hooks.TurnEnd, "", map[string]any{"turn": turn})
 	}
 	// maxTurns reached without verified completion.
 	if l.AllowContinuation {

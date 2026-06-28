@@ -14,6 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 )
 
 type AttackKind string
@@ -74,6 +76,7 @@ type Adversary struct {
 	Workdir      string
 	MaxAttacks   int
 	ProbeTimeout time.Duration
+	Hooks        *hooks.Engine
 }
 
 func NewAdversary(agent AdversaryAgent, workdir string) *Adversary {
@@ -104,6 +107,16 @@ func (adv *Adversary) Review(ctx context.Context, diff, impactBrief string) (*Ad
 	}
 	res.Cleared = res.Landed == 0
 	collectAdversaryFindings(res)
+	if len(res.Attacks) > 0 && adv.Hooks != nil {
+		adv.Hooks.Fire(ctx, hooks.Payload{
+			Event: hooks.AdversaryFinding,
+			Data: map[string]any{
+				"landed": res.Landed,
+				"total":  len(res.Attacks),
+				"cleared": res.Cleared,
+			},
+		})
+	}
 	return res, nil
 }
 

@@ -8,6 +8,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 )
 
 type Rung struct {
@@ -65,6 +67,7 @@ type Governor struct {
 	RepoRoot string
 	Factory  AgentFactory
 	Router   *StrategyRouter
+	Hooks    *hooks.Engine
 }
 
 func (g *Governor) Execute(ctx context.Context, task *Task, scratch *Scratchpad) (*GovernorResult, error) {
@@ -73,13 +76,24 @@ func (g *Governor) Execute(ctx context.Context, task *Task, scratch *Scratchpad)
 
 	for i, rung := range g.Ladder {
 		if i > 0 {
+			reason := escalationReason(lastVerdict)
 			res.Escalations = append(res.Escalations, Escalation{
 				FromRung: g.Ladder[i-1].Name,
 				ToRung:   rung.Name,
-				Reason:   escalationReason(lastVerdict),
+				Reason:   reason,
 				Verdict:  lastVerdict,
 				At:       timeNow(),
 			})
+			if g.Hooks != nil {
+				g.Hooks.Fire(ctx, hooks.Payload{
+					Event: hooks.GovernorBlock,
+					Data: map[string]any{
+						"from":   g.Ladder[i-1].Name,
+						"to":     rung.Name,
+						"reason": reason,
+					},
+				})
+			}
 		}
 		res.FinalRung = rung.Name
 
