@@ -124,6 +124,38 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 			m.Mode = ModeHelpOverlay
 		}
 		return nil
+	case "/compact":
+		m.manualCompactContext()
+		return nil
+	case "/dag":
+		m.SwitchView(ViewDAG)
+		return nil
+	case "/ctx-viz":
+		m.SwitchView(ViewContextViz)
+		return nil
+	case "/dashboard":
+		m.SwitchView(ViewAgentDashboard)
+		return nil
+	case "/sessions":
+		m.OpenSessionSwitcher()
+		return nil
+	case "/tools":
+		m.SwitchView(ViewTools)
+		return nil
+	case "/btw":
+		m.appendChat(ChatMessage{Kind: chatSystem, Text: "usage: /btw <question> — ask a side question without breaking the main context"})
+		return nil
+	case "/undercover":
+		if m.UndercoverMode != nil {
+			on := m.UndercoverMode.Toggle()
+			status := "undercover mode: OFF — AI identity visible in commits"
+			if on {
+				status = "undercover mode: ON — AI identity hidden in commits"
+			}
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: status})
+			m.AppendHistory(ViewChat.String(), "undercover-toggle", status, true)
+		}
+		return nil
 	}
 
 	if strings.HasPrefix(trimmed, "/theme custom ") {
@@ -159,6 +191,37 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 			m.appendChat(ChatMessage{Kind: chatError, Text: "Failed to export theme: " + err.Error()})
 		} else {
 			m.appendChat(ChatMessage{Kind: chatSystem, Text: "Theme exported to " + path})
+		}
+		return nil
+	}
+	if strings.HasPrefix(trimmed, "/btw ") {
+		question := strings.TrimSpace(strings.TrimPrefix(trimmed, "/btw "))
+		if question == "" {
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: "usage: /btw <question> — ask a side question without breaking the main context"})
+		} else {
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: "BTW side-question requires an LLM client to be wired. Question: " + question})
+		}
+		return nil
+	}
+	if strings.HasPrefix(trimmed, "/undercover ") {
+		arg := strings.ToLower(strings.TrimSpace(strings.TrimPrefix(trimmed, "/undercover ")))
+		if m.UndercoverMode != nil {
+			switch arg {
+			case "on", "enable", "true":
+				m.UndercoverMode.Enable()
+				m.appendChat(ChatMessage{Kind: chatSystem, Text: "undercover mode: ON — AI identity hidden in commits"})
+			case "off", "disable", "false":
+				m.UndercoverMode.Disable()
+				m.appendChat(ChatMessage{Kind: chatSystem, Text: "undercover mode: OFF — AI identity visible in commits"})
+			case "status", "show":
+				status := "undercover mode: OFF — AI identity visible in commits"
+				if m.UndercoverMode.Enabled() {
+					status = "undercover mode: ON — AI identity hidden in commits"
+				}
+				m.appendChat(ChatMessage{Kind: chatSystem, Text: status})
+			default:
+				m.appendChat(ChatMessage{Kind: chatSystem, Text: "usage: /undercover [on|off|status] — toggle undercover mode"})
+			}
 		}
 		return nil
 	}

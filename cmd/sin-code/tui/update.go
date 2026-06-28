@@ -2338,6 +2338,27 @@ func (m *Model) autoCompactContext() {
 	m.AppendHistory(ViewChat.String(), "auto-compact", summary, true)
 }
 
+func (m *Model) manualCompactContext() {
+	if len(m.ChatHistory) <= 10 {
+		m.appendChat(ChatMessage{Kind: chatSystem, Text: "Not enough messages to compact (need >10)"})
+		return
+	}
+	before := len(m.ChatHistory)
+	keep := 8
+	summary := fmt.Sprintf("[manual compaction: %d messages removed to free up space]", before-keep)
+	m.ChatHistory = append([]ChatMessage{{Kind: chatSystem, Text: summary}}, m.ChatHistory[before-keep:]...)
+	m.Footer.Compacted = true
+
+	m.SetBanner(&NotificationItem{
+		ID:      "manual-compact",
+		Title:   "Context Compacted",
+		Message: fmt.Sprintf("Reduced from %d to %d messages", before, keep+1),
+		Type:    "info",
+	})
+
+	m.AppendHistory(ViewChat.String(), "manual-compact", summary, true)
+}
+
 func (m *Model) setStreaming(streaming bool) {
 	m.Footer.Streaming = streaming
 	if streaming && m.TypewriterBuf != nil {

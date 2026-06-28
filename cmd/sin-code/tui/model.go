@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/commands"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 
 	"charm.land/bubbles/v2/list"
@@ -278,6 +279,9 @@ type Model struct {
 	// Compact rendering toggle (chat view)
 	CompactMode *CompactMode
 
+	// Undercover mode (issue #274) — toggle AI identity hiding in commits
+	UndercoverMode *commands.UndercoverMode
+
 	// Model switcher popup (#315)
 	ModelSwitcher *ModelSwitcher
 
@@ -504,6 +508,7 @@ func NewModel() *Model {
 		ContextMeter:  NewContextMeter(NewStyles(Themes[0]), 30),
 		TypewriterBuf: NewTypewriterBuffer(DefaultTypewriterConfig()),
 		CompactMode:   NewCompactMode(),
+		UndercoverMode: commands.NewUndercoverMode(),
 		ModelSwitcher: NewModelSwitcher(),
 		HelpOverlay:   NewHelpOverlay(DefaultKeymapConfig()),
 		FilePicker:    NewFilePicker(""),
