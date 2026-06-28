@@ -1,6 +1,6 @@
 ---
 name: skill-memory-honcho
-description: Behavioral memory layer for opencode agents. Stores conversations, preferences, and peer models across sessions with graceful degradation.
+description: Use when user says 'user preference', 'remember that', 'behavioral memory', 'peer model', 'session context'. Behavioral memory layer for opencode agents. Stores conversations, preferences, and peer models across sessions with graceful degradation.
 license: MIT
 compatibility:
   - sin-code

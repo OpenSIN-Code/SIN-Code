@@ -21,6 +21,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 )
 
 // ── read ───────────────────────────────────────────────────────────────
@@ -730,7 +732,7 @@ func writeFileAtomicWithHooks(path, content string, opts writeOpts, hooks writeH
 
 	prevInfo, statErr := hooks.stat(path)
 	res.Created = statErr != nil
-	mode := os.FileMode(0644)
+	mode := filemode.Default()
 	if statErr == nil {
 		mode = prevInfo.Mode().Perm()
 		if opts.backup {

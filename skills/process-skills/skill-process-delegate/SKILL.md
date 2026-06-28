@@ -12,6 +12,9 @@ license: MIT
 lifecycle: native
 compatibility:
   - opencode
+  - claude-code
+  - codex
+  - sin-code
 metadata:
   audience: agents
   workflow: delegation

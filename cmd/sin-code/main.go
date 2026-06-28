@@ -23,6 +23,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/dataset"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/eval"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/evalharness"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/notifications"
@@ -190,7 +191,7 @@ func checkUpdate() {
 
 	// Touch the stamp file immediately so repeated invocations don't hammer GitHub.
 	os.MkdirAll(stampDir, 0755)
-	os.WriteFile(stampPath, []byte(time.Now().Format(time.RFC3339)), 0644)
+	os.WriteFile(stampPath, []byte(time.Now().Format(time.RFC3339)), filemode.Default())
 
 	// Query GitHub with a short timeout so the CLI stays responsive.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

@@ -1,6 +1,6 @@
 ---
 name: skill-github-actions
-description: One-command GitHub Actions workflow deployment for OpenSIN-Code repos. Provisions canonical workflows, branch protection, dependabot, and release automation.
+description: Use when user says 'github actions', 'CI workflow', 'deploy workflow', 'branch protection', 'release automation'. One-command GitHub Actions workflow deployment for OpenSIN-Code repos. Provisions canonical workflows, branch protection, dependabot, and release automation.
 license: MIT
 compatibility:
   - sin-code

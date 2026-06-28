@@ -1,6 +1,6 @@
 ---
 name: skill-planning-enterprise
-description: Agent-first enterprise planning skill with a strict JSON CLI, deterministic validation, idempotent execution, and governance-aware rollback.
+description: Use when user says 'enterprise planning', 'project plan', 'phase planning', 'governance rollback', 'deterministic plan'. Agent-first enterprise planning skill with a strict JSON CLI, deterministic validation, idempotent execution, and governance-aware rollback.
 license: MIT
 compatibility:
   - sin-code

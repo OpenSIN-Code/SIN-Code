@@ -33,6 +33,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/circuitbreaker"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/egress"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 )
 
 var (
@@ -2069,7 +2070,7 @@ func harvestURLFetch(url, method string, timeout int, format string) error {
 
 	// Save to cache
 	if cacheData, err := json.MarshalIndent(result, "", "  "); err == nil {
-		_ = os.WriteFile(cacheFile, cacheData, 0644)
+		_ = os.WriteFile(cacheFile, cacheData, filemode.Default())
 	}
 
 	if format == "json" {

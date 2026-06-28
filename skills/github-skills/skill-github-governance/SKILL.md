@@ -1,6 +1,6 @@
 ---
 name: skill-github-governance
-description: "Autonomous repository management: internal governance (Zeus & Hermes) and external bug-hunter outreach. Coupled with skill-github-readme for visual enhancement."
+description: "Use when user says 'repo governance', 'autonomous management', 'bug-hunter outreach', 'repository governance'. Autonomous repository management: internal governance (Zeus & Hermes) and external bug-hunter outreach. Coupled with skill-github-readme for visual enhancement."
 license: MIT
 compatibility:
   - opencode

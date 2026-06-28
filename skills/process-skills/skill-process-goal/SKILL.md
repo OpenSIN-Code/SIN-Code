@@ -1,6 +1,6 @@
 ---
 name: skill-process-goal
-description: Track long-running goals with subtasks, dependencies, checkpoints, and rollback. Use when work spans multiple sessions or subtasks.
+description: Use when user says 'track goal', 'long-running goal', 'subtasks', 'checkpoints', 'goal rollback'. Track long-running goals with subtasks, dependencies, checkpoints, and rollback. Use when work spans multiple sessions or subtasks.
 license: MIT
 compatibility:
   - sin-code

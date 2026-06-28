@@ -1873,7 +1873,7 @@ var exportCmd = &cobra.Command{
 			return fmt.Errorf("unknown format: %q (use json|jsonl|markdown)", format)
 		}
 		if output != "" && output != "-" {
-			return osWriteFileTodo(output, data, 0644)
+			return osWriteFileTodo(output, data, filemode.Default())
 		}
 		fmt.Print(string(data))
 		return nil

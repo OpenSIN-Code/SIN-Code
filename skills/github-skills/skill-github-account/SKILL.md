@@ -1,6 +1,6 @@
 ---
 name: skill-github-account
-description: GitHub Account Registrierung via Google OAuth mit Fallback.
+description: Use when user says 'github account', 'create github account', 'github signup', 'oauth github', 'register github'. GitHub Account Registrierung via Google OAuth mit Fallback.
 license: MIT
 compatibility:
   - sin-code

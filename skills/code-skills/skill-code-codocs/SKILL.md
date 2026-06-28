@@ -1,6 +1,6 @@
 ---
 name: skill-code-codocs
-description: Maintain the two-layer documentation standard (CoDocs .doc.md companions + inline comments) for every meaningful code file.
+description: Use when user says 'codocs', 'documentation companion', 'doc.md', 'inline docs standard', 'documentation standard'. Maintain the two-layer documentation standard (CoDocs .doc.md companions + inline comments) for every meaningful code file.
 license: MIT
 compatibility:
   - sin-code

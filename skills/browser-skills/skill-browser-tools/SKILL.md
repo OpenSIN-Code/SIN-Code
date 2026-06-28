@@ -1,6 +1,6 @@
 ---
 name: skill-browser-tools
-description: Browser automation and CDP evidence capture for agents. Navigate, record, screenshot, scrape, and interact with web pages. Surfaces deterministic findings (network failures, JS exceptions, CORS/CSP violations, security state) without requiring LLM interpretation of raw logs.
+description: Use when user says 'open browser', 'navigate to', 'click', 'screenshot', 'scrape', 'browser automation', 'web scraping'. Browser automation and CDP evidence capture for agents. Navigate, record, screenshot, scrape, and interact with web pages. Surfaces deterministic findings (network failures, JS exceptions, CORS/CSP violations, security state) without requiring LLM interpretation of raw logs.
 license: MIT
 compatibility:
   - sin-code

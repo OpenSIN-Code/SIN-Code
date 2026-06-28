@@ -1,6 +1,6 @@
 ---
 name: skill-github-readme
-description: "Transform ANY repository into a visually stunning, instantly understandable experience. Hero banner, SOTA badges, benefit-driven bullets, clean code blocks, social proof, star history. Based on research of 5 top GitHub repos (Anthropic, OpenAI, Vercel, tldraw, screenshot-to-code). Embeds sin-code image-graph charts for benchmark data."
+description: "Use when user says 'readme', 'github readme', 'visual repo', 'repo beautify', 'stunning readme'. Transform ANY repository into a visually stunning, instantly understandable experience. Hero banner, SOTA badges, benefit-driven bullets, clean code blocks, social proof, star history. Based on research of 5 top GitHub repos (Anthropic, OpenAI, Vercel, tldraw, screenshot-to-code). Embeds sin-code image-graph charts for benchmark data."
 license: MIT
 compatibility:
   - opencode

@@ -1,6 +1,6 @@
 ---
 name: skill-design-image
-description: Generate, edit, and inspect images for the project. Create diagrams, screenshots, or artwork.
+description: Use when user says 'generate image', 'create diagram', 'make screenshot', 'edit image', 'project artwork'. Generate, edit, and inspect images for the project. Create diagrams, screenshots, or artwork.
 license: MIT
 compatibility:
   - sin-code

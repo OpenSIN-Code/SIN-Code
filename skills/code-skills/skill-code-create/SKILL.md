@@ -5,6 +5,8 @@ license: MIT
 compatibility:
   - sin-code
   - opencode
+  - claude-code
+  - codex
 metadata:
   author: SIN-Code
   version: 3.20.0

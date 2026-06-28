@@ -1,6 +1,6 @@
 ---
 name: skill-shop-cj-dropshipping
-description: CJ Dropshipping API skill for SIN-Code agents — product search, import, sync, orders, freight, reviews, and supplier orchestration.
+description: Use when user says 'CJ dropshipping', 'product search', 'import product', 'dropship orders', 'supplier lookup'. CJ Dropshipping API skill for SIN-Code agents — product search, import, sync, orders, freight, reviews, and supplier orchestration.
 license: MIT
 compatibility:
   - sin-code

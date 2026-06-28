@@ -1,6 +1,6 @@
 ---
 name: skill-code-mcp-builder
-description: Meta-skill that scaffolds new MCP servers in python-fastmcp, node-mcp, or go-mcp. Provides tools for scaffold, template_list, add_tool, test, register, validate, publish, and audit.
+description: Use when user says 'build MCP server', 'scaffold MCP', 'new MCP tool', 'MCP server builder', 'create MCP'. Meta-skill that scaffolds new MCP servers in python-fastmcp, node-mcp, or go-mcp. Provides tools for scaffold, template_list, add_tool, test, register, validate, publish, and audit.
 license: MIT
 compatibility:
   - sin-code

@@ -18,6 +18,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/plugins"
 )
@@ -345,7 +346,7 @@ func saveState(state *orchestrateState) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, data, filemode.Default())
 }
 
 func runOrchestrate(action, title, tags, idStr, format string) error {

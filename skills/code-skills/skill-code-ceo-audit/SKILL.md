@@ -1,6 +1,6 @@
 ---
 name: skill-code-ceo-audit
-description: CEO-grade SOTA repository audit. Runs 47 quality gates (security, performance, code quality, dependencies, tests, docs, compliance) and produces a board-ready Markdown + SARIF report.
+description: Use when user says 'ceo audit', 'audit this repo', 'check SOTA', 'pre-release check', 'compliance audit', 'security audit'. CEO-grade SOTA repository audit. Runs 47 quality gates (security, performance, code quality, dependencies, tests, docs, compliance) and produces a board-ready Markdown + SARIF report.
 license: MIT
 compatibility:
   - sin-code

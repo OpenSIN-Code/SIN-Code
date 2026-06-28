@@ -1,6 +1,6 @@
 ---
 name: skill-code-preview
-description: Open generated images and screenshots in macOS Preview automatically. Always use when creating or referencing images.
+description: Use when user says 'open in preview', 'show image', 'open screenshot', 'preview image', 'display image'. Open generated images and screenshots in macOS Preview automatically. Always use when creating or referencing images.
 license: MIT
 compatibility:
   - sin-code

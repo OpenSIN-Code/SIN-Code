@@ -1,6 +1,6 @@
 ---
 name: skill-ecosystem-marketplace
-description: Manage the SIN-Code skill marketplace. Search, install, update, and remove skills from the catalog.
+description: Use when user says 'marketplace', 'install skill', 'search skills', 'skill catalog', 'remove skill'. Manage the SIN-Code skill marketplace. Search, install, update, and remove skills from the catalog.
 license: MIT
 compatibility:
   - sin-code

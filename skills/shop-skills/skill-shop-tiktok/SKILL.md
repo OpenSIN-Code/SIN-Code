@@ -1,6 +1,6 @@
 ---
 name: skill-shop-tiktok
-description: TikTok Shop automation and scraper skill for SIN-Code agents — product discovery, listing sync, order tracking, and trend analytics.
+description: Use when user says 'TikTok Shop', 'tiktok scraper', 'product discovery', 'listing sync', 'trend analytics'. TikTok Shop automation and scraper skill for SIN-Code agents — product discovery, listing sync, order tracking, and trend analytics.
 license: MIT
 compatibility:
   - sin-code

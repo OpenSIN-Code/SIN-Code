@@ -1,6 +1,6 @@
 ---
 name: skill-infrastructure-cloudflare
-description: Cloudflare skill — Workers, Pages, Workers AI, R2, KV, D1, Cache, Tunnels, DNS, WAF.
+description: Use when user says 'cloudflare', 'workers', 'pages', 'R2', 'KV', 'tunnels', 'DNS', 'WAF'. Cloudflare skill — Workers, Pages, Workers AI, R2, KV, D1, Cache, Tunnels, DNS, WAF.
 license: MIT
 compatibility:
   - sin-code

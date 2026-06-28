@@ -1,6 +1,6 @@
 ---
 name: skill-ecosystem-context
-description: Unified context bridge that queries SCKG, sin-brain, GitNexus, and local SQLite in a single MCP call.
+description: Use when user says 'context bridge', 'unified context', 'query all sources', 'cross-source context', 'SCKG context'. Unified context bridge that queries SCKG, sin-brain, GitNexus, and local SQLite in a single MCP call.
 license: MIT
 compatibility:
   - sin-code

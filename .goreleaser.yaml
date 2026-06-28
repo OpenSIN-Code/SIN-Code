@@ -88,7 +88,7 @@ brews:
       token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     directory: Formula
     homepage: "https://github.com/OpenSIN-Code/SIN-Code"
-    description: "SIN-Code unified toolchain — 50+ analysis and manipulation tools in one binary"
+    description: "SIN-Code unified toolchain — 90+ subcommands and 52+ MCP tools in one static binary"
     license: "MIT"
     skip_upload: false
     commit_author:

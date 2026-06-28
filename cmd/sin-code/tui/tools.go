@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/mcpclient"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/sandbox"
 )
@@ -199,7 +200,7 @@ func tuiToolWrite(path, content string) (string, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), filemode.Default()); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("wrote %d bytes to %s", len(content), path), nil
@@ -219,7 +220,7 @@ func tuiToolEdit(path, old, new string) (string, error) {
 		return "", fmt.Errorf("old string not found in file")
 	}
 	content = strings.Replace(content, old, new, 1)
-	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(content), filemode.Default()); err != nil {
 		return "", err
 	}
 	return "edited file", nil

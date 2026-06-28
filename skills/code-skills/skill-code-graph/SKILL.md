@@ -5,6 +5,8 @@ license: MIT
 compatibility:
   - opencode
   - sin-code
+  - claude-code
+  - codex
 metadata:
   author: SIN-Rotator
   version: 2.0.0

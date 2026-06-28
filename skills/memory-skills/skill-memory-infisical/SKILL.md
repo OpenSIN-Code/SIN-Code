@@ -1,6 +1,6 @@
 ---
 name: skill-memory-infisical
-description: Centralized secret management via Infisical CLI. Stores API keys, tokens, and credentials without .env files or shell history.
+description: Use when user says 'secret', 'api key', 'credentials', 'infisical', 'store token', 'retrieve secret'. Centralized secret management via Infisical CLI. Stores API keys, tokens, and credentials without .env files or shell history.
 license: MIT
 compatibility:
   - sin-code

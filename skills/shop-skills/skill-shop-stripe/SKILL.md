@@ -1,6 +1,6 @@
 ---
 name: skill-shop-stripe
-description: Stripe payment and payout automation skill for SIN-Code agents — checkout, webhooks, payment links, instant payouts, and subscription management.
+description: Use when user says 'stripe', 'checkout', 'payment link', 'payout', 'subscription', 'webhook'. Stripe payment and payout automation skill for SIN-Code agents — checkout, webhooks, payment links, instant payouts, and subscription management.
 license: MIT
 compatibility:
   - sin-code

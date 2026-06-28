@@ -1,6 +1,6 @@
 ---
 name: skill-code-docs
-description: Collaborative document coauthoring for READMEs, ADRs, specs, design docs, RFCs, API docs, and changelogs via MCP. Use for structured document workflows with the user.
+description: Use when user says 'write readme', 'draft ADR', 'design doc', 'RFC', 'API doc', 'coauthor document', 'changelog'. Collaborative document coauthoring for READMEs, ADRs, specs, design docs, RFCs, API docs, and changelogs via MCP. Use for structured document workflows with the user.
 license: MIT
 compatibility:
   - sin-code

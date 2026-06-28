@@ -1,6 +1,6 @@
 ---
 name: skill-infrastructure-supabase
-description: Supabase self-hosted skill — SQL migrations, RLS policies, Auth, Storage, Realtime, Edge Functions, Triggers, Backups.
+description: Use when user says 'supabase', 'SQL migrations', 'RLS policies', 'edge functions', 'self-hosted supabase'. Supabase self-hosted skill — SQL migrations, RLS policies, Auth, Storage, Realtime, Edge Functions, Triggers, Backups.
 license: MIT
 compatibility:
   - sin-code

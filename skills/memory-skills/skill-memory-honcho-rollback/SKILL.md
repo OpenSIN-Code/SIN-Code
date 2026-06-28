@@ -1,6 +1,6 @@
 ---
 name: skill-memory-honcho-rollback
-description: Snapshot, diff, and rollback sin-brain / Honcho memory with merge/exact/patch strategies and an audit log.
+description: Use when user says 'memory rollback', 'snapshot memory', 'diff memory', 'rollback honcho', 'memory audit'. Snapshot, diff, and rollback sin-brain / Honcho memory with merge/exact/patch strategies and an audit log.
 license: MIT
 compatibility:
   - sin-code

@@ -1,6 +1,6 @@
 ---
 name: skill-multimodal-analyse
-description: "Read-only multimodal preprocessing using sin-analyse-suite MCP. Image, video, PDF, logs, data, audio detection/extraction."
+description: "Use when user says 'analyse image', 'analyse video', 'analyse PDF', 'analyse logs', 'analyse data', 'analyse audio'. Read-only multimodal preprocessing using sin-analyse-suite MCP. Image, video, PDF, logs, data, audio detection/extraction."
 license: MIT
 compatibility:
   - sin-code

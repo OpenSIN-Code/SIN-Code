@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 )
 
 var (
@@ -562,7 +564,7 @@ func dockerComposeUp(stack string, ttl int, rt string) error {
 			"runtime": rt,
 		}
 		data, _ := json.MarshalIndent(meta, "", "  ")
-		_ = os.WriteFile(metadataFile, data, 0644)
+		_ = os.WriteFile(metadataFile, data, filemode.Default())
 	}
 
 	return nil

@@ -1,6 +1,6 @@
 ---
 name: skill-debug-deep
-description: Ultimate enterprise debugging workflow — facts-first RCA, cross-tool intent discovery, parallel subagents, web validation, minimal safe fix, and persistent knowledge flush.
+description: Use when user says 'debug', 'trace bug', 'why does this fail', 'root cause', 'RCA', 'deep debug'. Ultimate enterprise debugging workflow — facts-first RCA, cross-tool intent discovery, parallel subagents, web validation, minimal safe fix, and persistent knowledge flush.
 license: MIT
 compatibility:
   - sin-code

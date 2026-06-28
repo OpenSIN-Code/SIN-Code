@@ -1,6 +1,6 @@
 ---
 name: skill-infrastructure-oci-vm
-description: OCI VM inventory, access, and management skill — Frankfurt Always Free Tier.
+description: Use when user says 'OCI VM', 'oracle cloud', 'frankfurt VM', 'VM management', 'always free tier'. OCI VM inventory, access, and management skill — Frankfurt Always Free Tier.
 license: MIT
 compatibility:
   - sin-code

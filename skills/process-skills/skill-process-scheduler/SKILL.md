@@ -1,6 +1,6 @@
 ---
 name: skill-process-scheduler
-description: Job scheduling with cron expressions and human-readable intervals via MCP server and CLI. Schedule, list, cancel, run, and inspect job execution logs.
+description: Use when user says 'schedule job', 'cron', 'interval', 'cancel job', 'run job now', 'job logs'. Job scheduling with cron expressions and human-readable intervals via MCP server and CLI. Schedule, list, cancel, run, and inspect job execution logs.
 license: MIT
 compatibility:
   - sin-code

@@ -1,6 +1,6 @@
 ---
 name: skill-shop-research-scientific
-description: "Scientific and research skills for PubMed, USPTO patent search, and arXiv preprints."
+description: "Use when user says 'PubMed', 'patent search', 'USPTO', 'arXiv', 'scientific research', 'preprints'. Scientific and research skills for PubMed, USPTO patent search, and arXiv preprints."
 license: MIT
 lifecycle: native
 compatibility: [claude-code, opencode, codex, cursor, windsurf, cline, copilot, aider, continue, zed]

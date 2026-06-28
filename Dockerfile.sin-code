@@ -1,0 +1,41 @@
+# SPDX-License-Identifier: MIT
+# Multi-stage build for the sin-code Go daemon / MCP server.
+#
+# Stage 1: builder — compiles a static Go binary (CGO_ENABLED=0, mandate M2)
+# Stage 2: runtime — distroless static image, non-root, no shell
+#
+# Build:    docker build -t sin-code:dev -f Dockerfile.sin-code .
+# Run MCP:  docker run --rm -i sin-code:dev serve
+# Run CLI:  docker run --rm -v $PWD:/workspace -w /workspace \
+#              sin-code:dev chat -p "hello"
+# Daemon:   docker run --rm -v $PWD:/workspace -w /workspace \
+#              sin-code:dev daemon --verify-cmd "go test ./..."
+
+# ── Build stage ───────────────────────────────────────────────
+FROM golang:1.26-alpine AS builder
+
+RUN apk add --no-cache git ca-certificates
+
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 go build \
+      -ldflags="-s -w -X github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal.Version=$(git describe --tags --always 2>/dev/null || echo dev)" \
+      -o /sin-code ./cmd/sin-code/
+
+# ── Runtime stage ─────────────────────────────────────────────
+# distroless/static — no shell, no package manager, minimal attack surface.
+# The nonroot variant runs as UID/GID 65532.
+FROM gcr.io/distroless/static-debian12:nonroot
+
+COPY --from=builder /sin-code /sin-code
+COPY --from=builder /src/skills /skills
+
+USER nonroot:nonroot
+
+# Default to `serve` so the image is drop-in for MCP clients over stdio.
+# Override with: docker run ... sin-code chat -p "..."
+ENTRYPOINT ["/sin-code"]
+CMD ["serve"]

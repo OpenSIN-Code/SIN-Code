@@ -1,6 +1,6 @@
 ---
 name: skill-process-grill
-description: Adversarial design-review interview. Relentlessly questions plans to surface hidden assumptions before implementation.
+description: Use when user says 'grill me', 'stress test', 'interrogate design', 'poke holes', 'challenge plan'. Adversarial design-review interview. Relentlessly questions plans to surface hidden assumptions before implementation.
 license: MIT
 compatibility:
   - sin-code

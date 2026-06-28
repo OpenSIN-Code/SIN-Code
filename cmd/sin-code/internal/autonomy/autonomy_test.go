@@ -452,7 +452,12 @@ func TestRunnerCronEnqueue(t *testing.T) {
 		Queue:     q,
 		Workspace: t.TempDir(),
 		Triggers:  []Trigger{{Type: "cron", Every: "1m", Prompt: "ping", Priority: 1}},
-		onEnqueue: func() { enqueued <- struct{}{} },
+		onEnqueue: func() {
+			select {
+			case enqueued <- struct{}{}:
+			default:
+			}
+		},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -560,7 +565,12 @@ func TestRunnerWatchEnqueue(t *testing.T) {
 		Workspace:    ws,
 		Triggers:     []Trigger{{Type: "watch", Glob: "*.txt", Debounce: "1ms", Prompt: "check", Priority: 1}},
 		PollInterval: 1 * time.Millisecond,
-		onEnqueue:    func() { enqueued <- struct{}{} },
+		onEnqueue: func() {
+			select {
+			case enqueued <- struct{}{}:
+			default:
+			}
+		},
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

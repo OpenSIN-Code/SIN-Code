@@ -1,6 +1,6 @@
 ---
 name: skill-github-app
-description: Automate GitHub App creation for OpenSIN organization using browser automation.
+description: Use when user says 'github app', 'create github app', 'github app automation', 'automate github app'. Automate GitHub App creation for OpenSIN organization using browser automation.
 license: MIT
 compatibility:
   - sin-code
