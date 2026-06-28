@@ -6,7 +6,6 @@ package internal
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -84,18 +83,8 @@ func TestUpdateAllPythonPackages_NotEmpty(t *testing.T) {
 }
 
 func TestUpdateAllGoTools_Count(t *testing.T) {
-	if len(AllGoTools) != 7 {
-		t.Errorf("expected 7 Go tools, got %d", len(AllGoTools))
-	}
-	names := make(map[string]bool)
-	for _, tool := range AllGoTools {
-		names[tool.Name] = true
-	}
-	expected := []string{"discover", "execute", "map", "grasp", "scout", "harvest", "orchestrate"}
-	for _, name := range expected {
-		if !names[name] {
-			t.Errorf("missing Go tool: %s", name)
-		}
+	if len(AllGoTools) != 0 {
+		t.Errorf("expected 0 Go tools (absorbed into main binary), got %d", len(AllGoTools))
 	}
 }
 
@@ -107,11 +96,14 @@ func TestUpdateGoPhase_RepoMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunGoPhase failed: %v", err)
 	}
-	if res.Skipped != 7 {
-		t.Errorf("all 7 should be skipped when repos missing, got Skipped=%d", res.Skipped)
+	if res.Skipped != 0 {
+		t.Errorf("with no Go tools, Skipped should be 0, got %d", res.Skipped)
 	}
 	if res.Updated != 0 {
-		t.Errorf("Updated should be 0 when repos missing, got %d", res.Updated)
+		t.Errorf("Updated should be 0, got %d", res.Updated)
+	}
+	if res.Failed != 0 {
+		t.Errorf("Failed should be 0, got %d", res.Failed)
 	}
 }
 
@@ -233,105 +225,41 @@ func TestUpdateRunPythonPhase_GsdFamily(t *testing.T) {
 }
 
 func TestUpdateRunGoPhase_WithFakeGo(t *testing.T) {
-	td := t.TempDir()
-	t.Setenv("SIN_CODE_REPOS_DIR", td)
-	binDir := t.TempDir()
-	t.Setenv("SIN_CODE_BIN_DIR", binDir)
-
-	repoPath := filepath.Join(td, "SIN-Code-Discover-Tool")
-	cmdPath := filepath.Join(repoPath, "cmd", "discover")
-	if err := os.MkdirAll(cmdPath, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(repoPath, ".git"), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	savedExecGit := execGit
-	execGit = func(ctx context.Context, args ...string) *exec.Cmd {
-		if len(args) > 0 && args[0] == "describe" {
-			return exec.CommandContext(ctx, "echo", "v1.2.0-3-g4c5a78d")
-		}
-		return savedExecGit(ctx, args...)
-	}
-	defer func() { execGit = savedExecGit }()
-
-	savedExecGo := execGo
-	execGo = func(ctx context.Context, args ...string) *exec.Cmd {
-		if len(args) > 0 && args[0] == "build" {
-			var outPath string
-			for i, a := range args {
-				if a == "-o" && i+1 < len(args) {
-					outPath = args[i+1]
-				}
-			}
-			if outPath != "" {
-				script := fmt.Sprintf("#!/bin/sh\necho v1.2.0-3-g4c5a78d\n")
-				os.WriteFile(outPath, []byte(script), 0755)
-			}
-			return exec.CommandContext(ctx, "true")
-		}
-		return savedExecGo(ctx, args...)
-	}
-	defer func() { execGo = savedExecGo }()
+	t.Setenv("SIN_CODE_REPOS_DIR", t.TempDir())
+	t.Setenv("SIN_CODE_BIN_DIR", t.TempDir())
 
 	ctx := context.Background()
 	opts := UpdateOptions{}
 	res, err := RunGoPhase(ctx, opts)
 	if err != nil {
-		t.Fatalf("RunGoPhase with fake go failed: %v", err)
+		t.Fatalf("RunGoPhase with no tools failed: %v", err)
 	}
-	if res.Updated != 1 {
-		t.Errorf("expected 1 updated (discover), got Updated=%d", res.Updated)
+	if res.Updated != 0 {
+		t.Errorf("with no Go tools, Updated should be 0, got %d", res.Updated)
 	}
-	if res.Skipped != 6 {
-		t.Errorf("expected 6 skipped (missing repos), got Skipped=%d", res.Skipped)
+	if res.Skipped != 0 {
+		t.Errorf("with no Go tools, Skipped should be 0, got %d", res.Skipped)
+	}
+	if res.Failed != 0 {
+		t.Errorf("with no Go tools, Failed should be 0, got %d", res.Failed)
 	}
 }
 
 func TestUpdateRunGoPhase_BuildFailure(t *testing.T) {
-	td := t.TempDir()
-	t.Setenv("SIN_CODE_REPOS_DIR", td)
+	t.Setenv("SIN_CODE_REPOS_DIR", t.TempDir())
 	t.Setenv("SIN_CODE_BIN_DIR", t.TempDir())
-
-	repoPath := filepath.Join(td, "SIN-Code-Discover-Tool")
-	cmdPath := filepath.Join(repoPath, "cmd", "discover")
-	if err := os.MkdirAll(cmdPath, 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(repoPath, ".git"), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	savedExecGit := execGit
-	execGit = func(ctx context.Context, args ...string) *exec.Cmd {
-		if len(args) > 0 && args[0] == "describe" {
-			return exec.CommandContext(ctx, "echo", "v1.2.0")
-		}
-		return savedExecGit(ctx, args...)
-	}
-	defer func() { execGit = savedExecGit }()
-
-	savedExecGo := execGo
-	execGo = func(ctx context.Context, args ...string) *exec.Cmd {
-		if len(args) > 0 && args[0] == "build" {
-			return exec.CommandContext(ctx, "false")
-		}
-		return savedExecGo(ctx, args...)
-	}
-	defer func() { execGo = savedExecGo }()
 
 	ctx := context.Background()
 	opts := UpdateOptions{}
 	res, err := RunGoPhase(ctx, opts)
 	if err != nil {
-		t.Fatalf("RunGoPhase should not return error on build failure: %v", err)
+		t.Fatalf("RunGoPhase should not return error: %v", err)
 	}
 	if res.Updated != 0 {
-		t.Errorf("all builds should fail, got Updated=%d", res.Updated)
+		t.Errorf("with no Go tools, Updated should be 0, got %d", res.Updated)
 	}
-	if res.Failed != 1 {
-		t.Errorf("expected 1 failure, got Failed=%d", res.Failed)
+	if res.Failed != 0 {
+		t.Errorf("with no Go tools, Failed should be 0, got %d", res.Failed)
 	}
 }
 
@@ -345,124 +273,56 @@ func TestUpdateRunGoPhase_DefaultReposDir(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RunGoPhase failed: %v", err)
 	}
-	if res.Skipped != 7 {
-		t.Errorf("expected 7 skipped, got %d", res.Skipped)
+	if res.Skipped != 0 {
+		t.Errorf("with no Go tools, Skipped should be 0, got %d", res.Skipped)
+	}
+	if res.Updated != 0 {
+		t.Errorf("with no Go tools, Updated should be 0, got %d", res.Updated)
+	}
+	if res.Failed != 0 {
+		t.Errorf("with no Go tools, Failed should be 0, got %d", res.Failed)
 	}
 }
 
 func TestUpdateRunGoPhase_GitDescribeError(t *testing.T) {
-	td := t.TempDir()
-	t.Setenv("SIN_CODE_REPOS_DIR", td)
+	t.Setenv("SIN_CODE_REPOS_DIR", t.TempDir())
 	t.Setenv("SIN_CODE_BIN_DIR", t.TempDir())
-
-	repoPath := filepath.Join(td, "SIN-Code-Discover-Tool")
-	if err := os.MkdirAll(filepath.Join(repoPath, "cmd", "discover"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(repoPath, ".git"), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	savedGit := execGit
-	execGit = func(ctx context.Context, args ...string) *exec.Cmd {
-		if len(args) > 0 && args[0] == "describe" {
-			return exec.CommandContext(ctx, "false")
-		}
-		return savedGit(ctx, args...)
-	}
-	defer func() { execGit = savedGit }()
 
 	ctx := context.Background()
 	res, err := RunGoPhase(ctx, UpdateOptions{})
 	if err != nil {
 		t.Fatalf("RunGoPhase failed: %v", err)
 	}
-	if res.Failed != 1 {
-		t.Errorf("expected 1 failure, got %d", res.Failed)
+	if res.Failed != 0 {
+		t.Errorf("with no Go tools, Failed should be 0, got %d", res.Failed)
 	}
 }
 
 func TestUpdateRunGoPhase_CheckOnly(t *testing.T) {
-	td := t.TempDir()
-	t.Setenv("SIN_CODE_REPOS_DIR", td)
+	t.Setenv("SIN_CODE_REPOS_DIR", t.TempDir())
 	t.Setenv("SIN_CODE_BIN_DIR", t.TempDir())
-
-	repoPath := filepath.Join(td, "SIN-Code-Discover-Tool")
-	if err := os.MkdirAll(filepath.Join(repoPath, "cmd", "discover"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(repoPath, ".git"), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	savedGit := execGit
-	execGit = func(ctx context.Context, args ...string) *exec.Cmd {
-		if len(args) > 0 && args[0] == "describe" {
-			return exec.CommandContext(ctx, "echo", "v1.0.0")
-		}
-		return savedGit(ctx, args...)
-	}
-	defer func() { execGit = savedGit }()
 
 	ctx := context.Background()
 	res, err := RunGoPhase(ctx, UpdateOptions{CheckOnly: true})
 	if err != nil {
 		t.Fatalf("RunGoPhase failed: %v", err)
 	}
-	if res.Skipped != 7 {
-		t.Errorf("expected 7 skipped (1 check-only + 6 missing repos), got %d", res.Skipped)
+	if res.Skipped != 0 {
+		t.Errorf("with no Go tools, Skipped should be 0, got %d", res.Skipped)
 	}
 }
 
 func TestUpdateRunGoPhase_VerifyBinaryError(t *testing.T) {
-	td := t.TempDir()
-	t.Setenv("SIN_CODE_REPOS_DIR", td)
-	binDir := t.TempDir()
-	t.Setenv("SIN_CODE_BIN_DIR", binDir)
-
-	repoPath := filepath.Join(td, "SIN-Code-Discover-Tool")
-	if err := os.MkdirAll(filepath.Join(repoPath, "cmd", "discover"), 0755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(repoPath, ".git"), 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	savedGit := execGit
-	execGit = func(ctx context.Context, args ...string) *exec.Cmd {
-		if len(args) > 0 && args[0] == "describe" {
-			return exec.CommandContext(ctx, "echo", "v1.0.0")
-		}
-		return savedGit(ctx, args...)
-	}
-	defer func() { execGit = savedGit }()
-
-	savedGo := execGo
-	execGo = func(ctx context.Context, args ...string) *exec.Cmd {
-		if len(args) > 0 && args[0] == "build" {
-			var outPath string
-			for i, a := range args {
-				if a == "-o" && i+1 < len(args) {
-					outPath = args[i+1]
-				}
-			}
-			if outPath != "" {
-				script := "#!/bin/sh\necho v2.0.0\n"
-				os.WriteFile(outPath, []byte(script), 0755)
-			}
-			return exec.CommandContext(ctx, "true")
-		}
-		return savedGo(ctx, args...)
-	}
-	defer func() { execGo = savedGo }()
+	t.Setenv("SIN_CODE_REPOS_DIR", t.TempDir())
+	t.Setenv("SIN_CODE_BIN_DIR", t.TempDir())
 
 	ctx := context.Background()
 	res, err := RunGoPhase(ctx, UpdateOptions{})
 	if err != nil {
 		t.Fatalf("RunGoPhase failed: %v", err)
 	}
-	if res.Failed != 1 {
-		t.Errorf("expected 1 failure, got %d", res.Failed)
+	if res.Failed != 0 {
+		t.Errorf("with no Go tools, Failed should be 0, got %d", res.Failed)
 	}
 }
 
