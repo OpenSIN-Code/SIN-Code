@@ -103,6 +103,8 @@ type SpawnSubgoalResult struct {
 // SpawnSubgoalSpec is the public ToolSpec for the chat tool surface.
 // The chat dispatcher advertises it via extraSpecs() and routes
 // invocations to the synchronous-wait implementation.
+//
+// sin-debt: chat-surface handler, upgrade: when chat_cmd gains queue access
 func SpawnSubgoalSpec() ToolSpec {
 	return ToolSpec{
 		Name: "spawn_subgoal",

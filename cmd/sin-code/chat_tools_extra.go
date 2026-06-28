@@ -27,6 +27,7 @@ import (
 	"github.com/chromedp/chromedp"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgen"
@@ -148,6 +149,7 @@ func extraSpecs() []agentloopToolSpecAlias {
 			})},
 	}
 	allSpecs = append(allSpecs, registerBrowserInteractionSpecs()...)
+	allSpecs = append(allSpecs, agentloop.SpawnSubgoalSpec())
 	return allSpecs
 }
 
@@ -205,6 +207,8 @@ func extraTool(ctx context.Context, name string, args map[string]any) (string, e
 		return toolBrowserVitalsFlush(ctx)
 	case "sin_browser_diff":
 		return toolBrowserDiff(argStr(args, "window"))
+	case "spawn_subgoal":
+		return toolSpawnSubgoal(ctx, args)
 	default:
 		return "", fmt.Errorf("unknown tool %q", name)
 	}
@@ -1021,4 +1025,20 @@ func maybeGenerateTest(path string) string {
 		return fmt.Sprintf("\n[auto-generate] failed: %s", res.Error)
 	}
 	return fmt.Sprintf("\n[auto-generate] generated %s (test passed=%v)", strings.Join(res.GeneratedFiles, ", "), res.TestPassed)
+}
+
+// toolSpawnSubgoal handles the spawn_subgoal tool from the chat surface.
+// The chat tool function is stateless (no autonomy queue access); actual
+// sub-goal enqueueing happens through the daemon's wrapWithSpawn wrapper
+// (commands.go) which captures the queue via closure. When called from
+// the chat surface (non-daemon), the handler explains the limitation.
+//
+// sin-debt: chat-surface wiring, upgrade: when chat_cmd gains queue access
+func toolSpawnSubgoal(ctx context.Context, args map[string]any) (string, error) {
+	desc := argStr(args, "description")
+	if desc == "" {
+		return "", fmt.Errorf("spawn_subgoal: 'description' argument is required")
+	}
+	return "spawn_subgoal is available in daemon mode (sin-code daemon). " +
+		"In interactive chat, decompose the task inline instead.", nil
 }

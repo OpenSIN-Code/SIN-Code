@@ -101,7 +101,7 @@ Available Commands:
   scout               Search code with regex, semantic, symbol, and usage search
   security            Fast security analysis — auto-detects project type and runs available tools
   self-update         Check for and install the latest sin-code release
-  serve               Start an MCP server exposing all 15 sin-code tools
+  serve               Start an MCP server exposing all 54+ sin-code tools
   sessions            Manage persisted agent sessions
   skill               Manage ecosystem skills from upstream repos (install, status, update)
   skills              Manage bundled project-local skills embedded in the binary (install, list)
