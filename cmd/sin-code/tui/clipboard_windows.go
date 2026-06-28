@@ -2,6 +2,7 @@
 //go:build windows
 
 package tui
+// sin-debt: shrink, upgrade: when a second windows-clipboard function is needed, merge into a shared file
 
 import "os/exec"
 
