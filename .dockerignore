@@ -1,0 +1,15 @@
+.git
+.github
+SIN-Code-Container-Tool-Go/
+SIN-Code-SAST-Tool/
+SIN-Code-SBOM-Generator/
+SIN-Code-SBOM-Generator-Go/
+SIN-Code-SCA-Tool-Go/
+SIN-Code-Secrets-Scanner/
+SIN-Code-Security-Bundle/
+CEO-AUDIT-REPORT-*
+*.md
+tests/
+scripts/
+docs/
+evals/
