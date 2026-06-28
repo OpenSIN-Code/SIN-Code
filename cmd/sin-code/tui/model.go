@@ -91,6 +91,7 @@ type ChatState struct {
 	SlashAutocomplete *SlashAutocomplete
 	SlashMenu         *SlashMenu
 	ChatSearch        *ChatSearch
+	ScrollToMatchIdx  int
 }
 
 type AgentState struct {
@@ -488,6 +489,7 @@ func NewModel() *Model {
 			SlashAutocomplete: NewSlashAutocomplete(),
 			SlashMenu:         NewSlashMenu(s),
 			ChatSearch:        NewChatSearch(),
+			ScrollToMatchIdx:  -1,
 		},
 		ContextState:        DefaultContextState(),
 		AgentDashboardState: DefaultAgentDashboardState(),

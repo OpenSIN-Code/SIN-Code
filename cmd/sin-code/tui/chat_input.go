@@ -119,27 +119,10 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 		m.OpenModelSwitcher()
 		return nil
 	case "/help":
-		helpText := "Available commands:\n\n" +
-			"  /attach <path>  Attach a file to the next message\n" +
-			"  /attach-glob <pattern>  Attach files matching a glob pattern\n" +
-			"  /detach <name|index>  Remove an attachment\n" +
-			"  /clear  Clear chat history\n" +
-			"  /export Export chat to markdown file\n" +
-			"  /help   Show this help message\n" +
-			"  /theme custom <path>  Load custom theme from JSON\n" +
-			"  /theme export <path>  Export current theme to JSON\n\n" +
-			"Keys:\n" +
-			"  Enter        Send message\n" +
-			"  Shift+Enter  Insert newline\n" +
-			"  Ctrl+S       Send message (alternative)\n" +
-			"  Ctrl+C/X     Quit\n" +
-			"  Ctrl+M       Switch model\n" +
-			"  Ctrl+G       Switch session\n" +
-			"  Esc          Interrupt\n" +
-			"  y/n          Allow/deny permission dialog\n" +
-			"  PgUp/PgDn    Scroll chat history\n" +
-			"  1-7          Jump to view (Tools, Sessions, EFM, Config, History, Todos, Chat)"
-		m.appendChat(ChatMessage{Kind: chatSystem, Text: helpText})
+		if m.HelpOverlay != nil {
+			m.HelpOverlay.Open()
+			m.Mode = ModeHelpOverlay
+		}
 		return nil
 	}
 
@@ -376,6 +359,7 @@ func (m *Model) OpenChatSearch() {
 	m.Mode = ModeSearch
 	m.SearchQuery = ""
 	m.SearchMatches = nil
+	m.ScrollToMatchIdx = -1
 	m.SearchInput.SetValue("")
 	m.SearchInput.Placeholder = "Search chat..."
 	m.SearchInput.Focus()
@@ -389,6 +373,7 @@ func (m *Model) CloseChatSearch() {
 	m.SearchInput.Blur()
 	m.SearchQuery = ""
 	m.SearchMatches = nil
+	m.ScrollToMatchIdx = -1
 	if m.ChatSearch != nil {
 		m.ChatSearch.Clear()
 	}

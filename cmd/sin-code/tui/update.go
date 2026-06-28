@@ -1410,10 +1410,12 @@ func (m *Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.CloseChatSearch()
 		return m, nil
 	case "enter":
+		matchIdx := -1
 		if m.ChatSearch != nil && m.ChatSearch.CurrentResult() != nil {
 			r := m.ChatSearch.CurrentResult()
 			m.ChatFocusIdx = r.MessageIdx
 			m.SearchQuery = m.SearchInput.Value()
+			matchIdx = r.MessageIdx
 		} else if len(m.SearchMatches) > 0 {
 			idx := m.ChatFocusIdx
 			found := -1
@@ -1427,6 +1429,29 @@ func (m *Model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				found = m.SearchMatches[0]
 			}
 			m.ChatFocusIdx = found
+			matchIdx = found
+		}
+		if matchIdx >= 0 {
+			m.ScrollToMatchIdx = matchIdx
+		}
+		m.CloseChatSearch()
+		return m, nil
+	case "n":
+		if m.ChatSearch != nil {
+			r := m.ChatSearch.Next()
+			if r != nil {
+				m.ChatFocusIdx = r.MessageIdx
+				m.ScrollToMatchIdx = r.MessageIdx
+			}
+		}
+		return m, nil
+	case "N", "shift+n":
+		if m.ChatSearch != nil {
+			r := m.ChatSearch.Prev()
+			if r != nil {
+				m.ChatFocusIdx = r.MessageIdx
+				m.ScrollToMatchIdx = r.MessageIdx
+			}
 		}
 		return m, nil
 	case "up":
@@ -1914,6 +1939,12 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 	if len(m.ChatHistory) > maxVisibleMsgs {
 		startIdx = len(m.ChatHistory) - maxVisibleMsgs
 	}
+	if m.ScrollToMatchIdx >= 0 && m.ScrollToMatchIdx < startIdx {
+		startIdx = m.ScrollToMatchIdx
+		if startIdx < 0 {
+			startIdx = 0
+		}
+	}
 	if startIdx > 0 {
 		content.WriteString(styles.Muted.Render(fmt.Sprintf("⋯ %d earlier messages (scroll up to view)", startIdx)))
 		content.WriteString("\n")
@@ -1985,6 +2016,14 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 	m.ChatViewport.SetContent(content.String())
 	if !m.userScrolledUp && !m.ChatViewport.AtBottom() {
 		m.ChatViewport.GotoBottom()
+	}
+	if m.ScrollToMatchIdx >= 0 && m.ScrollToMatchIdx < len(m.ChatHistory) {
+		offset := (m.ScrollToMatchIdx - startIdx) * 4
+		if offset < 0 {
+			offset = 0
+		}
+		m.ChatViewport.SetYOffset(offset)
+		m.ScrollToMatchIdx = -1
 	}
 
 	var b strings.Builder
@@ -2744,21 +2783,53 @@ func renderErrorBubble(msg ChatMessage, styles Styles, width int) string {
 		bodyWidth = 10
 	}
 
-	style := lipgloss.NewStyle().
+	category := "Error"
+	hint := "Press Esc to interrupt, then retry"
+	if strings.Contains(errText, "context deadline exceeded") || strings.Contains(errText, "timeout") {
+		category = "Timeout"
+		hint = "The request took too long. Try again or use a faster model."
+	} else if strings.Contains(errText, "connection refused") || strings.Contains(errText, "no such host") {
+		category = "Network Error"
+		hint = "Check your internet connection and API endpoint."
+	} else if strings.Contains(errText, "unauthorized") || strings.Contains(errText, "401") || strings.Contains(errText, "api key") {
+		category = "Auth Error"
+		hint = "Check your API key with: sin-code config get llm.api_key"
+	} else if strings.Contains(errText, "rate limit") || strings.Contains(errText, "429") {
+		category = "Rate Limited"
+		hint = "Too many requests. Wait a moment and try again."
+	} else if strings.Contains(errText, "permission denied") {
+		category = "Permission Denied"
+		hint = "This action was blocked by the permission engine. Use --yolo to allow."
+	}
+
+	catStyle := lipgloss.NewStyle().
 		Foreground(c(styles.Theme.Error)).
+		Bold(true)
+
+	bodyStyle := lipgloss.NewStyle().
+		Foreground(c(styles.Theme.Text)).
 		BorderLeft(true).
 		BorderLeftForeground(c(styles.Theme.Error)).
-		Background(lipgloss.Color(fmt.Sprintf("%s", styles.Theme.Background))).
 		Padding(0, 1).
 		Width(bodyWidth)
 
+	hintStyle := lipgloss.NewStyle().
+		Foreground(c(styles.Theme.TextDim)).
+		Faint(true)
+
 	if !msg.Expanded {
 		short := truncateString(errText, bodyWidth-4)
-		return style.Render("❌ "+short) + "\n"
+		return catStyle.Render("❌ "+category+": ") + styles.StatusErr.Render(short) + "\n"
 	}
 
-	body := style.Render(errText) + "\n" + styles.Muted.Render("  Press enter to collapse")
-	return body + "\n"
+	var b strings.Builder
+	b.WriteString(catStyle.Render("❌ " + category))
+	b.WriteString("\n")
+	b.WriteString(bodyStyle.Render(errText))
+	b.WriteString("\n")
+	b.WriteString(hintStyle.Render("  → " + hint))
+	b.WriteString("\n")
+	return b.String()
 }
 
 func renderToolCard(msg ChatMessage, styles Styles, width int, focused bool) string {
