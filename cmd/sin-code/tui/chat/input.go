@@ -41,6 +41,7 @@ type Input struct {
 	historyCursor int
 	filePicker    filePickerState
 	pasteDetected bool
+	disabled      bool
 }
 
 func NewInput(store *attachments.Store) *Input {
@@ -88,6 +89,10 @@ func (i *Input) Focus() tea.Cmd {
 
 func (i *Input) Blur() {
 	i.textarea.Blur()
+}
+
+func (i *Input) SetDisabled(d bool) {
+	i.disabled = d
 }
 
 func (i *Input) Value() string {
@@ -414,6 +419,9 @@ func (i *Input) submit() (tea.Cmd, *SubmitMsg) {
 
 func (i *Input) View() string {
 	var b strings.Builder
+	if i.disabled {
+		b.WriteString("  ⏳ Waiting for response… (Esc to interrupt)\n")
+	}
 	if len(i.attachments) > 0 {
 		b.WriteString(i.renderAttachmentChips())
 		b.WriteString("\n")

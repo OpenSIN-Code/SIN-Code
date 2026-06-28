@@ -74,6 +74,18 @@ func (m *Model) Init() tea.Cmd {
 		RefreshLSPCmd(),
 		InitGitRefresh(),
 	}
+
+	if m.CrashRecovery != nil {
+		if state, err := m.CrashRecovery.Load(); err == nil && state != nil && len(state.ChatHistory) > 0 {
+			m.ChatHistory = state.ChatHistory
+			if state.ViewKind >= 0 && state.ViewKind < viewCount {
+				m.ViewKind = ViewKind(state.ViewKind)
+			}
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: "↻ Restored from previous session (crash recovery)"})
+			_ = m.CrashRecovery.Clear()
+		}
+	}
+
 	return tea.Batch(cmds...)
 }
 
@@ -445,16 +457,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyPressMsg:
 		// Ctrl+X and Ctrl+C quit immediately from any view/mode
-		if msg.Code == 'x' && msg.Mod&tea.ModCtrl != 0 {
-			m.saveChatHistory()
-			m.Quitting = true
-			return m, tea.Quit
-		}
-		if msg.Code == 'c' && msg.Mod&tea.ModCtrl != 0 {
-			m.saveChatHistory()
-			m.Quitting = true
-			return m, tea.Quit
-		}
+	if msg.Code == 'x' && msg.Mod&tea.ModCtrl != 0 {
+		m.saveChatHistory()
+		m.SaveCrashState()
+		m.Quitting = true
+		return m, tea.Quit
+	}
+	if msg.Code == 'c' && msg.Mod&tea.ModCtrl != 0 {
+		m.saveChatHistory()
+		m.SaveCrashState()
+		m.Quitting = true
+		return m, tea.Quit
+	}
 		if m.NotificationBanner != nil {
 			k := msg.String()
 			if k == "o" || k == "d" || k == "n" {
@@ -616,6 +630,7 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case key.Matches(msg, keymap.Quit):
 		m.saveChatHistory()
+		m.SaveCrashState()
 		m.Quitting = true
 		return m, tea.Quit
 	case key.Matches(msg, keymap.CopyMessage):
@@ -756,6 +771,17 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, keymap.CycleTheme):
 		m.CycleTheme()
 		m.AppendHistory(m.ViewKind.String(), "theme", Themes[m.ThemeIdx].Name, true)
+		return m, nil
+	case key.Matches(msg, keymap.CompactToggle):
+		if m.ViewKind == ViewChat && m.CompactMode != nil {
+			m.CompactMode.Toggle()
+			active := m.CompactMode.Active()
+			toggleMsg := "Compact mode off"
+			if active {
+				toggleMsg = "Compact mode on — messages rendered in condensed format"
+			}
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: toggleMsg})
+		}
 		return m, nil
 	case key.Matches(msg, keymap.CycleAgent):
 		m.Footer.CycleAgent()
@@ -2316,6 +2342,9 @@ func (m *Model) setStreaming(streaming bool) {
 	m.Footer.Streaming = streaming
 	if streaming && m.TypewriterBuf != nil {
 		m.TypewriterBuf.Reset()
+	}
+	if m.ChatInput != nil {
+		m.ChatInput.SetDisabled(streaming)
 	}
 }
 

@@ -247,6 +247,12 @@ func (m *Model) updateChat(msg tea.Msg) tea.Cmd {
 	if kmsg, ok := msg.(tea.KeyPressMsg); ok {
 		if m.CompactMode != nil && key.Matches(kmsg, keymap.CompactToggle) {
 			m.CompactMode.Toggle()
+			active := m.CompactMode.Active()
+			toggleMsg := "Compact mode off"
+			if active {
+				toggleMsg = "Compact mode on — messages rendered in condensed format"
+			}
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: toggleMsg})
 			return nil
 		}
 	}
@@ -312,6 +318,11 @@ func (m *Model) updateChat(msg tea.Msg) tea.Cmd {
 
 	cmd, submit := m.ChatInput.Update(msg)
 	if submit != nil {
+		if m.IsStreaming() {
+			m.appendChat(ChatMessage{Kind: chatSystem, Text: "⏳ Wait for the current response to finish (Esc to interrupt)"})
+			m.ChatInput.Clear()
+			return nil
+		}
 		agentCmd := handleChatSubmit(m, *submit)
 		m.ChatInput.Clear()
 		if agentCmd != nil {
