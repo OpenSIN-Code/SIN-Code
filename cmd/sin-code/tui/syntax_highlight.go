@@ -313,6 +313,18 @@ func renderCodeBlock(code, language string, h *SyntaxHighlighter, styles Styles,
 	highlightLines := strings.Split(highlighted, "\n")
 	codeLines := strings.Split(code, "\n")
 
+	const maxCodeLines = 200
+	truncated := false
+	totalLines := len(codeLines)
+	if len(highlightLines) > maxCodeLines {
+		highlightLines = highlightLines[:maxCodeLines]
+		truncated = true
+	}
+	if len(codeLines) > maxCodeLines {
+		codeLines = codeLines[:maxCodeLines]
+		truncated = true
+	}
+
 	var bodyLines []string
 	maxLines := len(highlightLines)
 	if len(codeLines) > maxLines {
@@ -324,6 +336,7 @@ func renderCodeBlock(code, language string, h *SyntaxHighlighter, styles Styles,
 		if i < len(highlightLines) {
 			hl = highlightLines[i]
 		}
+		hl = wrapLine(hl, innerWidth)
 		if showLineNumbers {
 			num = styles.Muted.Render(fmt.Sprintf("%3d ", i+1))
 		} else {
@@ -332,6 +345,10 @@ func renderCodeBlock(code, language string, h *SyntaxHighlighter, styles Styles,
 		bodyLines = append(bodyLines, num+hl)
 	}
 	body := strings.Join(bodyLines, "\n")
+
+	if truncated {
+		body += "\n" + styles.Muted.Render(fmt.Sprintf("⋯ %d more lines truncated", totalLines-maxCodeLines))
+	}
 
 	langLabel := ""
 	if language != "" {
@@ -353,4 +370,14 @@ func renderCodeBlock(code, language string, h *SyntaxHighlighter, styles Styles,
 	ftr := styles.Muted.Render("└" + strings.Repeat("─", innerWidth+2) + "┘")
 
 	return hdr.String() + "\n" + body + "\n" + ftr
+}
+
+func wrapLine(line string, maxDisplayWidth int) string {
+	if maxDisplayWidth < 10 {
+		return line
+	}
+	if lipgloss.Width(line) <= maxDisplayWidth {
+		return line
+	}
+	return lipgloss.NewStyle().MaxWidth(maxDisplayWidth).Render(line)
 }

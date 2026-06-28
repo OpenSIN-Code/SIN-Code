@@ -2326,6 +2326,13 @@ func renderToolOutput(output string, styles Styles, width int) string {
 		width = 10
 	}
 
+	lines := strings.Split(output, "\n")
+	const maxLines = 50
+	if len(lines) > maxLines {
+		output = strings.Join(lines[:maxLines], "\n")
+		output += fmt.Sprintf("\n⋯ %d more lines (use /tools to see full output)", len(lines)-maxLines)
+	}
+
 	highlighter := NewSyntaxHighlighter(styles.Theme)
 
 	if looksLikeGoCode(output) {
@@ -2638,6 +2645,14 @@ func renderAssistantBubble(msg ChatMessage, highlighter *SyntaxHighlighter, styl
 
 	rendered := renderMarkdownWithCodeBlocks(msg.Text, highlighter, styles, bodyWidth)
 
+	if strings.TrimSpace(rendered) == "" {
+		if streaming {
+			rendered = styles.Muted.Render("Thinking…")
+		} else {
+			return headerLine + "\n"
+		}
+	}
+
 	if streaming {
 		cursor := renderStreamingCursor(spinner, styles)
 		rendered = strings.TrimRight(rendered, "\n") + cursor
@@ -2725,7 +2740,7 @@ func renderToolCard(msg ChatMessage, styles Styles, width int, focused bool) str
 
 		if msg.ToolInput != "" {
 			inputText := msg.ToolInput
-			if len(inputText) > bodyWidth-10 {
+			if lipgloss.Width(inputText) > bodyWidth-10 {
 				inputText = truncateString(inputText, bodyWidth-13)
 			}
 			b.WriteString(styles.Muted.Render("  in: "))
