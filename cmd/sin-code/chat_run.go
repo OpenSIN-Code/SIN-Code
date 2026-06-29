@@ -15,6 +15,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentmode"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/autolevel"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/checkpoint"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
@@ -29,6 +30,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/skillmgr"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
 	"github.com/OpenSIN-Code/SIN-Code/skills"
 )
 
@@ -270,6 +272,27 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		workspace = wt
 	}
 
+	// --- auto-checkpoint before agent loop (issue #483) ----------------
+	// Creates a git-based checkpoint (git tag + SQLite metadata) before
+	// the agent loop starts, giving the operator a rollback target.
+	// M3: the checkpoint is a safety net, not a verification signal.
+	// M4: create is non-destructive (git tag only) so no --yolo needed.
+	// If the workspace is not a git repo, this is a no-op (graceful).
+	if opts.checkpoint {
+		gstore, gerr := checkpoint.OpenGit(workspace)
+		if gerr != nil {
+			fmt.Fprintf(chatStderr, "sin-code chat: --checkpoint: open git store: %v (skipping)\n", gerr)
+		} else {
+			cp, cerr := gstore.Create(context.Background(), "pre-chat auto-checkpoint")
+			gstore.Close()
+			if cerr != nil {
+				fmt.Fprintf(chatStderr, "sin-code chat: --checkpoint: create: %v (skipping)\n", cerr)
+			} else {
+				fmt.Fprintf(chatStderr, "sin-code chat: checkpoint %s created (rollback: sin-code checkpoint rollback %s --force)\n", cp.ID, cp.ID)
+			}
+		}
+	}
+
 	// --- rewind to checkpoint (issue #194 part 3) --------------------
 	// Restores the workspace to a previously captured checkpoint
 	// BEFORE the agent loop starts. Combines with --worktree: the
@@ -408,6 +431,33 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		ThinkingEnabled:          thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
 		ResultPolicy:             permission.NewResultPolicy(),
+		AutoCommit:               opts.autoCommit || sinCfg.AgentLoopAutoCommit,
+		CommitPrefix:             firstNonEmpty(opts.commitPrefix, sinCfg.AgentLoopCommitPrefix),
+	}
+
+	// Agent mode (issue #485): filter tools and prepend mode system prompt.
+	// CLI --agent-mode overrides config agentloop.mode. Empty = default.
+	agentModeStr := opts.agentMode
+	if agentModeStr == "" {
+		agentModeStr = sinCfg.AgentLoopMode
+	}
+	agentMode, amErr := agentmode.GetMode(agentModeStr)
+	if amErr != nil {
+		return fmt.Errorf("chat: --agent-mode: %w", amErr)
+	}
+	if agentMode.IsRestricted() {
+		loop.LocalSpec = agentMode.FilterTools(loop.LocalSpec)
+	}
+	if modePrompt := agentMode.SystemPrompt(); modePrompt != "" {
+		if loop.SystemPrompt != "" {
+			loop.SystemPrompt = modePrompt + "\n\n" + loop.SystemPrompt
+		} else {
+			loop.SystemPrompt = modePrompt
+		}
+	}
+	loop.AgentMode = string(agentMode)
+	if agentMode.IsRestricted() && headless && !opts.jsonOut {
+		fmt.Fprintf(chatStderr, "sin-code chat: agent mode=%s (tools restricted)\n", agentMode)
 	}
 
 	if opts.repetitionThreshold > 0 {
@@ -464,6 +514,10 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		}
 		loop.LocalSpec = lazyCombinedSpecs()
 		loop.LocalTool = lazyCombinedTool(workspace, mcpMgr, loader, loop)
+		// Re-apply agent mode filtering after lazy tools override (issue #485).
+		if agentMode.IsRestricted() {
+			loop.LocalSpec = agentMode.FilterTools(loop.LocalSpec)
+		}
 	}
 
 	if sinCfg.AgentLoopCompactionStrategy != "off" && sinCfg.AgentLoopCompactionStrategy != "" {
@@ -663,6 +717,43 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 				old := loop.GetModel()
 				loop.SetModel(arg)
 				fmt.Fprintf(chatStdout, "Switched model: %s → %s\n", old, loop.GetModel())
+			}
+			continue
+		}
+		if line == "/mode" || strings.HasPrefix(line, "/mode ") {
+			arg := strings.TrimSpace(strings.TrimPrefix(line, "/mode"))
+			if arg == "" {
+				fmt.Fprintf(chatStdout, "Current agent mode: %s\n", loop.AgentMode)
+				fmt.Fprintln(chatStdout, "Available modes:")
+				for _, m := range []string{"default", "architect", "debug", "code", "review"} {
+					marker := "  "
+					if m == loop.AgentMode {
+						marker = "* "
+					}
+					fmt.Fprintf(chatStdout, "%s%s\n", marker, m)
+				}
+			} else {
+				newMode, merr := agentmode.GetMode(arg)
+				if merr != nil {
+					fmt.Fprintf(chatStderr, "error: %v\n", merr)
+					continue
+				}
+				old := loop.AgentMode
+				loop.AgentMode = string(newMode)
+				// Re-filter tools for the new mode (issue #485).
+				loop.LocalSpec = newMode.FilterTools(combinedSpecs(mcpMgr))
+				// Rebuild the system prompt with the new mode prefix.
+				basePrompt := style.RenderSystemPrompt(sinCfg.LLMStyle)
+				if modePrompt := newMode.SystemPrompt(); modePrompt != "" {
+					loop.SystemPrompt = modePrompt + "\n\n" + basePrompt
+				} else {
+					loop.SystemPrompt = basePrompt
+				}
+				if newMode.IsRestricted() {
+					fmt.Fprintf(chatStdout, "Switched agent mode: %s → %s (tools restricted)\n", old, newMode)
+				} else {
+					fmt.Fprintf(chatStdout, "Switched agent mode: %s → %s\n", old, newMode)
+				}
 			}
 			continue
 		}

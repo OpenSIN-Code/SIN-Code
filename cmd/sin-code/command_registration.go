@@ -81,6 +81,7 @@ func init() {
 		NewAutoCmd(),         // v3.23.0 — ultra-autonomous mode
 		NewDoctorCmd(),       // unified health check
 		NewBenchmarkCmd(),    // benchmark — run eval golden datasets with scoring report
+		NewWatchCmd(),        // watch — workspace file watcher, run commands on save (issue #486)
 	)
 
 	// Pass build-time version to self-update module.

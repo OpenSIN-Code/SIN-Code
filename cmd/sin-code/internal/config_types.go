@@ -127,6 +127,13 @@ type SinCodeConfig struct {
 	// AgentLoopCompactionThreshold is the fraction of maxTurns at which
 	// compaction triggers (default 0.8 = 80%).
 	AgentLoopCompactionThreshold float64 `toml:"agentloop.compaction_threshold"`
+	// AgentLoopSelfReview enables the automatic self-review reflector
+	// that scans changed files for TODO/FIXME/dummy/stub markers after
+	// the verify-gate passes but before the stop-gate. When true (default),
+	// every agent self-reviews automatically without the user having to
+	// ask. The reflector forces the loop to fix issues before reporting
+	// completion — the "Ultra-CEO" doctrine baked into the loop.
+	AgentLoopSelfReview bool `toml:"agentloop.self_review"`
 	// AgentLoopFrustrationDetection enables user frustration tracking
 	// (issue #271). When true, the loop appends an adaptive system-prompt
 	// suffix when frustration is detected. Default false.
@@ -204,6 +211,20 @@ type SinCodeConfig struct {
 	// MCPConnectTimeoutS is the per-server connection timeout in seconds
 	// for ConnectAll. Default 3. 0 falls back to 3 inside the manager.
 	MCPConnectTimeoutS int `toml:"mcp.connect_timeout"`
+
+	// AgentLoopAutoCommit enables auto-commit after the verification gate
+	// passes (issue #487). M3: only after verification, never before.
+	AgentLoopAutoCommit bool `toml:"agentloop.auto_commit"`
+
+	// AgentLoopCommitPrefix overrides the auto-detected conventional
+	// commit prefix for auto-commit (issue #487). Empty = auto-detect.
+	AgentLoopCommitPrefix string `toml:"agentloop.commit_prefix"`
+
+	// AgentLoopMode selects a specialized sub-agent mode (issue #485):
+	// default | architect | debug | code | review. Empty or "default" =
+	// normal behavior (non-breaking). Restricted modes filter the tool
+	// set and prepend a mode-specific system prompt.
+	AgentLoopMode string `toml:"agentloop.mode"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -251,6 +272,7 @@ func defaultConfig() SinCodeConfig {
 		AgentLoopCompactionPreserveEvidence: true,
 		AgentLoopCompactionRecentTurns:      4,
 		AgentLoopFrustrationDetection:       false,
+		AgentLoopSelfReview:                 true,
 		AgentLoopObserverWindow:             20,
 		AgentLoopObserverMinRepeats:         2,
 		AgentLoopObserverMinPatternLength:   3,
@@ -284,5 +306,12 @@ func defaultConfig() SinCodeConfig {
 		OutputProgressFile: "",
 
 		MCPConnectTimeoutS: 3,
+
+		// Issue #487: auto-commit defaults off; opt-in only.
+		AgentLoopAutoCommit:   false,
+		AgentLoopCommitPrefix: "",
+
+		// Issue #485: agent mode defaults to "default" (non-breaking).
+		AgentLoopMode: "default",
 	}
 }

@@ -104,6 +104,16 @@ type Config struct {
 	// Also activated by config agentloop.frustration_detection=true.
 	FrustrationDetectionEnabled bool
 
+	// SelfReviewEnabled: when true (default), wires the SelfReviewReflector
+	// into the agent loop. The reflector scans changed files for
+	// TODO/FIXME/dummy/stub markers after the verify-gate passes but before
+	// the stop-gate, forcing the agent to fix incomplete-work markers before
+	// reporting completion. This is the "Ultra-CEO" doctrine baked into the
+	// loop — every agent self-reviews automatically without the user having
+	// to ask.
+	// Also deactivated by config agentloop.self_review=false.
+	SelfReviewEnabled bool
+
 	// ContextCompactionMode selects the compaction algorithm (issue: compaction-modes).
 	// off | deterministic | llm | hybrid. Empty = off (legacy behaviour).
 	ContextCompactionMode string
@@ -169,4 +179,22 @@ type Config struct {
 	ObserverMinPatternLength int
 	// ObserverMinRepeats: minimum repeat count to trip the detector.
 	ObserverMinRepeats int
+
+	// AutoCommit, when true, creates a git commit with a conventional
+	// commit message after the verification gate passes (issue #487).
+	// M3: the commit happens ONLY after verification — never before.
+	// M4: --auto-commit explicitly grants permission for the session.
+	AutoCommit bool
+
+	// CommitPrefix overrides the auto-detected conventional commit
+	// prefix. When empty, the prefix is inferred from the prompt content
+	// (feat, fix, refactor, docs, etc.). When set, it is used verbatim.
+	CommitPrefix string
+
+	// AgentMode selects a specialized sub-agent mode (issue #485).
+	// Empty or "default" preserves exact current behavior (non-breaking).
+	// Other modes filter the tool set and prepend a mode-specific system
+	// prompt. M4: mode filtering is additive — the permission engine still
+	// gates every tool call regardless of mode.
+	AgentMode string
 }

@@ -255,4 +255,19 @@ type Loop struct {
 	// session summary, and auto-memory (issue #379). Nil preserves legacy
 	// behavior.
 	SessionContext *SessionContextBuilder
+
+	// AutoCommit, when true, creates a git commit with a conventional
+	// commit message after the verification gate passes (issue #487).
+	// M3: the commit happens ONLY after verification — never before.
+	AutoCommit bool
+
+	// CommitPrefix overrides the auto-detected conventional commit
+	// prefix. When empty, the prefix is inferred from the prompt.
+	CommitPrefix string
+
+	// AgentMode is the specialized sub-agent mode name (issue #485).
+	// "default" or empty = normal behavior. Other modes (architect, debug,
+	// code, review) filter the tool set and prepend a mode-specific system
+	// prompt. M4: mode filtering is additive to the permission engine.
+	AgentMode string
 }

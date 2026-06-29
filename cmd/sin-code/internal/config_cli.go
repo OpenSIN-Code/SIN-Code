@@ -230,6 +230,7 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"agentloop.compaction_strategy", cfg.AgentLoopCompactionStrategy},
 		{"agentloop.compaction_threshold", fmt.Sprintf("%v", cfg.AgentLoopCompactionThreshold)},
 		{"agentloop.frustration_detection", fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection)},
+		{"agentloop.self_review", fmt.Sprintf("%v", cfg.AgentLoopSelfReview)},
 		{"agentloop.inject_lessons", fmt.Sprintf("%v", cfg.AgentLoopInjectLessons)},
 		{"agentloop.inject_memory", fmt.Sprintf("%v", cfg.AgentLoopInjectMemory)},
 		{"agentloop.inject_goals", fmt.Sprintf("%v", cfg.AgentLoopInjectGoals)},
@@ -246,6 +247,7 @@ func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 		{"worktree.target_branch", cfg.WorktreeTargetBranch},
 		{"autonomy.container.enabled", fmt.Sprintf("%v", cfg.AutonomyContainerEnabled)},
 		{"autonomy.container.image", cfg.AutonomyContainerImage},
+		{"agentloop.mode", cfg.AgentLoopMode},
 	}
 	sort.Slice(pairs, func(i, j int) bool { return pairs[i].Key < pairs[j].Key })
 	return pairs
@@ -305,6 +307,7 @@ func showJSON(cfg SinCodeConfig, mask bool) error {
 		"agentloop": map[string]any{
 			"required_tools":               cfg.AgentLoopRequiredTools,
 			"forbidden_tools":              cfg.AgentLoopForbiddenTools,
+			"mode":                         cfg.AgentLoopMode,
 			"context_compaction":           cfg.AgentLoopContextCompaction,
 			"compaction_trigger":           cfg.AgentLoopCompactionTrigger,
 			"compaction_max_tokens":        cfg.AgentLoopCompactionMaxTokens,
@@ -365,6 +368,7 @@ func showTOML(cfg SinCodeConfig, mask bool) error {
 		AgentLoopContextWindow:              cfg.AgentLoopContextWindow,
 		AgentLoopCompactionPreserveEvidence: cfg.AgentLoopCompactionPreserveEvidence,
 		AgentLoopCompactionRecentTurns:      cfg.AgentLoopCompactionRecentTurns,
+		AgentLoopMode:                       cfg.AgentLoopMode,
 	}))
 	return nil
 }

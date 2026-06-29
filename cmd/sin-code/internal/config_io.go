@@ -294,6 +294,10 @@ agentloop.compaction_recent_turns = %d
 # from open todos, session summaries, and auto-memory at the start of a new
 # session. Privacy-first — off by default; opt-in per source via inject_*.
 agentloop.session_context.enabled = %v
+
+# Agent mode (issue #485): specialized sub-agent mode that changes the system
+# prompt and tool set. default|architect|debug|code|review.
+agentloop.mode = %q
 `, cfg.Theme, cfg.DefaultTimeout, cfg.DefaultFormat, cfg.MCPServerEnabled,
 		cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel, cfg.LLMMaxTokens, cfg.LLMTemperature,
 		cfg.LLMStyle,
@@ -307,7 +311,8 @@ agentloop.session_context.enabled = %v
 		cfg.WorktreeConflictCheck, cfg.WorktreeTargetBranch,
 		cfg.AgentLoopContextCompaction, cfg.AgentLoopCompactionTrigger, cfg.AgentLoopCompactionMaxTokens, cfg.AgentLoopContextWindow,
 		cfg.AgentLoopCompactionPreserveEvidence, cfg.AgentLoopCompactionRecentTurns,
-		cfg.AgentLoopSessionContextEnabled)
+		cfg.AgentLoopSessionContextEnabled,
+		cfg.AgentLoopMode)
 }
 
 func initConfig() error {

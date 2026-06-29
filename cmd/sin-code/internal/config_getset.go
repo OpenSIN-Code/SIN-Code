@@ -125,6 +125,8 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.AgentLoopCompactionThreshold), nil
 	case "agentloop.frustration_detection":
 		return fmt.Sprintf("%v", cfg.AgentLoopFrustrationDetection), nil
+	case "agentloop.self_review":
+		return fmt.Sprintf("%v", cfg.AgentLoopSelfReview), nil
 	case "agentloop.inject_lessons":
 		return fmt.Sprintf("%v", cfg.AgentLoopInjectLessons), nil
 	case "agentloop.inject_memory":
@@ -159,6 +161,12 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return cfg.AutonomyContainerImage, nil
 	case "mcp.connect_timeout":
 		return fmt.Sprintf("%d", cfg.MCPConnectTimeoutS), nil
+	case "agentloop.auto_commit":
+		return fmt.Sprintf("%v", cfg.AgentLoopAutoCommit), nil
+	case "agentloop.commit_prefix":
+		return cfg.AgentLoopCommitPrefix, nil
+	case "agentloop.mode":
+		return cfg.AgentLoopMode, nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -340,6 +348,8 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.AgentLoopCompactionThreshold = v
 	case "agentloop.frustration_detection":
 		cfg.AgentLoopFrustrationDetection = value == "true" || value == "1"
+	case "agentloop.self_review":
+		cfg.AgentLoopSelfReview = value == "true" || value == "1"
 	case "agentloop.inject_lessons":
 		cfg.AgentLoopInjectLessons = value == "true" || value == "1"
 	case "agentloop.inject_memory":
@@ -403,6 +413,17 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 			return fmt.Errorf("mcp.connect_timeout must be a non-negative integer (seconds), got %q", value)
 		}
 		cfg.MCPConnectTimeoutS = v
+	case "agentloop.auto_commit":
+		cfg.AgentLoopAutoCommit = value == "true" || value == "1"
+	case "agentloop.commit_prefix":
+		cfg.AgentLoopCommitPrefix = value
+	case "agentloop.mode":
+		switch value {
+		case "default", "architect", "debug", "code", "review":
+			cfg.AgentLoopMode = value
+		default:
+			return fmt.Errorf("agentloop.mode must be one of default|architect|debug|code|review, got %q", value)
+		}
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}

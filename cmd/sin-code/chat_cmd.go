@@ -130,6 +130,22 @@ type chatOptions struct {
 	progressFile string
 	setup        bool
 	verbose      bool
+
+	// autoCommit creates a git commit after the verification gate
+	// passes (issue #487). M3: only after verification, never before.
+	autoCommit   bool
+	commitPrefix string
+	// agentMode selects a specialized sub-agent mode (issue #485):
+	// default | architect | debug | code | review. Empty = default
+	// (non-breaking). Restricted modes filter the tool set and prepend
+	// a mode-specific system prompt. M4: mode filtering is additive to
+	// the permission engine.
+	agentMode string
+	// checkpoint auto-creates a git-based workspace checkpoint before
+	// the agent loop starts (issue #483). M3: the checkpoint is a
+	// safety net, not a verification signal. M4: create is non-
+	// destructive (git tag only) so no permission gate is needed.
+	checkpoint bool
 }
 
 func NewChatCmd() *cobra.Command {
@@ -153,6 +169,9 @@ func NewChatCmd() *cobra.Command {
   sin-code chat --target-branch <name>   integration branch for worktree conflict prediction (issue #319)
   sin-code chat --conflict-check <mode>  off|warn|abort — action on predicted worktree conflicts (issue #319)
   sin-code chat --rewind <checkpoint>    restore workspace to a checkpoint before running
+  sin-code chat --auto-commit              auto-commit after the verification gate passes (issue #487, M3)
+  sin-code chat --checkpoint               auto-create a git checkpoint before the agent loop starts (issue #483)
+  sin-code chat --agent-mode <mode>        specialized sub-agent mode: architect|debug|code|review (issue #485)
   sin-code chat --sandbox <backend>      landlock|seatbelt|bubblewrap|none (issue #199)
   sin-code chat --autolevel              prompt-intent based permission auto-classifier (issue #198)
   sin-code chat --lazy-tools             lazy tool loading via tool_search (issue #270)
@@ -220,5 +239,9 @@ First-run setup:
 	f.StringVar(&opts.progressFile, "progress-file", "", "progress file path when --progress-dest=file")
 	f.BoolVar(&opts.setup, "setup", false, "run interactive onboarding wizard to configure LLM backend")
 	f.BoolVarP(&opts.verbose, "verbose", "v", false, "show warnings (MCP, sandbox) and diagnostic info in headless mode")
+	f.BoolVar(&opts.autoCommit, "auto-commit", false, "auto-commit after the verification gate passes (issue #487, M3)")
+	f.StringVar(&opts.commitPrefix, "commit-prefix", "", "conventional commit prefix for --auto-commit (e.g. feat, fix, docs; default: auto-detect)")
+	f.BoolVar(&opts.checkpoint, "checkpoint", false, "auto-create a git checkpoint before the agent loop starts (issue #483)")
+	f.StringVar(&opts.agentMode, "agent-mode", "", "specialized sub-agent mode: default|architect|debug|code|review (issue #485)")
 	return cmd
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentloop"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/agentmode"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/eval"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/goalcontract"
 	"github.com/OpenSIN-Code/SIN-Code/internal/headroom"
@@ -81,6 +82,12 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		}
 		if !cfg.FrustrationDetectionEnabled {
 			cfg.FrustrationDetectionEnabled = sinCfg.AgentLoopFrustrationDetection
+		}
+		// Self-review: default true unless explicitly disabled via config.
+		// The config default is true (config_types.go), so we only need
+		// to check when the caller hasn't already set it.
+		if !cfg.SelfReviewEnabled {
+			cfg.SelfReviewEnabled = sinCfg.AgentLoopSelfReview
 		}
 		if cfg.ObserverWindow == 0 {
 			cfg.ObserverWindow = sinCfg.AgentLoopObserverWindow
@@ -232,9 +239,32 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		localTool, localSpec = cfg.ToolFactory(mcpMgr)
 	}
 
+	// Agent mode (issue #485): filter tools and prepend mode system prompt.
+	// Empty or "default" is a no-op (non-breaking). M4: mode filtering is
+	// additive — the permission engine still gates every tool call.
+	agentModeStr := cfg.AgentMode
+	if agentModeStr == "" {
+		if sinCfg, err := internal.LoadMergedConfig(); err == nil {
+			agentModeStr = sinCfg.AgentLoopMode
+		}
+	}
+	agentM, modeErr := agentmode.GetMode(agentModeStr)
+	if modeErr != nil {
+		return nil, nil, fmt.Errorf("agent mode: %w", modeErr)
+	}
+	if agentM.IsRestricted() {
+		localSpec = agentM.FilterTools(localSpec)
+	}
+
 	ledgerStore, err := ledger.Open(ledger.DefaultPath())
 	if err != nil {
 		ledgerStore = nil // ledger is optional; do not fail the loop if it cannot open
+	}
+
+	// Build the system prompt: mode prefix (issue #485) + style block.
+	sysPrompt := style.RenderSystemPrompt(cfg.Style)
+	if modePrompt := agentM.SystemPrompt(); modePrompt != "" {
+		sysPrompt = modePrompt + "\n\n" + sysPrompt
 	}
 
 	loop := &agentloop.Loop{
@@ -245,7 +275,8 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		MaxTurns:                 cfg.MaxTurns,
 		SessionID:                cfg.SessionID,
 		GoalID:                   cfg.GoalID,
-		SystemPrompt:             style.RenderSystemPrompt(cfg.Style),
+		SystemPrompt:             sysPrompt,
+		AgentMode:                string(agentM),
 		Completion:               completion,
 		Model:                    model,
 		CompletionBuilder:        completionBuilder,
@@ -259,6 +290,8 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		ThinkingEnabled:          thinkingCfg.Enabled,
 		ThinkingBudgetPerRequest: thinkingCfg.Budget,
 		ResultPolicy:             permission.NewResultPolicy(),
+		AutoCommit:               cfg.AutoCommit,
+		CommitPrefix:             cfg.CommitPrefix,
 	}
 
 	if cfg.RepetitionThreshold > 0 {
@@ -365,6 +398,19 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	// when user frustration is detected.
 	if cfg.FrustrationDetectionEnabled {
 		loop.Frustration = agentloop.NewFrustrationDetector()
+	}
+
+	// Self-review reflector: automatically scans changed files for
+	// TODO/FIXME/dummy/stub markers after verify-gate passes but before
+	// stop-gate. Forces the agent to fix incomplete-work markers before
+	// reporting completion. Default ON (Ultra-CEO doctrine). The caller
+	// can disable via config agentloop.self_review=false.
+	if cfg.SelfReviewEnabled {
+		loop.Reflector = agentloop.NewSelfReviewReflector(agentloop.SelfReviewConfig{
+			Workspace: cfg.Workspace,
+			MaxFiles:  50,
+			MaxIssues: 20,
+		})
 	}
 
 	// LoopDetector / Observer (issue #377): opt-in via config

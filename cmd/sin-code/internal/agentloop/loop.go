@@ -403,6 +403,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 				},
 			})
 			l.record(ctx, ledger.TypeTaskComplete, map[string]any{"summary": result.Summary, "turns": result.Turns, "verified": result.Verified}, "task complete: "+result.Summary)
+			l.doAutoCommit(ctx, prompt, result.Summary)
 			return result, nil
 		}
 

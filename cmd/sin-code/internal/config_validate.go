@@ -202,6 +202,8 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.AgentLoopCompactionThreshold = v
 		case "agentloop.frustration_detection":
 			cfg.AgentLoopFrustrationDetection = val == "true" || val == "1"
+		case "agentloop.self_review":
+			cfg.AgentLoopSelfReview = val == "true" || val == "1"
 		case "agentloop.inject_lessons":
 			cfg.AgentLoopInjectLessons = val == "true" || val == "1"
 		case "agentloop.inject_memory":
@@ -231,6 +233,8 @@ func applyMap(cfg *SinCodeConfig, m map[string]string) {
 			cfg.WorktreeConflictCheck = val
 		case "worktree.target_branch":
 			cfg.WorktreeTargetBranch = val
+		case "agentloop.mode":
+			cfg.AgentLoopMode = val
 		}
 	}
 }
