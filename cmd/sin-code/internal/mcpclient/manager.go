@@ -78,11 +78,15 @@ func (r *realSession) Close() error {
 }
 
 type Manager struct {
-	configs       []ServerConfig
+	configs        []ServerConfig
 	connectTimeout time.Duration
-	mu            sync.RWMutex
-	sessions      map[string]session
-	tools         []Tool
+	mu             sync.RWMutex
+	sessions       map[string]session
+	tools          []Tool
+	// Quiet suppresses per-server warnings and the connection summary
+	// line on stderr. Set to true in headless mode when the operator has
+	// not passed --verbose so the output stays clean.
+	Quiet bool
 }
 
 func NewManager(configs []ServerConfig) *Manager {
@@ -150,10 +154,12 @@ func (m *Manager) ConnectAll(ctx context.Context) error {
 				warnedServers[r.name] = true
 				newFailures++
 				warnedMu.Unlock()
-				logger.Warn("mcp server unavailable", map[string]any{
-					"server": r.name,
-					"error":  r.err.Error(),
-				})
+				if !m.Quiet {
+					logger.Warn("mcp server unavailable", map[string]any{
+						"server": r.name,
+						"error":  r.err.Error(),
+					})
+				}
 			} else {
 				warnedMu.Unlock()
 			}
@@ -162,7 +168,7 @@ func (m *Manager) ConnectAll(ctx context.Context) error {
 		}
 	}
 
-	if newFailures > 0 && failed > 0 {
+	if !m.Quiet && newFailures > 0 && failed > 0 {
 		fmt.Fprintf(os.Stderr, "MCP: %d/%d servers connected (%d skipped: %s)\n",
 			connected, len(m.configs), failed, strings.Join(failedNames, ", "))
 	}

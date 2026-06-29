@@ -39,6 +39,7 @@ func headlessChatHarness(t *testing.T) (
 	origNewLLMClient := chatNewLLMClientFn
 	origNewProviderCompletion := chatNewProviderCompletionFn
 	origNewProviderCompletionFull := chatNewProviderCompletionFullFn
+	origNewProviderCompletionStream := chatNewProviderCompletionStreamFn
 	origRulesForAgent := chatRulesForAgentFn
 	origNewHooks := chatNewHooksFn
 	origLoadMCPConfigs := chatLoadMCPConfigsFn
@@ -68,6 +69,9 @@ func headlessChatHarness(t *testing.T) (
 		return stubCompletion
 	}
 	chatNewProviderCompletionFullFn = func(c *llm.Client, model string, maxTokens int, temperature float64, cache *llm.PromptCache, thinking *agentloop.ThinkingConfig) func(context.Context, []session.Message, []agentloop.ToolSpec) (*agentloop.Completion, error) {
+		return stubCompletion
+	}
+	chatNewProviderCompletionStreamFn = func(c *llm.Client, model string, maxTokens int, temperature float64, cache *llm.PromptCache, thinking *agentloop.ThinkingConfig, streamCB func(string)) func(context.Context, []session.Message, []agentloop.ToolSpec) (*agentloop.Completion, error) {
 		return stubCompletion
 	}
 	chatRulesForAgentFn = func(cfg orchestrator.AgentConfig) []permission.Rule {
@@ -102,6 +106,7 @@ func headlessChatHarness(t *testing.T) (
 		chatNewLLMClientFn = origNewLLMClient
 		chatNewProviderCompletionFn = origNewProviderCompletion
 		chatNewProviderCompletionFullFn = origNewProviderCompletionFull
+		chatNewProviderCompletionStreamFn = origNewProviderCompletionStream
 		chatRulesForAgentFn = origRulesForAgent
 		chatNewHooksFn = origNewHooks
 		chatLoadMCPConfigsFn = origLoadMCPConfigs
@@ -268,3 +273,97 @@ func TestChat_HeadlessProgressStdout_PreservesStderrJSON(t *testing.T) {
 
 // keep os import alive if needed by other helpers in this file.
 var _ = os.Getwd
+
+// TestChat_HeadlessJSON_CompactOutput (Feature 3): --json mode must
+// produce compact single-line JSON with no indentation, matching the
+// stable headless API contract (AGENTS.md §7).
+func TestChat_HeadlessJSON_CompactOutput(t *testing.T) {
+	restore, stdout, _ := headlessChatHarness(t)
+	defer restore()
+
+	opts := &chatOptions{
+		prompt:     "say hello",
+		jsonOut:    true,
+		verifyMode: "off",
+	}
+
+	if err := runChat(context.Background(), opts); err != nil {
+		t.Fatalf("runChat failed: %v", err)
+	}
+
+	stdoutStr := strings.TrimSpace(stdout.String())
+
+	// Compact JSON: must be a single line with no leading whitespace.
+	if strings.Contains(stdoutStr, "\n") {
+		t.Errorf("compact JSON should be single-line, got:\n%s", stdoutStr)
+	}
+	var res agentloop.Result
+	if err := json.Unmarshal([]byte(stdoutStr), &res); err != nil {
+		t.Fatalf("stdout not valid JSON: %v\n%s", err, stdoutStr)
+	}
+	if res.SessionID == "" {
+		t.Errorf("expected non-empty session_id")
+	}
+}
+
+// TestChat_HeadlessJSON_SuppressesStderr (Feature 3): --json mode
+// must suppress ad-hoc stderr warnings (MCP, sandbox, etc.) while
+// still allowing explicitly opt-in progress output.
+func TestChat_HeadlessJSON_SuppressesStderr(t *testing.T) {
+	restore, _, stderr := headlessChatHarness(t)
+	defer restore()
+
+	opts := &chatOptions{
+		prompt:     "say hello",
+		jsonOut:    true,
+		verifyMode: "off",
+		// No --progress flag: no progress output expected.
+	}
+
+	if err := runChat(context.Background(), opts); err != nil {
+		t.Fatalf("runChat failed: %v", err)
+	}
+
+	stderrStr := strings.TrimSpace(stderr.String())
+	if stderrStr != "" {
+		t.Errorf("--json mode should suppress all stderr, got %q", stderrStr)
+	}
+}
+
+// TestChat_HeadlessStreaming_SkipsDuplicateSummary (Feature 1): in
+// headless non-jsonOut mode, the summary was already streamed to
+// stdout. The result printer must NOT print it again — only the
+// trailing newline + [session=...] metadata line should appear.
+func TestChat_HeadlessStreaming_SkipsDuplicateSummary(t *testing.T) {
+	restore, stdout, _ := headlessChatHarness(t)
+	defer restore()
+
+	opts := &chatOptions{
+		prompt:     "say hello",
+		jsonOut:    false, // streaming mode
+		verifyMode: "off",
+	}
+
+	if err := runChat(context.Background(), opts); err != nil {
+		t.Fatalf("runChat failed: %v", err)
+	}
+
+	stdoutStr := stdout.String()
+
+	// The stub completion returns "done" as the summary. In streaming
+	// mode, the summary is NOT reprinted — only the session line.
+	// So stdout must NOT contain "done" (the stub doesn't call the
+	// stream callback, so nothing is streamed either; but the key
+	// assertion is that printResult's summary line is skipped).
+	if strings.Contains(stdoutStr, "done\n") {
+		t.Errorf("streaming mode should not duplicate summary, got %q", stdoutStr)
+	}
+
+	// Must contain the [session=...] metadata line.
+	if !strings.Contains(stdoutStr, "[session=") {
+		t.Errorf("expected [session=...] line, got %q", stdoutStr)
+	}
+	if !strings.Contains(stdoutStr, "verified=") {
+		t.Errorf("expected verified= in output, got %q", stdoutStr)
+	}
+}

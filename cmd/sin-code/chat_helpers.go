@@ -24,9 +24,14 @@ import (
 
 func printResult(res *agentloop.Result, jsonOut bool) error {
 	if jsonOut {
-		enc := json.NewEncoder(chatStdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(res)
+		// Feature 3: compact JSON — the stable headless API contract
+		// (AGENTS.md §7). No indentation, single line, so piping works.
+		data, err := json.Marshal(res)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(chatStdout, string(data))
+		return nil
 	}
 	fmt.Fprintln(chatStdout, res.Summary)
 	fmt.Fprintf(chatStdout, "[session=%s verified=%v turns=%d]\n", res.SessionID, res.Verified, res.Turns)

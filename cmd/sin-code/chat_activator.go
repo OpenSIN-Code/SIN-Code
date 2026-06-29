@@ -95,12 +95,17 @@ func applyChatSandboxPolicy(opts *chatOptions, headless bool, workspace string) 
 	backend := opts.sandbox
 	if opts.noSandbox {
 		backend = "none"
-		fmt.Fprintf(chatStderr,
-			"WARN: --no-sandbox disables OS-level isolation for sin_bash. "+
-				"Headless mode (M3/M4, issue #420) defaults to ON; use this only for debugging.\n")
+		if opts.verbose {
+			fmt.Fprintf(chatStderr,
+				"WARN: --no-sandbox disables OS-level isolation for sin_bash. "+
+					"Headless mode (M3/M4, issue #420) defaults to ON; use this only for debugging.\n")
+		}
 	}
 	setSandboxConfig(backend, workspace)
 	if !headless {
+		return
+	}
+	if !opts.verbose {
 		return
 	}
 	if sandboxConfig.enabled {

@@ -30,6 +30,7 @@ var (
 	chatNewLLMClientFn              = llm.NewClient
 	chatNewProviderCompletionFn     = agentloop.NewProviderCompletion
 	chatNewProviderCompletionFullFn = agentloop.NewProviderCompletionFull
+	chatNewProviderCompletionStreamFn = agentloop.NewProviderCompletionStream
 	chatRulesForAgentFn             = internal.RulesForAgent
 	chatGetwdFn                     = os.Getwd
 	chatNewHooksFn                  = hooks.New
@@ -128,13 +129,16 @@ type chatOptions struct {
 	progressDest string
 	progressFile string
 	setup        bool
+	verbose      bool
 }
 
 func NewChatCmd() *cobra.Command {
 	opts := &chatOptions{}
 	cmd := &cobra.Command{
-		Use:   "chat",
-		Short: "Run the SIN-Code agent loop (interactive REPL or headless one-shot)",
+		Use:           "chat",
+		Short:         "Run the SIN-Code agent loop (interactive REPL or headless one-shot)",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		Long: `sin-code chat starts the PLAN -> ACT -> VERIFY -> DONE agent loop.
 
   sin-code chat                          interactive REPL
@@ -215,5 +219,6 @@ First-run setup:
 	f.StringVar(&opts.progressDest, "progress-dest", "stderr", "progress destination: stderr|stdout|file")
 	f.StringVar(&opts.progressFile, "progress-file", "", "progress file path when --progress-dest=file")
 	f.BoolVar(&opts.setup, "setup", false, "run interactive onboarding wizard to configure LLM backend")
+	f.BoolVarP(&opts.verbose, "verbose", "v", false, "show warnings (MCP, sandbox) and diagnostic info in headless mode")
 	return cmd
 }

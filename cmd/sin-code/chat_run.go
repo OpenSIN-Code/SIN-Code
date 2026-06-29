@@ -34,6 +34,17 @@ import (
 func runChat(ctx context.Context, opts *chatOptions) error {
 	headless := opts.prompt != ""
 
+	// Feature 3: clean --json mode. When --json is set in headless mode,
+	// suppress ALL ad-hoc stderr output (MCP warnings, sandbox
+	// announcements, autoactivate messages, etc.) so stdout contains
+	// ONLY the JSON result. The progress writer is explicitly opt-in
+	// via --progress, so it uses the original stderr — not the
+	// suppressed one. Errors are still surfaced via cobra's handler.
+	origStderr := chatStderr
+	if headless && opts.jsonOut {
+		chatStderr = io.Discard
+	}
+
 	if opts.setup {
 		return runSetupWizard()
 	}
@@ -61,7 +72,11 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		return fmt.Errorf("no LLM API key configured")
 	}
 
-	if !opts.noTUI && !headless && !opts.jsonOut && isTerminal(os.Stdout) {
+	// Feature 2: `sin-code chat` with no args launches the TUI when
+	// both stdin and stdout are terminals. The stdin check prevents
+	// launching the full-screen TUI when input is piped (e.g.,
+	// `echo "foo" | sin-code chat`), which would hang or crash.
+	if !opts.noTUI && !headless && !opts.jsonOut && isTerminal(os.Stdout) && isTerminal(os.Stdin) {
 		return runChatTUI(ctx, opts)
 	}
 
@@ -104,6 +119,23 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		// thinking{type:"enabled"} block ends up on the wire. With
 		// the legacy factories the request body would not carry it.
 		completion = chatNewProviderCompletionFullFn(client, model, agentCfg.MaxTokens, agentCfg.Temperature, nil, thinkingCfg)
+	}
+
+	// Feature 1: streaming output for headless -p mode. When the user
+	// runs `sin-code chat -p "..."` without --json, tokens are printed
+	// to stdout as they arrive. The streaming factory uses SSE
+	// (stream=true) and forwards each content delta to the callback.
+	// Tool-call deltas are accumulated so the agent loop's PLAN→ACT
+	// cycle works identically to the non-streaming path.
+	if headless && !opts.jsonOut {
+		streamCB := func(text string) {
+			fmt.Fprint(chatStdout, text)
+		}
+		var streamCache *llm.PromptCache
+		if enableCache {
+			streamCache = llm.NewPromptCache(llm.DefaultCacheTTL)
+		}
+		completion = chatNewProviderCompletionStreamFn(client, model, agentCfg.MaxTokens, agentCfg.Temperature, streamCache, thinkingCfg, streamCB)
 	}
 
 	perm := permission.New(chatRulesForAgentFn(agentCfg))
@@ -173,7 +205,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		if werr != nil {
 			return fmt.Errorf("chat: --worktree=%s: %w", opts.worktree, werr)
 		}
-		fmt.Fprintf(os.Stderr, "sin-code chat: worktree provisioned at %s\n", wt)
+		fmt.Fprintf(chatStderr, "sin-code chat: worktree provisioned at %s\n", wt)
 		if werr := os.Chdir(wt); werr != nil {
 			return fmt.Errorf("chat: chdir into worktree: %w", werr)
 		}
@@ -199,7 +231,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 			return fmt.Errorf("chat: --rewind=%s: restore: %w", opts.rewind, rwerr)
 		}
 		cstore.Close()
-		fmt.Fprintf(os.Stderr, "sin-code chat: workspace restored to checkpoint %s\n", opts.rewind)
+		fmt.Fprintf(chatStderr, "sin-code chat: workspace restored to checkpoint %s\n", opts.rewind)
 	}
 
 	hookEngine := chatNewHooksFn(loadHooks(workspace))
@@ -240,6 +272,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 
 	// --- External MCP servers (mandate C5, ecosystem skills) -------------
 	mcpMgr := chatNewMCPManagerFn(chatLoadMCPConfigsFn(workspace))
+	mcpMgr.Quiet = headless && !opts.verbose
 	if sinCfg.MCPConnectTimeoutS > 0 {
 		mcpMgr.SetConnectTimeout(time.Duration(sinCfg.MCPConnectTimeoutS) * time.Second)
 	}
@@ -484,7 +517,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		}
 		var progressFile *os.File
 		if progress != "off" && progress != "" {
-			var w io.Writer = chatStderr
+			var w io.Writer = origStderr
 			switch opts.progressDest {
 			case "stdout":
 				w = chatStdout
@@ -523,6 +556,15 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 			return err
 		}
 		act.Act.EndSession(sess.ID)
+		// Feature 1: when streaming was active (headless && !jsonOut),
+		// the model's text was already printed token-by-token to stdout
+		// during loop.Run(). Skip the duplicate summary and only emit
+		// the trailing newline + session metadata line.
+		if headless && !opts.jsonOut {
+			fmt.Fprintln(chatStdout)
+			fmt.Fprintf(chatStdout, "[session=%s verified=%v turns=%d]\n", res.SessionID, res.Verified, res.Turns)
+			return nil
+		}
 		return chatPrintResultFn(res, opts.jsonOut)
 	}
 

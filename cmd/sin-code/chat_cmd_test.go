@@ -222,7 +222,7 @@ func TestChat_HeadlessDefaultsSandboxOn(t *testing.T) {
 	defer restoreStderr()
 
 	ws := "/tmp/issue-420-headless"
-	opts := &chatOptions{prompt: "summarise this repo"} // -p implies headless
+	opts := &chatOptions{prompt: "summarise this repo", verbose: true} // -p implies headless
 	applyChatSandboxPolicy(opts, true, ws)
 
 	if !sandboxConfig.enabled {
@@ -263,6 +263,7 @@ func TestChat_NoSandboxFlag_DisablesSandbox(t *testing.T) {
 	opts := &chatOptions{
 		prompt:    "echo hello", // headless
 		noSandbox: true,
+		verbose:   true,
 	}
 	applyChatSandboxPolicy(opts, true, ws)
 
@@ -300,7 +301,7 @@ func TestChat_NoSandboxNonHeadless_SilentOverride(t *testing.T) {
 	defer restoreStderr()
 
 	ws := "/tmp/issue-420-repl"
-	opts := &chatOptions{noSandbox: true} // REPL, no -p, no --json
+	opts := &chatOptions{noSandbox: true, verbose: true} // REPL, no -p, no --json
 	applyChatSandboxPolicy(opts, false, ws)
 
 	if sandboxConfig.enabled {
@@ -343,6 +344,64 @@ func TestChat_ExplicitSandboxNoneHeadless_NoWarn(t *testing.T) {
 	out := stderrBuf.String()
 	if strings.Contains(out, "WARN: --no-sandbox") {
 		t.Errorf("--sandbox none must NOT emit the --no-sandbox WARN; got %q", out)
+	}
+}
+
+// TestChat_HeadlessNonVerbose_NoSandboxOutput: in headless mode without
+// --verbose, the sandbox policy must NOT print anything to stderr — clean
+// output like Claude Code CLI. The sandbox is still enabled; only the
+// announcement is suppressed.
+func TestChat_HeadlessNonVerbose_NoSandboxOutput(t *testing.T) {
+	snap := snapshotSandboxConfig()
+	defer restoreSandboxConfig(snap)
+	sandboxConfig = struct {
+		enabled   bool
+		workspace string
+	}{false, ""}
+
+	stderrBuf, restoreStderr := swapChatStderr(t)
+	defer restoreStderr()
+
+	ws := "/tmp/issue-420-clean"
+	opts := &chatOptions{prompt: "hello"} // headless, verbose not set
+	applyChatSandboxPolicy(opts, true, ws)
+
+	if !sandboxConfig.enabled {
+		t.Errorf("headless chat (-p) must default sandbox=enabled even without --verbose")
+	}
+	if sandboxConfig.workspace != ws {
+		t.Errorf("sandbox workspace = %q, want %q", sandboxConfig.workspace, ws)
+	}
+	out := stderrBuf.String()
+	if out != "" {
+		t.Errorf("non-verbose headless mode must produce zero stderr output; got %q", out)
+	}
+}
+
+// TestChat_NoSandboxNonVerbose_StillSilent: --no-sandbox in headless mode
+// without --verbose must still disable the sandbox but produce NO stderr
+// output. The WARN is gated behind --verbose.
+func TestChat_NoSandboxNonVerbose_StillSilent(t *testing.T) {
+	snap := snapshotSandboxConfig()
+	defer restoreSandboxConfig(snap)
+	sandboxConfig = struct {
+		enabled   bool
+		workspace string
+	}{false, ""}
+
+	stderrBuf, restoreStderr := swapChatStderr(t)
+	defer restoreStderr()
+
+	ws := "/tmp/issue-420-clean-nosandbox"
+	opts := &chatOptions{prompt: "hello", noSandbox: true} // headless, no verbose
+	applyChatSandboxPolicy(opts, true, ws)
+
+	if sandboxConfig.enabled {
+		t.Errorf("--no-sandbox must disable sandbox even without --verbose")
+	}
+	out := stderrBuf.String()
+	if out != "" {
+		t.Errorf("non-verbose --no-sandbox must produce zero stderr output; got %q", out)
 	}
 }
 
