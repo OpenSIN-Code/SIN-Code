@@ -198,8 +198,6 @@ func saveConfig(cfg SinCodeConfig) error {
 	path := userConfigPath()
 	content := renderConfigTOML(cfg)
 
-	// Atomic write: write to a temp file in the same directory, then rename.
-	// This keeps readers from seeing a half-written file.
 	tmp := path + ".tmp" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	if err := os.WriteFile(tmp, []byte(content), filemode.Default()); err != nil {
 		return fmt.Errorf("write temp config: %w", err)
@@ -208,7 +206,6 @@ func saveConfig(cfg SinCodeConfig) error {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("rename config: %w", err)
 	}
-	fmt.Printf("✅ Saved configuration to %s\n", path)
 	return nil
 }
 
@@ -318,7 +315,7 @@ func initConfig() error {
 	if err := saveConfig(cfg); err != nil {
 		return err
 	}
-	fmt.Printf("Created default configuration at %s\n", userConfigPath())
+	fmt.Printf("✅ Created default configuration at %s\n", userConfigPath())
 	fmt.Printf("   Theme: %s\n", cfg.Theme)
 	fmt.Printf("   Default timeout: %d seconds\n", cfg.DefaultTimeout)
 	fmt.Printf("   Default format: %s\n", cfg.DefaultFormat)
@@ -327,5 +324,6 @@ func initConfig() error {
 	fmt.Printf("   Agent verify mode: %s\n", cfg.AgentVerifyMode)
 	fmt.Println()
 	fmt.Println("Tip: Use 'sin-code config set theme light' to switch themes.")
+	fmt.Println("Tip: Run 'sin-code chat --setup' for the interactive LLM setup wizard.")
 	return nil
 }

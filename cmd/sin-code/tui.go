@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -59,6 +60,10 @@ func runNewTUI(out io.Writer) {
 	guard := tui.SetupPlatformGuard()
 	defer guard.Cleanup()
 	if err := tui.RunProgram(pm, opts); err != nil {
+		if strings.Contains(err.Error(), "no TTY") {
+			fmt.Fprintln(os.Stderr, "Error:", err)
+			return
+		}
 		fmt.Fprintln(out, "sin-code subcommands (TUI not available, showing plain text):")
 		fmt.Fprintln(out)
 		for _, c := range rootCmd.Commands() {
@@ -146,7 +151,7 @@ External mode:
   --hostname 0.0.0.0       bind to a public interface
   Send SIGUSR2 to the process to hot-reload config and theme.
 
-If no TTY is available, a plain text catalog is printed instead.`,
+If no TTY is available, an error is printed. Use 'sin-code chat -p' for headless mode.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		runNewTUI(cmd.OutOrStdout())
 		return nil

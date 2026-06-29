@@ -63,6 +63,9 @@ type Footer struct {
 	VerifyGate VerifyGateStatus
 	VerifyMode string
 
+	MCPConnected int
+	MCPTotal     int
+
 	PermissionPopup *PermissionPopup
 	Transition      *Transition
 	Toast           *Toast
@@ -202,6 +205,22 @@ func (f *Footer) SetVerifyGate(status VerifyGateStatus, mode string) {
 	f.VerifyMode = mode
 }
 
+func (f *Footer) SetMCPCount(connected, total int) {
+	f.MCPConnected = connected
+	f.MCPTotal = total
+}
+
+func shortModelName(model string) string {
+	if model == "" {
+		return ""
+	}
+	idx := strings.LastIndex(model, "/")
+	if idx >= 0 && idx < len(model)-1 {
+		return model[idx+1:]
+	}
+	return model
+}
+
 func (f Footer) renderVerifyGateIndicator(styles Styles) string {
 	switch f.VerifyGate {
 	case VerifyGateOff:
@@ -221,7 +240,7 @@ func (f Footer) renderVerifyGateIndicator(styles Styles) string {
 func (f Footer) RenderStatusLine(styles Styles) string {
 	var parts []string
 
-	model := f.ModelName
+	model := shortModelName(f.ModelName)
 	if model == "" {
 		model = f.AgentName()
 	}
@@ -314,9 +333,9 @@ func (f Footer) renderChatFooter(styles Styles) string {
 	}
 	parts = append(parts, status)
 
-	agent := f.AgentName()
-	if f.ModelName != "" {
-		agent = f.ModelName
+	agent := shortModelName(f.ModelName)
+	if agent == "" {
+		agent = f.AgentName()
 	}
 	if agent != "" {
 		parts = append(parts, styles.FooterKey.Render(agent))
@@ -329,6 +348,10 @@ func (f Footer) renderChatFooter(styles Styles) string {
 	vg := f.renderVerifyGateIndicator(styles)
 	if vg != "" {
 		parts = append(parts, vg)
+	}
+
+	if f.MCPTotal > 0 {
+		parts = append(parts, styles.Muted.Render(fmt.Sprintf("MCP: %d/%d", f.MCPConnected, f.MCPTotal)))
 	}
 
 	parts = append(parts, styles.Muted.Render(fmt.Sprintf("%d tokens", f.Tokens)))
@@ -382,9 +405,14 @@ func (f Footer) renderClassicFooter(styles Styles) string {
 		left.WriteString(vg)
 	}
 
-	agent := f.AgentName()
-	if f.ModelName != "" {
-		agent = f.ModelName
+	if f.MCPTotal > 0 {
+		left.WriteString(" ")
+		left.WriteString(styles.Muted.Render(fmt.Sprintf("MCP: %d/%d", f.MCPConnected, f.MCPTotal)))
+	}
+
+	agent := shortModelName(f.ModelName)
+	if agent == "" {
+		agent = f.AgentName()
 	}
 	if f.Streaming {
 		mid.WriteString(styles.AccentText.Render("⟳ "))

@@ -127,6 +127,7 @@ type chatOptions struct {
 	progress     string
 	progressDest string
 	progressFile string
+	setup        bool
 }
 
 func NewChatCmd() *cobra.Command {
@@ -162,7 +163,11 @@ func NewChatCmd() *cobra.Command {
 Post-edit automation (issue #376, opt-in via ~/.config/sin/sin-code.toml):
   agentloop.auto_lint=true   after every sin_write/sin_edit to a .go file: run gofmt -l + go vet (read-only — advisory)
   agentloop.auto_test=true   after every sin_write/sin_edit to a *_test.go file: run go test -race -count=1 on the file's package (may mutate state — advisory)
-  Both default off. Set agentloop.auto_lint=true to auto-lint after edits. Both keys are advisory: warnings only, never block.`,
+  Both default off. Set agentloop.auto_lint=true to auto-lint after edits. Both keys are advisory: warnings only, never block.
+
+First-run setup:
+  sin-code chat --setup               interactive onboarding wizard (provider, API key, model)
+  sin-code config init --setup         same wizard via the config subcommand`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runChat(cmd.Context(), opts)
 		},
@@ -209,5 +214,6 @@ Post-edit automation (issue #376, opt-in via ~/.config/sin/sin-code.toml):
 	f.StringVar(&opts.progress, "progress", "", "structured progress output: off|json (default from config, fallback off)")
 	f.StringVar(&opts.progressDest, "progress-dest", "stderr", "progress destination: stderr|stdout|file")
 	f.StringVar(&opts.progressFile, "progress-file", "", "progress file path when --progress-dest=file")
+	f.BoolVar(&opts.setup, "setup", false, "run interactive onboarding wizard to configure LLM backend")
 	return cmd
 }

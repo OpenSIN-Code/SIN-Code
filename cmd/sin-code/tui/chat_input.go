@@ -118,6 +118,9 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	case "/model":
 		m.OpenModelSwitcher()
 		return nil
+	case "/status":
+		m.OpenStatusPopup()
+		return nil
 	case "/help":
 		if m.HelpOverlay != nil {
 			m.HelpOverlay.Open()

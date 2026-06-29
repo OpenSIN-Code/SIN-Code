@@ -559,6 +559,12 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.Mode == ModeModelSwitcher {
 		return m.handleModelSwitcherKey(msg)
 	}
+	if m.Mode == ModeModelCustom {
+		return m.handleModelCustomKey(msg)
+	}
+	if m.Mode == ModeStatus {
+		return m.handleStatusPopupKey(msg)
+	}
 	if m.Mode == ModeHelpOverlay {
 		return m.handleHelpOverlayKey(msg)
 	}
@@ -1176,6 +1182,18 @@ func (m *Model) View() tea.View {
 	}
 	if m.Mode == ModeModelSwitcher && m.ModelSwitcher != nil {
 		popup := m.ModelSwitcher.Render(m.Styles, m.Width, m.Height)
+		if popup != "" {
+			layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
+		}
+	}
+	if m.Mode == ModeModelCustom && m.ModelCustomInput != nil {
+		popup := m.RenderModelCustomInput(m.Styles, m.Width, m.Height)
+		if popup != "" {
+			layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
+		}
+	}
+	if m.Mode == ModeStatus && m.StatusPopup != nil {
+		popup := m.RenderStatusPopup(m.Styles, m.Width, m.Height)
 		if popup != "" {
 			layout = lipgloss.Place(m.Width, m.Height, lipgloss.Center, lipgloss.Center, popup)
 		}

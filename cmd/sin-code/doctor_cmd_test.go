@@ -7,7 +7,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"testing"
 	"time"
 
@@ -413,15 +412,9 @@ func TestCheckModulePath_NoModuleDirective(t *testing.T) {
 // ── checkCGO ───────────────────────────────────────────────────────────
 
 func TestCheckCGO_Disabled(t *testing.T) {
-	old := doctorBuildInfoHook
-	t.Cleanup(func() { doctorBuildInfoHook = old })
-	doctorBuildInfoHook = func() (*debug.BuildInfo, bool) {
-		return &debug.BuildInfo{
-			Settings: []debug.BuildSetting{
-				{Key: "CGO_ENABLED", Value: "0"},
-			},
-		}, true
-	}
+	old := doctorCGOEnabledHook
+	t.Cleanup(func() { doctorCGOEnabledHook = old })
+	doctorCGOEnabledHook = func() bool { return false }
 	r := checkCGO()
 	if r.Status != statusPass {
 		t.Fatalf("expected pass, got %s: %s", r.Status, r.Detail)
@@ -429,46 +422,28 @@ func TestCheckCGO_Disabled(t *testing.T) {
 }
 
 func TestCheckCGO_Enabled(t *testing.T) {
-	old := doctorBuildInfoHook
-	t.Cleanup(func() { doctorBuildInfoHook = old })
-	doctorBuildInfoHook = func() (*debug.BuildInfo, bool) {
-		return &debug.BuildInfo{
-			Settings: []debug.BuildSetting{
-				{Key: "CGO_ENABLED", Value: "1"},
-			},
-		}, true
-	}
+	old := doctorCGOEnabledHook
+	t.Cleanup(func() { doctorCGOEnabledHook = old })
+	doctorCGOEnabledHook = func() bool { return true }
 	r := checkCGO()
 	if r.Status != statusFail {
 		t.Fatalf("expected fail, got %s: %s", r.Status, r.Detail)
 	}
 }
 
-func TestCheckCGO_NoBuildInfo(t *testing.T) {
-	old := doctorBuildInfoHook
-	t.Cleanup(func() { doctorBuildInfoHook = old })
-	doctorBuildInfoHook = func() (*debug.BuildInfo, bool) {
-		return nil, false
-	}
+func TestCheckCGO_CompileTime(t *testing.T) {
 	r := checkCGO()
-	if r.Status != statusWarn {
-		t.Fatalf("expected warn, got %s: %s", r.Status, r.Detail)
-	}
-}
-
-func TestCheckCGO_SettingMissing(t *testing.T) {
-	old := doctorBuildInfoHook
-	t.Cleanup(func() { doctorBuildInfoHook = old })
-	doctorBuildInfoHook = func() (*debug.BuildInfo, bool) {
-		return &debug.BuildInfo{
-			Settings: []debug.BuildSetting{
-				{Key: "GOOS", Value: "darwin"},
-			},
-		}, true
-	}
-	r := checkCGO()
-	if r.Status != statusWarn {
-		t.Fatalf("expected warn, got %s: %s", r.Status, r.Detail)
+	switch r.Status {
+	case statusPass:
+		if cgoEnabled {
+			t.Errorf("cgoEnabled=true but check passed")
+		}
+	case statusFail:
+		if !cgoEnabled {
+			t.Errorf("cgoEnabled=false but check failed")
+		}
+	default:
+		t.Errorf("unexpected status %q (cgoEnabled=%v)", r.Status, cgoEnabled)
 	}
 }
 

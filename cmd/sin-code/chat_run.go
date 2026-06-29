@@ -34,16 +34,30 @@ import (
 func runChat(ctx context.Context, opts *chatOptions) error {
 	headless := opts.prompt != ""
 
+	if opts.setup {
+		return runSetupWizard()
+	}
+
 	sinCfg, _ := internal.LoadMergedConfig()
 
 	apiKey := firstNonEmpty(os.Getenv("SIN_LLM_API_KEY"),
 		os.Getenv("NVIDIA_API_KEY"), os.Getenv("OPENAI_API_KEY"),
 		sinCfg.LLMAPIKey)
 	if strings.TrimSpace(apiKey) == "" {
+		if !headless && isTerminal(os.Stdin) {
+			fmt.Fprintln(chatStderr, "No LLM API key configured. Starting setup wizard...")
+			fmt.Fprintln(chatStderr)
+			return runSetupWizard()
+		}
 		fmt.Fprintln(chatStderr, "Error: No LLM API key configured.")
 		fmt.Fprintln(chatStderr, "")
 		fmt.Fprintln(chatStderr, "Run 'sin-code config init' to set up your configuration, or manually set")
 		fmt.Fprintln(chatStderr, "llm.api_key in your config file. Run 'sin-code config path' to find the file.")
+		fmt.Fprintln(chatStderr, "")
+		fmt.Fprintln(chatStderr, "Or set one of these environment variables:")
+		fmt.Fprintln(chatStderr, "  export SIN_LLM_API_KEY=...")
+		fmt.Fprintln(chatStderr, "  export NVIDIA_API_KEY=...")
+		fmt.Fprintln(chatStderr, "  export OPENAI_API_KEY=...")
 		return fmt.Errorf("no LLM API key configured")
 	}
 
@@ -61,8 +75,14 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	}
 
 	baseURL := firstNonEmpty(opts.baseURL, agentCfg.BaseURL,
-		os.Getenv("SIN_LLM_BASE_URL"), "https://integrate.api.nvidia.com/v1")
-	model := firstNonEmpty(opts.model, agentCfg.Model, os.Getenv("SIN_LLM_MODEL"))
+		sinCfg.LLMBaseURL, os.Getenv("SIN_LLM_BASE_URL"), "https://integrate.api.nvidia.com/v1")
+	model := firstNonEmpty(opts.model, agentCfg.Model,
+		sinCfg.LLMModel, os.Getenv("SIN_LLM_MODEL"))
+	if model == "" {
+		model = "nvidia/nemotron-3-nano-30b-a3b"
+		fmt.Fprintln(chatStderr, "WARN: no model configured, using default: "+model)
+		fmt.Fprintln(chatStderr, "Set it with: sin-code config set llm.model <model>")
+	}
 	client := chatNewLLMClientFn(baseURL, apiKey)
 
 	enableCache := sinCfg.LLMPromptCache
@@ -220,6 +240,9 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 
 	// --- External MCP servers (mandate C5, ecosystem skills) -------------
 	mcpMgr := chatNewMCPManagerFn(chatLoadMCPConfigsFn(workspace))
+	if sinCfg.MCPConnectTimeoutS > 0 {
+		mcpMgr.SetConnectTimeout(time.Duration(sinCfg.MCPConnectTimeoutS) * time.Second)
+	}
 	if err := chatMCPConnectAllFn(mcpMgr, ctx); err != nil {
 		return err
 	}

@@ -15,7 +15,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -86,13 +85,13 @@ var doctorGoModPathHook = func() string {
 	return filepath.Join(wd, "go.mod")
 }
 
-var doctorBuildInfoHook = debug.ReadBuildInfo
-
 var doctorSkillStatusHook = func(ctx context.Context) []skillmgr.SkillStatus {
 	return skillmgr.Status(ctx)
 }
 
 var doctorLookPathHook = exec.LookPath
+
+var doctorCGOEnabledHook = func() bool { return cgoEnabled }
 
 // ── Check functions ────────────────────────────────────────────────────
 
@@ -369,36 +368,23 @@ func checkModulePath() CheckResult {
 	}
 }
 
-// checkCGO verifies CGO_ENABLED=0 in the build settings (M2).
+// checkCGO verifies CGO_ENABLED=0 (M2) using a compile-time build-tag
+// variable. This is more reliable than debug.ReadBuildInfo() because the
+// build-info CGO_ENABLED setting reflects the toolchain's default at
+// compile time (which may be 1 on macOS even for a CGO-free binary),
+// whereas the build tag is determined by the actual cgo constraint.
 func checkCGO() CheckResult {
-	info, ok := doctorBuildInfoHook()
-	if !ok {
+	if doctorCGOEnabledHook() {
 		return CheckResult{
 			Name:   "cgo-enabled",
-			Status: statusWarn,
-			Detail: "build info unavailable (not a compiled binary?)",
-		}
-	}
-	for _, s := range info.Settings {
-		if s.Key == "CGO_ENABLED" {
-			if s.Value == "0" {
-				return CheckResult{
-					Name:   "cgo-enabled",
-					Status: statusPass,
-					Detail: "CGO_ENABLED=0 (mandate M2)",
-				}
-			}
-			return CheckResult{
-				Name:   "cgo-enabled",
-				Status: statusFail,
-				Detail: fmt.Sprintf("CGO_ENABLED=%s — must be 0 for static binary (mandate M2)", s.Value),
-			}
+			Status: statusFail,
+			Detail: "CGO_ENABLED=1 — must be 0 for static binary (mandate M2)",
 		}
 	}
 	return CheckResult{
 		Name:   "cgo-enabled",
-		Status: statusWarn,
-		Detail: "CGO_ENABLED setting not recorded in build info",
+		Status: statusPass,
+		Detail: "CGO_ENABLED=0 (mandate M2, verified at compile time)",
 	}
 }
 

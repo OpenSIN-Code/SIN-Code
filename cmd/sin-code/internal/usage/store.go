@@ -536,15 +536,22 @@ func (s *Store) Pricing() map[string]float64 {
 // who bill on asymmetry should supply their own map.
 func DefaultPricing() map[string]float64 {
 	return map[string]float64{
-		// NIM (NVIDIA) — common-open catalogue, ~2026-06 pricing.
-		"meta/llama-3.3-70b-instruct":          0.0009,
-		"meta/llama-3.1-70b-instruct":          0.0009,
-		"meta/llama-3.1-8b-instruct":           0.0002,
-		"nvidia/llama-3.1-nemotron-nano-8b-v1": 0.0002,
-		"qwen/qwen3-coder-480b-a35b-instruct":  0.0010,
-		"openai/gpt-oss-120b":                  0.0008,
-		"moonshotai/kimi-k2.6":                 0.0012,
-		"nvidia/nemotron-3-nano-30b-a3b":       0.0004,
+		// NIM (NVIDIA) — 2026-06 catalogue, verified working models.
+		"nvidia/nemotron-3-ultra-550b-a55b":              0.0030,
+		"nvidia/nemotron-3-super-120b-a12b":              0.0012,
+		"nvidia/nemotron-3-nano-30b-a3b":                 0.0004,
+		"nvidia/nemotron-3-nano-omni-30b-a3b-reasoning":  0.0006,
+		"meta/llama-3.3-70b-instruct":                    0.0009,
+		"meta/llama-3.1-70b-instruct":                    0.0009,
+		"meta/llama-3.1-8b-instruct":                     0.0002,
+		"meta/llama-4-maverick-17b-128e-instruct":        0.0010,
+		"moonshotai/kimi-k2.6":                           0.0012,
+		"mistralai/mistral-medium-3.5-128b":              0.0010,
+		"mistralai/mistral-large-3-675b-instruct-2512":   0.0040,
+		"mistralai/mistral-small-4-119b-2603":            0.0008,
+		"openai/gpt-oss-120b":                            0.0008,
+		"openai/gpt-oss-20b":                             0.0002,
+		"nvidia/llama-3.1-nemotron-nano-8b-v1":           0.0002,
 		// Anthropic — Claude 4.x and 3.x.
 		"claude-opus-4":               0.0150,
 		"claude-sonnet-4":             0.0030,

@@ -37,6 +37,8 @@ const (
 	ModeFilePicker
 	ModeDiffApproval
 	ModeCopy
+	ModeStatus
+	ModeModelCustom
 )
 
 type PaletteState struct {
@@ -285,6 +287,12 @@ type Model struct {
 	// Model switcher popup (#315)
 	ModelSwitcher *ModelSwitcher
 
+	// Model custom input popup
+	ModelCustomInput *ModelCustomInput
+
+	// Status popup
+	StatusPopup *StatusPopup
+
 	// Help overlay (#306)
 	HelpOverlay *HelpOverlay
 
@@ -510,6 +518,8 @@ func NewModel() *Model {
 		CompactMode:   NewCompactMode(),
 		UndercoverMode: commands.NewUndercoverMode(),
 		ModelSwitcher: NewModelSwitcher(),
+		ModelCustomInput: NewModelCustomInput(),
+		StatusPopup: NewStatusPopup(),
 		HelpOverlay:   NewHelpOverlay(DefaultKeymapConfig()),
 		FilePicker:    NewFilePicker(""),
 		CrashRecovery: NewCrashRecovery(),
@@ -524,6 +534,7 @@ func NewModel() *Model {
 	}
 	m.Footer.SetView(ViewChat)
 	m.Footer.ShowHints = false
+	m.Footer.SetMCPCount(0, 13)
 	m.ApplyTheme()
 	m.loadChatHistory()
 	return m

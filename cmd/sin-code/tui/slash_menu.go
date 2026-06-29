@@ -18,6 +18,7 @@ var DefaultSlashCommands = []SlashCommand{
 	{Name: "/pr", Description: "Create a pull request", Category: "git"},
 	{Name: "/session", Description: "Switch or create session", Category: "session", Args: "[name]"},
 	{Name: "/model", Description: "Switch LLM model", Category: "session", Args: "[name]"},
+	{Name: "/status", Description: "Show current session status", Category: "session"},
 	{Name: "/verify", Description: "Run verification gate", Category: "tools"},
 	{Name: "/tools", Description: "List available tools", Category: "tools"},
 	{Name: "/agent", Description: "Spawn a sub-agent for parallel work", Category: "agent", Args: "<prompt>"},

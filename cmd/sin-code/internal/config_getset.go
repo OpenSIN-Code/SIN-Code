@@ -157,6 +157,8 @@ func getConfigValueFrom(key string, cfg SinCodeConfig) (string, error) {
 		return fmt.Sprintf("%v", cfg.AutonomyContainerEnabled), nil
 	case "autonomy.container.image":
 		return cfg.AutonomyContainerImage, nil
+	case "mcp.connect_timeout":
+		return fmt.Sprintf("%d", cfg.MCPConnectTimeoutS), nil
 	default:
 		return "", fmt.Errorf("unknown config key: %q", key)
 	}
@@ -395,6 +397,12 @@ func setConfigValueIn(key, value string, cfg *SinCodeConfig) error {
 		cfg.AutonomyContainerEnabled = value == "true" || value == "1"
 	case "autonomy.container.image":
 		cfg.AutonomyContainerImage = value
+	case "mcp.connect_timeout":
+		v, err := strconv.Atoi(value)
+		if err != nil || v < 0 {
+			return fmt.Errorf("mcp.connect_timeout must be a non-negative integer (seconds), got %q", value)
+		}
+		cfg.MCPConnectTimeoutS = v
 	default:
 		return fmt.Errorf("unknown config key: %q", key)
 	}

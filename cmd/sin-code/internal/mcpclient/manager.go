@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 
 	sdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -77,36 +78,95 @@ func (r *realSession) Close() error {
 }
 
 type Manager struct {
-	configs  []ServerConfig
-	mu       sync.RWMutex
-	sessions map[string]session
-	tools    []Tool
+	configs       []ServerConfig
+	connectTimeout time.Duration
+	mu            sync.RWMutex
+	sessions      map[string]session
+	tools         []Tool
 }
 
 func NewManager(configs []ServerConfig) *Manager {
-	return &Manager{configs: configs, sessions: map[string]session{}}
+	return &Manager{
+		configs:       configs,
+		connectTimeout: 3 * time.Second,
+		sessions:      map[string]session{},
+	}
 }
 
-// ConnectAll connects to every configured server. A single failing server is
+// SetConnectTimeout overrides the per-server connection timeout (default 3s).
+func (m *Manager) SetConnectTimeout(d time.Duration) {
+	if d > 0 {
+		m.connectTimeout = d
+	}
+}
+
+// ConnectAll connects to every configured server in parallel. Each server
+// gets a per-server connection timeout (default 3s, configurable via
+// SetConnectTimeout / mcp.connect_timeout). A single failing server is
 // logged and skipped — external tools are additive, never fatal.
 // Warnings are deduplicated: each server name is warned about at most once.
 func (m *Manager) ConnectAll(ctx context.Context) error {
+	if len(m.configs) == 0 {
+		return nil
+	}
+
+	timeout := m.connectTimeout
+	if timeout <= 0 {
+		timeout = 3 * time.Second
+	}
+
+	type result struct {
+		name string
+		err  error
+	}
+
+	results := make([]result, len(m.configs))
+	var wg sync.WaitGroup
 	client := sdk.NewClient(&sdk.Implementation{Name: "sin-code", Version: "3.1.0"}, nil)
-	for _, cfg := range m.configs {
-		if err := m.connect(ctx, client, cfg); err != nil {
+
+	for i, cfg := range m.configs {
+		wg.Add(1)
+		go func(i int, cfg ServerConfig) {
+			defer wg.Done()
+			serverCtx, cancel := context.WithTimeout(ctx, timeout)
+			defer cancel()
+			results[i] = result{
+				name: cfg.Name,
+				err:  m.connect(serverCtx, client, cfg),
+			}
+		}(i, cfg)
+	}
+
+	wg.Wait()
+
+	var connected, failed, newFailures int
+	var failedNames []string
+	for _, r := range results {
+		if r.err != nil {
+			failed++
+			failedNames = append(failedNames, r.name)
 			warnedMu.Lock()
-			if !warnedServers[cfg.Name] {
-				warnedServers[cfg.Name] = true
+			if !warnedServers[r.name] {
+				warnedServers[r.name] = true
+				newFailures++
 				warnedMu.Unlock()
 				logger.Warn("mcp server unavailable", map[string]any{
-					"server": cfg.Name,
-					"error":  err.Error(),
+					"server": r.name,
+					"error":  r.err.Error(),
 				})
 			} else {
 				warnedMu.Unlock()
 			}
+		} else {
+			connected++
 		}
 	}
+
+	if newFailures > 0 && failed > 0 {
+		fmt.Fprintf(os.Stderr, "MCP: %d/%d servers connected (%d skipped: %s)\n",
+			connected, len(m.configs), failed, strings.Join(failedNames, ", "))
+	}
+
 	return nil
 }
 

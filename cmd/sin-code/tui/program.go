@@ -34,6 +34,9 @@ func RunProgram(model *Model, opts ProgramOptions) error {
 	if opts.ExternalMode {
 		return runExternalMode(model, opts)
 	}
+	if !isTerminal(os.Stdin) {
+		return fmt.Errorf("no TTY available — run 'sin-code tui' in a terminal, or use 'sin-code chat -p \"prompt\"' for headless mode")
+	}
 	prog := tea.NewProgram(model)
 	model.Program = ProgramFromTeaProgram(prog)
 	if opts.Sigusr2Reload {
@@ -41,6 +44,14 @@ func RunProgram(model *Model, opts ProgramOptions) error {
 	}
 	_, err := prog.Run()
 	return err
+}
+
+func isTerminal(f *os.File) bool {
+	info, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return (info.Mode() & os.ModeCharDevice) != 0
 }
 
 func ReloadCmd() tea.Cmd {

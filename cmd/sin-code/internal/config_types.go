@@ -200,6 +200,10 @@ type SinCodeConfig struct {
 
 	// OutputProgressFile is the path used when OutputProgressDest == "file".
 	OutputProgressFile string `toml:"output.progress_file"`
+
+	// MCPConnectTimeoutS is the per-server connection timeout in seconds
+	// for ConnectAll. Default 3. 0 falls back to 3 inside the manager.
+	MCPConnectTimeoutS int `toml:"mcp.connect_timeout"`
 }
 
 func defaultConfig() SinCodeConfig {
@@ -278,5 +282,7 @@ func defaultConfig() SinCodeConfig {
 		OutputProgress:     "off",
 		OutputProgressDest: "stderr",
 		OutputProgressFile: "",
+
+		MCPConnectTimeoutS: 3,
 	}
 }

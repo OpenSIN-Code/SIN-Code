@@ -308,11 +308,18 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		agentCfg = loaded
 	}
 
+	sinCfg, _ := internal.LoadMergedConfig()
 	baseURL := firstNonEmpty(cfg.BaseURL, agentCfg.BaseURL,
-		os.Getenv("SIN_LLM_BASE_URL"), "https://integrate.api.nvidia.com/v1")
+		sinCfg.LLMBaseURL, os.Getenv("SIN_LLM_BASE_URL"), "https://integrate.api.nvidia.com/v1")
 	apiKey := firstNonEmpty(os.Getenv("SIN_LLM_API_KEY"),
 		os.Getenv("NVIDIA_API_KEY"), os.Getenv("OPENAI_API_KEY"))
-	model := firstNonEmpty(cfg.Model, agentCfg.Model, os.Getenv("SIN_LLM_MODEL"))
+	model := firstNonEmpty(cfg.Model, agentCfg.Model,
+		sinCfg.LLMModel, os.Getenv("SIN_LLM_MODEL"))
+	if model == "" {
+		model = "nvidia/nemotron-3-nano-30b-a3b"
+		fmt.Fprintln(os.Stderr, "WARN: no model configured, using default: "+model)
+		fmt.Fprintln(os.Stderr, "Set it with: sin-code config set llm.model <model>")
+	}
 	client := llm.NewClient(baseURL, apiKey)
 	thinkingCfg := &agentloop.ThinkingConfig{
 		Enabled: cfg.ThinkingEnabled,
@@ -362,6 +369,9 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 	gate := verify.NewGate(mode, runner, runner)
 
 	mcpMgr := mcpclient.NewManager(mcpclient.LoadConfigs(cfg.Workspace))
+	if sinCfg, err := internal.LoadMergedConfig(); err == nil && sinCfg.MCPConnectTimeoutS > 0 {
+		mcpMgr.SetConnectTimeout(time.Duration(sinCfg.MCPConnectTimeoutS) * time.Second)
+	}
 	if !cfg.SkipMCP {
 		if err := mcpMgr.ConnectAll(ctx); err != nil {
 			return nil, nil, err

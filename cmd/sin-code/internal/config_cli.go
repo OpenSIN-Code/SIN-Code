@@ -57,7 +57,11 @@ var configSetCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		key, value := args[0], args[1]
-		return setConfigValue(key, value)
+		if err := setConfigValue(key, value); err != nil {
+			return err
+		}
+		fmt.Printf("✓ Set %s = %s\n", key, value)
+		return nil
 	},
 }
 
@@ -88,10 +92,20 @@ var configPathCmd = &cobra.Command{
 	},
 }
 
+var configInitSetup bool
+
+var SetupWizardHook func() error
+
 var configInitCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Create default configuration files",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if configInitSetup {
+			if SetupWizardHook != nil {
+				return SetupWizardHook()
+			}
+			return fmt.Errorf("setup wizard not available — run 'sin-code chat --setup' instead")
+		}
 		return initConfig()
 	},
 }
@@ -160,6 +174,7 @@ func init() {
 	configShowCmd.Flags().Bool("json", false, "Output as JSON")
 	configShowCmd.Flags().Bool("toml", false, "Output as TOML")
 	configShowCmd.Flags().Bool("plain", false, "Do not mask secrets")
+	configInitCmd.Flags().BoolVar(&configInitSetup, "setup", false, "Run interactive onboarding wizard")
 }
 func configPairs(cfg SinCodeConfig, mask bool) []configPair {
 	apiKey := cfg.LLMAPIKey

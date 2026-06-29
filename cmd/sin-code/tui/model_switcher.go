@@ -142,7 +142,7 @@ func (m *Model) OpenModelSwitcher() {
 	if m.ModelSwitcher == nil {
 		m.ModelSwitcher = NewModelSwitcher()
 	}
-	m.ModelSwitcher.SetModels(switcherModelNames())
+	m.ModelSwitcher.SetModels(buildModelList(m))
 	m.ModelSwitcher.SetCurrent(m.Footer.ModelName)
 	m.ModelSwitcher.Open()
 	m.Mode = ModeModelSwitcher
@@ -162,15 +162,7 @@ func (m *Model) handleModelSwitcherKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.CloseModelSwitcher()
 		return m, nil
 	case "enter":
-		selected := m.ModelSwitcher.Confirm()
-		if selected != "" {
-			m.Footer.ModelName = selected
-			m.AgentConfig.Model = selected
-			m.appendChat(ChatMessage{Kind: chatSystem, Text: fmt.Sprintf("[switched to %s]", selected)})
-			m.AppendHistory(ViewChat.String(), "model-switch", selected, true)
-			m.Mode = ModeNormal
-			return m, func() tea.Msg { return ModelSwitchMsg{Model: selected} }
-		}
+		m.handleModelSwitcherSelect()
 		return m, nil
 	case "up":
 		m.ModelSwitcher.MoveUp()
