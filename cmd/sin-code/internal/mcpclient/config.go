@@ -184,6 +184,15 @@ func pythonCliEntrypoint(repo, dir, name string) (ServerConfig, bool) {
 	return ServerConfig{}, false
 }
 
+// pythonModuleServers maps skill short-names to their pip-installed Python
+// module entrypoint for the MCP server. This is used as a fallback when the
+// local checkout is not in the skills dir AND the console-script binary on
+// PATH is a CLI tool rather than an MCP server (e.g. sin-marketplace has
+// search/install/list subcommands but the MCP server is sin_marketplace.server).
+var pythonModuleServers = map[string]string{
+	"marketplace": "sin_marketplace.server",
+}
+
 // pythonConfig returns a stdio ServerConfig for a discovered Python MCP
 // entrypoint. If the script is at the repo root it is run directly; otherwise
 // it is run as a module with PYTHONPATH set to the source root so relative
@@ -339,15 +348,32 @@ func DefaultServers() []ServerConfig {
 				cfg.Name = name
 			} else {
 				// No local checkout entrypoint: fall back to a console script on PATH.
-				cfg.Command = findOnPath(candidates...)
-				if cfg.Command == "" {
-					cfg.Command = "sin-" + name
+				// Skills in pythonModuleServers have a separate MCP server module
+				// (e.g. sin_marketplace.server) — prefer that over the CLI binary
+				// which may exist on PATH but is not an MCP server.
+				if mod, ok := pythonModuleServers[name]; ok {
+					cfg.Command = "python3"
+					cfg.Args = []string{"-m", mod}
+				} else {
+					found := findOnPath(candidates...)
+					if found != "" {
+						cfg.Command = found
+					} else {
+						cfg.Command = "sin-" + name
+					}
 				}
 			}
 		} else {
-			cfg.Command = findOnPath(candidates...)
-			if cfg.Command == "" {
-				cfg.Command = "sin-" + name
+			if mod, ok := pythonModuleServers[name]; ok {
+				cfg.Command = "python3"
+				cfg.Args = []string{"-m", mod}
+			} else {
+				found := findOnPath(candidates...)
+				if found != "" {
+					cfg.Command = found
+				} else {
+					cfg.Command = "sin-" + name
+				}
 			}
 		}
 		return cfg
@@ -371,14 +397,17 @@ func DefaultServers() []ServerConfig {
 		}
 		return cfg
 	}
-	return []ServerConfig{
+	// Build the server list. Some entries are conditional on the binary
+	// existing — this avoids "executable not found" and EOF errors for
+	// servers whose binaries are not yet built or whose Python modules
+	// are not installed.
+	servers := []ServerConfig{
 		// web_search_bundle is the Go-native successor to SIN-Code-Websearch-Skill.
 		goNative("web_search_bundle", "sin-websearch", "serve"),
 		py("SIN-Code-Scheduler-Skill"),
 		py("SIN-Code-Goal-Mode-Skill"),
 		py("SIN-Code-Grill-Me-Skill"),
 		py("SIN-Code-Marketplace-Skill"),
-		py("SIN-Code-Doc-Coauthoring-Skill"),
 		py("SIN-Code-Context-Bridge-Skill"),
 		py("SIN-Code-Honcho-Rollback-Skill"),
 		py("SIN-Code-Frontend-Design-Skill"),
@@ -389,26 +418,34 @@ func DefaultServers() []ServerConfig {
 
 		// v3.22.0: SIN-Analyse-Suite — multimodal preprocessing (image, video, PDF, logs, data, audio)
 		goNative("SIN-Analyse-Suite", "sin-analyse", "serve"),
-
-		// v3.22.0 (issue #382): native_browser — pure-Go headless browser facade
-		// (cmd/sin-code/internal/native_browser). Registered here so its tool
-		// namespace native_browser__* is enumerated by the catalog + permission
-		// matrix; the actual implementation runs in-process behind the Driver
-		// seam and never spawns a subprocess. The optional sin-native-browser
-		// binary is a future stdio shim — see issue #382 follow-up for the
-		// release that promotes an MCP façade behind the same namespace.
-		goNative("native_browser", "sin-native-browser", "serve"),
-
-		// External MCP server (Python stdio) — autodev-cli v0.4.0 (Bridged-External, never vendored)
-		{Name: "autodev", Transport: "stdio", Command: "autodev-mcp"},
-
-		// youtube-for-ai-agents — Node.js MCP server, 9 tools (search, transcript,
-		// video info, channel videos/info, playlist, download, clip, highlight reel).
-		// No YouTube Data API key needed — uses youtubei.js InnerTube client.
-		// Optional cookie login for age-restricted/personalized content.
-		// Repo: https://github.com/JCodesMore/youtube-for-ai-agents
-		{Name: "youtube", Transport: "stdio", Command: "node", Args: []string{youtubeMCPPath()}},
 	}
+
+	// native_browser (issue #382): the actual implementation runs in-process
+	// behind the Driver seam. The optional sin-native-browser binary is a
+	// future stdio shim — only register if the binary exists (local or PATH)
+	// so the MCP client doesn't attempt to connect to a non-existent process.
+	nbCfg := goNative("native_browser", "sin-native-browser", "serve")
+	if binaryAvailable(skillsDir, "native_browser", "sin-native-browser") {
+		servers = append(servers, nbCfg)
+	}
+
+	// autodev (Bridged-External): only register if the autodev-mcp binary is
+	// on PATH and the autodev Python module is importable. The binary is a
+	// console script that crashes with ModuleNotFoundError when the package
+	// is not installed — checking PATH alone is insufficient because the
+	// script exists even when the module doesn't.
+	if autodevAvailable() {
+		servers = append(servers, ServerConfig{Name: "autodev", Transport: "stdio", Command: "autodev-mcp"})
+	}
+
+	// youtube-for-ai-agents — Node.js MCP server, 9 tools (search, transcript,
+	// video info, channel videos/info, playlist, download, clip, highlight reel).
+	// No YouTube Data API key needed — uses youtubei.js InnerTube client.
+	// Optional cookie login for age-restricted/personalized content.
+	// Repo: https://github.com/JCodesMore/youtube-for-ai-agents
+	servers = append(servers, ServerConfig{Name: "youtube", Transport: "stdio", Command: "node", Args: []string{youtubeMCPPath()}})
+
+	return servers
 }
 
 func shortName(repo string) string {
@@ -469,4 +506,39 @@ func youtubeMCPPath() string {
 		}
 	}
 	return "dist/index.js"
+}
+
+// binaryAvailable checks whether a Go-native skill binary exists either in
+// the local skills directory or on PATH. Returns false when neither is
+// present, so the caller can skip registering a stdio server that would
+// immediately fail with "executable file not found".
+func binaryAvailable(skillsDir, repo, binary string) bool {
+	if skillsDir != "" {
+		localBin := filepath.Join(skillsDir, repo, binary)
+		if _, err := os.Stat(localBin); err == nil {
+			return true
+		}
+	}
+	if p, err := lookPathHook(binary); err == nil && p != "" {
+		return true
+	}
+	return false
+}
+
+// autodevAvailable checks whether the autodev-mcp binary is on PATH AND the
+// autodev Python module is importable. The console script autodev-mcp is
+// installed by autodev-cli but crashes with ModuleNotFoundError when the
+// package is missing or the wrong version is installed. We probe by running
+// `python3 -c "import autodev.cli_mcp"` with a short timeout.
+func autodevAvailable() bool {
+	if _, err := lookPathHook("autodev-mcp"); err != nil {
+		return false
+	}
+	cmd := exec.Command("python3", "-c", "import autodev.cli_mcp")
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	if err := cmd.Run(); err != nil {
+		return false
+	}
+	return true
 }

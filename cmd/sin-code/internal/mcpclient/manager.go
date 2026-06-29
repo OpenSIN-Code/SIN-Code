@@ -209,7 +209,15 @@ func (m *Manager) connect(ctx context.Context, client *sdk.Client, cfg ServerCon
 			if cfg.Dir != "" {
 				cmd.Dir = cfg.Dir
 			}
-			transport = &sdk.CommandTransport{Command: cmd}
+			// Simone-MCP (Python SDK) sends capabilities.extensions as a JSON
+			// array instead of a map, which the go-sdk cannot unmarshal. Use
+			// a custom transport that normalises the field at the raw-JSON
+			// level before the SDK parser sees it.
+			if cfg.Name == "simone" {
+				transport = newExtensionsFixTransport(cmd)
+			} else {
+				transport = &sdk.CommandTransport{Command: cmd}
+			}
 		case "http":
 			transport = &sdk.StreamableClientTransport{Endpoint: cfg.URL}
 		default:
