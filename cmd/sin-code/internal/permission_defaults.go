@@ -23,6 +23,8 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "sin_mutation", Policy: "allow"},
 		{Tool: "sin_fuzz", Policy: "allow"},
 		{Tool: "sin_property", Policy: "allow"},
+		{Tool: "sin_http_get", Policy: "allow"},    // read-only HTTP fetch
+		{Tool: "sin_web_search", Policy: "allow"},  // read-only web search (DuckDuckGo free + optional Tavily/SerpAPI/Brave)
 		{Tool: "sckg_*", Policy: "allow"},
 		{Tool: "oracle_*", Policy: "allow"},
 		{Tool: "poc_*", Policy: "allow"},

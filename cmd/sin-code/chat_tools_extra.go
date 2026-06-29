@@ -31,6 +31,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/llm"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/testgen"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/websearch"
 	"github.com/OpenSIN-Code/SIN-Code/pkg/browser/cdp"
 )
 
@@ -84,6 +85,12 @@ func extraSpecs() []agentloopToolSpecAlias {
 			InputSchema: obj(map[string]any{"message": str("conventional commit message")}, "message")},
 		{Name: "sin_http_get", Description: "Fetch a URL (GET only, 256KB cap, 30s timeout). For docs/APIs.",
 			InputSchema: obj(map[string]any{"url": str("http(s) URL")}, "url")},
+		{Name: "sin_web_search", Description: "Search the web using multiple providers (DuckDuckGo free, Tavily AI, SerpAPI, Brave). Returns ranked results with title, URL, snippet, and source. DuckDuckGo works with zero API keys. Set WEBSEARCH_TAVILY_KEY, WEBSEARCH_SERPAPI_KEY, WEBSEARCH_BRAVE_KEY for additional providers.",
+			InputSchema: obj(map[string]any{
+				"query": str("search query string"),
+				"max":   str("max results (default 10)"),
+				"json":  str("emit structured JSON (default false = human-readable)"),
+			}, "query")},
 		{Name: "sin_test", Description: "Run the workspace test suite with race detection and coverage, returning structured pass/fail output. Set json=true for machine-readable output.",
 			InputSchema: obj(map[string]any{
 				"target":  str("optional package/file filter (default ./...)"),
@@ -185,6 +192,8 @@ func extraTool(ctx context.Context, name string, args map[string]any) (string, e
 		return runGitFn(ctx, "commit", "-m", msg)
 	case "sin_http_get":
 		return toolHTTPGetFn(ctx, argStr(args, "url"))
+	case "sin_web_search":
+		return toolWebSearch(ctx, args)
 	case "sin_test":
 		return toolTestFn(ctx, argStr(args, "target"))
 	case "sin_test_generate":
@@ -250,6 +259,79 @@ func toolHTTPGet(ctx context.Context, url string) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("HTTP %d (%d bytes)\n%s", resp.StatusCode, len(body), body), nil
+}
+
+var webSearchEngineOnce sync.Once
+var webSearchEngine *websearch.Engine
+
+func getWebSearchEngine() *websearch.Engine {
+	webSearchEngineOnce.Do(func() {
+		cfg := websearch.LoadConfig()
+		webSearchEngine = websearch.NewEngine(cfg, nil)
+	})
+	return webSearchEngine
+}
+
+func toolWebSearch(ctx context.Context, args map[string]any) (string, error) {
+	query := argStr(args, "query")
+	if query == "" {
+		return "", fmt.Errorf("sin_web_search: 'query' is required")
+	}
+	maxStr := argStr(args, "max")
+	maxResults := 10
+	if maxStr != "" {
+		if n, err := strconv.Atoi(maxStr); err == nil && n > 0 && n <= 50 {
+			maxResults = n
+		}
+	}
+	jsonOut := argBool(args, "json", false)
+
+	cctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	engine := getWebSearchEngine()
+	results, stats := engine.Search(cctx, query)
+	if len(results) > maxResults {
+		results = results[:maxResults]
+	}
+
+	if jsonOut {
+		type jsonResult struct {
+			Title   string  `json:"title"`
+			URL     string  `json:"url"`
+			Snippet string  `json:"snippet"`
+			Source  string  `json:"source"`
+			Score   float64 `json:"score"`
+		}
+		type jsonResp struct {
+			Query    string       `json:"query"`
+			Results  []jsonResult `json:"results"`
+			Stats    websearch.Stats `json:"stats"`
+		}
+		resp := jsonResp{Query: query, Stats: stats}
+		for _, r := range results {
+			resp.Results = append(resp.Results, jsonResult{
+				Title: r.Title, URL: r.URL, Snippet: r.Snippet, Source: r.Source, Score: r.Score,
+			})
+		}
+		b, _ := json.Marshal(resp)
+		return string(b), nil
+	}
+
+	if len(results) == 0 {
+		providers := ""
+		if stats.Providers > 0 {
+			providers = fmt.Sprintf(" (%d providers queried)", stats.Providers)
+		}
+		return fmt.Sprintf("No results for %q%s. Set WEBSEARCH_TAVILY_KEY or WEBSEARCH_SERPAPI_KEY for more providers.", query, providers), nil
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "Web search: %q\n%d results from %d providers (%dms)\n\n", query, len(results), stats.Providers, stats.DurationMS)
+	for i, r := range results {
+		fmt.Fprintf(&b, "%d. [%s] %s\n   %s\n   %s\n\n", i+1, r.Source, r.Title, r.URL, r.Snippet)
+	}
+	return b.String(), nil
 }
 
 func toolTest(ctx context.Context, args map[string]any) (string, error) {

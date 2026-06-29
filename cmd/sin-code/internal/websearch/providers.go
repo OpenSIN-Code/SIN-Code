@@ -171,32 +171,66 @@ func (d *duckDuckGoProvider) Name() string { return "duckduckgo" }
 func (d *duckDuckGoProvider) Search(ctx context.Context, query string, max int) ([]Result, error) {
 	u := d.baseURL + "?q=" + url.QueryEscape(query) + "&type=list"
 	b, err := doJSON(ctx, d.doer, http.MethodGet, u, map[string]string{
-		"Accept": "application/json",
+		"Accept":     "application/json",
+		"User-Agent": "Mozilla/5.0 (compatible; sin-code-agent/3.26)",
 	}, nil)
 	if err != nil {
 		return nil, err
 	}
-	// The endpoint returns either a list of {phrase:"..."} objects or a
-	// nested list form. We handle the common object form.
-	var suggestions []struct {
-		Phrase string `json:"phrase"`
-	}
-	if err := json.Unmarshal(b, &suggestions); err != nil {
+	// DuckDuckGo's /ac/ endpoint returns a nested list:
+	//   ["original query", ["suggestion1", "suggestion2", ...]]
+	// The first element is the echoed query (skip it); the second is the
+	// suggestion list. Some older endpoints may return [{phrase:"..."},...]
+	// so we handle both formats.
+	var raw []json.RawMessage
+	if err := json.Unmarshal(b, &raw); err != nil {
 		return nil, fmt.Errorf("duckduckgo: decode: %w", err)
 	}
+	var suggestions []string
+	for i, item := range raw {
+		// Try list of strings (nested array form — index 1 in real responses)
+		var inner []string
+		if json.Unmarshal(item, &inner) == nil && len(inner) > 0 {
+			suggestions = append(suggestions, inner...)
+			continue
+		}
+		// Try string — skip index 0 (query echo) in nested-list responses
+		var s string
+		if json.Unmarshal(item, &s) == nil && s != "" {
+			if i == 0 && len(raw) > 1 {
+				// First string in a multi-element response is the query echo
+				continue
+			}
+			suggestions = append(suggestions, s)
+		}
+		// Try {phrase:"..."} object form (legacy)
+		var obj struct{ Phrase string `json:"phrase"` }
+		if json.Unmarshal(item, &obj) == nil && obj.Phrase != "" {
+			suggestions = append(suggestions, obj.Phrase)
+		}
+	}
+	// Deduplicate
+	seen := map[string]bool{}
+	unique := suggestions[:0]
+	for _, s := range suggestions {
+		if !seen[s] {
+			seen[s] = true
+			unique = append(unique, s)
+		}
+	}
+	suggestions = unique
 	if max > 0 && len(suggestions) > max {
 		suggestions = suggestions[:max]
 	}
 	out := make([]Result, 0, len(suggestions))
 	for i, s := range suggestions {
-		link := "https://duckduckgo.com/lite/?q=" + url.QueryEscape(s.Phrase)
+		link := "https://duckduckgo.com/lite/?q=" + url.QueryEscape(s)
 		out = append(out, Result{
-			Title: s.Phrase, URL: link, Snippet: s.Phrase,
+			Title: s, URL: link, Snippet: s,
 			Source: "duckduckgo", Score: scoreForPosition(i, len(suggestions)),
 		})
 	}
 	if len(out) == 0 {
-		// Fallback: at least one result pointing at the lite search page.
 		link := "https://duckduckgo.com/lite/?q=" + url.QueryEscape(query)
 		out = append(out, Result{
 			Title: query, URL: link, Snippet: strings.TrimSpace(query),

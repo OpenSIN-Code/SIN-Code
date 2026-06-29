@@ -94,9 +94,9 @@ func TestBraveProvider_Search(t *testing.T) {
 
 func TestDuckDuckGoProvider_Search(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode([]map[string]any{
-			{"phrase": "hello world"},
-			{"phrase": "hello world 2"},
+		_ = json.NewEncoder(w).Encode([]any{
+			"hello",
+			[]string{"hello world", "hello world 2"},
 		})
 	}))
 	defer srv.Close()
@@ -116,7 +116,7 @@ func TestDuckDuckGoProvider_Search(t *testing.T) {
 
 func TestDuckDuckGoProvider_EmptyFallback(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode([]map[string]any{})
+		_ = json.NewEncoder(w).Encode([]any{"solo"})
 	}))
 	defer srv.Close()
 
