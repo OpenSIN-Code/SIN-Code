@@ -93,6 +93,16 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	entry := submit.Text
 	trimmed := strings.TrimSpace(entry)
 
+	// Save to prompt history (skip empty and duplicates of last entry)
+	if trimmed != "" {
+		if len(m.PromptHistory) == 0 || m.PromptHistory[len(m.PromptHistory)-1] != trimmed {
+			m.PromptHistory = append(m.PromptHistory, trimmed)
+			m.savePromptHistory()
+		}
+		m.PromptHistoryIdx = -1
+		m.PromptDraft = ""
+	}
+
 	// Model-level slash commands
 	switch trimmed {
 	case "/export":
@@ -375,9 +385,41 @@ func (m *Model) updateChat(msg tea.Msg) tea.Cmd {
 					}
 					return nil
 				}
-			case "esc":
-				m.SlashAutocomplete.SetActive(false)
-				return nil
+		case "esc":
+			m.SlashAutocomplete.SetActive(false)
+			return nil
+		}
+		}
+	}
+
+	// Handle prompt history navigation (Up/Down) when slash menu/autocomplete are not active.
+	if (m.SlashMenu == nil || !m.SlashMenu.Open) && (m.SlashAutocomplete == nil || !m.SlashAutocomplete.Active()) {
+		if kp, ok := msg.(tea.KeyPressMsg); ok {
+			switch kp.String() {
+			case "up":
+				if len(m.PromptHistory) > 0 {
+					if m.PromptHistoryIdx == -1 {
+						m.PromptDraft = m.ChatInput.RawValue()
+						m.PromptHistoryIdx = len(m.PromptHistory) - 1
+					} else if m.PromptHistoryIdx > 0 {
+						m.PromptHistoryIdx--
+					} else {
+						return nil
+					}
+					m.ChatInput.SetValue(m.PromptHistory[m.PromptHistoryIdx])
+					return nil
+				}
+			case "down":
+				if len(m.PromptHistory) > 0 && m.PromptHistoryIdx != -1 {
+					if m.PromptHistoryIdx < len(m.PromptHistory)-1 {
+						m.PromptHistoryIdx++
+						m.ChatInput.SetValue(m.PromptHistory[m.PromptHistoryIdx])
+					} else {
+						m.PromptHistoryIdx = -1
+						m.ChatInput.SetValue(m.PromptDraft)
+					}
+					return nil
+				}
 			}
 		}
 	}

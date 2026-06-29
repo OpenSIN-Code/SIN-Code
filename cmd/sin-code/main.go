@@ -18,30 +18,20 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "sin-code",
-	Short: "SIN-Code unified analysis & manipulation toolchain",
-	Long: `sin-code is the unified Go binary for the SIN-Code tool suite.
-It consolidates 90+ subcommands into a single cobra-based CLI:
+	Short: "SIN-Code — verification-first coding agent",
+	Long: `sin-code — verification-first coding agent
 
-  Core analysis:    discover, execute, map, grasp, scout, harvest, orchestrate
-  Advanced tools:   ibd, poc, sckg, adw, oracle, efm
-  Utility commands: security, sbom, config, self-update, tui, serve, update,
-                      tool-search, doctor, diff, benchmark, tokens
-  Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, skills, swarm,
-                      superpowers, vane, stack, gh, hub, ledger, summary, install,
-                      compress, review, audit, ceo-audit, fusion, research,
-                      image-graph, analyse, analyse-image, auto
-  Lifecycle:        orchestrator-run, orchestrator-agents, orchestrator-plan,
-                      todo, notifications, memory, assets, evalset, hooks,
-                      instinct, prp, catalog, compile-spec, triage, grill,
-                      subagent, auto-pr, checkpoint, rewind, debt, cover,
-                      profile, rtk, codegraph, spec, permission, status
-  Frontend:         serve, tui, webui
-  Other:            completion, read, write, edit, lsp, plugin, index, rules
-
-Each subcommand is also a thin pass-through to the standalone tool repos
-for backwards compatibility — the standalone binaries are still maintained
-but "sin-code" is now the primary distribution channel.`,
+Every completed task passes a verification gate (PoC/Oracle proof) before reporting success.
+54+ MCP tools, multi-agent orchestration, session management, and a beautiful TUI.`,
 	Version: Version,
+	// Args allows bare invocation with no subcommand; RunE is set
+	// in main() to avoid a package-init cycle (rootCmd → runChat →
+	// runChatTUI → getSubcommand → rootCmd). SilenceUsage/Errors
+	// prevents cobra double-printing when RunE returns an error;
+	// PrintError in main() is the single error sink.
+	Args:           cobra.ArbitraryArgs,
+	SilenceUsage:   true,
+	SilenceErrors:  true,
 }
 
 func main() {
@@ -70,6 +60,24 @@ func main() {
 	}
 
 	checkUpdate()
+
+	// When no subcommand is given (bare `sin-code`), launch chat
+	// directly — matching the UX of `claude` → chat. Cobra only
+	// calls RunE when no subcommand matches, so `sin-code discover`
+	// etc. still route correctly. Set here (not in the rootCmd
+	// literal) to avoid a package-init cycle. If args are present,
+	// the first arg is an unknown subcommand — return a cobra-style
+	// "unknown command" error so PrintError surfaces it cleanly.
+	rootCmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if len(args) > 0 {
+			return fmt.Errorf("unknown command %q for %q\nRun 'sin-code --help' for usage.", args[0], cmd.CommandPath())
+		}
+		return runChat(cmd.Context(), &chatOptions{})
+	}
+
+	// Install categorized help: save cobra's default first so subcommand
+	// help (e.g. `sin-code chat --help`) still uses the standard renderer.
+	// Done in init() of help.go so it also works under testscript.RunMain.
 
 	if err := rootCmd.Execute(); err != nil {
 		internal.PrintError(err)

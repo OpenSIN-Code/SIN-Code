@@ -45,9 +45,9 @@ func runSinSubprocess(t *testing.T, testFilter, triggerKey string, extraEnv map[
 	return string(out)
 }
 
-// TestRoot_Help: `sin-code --help` must print the cobra "Available Commands:"
-// section so users can discover subcommands. Forked because rootCmd is a
-// shared package singleton; running Execute() in-process mutates flags.
+// TestRoot_Help: `sin-code --help` must print categorized command groups so
+// users can discover subcommands. Forked because rootCmd is a shared package
+// singleton; running Execute() in-process mutates flags.
 func TestRoot_Help(t *testing.T) {
 	if os.Getenv("TEST_ROOT_HELP") == "1" {
 		os.Args = []string{"sin-code", "--help"}
@@ -55,8 +55,8 @@ func TestRoot_Help(t *testing.T) {
 		return
 	}
 	out := runSinSubprocess(t, "^TestRoot_Help$", "TEST_ROOT_HELP", nil)
-	if !strings.Contains(out, "Available Commands:") {
-		t.Errorf("--help should contain 'Available Commands:', got: %q", out)
+	if !strings.Contains(out, "Chat & Agent:") {
+		t.Errorf("--help should contain categorized command groups, got: %q", out)
 	}
 	if !strings.Contains(out, "sin-code") {
 		t.Errorf("--help should contain binary name 'sin-code', got: %q", out)

@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal"
@@ -128,9 +129,41 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 	// Tool-call deltas are accumulated so the agent loop's PLAN→ACT
 	// cycle works identically to the non-streaming path.
 	if headless && !opts.jsonOut {
+		spinnerTTY := isTerminal(os.Stderr)
+		var spinnerActive atomic.Bool
+		spinnerActive.Store(spinnerTTY) // only start if stderr is a TTY
+		spinnerDone := make(chan struct{})
+		if spinnerTTY {
+			go func() {
+				defer close(spinnerDone)
+				chars := `|/-\`
+				i := 0
+				for spinnerActive.Load() {
+					fmt.Fprintf(chatStderr, "\r\033[KThinking... %c", chars[i%len(chars)])
+					i++
+					time.Sleep(100 * time.Millisecond)
+				}
+				fmt.Fprint(chatStderr, "\r\033[K")
+			}()
+		} else {
+			close(spinnerDone)
+		}
+
 		streamCB := func(text string) {
+			if spinnerActive.CompareAndSwap(true, false) {
+				<-spinnerDone
+			}
 			fmt.Fprint(chatStdout, text)
 		}
+
+		// Ensure the spinner is stopped if loop.Run returns without
+		// any streaming callback firing (e.g. immediate error).
+		defer func() {
+			if spinnerActive.CompareAndSwap(true, false) {
+				<-spinnerDone
+			}
+		}()
+
 		var streamCache *llm.PromptCache
 		if enableCache {
 			streamCache = llm.NewPromptCache(llm.DefaultCacheTTL)
@@ -553,7 +586,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		}
 		if err != nil {
 			act.Act.EndSession(sess.ID)
-			return err
+			return friendlyError(err)
 		}
 		act.Act.EndSession(sess.ID)
 		// Feature 1: when streaming was active (headless && !jsonOut),
@@ -590,7 +623,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		dispatchUserPrompt(line)
 		res, err := loop.Run(ctx, sess, line)
 		if err != nil {
-			fmt.Fprintf(chatStderr, "error: %v\n", err)
+			fmt.Fprintf(chatStderr, "error: %v\n", friendlyError(err))
 			continue
 		}
 		_ = chatPrintResultFn(res, opts.jsonOut)

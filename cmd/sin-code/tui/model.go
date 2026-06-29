@@ -319,6 +319,13 @@ type Model struct {
 	// true when user manually scrolled away from bottom in chat viewport
 	userScrolledUp bool
 
+	// PromptHistory stores previously sent prompts for Up/Down arrow recall.
+	PromptHistory []string
+	// PromptHistoryIdx is the current position when navigating history (-1 = not navigating).
+	PromptHistoryIdx int
+	// PromptDraft stores the in-progress text when the user starts navigating history.
+	PromptDraft string
+
 	Mouse *MouseHandler
 
 	RenderCache *RenderCache
@@ -415,6 +422,42 @@ func (m *Model) loadChatHistory() {
 		return
 	}
 	m.ChatHistory = history
+}
+
+// promptHistoryPath returns the path for prompt history persistence.
+func promptHistoryPath() string {
+	home, _ := os.UserHomeDir()
+	dir := filepath.Join(home, ".local", "share", "sin-code")
+	_ = os.MkdirAll(dir, 0o755)
+	return filepath.Join(dir, "tui-prompt-history.json")
+}
+
+// loadPromptHistory loads persisted prompt history from disk.
+func (m *Model) loadPromptHistory() {
+	data, err := os.ReadFile(promptHistoryPath())
+	if err != nil {
+		return
+	}
+	var history []string
+	if err := json.Unmarshal(data, &history); err != nil {
+		return
+	}
+	m.PromptHistory = history
+}
+
+// savePromptHistory persists the prompt history to disk as JSON, capped at 100 entries.
+func (m *Model) savePromptHistory() {
+	if len(m.PromptHistory) == 0 {
+		return
+	}
+	if len(m.PromptHistory) > 100 {
+		m.PromptHistory = m.PromptHistory[len(m.PromptHistory)-100:]
+	}
+	data, err := json.Marshal(m.PromptHistory)
+	if err != nil {
+		return
+	}
+	_ = os.WriteFile(promptHistoryPath(), data, filemode.Default())
 }
 
 func (m *Model) ShowFilePreview(path string) {
@@ -531,12 +574,14 @@ func NewModel() *Model {
 		CopyMode:      NewCopyMode(s),
 		Mouse:         NewMouseHandler(),
 		RenderCache:   NewRenderCache(100),
+		PromptHistoryIdx: -1,
 	}
 	m.Footer.SetView(ViewChat)
 	m.Footer.ShowHints = false
 	m.Footer.SetMCPCount(0, 13)
 	m.ApplyTheme()
 	m.loadChatHistory()
+	m.loadPromptHistory()
 	return m
 }
 

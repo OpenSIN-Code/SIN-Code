@@ -2,129 +2,135 @@ sin-code --help
 cmp stdout help.golden
 
 -- help.golden --
-sin-code is the unified Go binary for the SIN-Code tool suite.
-It consolidates 90+ subcommands into a single cobra-based CLI:
+SIN-Code — verification-first coding agent
 
-  Core analysis:    discover, execute, map, grasp, scout, harvest, orchestrate
-  Advanced tools:   ibd, poc, sckg, adw, oracle, efm
-  Utility commands: security, sbom, config, self-update, tui, serve, update,
-                      tool-search, doctor, diff, benchmark, tokens
-  Agent ecosystem:  chat, sessions, mcp, goal, daemon, skill, skills, swarm,
-                      superpowers, vane, stack, gh, hub, ledger, summary, install,
-                      compress, review, audit, ceo-audit, fusion, research,
-                      image-graph, analyse, analyse-image, auto
-  Lifecycle:        orchestrator-run, orchestrator-agents, orchestrator-plan,
-                      todo, notifications, memory, assets, evalset, hooks,
-                      instinct, prp, catalog, compile-spec, triage, grill,
-                      subagent, auto-pr, checkpoint, rewind, debt, cover,
-                      profile, rtk, codegraph, spec, permission, status
-  Frontend:         serve, tui, webui
-  Other:            completion, read, write, edit, lsp, plugin, index, rules
-
-Each subcommand is also a thin pass-through to the standalone tool repos
-for backwards compatibility — the standalone binaries are still maintained
-but "sin-code" is now the primary distribution channel.
+Every completed task passes a verification gate (PoC/Oracle proof)
+before reporting success. 54+ MCP tools, multi-agent orchestration,
+session management, and a beautiful TUI.
 
 Usage:
   sin-code [command]
+  sin-code [flags]                  Launch chat (interactive TUI or REPL)
+  sin-code chat -p "prompt"         Headless one-shot
+  sin-code chat -p "prompt" --json  JSON output
 
-Available Commands:
-  adw                 Architectural Debt Watchdogs — detect god modules, circular deps, etc.
-  analyse             Passive bridge shell for the sin-analyse-suite Python MCP (read-only)
-  analyse-image       Analyze an image with a vision-capable LLM (no Tesseract)
-  assets              Manage harvested agents/commands/skills
-  audit               Repo-wide audits (complexity, ...)
-  auto                Ultra-autonomous mode: pursue a program.md objective on your behalf
-  autodev             Bridge to OpenSIN-Code/autodev-cli (Python autoresearch loop, never vendored)
-  autopr              Self-healing pipeline: auto-fix trivial regressions and open a PR
-  benchmark           Run eval golden datasets and produce a scoring report
-  catalog             Unified tool catalog (hub + assets, one CLI)
-  ceo-audit           CEO-grade SOTA repository audit (48 gates)
-  chat                Run the SIN-Code agent loop (interactive REPL or headless one-shot)
-  checkpoint          Snapshot the current workspace state
-  codegraph           Bridge to CodeGraph for multi-language code analysis
-  compile-spec        Compile .sin-code.yml into the four derived JSON artifacts
-  completion          Generate the autocompletion script for the specified shell
-  compress            Lossless compaction for lessons / instincts / summaries / AGENTS.md
-  config              View and manage sin-code configuration
-  cover               Coverage scanner and test-generation coordinator
-  daemon              Run the autonomous worker: lease goals, execute, verify, learn
-  debt                Inspect sin-debt markers (issue #177)
-  diff                Git diff with complexity + sin-debt overlay
-  discover            Discover files with relevance scoring and pattern matching
-  doctor              Run a unified health check of the entire SIN-Code installation
-  dox                 Self-maintaining AGENTS.md hierarchy (agent0ai/dox protocol)
-  edit                Hashline-anchored surgical edits with validation
-  efm                 Ephemeral Full-Stack Mocking — spin up disposable test environments
-  eval                Run Golden Dataset evaluation suites
-  evalset             Eval-driven development harness (EvalSets, Runs, regression compare)
-  execute             Execute shell commands safely with secret redaction and timeout
-  fusion              SIN Fusion - status, config, benchmarking, model selection
-  gh                  Bridge to the GitHub CLI (gh) with a 3-tier verb-allowlist policy
-  goal                Manage the autonomous goal queue
-  grasp               Deep code understanding for a single file
-  grill               Native adversarial design-review interview (issue #141 fusion)
-  harvest             Fetch URLs with caching, structure extraction, and change detection
-  headroom            Manage Headroom context compression integration
-  help                Help about any command
-  hooks               Inspect and test lifecycle hooks
-  hub                 Tool catalog and landing page for sin-code
-  ibd                 Intent-Based Diffing — compare code changes against stated intent
-  image-graph         Generate SOTA charts (bar, line, pie, area) as HTML + PNG
-  index               Manage persistent incremental code index
-  install             Install or verify the sin-code single-binary release
-  instinct            Manage learned instincts (continuous learning)
-  ledger              Query the semantic session ledger
-  lsp                 LSP (Language Server Protocol) — IDE-grade code intelligence
-  map                 Map code architecture with dependency graphs and hot-path analysis
-  mcp                 Inspect and debug external MCP servers
-  memory              Long-term project memory with semantic search
-  notifications       Manage sin-code todo notifications
-  oracle              Verify that a source file has corresponding test coverage
-  orchestrate         Legacy task manager (use 'sin-code todo' for the SOTA issue tracker)
-  orchestrator-agents List available agents (default + user-defined + plugin)
-  orchestrator-plan   Build a plan from a prompt (no execution)
-  orchestrator-run    Run a prompt through the multi-agent orchestrator (Pre-LLM router → planner → parallel agents)
-  permission          Reactive permission engine utilities
-  plugin              Manage user-installed plugins (subcommands, agents, tools, hooks)
-  poc                 Proof-of-Correctness — verify code satisfies its specification
-  profile             Render & verify the single-source-of-truth agent profile (issue #175)
-  prp                 Product Requirement Prompt workflow (plan→implement→verify→pr)
-  read                Read files with hashline anchors, outline, and size guards
-  research            Autonomous research-report generation (issue #384)
-  review              Review code for complexity and other quality dimensions
-  rewind              Restore the workspace to a prior checkpoint
-  rtk                 Bridge to rtk (Rust Token Killer) to cut LLM token usage 60-90%
-  rules               Path-scoped rule loader (.sin-code/rules/<topic>.md)
-  sbom                Generate SPDX or CycloneDX JSON SBOM for a project
-  sckg                Semantic Codebase Knowledge Graphs — build & query code graph
-  scout               Search code with regex, semantic, symbol, and usage search
-  security            Fast security analysis — auto-detects project type and runs available tools
-  self-update         Check for and install the latest sin-code release
-  serve               Start an MCP server exposing all 54+ sin-code tools
-  sessions            Manage persisted agent sessions
-  skill               Manage ecosystem skills from upstream repos (install, status, update)
-  skills              Manage bundled project-local skills embedded in the binary (install, list)
-  spec                Author, validate & inspect *.spec.md contracts (Spec-Layer)
-  stack               Manage the DOX + Superpowers + Vane methodology stack
-  status              Print a readiness snapshot of the local SIN-Code state
-  subagent            Run a subtask in an isolated session, return summary (issue #192)
-  summary             Build a deterministic summary from the session ledger
-  superpowers         Integrate obra/superpowers skills into SIN-Code
-  swarm               Race N agent profiles on the same prompt (first verified wins)
-  todo                Issue tracker with dependencies, audit log, and project namespaces
-  tokens              Inspect LLM token usage (per session, day, lifetime, model)
-  tool-search         Debug tool relevance ranking
-  trace               Configure + verify OpenTelemetry tracer setup
-  triage              Read the open issue backlog via gh, score, group, and render
-  tui                 Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
-  update              Update SIN-Code stack (Python packages, Go binaries, skills)
-  vane                Bridge to a self-hosted Vane answering engine (citation-backed research)
-  webui               Start the sin-code web UI server
-  write               Write files atomically with syntax pre-validation
+Chat & Agent:
+  chat                 Run the SIN-Code agent loop (interactive REPL or headless one-shot)
+  sessions             Manage persisted agent sessions
+  mcp                  Inspect and debug external MCP servers
+  tool-search          Debug tool relevance ranking
+  goal                 Manage the autonomous goal queue
+  daemon               Run the autonomous worker: lease goals, execute, verify, learn
+  skill                Manage ecosystem skills from upstream repos (install, status, update)
+  skills               Manage bundled project-local skills embedded in the binary (install, list)
+  swarm                Race N agent profiles on the same prompt (first verified wins)
+
+Analysis & Verification:
+  discover             Discover files with relevance scoring and pattern matching
+  execute              Execute shell commands safely with secret redaction and timeout
+  map                  Map code architecture with dependency graphs and hot-path analysis
+  grasp                Deep code understanding for a single file
+  scout                Search code with regex, semantic, symbol, and usage search
+  harvest              Fetch URLs with caching, structure extraction, and change detection
+  orchestrate          Legacy task manager (use 'sin-code todo' for the SOTA issue tracker)
+  ibd                  Intent-Based Diffing — compare code changes against stated intent
+  poc                  Proof-of-Correctness — verify code satisfies its specification
+  sckg                 Semantic Codebase Knowledge Graphs — build & query code graph
+  adw                  Architectural Debt Watchdogs — detect god modules, circular deps, etc.
+  oracle               Verify that a source file has corresponding test coverage
+  efm                  Ephemeral Full-Stack Mocking — spin up disposable test environments
+
+Code Quality:
+  audit                Repo-wide audits (complexity, ...)
+  ceo-audit            CEO-grade SOTA repository audit (48 gates)
+  review               Review code for complexity and other quality dimensions
+  debt                 Inspect sin-debt markers (issue #177)
+  compress             Lossless compaction for lessons / instincts / summaries / AGENTS.md
+  diff                 Git diff with complexity + sin-debt overlay
+  benchmark            Run eval golden datasets and produce a scoring report
+  cover                Coverage scanner and test-generation coordinator
+
+Security:
+  security             Fast security analysis — auto-detects project type and runs available tools
+  sbom                 Generate SPDX or CycloneDX JSON SBOM for a project
+  tokens               Inspect LLM token usage (per session, day, lifetime, model)
+  permission           Reactive permission engine utilities
+
+Configuration & Setup:
+  config               View and manage sin-code configuration
+  doctor               Run a unified health check of the entire SIN-Code installation
+  status               Print a readiness snapshot of the local SIN-Code state
+  stack                Manage the DOX + Superpowers + Vane methodology stack
+  install              Install or verify the sin-code single-binary release
+  update               Update SIN-Code stack (Python packages, Go binaries, skills)
+  self-update          Check for and install the latest sin-code release
+  profile              Render & verify the single-source-of-truth agent profile (issue #175)
+
+Ecosystem:
+  hub                  Tool catalog and landing page for sin-code
+  ledger               Query the semantic session ledger
+  summary              Build a deterministic summary from the session ledger
+  catalog              Unified tool catalog (hub + assets, one CLI)
+  gh                   Bridge to the GitHub CLI (gh) with a 3-tier verb-allowlist policy
+  vane                 Bridge to a self-hosted Vane answering engine (citation-backed research)
+  superpowers          Integrate obra/superpowers skills into SIN-Code
+  dox                  Self-maintaining AGENTS.md hierarchy (agent0ai/dox protocol)
+  fusion               SIN Fusion - status, config, benchmarking, model selection
+  research             Autonomous research-report generation (issue #384)
+  headroom             Manage Headroom context compression integration
+  autodev              Bridge to OpenSIN-Code/autodev-cli (Python autoresearch loop, never vendored)
+
+Frontend:
+  serve                Start an MCP server exposing all 54+ sin-code tools
+  tui                  Interactive multi-pane TUI (Tools, Sessions, EFM, Config, History)
+  webui                Start the sin-code web UI server
+
+Lifecycle & Memory:
+  todo                 Issue tracker with dependencies, audit log, and project namespaces
+  notifications        Manage sin-code todo notifications
+  memory               Long-term project memory with semantic search
+  assets               Manage harvested agents/commands/skills
+  hooks                Inspect and test lifecycle hooks
+  eval                 Run Golden Dataset evaluation suites
+  trace                Configure + verify OpenTelemetry tracer setup
+  evalset              Eval-driven development harness (EvalSets, Runs, regression compare)
+  instinct             Manage learned instincts (continuous learning)
+  prp                  Product Requirement Prompt workflow (plan→implement→verify→pr)
+
+Utility:
+  read                 Read files with hashline anchors, outline, and size guards
+  write                Write files atomically with syntax pre-validation
+  edit                 Hashline-anchored surgical edits with validation
+  lsp                  LSP (Language Server Protocol) — IDE-grade code intelligence
+  plugin               Manage user-installed plugins (subcommands, agents, tools, hooks)
+  index                Manage persistent incremental code index
+  rules                Path-scoped rule loader (.sin-code/rules/<topic>.md)
+  checkpoint           Snapshot the current workspace state
+  rewind               Restore the workspace to a prior checkpoint
+  image-graph          Generate SOTA charts (bar, line, pie, area) as HTML + PNG
+  analyse              Passive bridge shell for the sin-analyse-suite Python MCP (read-only)
+  analyse-image        Analyze an image with a vision-capable LLM (no Tesseract)
+  auto                 Ultra-autonomous mode: pursue a program.md objective on your behalf
+
+Advanced:
+  codegraph            Bridge to CodeGraph for multi-language code analysis
+  spec                 Author, validate & inspect *.spec.md contracts (Spec-Layer)
+  triage               Read the open issue backlog via gh, score, group, and render
+  grill                Native adversarial design-review interview (issue #141 fusion)
+  subagent             Run a subtask in an isolated session, return summary (issue #192)
+  autopr               Self-healing pipeline: auto-fix trivial regressions and open a PR
+  compile-spec         Compile .sin-code.yml into the four derived JSON artifacts
+  rtk                  Bridge to rtk (Rust Token Killer) to cut LLM token usage 60-90%
+  orchestrator-run     Run a prompt through the multi-agent orchestrator (Pre-LLM router → planner → parallel agents)
+  orchestrator-agents  List available agents (default + user-defined + plugin)
+  orchestrator-plan    Build a plan from a prompt (no execution)
+
+Other:
+  completion           Generate the autocompletion script for the specified shell
 
 Flags:
   -h, --help      help for sin-code
   -v, --version   version for sin-code
 
-Use "sin-code [command] --help" for more information about a command.
+Run 'sin-code <command> --help' for command-specific help.
+Run 'sin-code' (no args) to start chatting.
