@@ -87,4 +87,5 @@ var externalServers = []externalServer{
 	{name: "simone", namespace: "simone__*", short: "Simone code intelligence", description: "Simone-MCP server (AST/LSP code intelligence).", example: "simone__symbol_search 'Server.Start'", tags: []string{"external", "code"}},
 	{name: "symfonylens", namespace: "symfonylens__*", short: "Symfony lens", description: "SIN-Code-Symfony-Lens MCP server.", example: "symfonylens__analyze_routes /project", tags: []string{"external", "php"}},
 	{name: "websearch", namespace: "websearch__*", short: "Web search", description: "Go-native web_search_bundle MCP server (sin-websearch).", example: "websearch__search 'Go 1.24 release'", tags: []string{"external", "network"}},
+	{name: "youtube", namespace: "youtube__*", short: "YouTube search & cut", description: "YouTube for AI Agents — 9 tools: search, transcript, video info, channel videos/info, playlist, download, clip, highlight reel. No API key needed. Optional cookie login for age-restricted content.", example: "youtube__search 'best Go tutorials'", tags: []string{"external", "video", "network"}},
 }

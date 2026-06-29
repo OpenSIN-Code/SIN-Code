@@ -92,7 +92,7 @@ type Manager struct {
 func NewManager(configs []ServerConfig) *Manager {
 	return &Manager{
 		configs:       configs,
-		connectTimeout: 3 * time.Second,
+		connectTimeout: 10 * time.Second,
 		sessions:      map[string]session{},
 	}
 }
@@ -199,7 +199,9 @@ func (m *Manager) connect(ctx context.Context, client *sdk.Client, cfg ServerCon
 	} else {
 		switch cfg.Transport {
 		case "stdio":
-			cmd := exec.CommandContext(ctx, cfg.Command, cfg.Args...)
+			cmdCtx, cmdCancel := context.WithCancel(context.Background())
+			_ = cmdCancel // lifetime tied to the process; cleaned up on Close()
+			cmd := exec.CommandContext(cmdCtx, cfg.Command, cfg.Args...)
 			cmd.Env = os.Environ()
 			for k, v := range cfg.Env {
 				cmd.Env = append(cmd.Env, k+"="+v)

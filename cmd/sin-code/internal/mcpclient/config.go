@@ -401,6 +401,13 @@ func DefaultServers() []ServerConfig {
 
 		// External MCP server (Python stdio) — autodev-cli v0.4.0 (Bridged-External, never vendored)
 		{Name: "autodev", Transport: "stdio", Command: "autodev-mcp"},
+
+		// youtube-for-ai-agents — Node.js MCP server, 9 tools (search, transcript,
+		// video info, channel videos/info, playlist, download, clip, highlight reel).
+		// No YouTube Data API key needed — uses youtubei.js InnerTube client.
+		// Optional cookie login for age-restricted/personalized content.
+		// Repo: https://github.com/JCodesMore/youtube-for-ai-agents
+		{Name: "youtube", Transport: "stdio", Command: "node", Args: []string{youtubeMCPPath()}},
 	}
 }
 
@@ -422,6 +429,7 @@ func shortName(repo string) string {
 		"SIN-Browser-Tools":                 "browser",
 		"Simone-MCP":                        "simone",
 		"SIN-Code-Symfony-Lens":             "symfonylens",
+		"youtube":                           "youtube",
 	}
 	if s, ok := m[repo]; ok {
 		return s
@@ -444,4 +452,21 @@ func skillsDirOrDefault() string {
 		return ""
 	}
 	return filepath.Join(home, ".local", "share", "sin-code", "skills")
+}
+
+// youtubeMCPPath resolves the path to the youtube-for-ai-agents MCP server.
+// Checks (in order): $SIN_YOUTUBE_MCP_PATH env, ~/dev/youtube-for-ai-agents/dist/index.js,
+// and falls back to npx execution via "npx".
+func youtubeMCPPath() string {
+	if p := os.Getenv("SIN_YOUTUBE_MCP_PATH"); p != "" {
+		return p
+	}
+	home, err := userHomeDirHook()
+	if err == nil && home != "" {
+		candidate := filepath.Join(home, "dev", "youtube-for-ai-agents", "dist", "index.js")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return "dist/index.js"
 }

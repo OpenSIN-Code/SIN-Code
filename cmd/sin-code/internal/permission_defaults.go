@@ -31,6 +31,15 @@ func DefaultPermissionRules() []permission.Rule {
 		// External MCP servers (qualified "server__tool" names).
 		// Read-only / analysis servers run free; action-capable ask.
 		{Tool: "websearch__*", Policy: "allow"},
+		{Tool: "youtube__search", Policy: "allow"},           // read-only search
+		{Tool: "youtube__get_transcript", Policy: "allow"},    // read-only transcript
+		{Tool: "youtube__get_video_info", Policy: "allow"},    // read-only metadata
+		{Tool: "youtube__get_channel_videos", Policy: "allow"}, // read-only
+		{Tool: "youtube__get_channel_info", Policy: "allow"},   // read-only
+		{Tool: "youtube__get_playlist", Policy: "allow"},       // read-only
+		{Tool: "youtube__download", Policy: "ask"},             // downloads files (M4)
+		{Tool: "youtube__clip", Policy: "ask"},                 // downloads + cuts (M4)
+		{Tool: "youtube__highlight_reel", Policy: "ask"},       // merges files (M4)
 		{Tool: "contextbridge__*", Policy: "allow"},
 		{Tool: "simone__*", Policy: "allow"},
 		{Tool: "symfonylens__*", Policy: "allow"},
