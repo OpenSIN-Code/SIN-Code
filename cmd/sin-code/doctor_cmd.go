@@ -5,6 +5,8 @@
 // and mandate compliance (M5 module path, M2 CGO_ENABLED=0).
 package main
 
+// sin-debt: shrink, upgrade: inline DB check wrappers when doctor command grows
+
 import (
 	"context"
 	"encoding/json"

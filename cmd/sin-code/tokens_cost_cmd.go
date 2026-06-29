@@ -5,6 +5,8 @@
 // end-of-month projection and traffic-light budget status.
 package main
 
+// sin-debt: shrink, upgrade: inline readConfigFile when test seam is no longer needed
+
 import (
 	"context"
 	"encoding/json"

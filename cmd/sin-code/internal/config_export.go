@@ -5,6 +5,8 @@
 // to exercise the full config API surface without duplicating logic.
 package internal
 
+// sin-debt: shrink, upgrade: inline wrappers when config subpackage is merged into internal package
+
 // ConfigKV is an exported key-value pair used by ConfigPairs for display.
 type ConfigKV struct {
 	Key   string
