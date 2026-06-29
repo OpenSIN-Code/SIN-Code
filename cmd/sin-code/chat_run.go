@@ -122,6 +122,9 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		completion = chatNewProviderCompletionFullFn(client, model, agentCfg.MaxTokens, agentCfg.Temperature, nil, thinkingCfg)
 	}
 
+	var streamCache *llm.PromptCache
+	var streamCB func(string)
+
 	// Feature 1: streaming output for headless -p mode. When the user
 	// runs `sin-code chat -p "..."` without --json, tokens are printed
 	// to stdout as they arrive. The streaming factory uses SSE
@@ -149,7 +152,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 			close(spinnerDone)
 		}
 
-		streamCB := func(text string) {
+		streamCB = func(text string) {
 			if spinnerActive.CompareAndSwap(true, false) {
 				<-spinnerDone
 			}
@@ -164,11 +167,33 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 			}
 		}()
 
-		var streamCache *llm.PromptCache
 		if enableCache {
 			streamCache = llm.NewPromptCache(llm.DefaultCacheTTL)
 		}
 		completion = chatNewProviderCompletionStreamFn(client, model, agentCfg.MaxTokens, agentCfg.Temperature, streamCache, thinkingCfg, streamCB)
+	}
+
+	var completionBuilder agentloop.CompletionBuilder
+	{
+		switch {
+		case headless && !opts.jsonOut:
+			completionBuilder = func(m string) func(context.Context, []session.Message, []agentloop.ToolSpec) (*agentloop.Completion, error) {
+				return chatNewProviderCompletionStreamFn(client, m, agentCfg.MaxTokens, agentCfg.Temperature, streamCache, thinkingCfg, streamCB)
+			}
+		case enableCache:
+			completionBuilder = func(m string) func(context.Context, []session.Message, []agentloop.ToolSpec) (*agentloop.Completion, error) {
+				cache := llm.NewPromptCache(llm.DefaultCacheTTL)
+				return chatNewProviderCompletionFullFn(client, m, agentCfg.MaxTokens, agentCfg.Temperature, cache, thinkingCfg)
+			}
+		case thinkingCfg.Enabled:
+			completionBuilder = func(m string) func(context.Context, []session.Message, []agentloop.ToolSpec) (*agentloop.Completion, error) {
+				return chatNewProviderCompletionFullFn(client, m, agentCfg.MaxTokens, agentCfg.Temperature, nil, thinkingCfg)
+			}
+		default:
+			completionBuilder = func(m string) func(context.Context, []session.Message, []agentloop.ToolSpec) (*agentloop.Completion, error) {
+				return chatNewProviderCompletionFn(client, m, agentCfg.MaxTokens, agentCfg.Temperature)
+			}
+		}
 	}
 
 	perm := permission.New(chatRulesForAgentFn(agentCfg))
@@ -375,6 +400,8 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		MaxTurns:                 opts.maxTurns,
 		SessionID:                sess.ID,
 		Completion:               completion,
+		Model:                    model,
+		CompletionBuilder:        completionBuilder,
 		Hooks:                    hookEngine,
 		Perm:                     perm,
 		Ask:                      ask,
@@ -593,7 +620,7 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		// the model's text was already printed token-by-token to stdout
 		// during loop.Run(). Skip the duplicate summary and only emit
 		// the trailing newline + session metadata line.
-		if headless && !opts.jsonOut {
+	if headless && !opts.jsonOut {
 			fmt.Fprintln(chatStdout)
 			fmt.Fprintf(chatStdout, "[session=%s verified=%v turns=%d]\n", res.SessionID, res.Verified, res.Turns)
 			return nil
@@ -619,6 +646,25 @@ func runChat(ctx context.Context, opts *chatOptions) error {
 		}
 		if line == "exit" || line == "quit" {
 			break
+		}
+		if line == "/model" || strings.HasPrefix(line, "/model ") {
+			arg := strings.TrimSpace(strings.TrimPrefix(line, "/model"))
+			if arg == "" {
+				fmt.Fprintf(chatStdout, "Current model: %s\n", loop.GetModel())
+				fmt.Fprintln(chatStdout, "Available models:")
+				for _, m := range availableChatModels(sinCfg, agentCfg) {
+					marker := "  "
+					if m == loop.GetModel() {
+						marker = "* "
+					}
+					fmt.Fprintf(chatStdout, "%s%s\n", marker, m)
+				}
+			} else {
+				old := loop.GetModel()
+				loop.SetModel(arg)
+				fmt.Fprintf(chatStdout, "Switched model: %s → %s\n", old, loop.GetModel())
+			}
+			continue
 		}
 		dispatchUserPrompt(line)
 		res, err := loop.Run(ctx, sess, line)

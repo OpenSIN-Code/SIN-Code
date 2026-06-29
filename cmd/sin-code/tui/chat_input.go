@@ -3,7 +3,6 @@ package tui
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"charm.land/bubbles/v2/key"
@@ -187,10 +186,7 @@ func handleChatSubmit(m *Model, submit chat.SubmitMsg) tea.Cmd {
 	if strings.HasPrefix(trimmed, "/model ") {
 		modelName := strings.TrimSpace(strings.TrimPrefix(trimmed, "/model "))
 		if modelName != "" {
-			m.AgentConfig.Model = modelName
-			m.Footer.ModelName = modelName
-			m.appendChat(ChatMessage{Kind: chatSystem, Text: fmt.Sprintf("Switched to model: %s", modelName)})
-			m.AppendHistory(ViewChat.String(), "model-switch", modelName, true)
+			m.applyModelSwitch(modelName)
 			return nil
 		}
 	}

@@ -6,6 +6,7 @@ package agentloop
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/hooks"
@@ -55,6 +56,19 @@ type Loop struct {
 	// message. It is immutable for the lifetime of the loop (mandate M7).
 	SystemPrompt string
 	Completion   func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error)
+
+	// Model is the current LLM model name. Updated atomically by SetModel
+	// (mandate M7). Read via GetModel for thread-safe access.
+	Model string
+	// CompletionBuilder, when set, allows SetModel to rebuild the Completion
+	// closure with a new model while preserving the LLM client and other
+	// completion configuration (cache, thinking, stream callback). This
+	// enables mid-session model switching without losing conversation context.
+	CompletionBuilder CompletionBuilder
+	// modelMu protects Model and Completion for concurrent access (M7).
+	// Run is documented one-at-a-time, but SetModel may be called from a
+	// different goroutine (TUI callback) between runs.
+	modelMu sync.RWMutex
 
 	Hooks   *hooks.Engine
 	Perm    *permission.Engine

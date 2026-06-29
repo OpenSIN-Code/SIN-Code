@@ -162,7 +162,7 @@ func (l *Loop) Run(ctx context.Context, sess *session.Session, prompt string) (*
 			}
 			reqMsgs = append([]session.Message{{Role: "system", Content: sysContent}}, reqMsgs...)
 		}
-		resp, err := l.Completion(ctx, reqMsgs, tools)
+		resp, err := l.getCompletion()(ctx, reqMsgs, tools)
 		if err != nil {
 			return nil, fmt.Errorf("turn %d: %w", turn, err)
 		}

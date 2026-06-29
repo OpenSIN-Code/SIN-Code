@@ -23,6 +23,7 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/memory"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/orchestrator"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/permission"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/skillmgr"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/stopgate"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
@@ -172,11 +173,21 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		}
 	}
 	completion := agentloop.NewProviderCompletionFull(client, model, agentCfg.MaxTokens, agentCfg.Temperature, nil, thinkingCfg)
+	promptCacheEnabled := false
 	if sinCfg, err := internal.LoadMergedConfig(); err == nil {
 		if sinCfg.LLMPromptCache {
+			promptCacheEnabled = true
 			cache := llm.NewPromptCache(llm.DefaultCacheTTL)
 			completion = agentloop.NewProviderCompletionFull(client, model, agentCfg.MaxTokens, agentCfg.Temperature, cache, thinkingCfg)
 		}
+	}
+
+	completionBuilder := func(m string) func(context.Context, []session.Message, []agentloop.ToolSpec) (*agentloop.Completion, error) {
+		if promptCacheEnabled {
+			cache := llm.NewPromptCache(llm.DefaultCacheTTL)
+			return agentloop.NewProviderCompletionFull(client, m, agentCfg.MaxTokens, agentCfg.Temperature, cache, thinkingCfg)
+		}
+		return agentloop.NewProviderCompletionFull(client, m, agentCfg.MaxTokens, agentCfg.Temperature, nil, thinkingCfg)
 	}
 
 	perm := permission.New(internal.RulesForAgent(agentCfg))
@@ -236,6 +247,8 @@ func Build(ctx context.Context, cfg Config, memStore *lessons.Store) (*agentloop
 		GoalID:                   cfg.GoalID,
 		SystemPrompt:             style.RenderSystemPrompt(cfg.Style),
 		Completion:               completion,
+		Model:                    model,
+		CompletionBuilder:        completionBuilder,
 		Hooks:                    hookEngine,
 		Perm:                     perm,
 		Ask:                      cfg.AskFunc,

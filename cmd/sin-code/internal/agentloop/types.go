@@ -50,6 +50,12 @@ type LocalToolFunc func(ctx context.Context, name string, args map[string]any) (
 
 type AskFunc func(tc ToolCall) bool
 
+// CompletionBuilder rebuilds a Completion closure with a new model while
+// preserving the LLM client, cache, thinking config, and stream callback.
+// It is used by Loop.SetModel for mid-session model switching without
+// losing conversation context.
+type CompletionBuilder func(model string) func(ctx context.Context, history []session.Message, tools []ToolSpec) (*Completion, error)
+
 // StopSnapshot is the read-only view of a run handed to the stop-gate when
 // the worker proposes completion (no more tool calls AND the verify-gate
 // passed). It carries just enough signal for an independent evaluator to

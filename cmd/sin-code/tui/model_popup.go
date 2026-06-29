@@ -106,12 +106,16 @@ func (m *Model) RenderModelCustomInput(styles Styles, width, height int) string 
 }
 
 func (m *Model) applyModelSwitch(model string) {
+	old := m.Footer.ModelName
 	m.Footer.ModelName = model
 	m.AgentConfig.Model = model
 	os.Setenv("SIN_LLM_MODEL", model)
-	m.ChatRunner = nil
-	m.AgentRunner = nil
-	m.appendChat(ChatMessage{Kind: chatSystem, Text: fmt.Sprintf("[switched to %s]", model)})
+	if m.AgentRunner != nil {
+		if loop := m.AgentRunner.Loop(); loop != nil {
+			loop.SetModel(model)
+		}
+	}
+	m.appendChat(ChatMessage{Kind: chatSystem, Text: fmt.Sprintf("Switched model: %s → %s", old, model)})
 	m.AppendHistory(ViewChat.String(), "model-switch", model, true)
 }
 
