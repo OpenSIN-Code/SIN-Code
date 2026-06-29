@@ -3,7 +3,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -70,13 +69,6 @@ func renderToolOutput(output string, styles Styles, width int) string {
 	}
 	if width < 10 {
 		width = 10
-	}
-
-	lines := strings.Split(output, "\n")
-	const maxLines = 50
-	if len(lines) > maxLines {
-		output = strings.Join(lines[:maxLines], "\n")
-		output += fmt.Sprintf("\n⋯ %d more lines (use /tools to see full output)", len(lines)-maxLines)
 	}
 
 	highlighter := NewSyntaxHighlighter(styles.Theme)

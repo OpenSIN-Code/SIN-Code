@@ -31,11 +31,20 @@ import (
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/session"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/skillmgr"
 	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/style"
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/voice"
 	"github.com/OpenSIN-Code/SIN-Code/skills"
 )
 
 func runChat(ctx context.Context, opts *chatOptions) error {
 	headless := opts.prompt != ""
+
+	if opts.voice && !headless {
+		if voice.IsAvailable() {
+			fmt.Fprintln(chatStderr, "Voice input enabled (Ctrl+M to record, issue #481)")
+		} else {
+			fmt.Fprintln(chatStderr, "WARN: --voice set but no voice backend found (install sox/ffmpeg + whisper)")
+		}
+	}
 
 	// Feature 3: clean --json mode. When --json is set in headless mode,
 	// suppress ALL ad-hoc stderr output (MCP warnings, sandbox

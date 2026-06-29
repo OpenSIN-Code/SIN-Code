@@ -82,6 +82,8 @@ func init() {
 		NewDoctorCmd(),       // unified health check
 		NewBenchmarkCmd(),    // benchmark — run eval golden datasets with scoring report
 		NewWatchCmd(),        // watch — workspace file watcher, run commands on save (issue #486)
+		newContextCmd(),      // context — context window usage meter (issue #484)
+		newDecisionCmd(),     // decision — architectural decision memory (issue #488)
 	)
 
 	// Pass build-time version to self-update module.

@@ -327,6 +327,17 @@ func (m *Model) updateChat(msg tea.Msg) tea.Cmd {
 			m.appendChat(ChatMessage{Kind: chatSystem, Text: toggleMsg})
 			return nil
 		}
+		// Tab toggles expand/collapse on the focused tool message.
+		if kmsg.String() == "tab" && m.ViewKind == ViewChat {
+			idx := m.ChatFocusIdx
+			if idx >= 0 && idx < len(m.ChatHistory) && m.ChatHistory[idx].Kind == chatTool {
+				m.ChatHistory[idx].Expanded = !m.ChatHistory[idx].Expanded
+				if m.RenderCache != nil {
+					m.RenderCache.Invalidate(idx)
+				}
+				return nil
+			}
+		}
 	}
 
 	// Handle SlashMenu navigation when open — takes priority over autocomplete.

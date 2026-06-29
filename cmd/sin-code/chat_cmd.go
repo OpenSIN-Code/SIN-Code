@@ -146,6 +146,10 @@ type chatOptions struct {
 	// safety net, not a verification signal. M4: create is non-
 	// destructive (git tag only) so no permission gate is needed.
 	checkpoint bool
+	// voice enables voice-to-code input in the REPL (issue #481).
+	// When set, the user can press Ctrl+M to record and transcribe
+	// voice input. Requires sox/ffmpeg + whisper on PATH.
+	voice bool
 }
 
 func NewChatCmd() *cobra.Command {
@@ -243,5 +247,6 @@ First-run setup:
 	f.StringVar(&opts.commitPrefix, "commit-prefix", "", "conventional commit prefix for --auto-commit (e.g. feat, fix, docs; default: auto-detect)")
 	f.BoolVar(&opts.checkpoint, "checkpoint", false, "auto-create a git checkpoint before the agent loop starts (issue #483)")
 	f.StringVar(&opts.agentMode, "agent-mode", "", "specialized sub-agent mode: default|architect|debug|code|review (issue #485)")
+	f.BoolVar(&opts.voice, "voice", false, "enable voice-to-code input in the REPL (Ctrl+M to record, issue #481)")
 	return cmd
 }

@@ -240,6 +240,16 @@ func renderToolCard(msg ChatMessage, styles Styles, width int, focused bool) str
 		b.WriteString(styles.Muted.Render(" → " + detail))
 	}
 	b.WriteString("\n")
+
+	output := msg.ToolOutput
+	if output == "" {
+		output = msg.Detail
+	}
+	if output != "" && output != msg.Detail {
+		collapsed := CollapseOutput(output, CollapsedToolLines, false, styles.Muted)
+		b.WriteString(renderToolOutput(collapsed, styles, bodyWidth))
+	}
+
 	return b.String()
 }
 

@@ -149,10 +149,10 @@ func (m *Model) renderChat(styles Styles, width, height int) string {
 
 		// Bug 4: Use RenderCache for non-streaming messages
 		if !msgStreaming && m.RenderCache != nil {
-			cacheContent := fmt.Sprintf("%d|%s|%s|%s|%s|%s|%v|%v",
+			cacheContent := fmt.Sprintf("%d|%s|%s|%s|%s|%s|%v|%v|%v",
 				renderMsg.Kind, renderMsg.Text, renderMsg.Tool,
 				renderMsg.ToolInput, renderMsg.ToolOutput, renderMsg.Detail,
-				renderMsg.Result, i == m.ChatFocusIdx)
+				renderMsg.Result, renderMsg.Expanded, i == m.ChatFocusIdx)
 			cacheKey := renderCacheKey(i, cacheContent, width, styles.Theme.Name)
 			if cached, ok := m.RenderCache.Get(cacheKey); ok {
 				content.WriteString(cached)

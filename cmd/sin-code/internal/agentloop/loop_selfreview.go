@@ -57,7 +57,7 @@ var excludedExtensions = map[string]bool{
 	".png": true, ".jpg": true, ".jpeg": true, ".gif": true, ".ico": true,
 	".pdf": true, ".zip": true, ".tar": true, ".gz": true, ".bz2": true,
 	".so": true, ".dylib": true, ".dll": true, ".exe": true, ".bin": true,
-	".lock": true, ".sum": true, ".min.js": true, ".min.css": true,
+	".lock": true, ".sum": true,
 }
 
 // NewSelfReviewReflector creates a Reflector that automatically scans
