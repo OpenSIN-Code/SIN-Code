@@ -4,10 +4,10 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** v3.25.0 (2026-06-25) —
-> 4 new subcommands: `doctor` (unified health check), `diff` (git diff with
-> complexity overlay), `benchmark` (eval golden dataset runner), `tokens cost`
-> (cost projection + budget alerts). 4 parallel subagents, 90 new tests.
+> **Last verified against main:** v3.26.0 (2026-06-29) —
+> `sin_web_search` free DuckDuckGo web search + Tavily/SerpAPI/Brave, YouTube for
+> AI Agents 9 MCP tools (no API key), DuckDuckGo parser fix, MCP stdio context
+> fix, 4 god-files split (no file >1000 lines), MCP connect timeout 10s.
 > CEO Audit: Score 100, A+, 48/48 gates, 0 unapproved findings, 0 rot-risk.
 > Test suite green and environment-independent.
 
@@ -757,6 +757,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.23.0 | ✅ SHIPPED | v3.23.0 roadmap batch 1: autonomous research report (`sin-code research`, issue #384), SWE-bench test suite (issue #363), scientific research skill (issue #387), `sin_apply_diff`/`sin_generate_diff` chat tools (issue #365), dynamic MCP server discovery (`sin-code mcp discover/add`, issue #368). Also repaired main build drift from parallel-agent work. Remaining open: #364, #373, #374, #388, #389. |
 | v3.24.0 | ✅ SHIPPED | TUI/agentloop/headless live progress: live tool timing + NDJSON progress + live token/cost footer (issue #424); Esc cancels in-flight TUI prompt; autonomy trigger loops exit promptly on context cancellation; test suite made environment-independent; `sin-code analyse-image` vision model (issue #423); Security Scanning V2 (secrets/SAST/SCA/SBOM/container/SARIF); Complexity cleanup: 55+ files merged, all analyzers fixed, scoring corrected, 0 unapproved findings, 0 rot-risk markers. |
 | v3.25.0 | ✅ SHIPPED | 4 new subcommands: `doctor` (unified health check — 11 checks, Go/config/DBs/MCP/tools/CGO/module-path), `diff` (git diff with complexity + sin-debt overlay), `benchmark` (eval golden dataset runner with scoring report), `tokens cost` (cost projection + budget alerts from token ledger). 4 parallel subagents, 90 new tests. CEO Audit: Score 100, A+, 48/48 gates. |
+| v3.26.0 | ✅ SHIPPED | `sin_web_search` chat tool — free DuckDuckGo web search (keyless, no API key needed) + optional Tavily/SerpAPI/Brave multi-provider engine. YouTube for AI Agents MCP integration — 9 YouTube tools (search, transcript, video info, channel videos/info, playlist, download, clip, highlight reel) with no YouTube Data API key. DuckDuckGo parser fix for real `/ac/` endpoint format. MCP stdio subprocess context fix (process was killed after 3s connect timeout → `context.Background()`). MCP connect timeout 3s→10s. 4 god-files split: update.go 1747→371, chat_render.go 1107→307, chat_tools_extra.go 1126→192, loop.go 1009→465. No file over 1000 lines remains. |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.

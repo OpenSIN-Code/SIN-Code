@@ -2,6 +2,34 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [v3.26.0] - 2026-06-29
+
+### Added — Free web search + YouTube for AI Agents
+- **`sin_web_search` chat tool** — free DuckDuckGo web search (keyless, no API key needed) + optional Tavily/SerpAPI/Brave multi-provider engine. Wires existing `internal/websearch` engine as first-class chat tool. Permission: `allow` (read-only). Catalog entry added.
+- **YouTube for AI Agents MCP integration** — 9 YouTube tools via `youtube-for-ai-agents` (github.com/JCodesMore/youtube-for-ai-agents). No YouTube Data API key needed — uses youtubei.js InnerTube client.
+  - `youtube__youtube_search` (allow) — search videos/channels/playlists
+  - `youtube__youtube_get_transcript` (allow) — transcripts with timestamp control
+  - `youtube__youtube_get_video_info` (allow) — video metadata (brief/standard/full)
+  - `youtube__youtube_get_channel_videos` (allow) — list channel videos
+  - `youtube__youtube_get_channel_info` (allow) — channel metadata
+  - `youtube__youtube_get_playlist` (allow) — playlist metadata + video list
+  - `youtube__youtube_download` (ask) — download video/audio
+  - `youtube__youtube_clip` (ask) — cut clips by timestamp
+  - `youtube__youtube_highlight_reel` (ask) — merge clips into highlight reel
+  - Cookie storage: `~/.config/sin-youtube/cookies.json` (chmod 600) for optional age-restricted content
+  - Registered in mcpclient config, permission defaults, catalog
+
+### Fixed
+- **DuckDuckGo parser fix** — real `/ac/` endpoint returns `["query",["sug1","sug2",...]]` not `[{phrase:"..."},...]`. Parser now handles nested list format + legacy object form.
+- **MCP stdio subprocess context fix** — `exec.CommandContext(ctx, ...)` used per-server timeout context which killed the process after connect. Fixed: use `context.Background()` for subprocess lifetime; per-server timeout still applies to initialize + ListTools.
+- **MCP connect timeout** — increased 3s → 10s (Node.js MCP servers need more init time).
+
+### Refactored — 4 god-files split (no file >1000 lines)
+- `cmd/sin-code/tui/update.go`: 1747 → 371 lines (8 new files)
+- `cmd/sin-code/tui/chat_render.go`: 1107 → 307 lines (6 new files)
+- `cmd/sin-code/chat_tools_extra.go`: 1126 → 192 lines (5 new files)
+- `cmd/sin-code/internal/agentloop/loop.go`: 1009 → 465 lines (5 new files)
+
 ## [v3.25.0] - 2026-06-25
 
 ### Added — 4 new subcommands
