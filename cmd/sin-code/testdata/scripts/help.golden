@@ -1,7 +1,3 @@
-sin-code --help
-cmp stdout help.golden
-
--- help.golden --
 SIN-Code — verification-first coding agent
 
 Every completed task passes a verification gate (PoC/Oracle proof)

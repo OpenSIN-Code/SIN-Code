@@ -72,11 +72,20 @@ tool and confirm the change before reporting success.
 
 ## Known limitations
 
-- **Tabs**: Notion tabs are a UI-only database view feature. The `tab` block type
-  exists but cannot be populated via the API. Use columns or sections instead.
-- **Columns**: `column_list` blocks can be created via raw JSON (`--content`), but
-  child columns are not populated in a single call. Workaround: create the
-  `column_list` first, then append columns individually.
+- **Tabs**: Fully supported via API version `2026-03-11`. Create tabs via
+  `notion_raw_cli` with `block append --content`. Only `paragraph` blocks can be
+  direct children of `tab` blocks. Icons on paragraph children are only valid
+  when the paragraph is a direct child of a tab block.
+- **Columns**: Fully supported. Create multi-column layouts via
+  `notion_raw_cli` with `block append --content`. Each `column_list` must have
+  at least 2 columns, and each column must have at least 1 child block.
+  Use `width_ratio` (0.0-1.0) to control column widths.
+- **In-place editing**: Supported via `block update --content`. Note that
+  updates replace the entire value (not merge). Rich text must be sent completely.
+- **Page moves**: Supported within the same workspace. Cross-workspace moves
+  are NOT supported by the Notion API (fundamental limitation).
+- **Database views**: Supported via `database view-list` and `database view-get`.
+  View filters/sorts cannot be read via the query endpoint.
 - **Page creation**: workspace-level page creation returns empty data (vibe-notion
   quirk). Use `--parent <page_id>` to create pages under an existing page — this
   returns the full page object.
