@@ -104,10 +104,46 @@ SEARCH  ->  ASSESS  ->  WATCH  ->  REPORT
 By default, search runs anonymously — no login required. For personalized
 recommendations, age-restricted videos, or member-only content:
 
-1. Cookies are stored at `~/.config/sin-youtube/cookies.json` (chmod 600)
-2. Set `YOUTUBE_COOKIE_PATH` env var to point to the cookie file
-3. Required cookies: `SID`, `HSID`, `SSID`, `APISID`, `SAPISID`,
+### Automated extraction (recommended — no user interaction)
+
+Agents can extract YouTube cookies autonomously from the local browser:
+
+```bash
+# Install browser_cookie3 (one-time)
+pip3 install --break-system-packages browser_cookie3
+
+# Extract cookies from Chrome/Safari/Firefox + store locally + Infisical
+python3 scripts/auto-extract-cookies.py --store-infisical
+```
+
+The script:
+1. Reads YouTube cookies directly from the browser's cookie database
+   (Chrome first, then Safari, then Firefox — uses `browser_cookie3`)
+2. Saves to `~/.config/sin-youtube/cookies.json` (chmod 600)
+3. With `--store-infisical`: stores as `YOUTUBE_COOKIES_JSON` in Infisical
+   (so other Macs can download via `cookie-setup.sh`)
+
+On other Macs, download from Infisical:
+```bash
+bash scripts/cookie-setup.sh
+```
+
+### Manual extraction (fallback)
+
+If automated extraction fails (e.g. no browser on the machine):
+
+1. Open Chrome/Safari → youtube.com → make sure you're logged in
+2. DevTools → Application → Cookies → youtube.com
+3. Copy these cookies as JSON: `SID`, `HSID`, `SSID`, `APISID`, `SAPISID`,
    `__Secure-1PSID`, `__Secure-3PSID`, `LOGIN_INFO`
+4. Save to `~/.config/sin-youtube/cookies.json` (chmod 600)
+5. Store in Infisical: `bash scripts/cookie-store.sh ~/.config/sin-youtube/cookies.json`
+
+### Configuration
+
+- Cookie file: `~/.config/sin-youtube/cookies.json` (chmod 600)
+- Env var: `YOUTUBE_COOKIE_PATH` to override the default path
+- Infisical secret: `YOUTUBE_COOKIES_JSON`
 
 Never log, echo, or commit cookie values. Treat them as secrets (M4).
 
