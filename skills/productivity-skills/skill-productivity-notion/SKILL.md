@@ -43,7 +43,7 @@ data — always call a tool and use the real result.
 After any write, re-read the affected page/block with a `notion__notion_read_*`
 tool and confirm the change before reporting success.
 
-## Available tools (17)
+## Available tools (19)
 
 ### Read tools (auto-allowed)
 - `notion__notion_read_auth_status` — check auth state
@@ -63,10 +63,23 @@ tool and confirm the change before reporting success.
 - `notion__notion_write_archive_page` — archive (soft-delete) a page
 - `notion__notion_write_append_block` — append markdown content as blocks
 - `notion__notion_write_delete_block` — delete a block
+- `notion__notion_write_upload_block` — upload file (image, PDF, etc.) as block
+- `notion__notion_write_move_block` — move a block to a new parent
 - `notion__notion_write_create_comment` — add a comment
 
 ### Escape hatch (gated: ask)
 - `notion__notion_raw_cli` — run arbitrary vibe-notion subcommand
+
+## Known limitations
+
+- **Tabs**: Notion tabs are a UI-only database view feature. The `tab` block type
+  exists but cannot be populated via the API. Use columns or sections instead.
+- **Columns**: `column_list` blocks can be created via raw JSON (`--content`), but
+  child columns are not populated in a single call. Workaround: create the
+  `column_list` first, then append columns individually.
+- **Page creation**: workspace-level page creation returns empty data (vibe-notion
+  quirk). Use `--parent <page_id>` to create pages under an existing page — this
+  returns the full page object.
 
 ## Full CLI reference
 See `references/commands.md` for the complete vibe-notion CLI command list.

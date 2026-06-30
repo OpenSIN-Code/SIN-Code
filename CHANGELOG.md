@@ -79,7 +79,7 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 ## [v3.27.0] - 2026-06-30
 
 ### Added — vibe-notion MCP bridge (full Notion access)
-- **vibe-notion MCP bridge** — full Notion access (pages, databases, blocks, comments, users, workspaces) via Bridged-External pattern wrapping the `vibe-notion` npm CLI as a subprocess. 17 MCP tools (10 read auto-allowed, 6 write gated `ask`, 1 raw escape hatch `ask`).
+- **vibe-notion MCP bridge** — full Notion access (pages, databases, blocks, comments, users, workspaces) via Bridged-External pattern wrapping the `vibe-notion` npm CLI as a subprocess. 19 MCP tools (10 read auto-allowed, 8 write gated `ask`, 1 raw escape hatch `ask`).
   - `notion__notion_read_auth_status` (allow) — check auth state
   - `notion__notion_read_workspaces` (allow) — list all workspaces
   - `notion__notion_read_resolve` (allow) — resolve URL/page-id to workspace-id
@@ -95,6 +95,8 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
   - `notion__notion_write_archive_page` (ask) — archive (soft-delete) a page
   - `notion__notion_write_append_block` (ask) — append markdown content as blocks
   - `notion__notion_write_delete_block` (ask) — delete a block
+  - `notion__notion_write_upload_block` (ask) — upload file (image, PDF, etc.) as block
+  - `notion__notion_write_move_block` (ask) — move a block to a new parent
   - `notion__notion_write_create_comment` (ask) — add a comment
   - `notion__notion_raw_cli` (ask) — run arbitrary vibe-notion subcommand
 - **Act-as-user mode** via `token_v2` from browser/desktop session (default); **bot mode** via `NOTION_TOKEN` env var
