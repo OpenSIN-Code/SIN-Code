@@ -2,6 +2,31 @@
 
 All notable changes to the SIN-Code unified binary will be documented in this file.
 
+## [v3.28.0] - 2026-06-30
+
+### Features
+- **Context Meter (#484)**: `ContextMeter` struct in `agentloop/` — thread-safe token tracker with visual progress bar. Warns at 80%, compacts at 90%. `sin-code context` CLI command.
+- **Voice-to-Code (#481)**: `--voice` flag on `sin-code chat`. Records audio via sox/ffmpeg, transcribes via whisper. No CGO (M2). `voice/` package.
+- **Decision Memory (#488)**: SQLite-backed architectural decision store. Workspace-isolated, full-text search. `sin-code decision list|search` CLI. `decision/` package.
+- **TUI Collapsible Output (#491)**: Tool output in TUI collapsed by default (5 lines + hint). Tab to expand/collapse. Glamour syntax highlighting already wired.
+- **Background Agents (#479)**: Fire-and-forget async agent jobs. Goroutine-backed, thread-safe Manager. `sin-code background run|list|status|result` CLI. `background/` package.
+- **Spec-Driven Development (#480)**: EARS (Easy Approach to Requirements Syntax) parser → deterministic architecture generator → code scaffolder. `sin-code spec-driven parse|arch` CLI. `specdriven/` package.
+- **Session Sharing (#482)**: Export sessions as self-contained JSON or HTML files. Import from JSON. `sin-code share export|import` CLI. `sessionshare/` package.
+- **Plugin System (#489)**: Unified plugin registry (MCP/skill/tool/hook). Auto-detection from name/source. `plugins/` package enhanced with types.go.
+- **MCP Auto-Install (#490)**: Discoverable MCP server registry (12 known servers). Install/uninstall to config. `sin-code mcp-install discover|install|uninstall` CLI. `mcpinstall/` package.
+- **LSP Auto-Configure (#492)**: Detect LSP servers on PATH (gopls, pyright, tsserver, rust-analyzer, clangd, lua, java). Generate config. `sin-code lsp-config detect|config` CLI. `lspconfig/` package.
+
+### CLI
+- 106 subcommands (was 99)
+- New: `context`, `decision`, `background`, `spec-driven`, `share`, `mcp-install`, `lsp-config`
+
+### Tests
+- 43 new tests across 8 new packages (all `-race` clean)
+- Total test count increased
+
+### Infrastructure
+- Infra opencode.json: 24 baseline skills (was 16)
+
 ## [v3.26.0] - 2026-06-29
 
 ### Added — Free web search + YouTube for AI Agents

@@ -4,9 +4,8 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** v3.27.0 (2026-06-30) —
-> vibe-notion MCP bridge (full Notion access, 17 tools), Bridged-External
-> pattern, act-as-user + bot mode, permission defaults, bundled skill.
+> **Last verified against main:** v3.28.0 (2026-06-30) —
+> 10 new features (context meter, voice input, decision memory, TUI collapsible, background agents, spec-driven dev, session sharing, plugin system, MCP auto-install, LSP auto-configure)
 > CEO Audit: Score 100, A+, 48/48 gates, 0 unapproved findings, 0 rot-risk.
 > Test suite green and environment-independent.
 
@@ -730,7 +729,7 @@ Headless JSON contract (stable API — never break without major bump):
 
 ---
 
-## 8. Roadmap (versions 3.0.0 – 3.24.0)
+## 8. Roadmap (versions 3.0.0 – 3.28.0)
 
 | Version | Status | Contents |
 |---|---|---|
@@ -761,6 +760,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.25.0 | ✅ SHIPPED | 4 new subcommands: `doctor` (unified health check — 11 checks, Go/config/DBs/MCP/tools/CGO/module-path), `diff` (git diff with complexity + sin-debt overlay), `benchmark` (eval golden dataset runner with scoring report), `tokens cost` (cost projection + budget alerts from token ledger). 4 parallel subagents, 90 new tests. CEO Audit: Score 100, A+, 48/48 gates. |
 | v3.26.0 | ✅ SHIPPED | `sin_web_search` chat tool — free DuckDuckGo web search (keyless, no API key needed) + optional Tavily/SerpAPI/Brave multi-provider engine. YouTube for AI Agents MCP integration — 9 YouTube tools (search, transcript, video info, channel videos/info, playlist, download, clip, highlight reel) with no YouTube Data API key. DuckDuckGo parser fix for real `/ac/` endpoint format. MCP stdio subprocess context fix (process was killed after 3s connect timeout → `context.Background()`). MCP connect timeout 3s→10s. 4 god-files split: update.go 1747→371, chat_render.go 1107→307, chat_tools_extra.go 1126→192, loop.go 1009→465. No file over 1000 lines remains. |
 | v3.27.0 | ✅ SHIPPED | vibe-notion MCP bridge — full Notion access (pages, databases, blocks, comments, users, workspaces) via Bridged-External pattern wrapping the `vibe-notion` npm CLI. 17 MCP tools (10 read auto-allowed, 6 write gated `ask`, 1 raw escape hatch). Act-as-user mode via `token_v2` from browser session, or bot mode via `NOTION_TOKEN`. Registered in `config.go` (`notionConfig`), permission defaults in `permission_defaults.go`, bundled skill at `skills/productivity-skills/skill-productivity-notion/`. ECOSYSTEM.md updated. |
+| v3.28.0 | ✅ SHIPPED | 10 features: Context Meter (#484 — visual token bar, 80% warn, 90% compact), Voice-to-Code (#481 — --voice flag, sox/ffmpeg + whisper), Decision Memory (#488 — SQLite architectural decisions, workspace-isolated, search), TUI Collapsible Output (#491 — Tab to expand/collapse tool output, 5-line preview), Background Agents (#479 — fire-and-forget async job manager), Spec-Driven Dev (#480 — EARS parser → architecture → code), Session Sharing (#482 — export/import JSON+HTML), Plugin System (#489 — unified registry MCP/skill/tool/hook), MCP Auto-Install (#490 — 12 known servers, discover/install/uninstall), LSP Auto-Configure (#492 — detect gopls/pyright/tsserver/rust-analyzer/clangd/lua/java). 5 new CLI subcommands: context, decision, background, spec-driven, share, mcp-install, lsp-config. 106 subcommands total. 43 new tests. |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -897,25 +897,26 @@ canonical pattern; renaming `skill-code-lazy` would require a
 major bump because the `lazy_skill` keyword is part of the
 external activate-mode contract (issue #176).
 
-### CLI subcommands (verified `cmd/sin-code/main.go`, v3.25.0)
+### CLI subcommands (verified `cmd/sin-code/main.go`, v3.28.0)
 
 ```
 Core:      discover, execute, map, grasp, scout, harvest, orchestrate,
-           ibd, poc, sckg, adw, oracle, efm
+           ibd, poc, sckg, adw, oracle, efm, spec-driven, mcp-install, lsp-config
 Agents:    chat, sessions (list|show|rm|fork|tree), mcp, goal, daemon,
            skill, skills, swarm, superpowers, dox, vane, stack, gh, install,
            hub, ledger, summary, autodev, compress, review, eval, trace,
            profile, rtk, codegraph, spec, triage, catalog, compile-spec, grill,
            subagent, auto-pr, checkpoint, rewind, debt, audit, ceo-audit,
            cover, instinct, hooks, assets, evalset, prp, image-graph, status,
-           fusion, research, permission, tokens, analyse, analyse-image, auto
+           fusion, research, permission, tokens, analyse, analyse-image, auto,
+           background, context, decision, share
 Frontend:  serve, tui, webui
 Lifecycle: memory, todo, notifications, orchestrator-run,
            orchestrator-agents, orchestrator-plan, update
 Utility:   read, write, edit, lsp, plugin, index, security, sbom,
            config, self-update, headroom, rules, tool-search
 ```
-(v3.25.0: 90+ subcommands.)
+(v3.28.0: 106 subcommands.)
 
 ### Per-agent profile distribution (issue #175)
 
