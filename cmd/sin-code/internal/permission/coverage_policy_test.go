@@ -204,6 +204,14 @@ func TestPolicy_M4BridgeDefaults(t *testing.T) {
 		{Tool: "fusion__tournament", Policy: "ask"}, // spawns sub-agents
 		{Tool: "fusion__status", Policy: "allow"},   // read-only
 		{Tool: "fusion__config", Policy: "allow"},   // read-only
+		// v3.27.0 vibe-notion MCP bridge (Bridged-External).
+		{Tool: "notion__notion_read_workspaces", Policy: "allow"},
+		{Tool: "notion__notion_read_search", Policy: "allow"},
+		{Tool: "notion__notion_read_page", Policy: "allow"},
+		{Tool: "notion__notion_write_create_page", Policy: "ask"},
+		{Tool: "notion__notion_write_archive_page", Policy: "ask"},
+		{Tool: "notion__notion_raw_cli", Policy: "ask"},
+		{Tool: "notion__*", Policy: "ask"},
 	}
 	e := New(m4BridgeRules)
 
@@ -224,6 +232,14 @@ func TestPolicy_M4BridgeDefaults(t *testing.T) {
 		{"fusion__oracle_tournament", Ask}, // also ask — see defaults_test
 		{"fusion__status", Allow},
 		{"fusion__config", Allow},
+		// v3.27.0 vibe-notion bridge.
+		{"notion__notion_read_workspaces", Allow},
+		{"notion__notion_read_search", Allow},
+		{"notion__notion_read_page", Allow},
+		{"notion__notion_write_create_page", Ask},
+		{"notion__notion_write_archive_page", Ask},
+		{"notion__notion_raw_cli", Ask},
+		{"notion__notion_unknown_future_tool", Ask}, // fallback notion__* -> ask
 	}
 	for _, c := range cases {
 		got := e.Check(c.tool)
@@ -241,5 +257,12 @@ func TestPolicy_M4BridgeDefaults(t *testing.T) {
 	}
 	if got := headless.Check("fusion__tournament"); got != Deny {
 		t.Errorf("M4 bridge headless: fusion__tournament Ask collapses to Deny, got %s", got)
+	}
+	// v3.27.0: notion write tools must deny in headless mode (M4).
+	if got := headless.Check("notion__notion_write_create_page"); got != Deny {
+		t.Errorf("M4 bridge headless: notion__notion_write_create_page Ask collapses to Deny, got %s", got)
+	}
+	if got := headless.Check("notion__notion_raw_cli"); got != Deny {
+		t.Errorf("M4 bridge headless: notion__notion_raw_cli Ask collapses to Deny, got %s", got)
 	}
 }

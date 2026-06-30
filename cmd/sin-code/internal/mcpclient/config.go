@@ -321,6 +321,64 @@ func symfonyLensConfig(skillsDir string) ServerConfig {
 	return ServerConfig{Name: name, Transport: "stdio", Command: canonicalBinary(name)}
 }
 
+// notionConfig returns the stdio ServerConfig for the vibe-notion MCP bridge.
+// The bridge is a Python script that wraps the globally-installed `vibe-notion`
+// npm CLI as a subprocess (Bridged-External pattern, M6). It resolves the
+// bridge script path in this order:
+//  1. $SIN_NOTION_MCP_PATH env var (absolute path to mcp_server.py)
+//  2. ~/skills/vibe-notion-mcp/mcp_server.py (default install location)
+//  3. <skillsDir>/vibe-notion-mcp/mcp_server.py (skills-dir relative)
+//
+// The Python interpreter is resolved from the bridge's venv if present,
+// otherwise falls back to system python3. The vibe-notion binary must be
+// on PATH (installed via `npm install -g vibe-notion`).
+func notionConfig(skillsDir string) ServerConfig {
+	name := "notion"
+	scriptPath := notionMCPPath(skillsDir)
+
+	// Prefer the venv python if it exists alongside the script.
+	venvPython := filepath.Join(filepath.Dir(scriptPath), ".venv", "bin", "python3")
+	pythonCmd := "python3"
+	if _, err := os.Stat(venvPython); err == nil {
+		pythonCmd = venvPython
+	}
+
+	cfg := ServerConfig{
+		Name:      name,
+		Transport: "stdio",
+		Command:   pythonCmd,
+		Args:      []string{scriptPath},
+		Env: map[string]string{
+			"VIBE_NOTION_BIN":     "vibe-notion",
+			"VIBE_NOTION_TIMEOUT": "60",
+		},
+	}
+	return cfg
+}
+
+// notionMCPPath resolves the path to the vibe-notion MCP bridge script.
+func notionMCPPath(skillsDir string) string {
+	if p := os.Getenv("SIN_NOTION_MCP_PATH"); p != "" {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	home, err := userHomeDirHook()
+	if err == nil && home != "" {
+		candidate := filepath.Join(home, "skills", "vibe-notion-mcp", "mcp_server.py")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	if skillsDir != "" {
+		candidate := filepath.Join(skillsDir, "vibe-notion-mcp", "mcp_server.py")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return filepath.Join("vibe-notion-mcp", "mcp_server.py")
+}
+
 // DefaultServers returns the ecosystem registry. Server names double as
 // tool-name prefixes ("websearch__search", "browser__navigate", ...), which
 // the permission matrix gates via the "mcp" policy class.
@@ -418,6 +476,13 @@ func DefaultServers() []ServerConfig {
 
 		// v3.22.0: SIN-Analyse-Suite — multimodal preprocessing (image, video, PDF, logs, data, audio)
 		goNative("SIN-Analyse-Suite", "sin-analyse", "serve"),
+
+		// v3.27.0: vibe-notion — Bridged-External MCP wrapper around the
+		// vibe-notion npm CLI (full Notion access: pages, databases, blocks,
+		// comments, users, workspaces). Act-as-user via token_v2 from browser
+		// session, or bot mode via NOTION_TOKEN. 17 tools (10 read, 6 write,
+		// 1 raw). Read tools auto-allowed, write tools gated (M4).
+		notionConfig(skillsDir),
 	}
 
 	// native_browser (issue #382): the actual implementation runs in-process

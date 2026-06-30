@@ -4,10 +4,9 @@
 > Read this file completely before making any change. If reality and this file
 > diverge, fix the divergence in the same PR (code or doc — whichever is wrong).
 >
-> **Last verified against main:** v3.26.0 (2026-06-29) —
-> `sin_web_search` free DuckDuckGo web search + Tavily/SerpAPI/Brave, YouTube for
-> AI Agents 9 MCP tools (no API key), DuckDuckGo parser fix, MCP stdio context
-> fix, 4 god-files split (no file >1000 lines), MCP connect timeout 10s.
+> **Last verified against main:** v3.27.0 (2026-06-30) —
+> vibe-notion MCP bridge (full Notion access, 17 tools), Bridged-External
+> pattern, act-as-user + bot mode, permission defaults, bundled skill.
 > CEO Audit: Score 100, A+, 48/48 gates, 0 unapproved findings, 0 rot-risk.
 > Test suite green and environment-independent.
 
@@ -140,6 +139,9 @@ command hooks, `*.spec.md` `verify:` directives).
 | `fusion__tournament` | ask | autonomy (Fusion) | spawns sub-agents, costs money |
 | `fusion__status` | allow | autonomy (Fusion) | read-only tournament status |
 | `fusion__config` | allow | autonomy (Fusion) | read-only config query |
+| `notion__notion_read_*` | allow | productivity (Bridged-External) | read-only Notion: workspaces, pages, databases, blocks, comments, users |
+| `notion__notion_write_*` | ask | productivity (Bridged-External) | mutating Notion: create/update/archive pages, append/delete blocks, comments |
+| `notion__notion_raw_cli` | ask | productivity (Bridged-External) | raw CLI escape hatch — arbitrary subcommands (M4) |
 
 ### M5 — Module path
 `github.com/OpenSIN-Code/SIN-Code` (since v3.0.0). The old path
@@ -758,6 +760,7 @@ Headless JSON contract (stable API — never break without major bump):
 | v3.24.0 | ✅ SHIPPED | TUI/agentloop/headless live progress: live tool timing + NDJSON progress + live token/cost footer (issue #424); Esc cancels in-flight TUI prompt; autonomy trigger loops exit promptly on context cancellation; test suite made environment-independent; `sin-code analyse-image` vision model (issue #423); Security Scanning V2 (secrets/SAST/SCA/SBOM/container/SARIF); Complexity cleanup: 55+ files merged, all analyzers fixed, scoring corrected, 0 unapproved findings, 0 rot-risk markers. |
 | v3.25.0 | ✅ SHIPPED | 4 new subcommands: `doctor` (unified health check — 11 checks, Go/config/DBs/MCP/tools/CGO/module-path), `diff` (git diff with complexity + sin-debt overlay), `benchmark` (eval golden dataset runner with scoring report), `tokens cost` (cost projection + budget alerts from token ledger). 4 parallel subagents, 90 new tests. CEO Audit: Score 100, A+, 48/48 gates. |
 | v3.26.0 | ✅ SHIPPED | `sin_web_search` chat tool — free DuckDuckGo web search (keyless, no API key needed) + optional Tavily/SerpAPI/Brave multi-provider engine. YouTube for AI Agents MCP integration — 9 YouTube tools (search, transcript, video info, channel videos/info, playlist, download, clip, highlight reel) with no YouTube Data API key. DuckDuckGo parser fix for real `/ac/` endpoint format. MCP stdio subprocess context fix (process was killed after 3s connect timeout → `context.Background()`). MCP connect timeout 3s→10s. 4 god-files split: update.go 1747→371, chat_render.go 1107→307, chat_tools_extra.go 1126→192, loop.go 1009→465. No file over 1000 lines remains. |
+| v3.27.0 | ✅ SHIPPED | vibe-notion MCP bridge — full Notion access (pages, databases, blocks, comments, users, workspaces) via Bridged-External pattern wrapping the `vibe-notion` npm CLI. 17 MCP tools (10 read auto-allowed, 6 write gated `ask`, 1 raw escape hatch). Act-as-user mode via `token_v2` from browser session, or bot mode via `NOTION_TOKEN`. Registered in `config.go` (`notionConfig`), permission defaults in `permission_defaults.go`, bundled skill at `skills/productivity-skills/skill-productivity-notion/`. ECOSYSTEM.md updated. |
 
 Each release tag ⇒ goreleaser builds linux/darwin/windows × amd64/arm64,
 updates `homebrew-sin` formula, and ships to GitHub Releases.
@@ -830,6 +833,7 @@ All bundled skills live under `skills/<category>-skills/` and are named
 | GitHub | `github-skills/` | `skill-github-actions`, `skill-github-account`, `skill-github-app` |
 | Memory | `memory-skills/` | `skill-memory-honcho`, `skill-memory-infisical` |
 | Process | `process-skills/` | `skill-process-goal`, `skill-process-grill`, `skill-code-lazy` |
+| Productivity | `productivity-skills/` | `skill-productivity-notion` |
 | Shop | `shop-skills/` | `skill-shop-cj-dropshipping`, `skill-shop-stripe` |
 
 Each skill **must** contain:

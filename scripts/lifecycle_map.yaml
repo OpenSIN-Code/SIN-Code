@@ -145,3 +145,8 @@ skills:
   - name: skill-browser-tools
     lifecycle: external
     canonical: SIN-Browser-Tools
+
+  # ── productivity ──
+  - name: skill-productivity-notion
+    lifecycle: external
+    canonical: vibe-notion (npm CLI, https://github.com/vibe-notion/vibe-notion)

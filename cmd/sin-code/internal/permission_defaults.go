@@ -96,6 +96,29 @@ func DefaultPermissionRules() []permission.Rule {
 		// All analyse__* tools are read-only — they never modify input files.
 		{Tool: "analyse__*", Policy: "allow"},
 
+		// v3.27.0: vibe-notion MCP bridge — full Notion access (Bridged-External).
+		// Read tools (notion_read_*) are read-only: workspaces, pages, databases, blocks, comments, users.
+		// Write tools (notion_write_*) mutate Notion: create/update/archive pages, append/delete blocks, create comments.
+		// Raw CLI escape hatch is ask (can run arbitrary subcommands).
+		{Tool: "notion__notion_read_auth_status", Policy: "allow"},
+		{Tool: "notion__notion_read_workspaces", Policy: "allow"},
+		{Tool: "notion__notion_read_resolve", Policy: "allow"},
+		{Tool: "notion__notion_read_search", Policy: "allow"},
+		{Tool: "notion__notion_read_page", Policy: "allow"},
+		{Tool: "notion__notion_read_database_schema", Policy: "allow"},
+		{Tool: "notion__notion_read_database_rows", Policy: "allow"},
+		{Tool: "notion__notion_read_block_children", Policy: "allow"},
+		{Tool: "notion__notion_read_comments", Policy: "allow"},
+		{Tool: "notion__notion_read_me", Policy: "allow"},
+		{Tool: "notion__notion_write_create_page", Policy: "ask"},
+		{Tool: "notion__notion_write_update_page", Policy: "ask"},
+		{Tool: "notion__notion_write_archive_page", Policy: "ask"},
+		{Tool: "notion__notion_write_append_block", Policy: "ask"},
+		{Tool: "notion__notion_write_delete_block", Policy: "ask"},
+		{Tool: "notion__notion_write_create_comment", Policy: "ask"},
+		{Tool: "notion__notion_raw_cli", Policy: "ask"},
+		{Tool: "notion__*", Policy: "ask"},
+
 		// v3.16.0: autodev-cli bridge (Bridged-External + autodev-mcp stdio MCP).
 		// Qualified name = server-name + "__" + tool-name (registry.go "autodev" + autodev-mcp tools).
 		// Split mirrors the gh precedent at lines 40-42: read-only -> allow, mutating -> ask (M4).

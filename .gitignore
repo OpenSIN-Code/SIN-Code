@@ -72,6 +72,10 @@ sin-tui
 *.out
 sin-code-new
 
+# vibe-notion credentials — never commit
+.config/vibe-notion/
+**/vibe-notion/credentials.json
+
 # Vendored module binaries (build on-demand)
 SIN-Code-Container-Tool-Go/sin-container-go
 SIN-Code-SBOM-Generator-Go/sin-sbom-go
