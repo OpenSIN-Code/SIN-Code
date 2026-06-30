@@ -157,6 +157,28 @@ The orchestrator and any goroutine-using subsystem MUST be verified under
 real races in `internal/orchestrator/dispatcher.go`; treat any unguarded
 shared-field mutation as a merge blocker.
 
+### M8 — context7 + web search before coding (MANDATORY)
+**NEVER write code that uses a library, framework, SDK, or API without
+first consulting context7 for up-to-date documentation.** This is a
+hard gate — agents that skip this step produce code with hallucinated
+APIs, stale signatures, and deprecated patterns.
+
+The mandatory pre-code sequence is:
+1. `context7__resolve-library-id` → identify the library
+2. `context7__query-docs` → fetch current docs for the specific API/topic
+3. `sin_web_search` → supplement with real-world usage examples, edge cases,
+   and community knowledge that docs may not cover
+4. **THEN** write code
+
+Exceptions (narrow): pure logic with no external dependencies, standard
+library only, or the user explicitly says "just code it" / "no docs needed".
+When in doubt, always look it up. The cost of a 2-second docs query is
+negligible compared to the cost of shipping broken code.
+
+The `skill-multimodal-web-tools` skill (v3.28.0+) documents the full
+5-layer tool inventory and decision tree. context7 is Layer 5 and is
+marked as `required_tools` in the skill frontmatter.
+
 ---
 
 ## 4. Architecture (v3.5.0)
