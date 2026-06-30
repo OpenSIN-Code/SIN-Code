@@ -115,6 +115,8 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "notion__notion_write_archive_page", Policy: "ask"},
 		{Tool: "notion__notion_write_append_block", Policy: "ask"},
 		{Tool: "notion__notion_write_delete_block", Policy: "ask"},
+		{Tool: "notion__notion_write_upload_block", Policy: "ask"},
+		{Tool: "notion__notion_write_move_block", Policy: "ask"},
 		{Tool: "notion__notion_write_create_comment", Policy: "ask"},
 		{Tool: "notion__notion_raw_cli", Policy: "ask"},
 		{Tool: "notion__*", Policy: "ask"},
