@@ -34,6 +34,12 @@ type Plugin struct {
 
 	Enabled bool   `toml:"-"`
 	Path    string `toml:"-"`
+
+	// Unified install system (issue #489).
+	Type        PluginType `toml:"-"`
+	Source      string     `toml:"-"`
+	Installed   bool       `toml:"-"`
+	InstallPath string     `toml:"-"`
 }
 
 type PluginSubcmd struct {

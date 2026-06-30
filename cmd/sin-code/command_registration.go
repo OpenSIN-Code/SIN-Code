@@ -84,6 +84,11 @@ func init() {
 		NewWatchCmd(),        // watch — workspace file watcher, run commands on save (issue #486)
 		newContextCmd(),      // context — context window usage meter (issue #484)
 		newDecisionCmd(),     // decision — architectural decision memory (issue #488)
+		newBackgroundCmd(),   // background — fire-and-forget async agent jobs (issue #479)
+		newSpecDrivenCmd(),   // spec-driven — EARS→arch→code pipeline (issue #480)
+		newShareCmd(),        // share — session export/import (issue #482)
+		newMCPInstallCmd(),   // mcp-install — discover/install MCP servers (issue #490)
+		newLSPConfigCmd(),    // lsp-config — auto-detect+configure LSP servers (issue #492)
 	)
 
 	// Pass build-time version to self-update module.
