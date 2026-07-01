@@ -105,3 +105,18 @@ Du darfst NUR "fertig" melden, wenn ALLE gelten:
 
 Ist auch nur eine Bedingung verletzt, lautet dein Status **NICHT ABGESCHLOSSEN**,
 und du sagst dem User klar, was noch fehlt — keine Beschönigung.
+
+## Maschinelle Ergänzung: SIN-DoDone
+
+self-review ist die *beweisgetriebene* CEO-Prüfung (Mensch/LLM urteilt).
+SIN-DoDone (`skill-process-dodone`) ist die *maschinelle* Ergänzung:
+deterministische Checks (grep TODO/FIXME, `go test`, `go build`, etc.)
+mit Exit-Codes — keine KI-Selbsteinschätzung möglich.
+
+**Empfohlene Pipeline:**
+1. self-review (CEO liest Diffs, bewertet Scope/Design/Konsistenz)
+2. `dodone check` (Maschine checkt deterministisch: Platzhalter, Tests, Build)
+3. Erst wenn BEIDE grün: Task ist WIRKLICH FERTIG
+
+DoDone fängt was self-review verfehlen kann: skalen-unabhängige,
+wiederholbare, deterministische Pattern-Matches über den gesamten Codebase.

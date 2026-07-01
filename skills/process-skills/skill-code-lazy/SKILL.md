@@ -224,6 +224,9 @@ gate — it only short-circuits over-building **after** the gate passes.
   lazy version is verified.
 - `skill-code-spec` — supplies the *only* "explicitly requested"
   guarantee; lazy respect this contract verbatim.
+- `skill-process-dodone` — validates *whether* the work is finished
+  (deterministic DoD gate). lazy validates *what* is built; DoDone
+  validates *whether* it's done. Both respect M3.
 
 ## References
 
