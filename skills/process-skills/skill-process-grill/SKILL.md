@@ -50,10 +50,15 @@ LISTEN → CHALLENGE → FOLLOW UP → SYNTHESIZE
 - Question trade-offs not explicitly stated.
 - Test for reversibility.
 
-## Verification
+## Companion Tools
 
-- [ ] At least 5 adversarial questions asked.
-- [ ] Hidden assumptions surfaced.
-- [ ] Risks documented.
-- [ ] Decision tree produced.
-- [ ] Unresolved points flagged.
+- **plan v2** (`/plan`) — after grilling, turn resolved decisions into a full execution-ready plan. For quick tasks use `plan --lite`.
+- **sin-doc-coauthoring** — turn the resolved decisions into a SPEC/ADR/PRD
+- **sin-goal-mode** — break the implementation into goals + subtasks
+- **ceo-audit** — for the technical review (security, performance, etc.)
+
+## Related Skills
+
+- **skill-process-dodone** — after plan v2 executes, dodone checks deterministically whether the work is truly done
+- **self-review** — CEO-grade evidence-driven review after code is written
+- **plan v2** — full plan-and-execute skill with --lite (quick) and --cli (deterministic) modes

@@ -1,13 +1,14 @@
 ---
 name: skill-process-delegate
 description: >
-  Master subagent delegation skill. Teaches the orchestrator how to decompose
-  complex tasks and delegate to subagents with complete context, precise task
-  boundaries, output contracts, and effort scaling. Triggers on "/delegate-subagents",
-  "delegate to subagents", "use parallel subagents", "split this task", "fan out",
-  "orchestrate subagents", "multi-agent", "parallelize this work", or when the agent
-  recognizes 3+ independent subtasks, multiple files to modify, or research +
-  implementation + testing phases. DO NOT INVOKE for single-file edits or quick lookups.
+  [SUPERSEDED] Use delegate-subagents instead — the full SIN-Code integrated
+  version with verification stack, goal contracts, tool coverage enforcement,
+  and closed learning loop. This skill is kept as v1 reference only.
+  Triggers on "/delegate-subagents", "delegate to subagents", "use parallel
+  subagents", "split this task", "fan out", "orchestrate subagents",
+  "multi-agent", "parallelize this work", or when the agent recognizes 3+
+  independent subtasks, multiple files to modify, or research + implementation
+  + testing phases. DO NOT INVOKE for single-file edits or quick lookups.
 license: MIT
 lifecycle: native
 compatibility:
@@ -18,11 +19,19 @@ compatibility:
 metadata:
   audience: agents
   workflow: delegation
+  status: superseded
+  successor: delegate-subagents
   sources: >
     Anthropic multi-agent research system (anthropic.com/engineering/multi-agent-research-system),
     OpenCode agent/subagent architecture (opencode.ai/docs/agents),
     Claude Code subagent patterns, SIN-Code orchestrator DAG
 ---
+
+> **This skill is superseded by `delegate-subagents`.**
+> The full version includes SIN-Code integration (sin_run_loop, sin_goal_add,
+> verification stack, goal contracts, stop-gate, tool coverage enforcement,
+> closed learning loop, SIN Fusion tournament). Use that instead.
+> This file is kept as v1 reference for the core delegation protocol.
 
 ## TRIGGER RULES
 
