@@ -88,6 +88,15 @@ func extraSpecs() []agentloopToolSpecAlias {
 				"timeout": str("timeout, e.g. 5m (default 5m)"),
 				"json":    str("emit structured JSON instead of plain text (default false)"),
 			})},
+		{Name: "sin_dodone_check", Description: "Run a deterministic Definition-of-Done check: placeholder scan, error paths, tests, build, artifacts, requirements coverage, dead code. Returns a structured PASS/FAIL report per pillar. Use before claiming 'done'.",
+			InputSchema: obj(map[string]any{
+				"task":           str("task description (default: current workspace)"),
+				"required_files": str("comma-separated files that must exist (default: README.md)"),
+				"requirements":   str("comma-separated requirements to verify (agent provides file:line evidence)"),
+				"skip_tests":     str("skip test execution (default false)"),
+				"skip_build":     str("skip build/vet (default false)"),
+				"json":           str("emit structured JSON (default false)"),
+			})},
 		// Browser CDP tools — headless Chrome via Chrome DevTools Protocol.
 		{Name: "sin_browser_navigate", Description: "Navigate headless Chrome to a URL and record the full CDP event stream (network, console, exceptions, DevTools Audits, security, Web Vitals). Returns event counts. Call sin_browser_findings after to get the full Report. Set save_baseline=true before applying a fix so sin_browser_diff can compare before/after.",
 			InputSchema: obj(map[string]any{
@@ -158,6 +167,8 @@ func extraTool(ctx context.Context, name string, args map[string]any) (string, e
 		return toolFuzz(ctx, args)
 	case "sin_property":
 		return toolProperty(ctx, args)
+	case "sin_dodone_check":
+		return toolDodoneCheck(ctx, args)
 	case "sin_browser_navigate":
 		return toolBrowserNavigate(ctx, argStr(args, "url"), argStr(args, "step"), argStr(args, "wait_sec"), argStr(args, "save_baseline"))
 	case "sin_browser_findings":

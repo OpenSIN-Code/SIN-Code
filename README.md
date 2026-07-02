@@ -8,14 +8,17 @@
 - **Closed learning loop** — failed verifications persist across sessions. No competitor does this.
 - **Bounded autonomy** — daemon runs goals end-to-end but cannot self-escalate permissions or skip the gate.
 - **52+ MCP tools** — consumable by ANY agent via `sin-code serve`.
+- **Full Pipeline** — 10-stage `/pipeline` command chains grill → plan → GSD → execute → review → done-gate → commit → record → CI/CD. 55+ systems, ~60% ecosystem coverage.
+- **GSD Go-native** — `sin-code gsd` replaces 8 npm-based GSD skills with a single Go binary. Phases, waves, plans, execution state in `.gsd/`.
+- **SIN-DoDone** — 11-pillar deterministic Definition-of-Done gate. Exit 0 = WIRKLICH FERTIG. No KI self-assessment possible.
 
 [![test-gate](https://img.shields.io/badge/test--gate-passing-brightgreen)](#)
 [![ecosystem-sync](https://img.shields.io/badge/ecosystem--sync-passing-brightgreen)](#)
-[![version](https://img.shields.io/badge/version-v3.25.0-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
+[![version](https://img.shields.io/badge/version-v3.29.2-blue)](https://github.com/OpenSIN-Code/SIN-Code/releases)
 
 ## Status
 
-- **Version**: [v3.25.0](https://github.com/OpenSIN-Code/SIN-Code/releases/tag/v3.25.0)
+- **Version**: [v3.29.2](https://github.com/OpenSIN-Code/SIN-Code/releases)
 - **Maturity**: Production
 - **Language**: Go (single static binary) + Python companion package
 - **Tests**: 200+ tests across Go and Python; `go test ./... -race -count=1` is the gate
@@ -49,6 +52,9 @@ sin-code chat --resume <session-id>
 sin-code mcp list
 sin-code skill status
 sin-code stack doctor --json
+sin-code gsd init --name "MyProject" --description "Build X"  # GSD project lifecycle
+sin-code gsd phase add "Backend" --priority P0               # add phases
+sin-code gsd execute 1                                       # show execution waves
 ```
 
 See the **Quick Start** section below for more detailed examples, including
@@ -92,9 +98,9 @@ swarm mode, skill bootstrapping, and methodology skills.
 
 **Go-Native SCA (v3.15.0):** `sin security` now uses a native Go SCA client for Go projects, parsing `go.mod` and invoking `grype` JSON output directly.
 
-## Bundled Skills (v3.25.0)
+## Bundled Skills (v3.29.2)
 
-SIN-Code ships **41 bundled skills** embedded in the binary, installable via `sin-code skills list|install`. Skills are organized into category directories and follow a unified naming convention `skill-<category>-<name>`.
+SIN-Code ships **43+ bundled skills** embedded in the binary, installable via `sin-code skills list|install`. Skills are organized into category directories and follow a unified naming convention `skill-<category>-<name>`.
 
 ```bash
 sin-code skills list          # list all bundled skills
@@ -106,16 +112,22 @@ sin-code skills install skill-code-audit  # install a skill to ~/.config/opencod
 | Category | Example skills |
 |---|---|
 | `browser-skills` | `skill-browser-tools` |
-| `code-skills` | `skill-code-audit`, `skill-code-build`, `skill-code-codocs`, `skill-code-create`, `skill-code-docs`, `skill-code-mcp-builder`, `skill-code-plan`, `skill-code-refactor`, `skill-code-spec` |
+| `code-skills` | `skill-code-audit`, `skill-code-build`, `skill-code-codocs`, `skill-code-create`, `skill-code-docs`, `skill-code-mcp-builder`, `skill-code-refactor`, `skill-code-spec` |
 | `debug-skills` | `skill-debug-deep` |
 | `design-skills` | `skill-design-frontend`, `skill-design-image` |
 | `ecosystem-skills` | `skill-ecosystem-context`, `skill-ecosystem-marketplace` |
-| `github-skills` | `skill-github-account`, `skill-github-actions`, `skill-github-app`, `skill-github-governance` |
+| `github-skills` | `skill-github-account`, `skill-github-actions`, `skill-github-app`, `skill-github-governance`, `skill-github-readme` |
 | `infrastructure-skills` | `skill-infrastructure-cloudflare`, `skill-infrastructure-oci-vm`, `skill-infrastructure-supabase` |
 | `memory-skills` | `skill-memory-honcho`, `skill-memory-honcho-rollback`, `skill-memory-infisical` |
-| `planning-skills` | `skill-planning-enterprise` |
-| `process-skills` | `skill-process-goal`, `skill-process-grill`, `skill-process-scheduler` |
+| `multimodal-skills` | `skill-multimodal-web-tools`, `skill-multimodal-youtube`, `skill-multimodal-analyse` |
+| `process-skills` | `skill-process-goal`, `skill-process-grill`, `skill-process-gsd`, `skill-process-pipeline`, `skill-process-dodone`, `skill-process-delegate`, `skill-process-self-review`, `skill-process-scheduler`, `skill-code-lazy` |
 | `shop-skills` | `skill-shop-cj-dropshipping`, `skill-shop-stripe`, `skill-shop-tiktok` |
+
+**Unified Planning:** `plan v2` (in Infra-SIN-OpenCode-Stack) consolidates 5 former planning skills into 1 with modes: `--lite` (quick), `--cli` (deterministic), `--from-spec` (spec→tasks). `skill-code-plan` and `skill-planning-enterprise` have been absorbed.
+
+**GSD Go-native:** `sin-code gsd` replaces 8 npm-based GSD skills (gsd-discuss-phase, gsd-execute-phase, gsd-help, gsd-new-project, gsd-phase, gsd-plan-phase, gsd-surface, gsd-update) with a single Go binary subcommand.
+
+**Full Pipeline:** `/pipeline <task>` triggers `skill-process-pipeline` — 10 stages, 55+ systems, ~60% ecosystem coverage. Chains: grill → plan → GSD → execute → review → done-gate → commit → record → CI/CD.
 
 Each skill contains `SKILL.md`, `context/`, `frameworks/`, `tasks/`, `templates/`, and a `LICENSE` file. External skills copied from `Infra-SIN-OpenCode-Stack` are tagged with `lifecycle: external` and `sources` in their metadata.
 

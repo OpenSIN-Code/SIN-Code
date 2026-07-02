@@ -77,15 +77,14 @@ func (r *Registry) seed() {
 		{
 			Name:        "browser",
 			DisplayName: "Browser Tools",
-			Description: "106 browser automation tools",
+			Description: "106 Playwright-based browser automation tools (SIN-Browser-Tools)",
 			Category:    "browser",
 			Package: MCPPackage{
-				Type:    "npm",
-				Name:    "@anthropic/browser-tools-mcp",
-				Command: "npx",
-				Args:    []string{"@anthropic/browser-tools-mcp"},
+				Type:    "pip",
+				Name:    "sin-browser-tools-library",
+				Command: "sin-browser-mcp",
 			},
-			Tags: []string{"browser", "automation"},
+			Tags: []string{"browser", "automation", "playwright"},
 		},
 		{
 			Name:        "filesystem",

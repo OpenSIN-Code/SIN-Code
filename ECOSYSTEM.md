@@ -53,7 +53,7 @@
 | SIN-Code-Honcho-Rollback-Skill | `honcho__*` | ask (destructive) | ACTIVE |
 | SIN-Code-Frontend-Design-Skill | `frontend__*` | ask | ACTIVE |
 | SIN-Code-MCP-Server-Builder-Skill | `mcpbuilder__*` | ask | ACTIVE |
-| SIN-Browser-Tools | `browser__*` (106 tools) | ask | ACTIVE |
+| SIN-Browser-Tools | `browser__*` (106 tools: navigation, click/type/fill, screenshots, PDF, tab/session, cookie/storage, diagnostics, Shadow DOM, OOPIF, SPA wait, network mocking, macOS Spaces, screen recording) | allow (35 read-only) + ask (71 mutating) — per-tool M4 split policy | ACTIVE |
 | GitHub CLI (gh) | `gh_query`, `gh_health`, `gh_execute` | allow / allow / ask (M4) | ACTIVE |
 | [OpenSIN-Code/sin-analyse-suite](https://github.com/OpenSIN-Code/sin-analyse-suite) | `analyse__*` (image, video, PDF, logs, data, audio) | allow (read-only) | ACTIVE |
 | SIN-Code-Share-Skill | `share__*` | ask | DEPRECATED *(policy-only; no filesystem backing)* |

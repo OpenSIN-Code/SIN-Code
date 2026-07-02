@@ -20,6 +20,7 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "sin_generate_diff", Policy: "allow"}, // v3.23.0: diff generator (issue #365) — read-only
 		{Tool: "sin_test", Policy: "allow"},
 		{Tool: "sin_quality_gate", Policy: "allow"}, // v3.21.0: Test-First Verify-Loop (RFC-test-automation)
+		{Tool: "sin_dodone_check", Policy: "allow"}, // v3.29.0: Definition-of-Done deterministic check (7 pillars)
 		{Tool: "sin_mutation", Policy: "allow"},
 		{Tool: "sin_fuzz", Policy: "allow"},
 		{Tool: "sin_property", Policy: "allow"},
@@ -50,6 +51,130 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "marketplace__*", Policy: "ask"},
 		{Tool: "mcpbuilder__*", Policy: "ask"},
 		{Tool: "scheduler__*", Policy: "ask"},
+		// v3.29.0: SIN-Browser-Tools MCP — 106 browser automation tools (Playwright-based).
+		// Read-only observation/discovery tools run free; all mutation is gated (M4).
+		// Read-only: listing, snapshots, extraction, diagnostics, cookies-read, URL/text/HTML.
+		{Tool: "browser__list_tools", Policy: "allow"},
+		{Tool: "browser__list_sessions", Policy: "allow"},
+		{Tool: "browser__list_tabs", Policy: "allow"},
+		{Tool: "browser__list_frames", Policy: "allow"},
+		{Tool: "browser__list_spaces", Policy: "allow"},
+		{Tool: "browser__get_url", Policy: "allow"},
+		{Tool: "browser__get_text", Policy: "allow"},
+		{Tool: "browser__get_html", Policy: "allow"},
+		{Tool: "browser__get_attribute", Policy: "allow"},
+		{Tool: "browser__get_images", Policy: "allow"},
+		{Tool: "browser__get_links", Policy: "allow"},
+		{Tool: "browser__get_cookies", Policy: "allow"},
+		{Tool: "browser__get_window_bounds", Policy: "allow"},
+		{Tool: "browser__get_window_space", Policy: "allow"},
+		{Tool: "browser__snapshot", Policy: "allow"},
+		{Tool: "browser__snapshot_full_oopif", Policy: "allow"},
+		{Tool: "browser__snapshot_in_frame", Policy: "allow"},
+		{Tool: "browser__console", Policy: "allow"},
+		{Tool: "browser__extract_list", Policy: "allow"},
+		{Tool: "browser__extract_table", Policy: "allow"},
+		{Tool: "browser__find_by_text", Policy: "allow"},
+		{Tool: "browser__playbook_list", Policy: "allow"},
+		{Tool: "browser__playbook_suggest", Policy: "allow"},
+		{Tool: "browser__playbook_compare", Policy: "allow"},
+		{Tool: "browser__diag_console", Policy: "allow"},
+		{Tool: "browser__diag_element", Policy: "allow"},
+		{Tool: "browser__diag_get_body", Policy: "allow"},
+		{Tool: "browser__diag_network", Policy: "allow"},
+		{Tool: "browser__diag_query", Policy: "allow"},
+		{Tool: "browser__diag_report", Policy: "allow"},
+		{Tool: "browser__diag_snapshot_all", Policy: "allow"},
+		{Tool: "browser__diag_status", Policy: "allow"},
+		{Tool: "browser__screen_record_analyze", Policy: "allow"},
+		// Navigation: loads arbitrary URLs — ask.
+		{Tool: "browser__navigate", Policy: "ask"},
+		{Tool: "browser__back", Policy: "ask"},
+		{Tool: "browser__forward", Policy: "ask"},
+		{Tool: "browser__reload", Policy: "ask"},
+		{Tool: "browser__new_tab", Policy: "ask"},
+		{Tool: "browser__parallel_navigate", Policy: "ask"},
+		// Interaction: click/type/fill/press — ask (can change state).
+		{Tool: "browser__click", Policy: "ask"},
+		{Tool: "browser__click_by_text", Policy: "ask"},
+		{Tool: "browser__click_cdp", Policy: "ask"},
+		{Tool: "browser__click_checkbox_by_text", Policy: "ask"},
+		{Tool: "browser__click_checkbox_react", Policy: "ask"},
+		{Tool: "browser__click_in_frame", Policy: "ask"},
+		{Tool: "browser__double_click", Policy: "ask"},
+		{Tool: "browser__right_click", Policy: "ask"},
+		{Tool: "browser__hover", Policy: "ask"},
+		{Tool: "browser__type", Policy: "ask"},
+		{Tool: "browser__type_in_frame", Policy: "ask"},
+		{Tool: "browser__fill", Policy: "ask"},
+		{Tool: "browser__fill_react", Policy: "ask"},
+		{Tool: "browser__check", Policy: "ask"},
+		{Tool: "browser__select_option", Policy: "ask"},
+		{Tool: "browser__press", Policy: "ask"},
+		{Tool: "browser__scroll", Policy: "ask"},
+		{Tool: "browser__drag", Policy: "ask"},
+		{Tool: "browser__assert", Policy: "allow"}, // read-only assertion check
+		// Screenshots / PDF — ask (writes files/base64).
+		{Tool: "browser__screenshot", Policy: "ask"},
+		{Tool: "browser__screenshot_element", Policy: "ask"},
+		{Tool: "browser__pdf", Policy: "ask"},
+		// Tab/session management — ask.
+		{Tool: "browser__close_tab", Policy: "ask"},
+		{Tool: "browser__switch_tab", Policy: "ask"},
+		{Tool: "browser__create_session", Policy: "ask"},
+		{Tool: "browser__close_session", Policy: "ask"},
+		{Tool: "browser__switch_session", Policy: "ask"},
+		// Downloads/uploads — ask (writes files).
+		{Tool: "browser__download", Policy: "ask"},
+		{Tool: "browser__upload_file", Policy: "ask"},
+		// Network mocking/blocking — ask.
+		{Tool: "browser__block_resources", Policy: "ask"},
+		{Tool: "browser__mock_response", Policy: "ask"},
+		{Tool: "browser__unroute_all", Policy: "ask"},
+		// Cookie/storage mutation — ask.
+		{Tool: "browser__cookies_set", Policy: "ask"},
+		{Tool: "browser__cookies_clear", Policy: "ask"},
+		{Tool: "browser__set_cookie", Policy: "ask"},
+		{Tool: "browser__clear_cookies", Policy: "ask"},
+		{Tool: "browser__storage", Policy: "ask"},
+		// Window management — ask.
+		{Tool: "browser__set_viewport", Policy: "ask"},
+		{Tool: "browser__set_window_bounds", Policy: "ask"},
+		{Tool: "browser__set_window_mode", Policy: "ask"},
+		{Tool: "browser__fullscreen_window", Policy: "ask"},
+		{Tool: "browser__maximize_window", Policy: "ask"},
+		{Tool: "browser__minimize_window", Policy: "ask"},
+		{Tool: "browser__restore_window", Policy: "ask"},
+		{Tool: "browser__move_window", Policy: "ask"},
+		// Dialogs — ask.
+		{Tool: "browser__dialog", Policy: "ask"},
+		{Tool: "browser__wait_for_dialog", Policy: "allow"},
+		// Diagnostics (mutating start/stop) — ask.
+		{Tool: "browser__diag_action", Policy: "ask"},
+		{Tool: "browser__diag_start", Policy: "ask"},
+		{Tool: "browser__diag_stop", Policy: "ask"},
+		// CDP raw — ask.
+		{Tool: "browser__cdp", Policy: "ask"},
+		// Playbook record — ask (writes).
+		{Tool: "browser__playbook_record", Policy: "ask"},
+		// Identity/screen-record — ask.
+		{Tool: "browser__set_identity", Policy: "ask"},
+		{Tool: "browser__screen_record_start", Policy: "ask"},
+		{Tool: "browser__screen_record_stop", Policy: "ask"},
+		// macOS Spaces — ask (system-level).
+		{Tool: "browser__create_space", Policy: "ask"},
+		{Tool: "browser__move_to_space", Policy: "ask"},
+		{Tool: "browser__send_to_background_space", Policy: "ask"},
+		// SPA wait — allow (read-only polling).
+		{Tool: "browser__wait_for", Policy: "allow"},
+		{Tool: "browser__wait_for_load", Policy: "allow"},
+		{Tool: "browser__wait_for_request", Policy: "allow"},
+		{Tool: "browser__wait_for_response", Policy: "allow"},
+		{Tool: "browser__wait_for_spa_transition", Policy: "allow"},
+		{Tool: "browser__wait_for_text", Policy: "allow"},
+		// JS eval — ask (can mutate page state).
+		{Tool: "browser__eval_in_frame", Policy: "ask"},
+		// Catch-all for any future browser tools.
 		{Tool: "browser__*", Policy: "ask"},
 		{Tool: "honcho__*", Policy: "ask"},
 		{Tool: "share__*", Policy: "ask"},            // v3.17.0: SIN-Code-Share-Skill (registry.go)

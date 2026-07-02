@@ -87,6 +87,7 @@ var chatTools = []chatTool{
 	{name: "sin_read", short: "Read file", description: "Read a file (UTF-8, capped at 64KB).", example: `{\"path\": \"main.go\"}`, tags: []string{"read-only", "filesystem"}, readOnly: true},
 	{name: "sin_search", short: "Search files", description: "Search files for a substring; returns file:line matches.", example: `{\"pattern\": \"TODO\", \"dir\": \".\"}`, tags: []string{"read-only", "search"}, readOnly: true},
 	{name: "sin_test", short: "Run tests", description: "Run the workspace test suite with race detection and coverage, returning structured pass/fail output.", example: `{\"target\": \"./...\", \"race\": \"true\"}`, tags: []string{"destructive", "test"}, destructive: true},
-	{name: "sin_test_generate", short: "Generate tests", description: "Generate table-driven Go tests for a file or package.", example: `{\"file\": \"foo.go\"}`, tags: []string{"destructive", "test"}, destructive: true},
+	{name: "sin_test_generate", short: "Generate tests", description: "Generate table-driven Go tests for a file or package.", example: `{"file": "foo.go"}`, tags: []string{"destructive", "test"}, destructive: true},
+	{name: "sin_dodone_check", short: "Definition-of-Done check", description: "Run deterministic DoD check: placeholders, error paths, tests, build, artifacts, requirements, dead code. Returns PASS/FAIL per pillar.", example: `{"task": "add auth middleware", "json": "true"}`, tags: []string{"read-only", "quality"}, readOnly: true},
 	{name: "sin_write", short: "Write file", description: "Atomically write content to a file, creating parent dirs.", example: `{\"path\": \"out.txt\", \"content\": \"hello\"}`, tags: []string{"destructive", "filesystem"}, destructive: true},
 }

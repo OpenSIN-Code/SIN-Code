@@ -5,6 +5,9 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 ## [v3.28.0] - 2026-06-30
 
 ### Features
+- **SIN-Browser-Tools MCP Full Integration (v3.29.0)**: 106 Playwright-based browser automation tools now fully integrated in sin-code and opencode. Per-tool permission defaults (35 read-only `allow`, 71 mutating `ask`). Catalog entry updated with full tool inventory. opencode.json `sin-browser-tools` MCP server registered. `sin-code mcp-install browser` updated to install SIN-Browser-Tools (pip) instead of deprecated `@anthropic/browser-tools-mcp` (npm). Tools include: navigation, click/type/fill, screenshots, PDF, tab/session management, cookie/storage, diagnostics, Shadow DOM, OOPIF, SPA wait, network mocking, macOS Spaces, screen recording.
+
+### Features
 - **Context Meter (#484)**: `ContextMeter` struct in `agentloop/` — thread-safe token tracker with visual progress bar. Warns at 80%, compacts at 90%. `sin-code context` CLI command.
 - **Voice-to-Code (#481)**: `--voice` flag on `sin-code chat`. Records audio via sox/ffmpeg, transcribes via whisper. No CGO (M2). `voice/` package.
 - **Decision Memory (#488)**: SQLite-backed architectural decision store. Workspace-isolated, full-text search. `sin-code decision list|search` CLI. `decision/` package.
