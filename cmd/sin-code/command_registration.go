@@ -89,6 +89,7 @@ func init() {
 		newShareCmd(),        // share — session export/import (issue #482)
 		newMCPInstallCmd(),   // mcp-install — discover/install MCP servers (issue #490)
 		newLSPConfigCmd(),    // lsp-config — auto-detect+configure LSP servers (issue #492)
+		NewGSDCmd(),          // gsd — Get Shit Done project lifecycle management
 	)
 
 	// Pass build-time version to self-update module.
