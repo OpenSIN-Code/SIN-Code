@@ -1,97 +1,114 @@
-# Pipeline Context — SIN-Code Full Stack Integration (10 Stages)
+# Pipeline Context — SIN-Code Full Stack Integration (10 Stages, v3.29.2)
 
-## Skill Chain
-
-```
-Stage 0: PRE-FLIGHT    — doctor, lessons, memory, goal+contract, checkpoint
-Stage 1: GRILL         — grill-me, decision memory
-Stage 2: PLAN          — plan v2, cartographer, episodic memory, plan-merge
-Stage 3: GSD           — gsd init, phase add, goal subtasks
-Stage 4: EXECUTE       — delegate-subagents, worktree, fusion, critic, governor, compaction, ledger
-Stage 5: REVIEW        — self-review, adversary, complexity, ceo-audit, IBD, security
-Stage 6: DONE GATE     — stop-gate, GoalContract, PoC, Oracle, ADW, SCKG, dodone
-Stage 7: COMMIT        — auto-commit, auto-PR, gsd complete, goal complete
-Stage 8: RECORD        — ledger, summary, lessons, memory, compress
-Stage 9: CI/CD         — GitHub Actions, SBOM, docs sync
-```
-
-## Systems Integrated (~40% ecosystem coverage)
+## Systems Integrated (~60% ecosystem coverage, 55+ systems)
 
 | System | Stage | Role |
 |---|---|---|
-| `sin-code doctor` | 0 | Health check before starting |
-| `sin-code memory` | 0, 8 | Prime context (0), store learnings (8) |
-| `sin-code decision` | 0, 1, 8 | Query decisions (0), record (1), update outcomes (8) |
-| `sin-code goal` | 0, 3, 7 | Enqueue with contract (0), subtasks (3), complete (7) |
-| `sin-code goalcontract` | 0, 6 | Contract enqueued (0), enforced by stop-gate (6) |
-| `sin-code checkpoint` | 0-5 | Snapshot before each stage, rewind on failure |
+| `sin-code doctor` | 0 | Health check |
+| `sin-code config validate` | 0 | Config validation |
+| `sin-code memory` | 0, 8 | Prime context, store learnings |
+| `sin-code instinct` + RAG | 0, 8 | Behavioral patterns (per-function, per-pattern) |
+| `sin-context-bridge` | 0 | Unified SCKG+sin-brain+GitNexus+SQLite query |
+| `sin-code decision` | 0, 1, 8 | Query/record/update decisions |
+| `sin-code triage` | 0 | Issue prioritization (if issue-based) |
+| `sin-code rules` | 0, 4 | Path-scoped rule loader |
+| `sin-code sandbox` | 0, 4 | OS-level isolation (M3/M4) |
+| `sin-code egress` | 0, 4 | SSRF allowlist filtering |
+| `sin-code lsp-config` | 0 | LSP server detection |
+| `sin-code mcp-install` | 0 | MCP server discovery |
+| `sin-code profile` | 0, 9 | Agent profile verify |
+| `sin-code gh doctor` | 0 | GitHub auth verification |
+| `sin-code goal` | 0, 3, 7 | Enqueue/subtask/complete |
+| `sin-code goalcontract` | 0, 6 | Contract → stop-gate enforcement |
+| `sin-code autolevel` | 0, 4 | Permission mode classification |
+| `sin-code agentteams` | 0, 4 | Inter-agent mailbox |
+| `sin-code checkpoint` | 0-5 | Snapshot before each stage |
+| `sin-code telemetry` | 0-8 | NDJSON progress events |
 | `grill-me` | 1 | Adversarial design interview |
 | `plan v2` | 2 | Research, draft, review, quality score |
-| `sin-code sckg` | 2, 6 | Cartographer index (2), dead code detection (6) |
-| `sin-code orchestrator` | 2, 4, 5 | Episodic memory (2), DAG dispatch (4), adversary (5) |
-| `sin-code fusion` | 2, 4 | Plan-merge (2), verify tournament on fail (4) |
-| `sin-code gsd` | 3, 4, 7 | Phases (3), wave execution (4), phase complete (7) |
-| `delegate-subagents` | 4 | Parallel subagent execution per wave |
-| `sin-code goal worktree` | 4 | Git worktree isolation for parallel tasks |
-| `sin-code goal predict-conflicts` | 4 | Predict file conflicts before wave execution |
-| `sin-code orchestrator critic` | 4 | Bounded verify-diagnose-repair loop |
-| `sin-code orchestrator governor` | 4 | Escalating compute: single-shot → repair → best-of-N |
+| `sin-code research` | 2 | Autonomous research report |
+| `sin_web_search` | 2 | Web search (M8 mandate) |
+| `skill-multimodal-web-tools` | 2 | Master research skill (5-layer) |
+| `context7` | 2 | Library documentation lookup |
+| `sin-code spec-driven` | 2 | EARS parser → architecture |
+| `sin-code spec` | 2 | Self-authoring spec layer |
+| `sin-code compile-spec` | 2, 6 | Declarative spec compiler + check |
+| `sin-code sckg` | 2, 6 | Cartographer index, dead code |
+| `sin-code codegraph` | 2 | Multi-language static analysis |
+| `sin-code orchestrator` | 2, 4, 5 | Episodic, DAG, adversary |
+| `sin-code fusion` | 2, 4 | Plan-merge, verify tournament |
+| `sin-code modelperf` | 2, 8 | Model recommendations, performance data |
+| `sin-code vane` | 2 | Research bridge (if available) |
+| `sin-code gsd` | 3, 4, 7 | Phases, waves, complete |
+| `delegate-subagents` | 4 | Parallel subagent execution |
+| `skill-code-build` | 4 | Implementation skill |
+| `sin_test` / `sin_quality_gate` | 4, 6 | Test-first verify loop |
+| `sin_test_generate` | 4 | Auto-generate tests |
+| `sin-code goal worktree` | 4 | Git worktree isolation |
+| `sin-code goal predict-conflicts` | 4 | File conflict prediction |
+| `sin-code orchestrator critic` | 4 | Verify-diagnose-repair loop |
+| `sin-code orchestrator governor` | 4 | Escalating compute ladder |
+| `skill-debug-deep` | 4 | Enterprise debugging on failure |
+| `sin-code background` | 4, 8 | Async fire-and-forget jobs |
 | `sin-code context` | 4 | Context window monitoring |
-| `sin-code compress` | 4, 8 | Compaction during execution (4), lessons compress (8) |
-| `sin-code ledger` | 4-8 | Audit trail, tool heatmaps, finalization |
-| `self-review` | 5 | CEO-grade evidence-driven review |
-| `sin-code review --complexity` | 5 | Ponytail 5-tag complexity findings |
-| `sin-code ceo-audit` | 5 | 48-gate quality audit |
-| `sin-code ibd` | 5 | Intent-based diffing (changes vs plan) |
-| `sin-code security` | 5, 6 | Secrets/SAST/SCA/SBOM/container scan |
+| `sin-code compress` | 4, 8 | Compaction, lesson compress |
+| `sin-code rtk` | 4 | Token optimization (60-90% cut) |
+| `sin-code watch` | 4 | File conflict detection |
+| `sin-code ledger` | 4-8 | Audit trail, tool heatmaps |
+| `self-review` | 5 | CEO-grade review (MANDATORY) |
+| `sin-code review --complexity` | 5 | Ponytail 5-tag findings |
 | `sin-code debt` | 5 | sin-debt marker check |
-| `sin-code stopgate` | 6 | Deterministic + LLM judge completion gate |
-| `sin-code poc` | 6 | Proof-of-correctness verification |
-| `sin-code oracle` | 6 | Independent verification with evidence |
+| `sin-code ceo-audit` | 5 | 48-gate quality audit |
+| `sin-code ibd` | 5 | Intent-based diffing |
+| `sin-code security` | 5, 6 | Secrets/SAST/SCA/SBOM/container |
+| `sin-code codocs` | 5 | Documentation companion validation |
+| `sin-code dox` | 5, 9 | AGENTS.md hierarchy validation |
+| `sin-code cover` | 5, 6 | Coverage scan, gaps, check, generate |
+| `sin-code stopgate` | 6 | Deterministic + LLM judge |
+| `sin_mutation` | 6 | Mutation testing |
+| `sin_fuzz` | 6 | Fuzz testing |
+| `sin_property` | 6 | Property-based testing |
+| `sin-code poc` | 6 | Proof-of-correctness |
+| `sin-code oracle` | 6 | Independent verification |
 | `sin-code adw` | 6 | Architectural debt watchdogs |
-| `skill-process-dodone` | 6 | 11-pillar deterministic check (fallback) |
+| `skill-process-dodone` | 6 | 11-pillar deterministic fallback |
 | `sin-code auto-pr` | 7 | Self-healing PR creation |
 | `sin-code summary` | 8 | Deterministic session summary |
-| `sin-code lessons` | 0, 4, 8 | Query (0), record failures (4), compress (8) |
+| `sin-code tokens` | 8 | Cost projection + budget alerts |
+| `sin-code imagegraph` | 8 | Visual charts for report |
+| `sin-code share` | 8 | HTML report export |
+| `sin-code notifications` | 8 | Unread notification check |
 | `sin-git-workflow` | 9 | GitHub Actions deployment |
 | `sin-code sbom` | 9 | Software Bill of Materials |
+| `sin-code eval` | 9 | Golden dataset regression gate |
+| `sin-code benchmark` | 9 | Eval scoring report |
+
+## NEVER-SKIP Systems (Hard Gates)
+
+| System | Mandate | Reason |
+|---|---|---|
+| stop-gate / dodone | M3 | Verification gate is sacred |
+| self-review | — | CEO review is mandatory |
+| sin_quality_gate | — | Build+test+vet is mandatory |
+| sandbox + egress | M3/M4 | Security baseline |
+| web search (M8) | M8 | context7 + web search before coding |
 
 ## Loop-Back Logic
 
 ```
 Stage 6 fails (exit 2/3)
   → findings fed back to Stage 4 (Execute)
-  → fix issues
+  → fix issues (critic repair, debug-deep, fusion)
   → re-run Stage 5 (Review) + Stage 6 (Done Gate)
   → max 3 loop-back iterations
-  → if still failing after 3: escalate to user
+  → if still failing: escalate to user
 ```
 
-## Checkpoint Strategy
+## Lightweight Alternatives
 
-| Checkpoint | Created | Rewind use case |
+| Alternative | When to use | Scope |
 |---|---|---|
-| `pipeline-stage-0` | Before any code changes | Catastrophic failure — start over |
-| `pipeline-stage-2` | After plan approved | Bad plan execution — re-plan |
-| `pipeline-stage-3` | After GSD setup | GSD corruption — re-init phases |
-| `pipeline-stage-4` | After all code written | Review/verify failure — keep code, re-verify |
-| `pipeline-stage-5` | After review passes | DoDone failure — keep review, re-check |
-
-## Degradation (when systems are unavailable)
-
-| System | Degrades to | Behavior |
-|---|---|---|
-| `sin-code doctor` | Skip | Proceed without health check |
-| `sin-code memory` | Skip | No primed context |
-| `sin-code fusion` | Single-model retry | No tournament, same model retries |
-| `sin-code sckg` | Manual file reads | No semantic graph |
-| `sin-code orchestrator` | Manual delegation | No critic/adversary/governor |
-| `sin-code ceo-audit` | self-review only | No 48-gate audit |
-| `sin-code security` | Skip | No security scan |
-| `sin-code poc/oracle` | dodone check only | No PoC/Oracle verification |
-| `sin-code adw` | Skip | No architecture debt scan |
-| `sin-code ledger` | Skip | No audit trail (warned) |
-| `sin-code compress` | Skip | No lesson compression (DB grows) |
-| `sin-git-workflow` | Skip | No CI/CD |
-| **dodone / stop-gate** | **NEVER SKIP** | **M3 mandate — machine gate is sacred** |
-| **self-review** | **NEVER SKIP** | **CEO review is mandatory** |
+| `sin-code prp` | Simple structured task | draft→planned→implementing→verifying→ready→shipped |
+| `sin-code auto` | Metric-driven optimization | observe→propose→act→verify→measure→keep/revert→learn |
+| `plan v2 --lite` | Quick plan + execute | 6-stage flow without ceremony |
+| `dodone check` | Just need the gate | 11-pillar deterministic check |
