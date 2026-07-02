@@ -13,8 +13,8 @@ metadata:
   author: OpenSIN-Code
   version: 3.26.0
   category: multimodal
-  lifecycle: external
-  sources: "JCodesMore/youtube-for-ai-agents"
+lifecycle: external
+sources: "JCodesMore/youtube-for-ai-agents"
 required_tools:
   - youtube__youtube_search
   - youtube__youtube_get_transcript

@@ -13,7 +13,7 @@ metadata:
   author: OpenSIN-Code
   version: 3.26.0
   category: multimodal
-  lifecycle: native
+lifecycle: native
 required_tools:
   - sin_web_search
   - sin_http_get

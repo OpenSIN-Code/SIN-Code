@@ -11,9 +11,9 @@ compatibility:
   - sin-code
 metadata:
   category: productivity
-  lifecycle: bundled
-  sources:
-    - vibe-notion (npm CLI, https://github.com/vibe-notion/vibe-notion)
+lifecycle: external
+sources:
+  - vibe-notion (npm CLI, https://github.com/vibe-notion/vibe-notion)
 ---
 
 # vibe-notion — Full Notion Access for SIN-Code Agents
