@@ -6,6 +6,7 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ### Features
 - **SIN-Browser-Tools MCP Full Integration (v3.29.0)**: 106 Playwright-based browser automation tools now fully integrated in sin-code and opencode. Per-tool permission defaults (35 read-only `allow`, 71 mutating `ask`). Catalog entry updated with full tool inventory. opencode.json `sin-browser-tools` MCP server registered. `sin-code mcp-install browser` updated to install SIN-Browser-Tools (pip) instead of deprecated `@anthropic/browser-tools-mcp` (npm). Tools include: navigation, click/type/fill, screenshots, PDF, tab/session management, cookie/storage, diagnostics, Shadow DOM, OOPIF, SPA wait, network mocking, macOS Spaces, screen recording.
+- **skill-process-disk-clean (v3.29.0)**: New bundled skill that safely reclaims disk space on a developer Mac. Surveys large directories, classifies them by risk (safe / ask / locked), deletes regenerable caches (Yarn, bun, npm, go-build, trivy, claude transcripts/plugins, chrome_pipeline, webauto), and VACUUMs the bloated `~/.local/share/opencode/opencode.db` (WAL freelist → 60 GB shrinks to ~6 GB with zero session loss). Sync-compatible with Infra-SIN-OpenCode-Stack. Local symlink `~/.config/opencode/skills/clean-disk-opencode` provided.
 
 ### Features
 - **Context Meter (#484)**: `ContextMeter` struct in `agentloop/` — thread-safe token tracker with visual progress bar. Warns at 80%, compacts at 90%. `sin-code context` CLI command.
