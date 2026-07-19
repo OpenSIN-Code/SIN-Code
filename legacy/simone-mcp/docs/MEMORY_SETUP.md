@@ -74,8 +74,12 @@ Qdrant `http://localhost:6333` · Neo4j browser `http://localhost:7474`
 
 ## Boot persistence
 
-- **DBs**: `restart=unless-stopped` → restart with the Docker daemon.
+This Mac runs **OrbStack** as the container runtime (Docker Desktop is not used —
+`docker context show` → `orbstack`).
+
+- **DBs**: `restart=unless-stopped` → restart with the OrbStack engine.
 - **Simone**: launchd `KeepAlive` → self-heals.
-- **Gap**: Docker Desktop must auto-start on login. Enable *Settings →
-  General → Start Docker Desktop when you log in*, else the DBs are down after
-  a reboot and Simone silently degrades to SQLite until Docker is up.
+- **Runtime**: OrbStack has `app.start_at_login: true` (verify with
+  `orb config show | grep start_at_login`), so the engine — and therefore the
+  DBs — come back automatically after a reboot. No manual step required. If that
+  flag is ever off, Simone silently degrades to SQLite until OrbStack is up.
