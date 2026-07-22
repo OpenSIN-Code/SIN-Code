@@ -45,10 +45,12 @@ _TASK_MAX_CONCURRENT = 100
 
 _JSON_SCHEMA_2020_12 = "https://json-schema.org/draft/2020-12/schema"
 
+_TOOL_NAMES = frozenset(tool["name"] for tool in TOOL_DEFINITIONS)
+
 _TOOL_ARG_ALIASES: dict[str, dict[str, str]] = {
     "sin_simone_mcp_symbol_search": {"query": "symbol"},
     "sin_simone_mcp_find_references": {},
-    "sin_simone_mcp_structural_edit": {"editPayload": "edit_payload"},
+    "sin_simone_mcp_structural_edit": {},
     "sin_simone_mcp_memory_query": {"query": "query"},
     "sin_simone_mcp_project_overview": {},
     "sin_simone_mcp_health": {},
@@ -67,9 +69,8 @@ SIMONE_INSTRUCTIONS = (
     "Simone MCP provides LSP-grade code intelligence. "
     "Use symbol_search to find definitions, find_references for usage sites, "
     "structural_edit for safe refactoring, and memory_query for semantic recall. "
-    "graphify_query answers questions about a codebase using its knowledge graph — "
-    "run graphify_update first to build the graph, then query it. "
-    "graphify_explain explains a node's neighbors; graphify_path finds shortest path. "
+    "General code-graph retrieval is routed through the central sin-context "
+    "broker; Simone does not expose a competing graph-routing surface by default. "
     "Resources expose project files; prompts offer guided workflows. "
     "Tasks enable long-running operations — poll tasks/get for inline results. "
     "Always specify a 'root' path when targeting a specific project."
@@ -179,7 +180,6 @@ def _paginate(items: list[Any], cursor: str | None) -> tuple[list[Any], str | No
     trivially debuggable.
     """
     start = 0
-    start = 0
     if cursor:
         try:
             start = int(base64.b64decode(cursor).decode())
@@ -212,25 +212,17 @@ def _register_session(session_id: str) -> None:
 
 
 def _remove_session(session_id: str) -> None:
-    """Remove a session and all its in-flight tasks."""
+    """Remove a session and all of its in-flight protocol tasks."""
     with _session_store_lock:
         _session_store.pop(session_id, None)
     with _task_store_lock:
-        stale = [tid for tid, t in _task_store.items() if t.get("sessionId") == session_id]
-        for tid in stale:
-            del _task_store[tid]
-    with _session_store_lock:
-        if session_id not in _session_store:
-            _session_store[session_id] = {"id": session_id, "created": _now_iso()}
-
-
-def _remove_session(session_id: str) -> None:
-    with _session_store_lock:
-        _session_store.pop(session_id, None)
-    with _task_store_lock:
-        stale = [tid for tid, t in _task_store.items() if t.get("sessionId") == session_id]
-        for tid in stale:
-            del _task_store[tid]
+        stale = [
+            task_id
+            for task_id, task in _task_store.items()
+            if task.get("sessionId") == session_id
+        ]
+        for task_id in stale:
+            del _task_store[task_id]
 
 
 def _subscribe_resource(uri: str) -> None:
@@ -441,7 +433,7 @@ def _inject_meta(result: dict[str, Any], request_meta: dict[str, Any]) -> dict[s
 
 
 def _list_resources(root: str | None = None) -> list[dict[str, Any]]:
-    ws = Path(root) if root else Path.cwd()
+    ws = (Path(root) if root else Path.cwd()).expanduser().resolve()
     resources: list[dict[str, Any]] = []
     for p in ws.rglob("*"):
         if p.is_file() and not p.name.startswith(".") and ".git" not in p.parts:
@@ -461,37 +453,35 @@ def _list_resources(root: str | None = None) -> list[dict[str, Any]]:
 
 
 def _read_resource(uri: str, root: str | None = None) -> dict[str, Any] | None:
-    ws = Path(root) if root else Path.cwd()
-    if uri.startswith("file:///"):
-        rel = uri[len("file:///"):]
-        target = ws / rel
+    workspace = (Path(root) if root else Path.cwd()).expanduser().resolve()
+
+    def read_inside_workspace(target: Path) -> dict[str, Any] | None:
         try:
-            resolved = target.resolve()
-            if root and not str(resolved).startswith(str(ws.resolve())):
-                return None
+            resolved = target.expanduser().resolve()
+            resolved.relative_to(workspace)
             if not resolved.is_file():
                 return None
-            text = resolved.read_text(errors="replace")
-            return {"uri": uri, "mimeType": _guess_mime(resolved), "text": text}
-        except OSError:
+            text = resolved.read_text(encoding="utf-8", errors="replace")
+            return {
+                "uri": uri,
+                "mimeType": _guess_mime(resolved),
+                "text": text,
+            }
+        except (OSError, ValueError):
             return None
+
+    if uri.startswith("file:///"):
+        relative_path = uri[len("file:///"):]
+        return read_inside_workspace(workspace / relative_path)
+
     if uri.startswith("source://"):
         rest = uri[len("source://"):]
         parts = rest.split("/", 1)
         if len(parts) != 2:
             return None
-        base, relpath = parts
-        target = Path(base) / relpath
-        try:
-            resolved = target.resolve()
-            if root and not str(resolved).startswith(str(ws.resolve())):
-                return None
-            if not resolved.is_file():
-                return None
-            text = resolved.read_text(errors="replace")
-            return {"uri": uri, "mimeType": _guess_mime(resolved), "text": text}
-        except OSError:
-            return None
+        _, relative_path = parts
+        return read_inside_workspace(workspace / relative_path)
+
     return None
 
 
@@ -763,6 +753,16 @@ async def handle_mcp_request(
 
     if method == "tools/call":
         name = params.get("name", "")
+        if name not in _TOOL_NAMES:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {
+                    "code": -32602,
+                    "message": f"Unknown or disabled tool: {name}",
+                },
+            }, session_id, notifications
+
         arguments = dict(params.get("arguments") or {})
         progress_token = request_meta.get("progressToken")
 

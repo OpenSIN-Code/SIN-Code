@@ -88,7 +88,10 @@ class SymbolSearchArgs(BaseModel):
 
 
 class StructuralEditArgs(BaseModel):
-    editPayload: str = Field(min_length=1)
+    symbol: str = Field(min_length=1)
+    file: str = Field(min_length=1)
+    body: str = Field(min_length=1)
+    root: str | None = None
 
 
 class MemoryQueryArgs(BaseModel):
@@ -122,23 +125,27 @@ class WriteFileArgs(BaseModel):
     path: str = Field(min_length=1)
     content: str = ""
     overwrite: bool = False
+    root: str | None = None
 
 
 class EditFileArgs(BaseModel):
     path: str = Field(min_length=1)
     old_string: str = ""
     new_string: str = ""
+    root: str | None = None
 
 
 class PatchFileArgs(BaseModel):
     path: str = Field(min_length=1)
     diff: str = ""
+    root: str | None = None
 
 
 class ReadFileArgs(BaseModel):
     path: str = Field(min_length=1)
     offset: int = 0
     limit: int = 100
+    root: str | None = None
 
 
 class TaskGetArgs(BaseModel):
@@ -164,6 +171,9 @@ class ControlPlaneArgs(BaseModel):
         "task.list",
         "task.transition",
         "event.append",
+        "execution.bind",
+        "execution.event",
+        "execution.artifact",
         "artifact.attach",
         "evidence.attach",
         "decision.record",

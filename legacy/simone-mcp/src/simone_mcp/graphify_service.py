@@ -13,8 +13,6 @@ import json
 import logging
 import os
 import subprocess
-import tempfile
-from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -53,33 +51,7 @@ def _find_graphify() -> str | None:
 
 
 def _run_graphify(args: list[str], cwd: str | None = None) -> dict[str, Any]:
-    """Run `graphify <args>` in a subprocess and capture stdout/stderr.
-
-    Returns `{"ok": True, "output", "stderr"}` on success or
-    `{"ok": False, "error": "..."}` on any failure. 120s timeout.
-    """
-    gpath = _find_graphify()
-    global _GRAPHIFY_BIN
-    if _GRAPHIFY_BIN is not None:
-        return _GRAPHIFY_BIN
-    candidates = [
-        "/opt/homebrew/bin/graphify",
-        "/usr/local/bin/graphify",
-        os.path.expanduser("~/.local/bin/graphify"),
-    ]
-    for c in candidates:
-        if os.path.isfile(c) and os.access(c, os.X_OK):
-            _GRAPHIFY_BIN = c
-            return c
-    which = os.popen("which graphify 2>/dev/null").read().strip()
-    if which and os.path.isfile(which):
-        _GRAPHIFY_BIN = which
-        return which
-    _GRAPHIFY_BIN = ""
-    return None
-
-
-def _run_graphify(args: list[str], cwd: str | None = None) -> dict[str, Any]:
+    """Run Graphify and return bounded structured command output."""
     gpath = _find_graphify()
     if not gpath:
         return {"ok": False, "error": "graphify not installed"}
@@ -143,7 +115,6 @@ def graphify_query(question: str, root: str, budget: int = 2000, dfs: bool = Fal
     Returns:
         `{"ok": True, "output"}` or `{"ok": False, "error"}`.
     """
-    """Run `graphify query <question>` on a repo's graph."""
     root_path = os.path.abspath(os.path.expanduser(root))
     if not _has_graph(root_path):
         return {"ok": False, "error": f"No graph found at {_graph_path(root_path)}. Run graphify_update first."}

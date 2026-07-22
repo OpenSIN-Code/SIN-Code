@@ -97,7 +97,6 @@ def _check_rate_limit(client_id: str) -> None:
         HTTPException: 429 with `Retry-After` header when over budget.
     """
     global _rate_limit_op_count
-    global _rate_limit_op_count
     with _rate_limit_lock:
         now = time.monotonic()
         window = _rate_limit_store[client_id]
@@ -128,7 +127,6 @@ def _extract_client_ip(request: Request) -> str:
     left-to-right; we trust the LAST one). Falls back to "unknown".
     """
     forwarded = request.headers.get("x-forwarded-for", "")
-    forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded:
         rightmost = forwarded.rsplit(",", 1)[-1].strip()
         if rightmost:
@@ -153,11 +151,6 @@ def _verify_token(token: str) -> dict[str, Any]:
     Raises:
         HTTPException: 401 on any verification failure.
     """
-    audience = os.getenv("SIMONE_OAUTH_AUDIENCE", "simone-mcp")
-    return str(request.base_url).rstrip("/")
-
-
-def _verify_token(token: str) -> dict[str, Any]:
     audience = os.getenv("SIMONE_OAUTH_AUDIENCE", "simone-mcp")
     issuer = os.getenv("SIMONE_OAUTH_ISSUER")
     jwks_url = os.getenv("SIMONE_OAUTH_JWKS_URL")
@@ -192,8 +185,6 @@ def _authorize_request(request: Request) -> dict[str, Any] | None:
     """
     if request.url.path in OPEN_PATHS:
         return None
-    if request.url.path in OPEN_PATHS:
-        return None
     if not _should_require_auth():
         return None
     header = request.headers.get("authorization", "")
@@ -218,7 +209,6 @@ def _validate_origin(request: Request) -> None:
         HTTPException: 403 with `origin_not_allowed` detail.
     """
     origin = request.headers.get("origin")
-    origin = request.headers.get("origin")
     if not origin:
         return
     if origin not in _get_allowed_origins():
@@ -231,7 +221,6 @@ async def _read_json_body(request: Request) -> dict[str, Any] | list[Any]:
     Raises:
         HTTPException: 413 if body too large, 400 on invalid JSON.
     """
-    body = await request.body()
     body = await request.body()
     if len(body) > _MAX_REQUEST_BODY:
         raise HTTPException(status_code=413, detail="request_body_too_large")
@@ -248,7 +237,6 @@ async def _mcp_post(request: Request) -> JSONResponse | StreamingResponse:
     `Mcp-Method`, `Mcp-Name`, and `Mcp-Param-*`, and attaches correlation
     IDs to successful results.
     """
-    raw_payload = await _read_json_body(request)
     raw_payload = await _read_json_body(request)
     session_id = request.headers.get("Mcp-Session-Id") or None
     client_protocol_version = request.headers.get("MCP-Protocol-Version")
@@ -380,7 +368,6 @@ async def _mcp_get(request: Request) -> StreamingResponse:
     long-lived; a 30s ping keeps proxies from idling it out.
     """
     session_id = request.headers.get("Mcp-Session-Id") or str(uuid.uuid4())
-    session_id = request.headers.get("Mcp-Session-Id") or str(uuid.uuid4())
     last_event_id = request.headers.get("Last-Event-ID")
     event_counter = 0
 
@@ -425,7 +412,6 @@ def create_app() -> FastAPI:
     `/.well-known/` discovery endpoints, `/mcp` (POST/GET/DELETE),
     `/a2a/v1` (POST), `/health`, `/dashboard`, and `/` (root).
     """
-    from contextlib import asynccontextmanager
     from contextlib import asynccontextmanager
 
     @asynccontextmanager

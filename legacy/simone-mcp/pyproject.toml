@@ -41,6 +41,7 @@ dev = [
 
 [project.scripts]
 simone-cli = "simone_mcp.cli:main"
+simone-control-plane = "simone_mcp.control_plane_cli:main"
 # v0.2.0 — Standalone CLI shims for the 9 public MCP tools. Lets shell
 # users and sub-agents invoke Simone's code-analysis tools without
 # spinning up the FastAPI/MCP server. Each shim is a thin argparse

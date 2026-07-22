@@ -14,6 +14,9 @@ OPERATIONS = [
     "task.list",
     "task.transition",
     "event.append",
+    "execution.bind",
+    "execution.event",
+    "execution.artifact",
     "artifact.attach",
     "evidence.attach",
     "decision.record",
@@ -107,6 +110,15 @@ def execute_control_plane(
 
         elif operation == "event.append":
             result = store.append_event(**arguments)
+
+        elif operation == "execution.bind":
+            result = store.bind_execution(**arguments)
+
+        elif operation == "execution.event":
+            result = store.ingest_execution_event(**arguments)
+
+        elif operation == "execution.artifact":
+            result = store.record_execution_artifact(**arguments)
 
         elif operation == "artifact.attach":
             result = store.attach_artifact(**arguments)

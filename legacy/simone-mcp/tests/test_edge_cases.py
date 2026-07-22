@@ -3,6 +3,7 @@
 Docs: test_edge_cases.doc.md
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -17,6 +18,12 @@ from simone_mcp.core import (
     edit_file,
     patch_file,
 )
+
+
+@pytest.fixture(autouse=True)
+def workspace_cwd(tmp_path: Path, monkeypatch) -> None:
+    """Run each file-tool test inside a temporary workspace."""
+    monkeypatch.chdir(tmp_path)
 
 
 # ── Write file edge cases ──────────────────────────────
@@ -316,6 +323,3 @@ class TestCrossToolEdgeCases:
         assert result["ok"] is True
         assert result["content"] == "Hello Universe!"
 
-
-# Need os for chmod
-import os

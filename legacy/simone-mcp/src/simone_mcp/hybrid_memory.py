@@ -149,7 +149,6 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     Returns 0.0 if either vector has zero magnitude (avoids div-by-zero).
     """
     dot = sum(av * bv for av, bv in zip(a, b, strict=False))
-    dot = sum(av * bv for av, bv in zip(a, b, strict=False))
     na = math.sqrt(sum(av * av for av in a))
     nb = math.sqrt(sum(bv * bv for bv in b))
     if na == 0 or nb == 0:
@@ -222,7 +221,6 @@ def query_hybrid_memory(payload: dict[str, Any]) -> dict[str, Any]:
     local SQLite store. Returns both `semantic` (vector) and
     `structural` (graph) results, plus the source each came from.
     """
-    query = str(payload.get("query") or "").strip()
     query = str(payload.get("query") or "").strip()
     root = _workspace_root(payload.get("root"))
     target_symbol = payload.get("target_symbol")
@@ -364,10 +362,6 @@ def store_symbol(name: str, kind: str, file_path: str, line: int = 0, db_name: s
         existing = conn.execute(
             "SELECT id FROM symbols WHERE name = ? AND file = ?", (name, file_path)
         ).fetchone()
-    
-        existing = conn.execute(
-            "SELECT id FROM symbols WHERE name = ? AND file = ?", (name, file_path)
-        ).fetchone()
         if existing:
             return {"ok": True, "id": existing["id"], "exists": True}
         cur = conn.execute(
@@ -449,7 +443,6 @@ def _get_qdrant_client(qdrant_url: str) -> Any:
 def _query_qdrant(query: str, qdrant_url: str) -> list[dict[str, Any]]:
     """Search the first 5 Qdrant collections for vectors matching `query`."""
     client = _get_qdrant_client(qdrant_url)
-    client = _get_qdrant_client(qdrant_url)
     collections = client.get_collections().collections
     if not collections:
         return []
@@ -518,7 +511,6 @@ def _query_neo4j(
     symbol: str, uri: str, user: str, password: str
 ) -> list[dict[str, Any]]:
     """Find up to 10 callers (CALLS or IMPORTS) of `symbol` in Neo4j."""
-    driver = _get_neo4j_driver(uri, user, password)
     driver = _get_neo4j_driver(uri, user, password)
     results: list[dict[str, Any]] = []
     with driver.session() as session:

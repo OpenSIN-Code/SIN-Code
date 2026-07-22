@@ -194,6 +194,122 @@ def test_decision_requires_existing_evidence(
         )
 
 
+def test_execution_events_are_idempotent(
+    store: ControlPlaneStore,
+    tmp_path: Path,
+) -> None:
+    task = create_task(store, tmp_path)
+    store.bind_execution(
+        task_id=task["id"],
+        source="sin-orca",
+        external_task_id="orca-task-001",
+    )
+
+    first = store.ingest_execution_event(
+        task_id=task["id"],
+        source="sin-orca",
+        external_event_id="orca-task-001:event-1",
+        external_sequence=1,
+        external_hash="a" * 64,
+        event_type="worker.spawned",
+        actor="worker",
+        payload={"agent": "mimo-code", "worktree_id": "wt-1"},
+    )
+    replay = store.ingest_execution_event(
+        task_id=task["id"],
+        source="sin-orca",
+        external_event_id="orca-task-001:event-1",
+        external_sequence=1,
+        external_hash="a" * 64,
+        event_type="worker.spawned",
+        actor="worker",
+        payload={"agent": "mimo-code", "worktree_id": "wt-1"},
+    )
+
+    assert first["duplicate"] is False
+    assert replay["duplicate"] is True
+    assert replay["simone_sequence"] == first["simone_sequence"]
+
+
+def test_changed_execution_replay_is_rejected(
+    store: ControlPlaneStore,
+    tmp_path: Path,
+) -> None:
+    task = create_task(store, tmp_path)
+    store.bind_execution(
+        task_id=task["id"],
+        source="sin-orca",
+        external_task_id="orca-task-002",
+    )
+    store.ingest_execution_event(
+        task_id=task["id"],
+        source="sin-orca",
+        external_event_id="orca-task-002:event-1",
+        event_type="verification.completed",
+        actor="controller",
+        payload={"ok": True},
+    )
+
+    with pytest.raises(ConflictError):
+        store.ingest_execution_event(
+            task_id=task["id"],
+            source="sin-orca",
+            external_event_id="orca-task-002:event-1",
+            event_type="verification.completed",
+            actor="controller",
+            payload={"ok": False},
+        )
+
+
+def test_execution_payload_rejects_raw_transcripts(
+    store: ControlPlaneStore,
+    tmp_path: Path,
+) -> None:
+    task = create_task(store, tmp_path)
+    store.bind_execution(
+        task_id=task["id"],
+        source="sin-orca",
+        external_task_id="orca-task-003",
+    )
+
+    with pytest.raises(ValueError, match="terminal_transcript"):
+        store.ingest_execution_event(
+            task_id=task["id"],
+            source="sin-orca",
+            external_event_id="orca-task-003:event-1",
+            event_type="checkpoint.received",
+            actor="worker",
+            payload={"terminal_transcript": "raw terminal output"},
+        )
+
+
+def test_execution_artifact_is_reference_only_and_idempotent(
+    store: ControlPlaneStore,
+    tmp_path: Path,
+) -> None:
+    task = create_task(store, tmp_path)
+    store.bind_execution(
+        task_id=task["id"],
+        source="sin-orca",
+        external_task_id="orca-task-004",
+    )
+    payload = {
+        "task_id": task["id"],
+        "source": "sin-orca",
+        "kind": "worker-report",
+        "reference": "sin-orca://orca-task-004/report.json",
+        "sha256": "b" * 64,
+        "size_bytes": 512,
+    }
+
+    first = store.record_execution_artifact(**payload)
+    replay = store.record_execution_artifact(**payload)
+
+    assert first["duplicate"] is False
+    assert replay["duplicate"] is True
+    assert first["metadata"]["reference_only"] is True
+
+
 def test_artifact_hash_is_verified(
     store: ControlPlaneStore,
     tmp_path: Path,

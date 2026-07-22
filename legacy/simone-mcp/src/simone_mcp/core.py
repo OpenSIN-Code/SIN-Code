@@ -163,9 +163,12 @@ TOOL_DEFINITIONS = [
             "$schema": _JSON_SCHEMA_2020_12,
             "type": "object",
             "properties": {
-                "editPayload": {"type": "string", "description": "Structural edit payload in JSON or natural language"},
+                "symbol": {"type": "string", "description": "Function or method name to replace"},
+                "file": {"type": "string", "description": "Python file inside the workspace"},
+                "body": {"type": "string", "description": "Replacement function body"},
+                "root": {"type": "string", "description": "Workspace boundary; defaults to server working directory"},
             },
-            "required": ["editPayload"],
+            "required": ["symbol", "file", "body"],
         },
         "outputSchema": {
             "$schema": _JSON_SCHEMA_2020_12,
@@ -432,9 +435,10 @@ TOOL_DEFINITIONS = [
             "$schema": _JSON_SCHEMA_2020_12,
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "Absolute or relative path"},
+                "path": {"type": "string", "description": "Absolute or relative path inside root"},
                 "content": {"type": "string", "description": "File content"},
                 "overwrite": {"type": "boolean", "description": "If True, overwrite existing file"},
+                "root": {"type": "string", "description": "Workspace boundary; defaults to server working directory"},
             },
             "required": ["path", "content"],
         },
@@ -465,9 +469,10 @@ TOOL_DEFINITIONS = [
             "$schema": _JSON_SCHEMA_2020_12,
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "File path"},
+                "path": {"type": "string", "description": "File path inside root"},
                 "old_string": {"type": "string", "description": "String to replace"},
                 "new_string": {"type": "string", "description": "Replacement string"},
+                "root": {"type": "string", "description": "Workspace boundary; defaults to server working directory"},
             },
             "required": ["path", "old_string", "new_string"],
         },
@@ -498,8 +503,9 @@ TOOL_DEFINITIONS = [
             "$schema": _JSON_SCHEMA_2020_12,
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "File path"},
+                "path": {"type": "string", "description": "File path inside root"},
                 "diff": {"type": "string", "description": "Unified diff format patch"},
+                "root": {"type": "string", "description": "Workspace boundary; defaults to server working directory"},
             },
             "required": ["path", "diff"],
         },
@@ -530,9 +536,10 @@ TOOL_DEFINITIONS = [
             "$schema": _JSON_SCHEMA_2020_12,
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "File path"},
+                "path": {"type": "string", "description": "File path inside root"},
                 "offset": {"type": "integer", "description": "Start line (0-indexed)"},
                 "limit": {"type": "integer", "description": "Max lines to read"},
+                "root": {"type": "string", "description": "Workspace boundary; defaults to server working directory"},
             },
             "required": ["path"],
         },
@@ -560,14 +567,31 @@ TOOL_DEFINITIONS = [
     },
 ]
 
+_LEGACY_GRAPHIFY_TOOL_NAMES = frozenset({
+    "sin_simone_mcp_graphify_query",
+    "sin_simone_mcp_graphify_update",
+    "sin_simone_mcp_graphify_explain",
+    "sin_simone_mcp_graphify_path",
+})
+_EXPOSE_LEGACY_GRAPHIFY = (
+    os.getenv("SIMONE_ENABLE_LEGACY_GRAPHIFY_TOOLS", "0") == "1"
+)
+if not _EXPOSE_LEGACY_GRAPHIFY:
+    TOOL_DEFINITIONS = [
+        tool
+        for tool in TOOL_DEFINITIONS
+        if tool["name"] not in _LEGACY_GRAPHIFY_TOOL_NAMES
+    ]
+
 TOOL_DEFINITIONS.append(CONTROL_PLANE_TOOL)
 
 CAPABILITIES = [tool["name"] for tool in TOOL_DEFINITIONS] + [
-    "graphify",
     "memory.hybrid",
     "transport.streamable_http",
     "auth.oauth2.1",
 ]
+if _EXPOSE_LEGACY_GRAPHIFY:
+    CAPABILITIES.append("graphify.legacy")
 
 
 def build_agent_card(base_url: str) -> dict[str, Any]:
@@ -581,7 +605,6 @@ def build_agent_card(base_url: str) -> dict[str, Any]:
         A dict matching the A2A agent-card schema: name, version, capabilities,
         endpoints, auth config, and the list of `skills` (one per tool).
     """
-    normalized_base_url = base_url.rstrip("/")
     normalized_base_url = base_url.rstrip("/")
     return {
         "name": AGENT_NAME,
@@ -602,24 +625,16 @@ def build_agent_card(base_url: str) -> dict[str, Any]:
             "issuer": os.getenv("SIMONE_OAUTH_ISSUER", ""),
             "audience": os.getenv("SIMONE_OAUTH_AUDIENCE", AGENT_NAME),
         },
-    "skills": [
-        {"id": "agent.help", "name": "Help"},
-        {"id": "sin_simone_mcp_health", "name": "Health Check"},
-        {"id": "sin_simone_mcp_symbol_search", "name": "Symbol Search"},
-        {"id": "sin_simone_mcp_structural_edit", "name": "Structural Edit"},
-        {"id": "sin_simone_mcp_memory_query", "name": "Memory Query"},
-        {"id": "sin_simone_mcp_find_references", "name": "Find References"},
-        {"id": "sin_simone_mcp_project_overview", "name": "Project Overview"},
-        {"id": "sin_simone_mcp_graphify_query", "name": "Graphify Query"},
-        {"id": "sin_simone_mcp_graphify_update", "name": "Graphify Update"},
-        {"id": "sin_simone_mcp_graphify_explain", "name": "Graphify Explain"},
-        {"id": "sin_simone_mcp_graphify_path", "name": "Graphify Path"},
-        {"id": "sin_simone_mcp_write_file", "name": "Write File"},
-        {"id": "sin_simone_mcp_edit_file", "name": "Edit File"},
-        {"id": "sin_simone_mcp_patch_file", "name": "Patch File"},
-        {"id": "sin_simone_mcp_read_file", "name": "Read File"},
-        {"id": "sin_simone_mcp_control_plane", "name": "Simone Control Plane"},
-    ],
+        "skills": [
+            {"id": "agent.help", "name": "Help"},
+            *[
+                {
+                    "id": tool["name"],
+                    "name": tool.get("title", tool["name"]),
+                }
+                for tool in TOOL_DEFINITIONS
+            ],
+        ],
         "defaultInputModes": ["application/json", "text/plain"],
         "defaultOutputModes": ["application/json", "text/plain"],
     }
@@ -632,7 +647,6 @@ def build_oauth_client_metadata(base_url: str) -> dict[str, Any]:
     includes the loopback `127.0.0.1/callback` as a fallback for desktop
     clients that can't open a public URL.
     """
-    callback = f"{base_url.rstrip('/')}/oauth/callback"
     callback = f"{base_url.rstrip('/')}/oauth/callback"
     return {
         "client_name": AGENT_NAME,
@@ -651,7 +665,6 @@ def build_authorization_server_metadata(base_url: str) -> dict[str, Any]:
     to `<issuer>/authorize`, `<issuer>/token`, etc., but each can be
     overridden via the matching `SIMONE_OAUTH_*` env var.
     """
-    normalized_base_url = base_url.rstrip("/")
     normalized_base_url = base_url.rstrip("/")
     issuer = os.getenv("SIMONE_OAUTH_ISSUER") or normalized_base_url
     authorization_endpoint = (
@@ -683,7 +696,6 @@ def _build_realtime_url(supabase_url: str) -> str:
     always lives at `/realtime/v1` regardless of project layout.
     """
     parsed = urlparse(supabase_url.rstrip("/"))
-    parsed = urlparse(supabase_url.rstrip("/"))
     scheme = "wss" if parsed.scheme == "https" else "ws"
     path = parsed.path.rstrip("/")
     if not path.endswith("/realtime/v1"):
@@ -691,16 +703,45 @@ def _build_realtime_url(supabase_url: str) -> str:
     return urlunparse((scheme, parsed.netloc, path, "", "", ""))
 
 
-def _workspace_root(value: str | None) -> Path:
-    """Resolve a workspace root path or fall back to the current directory.
+def _allowed_workspace_roots() -> tuple[Path, ...]:
+    """Return server-approved workspace roots.
 
-    Args:
-        value: A path string (may be `None`). Expanded with `~` and made absolute.
-
-    Returns:
-        The resolved `Path`. When `value` is falsy, returns `Path.cwd()`.
+    The current working directory is always allowed. Additional roots may be
+    configured with ``SIMONE_WORKSPACE_ROOTS`` using the platform path
+    separator (``:`` on macOS/Linux).
     """
-    return Path(value).expanduser().resolve() if value else Path.cwd()
+    configured = os.getenv("SIMONE_WORKSPACE_ROOTS", "")
+    candidates = [Path.cwd()]
+    candidates.extend(
+        Path(item).expanduser()
+        for item in configured.split(os.pathsep)
+        if item.strip()
+    )
+
+    unique: dict[str, Path] = {}
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        unique[str(resolved)] = resolved
+    return tuple(unique.values())
+
+
+def _workspace_root(value: str | None) -> Path:
+    """Resolve a workspace root and enforce the server allowlist."""
+    requested = (
+        Path(value).expanduser().resolve()
+        if value
+        else Path.cwd().resolve()
+    )
+    for allowed in _allowed_workspace_roots():
+        try:
+            requested.relative_to(allowed)
+            return requested
+        except ValueError:
+            continue
+    allowed_text = ", ".join(str(path) for path in _allowed_workspace_roots())
+    raise ValueError(
+        f"Workspace root {requested} is outside allowed roots: {allowed_text}"
+    )
 
 
 class PathTraversalError(ValueError):
@@ -780,18 +821,6 @@ def _candidate_files(root: Path) -> list[Path]:
         if path.suffix in {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts"}:
             paths.append(path)
     return sorted(paths)
-    resolved_root = root.resolve()
-    paths: list[Path] = []
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-        if path.is_symlink() and not path.resolve().is_relative_to(resolved_root):
-            continue
-        if any(part in _PY_BLOCKED for part in path.parts):
-            continue
-        if path.suffix in {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".mts", ".cts"}:
-            paths.append(path)
-    return sorted(paths)
 
 
 def _ts_parsers() -> tuple[Any, Any] | None:
@@ -862,38 +891,6 @@ def _extract_symbols_treesitter(path: Path) -> list[dict[str, Any]]:
         if hasattr(node, "children"):
             stack.extend(node.children)
     return matches
-    parsers = _ts_parsers()
-    if parsers is None:
-        return _extract_symbols_js_regex(path)
-    ts_parser, tsx_parser = parsers
-    parser = tsx_parser if path.suffix in {".tsx", ".jsx"} else ts_parser
-    try:
-        source = path.read_bytes()
-        tree = parser.parse(source)
-    except (OSError, UnicodeDecodeError):
-        logger.debug("Failed to read %s for tree-sitter", path, exc_info=True)
-        return []
-    matches: list[dict[str, Any]] = []
-    stack = [tree.root_node]
-    while stack:
-        node = stack.pop()
-        if node.type in _TSX_QUERY_NAMES:
-            name_node = node.child_by_field_name("name")
-            if name_node is not None:
-                symbol_name = source[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="replace")
-                kind = "class" if "class" in node.type else "function"
-                matches.append({
-                    "symbol": symbol_name,
-                    "kind": kind,
-                    "file": str(path),
-                    "line": node.start_point[0] + 1,
-                    "column": node.start_point[1],
-                    "endLine": node.end_point[0] + 1,
-                    "endColumn": node.end_point[1],
-                })
-        if hasattr(node, "children"):
-            stack.extend(node.children)
-    return matches
 
 
 _JS_SYMBOL_PATTERN = re.compile(
@@ -912,28 +909,6 @@ def _extract_symbols_js_regex(path: Path) -> list[dict[str, Any]]:
       - `class NAME ...`                  → `kind: "class"`
       - `const NAME = (...) => ...`       → `kind: "function"`
     """
-    try:
-        content = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return []
-    matches: list[dict[str, Any]] = []
-    for line_no, line in enumerate(content.splitlines(), start=1):
-        m = _JS_SYMBOL_PATTERN.match(line)
-        if not m:
-            continue
-        symbol_name = m.group("func") or m.group("class") or m.group("const")
-        if symbol_name:
-            kind = "class" if m.group("class") else "function"
-            matches.append({
-                "symbol": symbol_name,
-                "kind": kind,
-                "file": str(path),
-                "line": line_no,
-                "column": m.start(),
-                "endLine": line_no,
-                "endColumn": m.end(),
-            })
-    return matches
     try:
         content = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
@@ -991,40 +966,7 @@ def _symbol_kind(node: ast.AST) -> str:
 
 
 def find_symbol(payload: dict[str, Any]) -> dict[str, Any]:
-    """Find definitions of a symbol across the workspace.
-
-    Args:
-        payload: `{"symbol": str, "root": str?}`.
-
-    Returns:
-        `{"ok": True, "symbol": str, "count": N, "matches": [{symbol, kind, file, line, column, endLine, endColumn}, ...]}`.
-    """
-    symbol = str(payload.get("symbol") or "").strip()
-    root = _workspace_root(payload.get("root"))
-    try:
-        return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    except (OSError, SyntaxError, UnicodeDecodeError):
-        logger.debug("Failed to parse %s", path, exc_info=True)
-        return None
-
-
-def _iter_symbol_nodes(tree: ast.AST) -> list[ast.AST]:
-    return [
-        node
-        for node in ast.walk(tree)
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
-    ]
-
-
-def _symbol_kind(node: ast.AST) -> str:
-    if isinstance(node, ast.ClassDef):
-        return "class"
-    if isinstance(node, ast.AsyncFunctionDef):
-        return "async_function"
-    return "function"
-
-
-def find_symbol(payload: dict[str, Any]) -> dict[str, Any]:
+    """Find definitions of a symbol across the workspace."""
     symbol = str(payload.get("symbol") or "").strip()
     root = _workspace_root(payload.get("root"))
     matches: list[dict[str, Any]] = []
@@ -1094,11 +1036,6 @@ def _preserve_trailing_newline(text: str, updated: str) -> str:
         if text.endswith("\n") and not updated.endswith("\n")
         else updated
     )
-    symbol = str(payload.get("symbol") or "").strip()
-    root = _workspace_root(payload.get("root"))
-    if HAS_JEDI:
-        return _find_references_jedi(symbol, root)
-    return _find_references_regex(symbol, root)
 
 
 def _find_references_jedi(symbol: str, root: Path) -> dict[str, Any]:
@@ -1107,7 +1044,6 @@ def _find_references_jedi(symbol: str, root: Path) -> dict[str, Any]:
     For each candidate line, ask Jedi `goto` where the symbol resolves;
     only report the line if one of the definitions matches the target.
     """
-    project = jedi.Project(path=root)
     project = jedi.Project(path=root)
     matches: list[dict[str, Any]] = []
     total = 0
@@ -1155,7 +1091,6 @@ def _find_references_regex(symbol: str, root: Path) -> dict[str, Any]:
     repeated names on the same line).
     """
     pattern = re.compile(rf"\b{re.escape(symbol)}\b")
-    pattern = re.compile(rf"\b{re.escape(symbol)}\b")
     matches: list[dict[str, Any]] = []
     total = 0
     for path in _candidate_files(root):
@@ -1175,24 +1110,6 @@ def _find_references_regex(symbol: str, root: Path) -> dict[str, Any]:
     return {"ok": True, "symbol": symbol, "count": total, "matches": matches, "engine": "regex"}
 
 
-def _find_named_node(path: Path, symbol: str) -> ast.AST:
-    tree = _parse_file(path)
-    if tree is None:
-        raise ValueError("unparseable_python_file")
-    for node in _iter_symbol_nodes(tree):
-        if getattr(node, "name", None) == symbol:
-            return node
-    raise ValueError("symbol_not_found")
-
-
-def _preserve_trailing_newline(text: str, updated: str) -> str:
-    return (
-        f"{updated}\n"
-        if text.endswith("\n") and not updated.endswith("\n")
-        else updated
-    )
-
-
 def replace_symbol_body(payload: dict[str, Any]) -> dict[str, Any]:
     """Replace a function/method's body with `body` text.
 
@@ -1210,10 +1127,7 @@ def replace_symbol_body(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         symbol = str(payload.get("symbol") or "").strip()
         explicit_root = payload.get("root")
-        if explicit_root:
-            root = _workspace_root(explicit_root)
-        else:
-            root = None
+        root = _workspace_root(explicit_root)
         file_path = Path(str(payload.get("file") or "")).expanduser().resolve()
         _validate_file_in_workspace(file_path, root)
         body = str(payload.get("body") or "pass")
@@ -1231,7 +1145,6 @@ def _replace_symbol_body_libcst(symbol: str, file_path: Path, body: str) -> dict
     the visitor indent back inside the function body. Refuses to write
     if the source is unchanged (`symbol_not_found_or_unchanged`).
     """
-    source = file_path.read_text(encoding="utf-8")
     source = file_path.read_text(encoding="utf-8")
 
     def _parse_body(code: str) -> list[cst.BaseStatement]:
@@ -1285,7 +1198,6 @@ def _replace_symbol_body_ast(symbol: str, file_path: Path, body: str) -> dict[st
     works without the optional dep.
     """
     original = file_path.read_text(encoding="utf-8")
-    original = file_path.read_text(encoding="utf-8")
     lines = original.splitlines()
     node = _find_named_node(file_path, symbol)
     if (
@@ -1315,10 +1227,7 @@ def insert_after_symbol(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         symbol = str(payload.get("symbol") or "").strip()
         explicit_root = payload.get("root")
-        if explicit_root:
-            root = _workspace_root(explicit_root)
-        else:
-            root = None
+        root = _workspace_root(explicit_root)
         file_path = Path(str(payload.get("file") or "")).expanduser().resolve()
         _validate_file_in_workspace(file_path, root)
         text = str(payload.get("text") or "")
@@ -1335,16 +1244,11 @@ def insert_after_symbol(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_project_overview(payload: dict[str, Any]) -> dict[str, Any]:
-    """Summarize the workspace: file count + top-10 extensions + graphify summary.
+    """Summarize the workspace without invoking retrieval providers.
 
-    Args:
-        payload: `{"root": str?}`.
-
-    Returns:
-        `{"ok", "root", "fileCount", "topExtensions": [{extension, count}, ...], "graphify"?: {...}}`.
-        The `graphify` key is present only when a graph.json exists.
+    General code-graph retrieval is owned by ``sin-context``. This
+    operation intentionally reports only local filesystem facts.
     """
-    root = _workspace_root(payload.get("root"))
     root = _workspace_root(payload.get("root"))
     counts: dict[str, int] = {}
     file_count = 0
@@ -1366,9 +1270,6 @@ def get_project_overview(payload: dict[str, Any]) -> dict[str, Any]:
             for extension, count in top_extensions
         ],
     }
-    graph_summary = _graphify_summary_impl(str(root))
-    if graph_summary.get("has_graph"):
-        result["graphify"] = graph_summary
     return result
 
 
@@ -1387,10 +1288,7 @@ def write_file(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         target = Path(str(payload.get("path") or "")).expanduser().resolve()
         explicit_root = payload.get("root")
-        if explicit_root:
-            root = _workspace_root(explicit_root)
-        else:
-            root = None
+        root = _workspace_root(explicit_root)
         _validate_file_in_workspace(target, root)
         content = str(payload.get("content") or "")
         overwrite = bool(payload.get("overwrite", False))
@@ -1426,10 +1324,7 @@ def edit_file(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         target = Path(str(payload.get("path") or "")).expanduser().resolve()
         explicit_root = payload.get("root")
-        if explicit_root:
-            root = _workspace_root(explicit_root)
-        else:
-            root = None
+        root = _workspace_root(explicit_root)
         _validate_file_in_workspace(target, root)
         old_string = str(payload.get("old_string") or "")
         new_string = str(payload.get("new_string") or "")
@@ -1471,10 +1366,7 @@ def read_file(payload: dict[str, Any]) -> dict[str, Any]:
     try:
         target = Path(str(payload.get("path") or "")).expanduser().resolve()
         explicit_root = payload.get("root")
-        if explicit_root:
-            root = _workspace_root(explicit_root)
-        else:
-            root = None
+        root = _workspace_root(explicit_root)
         _validate_file_in_workspace(target, root)
         offset = int(payload.get("offset", 0))
         limit = int(payload.get("limit", 100))
@@ -1519,10 +1411,7 @@ def patch_file(payload: dict[str, Any]) -> dict[str, Any]:
         target = Path(str(payload.get("path") or "")).expanduser().resolve()
         diff_text = str(payload.get("diff") or "")
         explicit_root = payload.get("root")
-        if explicit_root:
-            root = _workspace_root(explicit_root)
-        else:
-            root = None
+        root = _workspace_root(explicit_root)
         _validate_file_in_workspace(target, root)
 
         if not target.exists():
@@ -1623,8 +1512,6 @@ from .graphify_service import (  # noqa: E402
     graphify_update as _graphify_update_impl,
     graphify_explain as _graphify_explain_impl,
     graphify_path as _graphify_path_impl,
-    graphify_summary as _graphify_summary_impl,
-    graphify_available as _graphify_available_impl,
 )
 
 
@@ -1709,22 +1596,17 @@ async def execute_simone_action(payload: dict[str, Any]) -> dict[str, Any]:
                 "name": AGENT_NAME,
                 "actions": [
                     "agent.help",
-                    "sin_simone_mcp_health",
-                    "sin_simone_mcp_symbol_search",
-                    "sin_simone_mcp_structural_edit",
-                    "sin_simone_mcp_memory_query",
-                    "sin_simone_mcp_find_references",
-                    "sin_simone_mcp_project_overview",
-                    "sin_simone_mcp_graphify_query",
-                    "sin_simone_mcp_graphify_update",
-                    "sin_simone_mcp_graphify_explain",
-                    "sin_simone_mcp_graphify_path",
-                    "sin_simone_mcp_write_file",
-                    "sin_simone_mcp_edit_file",
-                    "sin_simone_mcp_patch_file",
-                    "sin_simone_mcp_read_file",
-                    "sin_simone_mcp_control_plane",
+                    *[tool["name"] for tool in TOOL_DEFINITIONS],
                 ],
+            }
+        if (
+            action in _LEGACY_GRAPHIFY_TOOL_NAMES
+            and not _EXPOSE_LEGACY_GRAPHIFY
+        ):
+            return {
+                "ok": False,
+                "error": "graph_tool_routed_via_sin_context",
+                "action": action,
             }
         if action in {"simone.mcp.health", "sin.simone.mcp.health", "sin_simone_mcp_health"}:
             return {

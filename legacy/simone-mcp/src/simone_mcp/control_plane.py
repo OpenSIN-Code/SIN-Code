@@ -47,6 +47,20 @@ RESEARCH_TRANSITIONS: dict[str, set[str]] = {
     "cancelled": set(),
 }
 
+MAX_EXECUTION_PAYLOAD_CHARS = 16_000
+FORBIDDEN_EXECUTION_KEYS = {
+    "diff",
+    "full_diff",
+    "raw_diff",
+    "log",
+    "raw_log",
+    "stdout",
+    "stderr",
+    "terminal_transcript",
+    "raw_terminal_transcript",
+    "transcript",
+}
+
 
 class ControlPlaneError(RuntimeError):
     """Base error for durable workflow operations."""
@@ -85,6 +99,30 @@ def sha256_file(path: Path) -> str:
             digest.update(chunk)
 
     return digest.hexdigest()
+
+
+def _validate_execution_payload(value: Any, path: str = "payload") -> None:
+    if isinstance(value, dict):
+        for key, child in value.items():
+            normalized = str(key).strip().lower()
+            if normalized in FORBIDDEN_EXECUTION_KEYS:
+                raise ValueError(
+                    f"execution payload must not contain {path}.{key}"
+                )
+            _validate_execution_payload(child, f"{path}.{key}")
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            _validate_execution_payload(child, f"{path}[{index}]")
+
+
+def _validate_sha256(value: str, field: str) -> str:
+    normalized = value.lower().strip()
+    if len(normalized) != 64 or any(
+        character not in "0123456789abcdef"
+        for character in normalized
+    ):
+        raise ValueError(f"{field} must be a 64-character SHA-256")
+    return normalized
 
 
 def default_database_path() -> Path:
@@ -242,6 +280,46 @@ class ControlPlaneStore:
 
                 CREATE INDEX IF NOT EXISTS idx_research_task_status
                     ON research_questions(task_id, status, priority);
+
+                CREATE TABLE IF NOT EXISTS execution_links (
+                    task_id TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    external_task_id TEXT NOT NULL,
+                    metadata_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY(task_id, source),
+                    UNIQUE(source, external_task_id),
+                    FOREIGN KEY(task_id) REFERENCES tasks(id)
+                );
+
+                CREATE TABLE IF NOT EXISTS execution_event_receipts (
+                    task_id TEXT NOT NULL,
+                    source TEXT NOT NULL,
+                    external_event_id TEXT NOT NULL,
+                    external_sequence INTEGER,
+                    external_hash TEXT,
+                    event_type TEXT NOT NULL,
+                    actor TEXT NOT NULL,
+                    payload_sha256 TEXT NOT NULL,
+                    simone_sequence INTEGER NOT NULL,
+                    simone_event_hash TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY(source, external_event_id),
+                    FOREIGN KEY(task_id) REFERENCES tasks(id)
+                );
+
+                CREATE UNIQUE INDEX IF NOT EXISTS
+                    idx_execution_event_sequence
+                    ON execution_event_receipts(
+                        task_id,
+                        source,
+                        external_sequence
+                    )
+                    WHERE external_sequence IS NOT NULL;
+
+                CREATE INDEX IF NOT EXISTS idx_execution_receipts_task
+                    ON execution_event_receipts(task_id, source);
                 """
             )
         finally:
@@ -614,6 +692,368 @@ class ControlPlaneStore:
         finally:
             connection.close()
 
+    def bind_execution(
+        self,
+        *,
+        task_id: str,
+        source: str,
+        external_task_id: str,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        source = source.strip()
+        external_task_id = external_task_id.strip()
+        if metadata is None:
+            metadata = {}
+        if not isinstance(metadata, dict):
+            raise ValueError("metadata must be an object")
+
+        if not source:
+            raise ValueError("source must not be empty")
+        if not external_task_id:
+            raise ValueError("external_task_id must not be empty")
+
+        _validate_execution_payload(metadata, "metadata")
+        if len(canonical_json(metadata)) > MAX_EXECUTION_PAYLOAD_CHARS:
+            raise ValueError("execution metadata exceeds size limit")
+
+        now = utc_now()
+
+        with self.transaction() as connection:
+            self._ensure_task(connection, task_id)
+
+            external = connection.execute(
+                """
+                SELECT * FROM execution_links
+                WHERE source = ? AND external_task_id = ?
+                """,
+                (source, external_task_id),
+            ).fetchone()
+            if external is not None and external["task_id"] != task_id:
+                raise ConflictError(
+                    "external execution task is already bound to another task"
+                )
+
+            existing = connection.execute(
+                """
+                SELECT * FROM execution_links
+                WHERE task_id = ? AND source = ?
+                """,
+                (task_id, source),
+            ).fetchone()
+            if existing is not None:
+                if existing["external_task_id"] != external_task_id:
+                    raise ConflictError(
+                        "task already has a different execution binding"
+                    )
+                return {
+                    "task_id": task_id,
+                    "source": source,
+                    "external_task_id": external_task_id,
+                    "metadata": json.loads(existing["metadata_json"]),
+                    "created_at": existing["created_at"],
+                    "updated_at": existing["updated_at"],
+                    "duplicate": True,
+                }
+
+            connection.execute(
+                """
+                INSERT INTO execution_links(
+                    task_id, source, external_task_id,
+                    metadata_json, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    task_id,
+                    source,
+                    external_task_id,
+                    canonical_json(metadata),
+                    now,
+                    now,
+                ),
+            )
+            self._append_event(
+                connection,
+                task_id=task_id,
+                event_type="execution.bound",
+                actor="controller",
+                payload={
+                    "source": source,
+                    "external_task_id": external_task_id,
+                    "metadata": metadata,
+                },
+            )
+
+        return {
+            "task_id": task_id,
+            "source": source,
+            "external_task_id": external_task_id,
+            "metadata": metadata,
+            "created_at": now,
+            "updated_at": now,
+            "duplicate": False,
+        }
+
+    def ingest_execution_event(
+        self,
+        *,
+        task_id: str,
+        source: str,
+        external_event_id: str,
+        event_type: str,
+        actor: str,
+        payload: dict[str, Any],
+        external_sequence: int | None = None,
+        external_hash: str | None = None,
+    ) -> dict[str, Any]:
+        source = source.strip()
+        external_event_id = external_event_id.strip()
+        event_type = event_type.strip()
+        actor = actor.strip()
+        if not isinstance(payload, dict):
+            raise ValueError("payload must be an object")
+
+        if not all((source, external_event_id, event_type, actor)):
+            raise ValueError(
+                "source, external_event_id, event_type, and actor are required"
+            )
+        if external_sequence is not None and external_sequence < 1:
+            raise ValueError("external_sequence must be >= 1")
+        if external_hash is not None:
+            external_hash = _validate_sha256(
+                external_hash,
+                "external_hash",
+            )
+
+        _validate_execution_payload(payload)
+        serialized = canonical_json(payload)
+        if len(serialized) > MAX_EXECUTION_PAYLOAD_CHARS:
+            raise ValueError("execution payload exceeds size limit")
+        payload_sha256 = sha256_text(serialized)
+
+        with self.transaction() as connection:
+            self._ensure_task(connection, task_id)
+            binding = connection.execute(
+                """
+                SELECT external_task_id FROM execution_links
+                WHERE task_id = ? AND source = ?
+                """,
+                (task_id, source),
+            ).fetchone()
+            if binding is None:
+                raise ConflictError(
+                    "execution source must be bound before events are ingested"
+                )
+
+            existing = connection.execute(
+                """
+                SELECT * FROM execution_event_receipts
+                WHERE source = ? AND external_event_id = ?
+                """,
+                (source, external_event_id),
+            ).fetchone()
+            if existing is not None:
+                expected = {
+                    "task_id": task_id,
+                    "event_type": event_type,
+                    "actor": actor,
+                    "payload_sha256": payload_sha256,
+                    "external_sequence": external_sequence,
+                    "external_hash": external_hash,
+                }
+                actual = {key: existing[key] for key in expected}
+                if actual != expected:
+                    raise ConflictError(
+                        "external event replay does not match original receipt"
+                    )
+                return {
+                    "task_id": task_id,
+                    "source": source,
+                    "external_event_id": external_event_id,
+                    "simone_sequence": existing["simone_sequence"],
+                    "simone_event_hash": existing["simone_event_hash"],
+                    "payload_sha256": payload_sha256,
+                    "duplicate": True,
+                }
+
+            event = self._append_event(
+                connection,
+                task_id=task_id,
+                event_type=f"execution.{event_type}",
+                actor=actor,
+                payload={
+                    "source": source,
+                    "external_task_id": binding["external_task_id"],
+                    "external_event_id": external_event_id,
+                    "external_sequence": external_sequence,
+                    "external_hash": external_hash,
+                    "payload_sha256": payload_sha256,
+                    "trust_level": "external-untrusted",
+                    "data": payload,
+                },
+            )
+            connection.execute(
+                """
+                INSERT INTO execution_event_receipts(
+                    task_id, source, external_event_id,
+                    external_sequence, external_hash,
+                    event_type, actor, payload_sha256,
+                    simone_sequence, simone_event_hash, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    task_id,
+                    source,
+                    external_event_id,
+                    external_sequence,
+                    external_hash,
+                    event_type,
+                    actor,
+                    payload_sha256,
+                    event["sequence"],
+                    event["event_hash"],
+                    event["created_at"],
+                ),
+            )
+
+        return {
+            "task_id": task_id,
+            "source": source,
+            "external_event_id": external_event_id,
+            "simone_sequence": event["sequence"],
+            "simone_event_hash": event["event_hash"],
+            "payload_sha256": payload_sha256,
+            "duplicate": False,
+        }
+
+    def record_execution_artifact(
+        self,
+        *,
+        task_id: str,
+        source: str,
+        kind: str,
+        reference: str,
+        sha256: str,
+        size_bytes: int,
+        metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        source = source.strip()
+        kind = kind.strip()
+        reference = reference.strip()
+        digest = _validate_sha256(sha256, "sha256")
+        if metadata is None:
+            metadata = {}
+        if not isinstance(metadata, dict):
+            raise ValueError("metadata must be an object")
+
+        if not source or not kind or not reference:
+            raise ValueError("source, kind, and reference are required")
+        if size_bytes < 0:
+            raise ValueError("size_bytes must be >= 0")
+        if len(reference) > 4096:
+            raise ValueError("artifact reference is too long")
+        _validate_execution_payload(metadata, "metadata")
+        if len(canonical_json(metadata)) > MAX_EXECUTION_PAYLOAD_CHARS:
+            raise ValueError("artifact metadata exceeds size limit")
+
+        artifact_id = "ART-" + sha256_text(
+            f"{task_id}:{source}:{kind}:{digest}"
+        )[:20]
+        created_at = utc_now()
+
+        with self.transaction() as connection:
+            self._ensure_task(connection, task_id)
+            binding = connection.execute(
+                """
+                SELECT external_task_id FROM execution_links
+                WHERE task_id = ? AND source = ?
+                """,
+                (task_id, source),
+            ).fetchone()
+            if binding is None:
+                raise ConflictError(
+                    "execution source must be bound before artifacts are recorded"
+                )
+
+            existing = connection.execute(
+                "SELECT * FROM artifacts WHERE id = ?",
+                (artifact_id,),
+            ).fetchone()
+            if existing is not None:
+                expected = {
+                    "task_id": task_id,
+                    "kind": kind,
+                    "path": reference,
+                    "sha256": digest,
+                    "size_bytes": size_bytes,
+                }
+                actual = {key: existing[key] for key in expected}
+                if actual != expected:
+                    raise ConflictError(
+                        "execution artifact replay does not match original"
+                    )
+                return {
+                    "id": artifact_id,
+                    "task_id": task_id,
+                    "kind": kind,
+                    "reference": reference,
+                    "sha256": digest,
+                    "size_bytes": size_bytes,
+                    "metadata": json.loads(existing["metadata_json"]),
+                    "created_at": existing["created_at"],
+                    "duplicate": True,
+                }
+
+            stored_metadata = {
+                **metadata,
+                "execution_source": source,
+                "external_task_id": binding["external_task_id"],
+                "reference_only": True,
+            }
+            connection.execute(
+                """
+                INSERT INTO artifacts(
+                    id, task_id, kind, path, sha256,
+                    size_bytes, metadata_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    artifact_id,
+                    task_id,
+                    kind,
+                    reference,
+                    digest,
+                    size_bytes,
+                    canonical_json(stored_metadata),
+                    created_at,
+                ),
+            )
+            self._append_event(
+                connection,
+                task_id=task_id,
+                event_type="execution.artifact_recorded",
+                actor="controller",
+                payload={
+                    "artifact_id": artifact_id,
+                    "source": source,
+                    "kind": kind,
+                    "reference": reference,
+                    "sha256": digest,
+                    "size_bytes": size_bytes,
+                },
+            )
+
+        return {
+            "id": artifact_id,
+            "task_id": task_id,
+            "kind": kind,
+            "reference": reference,
+            "sha256": digest,
+            "size_bytes": size_bytes,
+            "metadata": stored_metadata,
+            "created_at": created_at,
+            "duplicate": False,
+        }
+
     def attach_artifact(
         self,
         *,
@@ -637,16 +1077,44 @@ class ControlPlaneStore:
                 "artifact SHA-256 does not match expected value"
             )
 
-        artifact_id = f"ART-{digest[:20]}"
+        artifact_id = "ART-" + sha256_text(
+            f"{task_id}:{kind}:{digest}"
+        )[:20]
         size_bytes = artifact_path.stat().st_size
         created_at = utc_now()
 
         with self.transaction() as connection:
             self._ensure_task(connection, task_id)
 
+            existing = connection.execute(
+                "SELECT * FROM artifacts WHERE id = ?",
+                (artifact_id,),
+            ).fetchone()
+            if existing is not None:
+                if (
+                    existing["task_id"] != task_id
+                    or existing["kind"] != kind
+                    or existing["sha256"] != digest
+                    or existing["size_bytes"] != size_bytes
+                ):
+                    raise ConflictError(
+                        "artifact identifier collision"
+                    )
+                return {
+                    "id": artifact_id,
+                    "task_id": task_id,
+                    "kind": kind,
+                    "path": existing["path"],
+                    "sha256": digest,
+                    "size_bytes": size_bytes,
+                    "metadata": json.loads(existing["metadata_json"]),
+                    "created_at": existing["created_at"],
+                    "duplicate": True,
+                }
+
             connection.execute(
                 """
-                INSERT OR REPLACE INTO artifacts(
+                INSERT INTO artifacts(
                     id,
                     task_id,
                     kind,
@@ -692,6 +1160,7 @@ class ControlPlaneStore:
             "size_bytes": size_bytes,
             "metadata": metadata or {},
             "created_at": created_at,
+            "duplicate": False,
         }
 
     def attach_evidence(
@@ -1144,6 +1613,8 @@ class ControlPlaneStore:
                 "evidence",
                 "decisions",
                 "research_questions",
+                "execution_links",
+                "execution_event_receipts",
             ):
                 row = connection.execute(
                     f"""
