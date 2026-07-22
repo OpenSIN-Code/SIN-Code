@@ -24,6 +24,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
+from .control_plane_tool import (
+    CONTROL_PLANE_TOOL,
+    execute_control_plane,
+)
+
 # ── Optional dependency detection ─────────────────────────────────────
 # Each try/except sets a `HAS_*` flag; the corresponding code path
 # degrades gracefully when the dep is missing.
@@ -554,6 +559,9 @@ TOOL_DEFINITIONS = [
         "execution": {"taskSupport": "forbidden"},
     },
 ]
+
+TOOL_DEFINITIONS.append(CONTROL_PLANE_TOOL)
+
 CAPABILITIES = [tool["name"] for tool in TOOL_DEFINITIONS] + [
     "graphify",
     "memory.hybrid",
@@ -610,6 +618,7 @@ def build_agent_card(base_url: str) -> dict[str, Any]:
         {"id": "sin_simone_mcp_edit_file", "name": "Edit File"},
         {"id": "sin_simone_mcp_patch_file", "name": "Patch File"},
         {"id": "sin_simone_mcp_read_file", "name": "Read File"},
+        {"id": "sin_simone_mcp_control_plane", "name": "Simone Control Plane"},
     ],
         "defaultInputModes": ["application/json", "text/plain"],
         "defaultOutputModes": ["application/json", "text/plain"],
@@ -1675,6 +1684,7 @@ _SYNC_ACTIONS = frozenset({
     "sin_simone_mcp_edit_file",
     "sin_simone_mcp_patch_file",
     "sin_simone_mcp_read_file",
+    "sin_simone_mcp_control_plane",
 })
 
 
@@ -1713,6 +1723,7 @@ async def execute_simone_action(payload: dict[str, Any]) -> dict[str, Any]:
                     "sin_simone_mcp_edit_file",
                     "sin_simone_mcp_patch_file",
                     "sin_simone_mcp_read_file",
+                    "sin_simone_mcp_control_plane",
                 ],
             }
         if action in {"simone.mcp.health", "sin.simone.mcp.health", "sin_simone_mcp_health"}:
@@ -1761,6 +1772,8 @@ def _execute_sync_action(action: str, payload: dict[str, Any]) -> dict[str, Any]
         return patch_file(payload)
     if action == "sin_simone_mcp_read_file":
         return read_file(payload)
+    if action == "sin_simone_mcp_control_plane":
+        return execute_control_plane(payload)
     return {"ok": False, "error": "unknown_action", "action": action}
 
 

@@ -157,6 +157,24 @@ class TaskCancelArgs(BaseModel):
     model_config = {"populate_by_name": True}
 
 
+class ControlPlaneArgs(BaseModel):
+    operation: Literal[
+        "task.create",
+        "task.get",
+        "task.list",
+        "task.transition",
+        "event.append",
+        "artifact.attach",
+        "evidence.attach",
+        "decision.record",
+        "research.add",
+        "research.update",
+        "research.next",
+        "summary.get",
+    ]
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
 TOOL_ARG_MODELS: dict[str, type[BaseModel]] = {
     "sin_simone_mcp_symbol_search": SymbolSearchArgs,
     "sin_simone_mcp_structural_edit": StructuralEditArgs,
@@ -175,4 +193,5 @@ TOOL_ARG_MODELS: dict[str, type[BaseModel]] = {
     "tasks/get": TaskGetArgs,
     "tasks/update": TaskUpdateArgs,
     "tasks/cancel": TaskCancelArgs,
+    "sin_simone_mcp_control_plane": ControlPlaneArgs,
 }

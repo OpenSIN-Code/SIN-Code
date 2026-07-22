@@ -60,6 +60,7 @@ _TOOL_ARG_ALIASES: dict[str, dict[str, str]] = {
     "sin_simone_mcp_edit_file": {},
     "sin_simone_mcp_patch_file": {},
     "sin_simone_mcp_read_file": {},
+    "sin_simone_mcp_control_plane": {},
 }
 
 SIMONE_INSTRUCTIONS = (
