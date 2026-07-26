@@ -1,0 +1,11 @@
+{
+  "source_repository": "Delqhi/OpenCodex",
+  "source_repository_default_head": "cd7835dfc275725b389f9c2575e0d33d21168f7c",
+  "source_branch": "feat/fireworks-ai-provider",
+  "source_commit": "4115d386d7e46245aa532cb4b419d8609b3969e2",
+  "source_commit_author": "ZOEsolar <zukunftsorientierte.energie@gmail.com>",
+  "upstream_repository": "HackWidMaddy/OpenCodex",
+  "license": "Apache-2.0",
+  "retention_reason": "Only unique non-Dependabot product commit in the retired fork",
+  "runtime_status": "reference-only"
+}
