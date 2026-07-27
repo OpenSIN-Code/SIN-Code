@@ -10,11 +10,11 @@ compatibility:
 metadata:
   author: SIN-Code
   version: 3.20.0
-  sources: "OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/mcp-server-builder"
+  sources: "OpenSIN-Code/SIN-Code/src/sin_code_bundle/tools/mcp_server_builder"
 required_tools:
   - sin_write
   - sin_edit
-lifecycle: external
+lifecycle: native
 ---
 
 # skill-code-mcp-builder

@@ -48,11 +48,11 @@
 | SIN-Code-Scheduler-Skill | `scheduler__*` | ask | ACTIVE |
 | SIN-Code-Goal-Mode-Skill | `goalmode__*` | ask | ACTIVE |
 | SIN-Code-Grill-Me-Skill | `grillme__*` | ask | ACTIVE |
-| SIN-Code-Marketplace-Skill | `marketplace__*` | ask | ACTIVE |
+| SIN-Code (bundled Marketplace) | `marketplace__*` | ask | ACTIVE |
 | SIN-Code-Doc-Coauthoring-Skill | `codocs__*` | ask | ACTIVE |
 | SIN-Code-Honcho-Rollback-Skill | `honcho__*` | ask (destructive) | ACTIVE |
 | SIN-Code-Frontend-Design-Skill | `frontend__*` | ask | ACTIVE |
-| SIN-Code-MCP-Server-Builder-Skill | `mcpbuilder__*` | ask | ACTIVE |
+| SIN-Code (bundled MCP Server Builder) | `mcpbuilder__*` | ask | ACTIVE |
 | SIN-Browser-Tools | `browser__*` (106 tools: navigation, click/type/fill, screenshots, PDF, tab/session, cookie/storage, diagnostics, Shadow DOM, OOPIF, SPA wait, network mocking, macOS Spaces, screen recording) | allow (35 read-only) + ask (71 mutating) — per-tool M4 split policy | ACTIVE |
 | GitHub CLI (gh) | `gh_query`, `gh_health`, `gh_execute` | allow / allow / ask (M4) | ACTIVE |
 | [OpenSIN-Code/sin-analyse-suite](https://github.com/OpenSIN-Code/sin-analyse-suite) | `analyse__*` (image, video, PDF, logs, data, audio) | allow (read-only) | ACTIVE |
@@ -78,6 +78,8 @@
 | Repo | Superseded by | Action |
 |---|---|---|
 | SIN-Code-Slash-Skill | `internal/commands` (C8, in-tree since v3.2.0) | ARCHIVE |
+| SIN-Code-Marketplace-Skill | `sin marketplace` + bundled MCP module | ARCHIVE after #512 |
+| SIN-Code-MCP-Server-Builder-Skill | `sin mcp-server` + bundled MCP module | ARCHIVE after #512 |
 | SIN-Code-Security-Bundle | in-tree Go vendors: SIN-Code-SAST-Tool, SIN-Code-SBOM-Generator-Go, SIN-Code-SCA-Tool-Go, SIN-Code-Secrets-Scanner | ACTIVE (vendored) |
 | SIN-Code-Security-Bundle-Python | `python -m sin_code_bundle.tools.security` | DEPRECATED (use vendored Go tools) |
 

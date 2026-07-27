@@ -150,9 +150,9 @@ Basierend auf Audit-Matrix (Stand 2026-06-06):
 | Skill | Grund | Empfehlung |
 |---|---|---|
 | ~~`sin-codocs-sprint`~~ | Duplikat zu `sin-codocs` | ✅ DONE — konsolidiert |
-| `sin-slash` | opencode built-in `command` reicht evtl. | ⚠️ PRÜFEN (Kons. 2) |
-| `sin-mcp-server-builder` | Gehört als `sin mcp-server` ins Bundle | ⚠️ PRÜFEN (Kons. 3) |
-| `sin-marketplace` | Gehört als `sin marketplace` ins Bundle | ⚠️ PRÜFEN (Kons. 4) |
+| `sin-slash` | opencode built-in `command` reicht evtl. | ✅ BUNDLED (`sin slash`) |
+| `sin-mcp-server-builder` | Gehört als `sin mcp-server` ins Bundle | ✅ BUNDLED (`sin mcp-server`) |
+| `sin-marketplace` | Gehört als `sin marketplace` ins Bundle | ✅ BUNDLED (`sin marketplace`) |
 | `sin-context-bridge` | gitnexus-impact könnte bridge subsumieren | ⚠️ PRÜFEN (Kons. 5) |
 
 **Ziel-Kapazität:** target 14, hard cap 16 (siehe Charter).
