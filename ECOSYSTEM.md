@@ -63,6 +63,7 @@
 | SIN-Code (native_browser) | `native_browser__*` (e.g. `native_browser__navigate`, `native_browser__snapshot`, `native_browser__screenshot`) | allow (read-only) + ask (mutating) — split M4 policy (issue #382) | ACTIVE |
 | SIN-Code (research) | `research__dry_run`, `research__list`, `research__show`, `research__run` | allow / allow / allow / ask — split M4 policy (issue #384) | ACTIVE |
 | vibe-notion (Bridged-External) | `notion__notion_read_*` (10 read tools), `notion__notion_write_*` (6 write tools), `notion__notion_raw_cli` | allow (reads) + ask (writes) — split M4 policy | ACTIVE |
+| youtube-for-ai-agents (Bridged-External) | `youtube__*` (6 read tools, 3 download/edit tools) | allow (reads) + ask (download/clip/highlight) — split M4 policy | ACTIVE |
 | Template-fuer-Repo-Skill | Template for infrastructure skill repos | ACTIVE |
 | kubernetes-sota-practices | K8s best practices (Helm, k3s, HPA, Istio) for Code-Swarm & OpenSIN | ACTIVE |
 

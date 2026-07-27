@@ -14,9 +14,9 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "sin_read", Policy: "allow"},
 		{Tool: "sin_write", Policy: "ask"},
 		{Tool: "sin_edit", Policy: "ask"},
-		{Tool: "sin_search", Policy: "allow"},     // read-only file search
-		{Tool: "sin_replace", Policy: "ask"},       // v3.23.0: naive string replacement (issue #373) — destructive
-		{Tool: "sin_apply_diff", Policy: "ask"},    // v3.23.0: unified diff editor (issue #365) — destructive
+		{Tool: "sin_search", Policy: "allow"},        // read-only file search
+		{Tool: "sin_replace", Policy: "ask"},         // v3.23.0: naive string replacement (issue #373) — destructive
+		{Tool: "sin_apply_diff", Policy: "ask"},      // v3.23.0: unified diff editor (issue #365) — destructive
 		{Tool: "sin_generate_diff", Policy: "allow"}, // v3.23.0: diff generator (issue #365) — read-only
 		{Tool: "sin_test", Policy: "allow"},
 		{Tool: "sin_quality_gate", Policy: "allow"}, // v3.21.0: Test-First Verify-Loop (RFC-test-automation)
@@ -24,23 +24,24 @@ func DefaultPermissionRules() []permission.Rule {
 		{Tool: "sin_mutation", Policy: "allow"},
 		{Tool: "sin_fuzz", Policy: "allow"},
 		{Tool: "sin_property", Policy: "allow"},
-		{Tool: "sin_http_get", Policy: "allow"},    // read-only HTTP fetch
-		{Tool: "sin_web_search", Policy: "allow"},  // read-only web search (DuckDuckGo free + optional Tavily/SerpAPI/Brave)
+		{Tool: "sin_http_get", Policy: "allow"},   // read-only HTTP fetch
+		{Tool: "sin_web_search", Policy: "allow"}, // read-only web search (DuckDuckGo free + optional Tavily/SerpAPI/Brave)
 		{Tool: "sckg_*", Policy: "allow"},
 		{Tool: "oracle_*", Policy: "allow"},
 		{Tool: "poc_*", Policy: "allow"},
 		// External MCP servers (qualified "server__tool" names).
 		// Read-only / analysis servers run free; action-capable ask.
 		{Tool: "websearch__*", Policy: "allow"},
-		{Tool: "youtube__search", Policy: "allow"},           // read-only search
-		{Tool: "youtube__get_transcript", Policy: "allow"},    // read-only transcript
-		{Tool: "youtube__get_video_info", Policy: "allow"},    // read-only metadata
+		{Tool: "youtube__search", Policy: "allow"},             // read-only search
+		{Tool: "youtube__get_transcript", Policy: "allow"},     // read-only transcript
+		{Tool: "youtube__get_video_info", Policy: "allow"},     // read-only metadata
 		{Tool: "youtube__get_channel_videos", Policy: "allow"}, // read-only
 		{Tool: "youtube__get_channel_info", Policy: "allow"},   // read-only
 		{Tool: "youtube__get_playlist", Policy: "allow"},       // read-only
 		{Tool: "youtube__download", Policy: "ask"},             // downloads files (M4)
 		{Tool: "youtube__clip", Policy: "ask"},                 // downloads + cuts (M4)
 		{Tool: "youtube__highlight_reel", Policy: "ask"},       // merges files (M4)
+		{Tool: "youtube__*", Policy: "ask"},                    // safe fallback for future tools
 		{Tool: "contextbridge__*", Policy: "allow"},
 		{Tool: "simone__*", Policy: "allow"},
 		{Tool: "symfonylens__*", Policy: "allow"},
