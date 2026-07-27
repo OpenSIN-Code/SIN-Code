@@ -184,15 +184,6 @@ func pythonCliEntrypoint(repo, dir, name string) (ServerConfig, bool) {
 	return ServerConfig{}, false
 }
 
-// pythonModuleServers maps skill short-names to their pip-installed Python
-// module entrypoint for the MCP server. This is used as a fallback when the
-// local checkout is not in the skills dir AND the console-script binary on
-// PATH is a CLI tool rather than an MCP server (e.g. sin-marketplace has
-// search/install/list subcommands but the MCP server is sin_marketplace.server).
-var pythonModuleServers = map[string]string{
-	"marketplace": "sin_marketplace.server",
-}
-
 // pythonConfig returns a stdio ServerConfig for a discovered Python MCP
 // entrypoint. If the script is at the repo root it is run directly; otherwise
 // it is run as a module with PYTHONPATH set to the source root so relative
@@ -406,26 +397,6 @@ func DefaultServers() []ServerConfig {
 				cfg.Name = name
 			} else {
 				// No local checkout entrypoint: fall back to a console script on PATH.
-				// Skills in pythonModuleServers have a separate MCP server module
-				// (e.g. sin_marketplace.server) — prefer that over the CLI binary
-				// which may exist on PATH but is not an MCP server.
-				if mod, ok := pythonModuleServers[name]; ok {
-					cfg.Command = "python3"
-					cfg.Args = []string{"-m", mod}
-				} else {
-					found := findOnPath(candidates...)
-					if found != "" {
-						cfg.Command = found
-					} else {
-						cfg.Command = "sin-" + name
-					}
-				}
-			}
-		} else {
-			if mod, ok := pythonModuleServers[name]; ok {
-				cfg.Command = "python3"
-				cfg.Args = []string{"-m", mod}
-			} else {
 				found := findOnPath(candidates...)
 				if found != "" {
 					cfg.Command = found
@@ -433,9 +404,28 @@ func DefaultServers() []ServerConfig {
 					cfg.Command = "sin-" + name
 				}
 			}
+		} else {
+			found := findOnPath(candidates...)
+			if found != "" {
+				cfg.Command = found
+			} else {
+				cfg.Command = "sin-" + name
+			}
 		}
 		return cfg
 	}
+	// bundledPython returns a ServerConfig for an MCP server shipped in the
+	// SIN-Code Python companion package. Bundled modules never depend on a
+	// separately cloned skill repository or a PATH shim.
+	bundledPython := func(name, module string) ServerConfig {
+		return ServerConfig{
+			Name:      name,
+			Transport: "stdio",
+			Command:   "python3",
+			Args:      []string{"-m", module},
+		}
+	}
+
 	// goNative returns a ServerConfig for a Go-native skill. It prefers the
 	// binary built inside SIN_SKILLS_DIR/<repo>/<binary> so that skillmgr
 	// can install and run the skill without requiring the user to put the binary
@@ -465,11 +455,11 @@ func DefaultServers() []ServerConfig {
 		py("SIN-Code-Scheduler-Skill"),
 		py("SIN-Code-Goal-Mode-Skill"),
 		py("SIN-Code-Grill-Me-Skill"),
-		py("SIN-Code-Marketplace-Skill"),
+		bundledPython("marketplace", "sin_code_bundle.tools.marketplace.server"),
 		py("SIN-Code-Context-Bridge-Skill"),
 		py("SIN-Code-Honcho-Rollback-Skill"),
 		py("SIN-Code-Frontend-Design-Skill"),
-		py("SIN-Code-MCP-Server-Builder-Skill"),
+		bundledPython("mcpbuilder", "sin_code_bundle.tools.mcp_server_builder.mcp_server"),
 		py("SIN-Browser-Tools"),
 		simoneConfig(skillsDir),
 		symfonyLensConfig(skillsDir),
@@ -515,23 +505,21 @@ func DefaultServers() []ServerConfig {
 
 func shortName(repo string) string {
 	m := map[string]string{
-		"web_search_bundle":                 "websearch",
-		"sin-analyse-suite":                 "analyse",
-		"SIN-Analyse-Suite":                 "analyse",
-		"native_browser":                    "native_browser",
-		"SIN-Code-Scheduler-Skill":          "scheduler",
-		"SIN-Code-Goal-Mode-Skill":          "goalmode",
-		"SIN-Code-Grill-Me-Skill":           "grillme",
-		"SIN-Code-Marketplace-Skill":        "marketplace",
-		"SIN-Code-Doc-Coauthoring-Skill":    "codocs",
-		"SIN-Code-Context-Bridge-Skill":     "contextbridge",
-		"SIN-Code-Honcho-Rollback-Skill":    "honcho",
-		"SIN-Code-Frontend-Design-Skill":    "frontend",
-		"SIN-Code-MCP-Server-Builder-Skill": "mcpbuilder",
-		"SIN-Browser-Tools":                 "browser",
-		"Simone-MCP":                        "simone",
-		"SIN-Code-Symfony-Lens":             "symfonylens",
-		"youtube":                           "youtube",
+		"web_search_bundle":              "websearch",
+		"sin-analyse-suite":              "analyse",
+		"SIN-Analyse-Suite":              "analyse",
+		"native_browser":                 "native_browser",
+		"SIN-Code-Scheduler-Skill":       "scheduler",
+		"SIN-Code-Goal-Mode-Skill":       "goalmode",
+		"SIN-Code-Grill-Me-Skill":        "grillme",
+		"SIN-Code-Doc-Coauthoring-Skill": "codocs",
+		"SIN-Code-Context-Bridge-Skill":  "contextbridge",
+		"SIN-Code-Honcho-Rollback-Skill": "honcho",
+		"SIN-Code-Frontend-Design-Skill": "frontend",
+		"SIN-Browser-Tools":              "browser",
+		"Simone-MCP":                     "simone",
+		"SIN-Code-Symfony-Lens":          "symfonylens",
+		"youtube":                        "youtube",
 	}
 	if s, ok := m[repo]; ok {
 		return s

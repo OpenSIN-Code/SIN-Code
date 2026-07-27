@@ -1,10 +1,10 @@
 # catalog.py.doc.md
 
-Read and query the Infra-SIN-OpenCode-Stack skills catalog.
+Read and query the canonical SIN-Code repository skills catalog.
 
 ## What this file does
 
-Read and query the Infra-SIN-OpenCode-Stack skills catalog. See source file for implementation details.
+Read and query the canonical SIN-Code repository skills catalog. See source file for implementation details.
 
 ## Dependencies
 

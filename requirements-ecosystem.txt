@@ -24,12 +24,10 @@ web_search_bundle==v0.4.2
 SIN-Code-Scheduler-Skill==main
 SIN-Code-Goal-Mode-Skill==main
 SIN-Code-Grill-Me-Skill==main
-SIN-Code-Marketplace-Skill==main
 SIN-Code-Doc-Coauthoring-Skill==main
 SIN-Code-Context-Bridge-Skill==main
 SIN-Code-Honcho-Rollback-Skill==main
 SIN-Code-Frontend-Design-Skill==main
-SIN-Code-MCP-Server-Builder-Skill==main
 SIN-Browser-Tools==main
 Simone-MCP==main
 OpenSIN-Code/autodev-cli @ git+https://github.com/OpenSIN-Code/autodev-cli@v0.4.0

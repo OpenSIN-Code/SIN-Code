@@ -101,13 +101,11 @@ func TestStatusReportsPathBinaryAsInstalledAndRunnable(t *testing.T) {
 
 func TestStatusReportsEcosystemSkillsInstalledOnPath(t *testing.T) {
 	wantPathInstalled := map[string]bool{
-		"browser":     true,
-		"codocs":      true,
-		"frontend":    true,
-		"goalmode":    true,
-		"marketplace": true,
-		"mcpbuilder":  true,
-		"scheduler":   true,
+		"browser":   true,
+		"codocs":    true,
+		"frontend":  true,
+		"goalmode":  true,
+		"scheduler": true,
 	}
 	orig := _execLookPath
 	_execLookPath = func(name string) (string, error) {
@@ -560,4 +558,13 @@ func TestStatusHonchoReportsNotInstalledWhenServerUnreachable(t *testing.T) {
 		}
 	}
 	t.Fatal("honcho not found in status")
+}
+
+func TestBundledToolsAreNotExternalSkillRepositories(t *testing.T) {
+	for _, info := range KnownSkillsInfo() {
+		switch info.Name {
+		case "marketplace", "mcpbuilder":
+			t.Errorf("bundled tool %q must not be cloned as external repo %q", info.Name, info.Repo)
+		}
+	}
 }

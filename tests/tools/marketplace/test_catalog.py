@@ -202,3 +202,17 @@ class TestCatalogQueries:
     def test_len(self, sample_catalog: list) -> None:
         catalog = Catalog(sample_catalog)
         assert len(catalog) == 3
+
+
+def test_bundled_catalog_is_installable_and_path_free() -> None:
+    catalog = Catalog()
+    catalog.load_bundled()
+    entries = catalog.list_skills()
+
+    assert entries
+    assert all(entry["source"].startswith("https://github.com/OpenSIN-Code/") for entry in entries)
+    assert all(entry["destination"] and not entry["destination"].startswith("/") for entry in entries)
+    assert all("catalogued_commit" in entry for entry in entries)
+    serialized = json.dumps(entries)
+    assert "/Users/" not in serialized
+    assert "Infra-SIN-OpenCode-Stack" not in serialized

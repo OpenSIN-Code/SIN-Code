@@ -442,3 +442,26 @@ func TestDefaultServersSymfonyLensFallsBackToPath(t *testing.T) {
 	}
 	t.Fatal("symfonylens server not found in DefaultServers")
 }
+
+func TestDefaultServersBundledConsolidatedTools(t *testing.T) {
+	want := map[string]string{
+		"marketplace": "sin_code_bundle.tools.marketplace.server",
+		"mcpbuilder":  "sin_code_bundle.tools.mcp_server_builder.mcp_server",
+	}
+	for _, server := range DefaultServers() {
+		module, ok := want[server.Name]
+		if !ok {
+			continue
+		}
+		if server.Command != "python3" {
+			t.Errorf("%s command = %q, want python3", server.Name, server.Command)
+		}
+		if len(server.Args) != 2 || server.Args[0] != "-m" || server.Args[1] != module {
+			t.Errorf("%s args = %v, want [-m %s]", server.Name, server.Args, module)
+		}
+		delete(want, server.Name)
+	}
+	for name := range want {
+		t.Errorf("bundled server %q missing from DefaultServers", name)
+	}
+}
