@@ -16,7 +16,6 @@ import pytest
 
 from sin_code_bundle.file_ops import sin_bash, sin_edit, sin_read, sin_search, sin_write
 
-
 # ════════════════════════════════════════════════════════════════════════
 # Helpers
 # ════════════════════════════════════════════════════════════════════════
@@ -215,56 +214,36 @@ class TestSinEdit:
 
 
 class TestSinBash:
-    """Tests for sin_bash. The function prefers the `execute` Go binary
-    when present; we force the raw-shell fallback via monkeypatch so
-    tests are deterministic regardless of the host's `execute` install.
-    """
+    """The Python layer must never bypass the hardened execute binary."""
 
     @pytest.fixture(autouse=True)
-    def _force_fallback(self, monkeypatch: pytest.MonkeyPatch):
-        """Force sin_bash to use the raw-shell fallback path."""
+    def _force_missing_execute(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setattr("shutil.which", lambda _: None)
         monkeypatch.setattr(Path, "exists", lambda self: False)
 
-    def test_echo_command(self):
+    def test_missing_execute_fails_closed(self):
         result = _parse(sin_bash("echo hello_world"))
-        assert result["returncode"] == 0
-        assert "hello_world" in result["stdout"]
+        assert result["executed"] is False
+        assert result["returncode"] == 126
+        assert result["error"] == "hardened execute binary not found"
 
-    def test_nonzero_exit(self):
-        result = _parse(sin_bash("exit 3"))
-        assert result["returncode"] == 3
+    def test_missing_execute_never_calls_subprocess(self, monkeypatch: pytest.MonkeyPatch):
+        def _forbidden(*args, **kwargs):
+            raise AssertionError("raw subprocess fallback must not run")
+
+        monkeypatch.setattr("subprocess.run", _forbidden)
+        result = _parse(sin_bash("rm -rf /"))
+        assert result["executed"] is False
 
     def test_returns_json_string(self):
         result = sin_bash("echo test")
         assert isinstance(result, str)
         json.loads(result)
 
-    def test_has_redacted_field(self):
-        result = _parse(sin_bash("echo test"))
-        assert "redacted" in result
-        # Fallback path marks redacted as False
-        assert result["redacted"] is False
-
-    def test_timeout_handling(self):
-        result = _parse(sin_bash("sleep 10", timeout=1))
-        assert "error" in result or result.get("returncode") != 0
-        if "error" in result:
-            assert "timeout" in result["error"].lower()
-
-    def test_captures_stderr(self):
-        result = _parse(sin_bash("echo err_msg >&2"))
-        assert "err_msg" in result.get("stderr", "")
-
-    def test_empty_command(self):
+    def test_empty_command_also_fails_closed(self):
         result = _parse(sin_bash(""))
-        # Empty command — shell typically returns 0
-        assert "returncode" in result or "error" in result
-
-    def test_fallback_has_warning(self):
-        result = _parse(sin_bash("echo test"))
-        assert "warning" in result
-        assert "execute binary not found" in result["warning"]
+        assert result["executed"] is False
+        assert result["returncode"] == 126
 
 
 # ════════════════════════════════════════════════════════════════════════
