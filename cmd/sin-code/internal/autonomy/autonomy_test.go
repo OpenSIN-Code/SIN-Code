@@ -31,6 +31,7 @@ func resetHooks(t *testing.T) {
 	oldTimeSince := _timeSince
 	oldNewTicker := _newTicker
 	oldParseDuration := _parseDuration
+	oldFingerprint := _fingerprint
 	oldDirEntryInfo := _dirEntryInfo
 	t.Cleanup(func() {
 		_dbOpen = oldDBOpen
@@ -47,6 +48,7 @@ func resetHooks(t *testing.T) {
 		_timeSince = oldTimeSince
 		_newTicker = oldNewTicker
 		_parseDuration = oldParseDuration
+		_fingerprint = oldFingerprint
 		_dirEntryInfo = oldDirEntryInfo
 	})
 }
@@ -557,7 +559,14 @@ func TestRunnerWatchEnqueue(t *testing.T) {
 	_timeSince = func(since time.Time) time.Duration { return 100 * time.Second }
 
 	ws := t.TempDir()
-	_ = os.WriteFile(filepath.Join(ws, "a.txt"), []byte("v1"), 0o644)
+	fingerprintCalls := 0
+	_fingerprint = func(_, _ string) string {
+		fingerprintCalls++
+		if fingerprintCalls == 1 {
+			return "before"
+		}
+		return "after"
+	}
 
 	enqueued := make(chan struct{}, 1)
 	r := &Runner{
@@ -575,11 +584,6 @@ func TestRunnerWatchEnqueue(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
-
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		_ = os.WriteFile(filepath.Join(ws, "a.txt"), []byte("v2-version-two"), 0o644)
-	}()
 
 	captureStderr(t, func() {
 		go func() { _ = r.Run(ctx); close(done) }()

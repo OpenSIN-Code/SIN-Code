@@ -46,8 +46,8 @@ skills:
 
   # ── ecosystem / external services ──
   - name: skill-ecosystem-marketplace
-    lifecycle: external
-    canonical: SIN-Code-Marketplace-Skill
+    lifecycle: native
+    canonical: sin marketplace
   - name: skill-ecosystem-context
     lifecycle: external
     canonical: SIN-Code-Context-Bridge-Skill
@@ -98,8 +98,8 @@ skills:
 
   # ── code / dev workflow ──
   - name: skill-code-mcp-builder
-    lifecycle: external
-    canonical: SIN-Code-MCP-Server-Builder-Skill
+    lifecycle: native
+    canonical: sin mcp-server
   - name: skill-code-build
     lifecycle: native
     canonical: sin-code install

@@ -14,7 +14,6 @@ keywords = ["mcp", "ai-agents", "coding-agent", "opencode", "codex", "lsp", "swe
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Topic :: Software Development :: Quality Assurance",
@@ -88,7 +87,10 @@ where = ["src"]
 [tool.setuptools.package-data]
 sin_code_bundle = [
   "data/codocs/*.md",
+  "data/marketplace/*.json",
   "tools/mcp_server_builder/templates/**/*",
+  "resources/ceo-audit/*",
+  "resources/ceo-audit/**/*",
 ]
 
 [project.urls]
@@ -114,7 +116,17 @@ sin-search = "sin_code_bundle.cli_shims.sin_search:main"
 # forward to the same `sin` Typer app.
 sin-slash = "sin_code_bundle.tools.slash.cli:main"
 sin-mcp-server-builder = "sin_code_bundle.tools.mcp_server_builder.mcp_server:main"
+sin-mcp-server-builder-mcp = "sin_code_bundle.tools.mcp_server_builder.mcp_server:main"
+mcp-scaffold = "sin_code_bundle.tools.mcp_server_builder.cli_shims.mcp_scaffold:main"
+mcp-template-list = "sin_code_bundle.tools.mcp_server_builder.cli_shims.mcp_template_list:main"
+mcp-tool-add = "sin_code_bundle.tools.mcp_server_builder.cli_shims.mcp_tool_add:main"
+mcp-tool-test = "sin_code_bundle.tools.mcp_server_builder.cli_shims.mcp_tool_test:main"
+mcp-register = "sin_code_bundle.tools.mcp_server_builder.cli_shims.mcp_register:main"
+mcp-validate = "sin_code_bundle.tools.mcp_server_builder.cli_shims.mcp_validate:main"
+mcp-publish = "sin_code_bundle.tools.mcp_server_builder.cli_shims.mcp_publish:main"
+mcp-audit = "sin_code_bundle.tools.mcp_server_builder.cli_shims.mcp_audit:main"
 sin-marketplace-skill = "sin_code_bundle.tools.marketplace.legacy_cli:main"
+sin-marketplace = "sin_code_bundle.tools.marketplace.legacy_cli:main"
 
 
 

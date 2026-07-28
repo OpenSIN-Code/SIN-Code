@@ -22,11 +22,11 @@ def _clear_cache() -> None:
 
 # ── Search ────────────────────────────────────────────────────────────────────
 class TestCliSearch:
-    def test_search_no_local_catalog(self) -> None:
+    def test_search_uses_bundled_catalog_without_cache(self) -> None:
         _clear_cache()
-        result = runner.invoke(app, ["search", "test"])
-        assert result.exit_code == 1
-        assert "No local catalog" in result.output
+        result = runner.invoke(app, ["search", "scheduler"])
+        assert result.exit_code == 0
+        assert "scheduler" in result.output.lower()
 
     def test_search_with_local_catalog(self) -> None:
         _clear_cache()
@@ -59,7 +59,7 @@ class TestCliSearch:
 # ── Install ───────────────────────────────────────────────────────────────────
 class TestCliInstall:
     def test_install_no_catalog(self) -> None:
-        result = runner.invoke(app, ["install", "test-skill"])
+        result = runner.invoke(app, ["install", "test-skill", "--local"])
         assert result.exit_code == 1
 
 
@@ -139,21 +139,48 @@ class TestCliUpdate:
 
 # ── Sync ───────────────────────────────────────────────────────────────────────
 class TestCliSync:
-    def test_sync(self) -> None:
-        # This will try to fetch from the real remote, which might fail in tests
-        # We mock it indirectly by catching errors
+    def test_sync(self, monkeypatch, tmp_path: Path) -> None:
+        import sin_code_bundle.tools.marketplace.legacy_cli as legacy_cli
+
+        async def fake_load_remote(catalog, *args, **kwargs) -> None:
+            catalog._entries = [
+                {
+                    "slug": "scheduler",
+                    "name": "SIN-Code-Scheduler-Skill",
+                    "updated_at": "2026-07-27",
+                }
+            ]
+
+        class FakeRegistry:
+            def set_meta(self, key: str, value: str) -> None:
+                assert key == "last_sync"
+                assert value == "2026-07-27"
+
+        monkeypatch.setattr(legacy_cli.Catalog, "load_remote", fake_load_remote)
+        monkeypatch.setattr(legacy_cli, "Registry", FakeRegistry)
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
         result = runner.invoke(app, ["sync"])
-        # Could succeed or fail depending on network
-        assert result.exit_code in (0, 1)
+
+        assert result.exit_code == 0
+        assert "Synced 1 skills" in result.output
+        cache = tmp_path / ".config" / "opencode" / "skills_catalog.json"
+        assert json.loads(cache.read_text()) == [
+            {
+                "slug": "scheduler",
+                "name": "SIN-Code-Scheduler-Skill",
+                "updated_at": "2026-07-27",
+            }
+        ]
 
 
 # ── Info ──────────────────────────────────────────────────────────────────────
 class TestCliInfo:
-    def test_info_no_catalog(self) -> None:
+    def test_info_uses_bundled_catalog_without_cache(self) -> None:
         _clear_cache()
-        result = runner.invoke(app, ["info", "test-skill"])
-        assert result.exit_code == 1
-        assert "No local catalog" in result.output
+        result = runner.invoke(app, ["info", "scheduler"])
+        assert result.exit_code == 0
+        assert "SIN-Code-Scheduler-Skill" in result.output
 
     def test_info_not_found(self) -> None:
         _clear_cache()

@@ -37,13 +37,14 @@ async def _get_catalog() -> Catalog:
     if cache_path.exists():
         catalog.load_file(cache_path)
     else:
+        catalog.load_bundled()
         try:
             await catalog.load_remote()
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             with cache_path.open("w", encoding="utf-8") as fh:
                 json.dump(catalog.list_skills(), fh, indent=2)
         except CatalogError:
-            pass
+            logger.warning("Remote catalog unavailable; using bundled snapshot")
     return catalog
 
 
@@ -172,7 +173,7 @@ async def marketplace_update(slug: str | None = None) -> str:
 
 @mcp.tool()
 async def marketplace_sync() -> str:
-    """Sync catalog with Infra-SIN-OpenCode-Stack.
+    """Sync the catalog with the canonical SIN-Code source.
 
     Returns:
         JSON string with sync status and skill count.

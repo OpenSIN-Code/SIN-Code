@@ -5,6 +5,7 @@ All sub-apps are defined here so that cli_*.py modules can import them
 without creating circular dependencies. cli.py imports all cli_*.py
 modules to register commands via decorators.
 """
+
 from __future__ import annotations
 
 import typer
@@ -38,9 +39,7 @@ app.add_typer(security_app, name="security")
 sckg_app = typer.Typer(help="SCKG - Semantic Codebase Knowledge Graph")
 app.add_typer(sckg_app, name="sckg")
 
-ceo_audit_app = typer.Typer(
-    help="CEO Audit - SOTA repo review (delegates to the opencode skill)."
-)
+ceo_audit_app = typer.Typer(help="CEO Audit - SOTA repo review (delegates to the opencode skill).")
 app.add_typer(ceo_audit_app, name="ceo-audit")
 
 pocock_app = typer.Typer(
@@ -53,14 +52,10 @@ browser_app = typer.Typer(
 )
 app.add_typer(browser_app, name="browser")
 
-vfs_app = typer.Typer(
-    help="VFS - Virtual File System for transparent remote/local file access."
-)
+vfs_app = typer.Typer(help="VFS - Virtual File System for transparent remote/local file access.")
 app.add_typer(vfs_app, name="vfs")
 
-hashline_app = typer.Typer(
-    help="Hashline - LINE:HASH anchored editing for sin_edit."
-)
+hashline_app = typer.Typer(help="Hashline - LINE:HASH anchored editing for sin_edit.")
 app.add_typer(hashline_app, name="hashline")
 
 ast_app = typer.Typer(help="AST-based code editing (requires tree-sitter)")

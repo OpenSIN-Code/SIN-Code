@@ -21,7 +21,7 @@ from sin_code_bundle.tools.marketplace.server import (
     marketplace_update,
 )
 
-CATALOG_URL = "https://raw.githubusercontent.com/OpenSIN-Code/Infra-SIN-OpenCode-Stack/main/skills/catalog.json"
+CATALOG_URL = "https://raw.githubusercontent.com/OpenSIN-Code/SIN-Code/main/src/sin_code_bundle/data/marketplace/catalog.json"
 
 
 def _clear_cache() -> None:

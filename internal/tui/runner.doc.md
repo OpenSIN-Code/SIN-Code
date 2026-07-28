@@ -1,37 +1,35 @@
-# runner.doc.md
+# runner.go
 
 Subprocess runner for the `sin tui` binary.
 
 ## What this file does
 
-Executes `sin <args>` in a subprocess via `sh -c`, streams stdout/stderr
-line-by-line into the TUI viewport, and fires `runFinishedMsg` on exit.
+Executes `sin` commands as an explicit argv list, captures stdout and stderr separately and renders both in the same
+output view, and emits `runFinishedMsg` when the child process exits. The Bubbletea
+model applies the output inside `Update`, so background commands never mutate UI
+state directly.
 
-## Dependencies
+## Security contract
 
-- `app.go` — `startCommand` builds the shell string and calls `runCommand`
-- `app.go` — `Update` receives `runFinishedMsg` to transition to `StateOutput`
+- No system shell is started.
+- Combined stdout/stderr is capped at 4 MiB and marked when truncated.
+- Secret-like argv flags are redacted in the displayed command line.
+- `;`, `|`, redirects, `$()`, and similar metacharacters remain literal argv bytes.
+- User input supports whitespace, single/double quotes, and backslash escaping.
+- Unterminated quotes and trailing escapes fail before process creation.
+- Static command keys and prompted arguments are tokenized separately.
 
-## Important values & limits
-
-- `runCommand` uses `sh -c` so complex pipe expressions work.
-- `scanLines` splits on `\n` so each line appears as it's emitted.
-- `stream(line)` callback is `Model.appendStream` which appends to the
-  output builder and refreshes the viewport.
-
-## Design decisions
-
-- `sh -c` wrapping lets power users pass pipe chains through the prompt.
-- Stderr is merged into Stdout so error messages appear inline.
-- `runFinishedMsg` carries `err` and `elapsed` for status line display.
+This intentionally removes the previous `sh -c` behavior. Pipelines belong in
+an explicit script or a purpose-built command, not an interpolated TUI prompt.
 
 ## Usage
 
 ```go
-cmd := tea.Batch(m.spinner.Tick, runCommand("sin doctor", m.appendStream))
+argv := []string{"sin", "doctor"}
+cmd := tea.Batch(m.spinner.Tick, runCommand(argv, m.appendStream))
 ```
 
-## Caveats
+## Limits
 
-- No stdin forwarding — the subprocess cannot accept interactive input.
-- No working-directory override — runs in whatever `os.Getwd()` returns.
+The child process does not receive interactive stdin and inherits the current
+working directory.

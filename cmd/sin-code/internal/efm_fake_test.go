@@ -519,17 +519,17 @@ func TestEFM_DetectContainerRuntime(t *testing.T) {
 
 	binDir := t.TempDir()
 	makeFakeContainerScript(t, filepath.Join(binDir, "docker"), `exit 0`)
-	// On darwin, orb is preferred. On linux, docker is used directly.
+	// On darwin and linux, the Docker-compatible CLI is preferred.
 	if runtime.GOOS == "darwin" {
 		// Only docker present → falls back to docker.
 		t.Setenv("PATH", binDir)
 		if got := detectContainerRuntime(); got != "docker" {
 			t.Errorf("detectContainerRuntime on darwin with only docker = %q, want docker", got)
 		}
-		// Both orb and docker present → orb wins.
+		// Both orb and docker present → the Docker-compatible CLI wins.
 		makeFakeContainerScript(t, filepath.Join(binDir, "orb"), `exit 0`)
-		if got := detectContainerRuntime(); got != "orb" {
-			t.Errorf("detectContainerRuntime on darwin with orb and docker = %q, want orb", got)
+		if got := detectContainerRuntime(); got != "docker" {
+			t.Errorf("detectContainerRuntime on darwin with orb and docker = %q, want docker", got)
 		}
 	} else {
 		t.Setenv("PATH", binDir)

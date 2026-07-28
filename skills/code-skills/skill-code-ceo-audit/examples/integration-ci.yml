@@ -1,0 +1,229 @@
+# Purpose: Full reference integration example — CEO Audit + App commenter + branch protection
+# Docs: examples/README.md
+#
+# This workflow is a richer version of templates/ceo-audit.yml. It is
+# the recommended setup for production repos in the OpenSIN-Code org.
+#
+# Differences from the minimal templates/ceo-audit.yml:
+#   1. Posts a STICKY PR comment (idempotent) via the official
+#      SIN-GitHub-Issues-Prod-2026 App (OAuth, no Private Key needed)
+#   2. Updates branch protection to require "ceo-audit" status check
+#   3. Includes a separate "audit-baseline" job that runs against main
+#      to keep the regression-detection baseline current
+#   4. Uploads SARIF to GitHub Code Scanning
+#
+# Required GitHub Secrets (org-level, set in OpenSIN-Code settings):
+#   SIN_GITHUB_INSTALLATION_TOKEN       preferred, expires 1h
+#   SIN_GITHUB_APP_CLIENT_SECRET        OAuth alternative (long-lived)
+#
+# Optional inputs (via workflow_dispatch):
+#   profile   QUICK | RELEASE | SECURITY | FULL  (default: QUICK)
+#   grade     A | B | C                            (default: B)
+
+name: ceo-audit-integration
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+  schedule:
+    # Weekly baseline refresh — every Sunday at 02:00 UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: 'Audit profile: QUICK | RELEASE | SECURITY | FULL'
+        required: false
+        default: 'QUICK'
+      grade:
+        description: 'Minimum grade to pass: A | B | C'
+        required: false
+        default: 'B'
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+  actions: read  # for artifact download
+  statuses: write  # for branch protection status
+
+jobs:
+  # ── Job 1: The audit itself ─────────────────────────────────────
+  ceo-audit:
+    name: CEO Audit (${{ inputs.profile || 'QUICK' }}, grade≥${{ inputs.grade || 'B' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      AUDIT_PROFILE: ${{ inputs.profile || 'QUICK' }}
+      AUDIT_GRADE: ${{ inputs.grade || 'B' }}
+      AUDIT_REPO: ${{ github.workspace }}
+      AUDIT_RUN_ID: ${{ github.run_id }}
+      AUDIT_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history for regression detection
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install SIN-Code Bundle (with ceo-audit skill)
+        run: pip install "sin-code[dev]"
+
+      - name: Run CEO Audit
+        id: audit
+        run: |
+          mkdir -p ceo-audit-output
+          set +e
+          skills/code-skills/skill-code-ceo-audit/scripts/audit.sh \
+            "$AUDIT_REPO" \
+            --profile="$AUDIT_PROFILE" \
+            --grade="$AUDIT_GRADE" \
+            --output="$AUDIT_REPO/ceo-audit-output" \
+            --json 2>&1 | tee ceo-audit-output/console.log
+          echo "audit_exit_code=$?" >> $GITHUB_OUTPUT
+          set -e
+
+      - name: Upload audit artifacts (always, even on failure)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ceo-audit-${{ github.run_id }}
+          path: ceo-audit-output/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Extract grade from score.json
+        id: grade
+        if: always()
+        run: |
+          SCORE_FILE=$(find ceo-audit-output -name 'score.json' | head -1)
+          if [ -z "$SCORE_FILE" ]; then
+            echo "::error::CEO Audit did not produce score.json"
+            echo "grade=unknown" >> $GITHUB_OUTPUT
+            echo "score=0" >> $GITHUB_OUTPUT
+            echo "verdict=Audit failed" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          GRADE=$(jq -r '.grade // "?"' "$SCORE_FILE")
+          SCORE=$(jq -r '.score // 0' "$SCORE_FILE")
+          CRITICAL=$(jq -r '.critical // 0' "$SCORE_FILE")
+          HIGH=$(jq -r '.high // 0' "$SCORE_FILE")
+          echo "grade=$GRADE" >> $GITHUB_OUTPUT
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "::notice::CEO Audit: $GRADE ($SCORE/100) | critical=$CRITICAL high=$HIGH"
+
+      - name: Post PR comment (official via SIN-GitHub-Issues-Prod-2026 App)
+        if: github.event_name == 'pull_request' && always()
+        env:
+          SIN_GITHUB_INSTALLATION_TOKEN: ${{ secrets.SIN_GITHUB_INSTALLATION_TOKEN }}
+          SIN_GITHUB_APP_CLIENT_SECRET: ${{ secrets.SIN_GITHUB_APP_CLIENT_SECRET }}
+        run: |
+          SCORE_FILE=$(find ceo-audit-output -name 'score.json' | head -1)
+          if [ -z "$SCORE_FILE" ]; then
+            echo "Skipping PR comment — no score.json"
+            exit 0
+          fi
+          ARTIFACT_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
+          python3 skills/code-skills/skill-code-ceo-audit/scripts/post_audit_pr.py \
+            --repo "${{ github.repository }}" \
+            --pr "${{ github.event.pull_request.number }}" \
+            --score-json "$SCORE_FILE" \
+            --artifact-url "$ARTIFACT_URL" \
+            --run-id "${{ github.run_id }}" \
+            --profile "$AUDIT_PROFILE" \
+            --grade "$AUDIT_GRADE"
+        # This step is silent on missing creds — the sticky-comment
+        # fallback below covers that case.
+
+      - name: Post sticky PR comment (fallback via Action bot)
+        if: github.event_name == 'pull_request' && always()
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: ceo-audit
+          message: |
+            ## 🏆 CEO Audit — ${{ steps.grade.outputs.grade || '?' }} (${{ steps.grade.outputs.score || '0' }}/100)
+
+            | Metric | Value |
+            |--------|-------|
+            | **Grade** | **${{ steps.grade.outputs.grade || '?' }}** |
+            | **Score** | **${{ steps.grade.outputs.score || '0' }}/100** |
+            | **Critical findings** | ${{ steps.grade.outputs.critical || '0' }} |
+            | **High findings** | ${{ steps.grade.outputs.high || '0' }} |
+            | **Profile** | `${{ env.AUDIT_PROFILE }}` |
+            | **Min grade gate** | ${{ env.AUDIT_GRADE }} |
+
+            📥 [Download full report (Markdown)](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)
+            📊 [Download SARIF (for Code Scanning)](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)
+
+            > Run `skills/code-skills/skill-code-ceo-audit/scripts/audit.sh . --profile=FULL` locally to reproduce.
+
+      - name: Upload SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ github.workspace }}/ceo-audit-output/report.sarif
+          category: ceo-audit
+        continue-on-error: true  # SARIF upload is best-effort
+
+      - name: Fail if grade below gate
+        if: github.event_name == 'pull_request'
+        run: |
+          GRADE="${{ steps.grade.outputs.grade }}"
+          GRADE_NUM="${{ steps.grade.outputs.score }}"
+          GATE="${{ env.AUDIT_GRADE }}"
+          case "$GATE" in
+            A) MIN=85 ;;
+            B) MIN=70 ;;
+            C) MIN=55 ;;
+            *) MIN=0 ;;
+          esac
+          if (( $(echo "$GRADE_NUM < $MIN" | bc -l) )); then
+            echo "::error::Grade $GRADE ($GRADE_NUM) below gate $GATE (need ≥$MIN)"
+            exit 1
+          fi
+          echo "::notice::Grade gate passed: $GRADE ($GRADE_NUM) ≥ $GATE ($MIN)"
+
+  # ── Job 2: Refresh regression-detection baseline weekly ─────────
+  audit-baseline:
+    name: CEO Audit Baseline (weekly)
+    runs-on: ubuntu-latest
+    needs: ceo-audit
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install SIN-Code Bundle
+        run: pip install "sin-code[dev]"
+
+      - name: Run baseline benchmark
+        run: |
+          bash skills/code-skills/skill-code-ceo-audit/scripts/benchmark.sh \
+            "$GITHUB_WORKSPACE" \
+            --profile=FULL \
+            --save \
+            --rounds=2
+
+      - name: Commit baseline
+        run: |
+          git config user.name "ceo-audit-bot"
+          git config user.email "ceo-audit-bot@users.noreply.github.com"
+          git add ceo-audit-baseline.json
+          git diff --cached --quiet || \
+            git commit -m "ci: refresh ceo-audit baseline ($(date -u +%Y-%m-%d))"
+          git push

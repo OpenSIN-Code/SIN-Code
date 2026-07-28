@@ -191,15 +191,13 @@ func TestConnectAllSuccessfulHTTP(t *testing.T) {
 func TestConnectAllDuplicateWarning(t *testing.T) {
 	orig := connectTransportHook
 	t.Cleanup(func() { connectTransportHook = orig })
-	origWarned := warnedServers
-	t.Cleanup(func() { warnedServers = origWarned })
 
-	warnedServers = map[string]bool{"dup": true}
 	connectTransportHook = func(context.Context, ServerConfig) (sdk.Transport, error) {
 		return nil, errors.New("boom")
 	}
 
 	mgr := NewManager([]ServerConfig{{Name: "dup", Transport: "stdio", Command: "unused"}})
+	mgr.warnedServers["dup"] = true
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	logged := captureStderr(t, func() { _ = mgr.ConnectAll(ctx) })

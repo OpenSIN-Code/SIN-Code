@@ -78,7 +78,7 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 # → Set as SINATOR_ENCRYPTION_KEY env var
 
 # 2. Run ceo-audit regularly to detect regressions
-~/.config/opencode/skills/ceo-audit/scripts/audit.sh . --profile=SECURITY --grade=B
+sin ceo-audit run . --profile=SECURITY --grade=B
 
 # 3. Enable Dependabot/Renovate for automatic CVE patching
 # (configured in .github/dependabot.yml if you forked us)

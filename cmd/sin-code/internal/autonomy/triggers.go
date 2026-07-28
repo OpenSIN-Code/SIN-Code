@@ -29,6 +29,8 @@ type Trigger struct {
 
 // LoadTriggers reads .sin-code/triggers.json from the workspace.
 func LoadTriggers(workspace string) []Trigger {
+	// #nosec G304 -- workspace is the explicit operator-selected project root;
+	// only the fixed .sin-code/triggers.json suffix is read.
 	data, err := os.ReadFile(filepath.Join(workspace, ".sin-code", "triggers.json"))
 	if err != nil {
 		return nil
@@ -194,7 +196,7 @@ func (r *Runner) runWatch(ctx context.Context, t Trigger) {
 	if d, err := _parseDuration(t.Debounce); err == nil && d > 0 {
 		debounce = d
 	}
-	last := fingerprint(r.Workspace, t.Glob)
+	last := _fingerprint(r.Workspace, t.Glob)
 	var dirtySince time.Time
 
 	ticker := _newTicker(r.PollInterval)
@@ -207,7 +209,7 @@ func (r *Runner) runWatch(ctx context.Context, t Trigger) {
 			if ctx.Err() != nil {
 				return
 			}
-			current := fingerprint(r.Workspace, t.Glob)
+			current := _fingerprint(r.Workspace, t.Glob)
 			if current != last {
 				last = current
 				dirtySince = _timeNow()

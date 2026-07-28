@@ -10,10 +10,10 @@ compatibility:
 metadata:
   author: SIN-Code
   version: 3.20.0
-  sources: "OpenSIN-Code/Infra-SIN-OpenCode-Stack/skills/marketplace"
+  sources: "OpenSIN-Code/SIN-Code/src/sin_code_bundle/tools/marketplace"
 required_tools:
   - sin_execute
-lifecycle: external
+lifecycle: native
 ---
 
 # skill-ecosystem-marketplace

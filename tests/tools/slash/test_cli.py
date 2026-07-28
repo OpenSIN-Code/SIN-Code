@@ -11,8 +11,27 @@ import tempfile
 
 from click.testing import CliRunner
 
+import sin_code_bundle.tools.slash.cli as slash_cli
 from sin_code_bundle.tools.slash.cli import cli
+from sin_code_bundle.tools.slash.dispatcher import CommandDispatcher
 from sin_code_bundle.tools.slash.registry import CommandRegistry
+
+
+class StubExecutor:
+    def execute_builtin(self, command_name, action, args, flags):
+        return f"stubbed {command_name} {' '.join(args)}"
+
+    def execute_custom(self, command, args, flags):
+        return f"stubbed {command.name} {' '.join(args)}"
+
+
+class StubDispatcher(CommandDispatcher):
+    def __init__(self, registry=None, history_db=None, **_kwargs):
+        super().__init__(
+            registry=registry,
+            executor=StubExecutor(),
+            history_db=history_db,
+        )
 
 
 class TestCLI:
@@ -22,11 +41,26 @@ class TestCLI:
         """Set up CLI runner and temp files."""
         self.runner = CliRunner()
         self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
+        self.history_fd, self.history_path = tempfile.mkstemp(suffix=".db")
+        self._old_registry = os.environ.get("SIN_SLASH_REGISTRY_DB")
+        self._old_history = os.environ.get("SIN_SLASH_HISTORY_DB")
+        os.environ["SIN_SLASH_REGISTRY_DB"] = self.db_path
+        os.environ["SIN_SLASH_HISTORY_DB"] = self.history_path
 
     def teardown_method(self) -> None:
         """Clean up temp files."""
+        if self._old_registry is None:
+            os.environ.pop("SIN_SLASH_REGISTRY_DB", None)
+        else:
+            os.environ["SIN_SLASH_REGISTRY_DB"] = self._old_registry
+        if self._old_history is None:
+            os.environ.pop("SIN_SLASH_HISTORY_DB", None)
+        else:
+            os.environ["SIN_SLASH_HISTORY_DB"] = self._old_history
         os.close(self.db_fd)
         os.unlink(self.db_path)
+        os.close(self.history_fd)
+        os.unlink(self.history_path)
 
     def test_cli_version(self) -> None:
         """CLI shows version."""
@@ -40,17 +74,19 @@ class TestCLI:
         assert result.exit_code == 0
         assert "Slash command dispatch" in result.output
 
-    def test_run_command(self) -> None:
-        """Run a slash command via CLI."""
+    def test_run_command(self, monkeypatch) -> None:
+        """Run a slash command via CLI without invoking host pytest."""
+        monkeypatch.setattr(slash_cli, "CommandDispatcher", StubDispatcher)
         result = self.runner.invoke(cli, ["run", "/test"])
         assert result.exit_code == 0
-        assert "test" in result.output
+        assert "stubbed test" in result.output
 
-    def test_run_command_raw(self) -> None:
-        """Run a slash command with raw output via CLI."""
+    def test_run_command_raw(self, monkeypatch) -> None:
+        """Raw mode serializes the real dispatch result."""
+        monkeypatch.setattr(slash_cli, "CommandDispatcher", StubDispatcher)
         result = self.runner.invoke(cli, ["run", "/test", "--raw"])
         assert result.exit_code == 0
-        assert "test" in result.output
+        assert '"command": "test"' in result.output
 
     def test_run_command_failure(self) -> None:
         """Run a failing command via CLI."""
@@ -77,37 +113,30 @@ class TestCLI:
 
     def test_register_command(self) -> None:
         """Register a command via CLI."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = os.path.join(tmpdir, "registry.db")
-            CommandRegistry(db_path)
-            result = self.runner.invoke(
-                cli,
-                ["register", "deploy", "Deploy app", "git push", "--type", "shell"],
-            )
-            assert result.exit_code == 0
-            assert "Registered" in result.output
+        result = self.runner.invoke(
+            cli,
+            ["register", "deploy", "Deploy app", "git push", "--type", "shell"],
+        )
+        assert result.exit_code == 0
+        assert "Registered" in result.output
 
     def test_register_duplicate(self) -> None:
         """Register duplicate command fails via CLI."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = os.path.join(tmpdir, "registry.db")
-            registry = CommandRegistry(db_path)
-            registry.register("deploy", "Deploy app", "git push", "shell")
-            result = self.runner.invoke(
-                cli,
-                ["register", "deploy", "Deploy app", "git push", "--type", "shell"],
-            )
-            assert result.exit_code == 1
+        registry = CommandRegistry(self.db_path)
+        registry.register("deploy", "Deploy app", "git push", "shell")
+        result = self.runner.invoke(
+            cli,
+            ["register", "deploy", "Deploy app", "git push", "--type", "shell"],
+        )
+        assert result.exit_code == 1
 
     def test_remove_command(self) -> None:
         """Remove a command via CLI."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = os.path.join(tmpdir, "registry.db")
-            registry = CommandRegistry(db_path)
-            registry.register("deploy", "Deploy app", "git push", "shell")
-            result = self.runner.invoke(cli, ["remove", "deploy"])
-            assert result.exit_code == 0
-            assert "Removed" in result.output
+        registry = CommandRegistry(self.db_path)
+        registry.register("deploy", "Deploy app", "git push", "shell")
+        result = self.runner.invoke(cli, ["remove", "deploy"])
+        assert result.exit_code == 0
+        assert "Removed" in result.output
 
     def test_remove_missing(self) -> None:
         """Remove missing command fails via CLI."""
@@ -118,10 +147,10 @@ class TestCLI:
     def test_history_command(self) -> None:
         """Show history via CLI."""
         # First run a command
-        self.runner.invoke(cli, ["run", "/test"])
+        self.runner.invoke(cli, ["run", "/commit history entry"])
         result = self.runner.invoke(cli, ["history", "--limit", "10"])
         assert result.exit_code == 0
-        assert "test" in result.output
+        assert "commit" in result.output
 
     def test_help_command(self) -> None:
         """Show help via CLI."""

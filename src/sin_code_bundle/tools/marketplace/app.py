@@ -11,7 +11,7 @@ sin-code-bundle v0.9.3 (issue #29). Exposes the catalog/installer surface as::
     sin marketplace list              # list installed skills
     sin marketplace remove <slug>     # uninstall a skill
     sin marketplace update [slug]     # update one or all skills
-    sin marketplace sync              # sync catalog with Infra-SIN-OpenCode-Stack
+    sin marketplace sync              # sync the canonical SIN-Code catalog
     sin marketplace info <slug>       # show details
 """
 
@@ -67,11 +67,11 @@ def marketplace_search(
             raise typer.Exit(code=1)
     else:
         cache = Path.home() / ".config" / "opencode" / "skills_catalog.json"
-        if not cache.exists():
-            _typer_echo("[FAIL] No local catalog. Use --remote or run sync first.")
-            raise typer.Exit(code=1)
         catalog = Catalog()
-        catalog.load_file(cache)
+        if cache.exists():
+            catalog.load_file(cache)
+        else:
+            catalog.load_bundled()
     results = catalog.search(query)
     if json_out:
         import json as _json
@@ -107,7 +107,10 @@ def marketplace_install(
     else:
         cache = Path.home() / ".config" / "opencode" / "skills_catalog.json"
         catalog = Catalog()
-        catalog.load_file(cache)
+        if cache.exists():
+            catalog.load_file(cache)
+        else:
+            catalog.load_bundled()
     entry = catalog.get_by_slug(slug)
     if not entry:
         _typer_echo(f"[FAIL] Skill '{slug}' not found in catalog.")
@@ -209,7 +212,7 @@ def marketplace_update(
 
 @app.command("sync")
 def marketplace_sync() -> None:
-    """Sync catalog with Infra-SIN-OpenCode-Stack."""
+    """Sync the canonical SIN-Code catalog."""
     import json as _json
 
     from .catalog import Catalog, CatalogError
@@ -249,11 +252,11 @@ def marketplace_info(
             raise typer.Exit(code=1)
     else:
         cache = Path.home() / ".config" / "opencode" / "skills_catalog.json"
-        if not cache.exists():
-            _typer_echo("[FAIL] No local catalog. Use --remote or run sync first.")
-            raise typer.Exit(code=1)
         catalog = Catalog()
-        catalog.load_file(cache)
+        if cache.exists():
+            catalog.load_file(cache)
+        else:
+            catalog.load_bundled()
     entry = catalog.get_by_slug(slug)
     if not entry:
         _typer_echo(f"[FAIL] Skill '{slug}' not found in catalog.")

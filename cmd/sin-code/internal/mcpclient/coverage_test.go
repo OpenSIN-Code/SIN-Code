@@ -47,9 +47,9 @@ func TestConnectAll_SuccessAndDuplicateWarning(t *testing.T) {
 	}
 
 	// Second attempt with the same name should hit the already-warned branch.
-	warnedMu.Lock()
-	warnedServers["demo"] = true
-	warnedMu.Unlock()
+	mgr.warnedMu.Lock()
+	mgr.warnedServers["demo"] = true
+	mgr.warnedMu.Unlock()
 	if err := mgr.ConnectAll(ctx); err != nil {
 		t.Fatalf("ConnectAll on duplicate: %v", err)
 	}
@@ -62,18 +62,10 @@ func TestConnectAll_HookReturnsError(t *testing.T) {
 	}
 	defer func() { testConnectHook = nil }()
 
-	// Pre-mark the server as warned so ConnectAll skips logging and avoids
-	// interfering with the global os.Stderr state used by other tests.
-	warnedMu.Lock()
-	warnedServers[serverName] = true
-	warnedMu.Unlock()
-	defer func() {
-		warnedMu.Lock()
-		delete(warnedServers, serverName)
-		warnedMu.Unlock()
-	}()
-
 	mgr := NewManager([]ServerConfig{{Name: serverName, Transport: "stdio", Command: "noop"}})
+	// Pre-mark this manager's server as warned so the test exercises the
+	// deduplication path without mutating process-global state.
+	mgr.warnedServers[serverName] = true
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := mgr.ConnectAll(ctx); err != nil {

@@ -1,0 +1,86 @@
+[
+  {
+    "slug": "scheduler",
+    "name": "SIN-Code-Scheduler-Skill",
+    "title": "Scheduling",
+    "description": "SIN-Scheduler Skill — MCP Server for job scheduling with cron, intervals, and execution management",
+    "source": "https://github.com/OpenSIN-Code/SIN-Code-Scheduler-Skill.git",
+    "destination": "SIN-Code-Scheduler-Skill",
+    "category": "scheduling",
+    "default_branch": "main",
+    "catalogued_commit": "4f6fc5fa8d790aedc3fa203d834812f5910291ae",
+    "lifecycle": "external"
+  },
+  {
+    "slug": "goalmode",
+    "name": "SIN-Code-Goal-Mode-Skill",
+    "title": "Goal Mode",
+    "description": "MCP skill for goal tracking with checkpoints, rollback, and progress reports",
+    "source": "https://github.com/OpenSIN-Code/SIN-Code-Goal-Mode-Skill.git",
+    "destination": "SIN-Code-Goal-Mode-Skill",
+    "category": "workflow",
+    "default_branch": "main",
+    "catalogued_commit": "1b82824d2f7f7a68c4d08eae6f3592596e3d9a0f",
+    "lifecycle": "external"
+  },
+  {
+    "slug": "grillme",
+    "name": "SIN-Code-Grill-Me-Skill",
+    "title": "Grill Me",
+    "description": "Adversarial design-review interview skill. Relentlessly questions plans, surfaces hidden assumptions, resolves decision trees before implementation. For 'grill me', 'stress test this plan', 'interrogate my design'.",
+    "source": "https://github.com/OpenSIN-Code/SIN-Code-Grill-Me-Skill.git",
+    "destination": "SIN-Code-Grill-Me-Skill",
+    "category": "review",
+    "default_branch": "main",
+    "catalogued_commit": "e01bfe1b5889bd21621bae13c3c5ebf823701eee",
+    "lifecycle": "external"
+  },
+  {
+    "slug": "codocs",
+    "name": "SIN-Code-Doc-Coauthoring-Skill",
+    "title": "Document Coauthoring",
+    "description": "SIN-Code Skill: collaborative document coauthoring (READMEs, ADRs, specs, design docs) via MCP — SIN counterpart to Anthropic's doc-coauthoring skill",
+    "source": "https://github.com/OpenSIN-Code/SIN-Code-Doc-Coauthoring-Skill.git",
+    "destination": "SIN-Code-Doc-Coauthoring-Skill",
+    "category": "documentation",
+    "default_branch": "main",
+    "catalogued_commit": "92d7528bb43e2eab082eff1a91e38c251cd25d1d",
+    "lifecycle": "external"
+  },
+  {
+    "slug": "contextbridge",
+    "name": "SIN-Code-Context-Bridge-Skill",
+    "title": "Context Bridge",
+    "description": "Unified context bridge — query SCKG + sin-brain + GitNexus + local SQLite",
+    "source": "https://github.com/OpenSIN-Code/SIN-Code-Context-Bridge-Skill.git",
+    "destination": "SIN-Code-Context-Bridge-Skill",
+    "category": "context",
+    "default_branch": "main",
+    "catalogued_commit": "9aa0e5c86e0f415f1d6b7af4dcb0e8013d6ddf0b",
+    "lifecycle": "external"
+  },
+  {
+    "slug": "honcho",
+    "name": "SIN-Code-Honcho-Rollback-Skill",
+    "title": "Honcho Rollback",
+    "description": "Snapshot + rollback + audit log for sin-brain / Honcho memory. 7 subcommands + MCP stdio server.",
+    "source": "https://github.com/OpenSIN-Code/SIN-Code-Honcho-Rollback-Skill.git",
+    "destination": "SIN-Code-Honcho-Rollback-Skill",
+    "category": "memory",
+    "default_branch": "main",
+    "catalogued_commit": "a6a18e35a4f957488bb6d369b89258f20ed74815",
+    "lifecycle": "external"
+  },
+  {
+    "slug": "frontend",
+    "name": "SIN-Code-Frontend-Design-Skill",
+    "title": "Frontend Design",
+    "description": "OpenSIN-Code Skill: SOTA frontend design system + philosophy (Anthropic-compatible) with v0-pool integration, MCP tools, WCAG a11y checks",
+    "source": "https://github.com/OpenSIN-Code/SIN-Code-Frontend-Design-Skill.git",
+    "destination": "SIN-Code-Frontend-Design-Skill",
+    "category": "design",
+    "default_branch": "main",
+    "catalogued_commit": "04babf962e816232217cf18525f023a4129ce124",
+    "lifecycle": "external"
+  }
+]

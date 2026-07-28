@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: MIT
-"""CEO Audit sub-commands — extracted from cli.py."""
+"""CEO Audit CLI backed by the canonical source or bundled wheel resource."""
+
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -10,8 +12,8 @@ import typer
 
 from sin_code_bundle.cli_app import ceo_audit_app
 
-_CEO_AUDIT_SKILL_PATH = Path.home() / ".config" / "opencode" / "skills" / "ceo-audit"
-_CEO_AUDIT_SCRIPT = _CEO_AUDIT_SKILL_PATH / "scripts" / "audit.sh"
+_SKILL_RELATIVE = Path("skills/code-skills/skill-code-ceo-audit")
+_USER_SKILL_RELATIVE = Path(".config/opencode/skills/ceo-audit")
 
 _SIN_CODE_TOOLS = {
     "discover": "SIN-Code-Discover-Tool",
@@ -30,6 +32,50 @@ _SIN_CODE_TOOLS = {
 }
 
 
+def _installed_user_skill() -> Path:
+    return Path.home() / _USER_SKILL_RELATIVE
+
+
+def _user_skill_path() -> Path:
+    """Return the install target, allowing an explicit test/operator override."""
+    override = os.environ.get("SIN_CEO_AUDIT_SKILL_PATH")
+    return Path(override).expanduser() if override else _installed_user_skill()
+
+
+def _source_checkout_skill() -> Path:
+    return Path(__file__).resolve().parents[2] / _SKILL_RELATIVE
+
+
+def _bundled_skill() -> Path:
+    return Path(__file__).resolve().parent / "resources" / "ceo-audit"
+
+
+def _distribution_skill_source() -> Path | None:
+    """Return the immutable source used for run/install operations."""
+    for candidate in (_source_checkout_skill(), _bundled_skill()):
+        if (candidate / "scripts" / "audit.sh").is_file():
+            return candidate
+    return None
+
+
+def _active_skill() -> Path | None:
+    """Resolve the newest trustworthy audit engine in deterministic order.
+
+    An explicit override is authoritative. Otherwise, immutable resources from
+    the current checkout/distribution take precedence over a potentially stale
+    user-installed OpenCode copy.
+    """
+    explicit = os.environ.get("SIN_CEO_AUDIT_SKILL_PATH")
+    candidates = []
+    if explicit:
+        candidates.append(Path(explicit).expanduser())
+    candidates.extend((_source_checkout_skill(), _bundled_skill(), _installed_user_skill()))
+    for candidate in candidates:
+        if (candidate / "scripts" / "audit.sh").is_file():
+            return candidate
+    return None
+
+
 @ceo_audit_app.command("run")
 def ceo_audit_run(
     repo: str = typer.Argument(".", help="Path to the repository to audit"),
@@ -38,20 +84,19 @@ def ceo_audit_run(
     output: str = typer.Option("", "--output", help="Output directory (default: ~/ceo-audits/)"),
     json_out: bool = typer.Option(False, "--json", help="Also write JSON sidecar"),
     no_color: bool = typer.Option(False, "--no-color", help="Disable ANSI colors"),
-):
-    """Run a 47-gate, 8-axis SOTA audit on a repository.
-
-    Requires the ceo-audit skill to be installed (run `sin ceo-audit install`).
-    """
-    if not _CEO_AUDIT_SCRIPT.exists():
+) -> None:
+    """Run the canonical CEO Audit from source, user install, or wheel."""
+    skill = _active_skill()
+    bash = shutil.which("bash")
+    if skill is None or bash is None:
+        reason = "CEO Audit resource not found" if skill is None else "bash is required"
         typer.echo(
-            f"[CEO-AUDIT] Skill not installed at {_CEO_AUDIT_SKILL_PATH}.\n"
-            f"  Install: sin ceo-audit install",
+            f"[CEO-AUDIT] {reason}. Reinstall with: pip install --force-reinstall sin-code",
             err=True,
         )
         raise typer.Exit(code=4)
 
-    args = [str(_CEO_AUDIT_SCRIPT), f"--profile={profile}"]
+    args = [bash, str(skill / "scripts" / "audit.sh"), f"--profile={profile}"]
     if grade:
         args.append(f"--grade={grade}")
     if output:
@@ -62,26 +107,20 @@ def ceo_audit_run(
         args.append("--no-color")
     args.append(repo)
 
-    result = subprocess.run(args)
+    result = subprocess.run(args, check=False)
     raise typer.Exit(code=result.returncode)
 
 
 @ceo_audit_app.command("install")
 def ceo_audit_install(
     force: bool = typer.Option(False, "--force", help="Overwrite existing files"),
-):
-    """Install the ceo-audit skill to ~/.config/opencode/skills/ceo-audit/.
-
-    Idempotent: safe to run multiple times. Use --force to overwrite.
-    """
-    skill_source = Path(__file__).parent.parent.parent.parent / "skills" / "ceo-audit"
-    skill_target = _CEO_AUDIT_SKILL_PATH
-
-    if not skill_source.exists():
-        skill_source = Path("/Users/jeremy/dev/SIN-Code-Bundle/skills/ceo-audit")
-    if not skill_source.exists():
+) -> None:
+    """Install the bundled canonical skill into the OpenCode runtime path."""
+    skill_source = _distribution_skill_source()
+    skill_target = _user_skill_path()
+    if skill_source is None:
         typer.echo(
-            f"[CEO-AUDIT] Cannot find ceo-audit skill source. Looked in:\n  {skill_source}",
+            "[CEO-AUDIT] Bundled skill resource missing. Reinstall with: pip install --force-reinstall sin-code",
             err=True,
         )
         raise typer.Exit(code=1)
@@ -93,28 +132,29 @@ def ceo_audit_install(
         raise typer.Exit(code=0)
 
     shutil.copytree(skill_source, skill_target, dirs_exist_ok=True)
-    for script in (skill_target / "scripts").glob("*.sh"):
-        script.chmod(0o755)
-    if (skill_target / "hooks" / "post_audit.py").exists():
-        (skill_target / "hooks" / "post_audit.py").chmod(0o755)
+    for script in (skill_target / "scripts").rglob("*"):
+        if script.is_file() and (script.suffix == ".sh" or script.parent.name == "compat-bin"):
+            script.chmod(0o755)
+    hook = skill_target / "hooks" / "post_audit.py"
+    if hook.exists():
+        hook.chmod(0o755)
     typer.echo(f"[CEO-AUDIT] Installed to {skill_target}")
     typer.echo("  Run: sin ceo-audit run /path/to/repo")
 
 
 @ceo_audit_app.command("status")
-def ceo_audit_status():
-    """Show whether the ceo-audit skill is installed and ready."""
-    installed = _CEO_AUDIT_SCRIPT.exists()
-    typer.echo(f"CEO Audit skill installed: {'yes' if installed else 'no'}")
-    if installed:
-        typer.echo(f"  Path: {_CEO_AUDIT_SKILL_PATH}")
-        from shutil import which
+def ceo_audit_status() -> None:
+    """Show the active CEO Audit resource and optional tool coverage."""
+    skill = _active_skill()
+    typer.echo(f"CEO Audit available: {'yes' if skill else 'no'}")
+    if skill is None:
+        typer.echo("  Reinstall: pip install --force-reinstall sin-code")
+        return
 
-        missing = [t for t in _SIN_CODE_TOOLS if not which(t)]
-        if missing:
-            typer.echo(f"  Missing SIN-Code tools: {', '.join(missing)}")
-            typer.echo("  Install: bash ~/.local/share/SIN-Code/install.sh")
-        else:
-            typer.echo("  All 7 SIN-Code tools available")
+    typer.echo(f"  Active source: {skill}")
+    missing = [tool for tool in _SIN_CODE_TOOLS if not shutil.which(tool)]
+    if missing:
+        typer.echo(f"  Optional tools missing: {', '.join(missing)}")
+        typer.echo("  The audit reports skipped gates and reduces assurance accordingly.")
     else:
-        typer.echo("  Install: sin ceo-audit install")
+        typer.echo("  All optional SIN-Code tools available")

@@ -19,6 +19,11 @@ class TestCommandExecutor:
         """Set up executor instance."""
         self.executor = CommandExecutor()
 
+    def test_execute_builtin_uses_registry_action_field(self) -> None:
+        action = {"type": "shell", "action": "echo canonical"}
+        result = self.executor.execute_builtin("test", action, [], {})
+        assert "canonical" in result
+
     def test_execute_builtin_shell(self) -> None:
         """Execute a shell-type built-in command."""
         action = {"type": "shell", "target": "echo hello"}

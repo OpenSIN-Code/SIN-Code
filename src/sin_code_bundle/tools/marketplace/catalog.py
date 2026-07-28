@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: MIT
-# Purpose: Read and query the Infra-SIN-OpenCode-Stack skills catalog
+# Purpose: Read and query the canonical SIN-Code skills catalog
 # Docs: catalog.py.doc.md
 """
 Catalog reader for the OpenSIN-Code skill marketplace.
 
 Handles fetching, parsing, and querying the canonical skills catalog
-from the Infra-SIN-OpenCode-Stack repository.
+from the canonical SIN-Code repository.
 """
 
 import json
@@ -21,8 +21,9 @@ logger = logging.getLogger(__name__)
 # ── Constants ───────────────────────────────────────────────────────────────
 CATALOG_URL = (
     "https://raw.githubusercontent.com/"
-    "OpenSIN-Code/Infra-SIN-OpenCode-Stack/main/skills/catalog.json"
+    "OpenSIN-Code/SIN-Code/main/src/sin_code_bundle/data/marketplace/catalog.json"
 )
+BUNDLED_CATALOG_PATH = Path(__file__).resolve().parents[2] / "data" / "marketplace" / "catalog.json"
 DEFAULT_TIMEOUT = 30.0
 
 # ── Types ─────────────────────────────────────────────────────────────────────
@@ -82,6 +83,10 @@ class Catalog:
 
         self._entries = payload
         logger.info("Loaded %d skills from catalog", len(self._entries))
+
+    def load_bundled(self) -> None:
+        """Load the catalog snapshot shipped with the installed SIN-Code package."""
+        self.load_file(BUNDLED_CATALOG_PATH)
 
     def load_file(self, path: Path | str) -> None:
         """Load catalog from local JSON file.

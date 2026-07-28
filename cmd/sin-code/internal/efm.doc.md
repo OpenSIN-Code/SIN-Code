@@ -73,9 +73,9 @@ sin-code efm --action up --stack test-env.yml --format json
 
 ## Known caveats / footguns
 
-- **Runtime detection uses a test hook:** `detectContainerRuntime` consults the package-level `efmGOOS` variable (default `runtime.GOOS`). This allows unit tests to exercise macOS and Linux branches on any host. Production code should never modify it.
+- **Runtime detection uses a test hook:** `detectContainerRuntime` consults the package-level `efmGOOS` variable (default `runtime.GOOS`). Automatic detection prefers the Docker-compatible `docker` CLI on every platform, including OrbStack hosts; the `orb` management CLI remains available through an explicit runtime override. This allows unit tests to exercise macOS and Linux branches on any host. Production code should never modify the hook.
 - **Compose vs legacy fallback:** Tries `<runtime> compose` first, then `<runtime>-compose` (or `docker-compose` for empty runtime). If none work, the command fails.
-- **Auto-detect prefers OrbStack on macOS** when both runtimes are installed. Use `--runtime docker` to force the legacy path.
+- **Auto-detect prefers the Docker-compatible CLI on macOS.** Use `--runtime orb` only when you intentionally want the OrbStack management CLI path.
 - **No auto-cleanup enforcement:** TTL metadata is written but not acted upon. You must run a separate cleanup job (e.g., cron) that reads `.meta` files and calls `efm --action down` for expired stacks.
 - **Daemon must be running:** If the chosen runtime's daemon is not running, `<runtime> ps` fails and the error is returned. No automatic daemon start is attempted.
 - **Stack file path must be absolute or resolvable:** Relative paths are resolved to absolute before passing to `<runtime> compose -f`. Ensure the file exists before calling `up`/`down`.

@@ -42,6 +42,8 @@ def _get_catalog(cache_path: Path | None = None) -> Catalog:
         cache_path = Path.home() / ".config" / "opencode" / "skills_catalog.json"
     if cache_path.exists():
         catalog.load_file(cache_path)
+    else:
+        catalog.load_bundled()
     return catalog
 
 
@@ -206,7 +208,7 @@ def update(
 
 @app.command("sync")
 def sync() -> None:
-    """Sync catalog with Infra-SIN-OpenCode-Stack."""
+    """Sync the catalog with the canonical SIN-Code source."""
     catalog = Catalog()
     try:
         asyncio.run(catalog.load_remote())

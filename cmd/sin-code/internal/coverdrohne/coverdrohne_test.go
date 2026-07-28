@@ -409,6 +409,12 @@ func TestGenerateCmdOutFile(t *testing.T) {
 }
 
 func TestGenerateCmdNotFound(t *testing.T) {
+	oldRunGoTest := runGoTestHook
+	runGoTestHook = func(dir, packages, coverprofile string) ([]byte, error) {
+		return []byte("ok  github.com/example/a  0.010s  coverage: 75.0% of statements\n"), nil
+	}
+	t.Cleanup(func() { runGoTestHook = oldRunGoTest })
+
 	cmd := newGenerateCmd()
 	cmd.SetOut(&strings.Builder{})
 	cmd.SetArgs([]string{"--root", repoRoot(), "--packages", "./cmd/sin-code/internal/instinct", "--package", "nonexistent-package-xyz"})

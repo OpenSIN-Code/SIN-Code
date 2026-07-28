@@ -24,7 +24,6 @@ import sys
 
 import pytest
 
-
 pytestmark = pytest.mark.skipif(
     shutil.which("sin-code") is None,
     reason="sin-code binary not found on PATH",
@@ -88,7 +87,7 @@ def test_sin_bash_echo_double_parsed():
     assert "hello" in data["stdout"]
     if data.get("redacted"):
         inner = json.loads(data["stdout"])
-        assert "hello" in inner["stdout"] 
+        assert "hello" in inner["stdout"]
 
 
 def _maybe_inner_json(data):
@@ -163,7 +162,7 @@ def test_sin_bash_command_from_stdin():
         inner = json.loads(data["stdout"])
         assert "from_stdin" in inner["stdout"]
     else:
-        assert "from_stdin" in data["stdout"] 
+        assert "from_stdin" in data["stdout"]
 
 
 def test_sin_bash_requires_command_flag():

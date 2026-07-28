@@ -4,6 +4,7 @@
 Utility functions that are NOT decorated with @app.command() but are used
 by command functions in cli.py, cli_sin_code.py, and cli_misc.py.
 """
+
 from __future__ import annotations
 
 import shutil
@@ -44,10 +45,6 @@ _NEW_TOOL_BINARIES = {
     "efm": ("SIN-Code-EFM-Tool", "efm"),
     "forge": ("SIN-Code-Forge-Tool", "forge"),
 }
-
-# CEO Audit skill paths
-_CEO_AUDIT_SKILL_PATH = Path.home() / ".config" / "opencode" / "skills" / "ceo-audit"
-_CEO_AUDIT_SCRIPT = _CEO_AUDIT_SKILL_PATH / "scripts" / "audit.sh"
 
 # Catalog used by the non-TTY fallback in `tui`.
 _TU_CATALOG = [
@@ -186,7 +183,5 @@ __all__ = [
     "_forward_to_binary",
     "_forward_security_subcommand",
     "_build_cli_runner",
-    "_CEO_AUDIT_SKILL_PATH",
-    "_CEO_AUDIT_SCRIPT",
     "_TU_CATALOG",
 ]

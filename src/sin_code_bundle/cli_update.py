@@ -4,6 +4,7 @@
 Also includes the top-level ``forge`` and ``tui`` commands which were
 co-located with the update group in the original cli.py.
 """
+
 from __future__ import annotations
 
 import json
@@ -13,7 +14,6 @@ import subprocess
 import typer
 
 from sin_code_bundle.cli_app import app, update_app
-
 
 # ── Thin binary wrappers for new SIN-Code tools (v0.10.0) ──────────────────
 _NEW_TOOL_BINARIES = {
@@ -128,6 +128,7 @@ _TU_CATALOG = [
 
 # ── v1.4.0 — update commands ────────────────────────────────────────────────
 # See update.doc.md for per-module design notes.
+
 
 @update_app.callback()
 def _update_callback() -> None:

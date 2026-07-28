@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Hashline anchor patching sub-commands — extracted from cli.py."""
+
 from __future__ import annotations
 
 import json

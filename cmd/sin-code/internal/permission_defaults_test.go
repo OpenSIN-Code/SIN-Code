@@ -68,6 +68,19 @@ func TestPermissionDefaultRules(t *testing.T) {
 		}
 	}
 
+	// YouTube keeps explicit read-only tools allowed and uses an Ask fallback
+	// for any newly introduced or unknown tool. First-match semantics ensure
+	// the specific allow rules above the wildcard retain precedence.
+	if got := eng.Check("youtube__search"); got != permission.Allow {
+		t.Errorf("youtube__search expected Allow, got %s", got)
+	}
+	if got := eng.Check("youtube__download"); got != permission.Ask {
+		t.Errorf("youtube__download expected Ask, got %s", got)
+	}
+	if got := eng.Check("youtube__future_mutation"); got != permission.Ask {
+		t.Errorf("youtube__future_mutation expected Ask fallback, got %s", got)
+	}
+
 	// v3.22.0 (issue #323): read-only todo MCP tools default to allow;
 	// mutating todo tools default to ask.
 	readOnlyTodos := []string{

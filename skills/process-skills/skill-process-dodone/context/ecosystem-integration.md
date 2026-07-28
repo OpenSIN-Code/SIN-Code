@@ -42,7 +42,7 @@
 | **Goal Mode** | SIN-Code-Goal-Mode-Skill | `goal_start`, `goal_status`, `goal_checkpoint`, `goal_rollback`, `goal_subtask`, `goal_report` | DoD-Kriterien als Subtasks. Checkpoint vor Risiko-Änderungen. Rollback bei DoD-Fail. |
 | **Grill Me** | SIN-Code-Grill-Me-Skill | `grill_start`, `grill_next_question`, `grill_record_answer`, `grill_synthesize` | DoD-Kriterien vor Implementierung grillen. "Was sind die Erfolgskriterien? Wie wissen wir dass es funktioniert?" |
 | **Orchestration** | SIN-Code-Orchestration | `orchestrate_tasks`, `run_workflow` | DoD-Checks parallel als DAG dispatchen. `Oracle` verifiziert每个Task-Output. |
-| **Slash** | SIN-Code-Slash-Skill | `slash_dispatch`, `slash_register`, `slash_list` | `/dodone` als Slash-Command registrieren und dispatchen. |
+| **Slash** | SIN-Code (bundled) | `sin slash` plus legacy `slash_dispatch`, `slash_register`, `slash_list` compatibility | `/dodone` als gebündelten SIN-Code-Slash-Command registrieren und dispatchen. |
 
 ### Tier 5: Infra-SIN-OpenCode-Stack (Commands + Agents)
 

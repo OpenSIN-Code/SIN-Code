@@ -40,26 +40,23 @@
 - **Risiko**: Mittel (sin-code-bundle exposed `sin codocs` CLI)
 - **Status**: ✅ **ABGESCHLOSSEN** — v1.0.0 in  live. Alte Repos deprecated. CLI: `sin-codocs check|sprint|generate|repair`.
 
-### 🥈 Konsolidierung 2: sin-slash → opencode built-in
-- **Warum**: opencode hat `command` in config — Custom-Slash-Commands gehen ohne Skill
-- **Beweis**: opencode.json hat `command` Top-Level key, identische Funktionalität
-- **Aufwand**: 30 min (Skill deprecaten, Commands in opencode.json migrieren)
-- **Risiko**: Niedrig (User-facing, leicht testbar)
-- **Empfehlung**: ⚠️ **PRÜFEN** — wenn opencode built-in reicht, skill deprecaten
+### ✅ Konsolidierung 2: sin-slash → SIN-Code
+- **Warum**: Slash-Registry, Parser, Dispatcher und MCP-Oberfläche gehören zum Coding-Produkt.
+- **Beweis**: Die Implementierung liegt unter `sin_code_bundle.tools.slash`; `sin slash` und der alte `sin-slash`-Entrypoint bleiben verfügbar.
+- **Parität**: 146 ursprüngliche Standalone-Tests laufen gegen die kanonische SIN-Code-Kompatibilitätsschicht.
+- **Status**: ✅ **ABGESCHLOSSEN** — Standalone-Repository nach Merge von #512 archivieren.
 
-### 🥉 Konsolidierung 3: sin-mcp-server-builder → sin-code-bundle CLI
-- **Warum**: 8 Tools für MCP-Scaffolding. Gehört als `sin mcp-server` Subcommand ins Bundle
-- **Überschneidung**: sin-code-bundle ist die Meta-CLI, sollte alle Meta-Operations bündeln
-- **Aufwand**: 1-2h (Logic ins Bundle portieren, Skill deprecaten)
-- **Risiko**: Niedrig
-- **Empfehlung**: ⚠️ **PRÜFEN** — guter Kandidat für Bundle
+### ✅ Konsolidierung 3: sin-mcp-server-builder → SIN-Code CLI
+- **Warum**: Scaffolding, Validierung, Tests, Registrierung, Publishing und Audit sind Meta-Operationen des Coding-Produkts.
+- **Beweis**: `sin mcp-server`, das gebündelte MCP-Modul und alle acht früheren CLI-Shims werden aus SIN-Code ausgeliefert.
+- **Parität**: 120 ursprüngliche Standalone-Tests laufen gegen die kanonische Kompatibilitätsschicht.
+- **Status**: ✅ **ABGESCHLOSSEN** — Standalone-Repository nach Merge von #512 archivieren.
 
-### 4️⃣ Konsolidierung 4: sin-marketplace → sin-code-bundle CLI
-- **Warum**: `sin marketplace` als Subcommand im Bundle ist naheliegender als separater Skill
-- **Überschneidung**: Bundle IST die Meta-CLI, marketplace IST eine Meta-Operation
-- **Aufwand**: 1h
-- **Risiko**: Niedrig
-- **Empfehlung**: ⚠️ **PRÜFEN** — auch ein Bundle-Kandidat
+### ✅ Konsolidierung 4: sin-marketplace → SIN-Code CLI
+- **Warum**: Suche, Installation, Registry und Updates sind Meta-Operationen des Coding-Produkts.
+- **Beweis**: `sin marketplace`, der alte `sin-marketplace`-Entrypoint und das gebündelte MCP-Modul werden aus SIN-Code ausgeliefert.
+- **Katalog**: Der kanonische, pfadfreie Katalog wird im SIN-Code-Wheel ausgeliefert und kann optional aus SIN-Code aktualisiert werden; Infra ist keine Laufzeitabhängigkeit mehr.
+- **Status**: ✅ **ABGESCHLOSSEN** — Standalone-Repository nach Merge von #512 archivieren.
 
 ### 5️⃣ Konsolidierung 5: sin-context-bridge ↔ gitnexus-impact-analysis
 - **Warum**: Beide fragen Knowledge-Graph ab, gitnexus = spezifisch, bridge = generisch
@@ -85,13 +82,13 @@
 | Vorher | Nachher | Typ |
 |---|---|---|
 | sin-codocs + sin-codocs-sprint | **sin-codocs** (mit sprint/repair subcommands) | Merge |
-| sin-slash | (in opencode.json `command`) | Deprecate |
-| sin-mcp-server-builder | (in sin-code-bundle) | Bundle-ify |
-| sin-marketplace | (in sin-code-bundle) | Bundle-ify |
+| sin-slash | `sin slash` in SIN-Code | Bundled; archive standalone |
+| sin-mcp-server-builder | `sin mcp-server` in SIN-Code | Bundled; archive standalone |
+| sin-marketplace | `sin marketplace` in SIN-Code | Bundled; archive standalone |
 | sin-context-bridge | (bleibt, ggf. gitnexus subsumieren) | Klären |
 | Rest 12 Skills | unverändert | ✅ |
 
-**Reduktion: 17 → 12-13 Skills** (28% weniger Komplexität)
+**Reduktion:** drei eigenständige Runtime-/Repository-Flächen werden durch ein kanonisches SIN-Code-Paket mit erhaltenen Kompatibilitätsoberflächen ersetzt.
 
 ---
 

@@ -412,17 +412,6 @@ func doctorVaneConfig() Component {
 func doctorVaneHealth() Component {
 	cfg, _, _ := vane.LoadConfig()
 	cli := vane.NewClient(cfg)
-	if cli == nil {
-		// Graceful degradation: a configured-but-down instance is
-		// NOT a failure for Doctor. Install/Doctor only fail when
-		// the local config is broken, not when the remote is up.
-		return Component{
-			Name:   "vane.health",
-			Layer:  string(LayerVane),
-			OK:     true,
-			Detail: "DOWN (no client) — informational only",
-		}
-	}
 	// Use a short timeout so Doctor never blocks on a slow vane.
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()

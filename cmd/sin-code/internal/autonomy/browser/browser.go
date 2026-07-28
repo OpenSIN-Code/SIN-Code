@@ -10,9 +10,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/egress"
 )
 
 // Request is a single HTTP fetch specification.
@@ -63,27 +66,38 @@ type Page struct {
 	Response Response
 }
 
+// URLPolicy controls which network destinations the autonomy browser may reach.
+// The secure default blocks localhost, private, link-local, multicast, and
+// unspecified addresses. Tests and explicitly trusted local workflows can opt in.
+type URLPolicy = egress.Policy
+
 // Browser wraps a Transport and provides Navigate/Render helpers.
 type Browser struct {
 	transport Transport
+	policy    URLPolicy
 	mu        sync.Mutex
 	defaultUA string
 }
 
-// NewBrowser returns a Browser backed by the given Transport. If t is nil
-// a stdlib HTTP transport is used.
+// NewBrowser returns a Browser with the secure default URL policy.
 func NewBrowser(t Transport) *Browser {
+	return NewBrowserWithPolicy(t, URLPolicy{})
+}
+
+// NewBrowserWithPolicy returns a Browser backed by t and the supplied policy.
+// A nil transport uses the guarded stdlib HTTP transport.
+func NewBrowserWithPolicy(t Transport, policy URLPolicy) *Browser {
 	if t == nil {
-		t = &stdlibTransport{}
+		t = &stdlibTransport{policy: policy}
 	}
-	return &Browser{transport: t, defaultUA: "SIN-Code-Browser/1.0"}
+	return &Browser{transport: t, policy: policy, defaultUA: "SIN-Code-Browser/1.0"}
 }
 
 // Fetch issues an HTTP request through the transport and returns the
 // response. A timeout of 0 falls back to the context deadline.
 func (b *Browser) Fetch(ctx context.Context, req Request) (Response, error) {
-	if req.URL == "" {
-		return Response{}, fmt.Errorf("browser: empty URL")
+	if _, err := egress.ValidateURL(req.URL, b.policy); err != nil {
+		return Response{}, fmt.Errorf("browser: %w", err)
 	}
 	if req.Method == "" {
 		req.Method = http.MethodGet
@@ -127,7 +141,7 @@ func (b *Browser) Render(ctx context.Context, url string, opts RenderOpts) (Rend
 		ctx, cancel = context.WithTimeout(ctx, opts.Timeout)
 		defer cancel()
 	}
-	resp, err := b.transport.Fetch(ctx, req)
+	resp, err := b.Fetch(ctx, req)
 	if err != nil {
 		return RenderResult{}, fmt.Errorf("render %s: %w", url, err)
 	}
@@ -141,9 +155,14 @@ func (b *Browser) Render(ctx context.Context, url string, opts RenderOpts) (Rend
 // --- stdlib transport ------------------------------------------------------
 
 // stdlibTransport is the default Transport backed by net/http.
-type stdlibTransport struct{}
+type stdlibTransport struct {
+	policy URLPolicy
+}
 
 func (s *stdlibTransport) Fetch(ctx context.Context, req Request) (Response, error) {
+	if err := egress.Check(ctx, req.URL, s.policy); err != nil {
+		return Response{}, err
+	}
 	var bodyReader io.Reader
 	if len(req.Body) > 0 {
 		bodyReader = newBytesReader(req.Body)
@@ -155,7 +174,18 @@ func (s *stdlibTransport) Fetch(ctx context.Context, req Request) (Response, err
 	for k, v := range req.Headers {
 		httpReq.Header.Set(k, v)
 	}
-	client := &http.Client{}
+	transport := &http.Transport{
+		Proxy:       nil,
+		DialContext: guardedDialContext(s.policy),
+	}
+	defer transport.CloseIdleConnections()
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   30 * time.Second,
+		CheckRedirect: func(next *http.Request, _ []*http.Request) error {
+			return egress.Check(next.Context(), next.URL.String(), s.policy)
+		},
+	}
 	if req.Timeout > 0 {
 		client.Timeout = req.Timeout
 	}
@@ -181,6 +211,40 @@ func (s *stdlibTransport) Fetch(ctx context.Context, req Request) (Response, err
 		Body:       body,
 		Duration:   time.Since(start),
 	}, nil
+}
+
+func guardedDialContext(policy URLPolicy) func(context.Context, string, string) (net.Conn, error) {
+	dialer := &net.Dialer{Timeout: 15 * time.Second, KeepAlive: 30 * time.Second}
+	return func(ctx context.Context, network, address string) (net.Conn, error) {
+		if policy.AllowPrivateNetworks {
+			return dialer.DialContext(ctx, network, address)
+		}
+		host, port, err := net.SplitHostPort(address)
+		if err != nil {
+			return nil, fmt.Errorf("invalid destination %q: %w", address, err)
+		}
+		resolved, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+		if err != nil {
+			return nil, fmt.Errorf("resolve %q: %w", host, err)
+		}
+		var lastErr error
+		for _, candidate := range resolved {
+			if egress.IsPrivate(candidate.IP) {
+				continue
+			}
+			conn, dialErr := dialer.DialContext(
+				ctx, network, net.JoinHostPort(candidate.IP.String(), port),
+			)
+			if dialErr == nil {
+				return conn, nil
+			}
+			lastErr = dialErr
+		}
+		if lastErr != nil {
+			return nil, lastErr
+		}
+		return nil, fmt.Errorf("all resolved addresses for %q are blocked", host)
+	}
 }
 
 // bytesReader wraps a []byte as an io.Reader without importing bytes at

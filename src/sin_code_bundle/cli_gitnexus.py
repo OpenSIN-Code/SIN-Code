@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """GitNexus sub-commands — extracted from cli.py."""
+
 from __future__ import annotations
 
 import json

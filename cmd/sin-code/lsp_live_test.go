@@ -33,6 +33,6 @@ func TestLspLive(t *testing.T) {
 		}
 	}
 	testscript.Run(t, testscript.Params{
-		Dir: "testdata/scripts",
+		Dir: "testdata/lsp-live",
 	})
 }
