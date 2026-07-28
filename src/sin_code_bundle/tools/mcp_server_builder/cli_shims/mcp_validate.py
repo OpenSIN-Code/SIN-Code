@@ -5,6 +5,7 @@
 
 Usage: mcp-validate <PROJECT_DIR>
 """
+
 from __future__ import annotations
 
 import argparse
@@ -14,7 +15,10 @@ from ..mcp_server import mcp_validate
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="mcp-validate", description="Validate an MCP server (tools, type hints, docstrings, CoDocs).")
+    parser = argparse.ArgumentParser(
+        prog="mcp-validate",
+        description="Validate an MCP server (tools, type hints, docstrings, CoDocs).",
+    )
     parser.add_argument("project_dir")
     args = parser.parse_args(argv)
     try:

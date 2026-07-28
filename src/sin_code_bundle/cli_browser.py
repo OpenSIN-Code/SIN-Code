@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Browser sub-commands — extracted from cli.py."""
+
 from __future__ import annotations
 
 import json as _json

@@ -17,6 +17,7 @@ Exit codes:
     2  browser_cookie3 not installed
     3  Infisical store failed
 """
+
 from __future__ import annotations
 
 import json
@@ -30,6 +31,7 @@ COOKIE_PATH = Path.home() / ".config" / "sin-youtube" / "cookies.json"
 def extract_from_chrome() -> list[dict] | None:
     try:
         import browser_cookie3
+
         cj = browser_cookie3.chrome(domain_name="youtube.com")
         return _to_json(cj)
     except Exception:
@@ -39,6 +41,7 @@ def extract_from_chrome() -> list[dict] | None:
 def extract_from_safari() -> list[dict] | None:
     try:
         import browser_cookie3
+
         cj = browser_cookie3.safari(domain_name="youtube.com")
         return _to_json(cj)
     except Exception:
@@ -48,6 +51,7 @@ def extract_from_safari() -> list[dict] | None:
 def extract_from_firefox() -> list[dict] | None:
     try:
         import browser_cookie3
+
         cj = browser_cookie3.firefox(domain_name="youtube.com")
         return _to_json(cj)
     except Exception:
@@ -57,14 +61,16 @@ def extract_from_firefox() -> list[dict] | None:
 def _to_json(cookiejar) -> list[dict]:
     cookies = []
     for c in cookiejar:
-        cookies.append({
-            "name": c.name,
-            "value": c.value,
-            "domain": c.domain,
-            "path": c.path,
-            "secure": c.secure,
-            "expires": c.expires if c.expires else None,
-        })
+        cookies.append(
+            {
+                "name": c.name,
+                "value": c.value,
+                "domain": c.domain,
+                "path": c.path,
+                "secure": c.secure,
+                "expires": c.expires if c.expires else None,
+            }
+        )
     return cookies
 
 
@@ -78,13 +84,15 @@ def save_local(cookies: list[dict]) -> Path:
 
 def store_infisical(cookie_path: Path) -> bool:
     import subprocess
+
     script = Path.home() / ".config/opencode/skills/sin-youtube/scripts/cookie-store.sh"
     if not script.exists():
         print("[skip] cookie-store.sh not found", file=sys.stderr)
         return False
     result = subprocess.run(
         ["bash", str(script), str(cookie_path)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if result.returncode == 0:
         print("[ok] Stored in Infisical as YOUTUBE_COOKIES_JSON")
@@ -97,9 +105,11 @@ def main() -> int:
     store_inf = "--store-infisical" in sys.argv
 
     # Try browsers in order
-    for name, fn in [("Chrome", extract_from_chrome),
-                     ("Safari", extract_from_safari),
-                     ("Firefox", extract_from_firefox)]:
+    for name, fn in [
+        ("Chrome", extract_from_chrome),
+        ("Safari", extract_from_safari),
+        ("Firefox", extract_from_firefox),
+    ]:
         cookies = fn()
         if cookies and len(cookies) > 0:
             path = save_local(cookies)

@@ -8,18 +8,16 @@ and formatting helpers.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
-from sin_code_bundle import config
 from sin_code_bundle.config import (
+    MISSING,
+    REDACTED_PLACEHOLDER,
     ConfigSource,
     ConfigView,
-    MISSING,
     Missing,
-    REDACTED_PLACEHOLDER,
     _dig,
     _is_sensitive,
     _read_env,
@@ -38,7 +36,6 @@ from sin_code_bundle.config import (
 # when it is not installed.
 tomli_w = pytest.importorskip("tomli_w", reason="tomli_w not installed")
 from sin_code_bundle.config import set_value, unset_value  # noqa: E402
-
 
 # ════════════════════════════════════════════════════════════════════════
 # Sentinel
@@ -485,9 +482,14 @@ class TestFormatShow:
 
     def test_dotted_keys_with_origin(self):
         payload = {"tui": {"theme": "dark"}}
-        origins = {"tui.theme": ConfigSource(
-            path=Path("x"), exists=True, priority=2, label="project",
-        )}
+        origins = {
+            "tui.theme": ConfigSource(
+                path=Path("x"),
+                exists=True,
+                priority=2,
+                label="project",
+            )
+        }
         result = format_show(payload, origins)
         assert "tui.theme" in result
         assert "'dark'" in result
@@ -495,9 +497,14 @@ class TestFormatShow:
 
     def test_scalar_top_level(self):
         payload = {"version": "1.0"}
-        origins = {"version": ConfigSource(
-            path=Path("x"), exists=True, priority=0, label="global",
-        )}
+        origins = {
+            "version": ConfigSource(
+                path=Path("x"),
+                exists=True,
+                priority=0,
+                label="global",
+            )
+        }
         result = format_show(payload, origins)
         assert "version" in result
         assert "'1.0'" in result

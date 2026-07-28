@@ -23,9 +23,7 @@ CATALOG_URL = (
     "https://raw.githubusercontent.com/"
     "OpenSIN-Code/SIN-Code/main/src/sin_code_bundle/data/marketplace/catalog.json"
 )
-BUNDLED_CATALOG_PATH = (
-    Path(__file__).resolve().parents[2] / "data" / "marketplace" / "catalog.json"
-)
+BUNDLED_CATALOG_PATH = Path(__file__).resolve().parents[2] / "data" / "marketplace" / "catalog.json"
 DEFAULT_TIMEOUT = 30.0
 
 # ── Types ─────────────────────────────────────────────────────────────────────

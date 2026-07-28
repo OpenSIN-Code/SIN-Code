@@ -5,6 +5,7 @@
 
 Usage: mcp-scaffold --name NAME --description DESC [--target DIR] [--tools CSV] [--template T]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -14,15 +15,28 @@ from ..mcp_server import mcp_scaffold
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="mcp-scaffold", description="Scaffold a new MCP server from a spec.")
+    parser = argparse.ArgumentParser(
+        prog="mcp-scaffold", description="Scaffold a new MCP server from a spec."
+    )
     parser.add_argument("--name", required=True, help='Human-readable name (e.g. "My Cool Tool").')
-    parser.add_argument("--description", required=True, help="One-line description for README/pyproject.")
+    parser.add_argument(
+        "--description", required=True, help="One-line description for README/pyproject."
+    )
     parser.add_argument("--target", default=None, help="Output directory (must be empty).")
-    parser.add_argument("--tools", default="ping", help='Comma-separated tool names (default: "ping").')
-    parser.add_argument("--template", default="python-fastmcp", choices=["python-fastmcp", "node-mcp", "go-mcp"])
+    parser.add_argument(
+        "--tools", default="ping", help='Comma-separated tool names (default: "ping").'
+    )
+    parser.add_argument(
+        "--template", default="python-fastmcp", choices=["python-fastmcp", "node-mcp", "go-mcp"]
+    )
     args = parser.parse_args(argv)
     try:
-        kwargs: dict = {"name": args.name, "description": args.description, "tools": args.tools, "template": args.template}
+        kwargs: dict = {
+            "name": args.name,
+            "description": args.description,
+            "tools": args.tools,
+            "template": args.template,
+        }
         if args.target:
             kwargs["target"] = args.target
         print(mcp_scaffold(**kwargs))

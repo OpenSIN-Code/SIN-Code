@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Compatibility alias for ``sin_code_bundle.tools.slash.executor``."""
+
 import sys as _sys
 from importlib import import_module as _import_module
 

@@ -14,30 +14,30 @@ import typer
 # Single source of truth for the app instance — cli_app defines all sub-apps
 # and wires them to the root ``app`` via ``add_typer``.
 from sin_code_bundle.cli_app import app  # noqa: F401
+from sin_code_bundle.cli_ast import *  # noqa: F401,F403
+from sin_code_bundle.cli_audit import *  # noqa: F401,F403
+from sin_code_bundle.cli_browser import *  # noqa: F401,F403
+from sin_code_bundle.cli_codocs import *  # noqa: F401,F403
+from sin_code_bundle.cli_config import *  # noqa: F401,F403
+from sin_code_bundle.cli_docs import *  # noqa: F401,F403
+from sin_code_bundle.cli_git import *  # noqa: F401,F403
+from sin_code_bundle.cli_gitnexus import *  # noqa: F401,F403
+from sin_code_bundle.cli_hashline import *  # noqa: F401,F403
+from sin_code_bundle.cli_lint import *  # noqa: F401,F403
+from sin_code_bundle.cli_markitdown import *  # noqa: F401,F403
+from sin_code_bundle.cli_misc import *  # noqa: F401,F403
+from sin_code_bundle.cli_pocock import *  # noqa: F401,F403
+from sin_code_bundle.cli_rtk import *  # noqa: F401,F403
 
 # ── Extracted command modules ───────────────────────────────────────────────
 # Each module imports its sub-app from cli_app and registers commands via
 # decorators. Import order does not matter — all apps are already created.
 from sin_code_bundle.cli_sckg import *  # noqa: F401,F403
 from sin_code_bundle.cli_security import *  # noqa: F401,F403
-from sin_code_bundle.cli_audit import *  # noqa: F401,F403
 from sin_code_bundle.cli_serve import *  # noqa: F401,F403
 from sin_code_bundle.cli_sin_code import *  # noqa: F401,F403
-from sin_code_bundle.cli_misc import *  # noqa: F401,F403
-from sin_code_bundle.cli_gitnexus import *  # noqa: F401,F403
-from sin_code_bundle.cli_markitdown import *  # noqa: F401,F403
-from sin_code_bundle.cli_rtk import *  # noqa: F401,F403
-from sin_code_bundle.cli_codocs import *  # noqa: F401,F403
-from sin_code_bundle.cli_pocock import *  # noqa: F401,F403
-from sin_code_bundle.cli_git import *  # noqa: F401,F403
-from sin_code_bundle.cli_lint import *  # noqa: F401,F403
-from sin_code_bundle.cli_docs import *  # noqa: F401,F403
-from sin_code_bundle.cli_config import *  # noqa: F401,F403
 from sin_code_bundle.cli_update import *  # noqa: F401,F403
-from sin_code_bundle.cli_browser import *  # noqa: F401,F403
 from sin_code_bundle.cli_vfs import *  # noqa: F401,F403
-from sin_code_bundle.cli_hashline import *  # noqa: F401,F403
-from sin_code_bundle.cli_ast import *  # noqa: F401,F403
 
 # NOTE: The `sin memory {retain,recall,reflect,stats,forget}` and
 # `sin memory {honcho-status,honcho-retain,honcho-chat}` + `sin context query`

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Compatibility alias for the former Marketplace Typer CLI."""
+
 import sys as _sys
 from importlib import import_module as _import_module
 

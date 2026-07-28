@@ -67,7 +67,7 @@ can decide "ready" vs "fix first" in one read.
 - **ceo-audit ceiling is 3 minutes.** A failing or absent `sin` CLI returns
   `ceo_audit_grade: null` — the session_recommendation will then fall
   through to the dirty-tree check or to `READY`. Install the full bundle
-  (`pip install sin-code-bundle[ceo-audit]`) for proper coverage.
+  (`pip install sin-code`) for proper coverage.
 - **Top-risks heuristic is intentionally cheap.** It's just "5 largest
   Python files". For real architectural-debt signals, run ceo-audit
   with the FULL profile or call `sin_session_warmup` after the agent
