@@ -19,6 +19,7 @@ from sin_code_bundle.cli_forward import (  # noqa: F401
     _normalize_root_flag,
     _require,
 )
+from sin_code_bundle.json_utils import jsonable
 
 
 # ── Core Status / Bootstrap Commands ────────────────────────────────────────
@@ -112,7 +113,8 @@ def review(file_a: Path, file_b: Path):
     changes = ASTDiff().diff_files(str(file_a), str(file_b))
     intents = IntentSummarizer().summarize(changes)
     risk = RiskScorer().score(changes)
-    typer.echo(json.dumps({"intents": [i.__dict__ for i in intents], "risk": risk}, indent=2))
+
+    typer.echo(json.dumps({"intents": jsonable(intents), "risk": jsonable(risk)}, indent=2))
 
 
 @app.command()

@@ -12,6 +12,7 @@ import typer
 
 from sin_code_bundle.cli_app import app
 from sin_code_bundle.file_ops import sin_bash as _sin_bash_impl
+from sin_code_bundle.json_utils import jsonable
 
 _EXCLUDE = {"venv", ".venv", "node_modules", ".git", "__pycache__"}
 
@@ -49,7 +50,7 @@ def serve():
             changes = ASTDiff().diff_files(file_a, file_b)
             intents = IntentSummarizer().summarize(changes)
             risk = RiskScorer().score(changes)
-            return json.dumps({"intents": [i.__dict__ for i in intents], "risk": risk})
+            return json.dumps({"intents": jsonable(intents), "risk": jsonable(risk)})
     except ImportError:
         pass
 
@@ -145,9 +146,9 @@ def serve():
             risk = RiskScorer().score(changes)
             return json.dumps(
                 {
-                    "intents": [i.__dict__ for i in intents],
-                    "risk": risk,
-                    "recommendation": "Approve" if risk["risk"] == "low" else "Review Manually",
+                    "intents": jsonable(intents),
+                    "risk": jsonable(risk),
+                    "recommendation": "Review risk details",
                 }
             )
     except ImportError:

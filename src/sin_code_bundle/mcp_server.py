@@ -87,6 +87,7 @@ from sin_code_bundle.file_ops import (
 from sin_code_bundle.file_ops import (
     sin_write as _sin_write_impl,
 )
+from sin_code_bundle.json_utils import jsonable
 
 mcp = FastMCP("sin-code-bundle")
 
@@ -294,7 +295,7 @@ def _try_subsystem_tools() -> None:
             changes = ASTDiff().diff_files(file_a, file_b)
             intents = IntentSummarizer().summarize(changes)
             risk = RiskScorer().score(changes)
-            return json.dumps({"intents": [i.__dict__ for i in intents], "risk": risk})
+            return json.dumps({"intents": jsonable(intents), "risk": jsonable(risk)})
 
         @mcp.tool()
         def semantic_review(file_a: str, file_b: str) -> str:
@@ -304,8 +305,8 @@ def _try_subsystem_tools() -> None:
             risk = RiskScorer().score(changes)
             return json.dumps(
                 {
-                    "intents": [i.__dict__ for i in intents],
-                    "risk": risk,
+                    "intents": jsonable(intents),
+                    "risk": jsonable(risk),
                     "verdict": "see risk.score",
                 }
             )
