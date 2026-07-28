@@ -78,9 +78,9 @@
 
 | Repo | Superseded by | Action |
 |---|---|---|
-| SIN-Code-Slash-Skill | `internal/commands` (C8, in-tree since v3.2.0) | ARCHIVE |
-| SIN-Code-Marketplace-Skill | `sin marketplace` + bundled MCP module | ARCHIVE after #512 |
-| SIN-Code-MCP-Server-Builder-Skill | `sin mcp-server` + bundled MCP module | ARCHIVE after #512 |
+| SIN-Code-Slash-Skill | `sin slash` + compatibility namespace/CLI | ARCHIVED |
+| SIN-Code-Marketplace-Skill | `sin marketplace` + bundled MCP module | ARCHIVED |
+| SIN-Code-MCP-Server-Builder-Skill | `sin mcp-server` + bundled MCP module | ARCHIVED |
 | SIN-Code-Security-Bundle | in-tree Go vendors: SIN-Code-SAST-Tool, SIN-Code-SBOM-Generator-Go, SIN-Code-SCA-Tool-Go, SIN-Code-Secrets-Scanner | ACTIVE (vendored) |
 | SIN-Code-Security-Bundle-Python | `python -m sin_code_bundle.tools.security` | DEPRECATED (use vendored Go tools) |
 
