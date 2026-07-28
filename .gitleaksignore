@@ -1,0 +1,30 @@
+# Existing synthetic scanner fixtures and documentation examples reviewed during
+# the CEO Audit migration. Entries are exact Gitleaks fingerprints, never broad
+# path allowlists: any new rule hit or shifted/new fixture must be reviewed again.
+SIN-Code-SAST-Tool/internal/engine/engine_test.go:generic-api-key:85
+SIN-Code-SAST-Tool/internal/engine/engine_test.go:generic-api-key:86
+SIN-Code-Secrets-Scanner/internal/engine/engine_test.go:generic-api-key:47
+SIN-WEBSEARCH-DIAGNOSE-2026-06-15.md:generic-api-key:87
+cmd/sin-code/internal/config/config_test.go:generic-api-key:233
+cmd/sin-code/internal/config/config_test.go:generic-api-key:258
+cmd/sin-code/internal/config_test.go:generic-api-key:615
+cmd/sin-code/internal/config_test.go:generic-api-key:815
+cmd/sin-code/internal/config_test.go:generic-api-key:850
+cmd/sin-code/internal/execute_extended_test.go:generic-api-key:296
+cmd/sin-code/internal/execute_extended_test.go:generic-api-key:307
+cmd/sin-code/internal/execute_extended_test.go:generic-api-key:315
+cmd/sin-code/internal/execute_extended_test.go:generic-api-key:323
+cmd/sin-code/internal/execute_extended_test.go:generic-api-key:366
+cmd/sin-code/internal/execute_extended_test.go:generic-api-key:374
+cmd/sin-code/internal/execute_extended_test.go:generic-api-key:382
+cmd/sin-code/internal/execute_extended_test.go:generic-api-key:390
+cmd/sin-code/internal/execute_extended_test.go:generic-api-key:406
+cmd/sin-code/internal/execute_extended_test.go:generic-api-key:414
+cmd/sin-code/internal/execute_extended_test.go:generic-api-key:585
+cmd/sin-code/internal/security_extended_test.go:generic-api-key:190
+cmd/sin-code/internal/permission/result_policy_test.go:jwt:28
+cmd/sin-code/internal/orchestrator/contract_test.go:stripe-access-token:38
+SIN-Code-Secrets-Scanner/pkg/rules/rules.go:private-key:159
+tests/fuzz/integration_tests.py:generic-api-key:227
+tests/test_delegate.py:generic-api-key:81
+tests/test_mcp_integration.py:generic-api-key:26

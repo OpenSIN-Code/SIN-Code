@@ -54,3 +54,16 @@ SCAN → ANALYZE → SCORE → REPORT
 - [ ] Findings mapped to CWE IDs.
 - [ ] Risk score computed.
 - [ ] Report saved.
+
+## Executable Runtime
+
+The canonical audit engine ships with this skill:
+
+```bash
+bash skills/code-skills/skill-code-ceo-audit/scripts/audit.sh \
+  . --profile=QUICK --grade=B --output=ceo-audit-output --json
+```
+
+Runtime implementation, scoring, reporting, GitHub integration and tests live
+under `scripts/`, `lib/`, `hooks/` and `tests/`. Infra is no longer a runtime or
+CI dependency. See `PROVENANCE.md` for the migration record.

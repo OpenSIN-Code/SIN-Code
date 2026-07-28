@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 # ── Constants ──────────────────────────────────────
-CEO_AUDIT_PACKAGE = "sin-code-bundle[ceo-audit]"
+CEO_AUDIT_PACKAGE = "sin-code"
 DEFAULT_GRADE = "B"
 DEFAULT_PROFILE = "QUICK"
 
@@ -52,7 +52,7 @@ class Auditor:
 
     The auditor wraps the `sin ceo-audit run <path>` CLI. If `sin` is not
     installed (most common in dev), it falls back to `pip install
-    sin-code-bundle[ceo-audit]` first. In environments where neither is
+    sin-code` first. In environments where neither is
     available, the auditor returns a degraded report with a clear note.
     """
 

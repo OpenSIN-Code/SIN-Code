@@ -89,6 +89,8 @@ sin_code_bundle = [
   "data/codocs/*.md",
   "data/marketplace/*.json",
   "tools/mcp_server_builder/templates/**/*",
+  "resources/ceo-audit/*",
+  "resources/ceo-audit/**/*",
 ]
 
 [project.urls]

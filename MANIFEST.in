@@ -1,0 +1,6 @@
+include setup.py
+recursive-include skills/code-skills/skill-code-ceo-audit *
+prune skills/code-skills/skill-code-ceo-audit/tests
+recursive-exclude skills/code-skills/skill-code-ceo-audit __pycache__
+global-exclude *.py[cod]
+global-exclude .DS_Store

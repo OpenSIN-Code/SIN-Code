@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "CEO Audit",
+          "version": "0.3.0",
+          "informationUri": "https://opensin.dev/ceo-audit",
+          "rules": [
+            {
+              "id": "CEO-AUDIT-1.10",
+              "name": "ReDoS",
+              "shortDescription": { "text": "Potential ReDoS in user-supplied regex" },
+              "fullDescription": { "text": "Detected a regex with nested quantifiers that allow exponential backtracking" },
+              "helpUri": "https://cwe.mitre.org/data/definitions/1333.html",
+              "defaultConfiguration": { "level": "error" }
+            },
+            {
+              "id": "CEO-AUDIT-1.9",
+              "name": "InsecureRandom",
+              "shortDescription": { "text": "Use of non-cryptographic random for security tokens" },
+              "helpUri": "https://cwe.mitre.org/data/definitions/338.html",
+              "defaultConfiguration": { "level": "warning" }
+            },
+            {
+              "id": "CEO-AUDIT-2.4",
+              "name": "RegexPerCall",
+              "shortDescription": { "text": "Regex compiled per call (should hoist out of loops)" },
+              "defaultConfiguration": { "level": "note" }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "CEO-AUDIT-1.10",
+          "level": "error",
+          "message": { "text": "ReDoS in validators.py:42 — regex `^([a-zA-Z]+)+$` has nested quantifiers. A 50KB malicious string can trigger 30+ second CPU spike." },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": { "uri": "src/sin_code_bundle/validators.py" },
+                "region": { "startLine": 42, "startColumn": 13, "endLine": 42, "endColumn": 60 }
+              }
+            }
+          ],
+          "fixes": [
+            {
+              "description": { "text": "Replace nested-quantifier regex with a single-quantifier version: r'^[a-zA-Z]+$'. Or migrate to re2 for guaranteed linear time." }
+            }
+          ]
+        },
+        {
+          "ruleId": "CEO-AUDIT-1.9",
+          "level": "warning",
+          "message": { "text": "Insecure randomness in tokens.py:18 — random.choice() is a Mersenne-Twister PRNG, not cryptographically secure. Use secrets.choice() instead." },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": { "uri": "src/sin_code_bundle/auth/tokens.py" },
+                "region": { "startLine": 18, "startColumn": 22, "endLine": 18, "endColumn": 55 }
+              }
+            }
+          ],
+          "fixes": [
+            {
+              "description": { "text": "Replace `import random` with `import secrets`; replace `random.choice(alphabet)` with `secrets.choice(alphabet)`." }
+            }
+          ]
+        },
+        {
+          "ruleId": "CEO-AUDIT-2.4",
+          "level": "note",
+          "message": { "text": "Regex compiled per call in scanner.py:88. Hoist `re.compile(...)` to module scope to avoid recompilation on every invocation." },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": { "uri": "src/sin_code_bundle/scanner.py" },
+                "region": { "startLine": 88, "startColumn": 17, "endLine": 88, "endColumn": 55 }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -16,7 +16,7 @@ jobs:
       - run: go test ./...
       - name: CEO Audit
         run: |
-          pip install sin-code-bundle[ceo-audit]
+          pip install sin-code
           sin ceo-audit run . --profile=QUICK --grade=B
         env:
           SIN_GITHUB_FALLBACK_TOKEN: ${{ secrets.SIN_GITHUB_FALLBACK_TOKEN }}
