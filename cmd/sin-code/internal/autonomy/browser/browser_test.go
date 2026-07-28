@@ -95,6 +95,55 @@ func TestBrowser_Render_Stub(t *testing.T) {
 	}
 }
 
+func TestBrowser_Fetch_BlocksPrivateDestinations(t *testing.T) {
+	tests := []string{
+		"http://127.0.0.1/admin",
+		"http://[::1]/admin",
+		"http://10.0.0.1/",
+		"http://169.254.169.254/latest/meta-data/",
+		"http://localhost:8080/",
+	}
+	for _, target := range tests {
+		t.Run(target, func(t *testing.T) {
+			stub := &StubTransport{Response: Response{StatusCode: 200}}
+			b := NewBrowser(stub)
+			if _, err := b.Fetch(context.Background(), Request{URL: target}); err == nil {
+				t.Fatalf("expected private destination %q to be blocked", target)
+			}
+			if stub.LastReq.URL != "" {
+				t.Fatalf("transport was called for blocked target: %+v", stub.LastReq)
+			}
+		})
+	}
+}
+
+func TestBrowser_Fetch_BlocksNonHTTPURL(t *testing.T) {
+	stub := &StubTransport{}
+	b := NewBrowser(stub)
+	if _, err := b.Fetch(context.Background(), Request{URL: "file:///etc/passwd"}); err == nil {
+		t.Fatal("expected file URL to be blocked")
+	}
+}
+
+func TestBrowser_Fetch_PrivateNetworkRequiresExplicitOptIn(t *testing.T) {
+	stub := &StubTransport{Response: Response{StatusCode: 204}}
+	b := NewBrowserWithPolicy(stub, URLPolicy{AllowPrivateNetworks: true})
+	resp, err := b.Fetch(context.Background(), Request{URL: "http://127.0.0.1/health"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 204 || stub.LastReq.URL == "" {
+		t.Fatalf("private opt-in did not reach transport: resp=%+v req=%+v", resp, stub.LastReq)
+	}
+}
+
+func TestBrowser_RenderUsesURLPolicy(t *testing.T) {
+	b := NewBrowser(&StubTransport{})
+	if _, err := b.Render(context.Background(), "http://localhost/render", RenderOpts{}); err == nil {
+		t.Fatal("expected Render to enforce the same URL policy as Fetch")
+	}
+}
+
 func TestBrowser_StdlibTransport_Fetch(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Custom", "yes")
@@ -103,7 +152,7 @@ func TestBrowser_StdlibTransport_Fetch(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	b := NewBrowser(nil) // uses stdlibTransport
+	b := NewBrowserWithPolicy(nil, URLPolicy{AllowPrivateNetworks: true}) // trusted local test server
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	resp, err := b.Fetch(ctx, Request{URL: srv.URL, Method: http.MethodGet})

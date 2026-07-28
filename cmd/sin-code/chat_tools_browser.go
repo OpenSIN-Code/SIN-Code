@@ -15,11 +15,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/chromedp/chromedp"
 
+	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/egress"
 	"github.com/OpenSIN-Code/SIN-Code/pkg/browser/cdp"
 )
 
@@ -46,8 +46,10 @@ type activeBrowserSession struct {
 // toolBrowserNavigate drives headless Chrome to url, records the full CDP
 // event stream (including Web Vitals), and returns a short status string.
 func toolBrowserNavigate(ctx context.Context, url, step, waitSecStr, saveBaselineStr string) (string, error) {
-	if !strings.HasPrefix(url, "http://") && !strings.HasPrefix(url, "https://") {
-		return "", fmt.Errorf("sin_browser_navigate: only http(s) URLs are supported")
+	// Defense-in-depth preflight. Chrome resolves independently, so this blocks
+	// known private/literal/DNS destinations but is not equivalent to dial pinning.
+	if err := egress.Check(ctx, url, egress.Policy{}); err != nil {
+		return "", fmt.Errorf("sin_browser_navigate: destination denied: %w", err)
 	}
 
 	waitSec := 3

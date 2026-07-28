@@ -169,9 +169,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case runFinishedMsg:
 		m.state = StateOutput
 		m.err = msg.err
+		m.appendOutput(msg.output)
 		m.appendOutput(fmt.Sprintf("\n%s  (in %s)\n",
-			makeStatusLine(msg.err == nil, time.Since(m.startTime)),
-			time.Since(m.startTime).Round(time.Millisecond)))
+			makeStatusLine(msg.err == nil, msg.elapsed),
+			msg.elapsed.Round(time.Millisecond)))
 		m.refreshOutput()
 		return m, nil
 
@@ -319,8 +320,13 @@ func (m *Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.search.SetValue("")
 			m.state = StateRunning
 			m.startTime = time.Now()
-			cmd := m.buildShell(*m.selected, value)
-			return m, tea.Batch(m.spinner.Tick, runCommand(cmd, m.appendStream))
+			argv, err := m.buildArgv(*m.selected, value)
+			if err != nil {
+				m.state = StateOutput
+				m.appendOutput(fmt.Sprintf("✗ invalid arguments: %v\n", err))
+				return m, nil
+			}
+			return m, tea.Batch(m.spinner.Tick, runCommand(argv))
 		}
 		var c tea.Cmd
 		m.search, c = m.search.Update(msg)
@@ -585,16 +591,20 @@ func (m *Model) startCommand(c Command) tea.Cmd {
 	m.startTime = time.Now()
 	m.output.Reset()
 	m.refreshOutput()
-	cmd := m.buildShell(c, "")
-	return tea.Batch(m.spinner.Tick, runCommand(cmd, m.appendStream))
+	argv, _ := m.buildArgv(c, "")
+	return tea.Batch(m.spinner.Tick, runCommand(argv))
 }
 
-func (m *Model) buildShell(c Command, arg string) string {
-	parts := []string{"sin", c.Key}
-	if arg != "" {
-		parts = append(parts, arg)
+func (m *Model) buildArgv(c Command, arg string) ([]string, error) {
+	argv := append([]string{"sin"}, strings.Fields(c.Key)...)
+	if arg == "" {
+		return argv, nil
 	}
-	return strings.Join(parts, " ")
+	extra, err := splitArguments(arg)
+	if err != nil {
+		return nil, err
+	}
+	return append(argv, extra...), nil
 }
 
 func (m *Model) appendStream(line string) {

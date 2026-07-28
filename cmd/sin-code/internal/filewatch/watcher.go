@@ -6,14 +6,15 @@
 // events, and runs an arbitrary shell command via os/exec on match.
 //
 // Mandates honored:
-//   M2 — pure-Go (fsnotify has no CGO), CGO_ENABLED=0 compatible.
-//   M4 — watch-triggered commands run via os/exec directly, NOT through
-//        the agent-loop permission engine. This is a user-initiated CLI
-//        tool, not an agent action; the operator opted in by running
-//        `sin-code watch` interactively.
-//   M5 — module path github.com/OpenSIN-Code/SIN-Code.
-//   M7 — the watcher goroutine is race-free: all mutable state is
-//        guarded by a sync.Mutex or communicated over channels.
+//
+//	M2 — pure-Go (fsnotify has no CGO), CGO_ENABLED=0 compatible.
+//	M4 — watch-triggered commands run via os/exec directly, NOT through
+//	     the agent-loop permission engine. This is a user-initiated CLI
+//	     tool, not an agent action; the operator opted in by running
+//	     `sin-code watch` interactively.
+//	M5 — module path github.com/OpenSIN-Code/SIN-Code.
+//	M7 — the watcher goroutine is race-free: all mutable state is
+//	     guarded by a sync.Mutex or communicated over channels.
 package filewatch
 
 import (
@@ -75,10 +76,10 @@ type Watcher struct {
 
 	// timer is owned by the loop goroutine (only debouncedRun, called
 	// from loop, touches it) — no lock needed.
-	timer      *time.Timer
-	pendingMu  sync.Mutex
+	timer       *time.Timer
+	pendingMu   sync.Mutex
 	pendingRule Rule
-	runMu      sync.Mutex
+	runMu       sync.Mutex
 }
 
 // New constructs a Watcher rooted at root that will run the supplied
@@ -304,9 +305,17 @@ func isWriteOrCreate(ev fsnotify.Event) bool {
 // Unix it uses `sh -c`; on Windows `cmd /c`. The command inherits the
 // parent environment.
 func shellCommand(command string) *exec.Cmd {
+	// ceo-audit: allow-shell — this command is authored explicitly by the
+	// local operator in a watch rule; arbitrary shell syntax is the feature.
 	if runtime.GOOS == "windows" {
+		// ceo-audit: allow-shell — operator-authored watch command boundary.
+		// #nosec G204 -- watch commands are explicitly authored by the local
+		// operator; shell syntax is the documented feature of this boundary.
 		return exec.Command("cmd", "/c", command)
 	}
+	// ceo-audit: allow-shell — operator-authored watch command boundary.
+	// #nosec G204 -- watch commands are explicitly authored by the local
+	// operator; shell syntax is the documented feature of this boundary.
 	return exec.Command("sh", "-c", command)
 }
 

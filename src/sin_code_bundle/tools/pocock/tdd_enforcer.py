@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 from datetime import datetime
@@ -35,9 +36,10 @@ class TDDEnforcer:
     def run_tests(self) -> tuple[int, str]:
         """Execute test suite and return (exit_code, output)."""
         print(f"🧪 Führe Tests aus: {self.test_cmd}")
-        result = subprocess.run(
-            self.test_cmd, shell=True, capture_output=True, text=True, timeout=60
-        )
+        argv = shlex.split(self.test_cmd)
+        if not argv:
+            raise ValueError("test command must not be empty")
+        result = subprocess.run(argv, shell=False, capture_output=True, text=True, timeout=60)
         output = result.stdout + result.stderr
         return result.returncode, output
 

@@ -233,15 +233,13 @@ def sin_bash(command: str, timeout: int = 60) -> str:  # 60s = default; max allo
                     "redacted": True,
                 }
             )
-        # Fallback: raw shell. Output is truncated to keep agent context small.
-        proc = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=timeout)
         return json.dumps(
             {
-                "stdout": proc.stdout[-10000:],
-                "stderr": proc.stderr[-5000:],
-                "returncode": proc.returncode,
+                "error": "hardened execute binary not found",
+                "returncode": 126,
                 "redacted": False,
-                "warning": "execute binary not found — running raw shell",
+                "executed": False,
+                "remediation": "Install the SIN-Code Go binary and ensure execute is on PATH",
             }
         )
     except subprocess.TimeoutExpired:

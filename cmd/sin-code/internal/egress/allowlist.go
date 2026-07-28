@@ -1,32 +1,20 @@
 // SPDX-License-Identifier: MIT
-// Package egress implements a transport-agnostic SSRF allowlist for URLs
-// that originate from untrusted sources — LLM tool calls (Finding 4 in the
-// security audit: cmd/sin-code/internal/harvest.go:110), harvested inputs,
-// browser navigation targets (Finding 5: native_browser/driver.go lookupAnchor),
-// and any future MCP server config that points at a remote URL.
+// Package egress validates untrusted HTTP(S) destinations before network use.
+// It rejects loopback, private, link-local, shared, multicast, unspecified, and
+// benchmark ranges by default. Private-network access requires an explicit,
+// grep-visible Policy opt-in.
 //
-// Centralising the gate here means every new http.NewRequest call site
-// inherits the protection by importing this package and calling Check
-// before constructing the request. The deny-by-default posture matches
-// OWASP ASVS v5.0 §5.5.5 (Server-Side Request Forgery) and the NIST
-// SSDF PW.4.4 (Reject untrusted inputs at trust boundaries).
+// Check performs scheme, hostname, and DNS-resolution validation. That is a
+// required preflight, but DNS-rebinding-resistant transports must also enforce
+// the policy at dial time. The autonomy browser does this with a guarded
+// DialContext and repeats validation for redirects. External engines such as
+// Chrome/CDP can only use Check as defense in depth unless their resolver/dialer
+// is separately pinned.
 //
-// Design rationale
-//   - DNS resolution runs synchronously inside Check. A DNS-rebinding
-//     downgrade is a SEPARATE concern best solved at the http.Transport
-//     level (dial IP literals from the resolved set) — out of scope here,
-//     tracked as a future follow-up.
-//   - net.LookupHost is the standard library's resolver hook. Tests swap
-//     the lookup function via OverrideLookupHost to keep the test surface
-//     hermetic without standing up DNS fixtures.
-//   - All returned errors are sentinel-equality identifiable via
-//     errors.Is — callers do not need to inspect error strings to
-//     distinguish "denied network" from "denied scheme" from "DNS blew up".
-//   - Policy is a value type (no pointers, no globals). Production code
-//     passes Policy{}; opt-in to private networks requires explicit
-//     AllowPrivateNetworks=true, which is grep-able in code review.
+// Errors wrap stable sentinels so callers can distinguish denied networks,
+// denied schemes, and resolver failures with errors.Is.
 //
-// Sin-debt: scope=narrow, upgrade=tighten with DNSSEC-validating resolver + dial-on-resolved-ip transport hardening
+// Sin-debt: scope=narrow, upgrade=add resolver pinning for Chrome/CDP navigation
 package egress
 
 import (
@@ -36,7 +24,7 @@ import (
 	"net"
 	"net/url"
 	"sort"
-	"testing"
+	"strings"
 )
 
 // Policy controls which destinations Check permits.
@@ -60,56 +48,73 @@ var (
 	ErrEgressScheme = errors.New("egress: scheme denied")
 )
 
-// lookupHostFn is the resolver hook used by Check. Production code MUST
-// NOT modify this — only the test file in this package overrides it via
-// overrideLookupHostForTest(t, fn).
+// lookupHostFn is the resolver hook used by Check. Production code must not
+// modify it; package tests replace it temporarily from allowlist_test.go.
 var lookupHostFn = net.DefaultResolver.LookupHost
 
-// overrideLookupHostForTest is a test-only hook that swaps the resolver
-// Check uses, registering a t.Cleanup that restores the default resolver.
-// Calling it outside of a test context has no effect.
-func overrideLookupHostForTest(t *testing.T, fn func(ctx context.Context, host string) ([]string, error)) {
-	t.Helper()
-	prev := lookupHostFn
-	lookupHostFn = fn
-	t.Cleanup(func() { lookupHostFn = prev })
+// ValidateURL parses rawURL and enforces scheme plus literal-host policy
+// without performing DNS. It is suitable for custom/stub transports where the
+// caller must avoid external resolver side effects. Real network transports
+// must call Check before dialing.
+func ValidateURL(rawURL string, p Policy) (*url.URL, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("egress: parse %q: %w", rawURL, err)
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return nil, &schemeError{Scheme: u.Scheme}
+	}
+	host := strings.TrimSuffix(strings.ToLower(u.Hostname()), ".")
+	if host == "" {
+		return nil, &schemeError{Scheme: scheme}
+	}
+	if p.AllowPrivateNetworks {
+		return u, nil
+	}
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") {
+		return nil, fmt.Errorf("%w: host=%s", ErrEgressDenied, host)
+	}
+	if ip := net.ParseIP(host); ip != nil && IsPrivate(ip) {
+		return nil, &denialError{Family: classify(ip), IP: ip}
+	}
+	return u, nil
 }
 
 // Check resolves the host inside rawURL and rejects the request when
 // (a) the scheme is not http or https, OR
 // (b) AllowPrivateNetworks is false and any resolved address lies in a
-//
-//	loopback / RFC1918 / link-local / ULA block.
+// restricted local, private, shared, multicast, or benchmark network.
 //
 // The returned error wraps one of ErrEgressDenied or ErrEgressScheme so
 // callers can use errors.Is without inspecting error text.
 func Check(ctx context.Context, rawURL string, p Policy) error {
-	u, err := url.Parse(rawURL)
+	u, err := ValidateURL(rawURL, p)
 	if err != nil {
-		return fmt.Errorf("egress: parse %q: %w", rawURL, err)
+		return err
 	}
-	scheme := u.Scheme
-	if scheme != "http" && scheme != "https" {
-		return &schemeError{Scheme: scheme}
+	if p.AllowPrivateNetworks {
+		return nil
 	}
 	host := u.Hostname()
-	if host == "" {
-		// url like http:///foo — accept but hostname is empty: deny.
-		return &schemeError{Scheme: scheme}
-	}
 	ips, err := lookupHostFn(ctx, host)
 	if err != nil {
 		return fmt.Errorf("egress: resolve %q: %w", host, err)
 	}
 	sortResolvedIPs(ips)
+	validIPs := 0
 	for _, raw := range ips {
 		ip := net.ParseIP(raw)
 		if ip == nil {
 			continue
 		}
-		if IsPrivate(ip) && !p.AllowPrivateNetworks {
+		validIPs++
+		if IsPrivate(ip) {
 			return &denialError{Family: classify(ip), IP: ip}
 		}
+	}
+	if validIPs == 0 {
+		return fmt.Errorf("egress: resolve %q: no usable IP addresses", host)
 	}
 	return nil
 }
@@ -131,10 +136,25 @@ func IsPrivate(ip net.IP) bool {
 	if ip == nil {
 		return false
 	}
-	return ip.IsLoopback() ||
-		ip.IsPrivate() ||
-		ip.IsLinkLocalUnicast() ||
-		ip.IsLinkLocalMulticast()
+	if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified() {
+		return true
+	}
+	if v4 := ip.To4(); v4 != nil {
+		// 100.64.0.0/10 shared address space (CGNAT).
+		if v4[0] == 100 && v4[1]&0xc0 == 0x40 {
+			return true
+		}
+		// 192.0.0.0/24 protocol assignments.
+		if v4[0] == 192 && v4[1] == 0 && v4[2] == 0 {
+			return true
+		}
+		// 198.18.0.0/15 benchmark network.
+		if v4[0] == 198 && (v4[1] == 18 || v4[1] == 19) {
+			return true
+		}
+	}
+	return false
 }
 
 // sortResolvedIPs orders ips deterministically so error messages and
@@ -168,6 +188,10 @@ func classify(ip net.IP) string {
 		return "link-local"
 	case ip.IsLinkLocalMulticast():
 		return "ll-multicast"
+	case ip.IsMulticast():
+		return "multicast"
+	case ip.IsUnspecified():
+		return "unspecified"
 	case ip.IsPrivate():
 		return "private"
 	case ip.To4() != nil:

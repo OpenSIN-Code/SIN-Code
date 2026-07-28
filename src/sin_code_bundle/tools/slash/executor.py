@@ -6,6 +6,7 @@
 Maps built-in commands to sin-* tools and executes custom commands via shell or sin tools.
 """
 
+import shlex
 import subprocess
 from typing import Any
 
@@ -50,7 +51,7 @@ class CommandExecutor:
             RuntimeError: If the command execution fails.
         """
         action_type = action.get("type", "shell")
-        target = action.get("target", "")
+        target = action.get("action") or action.get("target", "")
 
         if action_type == "shell":
             return self._run_shell(target, args, flags)
@@ -100,8 +101,10 @@ class CommandExecutor:
         Returns:
             stdout of the command.
         """
-        cmd_parts = [target]
-        cmd_parts.extend(args)
+        cmd_parts = shlex.split(target)
+        if not cmd_parts:
+            raise RuntimeError("Shell command target is empty")
+        cmd_parts.extend(str(arg) for arg in args)
         for key, value in flags.items():
             if isinstance(value, bool):
                 if value:
@@ -109,11 +112,10 @@ class CommandExecutor:
             else:
                 cmd_parts.append(f"--{key}={value}")
 
-        cmd = " ".join(cmd_parts)
         try:
             result = subprocess.run(
-                cmd,
-                shell=True,
+                cmd_parts,
+                shell=False,
                 capture_output=True,
                 text=True,
                 timeout=self._timeout,

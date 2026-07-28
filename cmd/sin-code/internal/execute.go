@@ -19,8 +19,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
-	"github.com/OpenSIN-Code/SIN-Code/cmd/sin-code/internal/filemode"
 )
 
 var (
@@ -87,6 +85,8 @@ func runCommand(command string, timeout int, format string, stream bool) error {
 		defer cancel()
 	}
 
+	// #nosec G204 -- `execute` is the product's explicit operator-requested
+	// shell surface; checkSafety runs before this sink and the process is bounded.
 	c := exec.CommandContext(ctx, shell, shellArg, command)
 	c.Env = os.Environ()
 
@@ -400,11 +400,14 @@ func resolveContainerRuntime(override string) string {
 
 func detectContainerRuntime() string {
 	if efmGOOS == "darwin" {
-		if _, err := exec.LookPath("orb"); err == nil {
-			return "orb"
-		}
+		// Docker is the stable Docker-compatible surface exposed by both
+		// Docker Desktop and OrbStack. The `orb` binary is a management CLI
+		// and remains available only through an explicit --runtime=orb override.
 		if _, err := exec.LookPath("docker"); err == nil {
 			return "docker"
+		}
+		if _, err := exec.LookPath("orb"); err == nil {
+			return "orb"
 		}
 		return "docker"
 	}
@@ -413,6 +416,8 @@ func detectContainerRuntime() string {
 	}
 	return "docker"
 }
+
+const efmCommandTimeout = 30 * time.Second
 
 // efmDetectRuntime is a test hook for detectContainerRuntime in containerCommand.
 var efmDetectRuntime = detectContainerRuntime
@@ -425,13 +430,17 @@ func containerCommand(rt string, args ...string) *exec.Cmd {
 	if bin == "" {
 		bin = "docker"
 	}
+	// #nosec G204 -- bin is constrained to the internally detected Docker/Orb
+	// runtime and this helper only constructs argv without invoking a shell.
 	return exec.Command(bin, args...)
 }
 
 func legacyComposeCommand(rt string, args ...string) *exec.Cmd {
 	if rt == "orb" || rt == "docker" {
+		// #nosec G204 -- rt is an allowlisted literal and args are passed as argv.
 		return exec.Command(rt+"-compose", args...)
 	}
+	// #nosec G204 -- fixed compatibility binary; no shell interpretation.
 	return exec.Command("docker-compose", args...)
 }
 
@@ -445,9 +454,8 @@ func listDockerContainers(rt string) ([]efmService, error) {
 		if _, err := exec.LookPath(c); err != nil {
 			continue
 		}
-		cmd := exec.Command(c, "ps", "--format", "{{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}")
 		var err error
-		out, err = cmd.Output()
+		out, err = runEFMCommandOutput(c, "ps", "--format", "{{.Names}}\t{{.Status}}\t{{.Ports}}\t{{.Image}}")
 		if err == nil {
 			usedRt = c
 			break
@@ -529,6 +537,20 @@ func metadataKey(absPath string) string {
 	return hex.EncodeToString(h[:]) + ".meta"
 }
 
+func efmMetadataPath(absPath string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve user home for EFM metadata: %w", err)
+	}
+	metadataDir := filepath.Join(home, ".local", "state", "sin-code", "efm")
+	// #nosec G703 -- metadataDir contains only fixed path components below the
+	// operating system's current-user home directory.
+	if err := os.MkdirAll(metadataDir, 0o700); err != nil {
+		return "", fmt.Errorf("create EFM metadata directory: %w", err)
+	}
+	return filepath.Join(metadataDir, metadataKey(absPath)), nil
+}
+
 func composeProjectName(absPath string) string {
 	h := sha256.Sum256([]byte(absPath))
 	// Docker Compose project names must be lowercase, start with a letter or
@@ -553,9 +575,10 @@ func dockerComposeUp(stack string, ttl int, rt string) error {
 	}
 
 	if ttl > 0 {
-		metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
-		_ = os.MkdirAll(metadataDir, 0755)
-		metadataFile := filepath.Join(metadataDir, metadataKey(absPath))
+		metadataFile, err := efmMetadataPath(absPath)
+		if err != nil {
+			return err
+		}
 		meta := map[string]string{
 			"stack":   absPath,
 			"started": time.Now().Format(time.RFC3339),
@@ -563,8 +586,15 @@ func dockerComposeUp(stack string, ttl int, rt string) error {
 			"expires": time.Now().Add(time.Duration(ttl) * time.Second).Format(time.RFC3339),
 			"runtime": rt,
 		}
-		data, _ := json.MarshalIndent(meta, "", "  ")
-		_ = os.WriteFile(metadataFile, data, filemode.Default())
+		data, err := json.MarshalIndent(meta, "", "  ")
+		if err != nil {
+			return fmt.Errorf("encode EFM metadata: %w", err)
+		}
+		// #nosec G703 -- metadataFile is fixed below the current user's state
+		// directory and its basename is a SHA-256 digest, never raw input.
+		if err := os.WriteFile(metadataFile, data, 0o600); err != nil {
+			return fmt.Errorf("write EFM metadata: %w", err)
+		}
 	}
 
 	return nil
@@ -585,9 +615,15 @@ func dockerComposeDown(stack string, rt string) error {
 		return fmt.Errorf("%s compose down failed: %w", rt, err)
 	}
 
-	metadataDir := filepath.Join(os.Getenv("HOME"), ".local", "state", "sin-code", "efm")
-	metadataFile := filepath.Join(metadataDir, metadataKey(absPath))
-	_ = os.Remove(metadataFile)
+	metadataFile, err := efmMetadataPath(absPath)
+	if err != nil {
+		return err
+	}
+	// #nosec G703 -- metadataFile is fixed below the current user's state
+	// directory and its basename is a SHA-256 digest, never raw input.
+	if err := os.Remove(metadataFile); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("remove EFM metadata: %w", err)
+	}
 
 	return nil
 }
@@ -621,12 +657,7 @@ func runComposeCandidates(rt string, args []string, attachStdio bool) error {
 		if isModern(c) {
 			full = append([]string{"compose"}, full...)
 		}
-		cmd := exec.Command(c, full...)
-		if attachStdio {
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-		}
-		if err := cmd.Run(); err != nil {
+		if err := runEFMCommand(c, full, attachStdio); err != nil {
 			lastErr = err
 			continue
 		}
@@ -649,8 +680,7 @@ func runComposeCapture(rt string, args []string) ([]byte, error) {
 		if isModern(c) {
 			full = append([]string{"compose"}, full...)
 		}
-		cmd := exec.Command(c, full...)
-		out, err := cmd.Output()
+		out, err := runEFMCommandOutput(c, full...)
 		if err != nil {
 			lastErr = err
 			continue
@@ -661,6 +691,36 @@ func runComposeCapture(rt string, args []string) ([]byte, error) {
 		return nil, lastErr
 	}
 	return nil, fmt.Errorf("no container runtime binary found (tried %v)", cands)
+}
+
+func runEFMCommand(bin string, args []string, attachStdio bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), efmCommandTimeout)
+	defer cancel()
+	// #nosec G204 -- bin comes only from composeCandidates' fixed allowlist;
+	// args are internally generated Docker/Compose argv and never shell text.
+	cmd := exec.CommandContext(ctx, bin, args...)
+	if attachStdio {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	err := cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		return fmt.Errorf("%s timed out after %s: %w", bin, efmCommandTimeout, ctx.Err())
+	}
+	return err
+}
+
+func runEFMCommandOutput(bin string, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), efmCommandTimeout)
+	defer cancel()
+	// #nosec G204 -- bin comes only from composeCandidates' fixed allowlist;
+	// args are internally generated Docker/Compose argv and never shell text.
+	cmd := exec.CommandContext(ctx, bin, args...)
+	out, err := cmd.Output()
+	if ctx.Err() == context.DeadlineExceeded {
+		return out, fmt.Errorf("%s timed out after %s: %w", bin, efmCommandTimeout, ctx.Err())
+	}
+	return out, err
 }
 
 func parseComposeStates(raw string) string {

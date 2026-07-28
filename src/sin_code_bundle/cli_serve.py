@@ -3,6 +3,7 @@
 
 Registers the `serve` command on the shared Typer app.
 """
+
 from __future__ import annotations
 
 import json
@@ -10,6 +11,7 @@ import json
 import typer
 
 from sin_code_bundle.cli_app import app
+from sin_code_bundle.file_ops import sin_bash as _sin_bash_impl
 
 _EXCLUDE = {"venv", ".venv", "node_modules", ".git", "__pycache__"}
 
@@ -362,59 +364,11 @@ def serve():
 
     @mcp.tool()
     def sin_bash(command: str, timeout: int = 60) -> str:
-        """SIN-Code bash — replaces native bash.
+        """Run a command through SIN-Code's hardened ``execute`` binary.
 
-        Safe command execution via the `execute` tool (Go binary) with:
-        - Secret redaction (tokens/keys in output are masked automatically)
-        - Timeout enforcement (default 60s, max 600s)
-        - Exit code capture
-        - Working directory = current repo
-
-        For complex pipelines, prefer chaining sin_bash calls over single
-        shell pipelines — easier to debug, partial success possible.
-
-        Better than native bash: secret-safety, timeout, structured result.
+        The operation fails closed when the hardened runner is unavailable.
         """
-        import shutil as _sh
-        import subprocess as _sp
-
-        try:
-            cmd_path = _sh.which("execute") or str(_Path.home() / ".local/bin/execute")
-            if _Path(cmd_path).exists():
-                proc = _sp.run(
-                    [cmd_path, "--timeout", str(timeout), "--format", "json", "--command", command],
-                    capture_output=True,
-                    text=True,
-                    timeout=timeout + 10,
-                )
-                return json.dumps(
-                    {
-                        "stdout": proc.stdout,
-                        "stderr": proc.stderr,
-                        "returncode": proc.returncode,
-                        "redacted": True,
-                    }
-                )
-            proc = _sp.run(
-                command,
-                shell=True,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
-            return json.dumps(
-                {
-                    "stdout": proc.stdout[-10000:],
-                    "stderr": proc.stderr[-5000:],
-                    "returncode": proc.returncode,
-                    "redacted": False,
-                    "warning": "execute binary not found — running raw shell",
-                }
-            )
-        except _sp.TimeoutExpired:
-            return json.dumps({"error": f"timeout after {timeout}s", "command": command})
-        except Exception as exc:
-            return json.dumps({"error": str(exc), "command": command})
+        return _sin_bash_impl(command, timeout)
 
     @mcp.tool()
     def sin_search(query: str, path: str = ".", search_type: str = "semantic") -> str:

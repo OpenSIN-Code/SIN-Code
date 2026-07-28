@@ -79,6 +79,8 @@ func configPaths(workspace string) []string {
 }
 
 func readConfigFile(path string) ([]fileEntry, error) {
+	// #nosec G304 -- path is produced only by configPaths from the user config
+	// directory or the explicit workspace's fixed .sin-code/mcp.json suffix.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -350,6 +352,8 @@ func notionConfig(skillsDir string) ServerConfig {
 // notionMCPPath resolves the path to the vibe-notion MCP bridge script.
 func notionMCPPath(skillsDir string) string {
 	if p := os.Getenv("SIN_NOTION_MCP_PATH"); p != "" {
+		// #nosec G703 -- this environment variable is an explicit local-operator
+		// override for an executable script path; it is only accepted if it exists.
 		if _, err := os.Stat(p); err == nil {
 			return p
 		}

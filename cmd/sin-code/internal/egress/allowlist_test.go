@@ -13,6 +13,47 @@ import (
 	"testing"
 )
 
+func overrideLookupHostForTest(t *testing.T, fn func(ctx context.Context, host string) ([]string, error)) {
+	t.Helper()
+	prev := lookupHostFn
+	lookupHostFn = fn
+	t.Cleanup(func() { lookupHostFn = prev })
+}
+
+func TestValidateURL_DeniesLiteralLocalDestinations(t *testing.T) {
+	for _, raw := range []string{
+		"http://localhost:8080/",
+		"http://api.localhost/",
+		"http://127.0.0.1/",
+		"http://[::1]/",
+		"file:///etc/passwd",
+	} {
+		t.Run(raw, func(t *testing.T) {
+			if _, err := ValidateURL(raw, Policy{}); err == nil {
+				t.Fatalf("ValidateURL(%q) unexpectedly allowed", raw)
+			}
+		})
+	}
+}
+
+func TestValidateURL_AllowsPublicHostnameWithoutDNS(t *testing.T) {
+	u, err := ValidateURL("https://example.com/path", Policy{})
+	if err != nil {
+		t.Fatalf("ValidateURL: %v", err)
+	}
+	if u.Hostname() != "example.com" {
+		t.Fatalf("hostname = %q", u.Hostname())
+	}
+}
+
+func TestIsPrivate_AdditionalRestrictedRanges(t *testing.T) {
+	for _, raw := range []string{"0.0.0.0", "100.64.0.1", "192.0.0.1", "198.18.0.1", "224.0.0.1"} {
+		if !IsPrivate(net.ParseIP(raw)) {
+			t.Errorf("%s must be restricted", raw)
+		}
+	}
+}
+
 // pinned by security audit — DO NOT REMOVE
 
 func TestIsPrivate_127(t *testing.T) {

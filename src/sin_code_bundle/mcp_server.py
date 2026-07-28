@@ -60,8 +60,6 @@ Run via:
 from __future__ import annotations
 
 import json
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -74,6 +72,9 @@ except ImportError as exc:
 # Core file-ops live in `file_ops.py` so the MCP server (here) and the
 # standalone CLI shims (`sin-read`, `sin-write`, `sin-edit`, `sin-bash`,
 # `sin-search`) can call the SAME implementation. See file_ops.doc.md.
+from sin_code_bundle.file_ops import (
+    sin_bash as _sin_bash_impl,
+)
 from sin_code_bundle.file_ops import (
     sin_edit as _sin_edit_impl,
 )
@@ -152,50 +153,13 @@ def sin_edit(
 
 
 @mcp.tool()
-def sin_bash(command: str, timeout: int = 60) -> str:  # 60s = default; max allowed is 600s
-    """SIN-Code bash — replaces native bash.
+def sin_bash(command: str, timeout: int = 60) -> str:
+    """Run a command through SIN-Code's hardened ``execute`` binary.
 
-    Safe command execution via the `execute` Go binary with:
-    - Secret redaction (tokens/keys in output masked automatically)
-    - Timeout enforcement (default 60s)
-    - Exit code capture
-    - Structured JSON output (stdout, stderr, returncode, safety_check,
-      retry_info, learned_patterns)
-    - Auto-fallback to raw shell if `execute` binary is missing
-
-    Better than native bash: secret-safety, timeout, structured result.
+    The operation fails closed when the hardened runner is unavailable; it
+    never falls back to an unredacted raw shell.
     """
-    try:
-        cmd_path = shutil.which("execute") or str(Path.home() / ".local/bin/execute")
-        if Path(cmd_path).exists():
-            proc = subprocess.run(
-                [cmd_path, "-timeout", str(timeout), "-format", "json", "-command", command],
-                capture_output=True,
-                text=True,
-                timeout=timeout + 10,
-            )
-            return json.dumps(
-                {
-                    "stdout": proc.stdout,
-                    "stderr": proc.stderr,
-                    "returncode": proc.returncode,
-                    "redacted": True,
-                }
-            )
-        proc = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=timeout)
-        return json.dumps(
-            {
-                "stdout": proc.stdout[-10000:],
-                "stderr": proc.stderr[-5000:],
-                "returncode": proc.returncode,
-                "redacted": False,
-                "warning": "execute binary not found — running raw shell",
-            }
-        )
-    except subprocess.TimeoutExpired:
-        return json.dumps({"error": f"timeout after {timeout}s", "command": command})
-    except Exception as exc:
-        return json.dumps({"error": str(exc), "command": command})
+    return _sin_bash_impl(command, timeout)
 
 
 @mcp.tool()

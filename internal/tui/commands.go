@@ -20,7 +20,7 @@ type Command struct {
 	Description string
 	// Group classifies the command in the menu (Code, Skills, MCP, ...).
 	Group string
-	// Args is the raw argument template. If non-empty, the TUI prompts for
+	// Args is the argument template. If non-empty, the TUI prompts for
 	// a value before running. The placeholder is rendered as the prompt hint.
 	Args string
 	// Danger marks destructive commands (e.g. "policy reset") for red styling.
