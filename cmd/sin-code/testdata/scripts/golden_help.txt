@@ -130,6 +130,7 @@ Other:
   completion           Generate the autocompletion script for the specified shell
   context              Show context window usage for the current or last session
   decision             Manage architectural decisions across sessions
+  gsd                  GSD — Get Shit Done project lifecycle management
   lsp-config           Auto-detect and configure LSP servers for the LLM (issue #492)
   mcp-install          Discover and install MCP servers (issue #490)
   share                Share sessions via export/import (issue #482)

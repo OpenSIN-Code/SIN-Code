@@ -5,6 +5,7 @@ Docs: test_developer_cli.doc.md
 """
 
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -15,8 +16,12 @@ def _run(args, timeout=30):
     # early `if __name__ == "__main__"` block that prevents commands defined
     # after line 1751 from being registered when running via `python -m`.
     if args[0] == "python":
-        # Strip leading ["python", "-m", "sin_code_bundle.cli"]
-        args = ["sin"] + args[3:]
+        # Use the console script installed beside the current interpreter.
+        # Never pick a global/pipx `sin` that may point at another checkout.
+        entrypoint = Path(sys.executable).with_name("sin")
+        if not entrypoint.exists():
+            raise RuntimeError(f"current environment has no sin entrypoint: {entrypoint}")
+        args = [str(entrypoint), *args[3:]]
     return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
 
 

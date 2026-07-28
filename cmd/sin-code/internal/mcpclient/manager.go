@@ -19,10 +19,6 @@ import (
 )
 
 var (
-	warningOnce   sync.Once
-	warnedServers = make(map[string]bool)
-	warnedMu      sync.Mutex
-
 	// connectTransportHook lets tests inject an in-memory MCP transport so the
 	// connection success path can be exercised without spawning subprocesses.
 	connectTransportHook func(ctx context.Context, cfg ServerConfig) (sdk.Transport, error)
@@ -83,6 +79,8 @@ type Manager struct {
 	mu             sync.RWMutex
 	sessions       map[string]session
 	tools          []Tool
+	warnedMu       sync.Mutex
+	warnedServers  map[string]bool
 	// Quiet suppresses per-server warnings and the connection summary
 	// line on stderr. Set to true in headless mode when the operator has
 	// not passed --verbose so the output stays clean.
@@ -91,9 +89,10 @@ type Manager struct {
 
 func NewManager(configs []ServerConfig) *Manager {
 	return &Manager{
-		configs:       configs,
+		configs:        configs,
 		connectTimeout: 10 * time.Second,
-		sessions:      map[string]session{},
+		sessions:       map[string]session{},
+		warnedServers:  map[string]bool{},
 	}
 }
 
@@ -149,11 +148,11 @@ func (m *Manager) ConnectAll(ctx context.Context) error {
 		if r.err != nil {
 			failed++
 			failedNames = append(failedNames, r.name)
-			warnedMu.Lock()
-			if !warnedServers[r.name] {
-				warnedServers[r.name] = true
+			m.warnedMu.Lock()
+			if !m.warnedServers[r.name] {
+				m.warnedServers[r.name] = true
 				newFailures++
-				warnedMu.Unlock()
+				m.warnedMu.Unlock()
 				if !m.Quiet {
 					logger.Warn("mcp server unavailable", map[string]any{
 						"server": r.name,
@@ -161,7 +160,7 @@ func (m *Manager) ConnectAll(ctx context.Context) error {
 					})
 				}
 			} else {
-				warnedMu.Unlock()
+				m.warnedMu.Unlock()
 			}
 		} else {
 			connected++

@@ -14,6 +14,7 @@
 package imagegraph
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -21,6 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type ChartSpec struct {
@@ -146,6 +148,8 @@ func ParseSpec(inputPath string) (ChartSpec, error) {
 		}
 		data, err = io.ReadAll(os.Stdin)
 	} else {
+		// #nosec G304 -- inputPath is the explicit --data file selected by the
+		// local operator; no implicit or remote path expansion occurs here.
 		data, err = os.ReadFile(inputPath)
 	}
 	if err != nil {
@@ -596,6 +600,8 @@ func writeHTML(opt map[string]interface{}, spec ChartSpec, outputPath string) er
 
 	html := fmt.Sprintf(htmlTemplate, title, bgColor, w, h, jsonStr)
 
+	// #nosec G304 -- outputPath is the explicit local chart destination chosen
+	// by the operator; Render does not derive it from network content.
 	f, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("create output: %w", err)
@@ -609,21 +615,32 @@ func writeHTML(opt map[string]interface{}, spec ChartSpec, outputPath string) er
 	abs, _ := filepath.Abs(outputPath)
 	pngPath := strings.TrimSuffix(abs, ".html") + ".png"
 
-	if tryChromeScreenshot(abs, pngPath) {
+	if chromeScreenshot(abs, pngPath) {
 		fmt.Fprintf(os.Stdout, "Chart generated: %s (HTML: %s)\n", pngPath, abs)
 	} else {
 		fmt.Fprintf(os.Stdout, "Chart generated: %s\n", abs)
 	}
-	openBrowser(abs)
+	if err := browserOpen(abs); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: open chart in browser: %v\n", err)
+	}
 	return nil
 }
+
+var (
+	chromeScreenshot = tryChromeScreenshot
+	browserOpen      = openBrowser
+)
 
 func tryChromeScreenshot(htmlPath, pngPath string) bool {
 	chrome := findChrome()
 	if chrome == "" {
 		return false
 	}
-	cmd := exec.Command(chrome,
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	// #nosec G204 -- chrome is selected exclusively from findChrome's fixed
+	// absolute allowlist and every option is a separately bounded argv value.
+	cmd := exec.CommandContext(ctx, chrome,
 		"--headless=new",
 		"--disable-gpu",
 		"--no-sandbox",
@@ -657,6 +674,8 @@ func findChrome() string {
 	return ""
 }
 
-func openBrowser(path string) {
-	exec.Command("open", path).Start()
+func openBrowser(path string) error {
+	// #nosec G204 -- `open` is a fixed local OS binary and path is a single argv
+	// value, never shell-interpreted.
+	return exec.Command("open", path).Start()
 }

@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 """Lint sub-commands — extracted from cli.py."""
+
 from __future__ import annotations
 
 import subprocess
@@ -63,8 +64,13 @@ def lint_run(
 @lint_app.command("check")
 def lint_check(
     path: str = typer.Argument(".", help="Path to check."),
+    timeout: float = typer.Option(
+        5.0,
+        min=0.1,
+        help="Maximum seconds per linter; timed-out tools are reported and skipped.",
+    ),
 ):
-    """Check which linters are available and what they would report."""
+    """Check available linters with a bounded runtime per tool."""
     import shutil
 
     available = []
@@ -88,12 +94,40 @@ def lint_check(
     for name in available:
         typer.echo(f"\n--- {name} ---")
         if name == "ruff":
-            result = subprocess.run(["ruff", "check", path], capture_output=True, text=True)
+            command = ["ruff", "check", path]
         elif name == "flake8":
-            result = subprocess.run(["flake8", path], capture_output=True, text=True)
+            command = ["flake8", path]
         elif name == "mypy":
-            result = subprocess.run(["mypy", path], capture_output=True, text=True)
+            command = ["mypy", path]
         else:
+            typer.echo("not executed by `lint check`; use `lint run --tool` for this linter")
+            continue
+
+        try:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+            )
+        except subprocess.TimeoutExpired as exc:
+            typer.echo(
+                f"[SIN-BUNDLE] {name} timed out after {timeout:g}s; "
+                "run it explicitly with `sin lint run --tool` for a full result."
+            )
+            if exc.stdout:
+                typer.echo(
+                    exc.stdout
+                    if isinstance(exc.stdout, str)
+                    else exc.stdout.decode(errors="replace")
+                )
+            if exc.stderr:
+                typer.echo(
+                    exc.stderr
+                    if isinstance(exc.stderr, str)
+                    else exc.stderr.decode(errors="replace"),
+                    err=True,
+                )
             continue
 
         if result.stdout:

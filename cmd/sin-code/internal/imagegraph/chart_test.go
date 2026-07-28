@@ -6,6 +6,17 @@ import (
 	"testing"
 )
 
+func TestMain(m *testing.M) {
+	oldScreenshot := chromeScreenshot
+	oldOpen := browserOpen
+	chromeScreenshot = func(_, _ string) bool { return false }
+	browserOpen = func(string) error { return nil }
+	code := m.Run()
+	chromeScreenshot = oldScreenshot
+	browserOpen = oldOpen
+	os.Exit(code)
+}
+
 func TestRender_Bar(t *testing.T) {
 	spec := ChartSpec{
 		Title:      "Test Bar Chart",

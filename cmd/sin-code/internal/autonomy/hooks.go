@@ -28,6 +28,7 @@ var (
 	_timeSince     = time.Since
 	_newTicker     = time.NewTicker
 	_parseDuration = time.ParseDuration
+	_fingerprint   = fingerprint
 
 	_dirEntryInfo = os.DirEntry.Info
 )

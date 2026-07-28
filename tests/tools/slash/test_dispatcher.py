@@ -13,6 +13,17 @@ from sin_code_bundle.tools.slash.dispatcher import CommandDispatcher
 from sin_code_bundle.tools.slash.registry import CommandRegistry
 
 
+class StubExecutor:
+    """Record dispatcher routing without invoking host commands."""
+
+    def execute_builtin(self, command_name, action, args, flags):
+        return f"builtin:{command_name}:{action['action']}:{args}:{flags}"
+
+    def execute_custom(self, command, args, flags):
+        rendered = " ".join([command.action, *map(str, args)])
+        return f"{rendered} flags={flags}"
+
+
 class TestCommandDispatcher:
     """Tests for CommandDispatcher."""
 
@@ -23,6 +34,7 @@ class TestCommandDispatcher:
         self.registry = CommandRegistry(self.db_path)
         self.dispatcher = CommandDispatcher(
             registry=self.registry,
+            executor=StubExecutor(),
             history_db=self.history_path,
         )
 

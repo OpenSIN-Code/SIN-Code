@@ -7,6 +7,7 @@ Provides a command-line interface for running slash commands directly.
 """
 
 import json
+import os
 import sys
 
 import click
@@ -18,6 +19,19 @@ from sin_code_bundle.tools.slash.dispatcher import CommandDispatcher
 from sin_code_bundle.tools.slash.registry import CommandRegistry
 
 console = Console()
+
+
+def _registry() -> CommandRegistry:
+    """Return the CLI registry, optionally isolated via environment."""
+    return CommandRegistry(os.environ.get("SIN_SLASH_REGISTRY_DB"))
+
+
+def _dispatcher() -> CommandDispatcher:
+    """Return a dispatcher using the same registry and optional history DB."""
+    return CommandDispatcher(
+        registry=_registry(),
+        history_db=os.environ.get("SIN_SLASH_HISTORY_DB"),
+    )
 
 
 @click.group()
@@ -37,7 +51,7 @@ def run(command: str, raw: bool) -> None:
         command: The slash command to run (e.g., "/test").
         raw: Output raw JSON instead of formatted.
     """
-    dispatcher = CommandDispatcher()
+    dispatcher = _dispatcher()
     result = dispatcher.dispatch(command)
 
     if raw:
@@ -64,7 +78,7 @@ def list(built_in: bool, custom: bool) -> None:
         built_in: Show only built-in commands.
         custom: Show only custom commands.
     """
-    dispatcher = CommandDispatcher()
+    dispatcher = _dispatcher()
     commands = dispatcher.list_commands()
 
     table = Table(title="Slash Commands")
@@ -100,7 +114,7 @@ def register(name: str, description: str, action: str, action_type: str) -> None
         action: Command action.
         action_type: Type of action.
     """
-    registry = CommandRegistry()
+    registry = _registry()
     try:
         cmd = registry.register(name, description, action, action_type)
         console.print(f"[green]✓[/green] Registered /{cmd.name}")
@@ -117,7 +131,7 @@ def remove(name: str) -> None:
     Args:
         name: Command name to remove.
     """
-    registry = CommandRegistry()
+    registry = _registry()
     removed = registry.unregister(name)
     if removed:
         console.print(f"[green]✓[/green] Removed /{name}")
@@ -134,7 +148,7 @@ def history(limit: int) -> None:
     Args:
         limit: Number of records to show.
     """
-    dispatcher = CommandDispatcher()
+    dispatcher = _dispatcher()
     records = dispatcher.get_history(limit=limit)
 
     table = Table(title="Command History")
@@ -162,7 +176,7 @@ def help(command: str) -> None:
     Args:
         command: Command name to show help for.
     """
-    dispatcher = CommandDispatcher()
+    dispatcher = _dispatcher()
     help_text = dispatcher.get_command_help(command)
     if help_text:
         console.print(Panel(help_text, title=f"/{command}"))

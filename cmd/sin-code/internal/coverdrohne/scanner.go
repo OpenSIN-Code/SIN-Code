@@ -7,6 +7,7 @@ package coverdrohne
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // PackageCoverage holds the coverage result for one package.
@@ -86,7 +88,9 @@ func (s *Scanner) Scan() ([]PackageCoverage, error) {
 		return nil, fmt.Errorf("go test failed: %w\n%s", err, string(out))
 	}
 	if s.Verbose {
-		os.Stderr.Write(out)
+		if _, writeErr := os.Stderr.Write(out); writeErr != nil {
+			return nil, fmt.Errorf("write verbose coverage output: %w", writeErr)
+		}
 	}
 
 	results, err := parseGoTestCoverageOutput(string(out))
@@ -129,7 +133,15 @@ func parseGoTestCoverageOutput(output string) ([]PackageCoverage, error) {
 }
 
 func defaultRunGoTest(dir, packages, coverprofile string) ([]byte, error) {
-	cmd := exec.Command("go", "test", packages, "-count=1", "-p=1", "-coverprofile="+coverprofile)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	// #nosec G204 -- the executable and flags are fixed; packages is passed as
+	// one argv element to `go test` and never interpreted by a shell.
+	cmd := exec.CommandContext(ctx, "go", "test", packages, "-count=1", "-p=1", "-coverprofile="+coverprofile)
 	cmd.Dir = dir
-	return cmd.CombinedOutput()
+	out, err := cmd.CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return out, fmt.Errorf("go test timed out after 5m: %w", ctx.Err())
+	}
+	return out, err
 }

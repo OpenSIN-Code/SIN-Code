@@ -21,6 +21,16 @@ from sin_code_bundle.tools.slash.mcp_server import (
 )
 
 
+class StubExecutor:
+    """Keep MCP dispatch tests hermetic and side-effect free."""
+
+    def execute_builtin(self, command_name, action, args, flags):
+        return f"stubbed {command_name} {' '.join(args)}"
+
+    def execute_custom(self, command, args, flags):
+        return f"stubbed {command.name} {' '.join(args)}"
+
+
 class TestMCPServer:
     """Tests for MCP server tools."""
 
@@ -35,6 +45,7 @@ class TestMCPServer:
         registry = CommandRegistry(self.db_path)
         mcp_module._dispatcher = CommandDispatcher(
             registry=registry,
+            executor=StubExecutor(),
             history_db=self.history_path,
         )
 
@@ -51,6 +62,7 @@ class TestMCPServer:
         data = json.loads(result)
         assert data["success"] is True
         assert data["command"] == "test"
+        assert "stubbed test" in data["output"]
 
     def test_slash_dispatch_unknown(self) -> None:
         """Dispatch unknown command via MCP."""

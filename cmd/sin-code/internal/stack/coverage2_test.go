@@ -162,10 +162,14 @@ func TestDoctorVaneConfig_ValidConfig(t *testing.T) {
 
 // ── doctorVaneHealth (77.8% → higher) ───────────────────────────────────
 
-func TestDoctorVaneHealth_NoClient(t *testing.T) {
+func TestDoctorVaneHealth_UnreachableClient(t *testing.T) {
 	setupTestHome(t)
-	// No config saved → LoadConfig returns DefaultConfig with empty BaseURL
-	// → NewClient returns nil for empty BaseURL
+	if err := vane.SaveConfig(vane.Config{
+		BaseURL:        "http://127.0.0.1:1",
+		TimeoutSeconds: 1,
+	}); err != nil {
+		t.Fatal(err)
+	}
 	comp := doctorVaneHealth()
 	if !comp.OK {
 		t.Fatalf("vane.health should be OK even with no client, got: %+v", comp)
