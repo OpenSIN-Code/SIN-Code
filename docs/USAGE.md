@@ -23,11 +23,20 @@ sin bootstrap ./my-project
 
 ## `sin review <file_a> <file_b>`
 
-Semantic review of a change using IBD (intents + risk).
+Review a file change with parser routing. Matching Python, JavaScript, JSX,
+TypeScript, and TSX pairs use IBD semantic review (intents + risk). Markdown,
+unknown text extensions, extensionless files, and mixed file types use a
+deterministic line-diff fallback instead of the Python AST parser.
 
 ```bash
 sin review before.py after.py
+sin review README.before.md README.after.md
 ```
+
+Text fallback output includes added/removed line and change-hunk counts. Its
+neutral risk object means that no code-semantic risk analysis was performed; it
+does not assert that the content is risk-free. The optional IBD package is only
+required for supported code-to-code reviews.
 
 ## `sin verify <module> <function>`
 

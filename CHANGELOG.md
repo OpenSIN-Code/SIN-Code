@@ -116,6 +116,14 @@ All notable changes to the SIN-Code unified binary will be documented in this fi
 
 ## [Unreleased] - 2026-06-23
 
+### Fixed — safe `sin review` parser routing
+- Matching Python/JavaScript/TypeScript file pairs retain IBD semantic review.
+- Markdown, unknown plain-text extensions, extensionless files, and mixed file
+  types now use a deterministic line-diff fallback instead of the Python AST
+  parser, preventing syntax crashes such as unterminated or invalid literals.
+- Added focused Markdown, mixed Python/Markdown, Python AST-routing, and CLI
+  regression coverage.
+
 ### Added — Ecosystem skill diagnostics and install-all improvements
 - **`cmd/sin-code/internal/skillmgr.Doctor`** — new diagnostic method that
   checks every known ecosystem skill and reports why it is not runnable

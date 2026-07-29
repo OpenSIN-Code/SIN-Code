@@ -19,6 +19,9 @@ pip install -e .                                                # the bundle
 
 If a command needs a subsystem that is not installed, `sin` prints a clear
 message naming the missing package rather than raising an import error.
+`sin review` is an exception for plain-text inputs: its deterministic fallback
+is built into the companion package, so Markdown and mixed file types do not
+require IBD. Matching supported code pairs still require IBD.
 
 ## Runtime artifacts (`.sin/`)
 

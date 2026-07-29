@@ -19,7 +19,6 @@ from sin_code_bundle.cli_forward import (  # noqa: F401
     _normalize_root_flag,
     _require,
 )
-from sin_code_bundle.json_utils import jsonable
 
 
 # ── Core Status / Bootstrap Commands ────────────────────────────────────────
@@ -106,15 +105,15 @@ def bootstrap(repo: str = typer.Argument(".", help="Repository root")):
 
 @app.command()
 def review(file_a: Path, file_b: Path):
-    """Semantic review of a change (IBD)."""
-    _require("sin_code_ibd", "pip install -e ../SIN-Code-Intent-Based-Diffing")
-    from sin_code_ibd import ASTDiff, IntentSummarizer, RiskScorer
+    """Review code semantically and plain text with a deterministic fallback."""
+    from sin_code_bundle.review import review_files
 
-    changes = ASTDiff().diff_files(str(file_a), str(file_b))
-    intents = IntentSummarizer().summarize(changes)
-    risk = RiskScorer().score(changes)
-
-    typer.echo(json.dumps({"intents": jsonable(intents), "risk": jsonable(risk)}, indent=2))
+    try:
+        result = review_files(file_a, file_b)
+    except ImportError:
+        _require("sin_code_ibd", "pip install -e ../SIN-Code-Intent-Based-Diffing")
+        raise
+    typer.echo(json.dumps(result, indent=2))
 
 
 @app.command()

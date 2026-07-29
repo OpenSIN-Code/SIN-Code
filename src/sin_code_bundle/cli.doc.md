@@ -63,6 +63,11 @@ where needed (e.g. `sin debt <path>` → `sin debt --root <path>`).
 | `discover` / `scout` / `grasp` / `map` / `harvest` | `sin sin-code run <tool>` | — |
 | `full` | Pipeline: preflight + codocs + debt | — |
 
+`sin review` routes matching `.py`, `.js`, `.jsx`, `.ts`, and `.tsx` pairs to
+IBD. Markdown, unknown text extensions, extensionless files, and mixed file
+types use the deterministic line-diff fallback in `review.py`; they are never
+passed to the Python AST parser.
+
 ### Examples
 
 ```bash
