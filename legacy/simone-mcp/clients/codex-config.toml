@@ -1,0 +1,3 @@
+[agent]
+name = "Simone MCP"
+endpoint = "http://localhost:8234/a2a/v1"

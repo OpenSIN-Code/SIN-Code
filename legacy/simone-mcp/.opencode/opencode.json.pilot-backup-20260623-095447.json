@@ -1,0 +1,398 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "sin-analyse": {
+      "command": [
+        "/Users/jeremy/dev/SIN-Analyse-Suite/sin-analyse",
+        "serve"
+      ],
+      "description": "SIN-Analyse-Suite \u2014 multimodal preprocessing (image, video, PDF, logs, data, audio)",
+      "enabled": true,
+      "type": "local"
+    },
+    "sin-code": {
+      "command": [
+        "/Users/jeremy/.local/bin/sin-code",
+        "serve"
+      ],
+      "description": "SIN-Code unified MCP server \u2014 49+ tools (code, audit, security, hub, ledger, progress, tool timing, live token/cost). Exposes sin_* builtins + external prefixes.",
+      "enabled": true,
+      "type": "local"
+    }
+  },
+  "plugin": [
+    "file:///Users/jeremy/.config/opencode/plugins/rtk.ts"
+  ],
+  "provider": {
+    "vercel-pool": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Vercel Pool (SIN)",
+      "options": {
+        "baseURL": "http://localhost:8001/v1",
+        "apiKey": "dummy"
+      },
+      "models": {
+        "minimax-m3": {
+          "id": "minimax/minimax-m3",
+          "name": "MiniMax M3 (Pool)",
+          "options": {
+            "temperature": 0
+          },
+          "variants": {
+            "off": {
+              "reasoning": {
+                "type": "disabled"
+              },
+              "temperature": 0
+            },
+            "low": {
+              "reasoning": {
+                "type": "enabled",
+                "effort": "low"
+              },
+              "temperature": 0
+            },
+            "medium": {
+              "reasoning": {
+                "type": "enabled",
+                "effort": "medium"
+              },
+              "temperature": 0
+            },
+            "high": {
+              "reasoning": {
+                "type": "enabled",
+                "effort": "high"
+              },
+              "temperature": 0
+            }
+          },
+          "limit": {
+            "context": 1048576,
+            "output": 65536
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        }
+      }
+    },
+    "fireworks-ai": {
+      "npm": "@ai-sdk/fireworks",
+      "name": "Fireworks AI",
+      "models": {
+        "deepseek-v4-pro": {
+          "id": "fireworks/deepseek-v4-pro",
+          "name": "DeepSeek V4 Pro (SIN)",
+          "options": {
+            "thinking": {
+              "type": "enabled",
+              "budgetTokens": 64000
+            }
+          },
+          "variants": {
+            "off": {
+              "thinking": {
+                "type": "disabled"
+              }
+            },
+            "low": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 4000
+              }
+            },
+            "medium": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 16000
+              }
+            },
+            "high": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 64000
+              }
+            },
+            "max": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 128000
+              }
+            }
+          },
+          "limit": {
+            "context": 1048576,
+            "output": 65536
+          }
+        },
+        "glm-5p1": {
+          "id": "fireworks/glm-5p1",
+          "name": "GLM 5.1 (SIN)",
+          "options": {
+            "thinking": {
+              "type": "enabled",
+              "budgetTokens": 32000
+            }
+          },
+          "variants": {
+            "off": {
+              "thinking": {
+                "type": "disabled"
+              }
+            },
+            "low": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 4000
+              }
+            },
+            "medium": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 16000
+              }
+            },
+            "high": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 32000
+              }
+            },
+            "max": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 64000
+              }
+            }
+          },
+          "limit": {
+            "context": 202752,
+            "output": 32768
+          }
+        },
+        "kimi-k2p6": {
+          "id": "fireworks/kimi-k2p6",
+          "name": "Kimi K2.6 (SIN)",
+          "options": {
+            "thinking": {
+              "type": "enabled",
+              "budgetTokens": 32000
+            }
+          },
+          "variants": {
+            "off": {
+              "thinking": {
+                "type": "disabled"
+              }
+            },
+            "low": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 4000
+              }
+            },
+            "medium": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 16000
+              }
+            },
+            "high": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 32000
+              }
+            },
+            "max": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 64000
+              }
+            }
+          },
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "qwen3p6-plus": {
+          "id": "accounts/fireworks/models/qwen3p6-plus",
+          "name": "Qwen3.6 Plus (SIN)",
+          "options": {
+            "thinking": {
+              "type": "enabled",
+              "budgetTokens": 32000
+            }
+          },
+          "variants": {
+            "off": {
+              "thinking": {
+                "type": "disabled"
+              }
+            },
+            "low": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 4000
+              }
+            },
+            "medium": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 16000
+              }
+            },
+            "high": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 32000
+              }
+            },
+            "max": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 64000
+              }
+            }
+          },
+          "limit": {
+            "context": 131072,
+            "output": 32768
+          },
+          "modalities": {
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          }
+        },
+        "minimax-m2p7": {
+          "id": "fireworks/minimax-m2p7",
+          "name": "MiniMax M2.7 (SIN)",
+          "options": {
+            "thinking": {
+              "type": "enabled",
+              "budgetTokens": 32000
+            }
+          },
+          "variants": {
+            "off": {
+              "thinking": {
+                "type": "disabled"
+              }
+            },
+            "low": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 4000
+              }
+            },
+            "medium": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 16000
+              }
+            },
+            "high": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 32000
+              }
+            },
+            "max": {
+              "thinking": {
+                "type": "enabled",
+                "budgetTokens": 64000
+              }
+            }
+          },
+          "limit": {
+            "context": 196608,
+            "output": 32768
+          }
+        }
+      },
+      "options": {
+        "baseURL": "http://localhost:8888/inference/v1"
+      }
+    }
+  },
+  "mcpServers": {
+    "sin-discover": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/discover",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Discover files with relevance scoring and dependency analysis"
+    },
+    "sin-execute": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/execute",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Execute shell commands safely with secret redaction"
+    },
+    "sin-map": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/map",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Map code architecture with dependency graphs"
+    },
+    "sin-grasp": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/grasp",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Deep code understanding for individual files"
+    },
+    "sin-scout": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/scout",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Search code with regex, semantic, and symbol search"
+    },
+    "sin-harvest": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/harvest",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Fetch URLs with caching and structure extraction"
+    },
+    "sin-orchestrate": {
+      "type": "stdio",
+      "command": "/Users/jeremy/.local/bin/orchestrate",
+      "args": [
+        "--mcp"
+      ],
+      "description": "Manage tasks with dependencies and rollback plans"
+    }
+  }
+}
