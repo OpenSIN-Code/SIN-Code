@@ -37,7 +37,9 @@ if [[ -n "$CHANGELOG" ]]; then
   # Check if CHANGELOG was modified in the last release commit
   LATEST_TAG=$(cd "$REPO" && git describe --tags --abbrev=0 2>/dev/null || echo "")
   if [[ -n "$LATEST_TAG" ]]; then
-    CHANGELOG_AT_TAG=$(cd "$REPO" && git show "$LATEST_TAG:$CHANGELOG" 2>/dev/null | wc -l | tr -d ' ')
+    CHANGELOG_NAME=$(basename "$CHANGELOG")
+    CHANGELOG_AT_TAG=$(cd "$REPO" && git show "$LATEST_TAG:$CHANGELOG_NAME" 2>/dev/null | wc -l | tr -d ' ' || true)
+    [[ "$CHANGELOG_AT_TAG" =~ ^[0-9]+$ ]] || CHANGELOG_AT_TAG=0
     CHANGELOG_NOW=$(wc -l < "$CHANGELOG" | tr -d ' ')
     if [[ "$CHANGELOG_NOW" -le "$CHANGELOG_AT_TAG" ]]; then
       python3 "$LIB/add_finding.py" "$OUT" "6.2" "MEDIUM" "DOC-CHANGELOG" \
@@ -46,8 +48,8 @@ if [[ -n "$CHANGELOG" ]]; then
     fi
   fi
 else
-  python3 "$LIB/add_finding.py" "$OUT" "6.2" "LOW" "DOC-CHANGELOG" \
-    "No CHANGELOG" "Consider adding one for users to track changes"
+    python3 "$LIB/add_finding.py" "$OUT" "6.2" "LOW" "DOC-CHANGELOG" \
+      "No CHANGELOG" "No changelog file found" "Add a changelog so users can track changes"
 fi
 
 # ── Gate 6.3: .doc.md missing for public modules ───────────────────────
@@ -68,7 +70,7 @@ fi
 
 # ── Gate 6.4: Inline comments explaining "why" ─────────────────────────
 # Heuristic: check ratio of inline comments to code in non-test files
-COMMENTED=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null
+COMMENTED=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null || true
 {"jsonrpc":"2.0","method":"tools/call","id":64,"params":{"name":"scout","arguments":{"path":"$REPO","query":"(#[^!].{20,}|//[^/!].{20,})","search_type":"regex","max_results":200,"include_context":false}}}
 EOF
 )

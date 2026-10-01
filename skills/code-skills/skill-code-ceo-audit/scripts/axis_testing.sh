@@ -33,8 +33,8 @@ elif [[ -f "$REPO/go.mod" ]]; then
 fi
 
 # ── Gate 4.2: Flaky tests (time.sleep) ─────────────────────────────────
-SLEEP_TESTS=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null
-{"jsonrpc":"2.0","method":"tools/call","id":42,"params":{"name":"scout","arguments":{"path":"$REPO","query":"time\\.sleep\\s*\\(\\s*[0-9]","search_type":"regex","max_results":50,"include_context":true}}}
+SLEEP_TESTS=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null || true
+{"jsonrpc":"2.0","method":"tools/call","id":42,"params":{"name":"scout","arguments":{"path":"$REPO/tests","query":"time\\.sleep\\s*\\(\\s*[0-9]","search_type":"regex","max_results":50,"include_context":true}}}
 EOF
 )
 SLEEP_COUNT=$(echo "$SLEEP_TESTS" | grep -c "Match" 2>/dev/null | tr -d "\n" || echo "0")
@@ -53,12 +53,12 @@ fi
 
 # ── Gate 4.4: No edge-case tests ───────────────────────────────────────
 # Heuristic: look for tests that don't test None, 0, "", []
-EDGE_TESTS=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null
+EDGE_TESTS=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null || true
 {"jsonrpc":"2.0","method":"tools/call","id":44,"params":{"name":"scout","arguments":{"path":"$REPO","query":"(test_.*empty|test_.*none|test_.*null|test_.*zero|test_.*boundary)","search_type":"regex","max_results":50,"include_context":false}}}
 EOF
 )
 EDGE_COUNT=$(echo "$EDGE_TESTS" | grep -c "Match" 2>/dev/null | tr -d "\n" || echo "0")
-TEST_FUNCS=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null
+TEST_FUNCS=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null || true
 {"jsonrpc":"2.0","method":"tools/call","id":44b,"params":{"name":"scout","arguments":{"path":"$REPO","query":"^def\\s+test_","search_type":"regex","max_results":500,"include_context":false}}}
 EOF
 )
@@ -70,13 +70,13 @@ if [[ "$TOTAL_TESTS" -gt 10 && "$EDGE_COUNT" -lt 3 ]]; then
 fi
 
 # ── Gate 4.5: Tests share state (t.TempDir not used in Go, tmp_path in Python) ──
-TEMP_DIR_USE=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null
+TEMP_DIR_USE=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null || true
 {"jsonrpc":"2.0","method":"tools/call","id":45,"params":{"name":"scout","arguments":{"path":"$REPO","query":"(tmp_path|t\\.TempDir|with tempfile\\.TemporaryDirectory|tempfile\\.mkdtemp|os\\.MkdirTemp)","search_type":"regex","max_results":50,"include_context":false}}}
 EOF
 )
 TEMP_COUNT=$(echo "$TEMP_DIR_USE" | grep -c "Match" 2>/dev/null | tr -d "\n" || echo "0")
 # If tests do file operations but no temp dir, flag it
-FILE_OPS_TESTS=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null
+FILE_OPS_TESTS=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null || true
 {"jsonrpc":"2.0","method":"tools/call","id":45b,"params":{"name":"scout","arguments":{"path":"$REPO","query":"open\\([^_]","search_type":"regex","max_results":50,"include_context":true}}}
 EOF
 )

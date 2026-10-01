@@ -1,6 +1,6 @@
 ---
 name: skill-multimodal-web-tools
-description: "Use when agent needs to research anything on the web or YouTube. Master skill for ALL SIN-Code research tools: sin_web_search (free DuckDuckGo), websearch MCP (20+ sources), YouTube MCP (9 tools), sin_http_get (URL fetch). Triggers on 'research', 'search web', 'find online', 'youtube', 'look up', 'what's the latest on'."
+description: "Use when an agent needs live web, TikTok, Reddit, X, Instagram, Facebook, YouTube, GitHub, or documentation research. Master skill for SIN-Code search, platform adapters, URL fetch, video tools, and capability checks."
 license: MIT
 compatibility:
   - sin-code
@@ -11,16 +11,19 @@ compatibility:
   - gemini
 metadata:
   author: OpenSIN-Code
-  version: 3.26.0
+  version: 4.0.0
   category: multimodal
-lifecycle: native
+  lifecycle: native
 required_tools:
   - sin_web_search
   - sin_http_get
+  - websearch__websearch_capabilities
   - websearch__websearch_search
   - youtube__youtube_search
   - youtube__youtube_get_transcript
   - youtube__youtube_get_video_info
+  - context7__resolve-library-id
+  - context7__query-docs
 optional_tools:
   - websearch__websearch_alchemist
   - websearch__websearch_pulse
@@ -59,7 +62,7 @@ Do **not** activate for:
 - Searching code (use `sin_search` / `sin_scout`)
 - Analyzing images (use `sin_analyse_image`)
 
-## Tool inventory — 4 layers
+## Tool inventory — 5 layers
 
 ### Layer 1: sin_web_search (BUILTIN — always available, no MCP needed)
 
@@ -100,22 +103,23 @@ suggestion-style results. If you need actual page content, follow up with
 **When to use:** After `sin_web_search` to read the content of a result.
 Or when you already have a URL and want to fetch its content.
 
-### Layer 3: websearch MCP (7 tools — multi-source research engine)
+### Layer 3: websearch MCP — capability-aware research gateway
 
-**Professional multi-source research with 20+ sources. Requires MCP server.**
+**Professional multi-source research through runtime-registered engines. Never assume a fixed source count. Call `websearch__websearch_capabilities` before promising platform coverage.**
 
 | Property | Value |
 |---|---|
 | MCP server | `sin-websearch` (binary at `~/.local/share/sin-code/skills/web_search_bundle/`) |
 | Permission | `websearch__*` = `allow` (read-only) |
 | API key needed? | SerpAPI keys configured in `~/.config/sin-websearch/sin-websearch.yaml` |
-| Best for | Deep research, multi-source analysis, entity resolution |
+| Best for | TikTok/social research, multi-source analysis, entity resolution, capability-aware routing |
 
-**7 tools:**
+**Core tools:**
 
 | Tool | What it does |
 |---|---|
-| `websearch__websearch_search` | Search across 20+ sources (Google, Reddit, X, YouTube, GitHub, HN, SearxNG) |
+| `websearch__websearch_capabilities` | Return the production engine registry; use this as the capability source of truth |
+| `websearch__websearch_search` | Route across registered web, TikTok, Reddit, X, Instagram, Facebook, YouTube, GitHub, HN, and configured providers |
 | `websearch__websearch_alchemist` | Multi-agent research report (aggregates + synthesizes findings) |
 | `websearch__websearch_pulse` | Topic pulse — trends, sentiment, volume over time |
 | `websearch__websearch_resolve` | Entity resolution — extract people, repos, companies from a query |
@@ -123,9 +127,7 @@ Or when you already have a URL and want to fetch its content.
 | `websearch__websearch_video_prompt` | Generate a video creation prompt from research |
 | `websearch__websearch_watch` | Monitor a topic for changes |
 
-**When to use:** When you need comprehensive multi-source research beyond
-what DuckDuckGo provides. When you need Reddit, X/Twitter, GitHub, HN results.
-When you need a full research report (`alchemist`).
+**When to use:** When you need comprehensive multi-source research beyond DuckDuckGo, including TikTok and social platforms. Native social access uses OpenCLI when its Browser Bridge is connected; otherwise results are explicitly labelled public-site fallbacks such as `tiktok-web` or `reddit-web`. Direct TikTok video URLs are read through managed `yt-dlp`.
 
 ### Layer 4: YouTube MCP (9 tools — full YouTube interaction)
 
@@ -156,16 +158,54 @@ When you need a full research report (`alchemist`).
 When you need to "watch" a video (read its transcript). When you need to
 cut clips or build highlight reels.
 
+### Layer 5: context7 (MCP — library documentation, API reference)
+
+**Always use this FIRST when the task involves any library, framework, SDK,
+or API — React, Next.js, Prisma, Django, Supabase, Tailwind, Express, etc.
+MANDATORY before coding.**
+
+| Property | Value |
+|---|---|
+| MCP server | `context7` (via `npx @anthropics/context7-mcp`) |
+| Permission | `context7__*` = `allow` (read-only) |
+| API key needed? | **NO** — free, keyless |
+| Best for | Official docs, API reference, version-specific examples, migration guides |
+
+**2 tools:**
+
+| Tool | Permission | What it does |
+|---|---|---|
+| `context7__resolve-library-id` | allow | Convert "react" → "/facebook/react", "nextjs" → "/vercel/next.js" |
+| `context7__query-docs` | allow | Fetch up-to-date docs for a library ID + topic |
+
+**When to use:** **ALWAYS** when:
+- User mentions a library/framework ("How do I use useState in React?")
+- You need API signatures, params, return types
+- You need version-specific code examples
+- You're about to write code using ANY external dependency
+- Error messages reference library internals
+
+**NEVER code against a library without context7 first.** This is a hard rule.
+
 ## Decision tree — which tool to use?
 
 ```
 User wants to research something
 │
+├─ Library / framework / SDK / API docs?
+│  └─ context7__resolve-library-id {query: "react"} → context7__query-docs {libraryId: "...", topic: "useState"}
+│
 ├─ Quick web search?
 │  └─ sin_web_search {query: "..."}
 │     └─ Need page content? → sin_http_get {url: "<best result>"}
 │
+├─ TikTok / Reddit / X / Instagram / Facebook?
+│  ├─ Check support → websearch__websearch_capabilities {}
+│  └─ Search → websearch__websearch_search {query: "TikTok <topic>"}
+│     └─ A source ending in `-web` is public web discovery, not authenticated native access
+│
 ├─ Deep multi-source research?
+│  ├─ Check support → websearch__websearch_capabilities {}
 │  └─ websearch__websearch_search {query: "..."}
 │     └─ Need full report? → websearch__websearch_alchemist {query: "..."}
 │     └─ Need entity extraction? → websearch__websearch_resolve {query: "..."}
@@ -189,12 +229,14 @@ User wants to research something
 ## Workflow: Comprehensive research
 
 ```
-1. sin_web_search          → quick DuckDuckGo results
-2. websearch__websearch_search → deep multi-source results
-3. youtube__youtube_search    → video results
-4. sin_http_get             → read top result pages
-5. youtube__youtube_get_transcript → watch top video
-6. Synthesize all findings into a report
+1. context7__resolve-library-id → context7__query-docs   → library docs (MANDATORY FIRST)
+2. websearch__websearch_capabilities → registered production engines
+3. sin_web_search          → quick DuckDuckGo results
+4. websearch__websearch_search → deep and social multi-source results
+5. youtube__youtube_search    → dedicated video results
+6. sin_http_get             → read top result pages
+7. youtube__youtube_get_transcript → watch top video
+8. Synthesize all findings into a report
 ```
 
 ## Permission policy
@@ -203,6 +245,7 @@ User wants to research something
 sin_web_search              →  allow  (builtin, read-only)
 sin_http_get               →  allow  (builtin, read-only)
 websearch__*               →  allow  (MCP, read-only)
+context7__*                →  allow  (MCP, read-only)
 youtube__youtube_search    →  allow  (read-only)
 youtube__youtube_get_*     →  allow  (read-only, 5 tools)
 youtube__youtube_download  →  ask    (writes files, M4)

@@ -30,7 +30,7 @@ GOD_MODULES=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // 
 EOF
 )
 # This is per-repo; need per-file aggregation
-HIGH_IMPORT_FILES=$(echo "$GOD_MODULES" | awk -F: '{print $1}' | sort | uniq -c | sort -rn | head -5 | awk '$1 > 30' | wc -l | tr -d ' ')
+HIGH_IMPORT_FILES=$(echo "$GOD_MODULES" | sed -E 's/^Match:[[:space:]]*//' | awk -F: '{print $1}' | sort | uniq -c | sort -rn | head -5 | awk '$1 > 30' | wc -l | tr -d ' ')
 if [[ "$HIGH_IMPORT_FILES" -gt 0 ]]; then
   python3 "$LIB/add_finding.py" "$OUT" "7.2" "MEDIUM" "ARCH-GODMODULE" \
     "God modules (imports > 30)" "$HIGH_IMPORT_FILES files" \

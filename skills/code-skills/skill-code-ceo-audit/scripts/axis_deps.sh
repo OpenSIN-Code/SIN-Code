@@ -19,7 +19,8 @@ if [[ -f "$REPO/go.mod" ]] && command -v govulncheck >/dev/null 2>&1; then
     "Run 'go get -u=patch' to update; review each finding"
 elif [[ -f "$REPO/requirements.txt" || -f "$REPO/pyproject.toml" ]] && command -v pip-audit >/dev/null 2>&1; then
   PIPAUDIT=$(cd "$REPO" && pip-audit -f json 2>/dev/null || echo "[]")
-  CVES=$(echo "$PIPAUDIT" | jq 'length' 2>/dev/null | tr -d "\n" || echo "0")
+  CVES=$(echo "$PIPAUDIT" | jq '[.dependencies[]?.vulns[]?] | length' 2>/dev/null | tr -d "\n" || true)
+  [[ "$CVES" =~ ^[0-9]+$ ]] || CVES=0
   [[ "$CVES" -gt 0 ]] && python3 "$LIB/add_finding.py" "$OUT" "5.1" "CRITICAL" "DEP-CVE" \
     "Known CVEs in Python dependencies" "$CVES vulnerabilities" \
     "Update vulnerable packages; check pip-audit output for specific fixes"
@@ -49,8 +50,8 @@ elif [[ -f "$REPO/go.mod" ]]; then
 fi
 
 # ── Gate 5.3: Unpinned versions ────────────────────────────────────────
-UNPINNED=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null
-{"jsonrpc":"2.0","method":"tools/call","id":53,"params":{"name":"scout","arguments":{"path":"$REPO","query":"(>=|\\^|~)\\s*[0-9]+\\.[0-9]+","search_type":"regex","include_context":false,"max_results":50}}}
+UNPINNED=$(scout --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null || true
+{"jsonrpc":"2.0","method":"tools/call","id":53,"params":{"name":"scout","arguments":{"path":"$REPO/requirements.txt","query":"(>=|\\^|~)\\s*[0-9]+\\.[0-9]+","search_type":"regex","include_context":false,"max_results":50}}}
 EOF
 )
 UNPINNED_COUNT=$(echo "$UNPINNED" | grep -c "Match" 2>/dev/null | tr -d "\n" || echo "0")
@@ -74,7 +75,7 @@ if command -v harvest >/dev/null 2>&1; then
   ABANDONED_COUNT=0
   for pkg in $DEPS_LIST; do
     if [[ -n "$pkg" ]]; then
-      DATA=$(harvest --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null
+      DATA=$(harvest --mcp 2>/dev/null <<EOF | jq -r '.result.content[0].text // ""' 2>/dev/null || true
 {"jsonrpc":"2.0","method":"tools/call","id":1,"params":{"name":"harvest","arguments":{"url":"https://pypi.org/pypi/$pkg/json"}}}
 EOF
 )
